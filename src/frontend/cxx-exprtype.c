@@ -9948,13 +9948,118 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
                 || is_pointer_to_function_type(deleted_type)
                 || is_pointer_to_member_type(deleted_type))
         {
-            error_printf("%s: error: invalid type '%s' for delete%s expression\n",
-                    locus_to_str(locus),
-                    is_array_delete ? "[]" : "",
-                    print_type_str(deleted_type, decl_context));
-            *nodecl_output = nodecl_make_err_expr(locus);
-            nodecl_free(nodecl_deleted_expr);
-            return;
+            char ok = 0;
+            // [expr.delete] The operand shall have a pointer to object
+            // type, or a class type having a single non-explicit
+            // conversion function (12.3.2) to a pointer to object type.
+            if (is_named_class_type(deleted_type))
+            {
+                class_type_complete_if_possible(
+                        named_type_get_symbol(deleted_type),
+                        decl_context, locus);
+
+                scope_entry_list_t* conversions = class_type_get_conversions(deleted_type);
+
+                scope_entry_list_t* pointer_conversions = NULL;
+                scope_entry_list_iterator_t *it = NULL;
+                for (it = entry_list_iterator_begin(conversions);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* current_conv = entry_list_iterator_current(it);
+
+                    if (is_pointer_type(
+                                function_type_get_return_type(
+                                    current_conv->type_information)))
+                    {
+                        pointer_conversions = entry_list_add(pointer_conversions, current_conv);
+                    }
+                }
+                entry_list_iterator_free(it);
+
+                scope_entry_t* conversion_fun_to_pointer = NULL;
+                if (entry_list_size(pointer_conversions) > 1)
+                {
+                    conversion_fun_to_pointer = NULL;
+                    error_printf("%s: error: more than one conversion to pointer for type '%s' in delete%s expression\n",
+                            locus_to_str(locus),
+                            print_type_str(deleted_type, decl_context),
+                            is_array_delete ? "[]" : "");
+                    info_printf("%s: info: candidates are:\n",
+                            locus_to_str(locus));
+                    for (it = entry_list_iterator_begin(pointer_conversions);
+                            !entry_list_iterator_end(it);
+                            entry_list_iterator_next(it))
+                    {
+                        scope_entry_t* current_conv = entry_list_iterator_current(it);
+                        info_printf("%s: info:     %s\n",
+                                locus_to_str(current_conv->locus),
+                                print_decl_type_str(current_conv->type_information,
+                                    decl_context,
+                                    get_qualified_symbol_name(current_conv, decl_context)));
+                    }
+                    entry_list_iterator_free(it);
+                }
+                else if (entry_list_size(pointer_conversions) == 1)
+                {
+                    conversion_fun_to_pointer = entry_list_head(pointer_conversions);
+                }
+                entry_list_free(pointer_conversions);
+
+                if (conversion_fun_to_pointer != NULL)
+                {
+                    type_t *argument_types[1] = { deleted_type };
+
+                    candidate_t* candidate_set = NULL;
+                    candidate_set = candidate_set_add(candidate_set,
+                            conversion_fun_to_pointer,
+                            1,
+                            argument_types);
+
+                    scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
+                            decl_context,
+                            locus);
+                    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
+
+                    if (overloaded_call == NULL)
+                    {
+                        error_message_overload_failed(candidate_set,
+                                get_qualified_symbol_name(conversion_fun_to_pointer, decl_context),
+                                decl_context,
+                                0,
+                                /* explicit arguments */ NULL,
+                                /* implicit_argument */ deleted_type,
+                                locus);
+                    }
+                    else
+                    {
+                        // Make a call to the conversion
+                        nodecl_deleted_expr = cxx_nodecl_make_function_call(
+                                nodecl_make_symbol(overloaded_call, locus),
+                                /* called name */ nodecl_null(),
+                                nodecl_make_list_1(nodecl_deleted_expr),
+                                /* function_form */ nodecl_make_cxx_function_form_implicit(
+                                    nodecl_get_locus(nodecl_deleted_expr)),
+                                function_type_get_return_type(overloaded_call->type_information),
+                                decl_context,
+                                locus);
+                        deleted_type = function_type_get_return_type(overloaded_call->type_information);
+                        ok = 1;
+                    }
+                    candidate_set_free(&candidate_set);
+                }
+            }
+
+            if (!ok)
+            {
+                error_printf("%s: error: invalid type '%s' in delete%s expression\n",
+                        locus_to_str(locus),
+                        print_type_str(deleted_type, decl_context),
+                        is_array_delete ? "[]" : "");
+                *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_deleted_expr);
+                return;
+            }
         }
 
         type_t* full_type = pointer_type_get_pointee_type(deleted_type);
@@ -9963,6 +10068,9 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
         {
             scope_entry_t* symbol = named_type_get_symbol(no_ref(full_type));
             class_type_complete_if_possible(symbol, decl_context, locus);
+
+            scope_entry_t* destructor = class_type_get_destructor(symbol->type_information);
+            ensure_function_is_emitted(destructor, decl_context, locus);
         }
 
         if (!is_complete_type(full_type))
