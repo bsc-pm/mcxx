@@ -34,7 +34,7 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMF03_EXTERN const char* find_file_in_directories(int num_dirs, 
+LIBMF03_EXTERN const char* fortran_find_file_in_directories(int num_dirs, 
         const char** directories, 
         const char* filename, 
         const char* origin_of_include);

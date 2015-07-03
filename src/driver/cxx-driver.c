@@ -4732,29 +4732,136 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
     }
 }
 
+// We may have to extend the file_list with static libraries, this is not
+// as trivial as it sounds because most architectures assume shared by
+// default and then
+static void extend_file_list_with_static_libraries(
+        compilation_configuration_t* compilation_configuration,
+        const char *** file_list,
+        int *num_link_files)
+{
+    const char** libdir_paths = NULL;
+    int num_libdir_paths = 0;
+
+    // We assume that our environments target to shared by default
+    char link_as_static = 0;
+
+    // Check first if we want to force -static compilation
+    int j;
+    for (j = 0; j < compilation_configuration->num_args_linker_command; j++)
+    {
+        if (compilation_configuration->linker_command[j]->translation_unit != NULL)
+            continue;
+        const char* current_flag = compilation_configuration->linker_command[j]->argument;
+        if (strcmp(current_flag, "-static") == 0)
+        {
+            link_as_static = 1;
+            break;
+        }
+    }
+
+    for (j = 0; j < compilation_configuration->num_args_linker_command; j++)
+    {
+        if (compilation_configuration->linker_command[j]->translation_unit != NULL)
+            continue;
+
+        const char* current_flag = compilation_configuration->linker_command[j]->argument;
+        if (current_flag[0] == '-')
+        {
+            if (current_flag[1] == 'l')
+            {
+                if (current_flag[2] == '\0')
+                {
+                    // this is '-l' 'XXX' rather than '-lXXX'
+                    // move onto the next argument
+                    j++;
+                    if (j < compilation_configuration->num_args_linker_command)
+                    {
+                        if (compilation_configuration->linker_command[j]->translation_unit != NULL)
+                            continue;
+
+                        current_flag = compilation_configuration->linker_command[j]->argument;
+                    }
+                    else
+                    {
+                        // Do nothing for a '-l' that is astray
+                        continue;
+                    }
+                }
+
+                // -lXXX
+                if (!link_as_static)
+                {
+                    // We have to check if there is a .so first
+                    char *name = NULL;
+                    if (current_flag[2] == ':')
+                    {
+                        asprintf(&name, "%s.so", &current_flag[3]);
+                    }
+                    else
+                    {
+                        asprintf(&name, "lib%s.so", &current_flag[2]);
+                    }
+
+                    const char * dynamic_library = find_file_in_directories(
+                            num_libdir_paths,
+                            libdir_paths,
+                            name);
+
+                    DELETE(name);
+
+                    // If there is a .so, skip
+                    if (dynamic_library != NULL)
+                        continue;
+                }
+
+
+                // Check if there is a lib.a file
+                char *name = NULL;
+                if (current_flag[2] == ':')
+                {
+                    asprintf(&name, "%s.a", &current_flag[3]);
+                }
+                else
+                {
+                    asprintf(&name, "lib%s.a", &current_flag[2]);
+                }
+
+                const char * static_library = find_file_in_directories(
+                        num_libdir_paths,
+                        libdir_paths,
+                        name);
+
+                DELETE(name);
+
+                if (static_library != NULL)
+                {
+                    // If there is a .a, add to the list of files for extraction
+                    P_LIST_ADD(*file_list, *num_link_files, static_library);
+                }
+            }
+            else if (current_flag[1] == 'L')
+            {
+                // -LXXX
+                P_LIST_ADD(libdir_paths, num_libdir_paths,
+                        uniquestr(&current_flag[2]));
+            }
+        }
+    }
+
+    DELETE(libdir_paths);
+}
+
 static void link_objects(void)
 {
     if (CURRENT_CONFIGURATION->do_not_link
             || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
         return;
 
-    int j;
+    const char ** file_list = NULL;
     int num_link_files = 0;
-    for (j = 0; j < compilation_process.num_translation_units; j++)
-    {
-        translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
-        const char* extension = get_extension_filename(translation_unit->input_filename);
-        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
-            continue;
-
-        num_link_files++;
-    }
-
-    const char * file_list[num_link_files + 1];
-
-    int index = 0;
+    int j;
     for (j = 0; j < compilation_process.num_translation_units; j++)
     {
         translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
@@ -4767,16 +4874,21 @@ static void link_objects(void)
 
         if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
         {
-            file_list[index] = translation_unit->input_filename;
+            const char* current_file = translation_unit->input_filename;
+            P_LIST_ADD(file_list, num_link_files, current_file);
         }
         else
         {
-            file_list[index] = translation_unit->output_filename;
-            mark_file_as_temporary(file_list[index]);
+            const char* current_file = translation_unit->output_filename;
+            P_LIST_ADD(file_list, num_link_files, current_file);
+            mark_file_as_temporary(current_file);
         }
-
-        index++;
     }
+
+    extend_file_list_with_static_libraries(
+            CURRENT_CONFIGURATION,
+            &file_list,
+            &num_link_files);
 
     int num_additional_files = 0;
     const char** additional_files = NULL;
@@ -4787,6 +4899,8 @@ static void link_objects(void)
     link_files(additional_files, num_additional_files,
             /* linked_output_filename */ NULL,
             CURRENT_CONFIGURATION);
+
+    DELETE(file_list);
 }
 
 

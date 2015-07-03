@@ -2377,7 +2377,7 @@ static char is_include_line(void)
     // Now get the filename
     // We first attempt the current working directory
     const char* current_dir = ".";
-    const char* include_filename = find_file_in_directories(
+    const char* include_filename = fortran_find_file_in_directories(
             1,
             &current_dir,
             include_filename_buf.buf,
@@ -2385,7 +2385,7 @@ static char is_include_line(void)
     // otherwise use -Idir options
     if (include_filename == NULL)
     {
-        include_filename = find_file_in_directories(
+        include_filename = fortran_find_file_in_directories(
                 CURRENT_CONFIGURATION->num_include_dirs,
                 CURRENT_CONFIGURATION->include_dirs,
                 include_filename_buf.buf,

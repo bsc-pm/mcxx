@@ -957,3 +957,40 @@ const char* find_home(const char* progname)
     return find_home_win32();
 #endif
 }
+
+const char* find_file_in_directories(
+        int num_dirs, 
+        const char** directories, 
+        const char* libname)
+{
+    int path_max = 0;
+#ifdef PATH_MAX
+    path_max = PATH_MAX;
+#else
+    path_max = pathconf(path, _PC_PATH_MAX);
+    if (path_max <= 0)
+        path_max = 4096;
+#endif
+    char* full_path = NEW_VEC(char, path_max);
+    const char* path_found = NULL;
+
+    int i;
+    for (i = 0; i < num_dirs; i++)
+    {
+        struct stat buf;
+        memset(&buf, 0, sizeof(buf));
+
+        snprintf(full_path, path_max, "%s/%s", directories[i], libname);
+        full_path[path_max - 1] = '\0';
+
+        if (access(full_path, F_OK) == 0)
+        {
+            path_found = uniquestr(full_path);
+            break;
+        }
+    }
+
+    DELETE(full_path);
+
+    return path_found;
+}

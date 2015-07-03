@@ -2686,7 +2686,7 @@ static void open_included_file(char* include_name)
 
 	DEBUG_CODE() DEBUG_MESSAGE("Opening included file %s at %s:%d", include_name, 
 			fortran_scanning_now->filename, fortran_scanning_now->line_number);
-	const char* include_filename = find_file_in_directories(
+	const char* include_filename = fortran_find_file_in_directories(
             CURRENT_CONFIGURATION->num_include_dirs,
             CURRENT_CONFIGURATION->include_dirs, 
             include_name,

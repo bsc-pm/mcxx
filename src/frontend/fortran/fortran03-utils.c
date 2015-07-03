@@ -34,7 +34,7 @@
 #include <unistd.h>
 #include <string.h>
 
-const char* find_file_in_directories(int given_num_dirs, 
+const char* fortran_find_file_in_directories(int given_num_dirs, 
         const char** given_directories, 
         const char* filename,
         const char* origin_of_include)

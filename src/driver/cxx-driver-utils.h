@@ -125,6 +125,12 @@ void mark_dir_as_temporary(const char* name);
 // Find the path where the application runs
 const char* find_home(const char* progname);
 
+// Find a file in the given directories
+const char* find_file_in_directories(
+        int num_dirs, 
+        const char** directories, 
+        const char* libname);
+
 MCXX_END_DECLS
 
 #endif // CXX_DRIVERUTILS_H
