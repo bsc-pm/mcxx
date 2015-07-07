@@ -21994,8 +21994,6 @@ static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, node
     nodecl_t nodecl_loop_control = nodecl_get_child(node, 0);
     nodecl_t nodecl_statement = nodecl_get_child(node, 1);
 
-    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
-
     if (nodecl_get_kind(nodecl_loop_control) == NODECL_LOOP_CONTROL)
     {
         nodecl_t nodecl_loop_init = nodecl_get_child(nodecl_loop_control, 0);
@@ -22009,6 +22007,9 @@ static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, node
                 v->new_decl_context,
                 v->instantiation_symbol_map,
                 /* pack_index */ -1);
+
+        // body of the loop
+        nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
 
         build_scope_nodecl_for_statement_nonrange(
                 nodecl_loop_init,
