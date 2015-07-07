@@ -51,7 +51,7 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
                 static bool _gathers_scatters_disabled;
-                static std::string _analysis_func_name;
+                static TL::Symbol _analysis_func;
 
                 bool _svml_sse_enabled;
                 bool _svml_avx2_enabled;

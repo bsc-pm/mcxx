@@ -52,7 +52,7 @@ namespace Vectorization
     FunctionVersioning Vectorizer::_function_versioning;
     VectorizationAnalysisInterface *Vectorizer::_vectorizer_analysis = 0;
     bool Vectorizer::_gathers_scatters_disabled(false);
-    std::string Vectorizer::_analysis_func_name;
+    TL::Symbol Vectorizer::_analysis_func;
 
 
     Vectorizer& Vectorizer::get_vectorizer()
@@ -66,26 +66,26 @@ namespace Vectorization
     void Vectorizer::initialize_analysis(
             const Nodecl::NodeclBase& enclosing_function)
     {
-        std::string func_name;
+        TL::Symbol func;
 
         if (enclosing_function.is<Nodecl::FunctionCode>())
         {
-            func_name = enclosing_function.as<Nodecl::FunctionCode>().
-                get_symbol().get_name();
+            func = enclosing_function.as<Nodecl::FunctionCode>().
+                get_symbol();
         }
         else if (enclosing_function.is<Nodecl::OpenMP::SimdFunction>())
         {
-            func_name = enclosing_function.as<Nodecl::OpenMP::SimdFunction>().
-                get_statement().as<Nodecl::FunctionCode>().get_symbol().get_name();
+            func = enclosing_function.as<Nodecl::OpenMP::SimdFunction>().
+                get_statement().as<Nodecl::FunctionCode>().get_symbol();
         }            
         else
         {
             running_error("Vectorizer::initialize_analysis: expected FunctionCode or SimdFunction");
         }
 
-        if (_analysis_func_name != func_name)
+        if (_analysis_func != func)
         {
-            _analysis_func_name = func_name;
+            _analysis_func = func;
 
             if (_vectorizer_analysis != NULL)
                 delete _vectorizer_analysis;
@@ -96,7 +96,7 @@ namespace Vectorization
         }
         else
         {
-            std::cerr << "Reusing analysis for function " << _analysis_func_name << std::endl;
+            std::cerr << "Reusing analysis for function " << _analysis_func.get_qualified_name() << std::endl;
         }
     }
 
