@@ -21713,6 +21713,14 @@ static scope_entry_t* instantiate_declaration_common(
                                 new_entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
                             }
                         }
+                        else if (nodecl_get_kind(value) == NODECL_VALUE_INITIALIZATION)
+                        {
+                            check_default_initialization_and_destruction_declarator(
+                                    new_entry,
+                                    v->new_decl_context,
+                                    locus);
+                            nodecl_init = new_entry->value;
+                        }
                         else
                         {
                             check_nodecl_expr_initializer(value,
