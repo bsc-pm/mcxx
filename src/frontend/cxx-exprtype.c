@@ -28280,6 +28280,49 @@ static void instantiate_new(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
     v->nodecl_result = nodecl_shallow_copy(node);
 }
 
+static void instantiate_intel_assume(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr = nodecl_get_child(node, 0);
+
+    nodecl_expr = instantiate_expression(
+            nodecl_expr,
+            v->decl_context,
+            v->instantiation_symbol_map,
+            /* pack_index */ -1);
+
+    intel_check_assume_nodecl(
+            nodecl_expr,
+            v->decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
+}
+
+static void instantiate_intel_assume_aligned(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr_0 = nodecl_get_child(node, 0);
+
+    nodecl_expr_0 = instantiate_expression(
+            nodecl_expr_0,
+            v->decl_context,
+            v->instantiation_symbol_map,
+            /* pack_index */ -1);
+
+    nodecl_t nodecl_expr_1 = nodecl_get_child(node, 1);
+
+    nodecl_expr_1 = instantiate_expression(
+            nodecl_expr_1,
+            v->decl_context,
+            v->instantiation_symbol_map,
+            /* pack_index */ -1);
+
+    intel_check_assume_aligned_nodecl(
+            nodecl_expr_0,
+            nodecl_expr_1,
+            v->decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
+}
+
 // Initialization
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, const decl_context_t* decl_context)
 {
@@ -28429,6 +28472,10 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     // Delete
     NODECL_VISITOR(v)->visit_delete = instantiate_expr_visitor_fun(instantiate_delete);
     NODECL_VISITOR(v)->visit_delete_array = instantiate_expr_visitor_fun(instantiate_delete_array);
+
+    // Extensions
+    NODECL_VISITOR(v)->visit_intel_assume = instantiate_expr_visitor_fun(instantiate_intel_assume);
+    NODECL_VISITOR(v)->visit_intel_assume_aligned = instantiate_expr_visitor_fun(instantiate_intel_assume_aligned);
 }
 
 
