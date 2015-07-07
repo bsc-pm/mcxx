@@ -73,7 +73,7 @@ namespace TL
             versions_map_t _versions;
 
             private:
-                const VectorFunctionVersion get_best_function_version(const std::string& func_name, 
+                const VectorFunctionVersion* get_best_function_version(const std::string& func_name, 
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& _target_type,

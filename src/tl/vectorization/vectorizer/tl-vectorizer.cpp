@@ -80,7 +80,7 @@ namespace Vectorization
         }            
         else
         {
-            running_error("Vectorizer::initialize_analysis: expected FunctionCode or SimdFunction", 0);
+            running_error("Vectorizer::initialize_analysis: expected FunctionCode or SimdFunction");
         }
 
         if (_analysis_func_name != func_name)

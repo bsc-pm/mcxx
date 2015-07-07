@@ -1192,6 +1192,20 @@ namespace Vectorization
         }
     }
 
+    bool is_compiler_node_function_call(const std::string& func_name)
+    {
+        if (func_name == "fabsf"
+                || func_name == "sqrtf"
+                || func_name == "fabs"
+                || func_name == "sqrt"
+                || func_name == "sincosf"
+                /* || func_name == "sincos" */)
+        {
+            return true;
+        }
+        return false;
+    }
+
     void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n)
     {
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
@@ -1230,47 +1244,120 @@ namespace Vectorization
 
 
         // Vectorizing arguments
-        Nodecl::List arguments_list = n.get_arguments().as<Nodecl::List>();
+        TL::ObjectList<Nodecl::NodeclBase> arguments_list = n.get_arguments().as<Nodecl::List>().to_object_list();
+        TL::ObjectList<TL::Symbol> param_list;
         bool need_vector_function = false;
 
-        for(Nodecl::List::iterator it = arguments_list.begin();
-                it != arguments_list.end();
-                it++)
+        // Get list of params;
+        TL::Type function_target_type = call_type.no_ref();
+        int function_target_type_size = function_target_type.get_size();
+
+        // Get the best vector version of the function available
+        Nodecl::NodeclBase best_version =
+            Vectorizer::_function_versioning.get_best_version(
+                    func_name,
+                    _environment._device,
+                    _environment._vectorization_factor * function_target_type_size,
+                    function_target_type,
+                    !mask.is_null());
+
+        bool vectorize_all_arguments = false;
+        if (!best_version.is_null())
         {
-            if (!Vectorizer::_vectorizer_analysis->
-                    is_uniform(_environment._analysis_simd_scope, *it, *it))
+            if (best_version.is<Nodecl::FunctionCode>())
             {
-                if(!Vectorizer::_vectorizer_analysis->
-                    is_linear(_environment._analysis_simd_scope, *it))
+                param_list = best_version.as<Nodecl::FunctionCode>().get_symbol().
+                    get_related_symbols();
+
+                need_vector_function = true;
+                fprintf(stderr, "func: %s\n", best_version.as<Nodecl::FunctionCode>().get_symbol().get_name().c_str());
+            }
+            else if (best_version.is<Nodecl::Symbol>())
+            {
+                param_list = best_version.as<Nodecl::Symbol>().get_symbol().
+                    get_related_symbols();
+
+                need_vector_function = true;
+
+                fprintf(stderr, "func: %s\n", best_version.as<Nodecl::Symbol>().get_symbol().get_name().c_str());
+            }
+        }
+        else if (is_compiler_node_function_call(func_name))
+        {
+            need_vector_function = true;
+            // FIXME: we are assuming that inline expanded vector functions
+            // have all their arguments as vectors
+            vectorize_all_arguments = true;
+        }
+
+
+        if (!param_list.empty())
+        {
+            auto param_it = param_list.begin();
+            for(const auto& argument_it : arguments_list)
+            {
+                // If the parameter has no vector type,
+                // it will be linear or uniform in the function.
+                std::cerr << "Param: " << param_it->get_name() << " " << print_declarator(param_it->get_type().get_internal_type()) << std::endl;
+                if (param_it->get_type().no_ref().is_vector())
                 {
                     VECTORIZATION_DEBUG()
                     {
-                        std::cerr << "VECTORIZER: Vectorizing argument '" << it->prettyprint()
+                        std::cerr << "VECTORIZER: Vectorizing argument '" << argument_it.prettyprint()
                             << "'" << std::endl;
                     }
-                    
-                    walk(*it);
+                    walk(argument_it);
                 }
                 else
                 {
                     VECTORIZATION_DEBUG()
                     {
-                        std::cerr << "VECTORIZER: Argument '" << it->prettyprint()
-                            << "' is kept scalar because is linear" << std::endl;
+                        std::cerr << "VECTORIZER: Argument '" << argument_it.prettyprint()
+                            << "' is kept scalar because is uniform or linear" << std::endl;
                     }
                 }
- 
-                need_vector_function = true;
-            }
-            else
-            {
-                VECTORIZATION_DEBUG()
-                {
-                    std::cerr << "VECTORIZER: Argument '" << it->prettyprint()
-                        << "' is kept scalar because is uniform" << std::endl;
-                }
+                param_it++;
             }
         }
+        else if (vectorize_all_arguments)
+        {
+            for(const auto& argument_it : arguments_list)
+            {
+                // If the parameter has no vector type,
+                // it will be linear or uniform in the function.
+                VECTORIZATION_DEBUG()
+                {
+                    std::cerr << "VECTORIZER: Vectorizing argument '" << argument_it.prettyprint()
+                        << "'" << std::endl;
+                }
+                walk(argument_it);
+            }
+        }
+
+        // auto argument_it = arguments_list.begin();
+        // for(const auto& param_it : param_list)
+        // {
+        //     // If the parameter has no vector type,
+        //     // it will be linear or uniform in the function.
+        //     if (param_it.get_type().is_vector())
+        //     {
+        //         // VECTORIZATION_DEBUG()
+        //         {
+        //             std::cerr << "VECTORIZER: Vectorizing argument '" << argument_it->prettyprint()
+        //                 << "'" << std::endl;
+        //         }
+        //         walk(*argument_it);
+        //     }
+        //     else
+        //     {
+        //         // VECTORIZATION_DEBUG()
+        //         {
+        //             std::cerr << "VECTORIZER: Argument '" << argument_it->prettyprint()
+        //                 << "' is kept scalar because is uniform or linear" << std::endl;
+        //         }
+        //     }
+        //     argument_it++;
+        // }
 
         // Vectorize version only if it uses vector arguments
         // TODO: return type
@@ -1337,9 +1424,6 @@ namespace Vectorization
             }
             else //Common functions
             {
-                TL::Type function_target_type = _environment._target_type;
-                int function_target_type_size = function_target_type.get_size();
-
                 // If _target_type and call_type have the same size, we use call_type as
                 // this function should have been registered with this type
                 if (call_type.is_void() || 
@@ -1348,15 +1432,6 @@ namespace Vectorization
                     function_target_type = call_type;
                     function_target_type_size = function_target_type.get_size();
                 }
-
-                // Get the best vector version of the function available
-                Nodecl::NodeclBase best_version =
-                    Vectorizer::_function_versioning.get_best_version(
-                            func_name,
-                            _environment._device,
-                            _environment._vectorization_factor * function_target_type_size,
-                            function_target_type,
-                            !mask.is_null());
 
                 ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best "\
                         "vector function for '%s' is null", func_name.c_str());
