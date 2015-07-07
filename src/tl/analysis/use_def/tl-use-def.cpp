@@ -731,10 +731,13 @@ namespace Analysis {
         // Check whether the constructor is not implicit, because in that case,
         // the code is not reachable and it cannot be assured that no other constructor
         // is called from there and has some side effects.
-        ERROR_CONDITION(s.is_defaulted(),
-                        "Call to an implicit constructor. "
-                        "Code is not reachable because Mercurium does not generate the implicit constructor.",
-                        0);
+        if (s.is_defaulted())
+        {
+            WARNING_MESSAGE("Call to an implicit constructor. "
+                    "Code is not reachable because Mercurium does not generate the implicit constructor.",
+                    0);
+            return;
+        }
         // Otherwise, look for the code of the called constructor and
         // perform IPA normally
         Nodecl::List l;
