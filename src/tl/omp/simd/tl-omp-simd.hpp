@@ -129,6 +129,8 @@ namespace TL
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
+
+                virtual void visit(const Nodecl::TemplateFunctionCode& func_code);
         };
 
         class SimdSPMLVisitor : public SimdVisitor

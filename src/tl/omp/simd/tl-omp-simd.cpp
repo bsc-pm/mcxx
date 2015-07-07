@@ -303,6 +303,10 @@ namespace TL {
             _vectorizer.finalize_analysis();
         }
 
+        void SimdVisitor::visit(const Nodecl::TemplateFunctionCode& n)
+        {
+        }
+
         void SimdVisitor::visit(const Nodecl::FunctionCode& n)
         {
             // Note that SimdFunction is treated specially in its visit
@@ -320,7 +324,8 @@ namespace TL {
             for (const auto& node : omp_simd_for_list) _vectorizer.preprocess_code(node);
             for (const auto& node : omp_simd_parallel_list) _vectorizer.preprocess_code(node);
 
-            if (!omp_simd_list.empty() || !omp_simd_for_list.empty()
+            if (!omp_simd_list.empty()
+                    || !omp_simd_for_list.empty()
                     || !omp_simd_parallel_list.empty())
             {
                 _vectorizer.initialize_analysis(n);
