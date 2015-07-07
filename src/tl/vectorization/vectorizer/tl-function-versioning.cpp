@@ -120,7 +120,7 @@ namespace TL
             return best_version;
         }
 
-        const VectorFunctionVersion FunctionVersioning::get_best_function_version(const std::string& func_name,
+        const VectorFunctionVersion* FunctionVersioning::get_best_function_version(const std::string& func_name,
                 const std::string& device,
                 const unsigned int vector_length,
                 const Type& target_type,
@@ -132,6 +132,11 @@ namespace TL
 
             if (best_version == _versions.end())
             {
+                fprintf(stderr, "Warning: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'\n",
+                        func_name.c_str(), device.c_str(),
+                        target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
+                        vector_length, masked);
+
                 // TODO
                 // Generate Naive Function.
                 // Get symbol from name.
@@ -142,13 +147,14 @@ namespace TL
 
             if (best_version == _versions.end())
             {
-                running_error("Error: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'",
-                    func_name.c_str(), device.c_str(),
-                    target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
-                    vector_length, masked);
+                return NULL;
+                //running_error("Error: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'",
+                //    func_name.c_str(), device.c_str(),
+                //    target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
+                //    vector_length, masked);
             }
 
-            return best_version->second;
+            return &best_version->second;
         }
 
         const Nodecl::NodeclBase FunctionVersioning::get_best_version(const std::string& func_name,
@@ -157,11 +163,14 @@ namespace TL
                 const Type& target_type,
                 const bool masked) const
         {
-            return get_best_function_version(func_name,
-                    device,
-                    vector_length,
-                    target_type,
-                    masked).get_version();
+            const VectorFunctionVersion* best_func = get_best_function_version(func_name,
+                    device, vector_length,
+                    target_type, masked);
+
+            if (best_func == NULL)
+                return Nodecl::NodeclBase::null();
+            else
+                return best_func->get_version();
         }
 
         bool FunctionVersioning::is_svml_function(const std::string& func_name,

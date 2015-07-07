@@ -5233,9 +5233,12 @@ extern inline type_t* get_vector_type_by_elements(type_t* element_type, unsigned
 extern inline char is_vector_type(type_t* t)
 {
     t = advance_over_typedefs(t);
+
     return (t != NULL
             && is_non_derived_type(t)
-            && t->type->kind == STK_VECTOR);
+            && t->type->kind == STK_VECTOR)
+        // Compatibility with Intel vector types
+        || (is_intel_vector_struct_type(t, NULL));
 }
 
 extern inline type_t* get_generic_vector_type(type_t* element_type)
@@ -5254,7 +5257,16 @@ extern inline int vector_type_get_vector_size(type_t* t)
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
 
-    return t->type->vector_size;
+    int intel_vector_size = 0;
+    if (is_intel_vector_struct_type(t, &intel_vector_size))
+    {
+        return vector_type_get_vector_size(
+                intel_vector_struct_type_get_vector_type(t));
+    }
+    else
+    {
+        return t->type->vector_size;
+    }
 }
 
 extern inline type_t* vector_type_get_element_type(type_t* t)
@@ -5262,7 +5274,15 @@ extern inline type_t* vector_type_get_element_type(type_t* t)
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
 
-    return t->type->vector_element;
+    if (is_intel_vector_struct_type(t, NULL))
+    {
+        return vector_type_get_element_type(
+                intel_vector_struct_type_get_vector_type(t));
+    }
+    else
+    {
+        return t->type->vector_element;
+    }
 }
 
 extern inline int vector_type_get_num_elements(type_t* t)
@@ -5270,7 +5290,7 @@ extern inline int vector_type_get_num_elements(type_t* t)
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
 
-    return t->type->vector_size / type_get_size(t->type->vector_element);
+    return vector_type_get_vector_size(t) / type_get_size(vector_type_get_element_type(t));
 }
 
 static type_t* _get_new_function_type(type_t* t,

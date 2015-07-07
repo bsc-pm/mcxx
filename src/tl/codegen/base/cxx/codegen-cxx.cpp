@@ -43,6 +43,7 @@ MCXX_END_DECLS
 #include "tl-nodecl-utils.hpp"
 
 #include "cxx-printscope.h"
+#include "cxx-gccbuiltins.h"
 namespace Codegen {
 
 void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::ostream* out)
@@ -8463,7 +8464,8 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                     define_entities_in_tree);
         }
     }
-    else if (t.is_vector())
+    else if (t.is_vector()
+            && !is_intel_vector_struct_type(t.get_internal_type(), NULL))
     {
         walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }

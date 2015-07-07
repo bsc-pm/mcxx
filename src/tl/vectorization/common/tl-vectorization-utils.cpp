@@ -482,10 +482,12 @@ namespace Utils
 
     TL::Symbol get_subscripted_symbol(const Nodecl::NodeclBase& subscripted)
     {
-        if (subscripted.is<Nodecl::Symbol>())
-            return subscripted.no_conv().as<Nodecl::Symbol>().get_symbol();
-        else if (subscripted.is<Nodecl::Cast>())
-            return get_subscripted_symbol(subscripted.no_conv().as<Nodecl::Cast>().
+        Nodecl::NodeclBase no_conv = subscripted.no_conv();
+
+        if (no_conv.is<Nodecl::Symbol>())
+            return no_conv.as<Nodecl::Symbol>().get_symbol();
+        else if (no_conv.is<Nodecl::Cast>())
+            return get_subscripted_symbol(no_conv.as<Nodecl::Cast>().
                     get_rhs().no_conv());
                 
         internal_error("Invalid subscripted node\n", 0);

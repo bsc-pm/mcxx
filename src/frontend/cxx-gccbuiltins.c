@@ -3579,6 +3579,9 @@ char is_intel_vector_struct_type(type_t* t, int *size)
     if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
         return 0;
 
+    if (t == NULL)
+        return 0;
+
 #define VECTOR_SIZE(n)  \
     VECTOR_SIZE_(_, n) \
     VECTOR_SIZE_(d_, n) \
@@ -3741,7 +3744,7 @@ char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* d
         return 0;
 
     if (!is_vector_type(orig)
-            || is_vector_type(dest))
+            || !is_intel_vector_struct_type(dest, NULL))
         return 0;
 
     int vector_size = vector_type_get_vector_size(no_ref(orig));

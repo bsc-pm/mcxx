@@ -30,6 +30,8 @@
 #include "tl-vectorization-common.hpp"
 #include "tl-omp.hpp"
 #include "tl-optimizations.hpp"
+
+#include "hlt-loop-unroll.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 
@@ -367,7 +369,11 @@ namespace TL {
             // Overlap clause
             map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(simd_environment, overlap_symbols);
-
+            
+            // Unroll clause
+            int unroll_clause_arg = process_unroll_clause(simd_environment);
+            bool loop_unrolled = false;
+ 
             // Prefetch clause
             Vectorization::prefetch_info_t prefetch_info;
             process_prefetch_clause(simd_environment, prefetch_info);
@@ -440,11 +446,6 @@ namespace TL {
             int epilog_iterations = _vectorizer.get_epilog_info(loop_statement,
                     loop_environment, only_epilog);
 
-            // Overlap init
-//            vectorizer_overlap.declare_overlap_symbols(
-//                    loop_statement.retrieve_context(), loop_environment);
-//            output_code_list.prepend(
-//                    vectorizer_overlap.get_init_statements(loop_environment));
 
             // MAIN LOOP VECTORIZATION
             if (!only_epilog)
@@ -454,6 +455,29 @@ namespace TL {
 
                 if (!loop_environment._overlap_symbols_map.empty())
                 {
+
+                    // If unroll clause and overlap clause, apply unroll before overlap
+                    if (unroll_clause_arg > 0)
+                    {
+                        TL::HLT::LoopUnroll loop_unroller;
+                        loop_unroller.set_loop(loop_statement)
+                            .set_unroll_factor(unroll_clause_arg)
+                            .unroll();
+
+                        //Nodecl::NodeclBase whole_main_transformation =
+                        //    loop_unroller.get_whole_transformation();
+
+                        // Main loop is now the the unrolled version of 'n'
+                        loop_statement.replace(loop_unroller.get_unrolled_loop());
+
+                        //last_epilog = loop_unroller.get_epilog_loop()
+                        //    .as<Nodecl::ForStatement>();
+                        std::cerr << "Vectorized Loop Unrolled with UF=" << unroll_clause_arg << std::endl;
+
+                        loop_unrolled = true;
+                    }
+
+
                     Nodecl::List prependix;
                     
                     _vectorizer.opt_overlapped_accesses(
@@ -591,9 +615,7 @@ namespace TL {
                 // Remove Simd node from loop_statement
                 simd_node_main_loop.replace(loop_statement);
 
-                // Unroll clause
-                int unroll_clause_arg = process_unroll_clause(simd_environment);
-                if (unroll_clause_arg > 0)
+               if (!loop_unrolled && unroll_clause_arg > 0)
                 {
                     std::stringstream unroll_pragma_strm;
                     unroll_pragma_strm << "unroll(";

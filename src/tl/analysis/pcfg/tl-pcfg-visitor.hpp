@@ -485,6 +485,7 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorNeg& n );
         Ret visit( const Nodecl::VectorPrefetch& n );
         Ret visit( const Nodecl::VectorPromotion& n );
+        Ret visit( const Nodecl::VectorRcp& n );
         Ret visit( const Nodecl::VectorReductionAdd& n );
         Ret visit( const Nodecl::VectorReductionMinus& n );
         Ret visit( const Nodecl::VectorReductionMul& n );

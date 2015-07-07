@@ -66,13 +66,13 @@ namespace Vectorization
             {
                 result << KNC_INTRIN_PREFIX << "_castps_pd";
             }
-            else if (type_to.is_signed_int() || type_to.is_unsigned_int())
+            else if (type_to.is_integral_type())
             {
                 result << KNC_INTRIN_PREFIX << "_castps_si" <<
                     KNC_VECTOR_BIT_SIZE;
             }
         }
-        else if (type_from.is_signed_int() || type_from.is_unsigned_int())
+        else if (type_from.is_integral_type())
         {
             if (type_to.is_float())
             {
@@ -114,22 +114,26 @@ namespace Vectorization
         {
             result << KNC_INTRIN_PREFIX << "_undefined()";
         }
-        else if (type.is_double())
+        else if (type.is_double() || type.is_integral_type() || type.is_void())
         {
-            result << get_casting_intrinsic(TL::Type::get_float_type(), type) << "("
-                << KNC_INTRIN_PREFIX << "_undefined()";
-        }
-        else if (type.is_signed_int() ||
-                type.is_unsigned_int())
-        {
-            result << get_casting_intrinsic(TL::Type::get_float_type(), type)
+            result << get_casting_intrinsic(TL::Type::get_float_type(), type) 
                 << "(" << KNC_INTRIN_PREFIX << "_undefined())";
         }
-        else if (type.is_void())
-        {
-            result << get_casting_intrinsic(TL::Type::get_float_type(), type)
-                << "(" << KNC_INTRIN_PREFIX << "_undefined())";
-        }
+       // else if (type.is_double())
+       // {
+       //     result << get_casting_intrinsic(TL::Type::get_float_type(), type) 
+       //         << "(" << KNC_INTRIN_PREFIX << "_undefined())";
+       // }
+       // else if (type.is_integral_type())
+       // {
+       //     result << get_casting_intrinsic(TL::Type::get_float_type(), type)
+       //         << "(" << KNC_INTRIN_PREFIX << "_undefined())";
+       // }
+       // else if (type.is_void())
+       // {
+       //     result << get_casting_intrinsic(TL::Type::get_float_type(), type)
+       //         << "(" << KNC_INTRIN_PREFIX << "_undefined())";
+       // }
         else
         {
             running_error("KNC Backend: undef intrinsic not supported for type '%s'",
@@ -220,6 +224,7 @@ namespace Vectorization
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLoad>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorStore>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorReductionAdd>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConditionalExpression>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n);
 
         if (contains_vector_nodes)
@@ -292,6 +297,11 @@ namespace Vectorization
         {
             intrin_type_suffix << "epi32";
         }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
+        }
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type: %s.",
@@ -357,6 +367,11 @@ namespace Vectorization
         {
             intrin_type_suffix << "epi32";
         }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
+        }
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type: %s.",
@@ -400,6 +415,11 @@ namespace Vectorization
     void KNCVectorBackend::visit(const Nodecl::VectorDiv& n)
     {
         common_binary_op_lowering(n, "div");
+    }
+
+    void KNCVectorBackend::visit(const Nodecl::VectorRcp& n)
+    {
+        common_unary_op_lowering(n, "rcp23");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorMod& n)
@@ -1591,9 +1611,15 @@ namespace Vectorization
         {
             intrin_type_suffix << "pd";
         }
-        else if (type.is_integral_type())
+        else if (type.is_signed_int() ||
+                type.is_unsigned_int())
         {
             intrin_type_suffix << "epi32";
+        }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
         }
         else
         {
@@ -1759,12 +1785,21 @@ namespace Vectorization
             intrin_type_suffix << "pd";
             conversion_arg << "_MM_DOWNCONV_PD_NONE";
         }
-        else if (type.is_integral_type())
+        else if (type.is_signed_int() ||
+                type.is_unsigned_int())
         {
             intrin_type_suffix << "epi32";
             casting_args << get_casting_to_scalar_pointer(
                     TL::Type::get_void_type());
-            conversion_arg << "_MM_DOWNCONV_PS_NONE";
+            conversion_arg << "_MM_DOWNCONV_EPI32_NONE";
+        }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
+            casting_args << get_casting_to_scalar_pointer(
+                    TL::Type::get_void_type());
+            conversion_arg << "_MM_DOWNCONV_EPI64_NONE";
         }
         else
         {
@@ -1949,10 +1984,17 @@ namespace Vectorization
             intrin_type_suffix << "pd";
             extra_args << "_MM_DOWNCONV_PD_NONE";
         }
-        else if (type.is_integral_type())
+        else if (type.is_signed_int()||
+                type.is_unsigned_int())
         {
             intrin_type_suffix << "epi32";
             extra_args << "_MM_DOWNCONV_EPI32_NONE";
+        }
+        else if (type.is_signed_long_long_int()||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
+            extra_args << "_MM_DOWNCONV_EPI64_NONE";
         }
         else
         {
@@ -2403,11 +2445,20 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorReductionAdd& n)
     {
-        TL::Type type = n.get_type().basic_type();
+        TL::Type type = n.get_type().no_ref();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Source intrin_src, intrin_name;
+        TL::Source intrin_src, intrin_name, mask_prefix, mask_args;
 
-        intrin_name << KNC_INTRIN_PREFIX << "_reduce_add";
+        intrin_name << KNC_INTRIN_PREFIX
+            << mask_prefix
+            << "_"
+            << "reduce_add"
+            ;
+
+        process_mask_component(mask, mask_prefix, mask_args, type,
+                KNCConfigMaskProcessing::ONLY_MASK);
+
 
         if (type.is_float())
         {
@@ -2422,6 +2473,11 @@ namespace Vectorization
         {
             intrin_name << "_epi32";
         }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_name << "_epi64";
+        }
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
@@ -2429,13 +2485,12 @@ namespace Vectorization
                     locus_to_str(n.get_locus()));
         }
 
-        walk(n.get_scalar_dst());
         walk(n.get_vector_src());
 
-        intrin_src << as_expression(n.get_scalar_dst())
-            << " += "
+        intrin_src 
             << intrin_name
             << "("
+            << mask_args
             << as_expression(n.get_vector_src())
             << ")";
 

@@ -1719,18 +1719,16 @@ namespace TL
         void SSEVectorLowering::visit(const Nodecl::VectorReductionAdd& node) 
         { 
             Nodecl::NodeclBase vector_src = node.get_vector_src();
-            Nodecl::NodeclBase scalar_dst = node.get_scalar_dst();
 
             TL::Type vtype = vector_src.get_type().no_ref();
-            TL::Type type = scalar_dst.get_type().basic_type();
+            TL::Type type = node.get_type().no_ref();
             
-            walk(scalar_dst);
             walk(vector_src);
 
             TL::Source intrin_src, horizontal_op_src, horizontal_intrin_src, extract_op_src, extract_intrin_src;
 
-            intrin_src << as_expression(scalar_dst)
-                << " += ({"
+            intrin_src 
+                << "({"
                 << horizontal_op_src
                 << horizontal_op_src
                 << extract_op_src

@@ -10,7 +10,9 @@ compiler_name = @GCC@
 compiler_options =
 linker_name = @GCC@
 linker_options = -Xlinker --add-needed
-{openmp} preprocessor_options = -I@PKGDATADIR@/intel-omp -D_OPENMP=200805 -include intel-omp.h
+{openmp} preprocessor_options = -I@PKGDATADIR@/intel-omp -D_OPENMP=200805
+{openmp, simd-reductions} preprocessor_options = -DINTEL_OMP_SIMD
+{openmp} preprocessor_options = -include intel-omp.h
 {ompss} preprocessor_options = -D_OMPSS=1
 {openmp} compiler_phase = libtlomp-base.so
 {openmp, simd} compiler_phase = libtlomp-simd.so
@@ -40,3 +42,4 @@ linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -lio
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
 {only-adjacent-accesses} options = --variable=only_adjacent_accesses:1
 {overlap-in-place} options = --variable=overlap_in_place:1
+{simd-reductions} options = --variable=simd-reduction-knc:1
