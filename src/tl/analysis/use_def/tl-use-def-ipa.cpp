@@ -580,16 +580,19 @@ namespace Analysis {
                 }
                 else
                 {   // We have the prototype, use it to determine the usage
+                    NBase one = const_value_to_nodecl_with_basic_type(
+                            const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1),
+                            get_ptrdiff_t_type());
                     ObjectList<Symbol>::const_iterator itp = params.begin();
-                    NBase one = const_value_to_nodecl_with_basic_type(const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
-                    for(Nodecl::List::iterator ita = args.begin(); ita != args.end(); ++ita)
+                    Nodecl::List::iterator ita = args.begin();
+                    for ( ; ita != args.end(); ++ita, (itp != params.end() ? ++itp : itp))
                     {
                         NBase arg = *ita;
 
                         arg = arg.no_conv();
                         Type par_t = (itp != params.end() ? itp->get_type() : Type());
 
-                        if(arg.is<Nodecl::Symbol>() || arg.is<Nodecl::ArraySubscript>() || arg.is<Nodecl::ClassMemberAccess>())
+                        if (arg.is<Nodecl::Symbol>() || arg.is<Nodecl::ArraySubscript>() || arg.is<Nodecl::ClassMemberAccess>())
                         {   // foo(v);
                             // Get the type of the base element
                             Type arg_t;
@@ -626,7 +629,7 @@ namespace Analysis {
                                     arg_points_to = Nodecl::Dereference::make(arg.shallow_copy(), arg_t.points_to());
                                 }
                                 
-                                if(par_t.is_valid() && par_t.is_any_reference())
+                                if (par_t.is_valid() && par_t.is_any_reference())
                                 {   // void foo(int *&v);
                                     _node->add_undefined_behaviour_var(arg);
                                     _node->add_undefined_behaviour_var(arg_points_to);
@@ -637,7 +640,7 @@ namespace Analysis {
                                     _node->add_undefined_behaviour_var(arg_points_to);
                                 }
                             }
-                            else if(arg_t.is_array())
+                            else if (arg_t.is_array())
                             {   // type v[2];
                                 NBase lb, ub, step;
                                 arg_t.array_get_bounds(lb, ub);
@@ -647,15 +650,15 @@ namespace Analysis {
                                 Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
                                 NBase arg_points_to = 
                                         Nodecl::ArraySubscript::make(arg.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
-                                if((par_t.is_valid() && par_t.is_pointer()) /*void foo(int v[])*/ || 
+                                if ((par_t.is_valid() && par_t.is_pointer()) /*void foo(int v[])*/ ||
                                     (!par_t.is_valid()) /*void foo(...);*/)
                                 {
                                     _node->add_undefined_behaviour_var(arg_points_to);
                                 }
                                 else
-                                {   
+                                {
                                     WARNING_MESSAGE("Unexpected type of parameter '%s' for an argument of type '%s'. "
-                                                    "Usage analysis may be incorrect at this point.", 
+                                                    "Usage analysis may be incorrect at this point.",
                                                     par_t.print_declarator().c_str(), arg_t.print_declarator().c_str());
                                 }
                             }
@@ -713,7 +716,7 @@ namespace Analysis {
                                                                                             const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1)), get_ptrdiff_t_type());
                                             else
                                                 ub = Nodecl::Minus::make(length.shallow_copy(), one.shallow_copy(), one.get_type());
-                                            
+
                                             step = one.shallow_copy();
                                             Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
                                             Scope sc(Utils::get_nodecl_base(arg_referenced).get_symbol().get_scope());
@@ -734,20 +737,26 @@ namespace Analysis {
                                         modifiable_arg = Nodecl::ArraySubscript::make(arg_referenced.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
                                     }
                                 }
-                                
+                                else
+                                {
+                                    modifiable_arg = arg_referenced;
+                                }
+
                                 // The address of a variable cannot be modified
                                 if (modifiable_arg.is<Nodecl::Reference>())
                                     continue;
 
-                                if((par_t.is_valid() && par_t.is_pointer()) /*void foo(int **v)*/ || 
-                                    (!par_t.is_valid()) /*void foo(...);*/)
+                                // We still have parameters in the prototype
+                                // (otherwise, the prototype contains an ellipsis)
+                                if ((par_t.is_valid() && par_t.is_pointer()) /*void foo(int **v)*/
+                                    || (!par_t.is_valid()) /*void foo(...);*/)
                                 {
                                     _node->add_undefined_behaviour_var(modifiable_arg);
                                 }
                                 else
-                                {   
+                                {
                                     WARNING_MESSAGE("Unexpected type of parameter '%s' for an argument of type '%s'. "
-                                                    "Usage analysis may be incorrect at this point.", 
+                                                    "Usage analysis may be incorrect at this point.",
                                                     par_t.print_declarator().c_str(), arg_t.print_declarator().c_str());
                                 }
                             }
@@ -824,11 +833,13 @@ namespace Analysis {
                                 _node->add_undefined_behaviour_var(Nodecl::Dereference::make(arg.shallow_copy(), arg.get_type().points_to()));
                             }
                         }
-                        
-                        if(itp != params.end())
-                            ++itp;
                     }
-                    
+                    // We cannot have parameters to check because they are inserted in the arguments list (default parameters)
+                    ERROR_CONDITION(itp != params.end(),
+                                    "No parameters shall remain to be checked for function '%s' "
+                                    "(Defaults parameters are inserted as arguments).\n",
+                                    func_sym.get_name().c_str());
+
                     // Set all global variables to undefined
                     const NodeclSet& killed = _node->get_killed_vars();
                     const NodeclSet& global_vars = _pcfg->get_global_variables();
