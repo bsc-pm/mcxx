@@ -30,6 +30,7 @@
 #include "tl-vectorization-common.hpp"
 #include "tl-omp.hpp"
 #include "tl-optimizations.hpp"
+#include "tl-counters.hpp"
 
 #include "hlt-loop-unroll.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -305,6 +306,7 @@ namespace TL {
 
         void SimdVisitor::visit(const Nodecl::TemplateFunctionCode& n)
         {
+            // TODO: Do nothing
         }
 
         void SimdVisitor::visit(const Nodecl::FunctionCode& n)
@@ -1025,20 +1027,30 @@ namespace TL {
             // Set new vector function symbol
             std::stringstream vector_func_name;
 
+            TL::Counter &counter = TL::CounterManager::get_counter("simd-function");
             vector_func_name <<"__"
                 << orig_func_name
+                << "_" << (int)counter
                 << "_"
                 << _device_name
                 << "_"
                 << _vector_length
                 ;
+            counter++;
 
             if (masked_version)
             {
                 vector_func_name << "_mask";
             }
 
-            TL::Symbol new_func_sym = func_sym.get_scope().
+            // Remove template parameters, if any
+            decl_context_t *new_func_decl_context = 
+                decl_context_clone(
+                        func_sym.get_scope().get_decl_context()
+                        );
+            new_func_decl_context->template_parameters = NULL;
+
+            TL::Symbol new_func_sym = TL::Scope(new_func_decl_context).
                 new_symbol(vector_func_name.str());
             new_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
 

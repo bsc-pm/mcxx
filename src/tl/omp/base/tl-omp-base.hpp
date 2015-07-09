@@ -181,6 +181,15 @@ namespace TL
                         TL::Symbol new_induction_var,
                         TL::Symbol block_extent_var);
 
+#ifndef VECTORIZATION_DISABLED
+                void register_simd_function(
+                        OpenMP::DataEnvironment& ds,
+                        TL::Symbol sym,
+                        Nodecl::NodeclBase context_of_parameters,
+                        TL::PragmaCustomLine pragma_line,
+                        const locus_t* locus);
+#endif
+
             public:
                 template <typename T>
                 void make_data_sharing_list(
