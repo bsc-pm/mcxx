@@ -18359,21 +18359,27 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             t = get_lvalue_reference_type(t);
         nodecl_set_type(sym_ref, t);
 
-        nodecl_t nodecl_call_to_destructor = 
-            nodecl_make_expression_statement(
-                    cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(class_type_get_destructor(entry->type_information), destructor_data->locus),
-                        /* called name */ nodecl_null(),
-                        nodecl_make_list_1(sym_ref),
-                        /* function_form */ nodecl_null(),
-                        get_void_type(),
-                        destructor_data->decl_context,
-                        destructor_data->locus),
-                    destructor_data->locus);
+        scope_entry_t* destructor = class_type_get_destructor(entry->type_information);
 
-        *(destructor_data->nodecl_output) = nodecl_append_to_list(
-                *(destructor_data->nodecl_output), 
-                nodecl_call_to_destructor);
+        if (!symbol_entity_specs_get_is_trivial(destructor))
+        {
+            // Only call non-trivial destructors
+            nodecl_t nodecl_call_to_destructor = 
+                nodecl_make_expression_statement(
+                        cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(class_type_get_destructor(entry->type_information), destructor_data->locus),
+                            /* called name */ nodecl_null(),
+                            nodecl_make_list_1(sym_ref),
+                            /* function_form */ nodecl_null(),
+                            get_void_type(),
+                            destructor_data->decl_context,
+                            destructor_data->locus),
+                        destructor_data->locus);
+
+            *(destructor_data->nodecl_output) = nodecl_append_to_list(
+                    *(destructor_data->nodecl_output), 
+                    nodecl_call_to_destructor);
+        }
     }
 
     entry_list_free(entry_list);
