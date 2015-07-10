@@ -628,7 +628,7 @@ namespace Utils
                 it != orig_data_field.end();
                 it++)
         {
-            std::string orig_field_name = it->get_name();
+            std::string orig_field_name = it->get_name() + "_vec";
             TL::Type orig_field_type = it->get_type();
 
             TL::Symbol field = class_scope.new_symbol(orig_field_name);
