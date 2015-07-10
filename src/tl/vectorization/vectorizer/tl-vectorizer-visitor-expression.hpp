@@ -47,6 +47,8 @@ namespace TL
                     void visit_binary_op(const ScalarNode& n,
                             const bool returns_mask_type);
 
+                void vectorize_regular_class_member_access(const Nodecl::ClassMemberAccess &n);
+
             public:
                 VectorizerVisitorExpression(
                         VectorizerEnvironment& environment);

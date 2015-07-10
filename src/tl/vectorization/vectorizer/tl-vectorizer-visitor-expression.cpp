@@ -341,6 +341,41 @@ namespace Vectorization
         visit_binary_op<Nodecl::LogicalOr, Nodecl::VectorLogicalOr>(n, false /* returns_mask_type */);
     }
 
+    void VectorizerVisitorExpression::vectorize_regular_class_member_access(const Nodecl::ClassMemberAccess &n)
+    {
+        Nodecl::NodeclBase class_object = n.get_lhs();
+        Nodecl::NodeclBase member = n.get_member();
+
+        TL::Type class_type = class_object.get_type().no_ref().get_unqualified_type();
+        TL::Type vector_class_type = Utils::get_class_of_vector_fields(
+                class_type,
+                _environment._vectorization_factor);
+        Utils::class_of_vector_field_map_t field_map = Utils::class_of_vector_fields_get_map_field(vector_class_type);
+
+
+        TL::Symbol orig_member = member.get_symbol();
+        ERROR_CONDITION(!orig_member.is_valid(), "Expecting a symbol here", 0);
+
+        TL::Symbol new_member = field_map[orig_member];
+        ERROR_CONDITION(!new_member.is_valid(), "Field has not been mapped", 0);
+
+
+        Nodecl::NodeclBase new_lhs = class_object.shallow_copy();
+        new_lhs.set_type(vector_class_type); // Fix LHS
+
+        Nodecl::NodeclBase new_rhs = new_member.make_nodecl(/* is_lvalue_ref */ true);
+
+        Nodecl::NodeclBase new_class_member_acces = 
+            Nodecl::ClassMemberAccess::make(
+                    new_lhs,
+                    new_rhs,
+                    Nodecl::NodeclBase::null(), // member-access-form 
+                    new_member.get_type().get_lvalue_reference_to(),
+                    n.get_locus());
+
+        n.replace(new_class_member_acces);
+    }
+
     void VectorizerVisitorExpression::visit(
             const Nodecl::ConditionalExpression& n)
     {
@@ -837,49 +872,59 @@ namespace Vectorization
 
                 ERROR_CONDITION(!member.is<Nodecl::Symbol>(), 
                         "Member is not a Symbol. Unsupported case", 0);
-                ERROR_CONDITION(!class_object.is<Nodecl::ArraySubscript>(),
-                        "Lhs is not an array. Unsupported case", 0);
-
-                int access_size = cma.get_type().no_ref().get_size();
-                int class_size = class_object.get_type().no_ref().get_size();
-                int member_offset = member.as<Nodecl::Symbol>().get_symbol().get_offset();
-
-                //TODO a.x[i] = 
-
-                // a[i].x --> Scatter
-
-                // Remove CMA and visit again
-                lhs.replace(class_object.shallow_copy());
-
-                walk(n);
-
-                // Update lhs
-                lhs = n.get_lhs();
-
-                if(lhs.is<Nodecl::VectorStore>())
+                if (class_object.is<Nodecl::ArraySubscript>())
                 {
-                    Nodecl::VectorStore vstore = lhs.as<Nodecl::VectorStore>();
 
-                    Nodecl::VectorScatter vector_scatter = vstore.get_flags().
-                        as<Nodecl::List>().find_first<Nodecl::VectorScatter>();
+                    int access_size = cma.get_type().no_ref().get_size();
+                    int class_size = class_object.get_type().no_ref().get_size();
+                    int member_offset = member.as<Nodecl::Symbol>().get_symbol().get_offset();
 
-                    // Add member to strides
-                    Nodecl::NodeclBase strides = vector_scatter.get_strides();
+                    //TODO a.x[i] = 
 
-                    strides.replace(Nodecl::Add::make(
-                                Nodecl::Mul::make(strides.shallow_copy(),
+                    // a[i].x --> Scatter
+
+                    // Remove CMA and visit again
+                    lhs.replace(class_object.shallow_copy());
+
+                    walk(n);
+
+                    // Update lhs
+                    lhs = n.get_lhs();
+
+                    if(lhs.is<Nodecl::VectorStore>())
+                    {
+                        Nodecl::VectorStore vstore = lhs.as<Nodecl::VectorStore>();
+
+                        Nodecl::VectorScatter vector_scatter = vstore.get_flags().
+                            as<Nodecl::List>().find_first<Nodecl::VectorScatter>();
+
+                        // Add member to strides
+                        Nodecl::NodeclBase strides = vector_scatter.get_strides();
+
+                        strides.replace(Nodecl::Add::make(
+                                    Nodecl::Mul::make(strides.shallow_copy(),
+                                        Nodecl::IntegerLiteral::make(
+                                            TL::Type::get_int_type(),
+                                            const_value_get_signed_int(
+                                                class_size/access_size)),
+                                        strides.get_type()),
                                     Nodecl::IntegerLiteral::make(
                                         TL::Type::get_int_type(),
                                         const_value_get_signed_int(
-                                            class_size/access_size)),
-                                    strides.get_type()),
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_int_type(),
-                                    const_value_get_signed_int(
-                                        member_offset/access_size)),
-                                strides.get_type()));
+                                            member_offset/access_size)),
+                                    strides.get_type()));
 
-                    n.replace(vector_scatter);
+                        n.replace(vector_scatter);
+                    }
+                    else
+                    {
+                        running_error("Vectorizer: ClassMemberAccess type is not "\
+                                "supported yet: '%s'", n.prettyprint().c_str());
+                    }
+                }
+                else if (class_object.is<Nodecl::Symbol>())
+                {
+                    vectorize_regular_class_member_access(lhs.as<Nodecl::ClassMemberAccess>());
                 }
                 else
                 {
@@ -1670,75 +1715,85 @@ namespace Vectorization
 
         ERROR_CONDITION(!member.is<Nodecl::Symbol>(), 
                 "Member is not a Symbol. Unsupported case", 0);
-        ERROR_CONDITION(!class_object.is<Nodecl::ArraySubscript>(),
-                "Lhs is not an array. Unsupported case", 0);
-
-        int access_size = n.get_type().no_ref().get_size();
-        int class_size = class_object.get_type().no_ref().get_size();
-        int member_offset = member.as<Nodecl::Symbol>().get_symbol().get_offset();
-
-        //TODO a.x[i]
-
-        // a[i].x --> Gather
-
-        walk(class_object);
-
-        // Gather
-        if(class_object.is<Nodecl::VectorLoad>())
+        if (class_object.is<Nodecl::ArraySubscript>())
         {
-            Nodecl::VectorLoad vload = class_object.as<Nodecl::VectorLoad>();
 
-            Nodecl::VectorGather vector_gather = vload.get_flags().
-                as<Nodecl::List>().find_first<Nodecl::VectorGather>();
+            int access_size = n.get_type().no_ref().get_size();
+            int class_size = class_object.get_type().no_ref().get_size();
+            int member_offset = member.as<Nodecl::Symbol>().get_symbol().get_offset();
 
-            // Add pointer casting to base --> (float *) &a[i].fp
-            Nodecl::NodeclBase base = vector_gather.get_base();
+            //TODO a.x[i]
 
-            base.replace(Nodecl::Cast::make(base.shallow_copy(),
-                        n_original.get_type().no_ref().get_pointer_to(), ""));
+            // a[i].x --> Gather
 
-            // Add member to strides
-            Nodecl::NodeclBase strides = vector_gather.get_strides();
+            walk(class_object);
 
-            strides.replace(Nodecl::Add::make(
-                        Nodecl::Mul::make(strides.shallow_copy(),
+            // Gather
+            if(class_object.is<Nodecl::VectorLoad>())
+            {
+                Nodecl::VectorLoad vload = class_object.as<Nodecl::VectorLoad>();
+
+                Nodecl::VectorGather vector_gather = vload.get_flags().
+                    as<Nodecl::List>().find_first<Nodecl::VectorGather>();
+
+                // Add pointer casting to base --> (float *) &a[i].fp
+                Nodecl::NodeclBase base = vector_gather.get_base();
+
+                base.replace(Nodecl::Cast::make(base.shallow_copy(),
+                            n_original.get_type().no_ref().get_pointer_to(), ""));
+
+                // Add member to strides
+                Nodecl::NodeclBase strides = vector_gather.get_strides();
+
+                strides.replace(Nodecl::Add::make(
+                            Nodecl::Mul::make(strides.shallow_copy(),
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(
+                                        class_size/access_size)),
+                                strides.get_type()),
                             Nodecl::IntegerLiteral::make(
                                 TL::Type::get_int_type(),
                                 const_value_get_signed_int(
-                                    class_size/access_size)),
-                            strides.get_type()),
-                        Nodecl::IntegerLiteral::make(
-                            TL::Type::get_int_type(),
-                            const_value_get_signed_int(
-                                member_offset/access_size)),
-                        strides.get_type()));
+                                    member_offset/access_size)),
+                            strides.get_type()));
 
-            // Set new type
-            vector_gather.set_type(Utils::get_qualified_vector_to(
-                        n_original.get_type(),
-                        _environment._vectorization_factor));
+                // Set new type
+                vector_gather.set_type(Utils::get_qualified_vector_to(
+                            n_original.get_type(),
+                            _environment._vectorization_factor));
 
-            n.replace(vector_gather);
+                n.replace(vector_gather);
+            }
+            // Vector Promotion
+            else if (class_object.is<Nodecl::VectorPromotion>())
+            {
+                Nodecl::VectorPromotion vprom = class_object.
+                    as<Nodecl::VectorPromotion>();
+
+                vprom.get_rhs().replace(n_original.shallow_copy());
+
+                // Set new type
+                vprom.set_type(Utils::get_qualified_vector_to(
+                            n_original.get_type(),
+                            _environment._vectorization_factor));
+
+                n.replace(vprom);
+            }
+            else
+            {
+                running_error("Vectorizer: ClassMemberAccess type is not "\
+                        "supported yet: '%s'", n.prettyprint().c_str());
+            }
         }
-        // Vector Promotion
-        else if (class_object.is<Nodecl::VectorPromotion>())
+        else if (class_object.is<Nodecl::Symbol>())
         {
-            Nodecl::VectorPromotion vprom = class_object.
-                as<Nodecl::VectorPromotion>();
-
-            vprom.get_rhs().replace(n_original.shallow_copy());
-            
-            // Set new type
-            vprom.set_type(Utils::get_qualified_vector_to(
-                        n_original.get_type(),
-                        _environment._vectorization_factor));
-
-            n.replace(vprom);
+            vectorize_regular_class_member_access(n);
         }
         else
         {
-                running_error("Vectorizer: ClassMemberAccess type is not "\
-                        "supported yet: '%s'", n.prettyprint().c_str());
+            running_error("Vectorizer: ClassMemberAccess type is not "\
+                    "supported yet: '%s'", n.prettyprint().c_str());
         }
     }
 

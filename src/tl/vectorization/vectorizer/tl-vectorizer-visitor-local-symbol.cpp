@@ -118,13 +118,14 @@ namespace Vectorization
             //    is_induction_variable(_environment._analysis_simd_scope, nodecl_sym) << std::endl;
  
 
-            if (!tl_sym_type.is_vector() && !tl_sym_type.is_mask() &&
-                    !Vectorizer::_vectorizer_analysis->
-                    is_uniform(_environment._analysis_simd_scope,
-                        nodecl_sym, nodecl_sym) &&
-                    !Vectorizer::_vectorizer_analysis->
-                    is_linear(_environment._analysis_simd_scope,
-                        nodecl_sym))
+            if (!tl_sym_type.is_vector()
+                    && !tl_sym_type.is_mask()
+                    && !Vectorizer::_vectorizer_analysis->
+                            is_uniform(_environment._analysis_simd_scope,
+                                nodecl_sym, nodecl_sym)
+                    && !Vectorizer::_vectorizer_analysis->
+                            is_linear(_environment._analysis_simd_scope,
+                                nodecl_sym))
                     //&&
                     //!Vectorizer::_vectorizer_analysis->
                     //is_induction_variable(_environment._analysis_simd_scope,
@@ -135,6 +136,13 @@ namespace Vectorization
                 if (tl_sym_type.is_bool())
                 {
                     vector_type = TL::Type::get_mask_type(
+                            _environment._vectorization_factor);
+                }
+                else if (tl_sym_type.is_class()
+                        && Utils::class_type_can_be_vectorized(tl_sym_type))
+                {
+                    tl_sym_type = Utils::get_class_of_vector_fields(
+                            tl_sym_type,
                             _environment._vectorization_factor);
                 }
                 else

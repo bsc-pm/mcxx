@@ -97,6 +97,10 @@ namespace TL
                     const unsigned int size);
             std::string get_var_counter();
 
+            bool class_type_can_be_vectorized(TL::Type);
+            TL::Type get_class_of_vector_fields(TL::Type src_type,
+                    const unsigned int size);
+
             Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(
                     const Nodecl::NodeclBase& mask,
                     const Nodecl::NodeclBase& then);
@@ -167,6 +171,9 @@ namespace TL
             objlist_nodecl_t get_nodecls_not_contained_in(
                     const objlist_nodecl_t& contained_list,
                     const objlist_nodecl_t& container_list);
+
+            typedef std::map<TL::Symbol, TL::Symbol> class_of_vector_field_map_t;
+            class_of_vector_field_map_t class_of_vector_fields_get_map_field(TL::Type class_of_vector);
         }
     }
 }
