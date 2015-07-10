@@ -178,13 +178,34 @@ namespace Vectorization
         }
     }
 
+    void Vectorizer::vectorize_function_header(Nodecl::FunctionCode& function_code,
+            VectorizerEnvironment& environment,
+            const bool masked_version)
+    {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Vectorizing function HEADER -----\n");
+            fprintf(stderr, "Target type size: %d bytes. Vectorization factor: %d\n",
+                    environment._target_type.get_size(), 
+                    environment._vectorization_factor);
+        }
+
+        VectorizerVisitorFunctionHeader visitor_function_header(environment, masked_version);
+        visitor_function_header.walk(function_code);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
+    }
+
     void Vectorizer::vectorize_function(Nodecl::FunctionCode& func_code,
             VectorizerEnvironment& environment,
             const bool masked_version)
     {
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr, "VECTORIZER: ----- Vectorizing function code -----\n");
+            fprintf(stderr, "VECTORIZER: ----- Vectorizing function CODE -----\n");
             fprintf(stderr, "Target type size: %d bytes. Vectorization factor: %d\n",
                     environment._target_type.get_size(), 
                     environment._vectorization_factor);
@@ -371,10 +392,13 @@ namespace Vectorization
     {
         VECTORIZATION_DEBUG()
         {
+            scope_entry_t* sym = func_name.get_internal_symbol();
             fprintf(stderr, "VECTORIZER: Adding '%s' function version "\
                     "(device=%s, vector_length=%u, target_type=%s, masked=%d,"\
                     " SVML=%d priority=%d)\n",
-                    func_name.c_str(), device.c_str(), vector_length,
+                    print_decl_type_str(sym->type_information, sym->decl_context,
+                        get_qualified_symbol_name(sym, sym->decl_context)),
+                    device.c_str(), vector_length,
                     target_type.get_simple_declaration(TL::Scope::get_global_scope(), "").c_str(),
                     masked, is_svml, priority);
         }

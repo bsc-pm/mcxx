@@ -39,29 +39,14 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFunction::VectorizerVisitorFunction(VectorizerEnvironment& environment,
+        VectorizerVisitorFunctionHeader::VectorizerVisitorFunctionHeader(VectorizerEnvironment& environment,
                 const bool masked_version) :
             _environment(environment), _masked_version(masked_version)
         {
         }
 
-        void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
+        void VectorizerVisitorFunctionHeader::visit(const Nodecl::FunctionCode& function_code)
         {
-            /*
-            for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
-                    it_type != parameters_type.end();
-                    it_param_sym++, it_type++)
-            {
-                TL::Type sym_type = Utils::get_qualified_vector_to((*it_type),
-                        _environment._vectorization_factor);
-
-                // Set type to parameter TL::Symbol
-                (*it_param_sym).set_type(sym_type);
-
-                parameters_vector_type.append(sym_type);
-            }
-            */
-
             // Vectorize Local Symbols & Parameters
             VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
             visitor_local_symbol.walk(function_code);
@@ -126,10 +111,46 @@ namespace TL
             vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
                         _environment._vectorization_factor).get_function_returning(
                             parameters_vector_type));
+        }
 
-            // Vectorize Local Symbols
-            //VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
-            //visitor_local_symbol.walk(function_code);
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunctionHeader::unhandled_node(const Nodecl::NodeclBase& n)
+        {
+            std::cerr << "Function Visitor HEADER: Unknown node "
+                << ast_print_node_type(n.get_kind())
+                << " at " << n.get_locus()
+                << std::endl;
+
+            return Ret();
+        }
+
+
+
+        // Vectorize Local Symbols
+        //VectorizerVisitorLocalSymbol visitor_local_symbol(environment);
+        //visitor_local_symbol.walk(function_code);
+        VectorizerVisitorFunction::VectorizerVisitorFunction(VectorizerEnvironment& environment,
+                const bool masked_version) :
+            _environment(environment), _masked_version(masked_version)
+        {
+        }
+
+        void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
+        {
+            /*
+            for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
+                    it_type != parameters_type.end();
+                    it_param_sym++, it_type++)
+            {
+                TL::Type sym_type = Utils::get_qualified_vector_to((*it_type),
+                        _environment._vectorization_factor);
+
+                // Set type to parameter TL::Symbol
+                (*it_param_sym).set_type(sym_type);
+
+                parameters_vector_type.append(sym_type);
+            }
+            */
+
 
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment);
@@ -164,7 +185,7 @@ namespace TL
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n)
         {
-            std::cerr << "Function Visitor: Unknown node "
+            std::cerr << "Function Visitor CODE: Unknown node "
                 << ast_print_node_type(n.get_kind())
                 << " at " << n.get_locus()
                 << std::endl;

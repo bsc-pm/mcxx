@@ -78,7 +78,7 @@ namespace TL
                 void set_overlap_in_place(const std::string overlap_in_place_str);
         };
 
-        class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>
+        class SimdProcessingBase
         {
             protected:
                 TL::Vectorization::Vectorizer& _vectorizer;
@@ -114,6 +114,16 @@ namespace TL
                         std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
                         TL::Scope enclosing_scope);
 
+                SimdProcessingBase(Vectorization::SIMDInstructionSet simd_isa,
+                        bool fast_math_enabled, bool svml_enabled,
+                        bool only_adjacent_accesses,
+                        bool overlap_in_place);
+        };
+
+        class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>, public SimdProcessingBase
+        {
+            protected:
+
                 void common_simd_function(
                         const Nodecl::OpenMP::SimdFunction& simd_node,
                         const bool masked_version);
@@ -131,6 +141,24 @@ namespace TL
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
 
                 virtual void visit(const Nodecl::TemplateFunctionCode& func_code);
+        };
+
+        class SimdPreregisterVisitor : public Nodecl::ExhaustiveVisitor<void>, public SimdProcessingBase
+        {
+            protected:
+
+                void common_simd_function_preregister(
+                        const Nodecl::OpenMP::SimdFunction& simd_node,
+                        const bool masked_version);
+
+            public:
+                SimdPreregisterVisitor(Vectorization::SIMDInstructionSet simd_isa,
+                        bool fast_math_enabled, bool svml_enabled,
+                        bool only_adjacent_accesses,
+                        bool overlap_in_place);
+                ~SimdPreregisterVisitor();
+
+                virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
         };
 
         class SimdSPMLVisitor : public SimdVisitor

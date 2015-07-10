@@ -76,6 +76,9 @@ namespace TL
 
                 void vectorize_loop(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment);
+                void vectorize_function_header(Nodecl::FunctionCode& func_code,
+                        VectorizerEnvironment& environment,
+                        const bool masked_version);
                 void vectorize_function(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
