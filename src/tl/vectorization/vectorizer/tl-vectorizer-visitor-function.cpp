@@ -101,11 +101,6 @@ namespace TL
                     // vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
                     // vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
                 }
-
-                Nodecl::Symbol mask_nodecl_sym =
-                    mask_sym.make_nodecl(true, function_code.get_locus());
-
-                _environment._mask_list.push_back(mask_nodecl_sym);
             }
 
             vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
@@ -151,6 +146,15 @@ namespace TL
             }
             */
 
+            if(_masked_version)
+            {
+                TL::Symbol mask_sym = function_code.get_symbol().get_related_symbols().back();
+
+                Nodecl::Symbol mask_nodecl_sym =
+                    mask_sym.make_nodecl(true, function_code.get_locus());
+
+                _environment._mask_list.push_back(mask_nodecl_sym);
+            }
 
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment);
