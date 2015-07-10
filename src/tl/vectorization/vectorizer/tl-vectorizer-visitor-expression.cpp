@@ -1192,14 +1192,15 @@ namespace Vectorization
         }
     }
 
-    bool is_compiler_node_function_call(const std::string& func_name)
+    bool is_compiler_node_function_call(TL::Symbol func_name)
     {
-        if (func_name == "fabsf"
-                || func_name == "sqrtf"
-                || func_name == "fabs"
-                || func_name == "sqrt"
-                || func_name == "sincosf"
-                /* || func_name == "sincos" */)
+        TL::Scope global_scope(CURRENT_COMPILED_FILE->global_decl_context);
+        if (func_name == global_scope.get_symbol_from_name("fabsf")
+                || func_name == global_scope.get_symbol_from_name("sqrtf")
+                || func_name == global_scope.get_symbol_from_name("fabs")
+                || func_name == global_scope.get_symbol_from_name("sqrt")
+                || func_name == global_scope.get_symbol_from_name("sincosf")
+                /* || func_name == global_scope.get_symbol_from_name("sincos") */)
         {
             return true;
         }
@@ -1218,9 +1219,11 @@ namespace Vectorization
 
         Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
         TL::Type call_type = n.get_type();
-        std::string func_name = called_sym.get_symbol().get_name();
+        TL::Symbol func_name = called_sym.get_symbol();
 
-        if (func_name == "_mm_prefetch" || func_name == "_mm_prefetche")
+        TL::Scope global_scope(CURRENT_COMPILED_FILE->global_decl_context);
+        if (func_name == global_scope.get_symbol_from_name("_mm_prefetch") 
+                || func_name == global_scope.get_symbol_from_name("_mm_prefetche"))
         {
             VECTORIZATION_DEBUG()
             {
@@ -1231,7 +1234,7 @@ namespace Vectorization
             return;
         }
 
-        if (func_name == "_mm_clevict")
+        if (func_name == global_scope.get_symbol_from_name("_mm_clevict"))
         {
             VECTORIZATION_DEBUG()
             {
@@ -1366,11 +1369,11 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 std::cerr << "VECTORIZER: Vectorizing function call '"
-                    << func_name << "'" << std::endl;
+                    << func_name.get_qualified_name() << "'" << std::endl;
             }
 
-            if (func_name == "fabsf" ||
-                    func_name == "fabs")
+            if (func_name == global_scope.get_symbol_from_name("fabsf") ||
+                    func_name == global_scope.get_symbol_from_name("fabs"))
             {
                 const Nodecl::VectorFabs vector_fabs_call =
                     Nodecl::VectorFabs::make(
@@ -1383,8 +1386,8 @@ namespace Vectorization
 
                 n.replace(vector_fabs_call);
             }
-            else if (func_name == "sqrtf" ||
-                    func_name == "sqrt")
+            else if (func_name == global_scope.get_symbol_from_name("sqrtf") ||
+                    func_name == global_scope.get_symbol_from_name("sqrt"))
             {
                 const Nodecl::VectorSqrt vector_sqrt_call =
                     Nodecl::VectorSqrt::make(
@@ -1397,7 +1400,7 @@ namespace Vectorization
 
                 n.replace(vector_sqrt_call);
             }
-            else if (func_name == "sincosf")
+            else if (func_name == global_scope.get_symbol_from_name("sincosf"))
             {
                 Nodecl::List::iterator args = n.get_arguments().
                     as<Nodecl::List>().begin();
@@ -1434,7 +1437,7 @@ namespace Vectorization
                 }
 
                 ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best "\
-                        "vector function for '%s' is null", func_name.c_str());
+                        "vector function for '%s' is null", func_name.get_qualified_name().c_str());
 
                 // Create new called symbol
                 Nodecl::Symbol new_called;
@@ -1479,7 +1482,7 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 std::cerr << "VECTORIZER: Function call '"
-                    << func_name << "' is kept scalar" << std::endl;
+                    << func_name.get_qualified_name() << "' is kept scalar" << std::endl;
             }
         }
     }

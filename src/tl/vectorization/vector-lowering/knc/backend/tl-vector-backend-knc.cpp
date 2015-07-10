@@ -2263,7 +2263,7 @@ namespace Vectorization
                 n.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
 
             // Use scalar symbol to look up
-            if(_vectorizer.is_svml_function(scalar_sym.get_name(),
+            if(_vectorizer.is_svml_function(scalar_sym,
                         "knc",
                         vector_type.get_size(),
                         scalar_type,
