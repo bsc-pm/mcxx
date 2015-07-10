@@ -141,7 +141,7 @@ namespace Vectorization
                 else if (tl_sym_type.is_class()
                         && Utils::class_type_can_be_vectorized(tl_sym_type))
                 {
-                    tl_sym_type = Utils::get_class_of_vector_fields(
+                    vector_type = Utils::get_class_of_vector_fields(
                             tl_sym_type,
                             _environment._vectorization_factor);
                 }
