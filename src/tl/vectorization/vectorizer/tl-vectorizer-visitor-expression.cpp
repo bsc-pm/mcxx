@@ -2039,6 +2039,18 @@ namespace Vectorization
         }
     }
 
+    void VectorizerVisitorExpression::visit(
+            const Nodecl::IntelAssume& n)
+    {
+        // Do nothing
+    }
+
+    void VectorizerVisitorExpression::visit(
+            const Nodecl::IntelAssumeAligned& n)
+    {
+        // Do nothing
+    }
+
     Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::
         unhandled_node(const Nodecl::NodeclBase& n)
     {
