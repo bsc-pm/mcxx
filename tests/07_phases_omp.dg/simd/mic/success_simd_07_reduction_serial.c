@@ -32,7 +32,7 @@ test_generator=config/mercurium-serial-simd-mic
 */
 
 #include <stdio.h>
-
+#include <math.h>
 
 
 int main()

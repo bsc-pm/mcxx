@@ -32,6 +32,7 @@ test_generator=config/mercurium-parallel-simd-mic
 */
 
 #include <stdio.h>
+#include <math.h>
 
 int main()
 {
