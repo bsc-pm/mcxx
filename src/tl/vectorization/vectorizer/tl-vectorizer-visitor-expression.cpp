@@ -1343,6 +1343,10 @@ namespace Vectorization
                     fprintf(stderr, "func: %s\n", best_version.as<Nodecl::Symbol>().get_symbol().get_name().c_str());
                 }
             }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
         else if (is_compiler_node_function_call(func_name))
         {
@@ -1350,6 +1354,10 @@ namespace Vectorization
             // FIXME: we are assuming that inline expanded vector functions
             // have all their arguments as vectors
             vectorize_all_arguments = true;
+        }
+        else
+        {
+            // Do nothing
         }
 
 

@@ -1205,10 +1205,12 @@ namespace TL {
             _vectorizer.add_vector_function_version(
                     func_sym,
                     vector_func_code, _device_name, 
-                    function_return_type.get_size() * 
-                    function_environment._vectorization_factor, 
-                    function_return_type, masked_version,
+                    function_environment._vectorization_factor
+                    * function_return_type.get_size(),
+                    function_return_type,
+                    masked_version,
                     TL::Vectorization::SIMD_FUNC_PRIORITY, false);
+
 
             _vectorizer.vectorize_function_header(vector_func_code,
                     function_environment, masked_version);
@@ -1310,11 +1312,12 @@ namespace TL {
                 int _vectorization_factor =
                     _vector_length/target_type.get_size();
 
+                TL::Type function_return_type = func_sym.get_type().returns();
                 vector_func_code = Vectorizer::_function_versioning.get_best_version(
                             func_sym,
                             _device_name,
-                            _vectorization_factor * target_type.get_size(),
-                            target_type,
+                            _vectorization_factor * function_return_type.get_size(),
+                            function_return_type,
                             masked_version).as<Nodecl::FunctionCode>();
 
                 ERROR_CONDITION(vector_func_code.is_null()
