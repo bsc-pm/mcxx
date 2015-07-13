@@ -95,48 +95,34 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: -- Local Symbols --\n");
         }
 
-        objlist_nodecl_symbol_t local_symbol_list = 
-            Nodecl::Utils::get_local_symbols_occurrences(n);
-
-        for(objlist_nodecl_symbol_t::iterator it = local_symbol_list.begin();
-                it != local_symbol_list.end();
-                it++)
+        struct LocalReferences : public Nodecl::ExhaustiveVisitor<void>
         {
-            //std::cerr << "STUDYING: " << it->prettyprint() << " at line " << it->get_locus_str() << std::endl;
-            const Nodecl::Symbol& nodecl_sym = *it;
-            TL::Symbol tl_sym = nodecl_sym.get_symbol();
-            TL::Type tl_sym_type = tl_sym.get_type();
+            VectorizerEnvironment& _environment;
+            TL::ObjectList<TL::Symbol> &local_symbols;
+            LocalReferences(VectorizerEnvironment& environment_,
+                    TL::ObjectList<TL::Symbol>& local_symbols_)
+                : _environment(environment_),
+                local_symbols(local_symbols_) { }
 
-            //std::cerr << "vector: " << tl_sym_type.is_vector() << std::endl;
-            //std::cerr << "mask: " << tl_sym_type.is_mask() << std::endl;
-            //std::cerr << "uniform: " << Vectorizer::_vectorizer_analysis->is_uniform(
-            //        _environment._analysis_simd_scope, nodecl_sym, nodecl_sym) << std::endl;
-            //std::cerr << "linear: " << Vectorizer::_vectorizer_analysis->
-            //    is_linear(_environment._analysis_simd_scope, nodecl_sym) << std::endl;
+            TL::ObjectList<TL::Symbol> promoted_to_vector;
 
-            //std::cerr << "IV: " << Vectorizer::_vectorizer_analysis->
-            //    is_induction_variable(_environment._analysis_simd_scope, nodecl_sym) << std::endl;
- 
-
-            if (!tl_sym_type.is_vector()
-                    && !tl_sym_type.is_mask()
-                    && !Vectorizer::_vectorizer_analysis->
-                            is_uniform(_environment._analysis_simd_scope,
-                                nodecl_sym, nodecl_sym)
-                    && !Vectorizer::_vectorizer_analysis->
-                            is_linear(_environment._analysis_simd_scope,
-                                nodecl_sym))
-                    //&&
-                    //!Vectorizer::_vectorizer_analysis->
-                    //is_induction_variable(_environment._analysis_simd_scope,
-                    //    nodecl_sym))
+            void turn_local_to_vector(TL::Symbol tl_sym, Nodecl::NodeclBase n)
             {
+                std::cerr << "MAKING |" << tl_sym.get_name() << "| at " << n.get_locus_str() << " VECTORIAL " << std::endl;
+                TL::Type tl_sym_type = tl_sym.get_type().no_ref();
+
                 TL::Type vector_type;
 
                 if (tl_sym_type.is_bool())
                 {
                     vector_type = TL::Type::get_mask_type(
                             _environment._vectorization_factor);
+                }
+                else if (tl_sym_type.is_integral_type()
+                        || tl_sym_type.is_floating_type())
+                {
+                    vector_type = Utils::get_qualified_vector_to(
+                            tl_sym_type, _environment._vectorization_factor);
                 }
                 else if (tl_sym_type.is_class()
                         && Utils::class_type_can_be_vectorized(tl_sym_type))
@@ -147,46 +133,253 @@ namespace Vectorization
                 }
                 else
                 {
-                    vector_type = Utils::get_qualified_vector_to(
-                        tl_sym_type, _environment._vectorization_factor);
+                    running_error("%s: error: cannot vectorize '%s' of type '%s'\n",
+                            n.get_locus_str().c_str(),
+                            n.prettyprint().c_str(),
+                            tl_sym_type.get_declaration(tl_sym.get_scope(), "").c_str());
+                }
+
+                if (tl_sym.get_type().is_lvalue_reference())
+                {
+                    vector_type = vector_type.get_lvalue_reference_to();
                 }
 
                 tl_sym.set_type(vector_type);
 
+                promoted_to_vector.insert(tl_sym);
+
                 VECTORIZATION_DEBUG()
                 {
                     fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type promotion from '%s'"\
-                            " to '%s'\n", nodecl_sym.prettyprint().c_str(),
+                            " to '%s'\n", n.prettyprint().c_str(),
                             tl_sym_type.get_simple_declaration(
                                 n.retrieve_context(), "").c_str(),
                             vector_type.get_simple_declaration(
                                 n.retrieve_context(), "").c_str());
                 }
             }
-            else
+
+            struct ReferenceInfo
             {
-                if (!tl_sym.get_type().is_vector())
+                bool is_uniform;
+                bool is_linear;
+                // bool is_iv;
+            };
+
+            ReferenceInfo request_info_of_reference(Nodecl::NodeclBase n)
+            {
+                ReferenceInfo result;
+                result.is_uniform = Vectorizer::_vectorizer_analysis->is_uniform(
+                        _environment._analysis_simd_scope, n, n);
+                result.is_linear = Vectorizer::_vectorizer_analysis->
+                    is_linear(_environment._analysis_simd_scope, n);
+                // result.is_iv = Vectorizer::_vectorizer_analysis->
+                //     is_induction_variable(_environment._analysis_simd_scope, n);
+
+                return result;
+            }
+
+            virtual void visit (const Nodecl::Symbol& n)
+            {
+                TL::Symbol tl_sym = n.get_symbol();
+
+                if (!local_symbols.contains(tl_sym))
+                    return;
+                if (promoted_to_vector.contains(tl_sym))
+                    return;
+
+                std::cerr << "SYMBOL ACCESS |" << n.prettyprint() << "| " << n.get_locus_str() << std::endl;
+
+                TL::Type tl_sym_type = tl_sym.get_type().no_ref();
+                bool is_mask = tl_sym_type.is_mask();
+
+                ReferenceInfo ref_info = request_info_of_reference(n);
+                if (!tl_sym_type.is_vector()
+                        && !is_mask
+                        && !ref_info.is_uniform
+                        && !ref_info.is_linear
+                        /* && !ref_info.is_induction_variable */)
                 {
-                    VECTORIZATION_DEBUG()
-                    {
-                        fprintf(stderr,"VECTORIZER: '%s' is kept scalar", 
-                                nodecl_sym.prettyprint().c_str());
+                    turn_local_to_vector(tl_sym, n);
+                }
+                else
+                {
+                    std::cerr << "SKIPPING |" << tl_sym.get_name() << "| at " << n.get_locus_str()
+                        << " linear=" << ref_info.is_linear << " uniform=" << ref_info.is_uniform 
+                        << std::endl;
+                    // internal_error("Code unreachable", 0);
+                    // if (!tl_sym.get_type().is_vector())
+                    // {
+                    //     VECTORIZATION_DEBUG()
+                    //     {
+                    //         fprintf(stderr,"VECTORIZER: '%s' is kept scalar", 
+                    //                 nodecl_sym.prettyprint().c_str());
 
-                        if (Vectorizer::_vectorizer_analysis->
-                                is_uniform(_environment._analysis_simd_scope,
-                                    nodecl_sym, nodecl_sym))
-                            fprintf(stderr," (uniform)");
+                    //         if (Vectorizer::_vectorizer_analysis->
+                    //                 is_uniform(_environment._analysis_simd_scope,
+                    //                     nodecl_sym, nodecl_sym))
+                    //             fprintf(stderr," (uniform)");
 
-                        if (Vectorizer::_vectorizer_analysis->
-                                is_linear(_environment._analysis_simd_scope,
-                                    nodecl_sym))
-                            fprintf(stderr," (linear)");
+                    //         if (Vectorizer::_vectorizer_analysis->
+                    //                 is_linear(_environment._analysis_simd_scope,
+                    //                     nodecl_sym))
+                    //             fprintf(stderr," (linear)");
 
-                        fprintf(stderr,"\n");
-                    }
+                    //         fprintf(stderr,"\n");
+                    //     }
+                    // }
                 }
             }
-        }
+
+            virtual void visit (const Nodecl::ClassMemberAccess& n)
+            {
+                // Get leftmost access
+                // a.x.y -> a
+                Nodecl::NodeclBase leftmost = n.get_lhs();
+                while (leftmost.is<Nodecl::ClassMemberAccess>())
+                {
+                    leftmost = leftmost.as<Nodecl::ClassMemberAccess>().get_lhs();
+                }
+                // Too complex, give up
+                if (!leftmost.is<Nodecl::Symbol>())
+                {
+                    std::cerr << "IN " << n.prettyprint() << " LEFTMOST IS NOT A NODECL_SYMBOL BUT A " << ast_print_node_type(leftmost.get_kind()) << std::endl;
+                    return;
+                }
+
+                // Check the whole object (this is different to what we do
+                // below, this walk will ignore the accessed member)
+                walk(n.get_lhs());
+
+                // Now resume with the current class member access
+                TL::Symbol tl_sym = leftmost.get_symbol();
+
+                if (!local_symbols.contains(tl_sym))
+                    return;
+                if (promoted_to_vector.contains(tl_sym))
+                    return;
+
+                std::cerr << "CLASS MEMBER ACCESS |" << n.prettyprint() << "| " << n.get_locus_str() << std::endl;
+
+                TL::Type tl_sym_type = tl_sym.get_type().no_ref();
+
+                // Here we take into account the accessed member
+                ReferenceInfo ref_info = request_info_of_reference(n);
+                if (!tl_sym_type.is_vector() // ???
+                        && !ref_info.is_uniform
+                        && !ref_info.is_linear
+                        /* && !ref_info.is_induction_variable */)
+                {
+                    turn_local_to_vector(tl_sym, n);
+                }
+                else
+                {
+                    std::cerr << "SKIPPING |" << n.prettyprint() << "| at " << n.get_locus_str()
+                        << " linear=" << ref_info.is_linear << " uniform=" << ref_info.is_uniform 
+                        << std::endl;
+                    // internal_error("Code unreachable", 0);
+                }
+            }
+        };
+
+        TL::ObjectList<TL::Symbol> local_symbols = Nodecl::Utils::get_local_symbols(n);
+
+        LocalReferences local_refs(_environment, local_symbols);
+        local_refs.walk(n);
+
+        // objlist_nodecl_symbol_t local_symbol_list = 
+        //     Nodecl::Utils::get_local_symbols_occurrences(n);
+
+        // for(objlist_nodecl_symbol_t::iterator it = local_symbol_list.begin();
+        //         it != local_symbol_list.end();
+        //         it++)
+        // {
+        //     //std::cerr << "STUDYING: " << it->prettyprint() << " at line " << it->get_locus_str() << std::endl;
+        //     const Nodecl::Symbol& nodecl_sym = *it;
+        //     TL::Symbol tl_sym = nodecl_sym.get_symbol();
+        //     TL::Type tl_sym_type = tl_sym.get_type();
+
+        //     bool is_mask = tl_sym_type.is_mask();
+        //     bool is_uniform = Vectorizer::_vectorizer_analysis->is_uniform(
+        //             _environment._analysis_simd_scope, nodecl_sym, nodecl_sym);
+        //     bool is_linear = Vectorizer::_vectorizer_analysis->
+        //         is_linear(_environment._analysis_simd_scope, nodecl_sym);
+        //     // bool is_iv = Vectorizer::_vectorizer_analysis->
+        //     //     is_induction_variable(_environment._analysis_simd_scope, nodecl_sym);
+
+        //     //std::cerr << "vector: " << tl_sym_type.is_vector() << std::endl;
+        //     //std::cerr << "mask: " << tl_sym_type.is_mask() << std::endl;
+        //     //std::cerr << "uniform: " << Vectorizer::_vectorizer_analysis->is_uniform(
+        //     //        _environment._analysis_simd_scope, nodecl_sym, nodecl_sym) << std::endl;
+        //     //std::cerr << "linear: " << Vectorizer::_vectorizer_analysis->
+        //     //    is_linear(_environment._analysis_simd_scope, nodecl_sym) << std::endl;
+
+        //     //std::cerr << "IV: " << Vectorizer::_vectorizer_analysis->
+        //     //    is_induction_variable(_environment._analysis_simd_scope, nodecl_sym) << std::endl;
+ 
+
+        //     if (!tl_sym_type.is_vector()
+        //             && !is_mask
+        //             && !is_uniform
+        //             && !is_linear
+        //             /* && !is_induction_variable */)
+        //     {
+        //         TL::Type vector_type;
+
+        //         if (tl_sym_type.is_bool())
+        //         {
+        //             vector_type = TL::Type::get_mask_type(
+        //                     _environment._vectorization_factor);
+        //         }
+        //         else if (tl_sym_type.is_class()
+        //                 && Utils::class_type_can_be_vectorized(tl_sym_type))
+        //         {
+        //             vector_type = Utils::get_class_of_vector_fields(
+        //                     tl_sym_type,
+        //                     _environment._vectorization_factor);
+        //         }
+        //         else
+        //         {
+        //             vector_type = Utils::get_qualified_vector_to(
+        //                 tl_sym_type, _environment._vectorization_factor);
+        //         }
+
+        //         tl_sym.set_type(vector_type);
+
+        //         VECTORIZATION_DEBUG()
+        //         {
+        //             fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type promotion from '%s'"
+        //                     " to '%s'\n", nodecl_sym.prettyprint().c_str(),
+        //                     tl_sym_type.get_simple_declaration(
+        //                         n.retrieve_context(), "").c_str(),
+        //                     vector_type.get_simple_declaration(
+        //                         n.retrieve_context(), "").c_str());
+        //         }
+        //     }
+        //     else
+        //     {
+        //         if (!tl_sym.get_type().is_vector())
+        //         {
+        //             VECTORIZATION_DEBUG()
+        //             {
+        //                 fprintf(stderr,"VECTORIZER: '%s' is kept scalar", 
+        //                         nodecl_sym.prettyprint().c_str());
+
+        //                 if (Vectorizer::_vectorizer_analysis->
+        //                         is_uniform(_environment._analysis_simd_scope,
+        //                             nodecl_sym, nodecl_sym))
+        //                     fprintf(stderr," (uniform)");
+
+        //                 if (Vectorizer::_vectorizer_analysis->
+        //                         is_linear(_environment._analysis_simd_scope,
+        //                             nodecl_sym))
+        //                     fprintf(stderr," (linear)");
+
+        //                 fprintf(stderr,"\n");
+        //             }
+        //         }
+        //     }
+        // }
 
         VECTORIZATION_DEBUG()
         {
