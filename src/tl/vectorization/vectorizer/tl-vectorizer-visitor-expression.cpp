@@ -350,8 +350,12 @@ namespace Vectorization
         TL::Type vector_class_type = Utils::get_class_of_vector_fields(
                 class_type,
                 _environment._vectorization_factor);
-        Utils::class_of_vector_field_map_t field_map = Utils::class_of_vector_fields_get_map_field(vector_class_type);
 
+        VECTORIZATION_DEBUG()
+        {
+            std::cerr << "TYPE " << vector_class_type.print_declarator() << std::endl;
+        }
+        Utils::class_of_vector_field_map_t field_map = Utils::class_of_vector_fields_get_map_field(vector_class_type);
 
         TL::Symbol orig_member = member.get_symbol();
         ERROR_CONDITION(!orig_member.is_valid(), "Expecting a symbol here", 0);
@@ -655,9 +659,12 @@ namespace Vectorization
                         is_uniform(_environment._analysis_simd_scope,
                             lhs, lhs))
                 {
-                    std::cerr << "Vectorizer: Constant store: "
-                        << lhs.prettyprint()
-                        << std::endl;
+                    VECTORIZATION_DEBUG()
+                    {
+                        std::cerr << "Vectorizer: Constant store: "
+                            << lhs.prettyprint()
+                            << std::endl;
+                    }
 
                     running_error("Vectorizer: Extract operation is not "\
                             "supported yet (%s).", lhs.prettyprint().c_str());
@@ -925,6 +932,7 @@ namespace Vectorization
                 else if (class_object.is<Nodecl::Symbol>())
                 {
                     vectorize_regular_class_member_access(lhs.as<Nodecl::ClassMemberAccess>());
+                    walk(rhs);
                 }
                 else
                 {
@@ -1318,7 +1326,10 @@ namespace Vectorization
                     get_related_symbols();
 
                 need_vector_function = true;
-                fprintf(stderr, "func: %s\n", best_version.as<Nodecl::FunctionCode>().get_symbol().get_name().c_str());
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "func: %s\n", best_version.as<Nodecl::FunctionCode>().get_symbol().get_name().c_str());
+                }
             }
             else if (best_version.is<Nodecl::Symbol>())
             {
@@ -1327,7 +1338,10 @@ namespace Vectorization
 
                 need_vector_function = true;
 
-                fprintf(stderr, "func: %s\n", best_version.as<Nodecl::Symbol>().get_symbol().get_name().c_str());
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "func: %s\n", best_version.as<Nodecl::Symbol>().get_symbol().get_name().c_str());
+                }
             }
         }
         else if (is_compiler_node_function_call(func_name))
@@ -1346,7 +1360,10 @@ namespace Vectorization
             {
                 // If the parameter has no vector type,
                 // it will be linear or uniform in the function.
+                VECTORIZATION_DEBUG()
+                {
                 std::cerr << "Param: " << param_it->get_name() << " " << print_declarator(param_it->get_type().get_internal_type()) << std::endl;
+                }
                 if (param_it->get_type().no_ref().is_vector())
                 {
                     VECTORIZATION_DEBUG()

@@ -578,13 +578,19 @@ namespace Utils
     }
 
     TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
-            const unsigned int size)
+            const unsigned int size,
+            bool &is_new)
     {
         {
             std::map<TL::Type, TL::Type>::iterator it = _cache_of_class_types.find(orig_class_type);
             if (it != _cache_of_class_types.end())
+            {
+                is_new = false;
                 return it->second;
+            }
         }
+
+        is_new = true;
 
         TL::Symbol orig_class = orig_class_type.get_symbol();
         TL::Scope sc = orig_class.get_scope();
@@ -622,7 +628,8 @@ namespace Utils
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
         // Add fields
-        class_of_vector_field_map_t &field_map = _class_of_vector_field_maps[new_class_type];
+        TL::Type result_type = new_class_symbol.get_user_defined_type();
+        class_of_vector_field_map_t &field_map = _class_of_vector_field_maps[result_type];
         TL::ObjectList<TL::Symbol> orig_data_field = orig_class_type.get_fields();
         for (TL::ObjectList<TL::Symbol>::iterator it = orig_data_field.begin();
                 it != orig_data_field.end();
@@ -637,6 +644,8 @@ namespace Utils
 
             field.set_type( Utils::get_qualified_vector_to( orig_field_type, size ) );
             field.get_internal_symbol()->locus = it->get_locus();
+            symbol_entity_specs_set_access(field.get_internal_symbol(),
+                    symbol_entity_specs_get_access(it->get_internal_symbol()));
 
             class_type_add_member(new_class_type,
                     field.get_internal_symbol(),
@@ -654,9 +663,16 @@ namespace Utils
         set_is_complete_type(new_class_type, /* is_complete */ 1);
         set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
 
-        _cache_of_class_types[orig_class_type] = new_class_type;
+        _cache_of_class_types[orig_class_type] = result_type;
 
-        return new_class_type;
+        return result_type;
+    }
+
+    TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
+            const unsigned int size)
+    {
+        bool dummy;
+        return get_class_of_vector_fields(orig_class_type, size, dummy);
     }
 }
 }

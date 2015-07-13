@@ -65,6 +65,10 @@ namespace Vectorization
 
             TL::Symbol _function_return;                    // Return symbol when return statement are present in masked code
 
+            // FIXME - find a better place for this sort of things
+            typedef std::pair<TL::Type, TL::Type> VectorizedClass;
+            TL::ObjectList<VectorizedClass> _vectorized_classes;
+
             VectorizerEnvironment(const std::string& device,
                     const unsigned int vector_length,
                     const bool support_masking,

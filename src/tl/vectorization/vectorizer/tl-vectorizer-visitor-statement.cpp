@@ -800,6 +800,14 @@ namespace Vectorization
     {
     }
 
+    void VectorizerVisitorStatement::visit(const Nodecl::CxxDecl& n)
+    {
+    }
+
+    void VectorizerVisitorStatement::visit(const Nodecl::CxxDef& n)
+    {
+    }
+
 
     /*
        Nodecl::NodeclBase VectorizerVisitorStatement::process_return_inside(Nodecl::NodeclBase current_mask_nodecl)

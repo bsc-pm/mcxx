@@ -55,6 +55,9 @@ namespace TL
                 virtual void visit(const Nodecl::UnknownPragma& n);
                 virtual void visit(const Nodecl::EmptyStatement& n);
 
+                virtual void visit(const Nodecl::CxxDecl& n);
+                virtual void visit(const Nodecl::CxxDef& n);
+
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
     }

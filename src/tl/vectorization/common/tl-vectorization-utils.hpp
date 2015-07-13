@@ -100,6 +100,9 @@ namespace TL
             bool class_type_can_be_vectorized(TL::Type);
             TL::Type get_class_of_vector_fields(TL::Type src_type,
                     const unsigned int size);
+            TL::Type get_class_of_vector_fields(TL::Type src_type,
+                    const unsigned int size,
+                    bool &is_new);
 
             Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(
                     const Nodecl::NodeclBase& mask,
