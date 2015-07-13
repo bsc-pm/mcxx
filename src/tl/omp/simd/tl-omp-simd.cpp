@@ -1215,6 +1215,37 @@ namespace TL {
 
             function_environment.unload_environment();
             _vectorizer.postprocess_code(simd_node);
+
+            // Add extra CxxDef that may have been required during vectorization
+            // std::cerr << "(2) ENV = " << &function_environment << std::endl;
+            for (TL::ObjectList<VectorizerEnvironment::VectorizedClass>::iterator
+                    it_classes = function_environment._vectorized_classes.begin();
+                    it_classes != function_environment._vectorized_classes.end();
+                    it_classes++)
+            {
+                Nodecl::NodeclBase translation_unit = CURRENT_COMPILED_FILE->nodecl;
+                Nodecl::List top_level = translation_unit
+                    .as<Nodecl::TopLevel>()
+                    .get_top_level()
+                    .as<Nodecl::List>();
+
+                bool found = false;
+                for (Nodecl::List::iterator it_nodes = top_level.begin();
+                        it_nodes != top_level.end() && !found;
+                        it_nodes++)
+                {
+                    if (it_nodes->is<Nodecl::CxxDef>()
+                            && it_nodes->get_symbol() == it_classes->first.get_symbol())
+                    {
+                        it_nodes->append_sibling(
+                                Nodecl::CxxDef::make(
+                                    Nodecl::NodeclBase::null(),
+                                    it_classes->second.get_symbol()));
+                    }
+                }
+            }
+            function_environment._vectorized_classes.clear();
+
 // 
             // Free analysis
             //_vectorizer.finalize_analysis();
@@ -1426,7 +1457,7 @@ namespace TL {
                     }
                     if (!found)
                     {
-                        std::cerr << "Hmmm, I did not find " << func_sym.get_qualified_name() << " anywhere in the top level..." << std::endl;
+                        // std::cerr << "Hmmm, I did not find " << func_sym.get_qualified_name() << " anywhere in the top level..." << std::endl;
                     }
                 }
             }

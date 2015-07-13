@@ -28,6 +28,8 @@
 
 #include "tl-nodecl-utils.hpp"
 
+#include "cxx-diagnostic.h"
+
 namespace TL
 {
 namespace Vectorization
@@ -58,15 +60,33 @@ void VectorizerReport::print_report(const Nodecl::NodeclBase& n)
     reset_report();
     walk(n);
 
-    fprintf(stderr, "VREPORT: Total loads: %d\n", _vloads);
-    fprintf(stderr, "VREPORT:     - Aligned: %d\n", _aligned_vloads);
-    fprintf(stderr, "VREPORT:     - Unaligned: %d\n", _unaligned_vloads);
-    fprintf(stderr, "VREPORT: Total stores: %d\n", _vstores);
-    fprintf(stderr, "VREPORT:     - Aligned: %d\n", _aligned_vstores);
-    fprintf(stderr, "VREPORT:     - Unaligned: %d\n", _unaligned_vstores);
-    fprintf(stderr, "VREPORT: Gathers: %d\n", _vgathers);
-    fprintf(stderr, "VREPORT: Scatters: %d\n", _vscatters);
-    fprintf(stderr, "VREPORT: Vector promotions: %d\n", _vpromotions);
+    info_printf("%s: info: Total loads: %d\n",
+            n.get_locus_str().c_str(),
+            _vloads);
+    info_printf("%s: info:     - Aligned: %d\n",
+            n.get_locus_str().c_str(),
+            _aligned_vloads);
+    info_printf("%s: info:     - Unaligned: %d\n",
+            n.get_locus_str().c_str(),
+            _unaligned_vloads);
+    info_printf("%s: info: Total stores: %d\n",
+            n.get_locus_str().c_str(),
+            _vstores);
+    info_printf("%s: info:     - Aligned: %d\n",
+            n.get_locus_str().c_str(),
+            _aligned_vstores);
+    info_printf("%s: info:     - Unaligned: %d\n",
+            n.get_locus_str().c_str(),
+            _unaligned_vstores);
+    info_printf("%s: info: Gathers: %d\n",
+            n.get_locus_str().c_str(),
+            _vgathers);
+    info_printf("%s: info: Scatters: %d\n",
+            n.get_locus_str().c_str(),
+            _vscatters);
+    info_printf("%s: info: Vector promotions: %d\n",
+            n.get_locus_str().c_str(),
+            _vpromotions);
 }
 
 void VectorizerReport::visit(const Nodecl::ObjectInit& n)

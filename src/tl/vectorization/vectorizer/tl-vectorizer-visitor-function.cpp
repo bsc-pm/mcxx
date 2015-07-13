@@ -131,21 +131,6 @@ namespace TL
 
         void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
         {
-            /*
-            for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
-                    it_type != parameters_type.end();
-                    it_param_sym++, it_type++)
-            {
-                TL::Type sym_type = Utils::get_qualified_vector_to((*it_type),
-                        _environment._vectorization_factor);
-
-                // Set type to parameter TL::Symbol
-                (*it_param_sym).set_type(sym_type);
-
-                parameters_vector_type.append(sym_type);
-            }
-            */
-
             if(_masked_version)
             {
                 TL::Symbol mask_sym = function_code.get_symbol().get_related_symbols().back();
