@@ -3409,6 +3409,9 @@ EXTRA_DIST += \
 
 mpich_modules = \
 			  support/mpi/mpich/mpi.mf03 \
+			  support/mpi/mpich/mpi_constants.mf03 \
+			  support/mpi/mpich/mpi_base.mf03 \
+			  support/mpi/mpich/mpi_sizeofs.mf03 \
 			  $(END)
 
 EXTRA_DIST += \
