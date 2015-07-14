@@ -1306,7 +1306,7 @@ namespace Vectorization
 
         // Get list of params;
         TL::Type function_target_type = call_type.no_ref();
-        int function_target_type_size = function_target_type.get_size();
+        int function_target_type_size = function_target_type.is_void() ? 1 : function_target_type.get_size();
 
         // Get the best vector version of the function available
         Nodecl::NodeclBase best_version =

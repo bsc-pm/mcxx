@@ -53,7 +53,10 @@ namespace TL
                 const TL::Type& target_type,
                 const bool masked) const
         {
-            bool compatible_type = (_target_type.get_size() == target_type.get_size());
+            int _target_type_size = _target_type.is_void() ? 1 : _target_type.get_size();
+            int target_type_size = target_type.is_void() ? 1 : target_type.get_size();
+
+            bool compatible_type = (_target_type_size == target_type_size);
 
             return (_device == device) &&
                 (_vector_length == vector_length) &&

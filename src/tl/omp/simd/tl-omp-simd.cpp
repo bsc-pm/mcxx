@@ -1202,11 +1202,12 @@ namespace TL {
 
             // Add SIMD version to vector function versioning
             TL::Type function_return_type = func_sym.get_type().returns();
+            int function_return_type_size = function_return_type.is_void() ? 1 : function_return_type.get_size();
             _vectorizer.add_vector_function_version(
                     func_sym,
                     vector_func_code, _device_name, 
                     function_environment._vectorization_factor
-                    * function_return_type.get_size(),
+                    * function_return_type_size,
                     function_return_type,
                     masked_version,
                     TL::Vectorization::SIMD_FUNC_PRIORITY, false);
@@ -1316,7 +1317,8 @@ namespace TL {
                 vector_func_code = Vectorizer::_function_versioning.get_best_version(
                             func_sym,
                             _device_name,
-                            _vectorization_factor * function_return_type.get_size(),
+                            _vectorization_factor * 
+                            (function_return_type.is_void() ? 1 : function_return_type.get_size()),
                             function_return_type,
                             masked_version).as<Nodecl::FunctionCode>();
 
