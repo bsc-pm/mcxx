@@ -65,6 +65,9 @@ namespace Vectorization{
 
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );
+        bool is_aligned_access( const Nodecl::Dereference& n,
+                const std::map<TL::Symbol, int> aligned_expressions,
+                int& alignment_module);
         bool is_aligned_access( const Nodecl::ArraySubscript& n,
                 const std::map<TL::Symbol, int> aligned_expressions,
                 int& alignment_module);

@@ -207,6 +207,39 @@ namespace Vectorization
         return false;
     }
 
+    bool SuitableAlignmentVisitor::is_aligned_access(
+            const Nodecl::Dereference& n,
+            const std::map<TL::Symbol, int> aligned_expressions,
+            int& alignment_module)
+    {
+        int alignment;
+        alignment_module = -1;
+        _aligned_expressions = aligned_expressions;
+
+        Nodecl::NodeclBase deref_element = n.get_rhs();
+        TL::Type element_type = deref_element.get_type().basic_type();
+
+        ERROR_CONDITION(!deref_element.is<Nodecl::Symbol>(),
+                "Unexpected Derefence %s\n", deref_element.get_kind());
+
+        alignment = get_pointer_alignment(deref_element.as<Nodecl::Symbol>());
+
+        if(alignment == -1)
+        {
+            // There is no alignment info about the subscripted symbol
+            // Assume unaligned
+            return false;
+        }
+
+        alignment_module = alignment % _alignment;
+        if( alignment_module == 0 )
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     int SuitableAlignmentVisitor::get_pointer_alignment(
             const Nodecl::Symbol& n)
     {
@@ -451,6 +484,15 @@ namespace Vectorization
         {
             Nodecl::NodeclBase lb = _analysis->
                 get_induction_variable_lower_bound(_scope, n);
+
+            //TL::Analysis::NodeclSet lb_set = 
+            //    _analysis->get_linear_variable_lower_bound(_scope, n);
+            //
+            //// TODO: Multiple lb
+            //if (lb_set.size() > 1)
+            //    abort();
+            //Nodecl::NodeclBase lb = *lb_set.begin();
+
             Nodecl::NodeclBase incr = _analysis->
                 get_linear_step(_scope, n);
 

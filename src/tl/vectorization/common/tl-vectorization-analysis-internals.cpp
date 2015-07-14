@@ -88,8 +88,6 @@ namespace Vectorization
                     scope_node, n_node, pcfg, visited_nodes);
             expr_evolution_info.walk(deref_element);
             result = expr_evolution_info.is_adjacent_access( );
-
-            fprintf(stderr, "ExpEvolution: %d\n", result);
         }
 
         return result;
@@ -104,23 +102,38 @@ namespace Vectorization
             int& alignment_module,
             VectorizationAnalysisInterface* analysis)
     {
-        if( !n.is<Nodecl::ArraySubscript>( ) )
+        int type_size; 
+
+        if(n.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript array_subscript = n.as<Nodecl::ArraySubscript>( );
+            Nodecl::NodeclBase subscripted = array_subscript.get_subscripted( );
+
+            type_size = subscripted.get_type().basic_type().get_size();
+
+            SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
+                    unroll_factor, type_size, alignment, analysis );
+
+            return sa_v.is_aligned_access(n.as<Nodecl::ArraySubscript>(),
+                    aligned_expressions, alignment_module);
+        }
+        else if (n.is<Nodecl::Dereference>())
+        {
+            type_size = n.get_type().basic_type().get_size();
+
+            SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
+                    unroll_factor, type_size, alignment, analysis );
+
+            return sa_v.is_aligned_access(n.as<Nodecl::Dereference>(),
+                    aligned_expressions, alignment_module);
+        }
+        else
         {
             std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
-                      << n.prettyprint( ) << "' which is not an array subscript" << std::endl;
+                      << n.prettyprint( ) << ". Not supported" << std::endl;
             return false;
         }
 
-        Nodecl::ArraySubscript array_subscript = n.as<Nodecl::ArraySubscript>( );
-        Nodecl::NodeclBase subscripted = array_subscript.get_subscripted( );
-
-        int type_size = subscripted.get_type().basic_type().get_size();
-
-        SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
-                unroll_factor, type_size, alignment, analysis );
-
-        return sa_v.is_aligned_access(
-                array_subscript, aligned_expressions, alignment_module);
     }
 
     bool is_suitable_expression_internal(

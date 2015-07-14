@@ -99,7 +99,7 @@ namespace Vectorization
                         {
                             int pointed_type_size = sym_type.points_to().get_size();
                             int step_int = const_value_cast_to_4(step.get_constant());
-fprintf(stderr, "%d ==? %d\n", pointed_type_size, step_int);
+                            
                             if (pointed_type_size == step_int)
                                 is_linear_stride_one = true;
                         }
