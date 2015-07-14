@@ -85,7 +85,7 @@ linker_name = @GCC@
 #dlb
 {dlb} preprocessor_options = -I@DLB_INCLUDE@
 #
-linker_options = -Xlinker --add-needed
+linker_options =
 #nanos++
 {openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
 {openmp,mmic} preprocessor_options = -I@NANOX_MIC_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
@@ -120,7 +120,7 @@ linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 #dlb
 {dlb} preprocessor_options = -I@DLB_INCLUDE@
 #
-linker_options = -Wl,--add-needed
+linker_options =
 #nanos++
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -qinclude=nanos.h -qinclude=nanos_omp.h
 linker_options = -Wl,--enable-new-dtags
