@@ -80,6 +80,17 @@ namespace Vectorization
                 }
             }
         }
+        else if (n.is<Nodecl::Dereference>())
+        {
+            Nodecl::NodeclBase deref_element = n.as<Nodecl::Dereference>().get_rhs();
+
+            ExpressionEvolutionVisitor expr_evolution_info(
+                    scope_node, n_node, pcfg, visited_nodes);
+            expr_evolution_info.walk(deref_element);
+            result = expr_evolution_info.is_adjacent_access( );
+
+            fprintf(stderr, "ExpEvolution: %d\n", result);
+        }
 
         return result;
     }

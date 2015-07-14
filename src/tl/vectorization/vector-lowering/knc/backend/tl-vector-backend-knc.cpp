@@ -2007,9 +2007,9 @@ namespace Vectorization
         walk(lhs);
         walk(rhs);
 
-        ERROR_CONDITION(!rhs.no_conv().is<Nodecl::Symbol>(),
-                "KNC Backed: Nodecl::Symbol expected in unaligned vector store: %s",
-                rhs.prettyprint().c_str());
+        //ERROR_CONDITION(!rhs.no_conv().is<Nodecl::Symbol>(),
+        //        "KNC Backed: Nodecl::Symbol expected in unaligned vector store: %s",
+        //        rhs.prettyprint().c_str());
 
         args_lo << as_expression(lhs)
             << ", "

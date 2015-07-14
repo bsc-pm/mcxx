@@ -249,7 +249,7 @@ namespace Vectorization
         {
             num_init_registers = ogroup._num_registers -1;
             gen_init_prefetching = false; //true &;
-#warning false false
+//#warning false false
         }
         else
         {  
