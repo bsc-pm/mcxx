@@ -210,11 +210,6 @@ namespace Vectorization
                 if (promoted_to_vector.contains(tl_sym))
                     return;
 
-                VECTORIZATION_DEBUG()
-                {
-                    std::cerr << "SYMBOL ACCESS |" << n.prettyprint() << "| " << n.get_locus_str() << std::endl;
-                }
-
                 TL::Type tl_sym_type = tl_sym.get_type().no_ref();
                 bool is_mask = tl_sym_type.is_mask();
 
@@ -315,6 +310,23 @@ namespace Vectorization
                             << std::endl;
                     }
                     // internal_error("Code unreachable", 0);
+                }
+            }
+
+            virtual void visit(const Nodecl::ObjectInit& n)
+            {
+                TL::Symbol sym = n.get_symbol();
+                TL::Type scalar_type = sym.get_type().no_ref();
+
+                if (!scalar_type.is_vector())
+                {
+                    Nodecl::NodeclBase init = sym.get_value();
+
+                    // Vectorizing initialization
+                    if(!init.is_null())
+                    {
+                        walk(init);
+                    }
                 }
             }
 
