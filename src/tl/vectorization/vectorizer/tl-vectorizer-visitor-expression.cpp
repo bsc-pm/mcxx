@@ -442,6 +442,14 @@ namespace Vectorization
                 walk(n.get_true());
                 _environment._mask_list.pop_back();
 
+                CXX_LANGUAGE()
+                {
+                    n.prepend_sibling(
+                            Nodecl::CxxDef::make(
+                                Nodecl::NodeclBase::null(),
+                                true_mask_nodecl_sym.get_symbol(),
+                                true_mask_nodecl_sym.get_locus()));
+                }
                 n.prepend_sibling(true_mask_exp);
 
 
@@ -472,6 +480,14 @@ namespace Vectorization
                 walk(n.get_false());
                 _environment._mask_list.pop_back();
 
+                CXX_LANGUAGE()
+                {
+                    n.prepend_sibling(
+                            Nodecl::CxxDef::make(
+                                Nodecl::NodeclBase::null(),
+                                false_mask_nodecl_sym.get_symbol(),
+                                false_mask_nodecl_sym.get_locus()));
+                }
                 n.prepend_sibling(else_mask_exp);
             }
         }

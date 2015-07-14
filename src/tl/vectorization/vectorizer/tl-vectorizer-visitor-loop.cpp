@@ -521,6 +521,14 @@ namespace Vectorization
                             loop_statement.get_locus()));
             }
 
+            CXX_LANGUAGE()
+            {
+                result_stmt_list.append(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            mask_nodecl_sym.get_symbol(),
+                            mask_nodecl_sym.get_locus()));
+            }
             result_stmt_list.append(mask_exp);
         }
 
