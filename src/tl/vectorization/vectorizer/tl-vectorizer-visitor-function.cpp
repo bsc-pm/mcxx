@@ -62,9 +62,24 @@ namespace TL
                     it != parameters.end();
                     it ++)
             {
-                parameters_vector_type.append(it->get_type());
-            }
+                // Adjust the type
+                TL::Type param_type = it->get_type();
 
+                if (param_type.is_array())
+                {
+                    param_type = param_type.array_element().get_pointer_to();
+                }
+                else if (param_type.is_function())
+                {
+                    param_type = param_type.get_pointer_to();
+                }
+                else
+                {
+                    param_type = param_type.get_unqualified_type();
+                }
+
+                parameters_vector_type.append(param_type);
+            }
 
             if(_masked_version)
             {
