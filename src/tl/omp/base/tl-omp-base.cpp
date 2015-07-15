@@ -2379,8 +2379,10 @@ namespace TL { namespace OpenMP {
 
         // Mask
         PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
+        PragmaCustomClause inbranch_clause = pragma_line.get_clause("inbranch");
 
-        if (mask_clause.is_defined())
+        if (mask_clause.is_defined()
+                || inbranch_clause.is_defined())
         {
             environment.append(
                     Nodecl::OpenMP::Mask::make(locus));
@@ -2388,8 +2390,10 @@ namespace TL { namespace OpenMP {
 
         // No Mask
         PragmaCustomClause no_mask_clause = pragma_line.get_clause("nomask");
+        PragmaCustomClause not_inbranch_clause = pragma_line.get_clause("notinbranch");
 
-        if (no_mask_clause.is_defined())
+        if (no_mask_clause.is_defined()
+                || not_inbranch_clause.is_defined())
         {
             environment.append(
                     Nodecl::OpenMP::NoMask::make(locus));
