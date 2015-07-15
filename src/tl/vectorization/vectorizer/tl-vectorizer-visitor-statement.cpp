@@ -201,8 +201,15 @@ namespace Vectorization
                         main_loop_control.get_init().as<Nodecl::List>().
                         front().shallow_copy()));
             main_loop_control.set_init(Nodecl::NodeclBase::null());
+            CXX_LANGUAGE()
+            {
+                n.prepend_sibling(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            mask_condition_symbol.get_symbol(),
+                            mask_condition_symbol.get_locus()));
+            }
             n.prepend_sibling(main_loop_precond_stmt);
-
            
             _environment._analysis_scopes.pop_back();
 
@@ -356,6 +363,14 @@ namespace Vectorization
                             mask_condition_symbol.get_type(),
                             n.get_locus()));
 
+            CXX_LANGUAGE()
+            {
+                list.append(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            mask_condition_symbol.get_symbol(),
+                            mask_condition_symbol.get_locus()));
+            }
             list.append(mask_condition_exp);
 
             // If mask symbol
@@ -398,6 +413,14 @@ namespace Vectorization
             }
 
             // Add masks to the source code
+            CXX_LANGUAGE()
+            {
+                list.append(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            if_mask_symbol.get_symbol(),
+                            if_mask_symbol.get_locus()));
+            }
             list.append(if_mask_exp);
 
             // ***********
@@ -436,6 +459,14 @@ namespace Vectorization
                             n.get_locus()));
 
             // Add masks to the source code
+            CXX_LANGUAGE()
+            {
+                list.append(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            else_mask_symbol.get_symbol(),
+                            else_mask_symbol.get_locus()));
+            }
             list.append(else_mask_exp);
 
             // ***************
@@ -564,6 +595,15 @@ namespace Vectorization
                                     make_locus("", 0, 0)),
                                 if_mask_symbol.get_type(),
                                 make_locus("", 0, 0)));
+
+                CXX_LANGUAGE()
+                {
+                    list.append(
+                            Nodecl::CxxDef::make(
+                                Nodecl::NodeclBase::null(),
+                                new_exit_mask.get_symbol(),
+                                new_exit_mask.get_locus()));
+                }
 
                 list.append(new_mask_exp);
                 _environment._mask_list.push_back(new_exit_mask);
