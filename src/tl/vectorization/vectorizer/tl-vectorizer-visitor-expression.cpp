@@ -1440,7 +1440,7 @@ namespace Vectorization
                 || func_name == global_scope.get_symbol_from_name("fabs")
                 || func_name == global_scope.get_symbol_from_name("sqrt")
                 || func_name == global_scope.get_symbol_from_name("sincosf")
-                /* || func_name == global_scope.get_symbol_from_name("sincos") */)
+                || func_name == global_scope.get_symbol_from_name("sincos"))
         {
             return true;
         }

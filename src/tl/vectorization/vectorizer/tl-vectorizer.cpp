@@ -467,7 +467,7 @@ namespace Vectorization
                     "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("sincosf"),
                     global_scope.get_symbol_from_name("_mm_sincos_ps").make_nodecl(true),
-                    "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                    "smp", 4, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("floorf"),
                     global_scope.get_symbol_from_name("_mm_floor_ps").make_nodecl(true),
                     "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -486,7 +486,7 @@ namespace Vectorization
                     "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
                     global_scope.get_symbol_from_name("_mm_sincos_pd").make_nodecl(true),
-                    "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                    "smp", 2, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("floor"),
                     global_scope.get_symbol_from_name("_mm_floor_pd").make_nodecl(true),
                     "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -545,7 +545,7 @@ namespace Vectorization
                     "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("sincosf"),
                     global_scope.get_symbol_from_name("_mm256_sincos_ps").make_nodecl(true),
-                    "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                    "avx2", 8, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("floorf"),
                     global_scope.get_symbol_from_name("_mm256_floor_ps").make_nodecl(true),
                     "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -567,7 +567,7 @@ namespace Vectorization
                     "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
                     global_scope.get_symbol_from_name("_mm256_sincos_pd").make_nodecl(true),
-                    "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                    "avx2", 4, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("floor"),
                     global_scope.get_symbol_from_name("_mm256_floor_pd").make_nodecl(true),
                     "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -585,15 +585,14 @@ namespace Vectorization
             << "__m512 _mm512_log_ps(__m512);\n"
             << "__m512 _mm512_sin_ps(__m512);\n"
             << "__m512 _mm512_cos_ps(__m512);\n"
-            //                    << "__m512 _mm512_sincos_ps(__m512*, __m512);\n"
-            //                    << "__m512 __svml_sincosf16_ha(__m512*, __m512);\n"
+//            << "__m512 _mm512_sincos_ps(__m512*, __m512);\n"
             << "__m512 _mm512_floor_ps(__m512);\n"
             << "__m512d _mm512_exp_pd(__m512d);\n"
             << "__m512d _mm512_sqrt_pd(__m512d);\n"
             << "__m512d _mm512_log_pd(__m512d);\n"
             << "__m512d _mm512_sin_pd(__m512d);\n"
             << "__m512d _mm512_cos_pd(__m512d);\n"
-            //                    << "__m512d _mm512_sincos_pd(__m512d, __m512d*);\n"
+//            << "__m512d _mm512_sincos_pd(__m512d*, __m512d);\n"
             << "__m512d _mm512_floor_pd(__m512d);\n"
             ;
 
@@ -603,15 +602,14 @@ namespace Vectorization
             << "__m512 _mm512_mask_log_ps(__m512, __mmask16, __m512);\n"
             << "__m512 _mm512_mask_sin_ps(__m512, __mmask16, __m512);\n"
             << "__m512 _mm512_mask_cos_ps(__m512, __mmask16, __m512);\n"
-            //                    << "__m512 _mm512_mask_sincos_ps(__m512, __mmask16, __m512*, __m512);\n"
-            //                    << "__m512 __svml_sincosf16_ha_mask(__m512*, __mmask16, __m512);\n"
+//            << "__m512 _mm512_mask_sincos_ps(__m512*, __m512, __m512, __mmask16, __m512);\n"
             << "__m512 _mm512_mask_floor_ps(__m512, __mmask16, __m512);\n"
             << "__m512d _mm512_mask_exp_pd(__m512d, __mmask8, __m512d);\n"
             << "__m512d _mm512_mask_sqrt_pd(__m512d, __mmask8, __m512d);\n"
             << "__m512d _mm512_mask_log_pd(__m512d, __mmask8, __m512d);\n"
             << "__m512d _mm512_mask_sin_pd(__m512d, __mmask8, __m512d);\n"
             << "__m512d _mm512_mask_cos_pd(__m512d, __mmask8, __m512d);\n"
-            //                    << "__m512d _mm512_mask_sincos_pd(__m512d, __mmask8, __m512d*);\n"
+//            << "__m512d _mm512_mask_sincos_pd(__m512d*, __m512d, __m512d, __mmask8, __m512d);\n"
             << "__m512d _mm512_mask_floor_pd(__m512d, __mmask8, __m512d);\n"
             ;
 
@@ -636,9 +634,9 @@ namespace Vectorization
                 global_scope.get_symbol_from_name("_mm512_cos_ps").make_nodecl(true),
                 device, 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
         //It seems it doesn't exist in MIC
-        //                add_vector_function_version("sincosf",
-        //                            global_scope.get_symbol_from_name("_mm512_sincos_ps").make_nodecl(true),
-        //                            device, 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+//        add_vector_function_version(global_scope.get_symbol_from_name("sincosf"),
+//                global_scope.get_symbol_from_name("_mm512_sincos_ps").make_nodecl(true),
+//                device, 16, TL::Type::get_void_type(), false, DEFAULT_FUNC_PRIORITY, true);
         add_vector_function_version(global_scope.get_symbol_from_name("floor"),
                 global_scope.get_symbol_from_name("_mm512_floor_pd").make_nodecl(true),
                 device, 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -658,9 +656,9 @@ namespace Vectorization
                 global_scope.get_symbol_from_name("_mm512_cos_pd").make_nodecl(true),
                 device, 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
         //It seems it doesn't exist in MIC
-        //                add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
-        //                            global_scope.get_symbol_from_name("_mm512_sincos_pd").make_nodecl(true),
-        //                            device, 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+//        add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
+//                    global_scope.get_symbol_from_name("_mm512_sincos_pd").make_nodecl(true),
+//                    device, 8, TL::Type::get_void_type(), false, DEFAULT_FUNC_PRIORITY, true);
         add_vector_function_version(global_scope.get_symbol_from_name("floor"),
                 global_scope.get_symbol_from_name("_mm512_floor_pd").make_nodecl(true),
                 device, 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -683,9 +681,9 @@ namespace Vectorization
                 global_scope.get_symbol_from_name("_mm512_mask_cos_ps").make_nodecl(true),
                 device, 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
         // It seems it doesn't exist in MIC
-        //                add_vector_function_version("sincosf",
-        //                            global_scope.get_symbol_from_name("_mm512_mask_sincos_ps").make_nodecl(true),
-        //                            device, 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
+//        add_vector_function_version(global_scope.get_symbol_from_name("sincosf"),
+//                    global_scope.get_symbol_from_name("_mm512_mask_sincos_ps").make_nodecl(true),
+//                    device, 16, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
         add_vector_function_version(global_scope.get_symbol_from_name("floorf"),
                 global_scope.get_symbol_from_name("_mm512_mask_floor_ps").make_nodecl(true),
                 device, 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
@@ -705,9 +703,9 @@ namespace Vectorization
                 global_scope.get_symbol_from_name("_mm512_mask_cos_pd").make_nodecl(true),
                 device, 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
         // It seems it doesn't exist in MIC
-        //                add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
-        //                            global_scope.get_symbol_from_name("_mm512_mask_sincos_pd").make_nodecl(true),
-        //                            device, 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
+//        add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
+//                    global_scope.get_symbol_from_name("_mm512_mask_sincos_pd").make_nodecl(true),
+//                    device, 16, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
         add_vector_function_version(global_scope.get_symbol_from_name("floor"),
                 global_scope.get_symbol_from_name("_mm512_mask_floor_pd").make_nodecl(true),
                 device, 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
