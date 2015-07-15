@@ -2353,7 +2353,7 @@ namespace TL { namespace OpenMP {
                     Nodecl::FunctionCode function_code_spec =
                         current_specialization.get_function_code().as<Nodecl::FunctionCode>();
 
-                    info_printf("%s: info: extending '#pragma omp simd' to function instantiation '%s'\n",
+                    info_printf("%s: info: extending '#pragma omp declare simd' to function instantiation '%s'\n",
                         locus_to_str(locus),
                         current_specialization.get_qualified_name().c_str());
 
