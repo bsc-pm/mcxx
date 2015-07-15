@@ -64,6 +64,7 @@ OMP_CONSTRUCT_NOEND("do", do, IS_FORTRAN_LANGUAGE)
 OMP_CONSTRUCT("workshare", workshare, IS_FORTRAN_LANGUAGE)
 
 OMP_CONSTRUCT("simd", simd, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+OMP_CONSTRUCT("declare|simd", declare_simd, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
 OMP_CONSTRUCT_NOEND("simd", simd_fortran, IS_FORTRAN_LANGUAGE)
 
 // Not yet implemented

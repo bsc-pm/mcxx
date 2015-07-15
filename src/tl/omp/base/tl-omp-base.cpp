@@ -295,6 +295,8 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
         INVALID_DECLARATION_HANDLER(taskloop)
 
+        INVALID_STATEMENT_HANDLER(declare_simd)
+
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
         void Base::_name##_handler_post(TL::PragmaCustomStatement) { } \
@@ -2433,8 +2435,18 @@ namespace TL { namespace OpenMP {
             Nodecl::Utils::remove_from_enclosing_list(decl);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd\n", decl.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring #pragma omp declare simd\n", decl.get_locus_str().c_str());
 #endif
+    }
+
+    void Base::declare_simd_handler_pre(TL::PragmaCustomDeclaration decl)
+    {
+        simd_handler_pre(decl);
+    }
+
+    void Base::declare_simd_handler_post(TL::PragmaCustomDeclaration decl)
+    {
+        simd_handler_post(decl);
     }
 
     // SIMD For Statement
