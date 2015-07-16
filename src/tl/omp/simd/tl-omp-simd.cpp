@@ -236,6 +236,10 @@ namespace TL {
             }
         }
 
+        void Simd::phase_cleanup(TL::DTO& dto)
+        {
+        }
+
         SimdProcessingBase::SimdProcessingBase(Vectorization::SIMDInstructionSet simd_isa,
                 bool fast_math_enabled, bool svml_enabled,
                 bool only_adjacent_accesses,

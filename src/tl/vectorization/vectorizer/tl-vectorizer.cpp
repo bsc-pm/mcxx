@@ -115,6 +115,11 @@ namespace Vectorization
 
     Vectorizer::~Vectorizer()
     {
+        if (_vectorizer_analysis != NULL)
+            finalize_analysis();
+        
+        _function_versioning.clear();
+        _analysis_func = Symbol();
     }
 
     void Vectorizer::preprocess_code(const Nodecl::NodeclBase& n)
@@ -393,9 +398,10 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             scope_entry_t* sym = func_name.get_internal_symbol();
-            fprintf(stderr, "VECTORIZER: Adding '%s' function version "\
+            fprintf(stderr, "VECTORIZER: Adding %p '%s' function version "\
                     "(device=%s, vector_length=%u, target_type=%s, masked=%d,"\
                     " SVML=%d priority=%d)\n",
+                    sym,
                     print_decl_type_str(sym->type_information, sym->decl_context,
                         get_qualified_symbol_name(sym, sym->decl_context)),
                     device.c_str(), vector_length,

@@ -172,6 +172,12 @@ namespace TL
                 sse_vector_lowering.walk(translation_unit);
             }
         }
+
+        void VectorLoweringPhase::phase_cleanup(TL::DTO& dto)
+        {
+            delete Vectorizer::_vectorizer;
+            Vectorizer::_vectorizer = NULL;
+        }
     }
 }
 
