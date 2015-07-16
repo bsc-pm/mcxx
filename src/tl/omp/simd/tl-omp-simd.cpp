@@ -1753,12 +1753,8 @@ namespace TL {
             TL::ObjectList<Nodecl::OpenMP::Nontemporal> omp_nontemporal_list =
                 environment.find_all<Nodecl::OpenMP::Nontemporal>();
 
-            for(TL::ObjectList<Nodecl::OpenMP::Nontemporal>::iterator it = omp_nontemporal_list.begin();
-                    it != omp_nontemporal_list.end();
-                    it++)
+            for(const auto& omp_nontemporal : omp_nontemporal_list)
             {
-                Nodecl::OpenMP::Nontemporal& omp_nontemporal = *it;
-
                 objlist_nodecl_t nontemporal_expressions_list =
                     omp_nontemporal.get_nontemporal_expressions().as<Nodecl::List>().to_object_list();
 
@@ -1770,7 +1766,7 @@ namespace TL {
                         it2++)
                 {
 
-                    if(!nontemporal_expressions.insert(std::pair<TL::Symbol, ObjectList<Nodecl::NodeclBase> >(
+                    if(!nontemporal_expressions.insert(std::make_pair(
                                     it2->as<Nodecl::Symbol>().get_symbol(), nontemporal_flags)).second)
                     {
                         running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");

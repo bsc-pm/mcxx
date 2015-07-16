@@ -897,12 +897,44 @@ namespace Vectorization
 
             if (nontemporal_store)
             {
+                store_flags.append(Nodecl::NontemporalFlag::make());
+
                 VECTORIZATION_DEBUG()
                 {
                     fprintf(stderr, " (nontemporal)");
                 }
 
-                store_flags.append(Nodecl::NontemporalFlag::make());
+                Nodecl::List nontemporal_flags = Nodecl::List::make(nontemporal_it->second);
+
+                for (auto tflag : nontemporal_flags)
+                {
+                    std::cerr << "--> " << tflag.prettyprint() << std::endl;
+                }
+                
+                bool relaxed = !nontemporal_flags.find_first<Nodecl::RelaxedFlag>().is_null();
+                bool evict = !nontemporal_flags.find_first<Nodecl::EvictFlag>().is_null();
+                
+                if (relaxed) 
+                {
+                    fprintf(stderr, "RELAXED\n");
+
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr, " (relaxed)");
+                    }
+
+                    store_flags.append(Nodecl::RelaxedFlag::make());
+                }
+
+                if(evict)
+                {
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr, " (evict)");
+                    }
+
+                    store_flags.append(Nodecl::EvictFlag::make());
+                }
             }
 
             VECTORIZATION_DEBUG()
