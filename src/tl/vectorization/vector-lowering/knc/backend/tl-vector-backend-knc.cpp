@@ -225,7 +225,8 @@ namespace Vectorization
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorStore>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorReductionAdd>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConditionalExpression>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n);
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCall>(n);
 
         if (contains_vector_nodes)
         {
@@ -2006,9 +2007,9 @@ namespace Vectorization
         walk(lhs);
         walk(rhs);
 
-        ERROR_CONDITION(!rhs.no_conv().is<Nodecl::Symbol>(),
-                "KNC Backed: Nodecl::Symbol expected in unaligned vector store: %s",
-                rhs.prettyprint().c_str());
+        //ERROR_CONDITION(!rhs.no_conv().is<Nodecl::Symbol>(),
+        //        "KNC Backed: Nodecl::Symbol expected in unaligned vector store: %s",
+        //        rhs.prettyprint().c_str());
 
         args_lo << as_expression(lhs)
             << ", "
@@ -2263,7 +2264,7 @@ namespace Vectorization
                 n.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
 
             // Use scalar symbol to look up
-            if(_vectorizer.is_svml_function(scalar_sym.get_name(),
+            if(_vectorizer.is_svml_function(scalar_sym,
                         "knc",
                         vector_type.get_size(),
                         scalar_type,

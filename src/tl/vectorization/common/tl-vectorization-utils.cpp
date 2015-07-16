@@ -26,6 +26,7 @@
 
 #include "tl-vectorization-utils.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-counters.hpp"
 #include "cxx-cexpr.h"
 
 namespace TL
@@ -558,6 +559,120 @@ namespace Utils
         }
 
         return result;
+    }
+
+    bool class_type_can_be_vectorized(TL::Type)
+    {
+        // FIXME - Check that the class is an aggregate without array data-members
+        return true;
+    }
+
+    // FIXME:
+    std::map<TL::Type, TL::Type> _cache_of_class_types;
+
+    std::map<TL::Type, class_of_vector_field_map_t> _class_of_vector_field_maps;
+
+    class_of_vector_field_map_t class_of_vector_fields_get_map_field(TL::Type class_of_vector)
+    {
+        return _class_of_vector_field_maps[class_of_vector];
+    }
+
+    TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
+            const unsigned int size,
+            bool &is_new)
+    {
+        {
+            std::map<TL::Type, TL::Type>::iterator it = _cache_of_class_types.find(orig_class_type);
+            if (it != _cache_of_class_types.end())
+            {
+                is_new = false;
+                return it->second;
+            }
+        }
+
+        is_new = true;
+
+        TL::Symbol orig_class = orig_class_type.get_symbol();
+        TL::Scope sc = orig_class.get_scope();
+
+        TL::Counter &counter = TL::CounterManager::get_counter("simd-struct-of-vectors");
+        std::stringstream ss;
+        ss << "__vector_" << orig_class.get_name() << "_" << size << "_" << (int)counter;
+        counter++;
+
+        std::string structure_name;
+        if (IS_C_LANGUAGE)
+        {
+            // We need an extra 'struct '
+            structure_name = "struct " + ss.str();
+        }
+        else
+        {
+            structure_name = ss.str();
+        }
+
+        // Create the class symbol
+        TL::Symbol new_class_symbol = sc.new_symbol(structure_name);
+        new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
+        type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
+
+        symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
+
+        const decl_context_t* class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
+                new_class_symbol.get_internal_symbol());
+
+        TL::Scope class_scope(class_context);
+
+        class_type_set_inner_context(new_class_type, class_context);
+
+        new_class_symbol.get_internal_symbol()->type_information = new_class_type;
+
+        // Add fields
+        TL::Type result_type = new_class_symbol.get_user_defined_type();
+        class_of_vector_field_map_t &field_map = _class_of_vector_field_maps[result_type];
+        TL::ObjectList<TL::Symbol> orig_data_field = orig_class_type.get_fields();
+        for (TL::ObjectList<TL::Symbol>::iterator it = orig_data_field.begin();
+                it != orig_data_field.end();
+                it++)
+        {
+            std::string orig_field_name = it->get_name() + "_vec";
+            TL::Type orig_field_type = it->get_type();
+
+            TL::Symbol field = class_scope.new_symbol(orig_field_name);
+            field.get_internal_symbol()->kind = SK_VARIABLE;
+            symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
+
+            field.set_type( Utils::get_qualified_vector_to( orig_field_type, size ) );
+            field.get_internal_symbol()->locus = it->get_locus();
+            symbol_entity_specs_set_access(field.get_internal_symbol(),
+                    symbol_entity_specs_get_access(it->get_internal_symbol()));
+
+            class_type_add_member(new_class_type,
+                    field.get_internal_symbol(),
+                    /* is_definition */ 1);
+
+            field_map[*it] = field;
+        }
+
+        nodecl_t nodecl_output = nodecl_null();
+        finish_class_type(new_class_type,
+                ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
+                sc.get_decl_context(),
+                orig_class.get_locus(),
+                &nodecl_output);
+        set_is_complete_type(new_class_type, /* is_complete */ 1);
+        set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
+
+        _cache_of_class_types[orig_class_type] = result_type;
+
+        return result_type;
+    }
+
+    TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
+            const unsigned int size)
+    {
+        bool dummy;
+        return get_class_of_vector_fields(orig_class_type, size, dummy);
     }
 }
 }

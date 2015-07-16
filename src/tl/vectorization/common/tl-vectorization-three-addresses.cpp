@@ -125,10 +125,33 @@ namespace Vectorization
                     tmp_sym.make_nodecl(true /*ref_type*/),
                     tmp_sym.get_type()));
 
+
+        Nodecl::NodeclBase cxx_def;
+        if (IS_CXX_LANGUAGE)
+        {
+            cxx_def = Nodecl::CxxDef::make(
+                    /* context of def */ Nodecl::NodeclBase::null(),
+                    tmp_sym,
+                    n.get_locus());
+        }
+
+
         if (!_object_init.is_null())
+        {
+            if (IS_CXX_LANGUAGE)
+            {
+                Nodecl::Utils::prepend_sibling_statement(_object_init, cxx_def);
+            }
             Nodecl::Utils::prepend_sibling_statement(_object_init, new_stmt);
+        }
         else
+        {
+            if (IS_CXX_LANGUAGE)
+            {
+                Nodecl::Utils::prepend_sibling_statement(n, cxx_def);
+            }
             Nodecl::Utils::prepend_sibling_statement(n, new_stmt);
+        }
     }
  
     void VectorizationThreeAddresses::visit_vector_unary(

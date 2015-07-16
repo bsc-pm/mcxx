@@ -2457,6 +2457,8 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(critical)
         INVALID_DECLARATION_HANDLER(simd_fortran)
 
+        INVALID_STATEMENT_HANDLER(declare_simd)
+
 #define EMPTY_HANDLERS_STATEMENT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \
         void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
@@ -2481,6 +2483,7 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_STATEMENT(simd_fortran)
 
         EMPTY_HANDLERS_DECLARATION(simd)
+        EMPTY_HANDLERS_DECLARATION(declare_simd)
 
         EMPTY_HANDLERS_DIRECTIVE(barrier)
         EMPTY_HANDLERS_DIRECTIVE(flush)

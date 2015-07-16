@@ -76,6 +76,9 @@ namespace TL
 
                 void vectorize_loop(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment);
+                void vectorize_function_header(Nodecl::FunctionCode& func_code,
+                        VectorizerEnvironment& environment,
+                        const bool masked_version);
                 void vectorize_function(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
@@ -119,12 +122,12 @@ namespace TL
                         Nodecl::List& pre_nodecls,
                         Nodecl::List& post_nodecls);
 
-                void add_vector_function_version(const std::string& func_name,
+                void add_vector_function_version(TL::Symbol symbol,
                         const Nodecl::NodeclBase& func_version, const std::string& device,
                         const unsigned int vector_length, const TL::Type& target_type,
                         const bool masked, const FunctionPriority priority,
                         bool const is_svml_function);
-                bool is_svml_function(const std::string& func_name,
+                bool is_svml_function(TL::Symbol symbol,
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& target_type,

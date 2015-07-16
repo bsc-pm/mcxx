@@ -46,6 +46,13 @@ namespace TL
                          typename VectorNode>
                     void visit_binary_op(const ScalarNode& n,
                             const bool returns_mask_type);
+         
+                Nodecl::NodeclBase get_memory_vector_read(const Nodecl::NodeclBase& n);
+                Nodecl::NodeclBase get_memory_vector_write(const Nodecl::NodeclBase& lhs,
+                        const Nodecl::NodeclBase& rhs,
+                        const Nodecl::NodeclBase& mask,
+                        const TL::Type type);
+                void vectorize_regular_class_member_access(const Nodecl::ClassMemberAccess &n);
 
             public:
                 VectorizerVisitorExpression(
@@ -89,6 +96,9 @@ namespace TL
                 virtual void visit(const Nodecl::Dereference& n);
 
                 virtual void visit(const Nodecl::VectorLaneId& n);
+
+                virtual void visit(const Nodecl::IntelAssume& n);
+                virtual void visit(const Nodecl::IntelAssumeAligned& n);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
 

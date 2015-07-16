@@ -64,6 +64,7 @@ INTEL_RTL="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir
 compile_versions="\${compile_versions} intel_rtl"
 test_CC_intel_rtl="\${INTEL_RTL}"
 
+SVML=""
 if [ "$1" = "svml" ];
 then
 SVML="--svml --fast-math"

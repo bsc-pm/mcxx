@@ -49,6 +49,21 @@ namespace TL
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
+
+        class VectorizerVisitorFunctionHeader : public Nodecl::NodeclVisitor<void>
+        {
+            private:
+                VectorizerEnvironment& _environment;
+                const bool _masked_version;
+
+            public:
+                VectorizerVisitorFunctionHeader(VectorizerEnvironment& environment,
+                        const bool masked_version);
+
+                virtual void visit(const Nodecl::FunctionCode& function_code);
+
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+        };
     }
 }
 

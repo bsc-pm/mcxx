@@ -31,6 +31,8 @@
 #include "tl-symbol-utils.hpp"
 #include "tl-lower-reductions.hpp"
 
+#include <numeric>
+
 
 namespace TL { namespace Intel {
 

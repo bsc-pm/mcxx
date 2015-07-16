@@ -69,17 +69,17 @@ namespace TL
 
         class FunctionVersioning
         {
-            typedef std::multimap<const std::string, const VectorFunctionVersion> versions_map_t;
+            typedef std::multimap<TL::Symbol, const VectorFunctionVersion> versions_map_t;
             versions_map_t _versions;
 
             private:
-                const VectorFunctionVersion* get_best_function_version(const std::string& func_name, 
+                const VectorFunctionVersion* get_best_function_version(TL::Symbol func_name, 
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& _target_type,
                         const bool masked) const;
 
-                versions_map_t::const_iterator find_best_function(const std::string& func_name,
+                versions_map_t::const_iterator find_best_function(TL::Symbol func_name,
                         const std::string& device,
                         const unsigned int vector_length,
                         const Type& target_type,
@@ -88,14 +88,14 @@ namespace TL
             public:
                 FunctionVersioning();
 
-                void add_version(const std::string& func_name, const VectorFunctionVersion& func_version);
-                const Nodecl::NodeclBase get_best_version(const std::string& func_name, 
+                void add_version(TL::Symbol func_name, const VectorFunctionVersion& func_version);
+                const Nodecl::NodeclBase get_best_version(TL::Symbol func_name, 
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& _target_type,
                         const bool masked) const;
 
-                bool is_svml_function(const std::string& func_name, 
+                bool is_svml_function(TL::Symbol func_name, 
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& _target_type,

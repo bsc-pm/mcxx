@@ -295,6 +295,8 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
         INVALID_DECLARATION_HANDLER(taskloop)
 
+        INVALID_STATEMENT_HANDLER(declare_simd)
+
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
         void Base::_name##_handler_post(TL::PragmaCustomStatement) { } \
@@ -2312,6 +2314,105 @@ namespace TL { namespace OpenMP {
     void Base::simd_fortran_handler_post(TL::PragmaCustomDeclaration stmt) { }
 
     // SIMD Functions
+#ifndef VECTORIZATION_DISABLED
+    void Base::register_simd_function(
+            OpenMP::DataEnvironment& ds,
+            TL::Symbol sym,
+            Nodecl::NodeclBase context_of_parameters,
+            TL::PragmaCustomLine pragma_line,
+            const locus_t* locus)
+    {
+        ERROR_CONDITION(!sym.is_valid(), "Expecting a symbol", 0);
+        ERROR_CONDITION(!sym.is_function(), "Expecting a function", 0);
+
+        if (sym.get_type().is_template_specialized_type()
+                && sym == sym.get_type().get_related_template_type().get_primary_template().get_symbol())
+        {
+            // This is a primary template
+            if (!CURRENT_CONFIGURATION->explicit_instantiation)
+            {
+                error_printf("%s: error: cannot use '#pragma omp simd' on template functions when they are not instantiated\n",
+                        locus_to_str(locus));
+            }
+            else
+            {
+                TL::Type template_type = sym.get_type().get_related_template_type();
+                TL::ObjectList<TL::Type> specializations = template_type.get_specializations();
+                for (TL::ObjectList<TL::Type>::iterator it = specializations.begin();
+                        it != specializations.end();
+                        it++)
+                {
+                    // Skip the primary
+                    if (it->get_symbol() == template_type.get_primary_template().get_symbol())
+                        continue;
+
+                    TL::Symbol current_specialization = it->get_symbol();
+
+                    ERROR_CONDITION(current_specialization.get_function_code().is_null(),
+                            "Expecting the code of this function", 0);
+                    Nodecl::FunctionCode function_code_spec =
+                        current_specialization.get_function_code().as<Nodecl::FunctionCode>();
+
+                    info_printf("%s: info: extending '#pragma omp declare simd' to function instantiation '%s'\n",
+                        locus_to_str(locus),
+                        current_specialization.get_qualified_name().c_str());
+
+                    Nodecl::NodeclBase context_of_parameters_spec = function_code_spec.get_statements();
+
+                    register_simd_function(ds,
+                            current_specialization,
+                            context_of_parameters_spec,
+                            pragma_line,
+                            locus);
+                }
+            }
+            // We are done
+            return;
+        }
+
+        Nodecl::NodeclBase function_code = sym.get_function_code();
+        ERROR_CONDITION(!function_code.is<Nodecl::FunctionCode>(), "Expecting a symbol with code", 0);
+
+        Nodecl::List environment = this->make_execution_environment(ds,
+                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
+
+        process_common_simd_clauses(pragma_line, 
+                context_of_parameters, environment);
+
+        // Mask
+        PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
+        PragmaCustomClause inbranch_clause = pragma_line.get_clause("inbranch");
+
+        if (mask_clause.is_defined()
+                || inbranch_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::Mask::make(locus));
+        }
+
+        // No Mask
+        PragmaCustomClause no_mask_clause = pragma_line.get_clause("nomask");
+        PragmaCustomClause not_inbranch_clause = pragma_line.get_clause("notinbranch");
+
+        if (no_mask_clause.is_defined()
+                || not_inbranch_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::NoMask::make(locus));
+        }
+
+        // Now we replace the whole function code with a SimdFunction
+        // (vectorizer will later create a new FunctionCode for it)
+        Nodecl::OpenMP::SimdFunction simd_func =
+            Nodecl::OpenMP::SimdFunction::make(
+                    function_code.shallow_copy(),
+                    environment,
+                    function_code.get_locus());
+
+        function_code.replace(simd_func);
+    }
+#endif
+
     void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
     void Base::simd_handler_post(TL::PragmaCustomDeclaration decl)
     {
@@ -2322,53 +2423,30 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
             OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(decl);
 
-            Nodecl::List environment = this->make_execution_environment(ds,
-                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
-
-            process_common_simd_clauses(pragma_line, 
-                    decl.get_context_of_parameters(), environment);
-
-            // Mask
-            PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
-            
-            if (mask_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Mask::make(decl.get_locus()));
-            }
-
-            // No Mask
-            PragmaCustomClause no_mask_clause = pragma_line.get_clause("nomask");
-            
-            if (no_mask_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::NoMask::make(decl.get_locus()));
-            }
-
-            ERROR_CONDITION(!decl.has_symbol(), "Expecting a function definition here (1)", 0);
-
-            TL::Symbol sym = decl.get_symbol();
-            ERROR_CONDITION(!sym.is_function(), "Expecting a function definition here (2)", 0);
-
-            Nodecl::NodeclBase node = sym.get_function_code();
-            ERROR_CONDITION(!node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
-
-            Nodecl::OpenMP::SimdFunction simd_func =
-                Nodecl::OpenMP::SimdFunction::make(
-                        node.shallow_copy(),
-                        environment,
-                        node.get_locus());
-
-            node.replace(simd_func);
+            Base::register_simd_function(
+                    ds,
+                    decl.get_symbol(),
+                    decl.get_context_of_parameters(),
+                    pragma_line,
+                    decl.get_locus());
 
             pragma_line.diagnostic_unused_clauses();
             // Remove #pragma
             Nodecl::Utils::remove_from_enclosing_list(decl);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd\n", decl.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring #pragma omp declare simd\n", decl.get_locus_str().c_str());
 #endif
+    }
+
+    void Base::declare_simd_handler_pre(TL::PragmaCustomDeclaration decl)
+    {
+        simd_handler_pre(decl);
+    }
+
+    void Base::declare_simd_handler_post(TL::PragmaCustomDeclaration decl)
+    {
+        simd_handler_post(decl);
     }
 
     // SIMD For Statement
