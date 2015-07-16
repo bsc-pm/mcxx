@@ -79,22 +79,35 @@ namespace Analysis {
             // retrieving all symbols will return: a, i
             // retrieving all memory accesses will return: a, i, a[i]
             const NodeclList n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
-
+            
+            TL::tribool array_result = true;
             for(const auto& n_ma : n_mem_accesses)
             {
                 const auto& n_ma_no_conv = n_ma.no_conv();
+
 
                 if (n != n_ma_no_conv)
                 {
                     TL::tribool n_ma_result = uniform_property(scope_node,
                             stmt_node, n_ma_no_conv, prev_n, pcfg, visited_nodes);
 
-                    if (!n_ma_result.is_true())
-                        return n_ma_result;
+                    // One false means non uniform
+                    if (n_ma_result.is_false())
+                    {
+                        array_result = n_ma_result;
+                        break;
+                    }
+
+                    // One unknown means means non-uniform or unknown
+                    // Continue
+                    if (n_ma_result.is_unknown())
+                    {
+                        array_result = n_ma_result;
+                    }
                 }
             }
             // All n_mem are uniform
-            return true;
+            return array_result;
         }
 
         // Unknown RD
