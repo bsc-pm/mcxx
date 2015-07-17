@@ -525,6 +525,8 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMod& node)
 
 void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorSqrt& node)
 {
+    walk(node.get_rhs());
+
     TL::Type type = node.get_type().basic_type();
 
     if(_fast_math) // RSQRT

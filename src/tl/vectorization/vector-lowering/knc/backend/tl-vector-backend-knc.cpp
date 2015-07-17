@@ -1075,7 +1075,7 @@ namespace Vectorization
         const unsigned int src_num_elements = src_vector_type.vector_num_elements();
         const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
-        TL::Source intrin_src, intrin_name, intrin_op_name,
+        TL::Source intrin_src, intrin_name, intrin_op_name, round,
             mask_prefix, args, mask_args, extra_args;
 
         intrin_src << intrin_name
@@ -1114,7 +1114,7 @@ namespace Vectorization
         else if (src_type_size == dst_type_size)
         {
             extra_args << ", "
-                << "_MM_ROUND_MODE_NEAREST"
+                << round
                 << ", "
                 << "_MM_EXPADJ_NONE"
                 ;
@@ -1123,23 +1123,27 @@ namespace Vectorization
                     dst_type.is_float())
             {
                 intrin_op_name << "cvtfxpnt_round_adjustepi32_ps";
+                round << "_MM_ROUND_MODE_NEAREST";
             }
             else if (src_type.is_unsigned_int() &&
                     dst_type.is_float())
             {
                 intrin_op_name << "cvtfxpnt_round_adjustepu32_ps";
+                round << "_MM_ROUND_MODE_NEAREST";
             }
             else if (src_type.is_float() &&
                     dst_type.is_signed_int())
             {
                 // C/C++ requires truncated conversion
                 intrin_op_name << "cvtfxpnt_round_adjustps_epi32";
+                round << "_MM_ROUND_MODE_TOWARD_ZERO";
             }
             else if (src_type.is_float() &&
                     dst_type.is_unsigned_int())
             {
                 // C/C++ requires truncated conversion
                 intrin_op_name << "cvtfxpnt_round_adjustps_epu32";
+                round << "_MM_ROUND_MODE_TOWARD_ZERO"; 
             }
         }
         // SIZE_DST > SIZE_SRC
@@ -1149,15 +1153,18 @@ namespace Vectorization
             if (src_type.is_float() && dst_type.is_double() && (dst_num_elements == 8))
             {
                 intrin_op_name << "cvtpslo_pd";
+                round << "_MM_ROUND_MODE_NEAREST";
             }
             // From int8 to double8
             else if (src_type.is_signed_int() && dst_type.is_double() && (dst_num_elements == 8))
             {
                 intrin_op_name << "cvtepi32lo_pd";
+                round << "_MM_ROUND_MODE_NEAREST";
             }
             else if (src_type.is_unsigned_int() && dst_type.is_double() && (dst_num_elements == 8))
             {
                 intrin_op_name << "cvtepu32lo_pd";
+                round << "_MM_ROUND_MODE_NEAREST";
             }
         }
         // SIZE_DST < SIZE_SRC

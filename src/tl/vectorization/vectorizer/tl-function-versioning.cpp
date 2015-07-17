@@ -24,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-vectorization-utils.hpp"
+
 #include "tl-function-versioning.hpp"
 
 namespace TL
@@ -74,9 +76,13 @@ namespace TL
             return _is_svml;
         }
 
-
         FunctionVersioning::FunctionVersioning()
         {
+        }
+
+        void FunctionVersioning::clear()
+        {
+            _versions.clear();
         }
 
         void FunctionVersioning::add_version(TL::Symbol func_name,
@@ -135,7 +141,8 @@ namespace TL
 
             if (best_version == _versions.end())
             {
-                fprintf(stderr, "Warning: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'\n",
+                fprintf(stderr, "Warning: There is no vector version of function %p '%s' for '%s', '%s', '%d', 'mask=%d'\n",
+                        func_name.get_internal_symbol(),
                         func_name.get_qualified_name().c_str(), device.c_str(),
                         target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
                         vector_length, masked);
@@ -146,6 +153,17 @@ namespace TL
                 // Parse Naive Function Code.
                 // Add Naive Function to versions
                 // Append
+            }
+            else
+            {
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "Found vector version of function %p '%s' for '%s', '%s', '%d', 'mask=%d'\n",
+                            func_name.get_internal_symbol(),
+                            func_name.get_qualified_name().c_str(), device.c_str(),
+                            target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
+                            vector_length, masked);
+                }
             }
 
             if (best_version == _versions.end())

@@ -289,65 +289,74 @@ namespace Vectorization
                     n.get_type().basic_type(),
                     const_operation);
         }
-        else if (lhs_is_base_suitable)
-        {
-            stride_splitter_ret_t rhs_ret = walk(rhs);
-
-            if (!rhs_ret.first.is_null())
-            {
-                base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
-                        lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        rhs_ret.first.shallow_copy(),
-                        n.get_type().basic_type(),
-                        const_operation);
-            }
-            else
-            {
-                base = lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs();
-            }
-
-            if (!rhs_ret.second.is_null())
-            {
-                strides = Vectorization::Utils::make_vector_binary_node<VectorNode>(
-                        lhs.shallow_copy(),
-                        rhs_ret.second.shallow_copy(),
-                        vector_node.get_mask().shallow_copy(),
-                        n.get_type(),
-                        const_operation);
-            }
-        }
-        else if (rhs_is_base_suitable)
-        {
-            stride_splitter_ret_t lhs_ret = walk(lhs);
-
-            if (!lhs_ret.first.is_null())
-            {
-                base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
-                        lhs_ret.first.shallow_copy(),
-                        rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        n.get_type().basic_type(),
-                        const_operation);
-            }
-            else
-            {
-                base = rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs();
-            }
-
-            if (!lhs_ret.second.is_null())
-            {
-                strides = Vectorization::Utils::make_vector_binary_node<VectorNode>(
-                        lhs_ret.second.shallow_copy(),
-                        rhs.shallow_copy(),
-                        vector_node.get_mask().shallow_copy(),
-                        n.get_type(),
-                        const_operation);
-            }
-        }
         else
         {
-            internal_error("StrideSplitter: Too complicated gather/scatter %s at %s.",
-                    n.prettyprint().c_str(),
-                    n.get_locus());
+            strides = Vectorization::Utils::make_vector_binary_node<VectorNode>(
+                    lhs.shallow_copy(),
+                    rhs.shallow_copy(),
+                    vector_node.get_mask().shallow_copy(),
+                    n.get_type(),
+                    const_operation);
+        }
+        //else if (lhs_is_base_suitable)
+        //{
+        //    stride_splitter_ret_t rhs_ret = walk(rhs);
+
+        //    if (!rhs_ret.first.is_null())
+        //    {
+        //        base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
+        //                lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
+        //                rhs_ret.first.shallow_copy(),
+        //                n.get_type().basic_type(),
+        //                const_operation);
+        //    }
+        //    else
+        //    {
+        //        base = lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs();
+        //    }
+
+        //    if (!rhs_ret.second.is_null())
+        //    {
+        //        strides = Vectorization::Utils::make_vector_binary_node<VectorNode>(
+        //                lhs.shallow_copy(),
+        //                rhs_ret.second.shallow_copy(),
+        //                vector_node.get_mask().shallow_copy(),
+        //                n.get_type(),
+        //                const_operation);
+        //    }
+        //}
+        //else if (rhs_is_base_suitable)
+        //{
+        //    stride_splitter_ret_t lhs_ret = walk(lhs);
+
+        //    if (!lhs_ret.first.is_null())
+        //    {
+        //        base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
+        //                lhs_ret.first.shallow_copy(),
+        //                rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
+        //                n.get_type().basic_type(),
+        //                const_operation);
+        //    }
+        //    else
+        //    {
+        //        base = rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs();
+        //    }
+
+        //    if (!lhs_ret.second.is_null())
+        //    {
+        //        strides = Vectorization::Utils::make_vector_binary_node<VectorNode>(
+        //                lhs_ret.second.shallow_copy(),
+        //                rhs.shallow_copy(),
+        //                vector_node.get_mask().shallow_copy(),
+        //                n.get_type(),
+        //                const_operation);
+        //    }
+        //}
+        //else
+        //{
+        //    internal_error("StrideSplitter: Too complicated gather/scatter %s at %s.",
+        //            n.prettyprint().c_str(),
+        //            n.get_locus());
             /*
             stride_splitter_ret_t lhs_ret = walk(lhs);
             stride_splitter_ret_t rhs_ret = walk(rhs);
@@ -385,7 +394,7 @@ namespace Vectorization
                 strides = rhs_ret.second;
             }
             */
-        }
+        //}
 
         // pair<n, null>
         return stride_splitter_ret_t(base, strides);

@@ -88,6 +88,7 @@ namespace TL
             public:
                 FunctionVersioning();
 
+                void clear();
                 void add_version(TL::Symbol func_name, const VectorFunctionVersion& func_version);
                 const Nodecl::NodeclBase get_best_version(TL::Symbol func_name, 
                         const std::string& device,

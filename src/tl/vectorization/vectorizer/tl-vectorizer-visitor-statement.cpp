@@ -641,8 +641,12 @@ namespace Vectorization
             // Vectorizing initialization
             if(!init.is_null())
             {
+                nodecl_set_parent(init.get_internal_nodecl(), n.get_internal_nodecl());
+
                 VectorizerVisitorExpression visitor_expression(_environment);
                 visitor_expression.walk(init);
+
+                nodecl_set_parent(init.get_internal_nodecl(), nodecl_null());
             }
         }
         else

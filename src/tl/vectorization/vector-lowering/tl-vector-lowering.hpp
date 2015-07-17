@@ -62,6 +62,7 @@ namespace TL
             public:
                 VectorLoweringPhase();
                 virtual void run(TL::DTO& dto);
+                virtual void phase_cleanup(TL::DTO& dto);
         };
     }
 }

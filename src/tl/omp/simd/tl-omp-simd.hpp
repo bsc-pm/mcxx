@@ -43,6 +43,7 @@ namespace TL
 
                 virtual void run(TL::DTO& dto);
                 virtual void pre_run(TL::DTO& dto);
+                virtual void phase_cleanup(TL::DTO& dto);
 
                 virtual ~Simd() { }
 
