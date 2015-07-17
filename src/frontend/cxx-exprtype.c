@@ -27063,6 +27063,13 @@ static void instantiate_cxx_lambda(nodecl_instantiate_expr_visitor_t* v, nodecl_
 static void instantiate_class_member_access(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_accessed = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    if (nodecl_is_err_expr(nodecl_accessed))
+    {
+        v->nodecl_result = nodecl_accessed;
+        return;
+    }
+
     nodecl_t nodecl_member_literal = nodecl_get_child(node, 2);
 
     ERROR_CONDITION(nodecl_is_null(nodecl_member_literal), "Cannot instantiate this tree", 0);
@@ -28080,6 +28087,12 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
 static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        v->nodecl_result = nodecl_expr;
+        return;
+    }
 
     if (nodecl_expr_is_type_dependent(nodecl_expr))
     {
