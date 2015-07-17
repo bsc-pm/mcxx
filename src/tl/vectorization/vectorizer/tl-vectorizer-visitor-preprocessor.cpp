@@ -272,7 +272,7 @@ namespace Vectorization
             }
             else
             {
-                internal_error("Vectorizer: Unsupported condition at preprocessing OpenMP For", 0);
+                fprintf(stderr, "Warning: Vectorizer: Unsupported condition at preprocessing OpenMP For\n");
             }
         }
     }
