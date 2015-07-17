@@ -27232,31 +27232,64 @@ static void instantiate_cxx_arrow(nodecl_instantiate_expr_visitor_t* v, nodecl_t
 static void instantiate_array_subscript(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_subscripted = instantiate_expr_walk(v, nodecl_get_child(node, 0));
-    nodecl_t nodecl_subscript = instantiate_expr_walk(v, nodecl_get_child(node, 1));
 
-    if (nodecl_get_kind(nodecl_subscript) == NODECL_RANGE)
+    nodecl_t nodecl_subscript = nodecl_get_child(node, 1);
+    ERROR_CONDITION(!nodecl_is_list(nodecl_subscript), "This should be a list!\n", 0);
+
+    int num_items, i;
+    nodecl_t* list = nodecl_unpack_list(nodecl_subscript, &num_items);
+
+    ERROR_CONDITION(num_items == 0, "Invalid number of items", 0);
+
+    for (i = 0; i < num_items; i++)
     {
-        nodecl_t nodecl_lower = nodecl_get_child(nodecl_subscript, 0);
-        nodecl_t nodecl_upper = nodecl_get_child(nodecl_subscript, 1);
-        nodecl_t nodecl_stride = nodecl_get_child(nodecl_subscript, 2);
+        list[i] = instantiate_expr_walk(v, list[i]);
+        if (nodecl_is_err_expr(list[i]))
+        {
+            int j;
+            for (j = 0; j < i; j++)
+            {
+                nodecl_free(list[j]);
+            }
 
-        check_nodecl_array_section_expression(
-                nodecl_subscripted,
-                nodecl_lower,
-                nodecl_upper,
-                nodecl_stride,
-                v->decl_context,
-                /* is_array_section_size */ 0,
-                nodecl_get_locus(nodecl_subscripted),
-                &v->nodecl_result);
+            v->nodecl_result = list[i];
+            DELETE(list);
+            return;
+        }
     }
-    else
+
+    v->nodecl_result = nodecl_subscripted;
+
+    for (i = 0; i < num_items; i++)
     {
-        check_nodecl_array_subscript_expression_cxx(
-                nodecl_subscripted,
-                nodecl_subscript,
-                v->decl_context,
-                &v->nodecl_result);
+        nodecl_t nodecl_current_subscript = list[i];
+        if (nodecl_get_kind(nodecl_current_subscript) == NODECL_RANGE)
+        {
+            nodecl_t nodecl_lower = nodecl_get_child(nodecl_current_subscript, 0);
+            nodecl_t nodecl_upper = nodecl_get_child(nodecl_current_subscript, 1);
+            nodecl_t nodecl_stride = nodecl_get_child(nodecl_current_subscript, 2);
+
+            check_nodecl_array_section_expression(
+                    v->nodecl_result,
+                    nodecl_lower,
+                    nodecl_upper,
+                    nodecl_stride,
+                    v->decl_context,
+                    /* is_array_section_size */ 0,
+                    nodecl_get_locus(v->nodecl_result),
+                    &v->nodecl_result);
+        }
+        else
+        {
+            check_nodecl_array_subscript_expression_cxx(
+                    v->nodecl_result,
+                    nodecl_current_subscript,
+                    v->decl_context,
+                    &v->nodecl_result);
+        }
+
+        if (nodecl_is_err_expr(v->nodecl_result))
+            return;
     }
 }
 
