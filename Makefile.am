@@ -3142,6 +3142,8 @@ config_edit = \
      -e 's|@CORRECTNESS_LOG_DIR[@]|$(CORRECTNESS_LOG_DIR)|g' \
      -e 's|@DLB_LIB[@]|$(DLB_LIB)|g' \
      -e 's|@DLB_INCLUDE[@]|$(DLB_INCLUDE)|g' \
+     -e 's|@NANOX_GATE[@]|$(NANOX_GATE)|g' \
+     -e 's|@NANOS6_GATE[@]|$(NANOS6_GATE)|g' \
     $(END)
 
 # Cross compiler profile names

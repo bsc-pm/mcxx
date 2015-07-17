@@ -1,9 +1,9 @@
-# OpenMP + Nanos
+@NANOX_GATE@# OpenMP + Nanos
 [omp-base-common]
 options = --openmp
 {omp-dry-run|openmp-dry-run} options = --variable=omp_dry_run:1
 {debug} options = -g
-{debug} options = --variable=nanos-debug:1
+@NANOX_GATE@{debug} options = --variable=nanos-debug:1
 {(instrument|instrumentation)} options = --variable=instrument:1
 preprocessor_name = @GCC@
 preprocessor_options = -E
@@ -36,9 +36,9 @@ linker_name = @GCC@
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 
-# nanos++
-{openmp} pragma_prefix = nanos
-{openmp} compiler_phase = libtlnanos-version.so
+@NANOX_GATE@# nanos++
+@NANOX_GATE@{openmp} pragma_prefix = nanos
+@NANOX_GATE@{openmp} compiler_phase = libtlnanos-version.so
 {ompss} preprocessor_options = -D_OMPSS=1
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
@@ -59,7 +59,7 @@ linker_name = @GCC@
 {simd, avx2} options = --variable=avx2_enabled:1
 {(mmic|knl)} preprocessor_options = -include immintrin.h
 {simd, avx2} preprocessor_options = -include immintrin.h
-{cluster} options = --variable=nanos_main_enabled:1
+@NANOX_GATE@{cluster} options = --variable=nanos_main_enabled:1
 
 #omp
 {ompss} options = --variable=ompss_mode:1
@@ -71,9 +71,11 @@ linker_name = @GCC@
 {ompss,(!?untied-tasks|untied-tasks),!?tied-tasks} options = --variable=untied_tasks_by_default:1
 {ompss,tied-tasks,!?untied-tasks} options = --variable=untied_tasks_by_default:0
 
-{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-lowering.so
-{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-smp.so
-{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
+@NANOX_GATE@{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-lowering.so
+@NANOX_GATE@{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-smp.so
+@NANOX_GATE@{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
+
+@NANOS6_GATE@{openmp,!do-not-lower-omp} compiler_phase = libtlnanos6-lowering.so
 
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
@@ -86,28 +88,40 @@ linker_name = @GCC@
 {dlb} preprocessor_options = -I@DLB_INCLUDE@
 #
 linker_options =
-#nanos++
-{openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
-{openmp,mmic} preprocessor_options = -I@NANOX_MIC_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+
 linker_options = -Xlinker --enable-new-dtags
-{openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
-{openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug
-{openmp,!(omp-dry-run|openmp-dry-run),!debug,(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation
-{openmp,!(omp-dry-run|openmp-dry-run),debug,(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation-debug
-{openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/performance
-{openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/debug
-{openmp,!(omp-dry-run|openmp-dry-run),!debug,(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/instrumentation
-{openmp,!(omp-dry-run|openmp-dry-run),debug,(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/instrumentation-debug
-# Old linking mechanism (libnanox-omp.so | libnanox-ss.so + libnanox-omp.so)
-@NANOX_OLD_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-@NANOX_OLD_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-# New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
-@NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-@NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
+
+#nanos++
+@NANOX_GATE@{openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+@NANOX_GATE@{openmp,mmic} preprocessor_options = -I@NANOX_MIC_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),!debug,(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),debug,(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation-debug
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/performance
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/debug
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),!debug,(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/instrumentation
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),debug,(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/instrumentation-debug
+@NANOX_GATE@# Old linking mechanism (libnanox-omp.so | libnanox-ss.so + libnanox-omp.so)
+@NANOX_GATE@@NANOX_OLD_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+@NANOX_GATE@@NANOX_OLD_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+@NANOX_GATE@# New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
+@NANOX_GATE@@NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+@NANOX_GATE@@NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
 # used by XL
-{(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_GNU_LDFLAGS@
+@NANOX_GATE@{(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_GNU_LDFLAGS@
 # needed for the new link mechanism
-linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+@NANOX_GATE@linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+
+#nanos 6
+@NANOS6_GATE@{openmp}preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
+@NANOS6_GATE@linker_options = -L@NANOS6_LIB@
+@NANOS6_GATE@{openmp,!(instrument|instrumentation),!debug}linker_options = -lnanos6
+@NANOS6_GATE@{openmp,!(instrument|instrumentation),debug}linker_options = -lnanos6-dbg
+@NANOS6_GATE@{openmp,(instrument|instrumentation),!debug}linker_options = -lnanos6-instr
+@NANOS6_GATE@{openmp,(instrument|instrumentation),debug}linker_options = -lnanos6-instr-dbg
+@NANOS6_GATE@linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
+
 # dlb
 {dlb} linker_options = -L@DLB_LIB@
 {dlb,!(instrument|instrumentation|debug)} linker_options= -ldlb
@@ -121,23 +135,23 @@ linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 {dlb} preprocessor_options = -I@DLB_INCLUDE@
 #
 linker_options =
-#nanos++
-{openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -qinclude=nanos.h -qinclude=nanos_omp.h
+@NANOX_GATE@#nanos++
+@NANOX_GATE@{openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -qinclude=nanos.h -qinclude=nanos_omp.h
 linker_options = -Wl,--enable-new-dtags
-{openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
-{openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
-{openmp,!(omp-dry-run|openmp-dry-run),!debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
-{openmp,!(omp-dry-run|openmp-dry-run),debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation-debug
-# Old linking mechanism (libnanox-omp.so | libnanox-ss.so + libnanox-omp.so)
-@NANOX_OLD_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-@NANOX_OLD_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-# New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
-@NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-@NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),!debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
+@NANOX_GATE@{openmp,!(omp-dry-run|openmp-dry-run),debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation-debug
+@NANOX_GATE@# Old linking mechanism (libnanox-omp.so | libnanox-ss.so + libnanox-omp.so)
+@NANOX_GATE@@NANOX_OLD_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+@NANOX_GATE@@NANOX_OLD_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+@NANOX_GATE@# New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
+@NANOX_GATE@@NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+@NANOX_GATE@@NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
 # used by XL
-{(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_IBM_LDFLAGS@
+@NANOX_GATE@{(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_IBM_LDFLAGS@
 # needed for the new link mechanism
-linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+@NANOX_GATE@linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 # dlb
 {dlb} linker_options = -L@DLB_LIB@
 {dlb,!(instrument|instrumentation|debug)} linker_options = -ldlb
