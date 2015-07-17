@@ -2179,6 +2179,36 @@ src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_SOURCES = \
 endif
 
 ##########################################################################
+# src/tl/omp/nanos6
+##########################################################################
+
+if BUILD_NANOS6
+
+phases_LTLIBRARIES += src/tl/omp/nanos6/libtlnanos6-lowering.la
+
+src_tl_omp_nanos6_libtlnanos6_lowering_la_CFLAGS = $(phases_cflags) \
+														-I$(srcdir)/src/tl/omp/core \
+														-I$(srcdir)/src/tl/omp/common \
+                                                        -I@NANOS6_INCLUDES@
+src_tl_omp_nanos6_libtlnanos6_lowering_la_CXXFLAGS = $(phases_cxxflags) \
+														-I$(srcdir)/src/tl/omp/core \
+														-I$(srcdir)/src/tl/omp/common \
+                                                        -I@NANOS6_INCLUDES@
+
+src_tl_omp_nanos6_libtlnanos6_lowering_la_LIBADD = $(phases_libadd) \
+								src/tl/omp/core/libtlomp-core.la \
+								src/tl/omp/common/libtlomp-common.la
+
+src_tl_omp_nanos6_libtlnanos6_lowering_la_LDFLAGS = $(phases_ldflags)
+
+src_tl_omp_nanos6_libtlnanos6_lowering_la_SOURCES = \
+								 src/tl/omp/nanos6/tl-nanos6.cpp \
+								 src/tl/omp/nanos6/tl-nanos6.hpp \
+								 $(END)
+
+endif
+
+##########################################################################
 # src/tl/omp/gomp
 ##########################################################################
 
@@ -3144,6 +3174,8 @@ config_edit = \
      -e 's|@DLB_INCLUDE[@]|$(DLB_INCLUDE)|g' \
      -e 's|@NANOX_GATE[@]|$(NANOX_GATE)|g' \
      -e 's|@NANOS6_GATE[@]|$(NANOS6_GATE)|g' \
+     -e 's|@NANOS6_INCLUDES[@]|$(NANOS6_INCLUDES)|g' \
+     -e 's|@NANOS6_LIB[@]|$(NANOS6_LIB)|g' \
     $(END)
 
 # Cross compiler profile names
