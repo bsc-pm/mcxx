@@ -118,8 +118,8 @@ namespace Vectorization
                 Vectorizer::_vectorizer_analysis->
                 deep_copy(n, n).as<Nodecl::ForStatement>();
 
-            bool only_epilog = !Utils::is_all_one_mask(
-                    _environment._mask_list.back());
+            //bool only_epilog = !Utils::is_all_one_mask(
+            //        _environment._mask_list.back());
 
             n.append_sibling(epilog);
 
@@ -300,7 +300,12 @@ namespace Vectorization
                 _environment._mask_list.pop_back();
             }
 
-            if (only_epilog)
+            // We remove main & epilogue structure
+            // It's going slower and generating only one
+            // loop with initial mask seems not to slow down
+            // the execution because masks instructions are
+            // paired with vector instructions
+            if (true) //(only_epilog)
             {
                 Nodecl::Utils::remove_from_enclosing_list(n);
             }
@@ -323,6 +328,7 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: -------------------------------\n");
         }
     }
+
 
 #define MASK_CHECK_THRESHOLD 9
     void VectorizerVisitorStatement::visit(const Nodecl::IfElseStatement& n)
