@@ -204,6 +204,80 @@ namespace Vectorization
         }
     }
 
+    template <typename ScalarNode, typename VectorRegularNode, typename VectorMaskNode>
+    void VectorizerVisitorExpression::visit_bitwise_binary_op(const ScalarNode& n)
+    {
+        if(!((n.template is<Nodecl::Add>() || n.template is<Nodecl::Minus>()) &&
+                    process_fmul_op(n)))
+        {
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
+                    _environment._mask_list.back());
+
+            Nodecl::NodeclBase lhs = n.get_lhs();
+            Nodecl::NodeclBase rhs = n.get_rhs();
+
+            walk(lhs);
+            walk(rhs);
+
+            bool returns_mask_type;
+            if (lhs.get_type().is_mask() && rhs.get_type().is_mask())
+            {
+                returns_mask_type = true;
+            }
+            else if (!lhs.get_type().is_mask() && !rhs.get_type().is_mask())
+            {
+                returns_mask_type = false;
+            }
+            else
+            {
+                internal_error("Vectorizer: Bitwise binary operation with wrong data types: %s",
+                        n.prettyprint().c_str());
+            }
+                
+            TL::Type vector_type = returns_mask_type ?
+                TL::Type::get_mask_type(_environment._vectorization_factor) :
+                Utils::get_qualified_vector_to(n.get_type(),
+                        _environment._vectorization_factor);
+
+            if (returns_mask_type)
+            {
+                VectorMaskNode vector_node =
+                    VectorMaskNode::make(
+                            lhs.shallow_copy(),
+                            rhs.shallow_copy(),
+                            vector_type,
+                            n.get_locus());
+
+                if (n.is_constant())
+                    vector_node.set_constant(
+                            const_value_make_vector_from_scalar(
+                                _environment._vectorization_factor,
+                                n.get_constant()));
+
+                n.replace(vector_node);
+ 
+            }
+            else
+            {
+                VectorRegularNode vector_node =
+                    VectorRegularNode::make(
+                            lhs.shallow_copy(),
+                            rhs.shallow_copy(),
+                            mask,
+                            vector_type,
+                            n.get_locus());
+
+                if (n.is_constant())
+                    vector_node.set_constant(
+                            const_value_make_vector_from_scalar(
+                                _environment._vectorization_factor,
+                                n.get_constant()));
+
+                n.replace(vector_node);
+            }
+        }
+    }
+
     void VectorizerVisitorExpression::visit(const Nodecl::Add& n)
     {
         visit_binary_op<Nodecl::Add, Nodecl::VectorAdd>(n, false /* returns_mask_type */);
@@ -308,12 +382,12 @@ namespace Vectorization
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseAnd& n)
     {
-        visit_binary_op<Nodecl::BitwiseAnd, Nodecl::VectorBitwiseAnd>(n, false /* returns_mask_type */);
+        visit_bitwise_binary_op<Nodecl::BitwiseAnd, Nodecl::VectorBitwiseAnd, Nodecl::VectorMaskAnd>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseOr& n)
     {
-        visit_binary_op<Nodecl::BitwiseOr, Nodecl::VectorBitwiseOr>(n, false /* returns_mask_type */);
+        visit_bitwise_binary_op<Nodecl::BitwiseOr, Nodecl::VectorBitwiseOr, Nodecl::VectorMaskOr>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseShl& n)

@@ -42,10 +42,11 @@ namespace TL
                 bool process_fmul_op(const Nodecl::NodeclBase&  n);
                 void symbol_type_promotion(const Nodecl::Symbol& n);
 
-                template <typename ScalarNode,
-                         typename VectorNode>
+                template <typename ScalarNode, typename VectorNode>
                     void visit_binary_op(const ScalarNode& n,
                             const bool returns_mask_type);
+                template <typename ScalarNode, typename VectorRegularNode, typename VectorMaskNode>
+                    void visit_bitwise_binary_op(const ScalarNode& n);
          
                 Nodecl::NodeclBase get_memory_vector_read(const Nodecl::NodeclBase& n);
                 Nodecl::NodeclBase get_memory_vector_write(const Nodecl::NodeclBase& lhs,

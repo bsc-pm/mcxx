@@ -725,6 +725,10 @@ namespace TL {
             map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(omp_simd_for_environment, nontemporal_expressions);
 
+            // Unroll clause
+            int unroll_clause_arg = process_unroll_clause(omp_simd_for_environment);
+            //bool loop_unrolled = false;
+
             // Overlap clause
             map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_simd_for_environment, overlap_symbols);
@@ -732,7 +736,6 @@ namespace TL {
             // Prefetch clause
             Vectorization::prefetch_info_t prefetch_info;
             process_prefetch_clause(omp_simd_for_environment, prefetch_info);
-
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
@@ -965,6 +968,28 @@ namespace TL {
             }
             else
             {
+                // Unroll the vectorized loop!
+                if (unroll_clause_arg != 0)
+                {
+                    // Main Loop
+                    TL::HLT::LoopUnroll loop_unroller;
+                    loop_unroller.set_loop(for_statement)
+                        .set_unroll_factor(unroll_clause_arg) 
+                        .unroll();
+
+                    Nodecl::NodeclBase unrolled_transformation =
+                        loop_unroller.get_unrolled_loop();
+
+                    std::cerr << "BEFORE: " << std::endl;
+                    std::cerr << for_statement.prettyprint() << std::endl;
+
+                    for_statement.replace(unrolled_transformation);
+
+                    std::cerr << "AFTER: " << std::endl;
+                    std::cerr << for_statement.prettyprint() << std::endl;
+
+                }
+
                 // ForAppendix only if appendix is not empty
                 if (!appendix_list.empty() || !prependix_list.empty())
                 {
