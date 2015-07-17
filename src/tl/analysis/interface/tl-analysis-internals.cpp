@@ -78,11 +78,15 @@ namespace Analysis {
             // Example: a[i]
             // retrieving all symbols will return: a, i
             // retrieving all memory accesses will return: a, i, a[i]
-            const NodeclList n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
-            
+            TL::ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
+
             TL::tribool array_result = true;
-            for(const auto& n_ma : n_mem_accesses)
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                    it = n_mem_accesses.begin();
+                    it != n_mem_accesses.end();
+                    it++)
             {
+                Nodecl::NodeclBase &n_ma = *it;
                 Nodecl::NodeclBase n_ma_no_conv = n_ma.no_conv();
 
                 if (n != n_ma_no_conv)
