@@ -96,7 +96,7 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: -- Local Symbols --\n");
         }
 
-        struct LocalReferences : public Nodecl::ExhaustiveVisitor<void>
+        struct LocalReferences : public Nodecl::ExhaustiveVisitor<bool>
         {
             VectorizerEnvironment& _environment;
             TL::ObjectList<TL::Symbol> &local_symbols;
@@ -109,10 +109,6 @@ namespace Vectorization
 
             void turn_local_to_vector(TL::Symbol tl_sym, Nodecl::NodeclBase n)
             {
-                VECTORIZATION_DEBUG()
-                {
-                    std::cerr << "MAKING |" << tl_sym.get_name() << "| at " << n.get_locus_str() << " VECTOR " << std::endl;
-                }
                 TL::Type tl_sym_type = tl_sym.get_type().no_ref();
 
                 TL::Type vector_type;
@@ -173,11 +169,12 @@ namespace Vectorization
                 VECTORIZATION_DEBUG()
                 {
                     fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type promotion from '%s'"\
-                            " to '%s'\n", n.prettyprint().c_str(),
+                            " to '%s' (%s)\n", n.prettyprint().c_str(),
                             tl_sym_type.get_simple_declaration(
                                 n.retrieve_context(), "").c_str(),
                             vector_type.get_simple_declaration(
-                                n.retrieve_context(), "").c_str());
+                                n.retrieve_context(), "").c_str(),
+                            n.get_locus_str().c_str());
                 }
             }
 
@@ -201,18 +198,30 @@ namespace Vectorization
                 return result;
             }
 
-            virtual void visit(const Nodecl::Symbol& n)
+            virtual bool join_list(TL::ObjectList<bool>& list)
+            {
+                bool result = false;
+                for (const auto& it : list)
+                {
+                    result |= it;
+                }
+
+                return result;
+            }
+
+            virtual bool visit(const Nodecl::Symbol& n)
             {
                 TL::Symbol tl_sym = n.get_symbol();
 
                 if (!local_symbols.contains(tl_sym))
-                    return;
+                    return false;
                 if (promoted_to_vector.contains(tl_sym))
-                    return;
+                    return true;
 
                 TL::Type tl_sym_type = tl_sym.get_type().no_ref();
                 bool is_mask = tl_sym_type.is_mask();
 
+                bool result;
                 ReferenceInfo ref_info = request_info_of_reference(n);
                 if (!tl_sym_type.is_vector()
                         && !is_mask
@@ -221,6 +230,7 @@ namespace Vectorization
                         /* && !ref_info.is_induction_variable */)
                 {
                     turn_local_to_vector(tl_sym, n);
+                    result = true;
                 }
                 else
                 {
@@ -230,6 +240,8 @@ namespace Vectorization
                             << " linear=" << ref_info.is_linear << " uniform=" << ref_info.is_uniform 
                             << std::endl;
                     }
+                    
+                    result = false;
                     // internal_error("Code unreachable", 0);
                     // if (!tl_sym.get_type().is_vector())
                     // {
@@ -252,9 +264,11 @@ namespace Vectorization
                     //     }
                     // }
                 }
+
+                return result;
             }
 
-            virtual void visit(const Nodecl::ClassMemberAccess& n)
+            virtual bool visit(const Nodecl::ClassMemberAccess& n)
             {
                 // Get leftmost access
                 // a.x.y -> a
@@ -268,9 +282,11 @@ namespace Vectorization
                 {
                     VECTORIZATION_DEBUG()
                     {
-                        std::cerr << "IN " << n.prettyprint() << " LEFTMOST IS NOT A NODECL_SYMBOL BUT A " << ast_print_node_type(leftmost.get_kind()) << std::endl;
+                        std::cerr << "IN " << n.prettyprint() 
+                            << " LEFTMOST IS NOT A NODECL_SYMBOL BUT A " 
+                            << ast_print_node_type(leftmost.get_kind()) << std::endl;
                     }
-                    return;
+                    return false;
                 }
 
                 // Check the whole object (this is different to what we do
@@ -281,9 +297,9 @@ namespace Vectorization
                 TL::Symbol tl_sym = leftmost.get_symbol();
 
                 if (!local_symbols.contains(tl_sym))
-                    return;
+                    return false;
                 if (promoted_to_vector.contains(tl_sym))
-                    return;
+                    return true;
 
                 VECTORIZATION_DEBUG()
                 {
@@ -292,6 +308,7 @@ namespace Vectorization
 
                 TL::Type tl_sym_type = tl_sym.get_type().no_ref();
 
+                bool result;
                 // Here we take into account the accessed member
                 ReferenceInfo ref_info = request_info_of_reference(n);
                 if (!tl_sym_type.is_vector() // ???
@@ -300,6 +317,7 @@ namespace Vectorization
                         /* && !ref_info.is_induction_variable */)
                 {
                     turn_local_to_vector(tl_sym, n);
+                    result = true;
                 }
                 else
                 {
@@ -310,14 +328,18 @@ namespace Vectorization
                             << std::endl;
                     }
                     // internal_error("Code unreachable", 0);
+                    result = false;
                 }
+
+                return result;
             }
 
-            virtual void visit(const Nodecl::ObjectInit& n)
+            virtual bool visit(const Nodecl::ObjectInit& n)
             {
                 TL::Symbol sym = n.get_symbol();
                 TL::Type scalar_type = sym.get_type().no_ref();
 
+                bool result;
                 if (!scalar_type.is_vector())
                 {
                     Nodecl::NodeclBase init = sym.get_value();
@@ -325,12 +347,23 @@ namespace Vectorization
                     // Vectorizing initialization
                     if(!init.is_null())
                     {
-                        walk(init);
+                        result = walk(init);
+
+                        if (result)
+                        {
+                            turn_local_to_vector(sym, n);
+                        }
                     }
                 }
+                else
+                {
+                    result = true;
+                }
+
+                return result;
             }
 
-            virtual void visit(const Nodecl::FunctionCall& n)
+            virtual bool visit(const Nodecl::FunctionCall& n)
             {
                 TL::Type function_type = n.get_called().get_type().no_ref();
 
@@ -338,7 +371,7 @@ namespace Vectorization
                 {
                     // constructors...
                     walk(n.get_arguments());
-                    return;
+                    return false; //?
                 }
 
                 if (function_type.is_pointer())
@@ -351,6 +384,7 @@ namespace Vectorization
                 TL::ObjectList<TL::Type>::iterator it_param = params.begin();
                 Nodecl::List::iterator it_arg = arguments.begin();
 
+                bool result = false;
                 for (;
                         it_param != params.end() && it_arg != arguments.end();
                         it_param++, it_arg++)
@@ -363,7 +397,10 @@ namespace Vectorization
                             if (!local_symbols.contains(tl_sym))
                                 continue;
                             if (promoted_to_vector.contains(tl_sym))
+                            {
+                                result = true;
                                 continue;
+                            }
 
                             warn_printf("%s: warning: argument '%s' is bound to a reference of type '%s'. "
                                     "Assuming that the address of the reference is a linear value\n",
@@ -372,6 +409,7 @@ namespace Vectorization
                                     it_param->get_declaration(it_arg->retrieve_context(), "").c_str());
 
                             turn_local_to_vector(tl_sym, n);
+                            result = true;
                         }
                         else
                         {
@@ -384,7 +422,7 @@ namespace Vectorization
                     else
                     {
                         // This is a usual argument evaluation
-                        walk(*it_arg);
+                        result = walk(*it_arg);
                     }
                 }
 
@@ -394,13 +432,26 @@ namespace Vectorization
                     // traverse the arguments as normal evaluations
                     for (; it_arg != arguments.end(); it_arg++)
                     {
-                        walk(*it_arg);
+                        result = walk(*it_arg);
                     }
                 }
+
+                return result;
             }
         };
 
         TL::ObjectList<TL::Symbol> local_symbols = Nodecl::Utils::get_local_symbols(n);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: Local symbols found:\n");
+            for(const auto& lsym : local_symbols)
+            {
+                fprintf(stderr, "%s (%s), ", lsym.get_name().c_str(),
+                        lsym.get_locus_str().c_str());
+            }
+            fprintf(stderr, "\n");
+        }
 
         LocalReferences local_refs(_environment, local_symbols);
         local_refs.walk(n);
