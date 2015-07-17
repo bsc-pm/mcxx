@@ -26369,6 +26369,9 @@ static const char* codegen_expression_to_str(nodecl_t expr, const decl_context_t
 static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node)
 {
     visitor->nodecl_result = nodecl_null();
+    ERROR_CONDITION(!nodecl_is_null(node) &&
+            nodecl_is_list(node), "A list is not allowed here", 0);
+
     DEBUG_CODE()
     {
         fprintf(stderr, "EXPRTYPE: Instantiating expression '%s' (kind=%s, %s). constexpr calls evaluation is %s\n",
