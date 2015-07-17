@@ -83,9 +83,7 @@ namespace Analysis {
             TL::tribool array_result = true;
             for(const auto& n_ma : n_mem_accesses)
             {
-                Nodecl::NodeclBase &n_ma = *it;
                 Nodecl::NodeclBase n_ma_no_conv = n_ma.no_conv();
-
 
                 if (n != n_ma_no_conv)
                 {
