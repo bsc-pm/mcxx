@@ -75,6 +75,10 @@ linker_name = @GCC@
 @NANOX_GATE@{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-smp.so
 @NANOX_GATE@{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
 
+# Force ompss for Nanos 6 (unless explicitly disabled)
+@NANOS6_GATE@{!?ompss} preprocessor_options = -D_OMPSS=1
+@NANOS6_GATE@{!?ompss} fortran_preprocessor_options = -D_OMPSS=1
+@NANOS6_GATE@{!?ompss} options = --variable=ompss_mode:1
 @NANOS6_GATE@{openmp,!do-not-lower-omp} compiler_phase = libtlnanos6-lowering.so
 
 #simd
