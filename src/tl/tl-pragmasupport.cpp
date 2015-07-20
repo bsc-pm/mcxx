@@ -122,8 +122,8 @@ namespace TL
     }
 
     // Initialize here the warnings to the dispatcher
-    PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
-        : _pragma_handled(pragma_handled), _ignore_template_functions(false)
+    PragmaCustomCompilerPhase::PragmaCustomCompilerPhase()
+          : _ignore_template_functions(false)
     {
     }
 
@@ -141,24 +141,29 @@ namespace TL
 
     void PragmaCustomCompilerPhase::walk(Nodecl::NodeclBase& node)
     {
-        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher, _ignore_template_functions);
+        PragmaVisitor visitor(_pragma_map_dispatcher, _ignore_template_functions);
         visitor.walk(node);
     }
 
-    void PragmaCustomCompilerPhase::register_directive(const std::string& str)
+    void PragmaCustomCompilerPhase::register_directive(
+            const std::string& pragma_handled,
+            const std::string& str)
     {
-        register_new_directive(CURRENT_CONFIGURATION, _pragma_handled.c_str(), str.c_str(), 0, 0);
+        register_new_directive(CURRENT_CONFIGURATION, pragma_handled.c_str(), str.c_str(), 0, 0);
     }
 
-    void PragmaCustomCompilerPhase::register_construct(const std::string& str, bool bound_to_statement)
+    void PragmaCustomCompilerPhase::register_construct(
+            const std::string& pragma_handled,
+            const std::string& str,
+            bool bound_to_statement)
     {
         if (IS_FORTRAN_LANGUAGE)
         {
-            register_new_directive(CURRENT_CONFIGURATION, _pragma_handled.c_str(), str.c_str(), 1, bound_to_statement);
+            register_new_directive(CURRENT_CONFIGURATION, pragma_handled.c_str(), str.c_str(), 1, bound_to_statement);
         }
         else
         {
-            register_new_directive(CURRENT_CONFIGURATION, _pragma_handled.c_str(), str.c_str(), 1, 0);
+            register_new_directive(CURRENT_CONFIGURATION, pragma_handled.c_str(), str.c_str(), 1, 0);
         }
     }
 
@@ -176,9 +181,9 @@ namespace TL
         return result;
     }
 
-    PragmaMapDispatcher& PragmaCustomCompilerPhase::dispatcher()
+    SinglePragmaMapDispatcher& PragmaCustomCompilerPhase::dispatcher(const std::string &pragma_handled)
     {
-        return _pragma_map_dispatcher;
+        return _pragma_map_dispatcher[pragma_handled];
     }
 
     std::string PragmaClauseArgList::get_raw_arguments() const

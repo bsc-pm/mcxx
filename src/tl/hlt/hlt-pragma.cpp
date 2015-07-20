@@ -35,22 +35,22 @@
 namespace TL { namespace HLT {
 
 HLTPragmaPhase::HLTPragmaPhase()
-    : PragmaCustomCompilerPhase("hlt")
+    : PragmaCustomCompilerPhase()
 {
     set_phase_name("High Level Transformations");
     set_phase_description("This phase implements several high level "
             "transformations available through the usage of #pragma hlt");
 
-    register_construct("normalize");
-    dispatcher().statement.post["normalize"].connect(
+    register_construct("hlt", "normalize");
+    dispatcher("hlt").statement.post["normalize"].connect(
             std::bind(
                 &HLTPragmaPhase::do_loop_normalize,
                 this,
                 std::placeholders::_1)
             );
 
-    register_construct("unroll");
-    dispatcher().statement.post["unroll"].connect(
+    register_construct("hlt", "unroll");
+    dispatcher("hlt").statement.post["unroll"].connect(
             std::bind(
                 &HLTPragmaPhase::do_loop_unroll,
                 this,

@@ -65,6 +65,7 @@ namespace TL
                 void parse_new_udr(const std::string& str);
 
                 void register_omp_constructs();
+                void register_oss_constructs();
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \

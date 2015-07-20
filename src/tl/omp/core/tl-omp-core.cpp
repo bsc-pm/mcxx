@@ -46,7 +46,7 @@ namespace TL { namespace OpenMP {
     Core::reduction_map_info_t Core::reduction_map_info;
 
     Core::Core()
-        : PragmaCustomCompilerPhase("omp"),
+        : PragmaCustomCompilerPhase(),
         _discard_unused_data_sharings(false),
         _allow_shared_without_copies(false),
         _allow_array_reductions(true),
@@ -58,6 +58,7 @@ namespace TL { namespace OpenMP {
                 "It performs the common analysis part required by OpenMP");
 
         register_omp_constructs();
+        register_oss_constructs();
     }
 
     void Core::pre_run(TL::DTO& dto)
@@ -140,9 +141,9 @@ namespace TL { namespace OpenMP {
     void Core::register_omp_constructs()
     {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
-        if (_pred) register_directive(_directive); 
+        if (_pred) register_directive("omp", _directive); 
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
-        if (_pred) register_construct(_directive, _noend); 
+        if (_pred) register_construct("omp", _directive, _noend); 
 
         // Register pragmas
         if (!_constructs_already_registered)
@@ -163,16 +164,16 @@ namespace TL { namespace OpenMP {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
         if (_pred) { \
             std::string directive_name = remove_separators_of_directive(_directive); \
-            dispatcher().directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
         }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
         if (_pred) { \
             std::string directive_name = remove_separators_of_directive(_directive); \
-            dispatcher().declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
-            dispatcher().statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
         }
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
@@ -183,6 +184,12 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
+    }
+
+    void Core::register_oss_constructs()
+    {
+        register_directive("oss", "taskwait");
+        register_construct("oss", "task");
     }
 
     void Core::phase_cleanup(DTO& data_flow)
