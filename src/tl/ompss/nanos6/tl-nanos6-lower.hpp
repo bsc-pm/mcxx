@@ -25,24 +25,29 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef TL_NANOS6_HPP
-#define TL_NANOS6_HPP
+#ifndef TL_NANOS6_VISITOR_HPP
+#define TL_NANOS6_VISITOR_HPP
 
-#include "tl-compilerphase.hpp"
+#include "tl-nanos6.hpp"
+#include "tl-nodecl.hpp"
+#include "tl-nodecl-visitor.hpp"
 
 namespace TL { namespace Nanos6 {
 
-    class LoweringPhase : public TL::CompilerPhase
+    struct Lower : public Nodecl::ExhaustiveVisitor<void>
     {
+        private:
+            LoweringPhase* _phase;
+
         public:
-            LoweringPhase();
 
-            virtual void run(DTO& dto);
-            virtual void pre_run(DTO& dto);
+            Lower(LoweringPhase* phase) : _phase(phase) { }
 
-            virtual void phase_cleanup(DTO& data_flow);
+            virtual void visit(const Nodecl::OpenMP::Task& n);
+            virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& n);
+            virtual void visit(const Nodecl::OmpSs::TaskCall& n);
     };
 
 } }
 
-#endif // TL_NANOS6_HPP
+#endif // TL_NANOS6_VISITOR_HPP

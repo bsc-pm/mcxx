@@ -2320,6 +2320,11 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_LDFLAGS = $(phases_ldflags)
 src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 								 src/tl/ompss/nanos6/tl-nanos6.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-lower.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-lower.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-task.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-taskcall.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
 								 $(END)
 
 endif

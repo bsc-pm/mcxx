@@ -26,33 +26,40 @@
 
 
 #include "tl-nanos6.hpp"
+#include "tl-nanos6-lower.hpp"
 
 namespace TL { namespace Nanos6 {
 
-    Lowering::Lowering()
+    LoweringPhase::LoweringPhase()
     {
         set_phase_name("Nanos 6 lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR "
                 "into real code involving the Nanos 6 runtime interface");
 
-        std::cerr << "Initializing Nanos 6 lowering phase" << std::endl;
+        // std::cerr << "Initializing Nanos 6 lowering phase" << std::endl;
     }
 
-    void Lowering::run(DTO& dto)
+    void LoweringPhase::run(DTO& dto)
     {
         std::cerr << "Nanos 6 phase" << std::endl;
+
+        Nodecl::NodeclBase translation_unit =
+            *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
+
+        Lower lower(this);
+        lower.walk(translation_unit);
     }
 
-    void Lowering::pre_run(DTO& dto)
+    void LoweringPhase::pre_run(DTO& dto)
     {
         std::cerr << "Nanos 6 prerun" << std::endl;
     }
 
-    void Lowering::phase_cleanup(DTO& dto)
+    void LoweringPhase::phase_cleanup(DTO& dto)
     {
-        std::cerr << "Nanos 6 phase cleanup" << std::endl;
+        // std::cerr << "Nanos 6 phase cleanup" << std::endl;
     }
 
 } }
 
-EXPORT_PHASE(TL::Nanos6::Lowering);
+EXPORT_PHASE(TL::Nanos6::LoweringPhase);
