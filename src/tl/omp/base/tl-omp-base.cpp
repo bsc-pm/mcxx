@@ -150,6 +150,18 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_NOEND
 
         // OSS constructs
+        dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Base::taskwait_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Base::taskwait_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").declaration.pre["task"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::task_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").declaration.post["task"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["task"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["task"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_post, this, std::placeholders::_1));
     }
 
     void Base::pre_run(TL::DTO& dto)

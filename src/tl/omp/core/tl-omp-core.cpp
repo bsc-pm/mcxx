@@ -184,6 +184,20 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
+
+        // OSS constructs
+        dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Core::taskwait_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Core::taskwait_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").declaration.pre["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::task_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").declaration.post["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_post, this, std::placeholders::_1));
     }
 
     void Core::register_oss_constructs()
