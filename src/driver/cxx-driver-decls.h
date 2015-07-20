@@ -170,6 +170,7 @@ typedef struct debug_options_tag
     char analysis_verbose;
     char ranges_verbose;
     char analysis_perf;
+    char analysis_info;
     char print_pcfg;
     char print_pcfg_w_context;
     char print_pcfg_w_analysis;
