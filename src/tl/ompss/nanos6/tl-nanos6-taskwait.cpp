@@ -26,11 +26,20 @@
 
 
 #include "tl-nanos6-lower.hpp"
+#include "tl-source.hpp"
 
 namespace TL { namespace Nanos6 {
 
     void Lower::visit(const Nodecl::OpenMP::TaskwaitShallow& node)
     {
+        // void nanos_taskwait(void);
+
+        Source src;
+        src << "nanos_taskwait();";
+
+        Nodecl::NodeclBase taskwait_tree = src.parse_statement(node);
+
+        node.replace(taskwait_tree);
     }
 
 } }
