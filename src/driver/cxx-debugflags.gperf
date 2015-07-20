@@ -57,6 +57,7 @@ struct debug_flags_list_t;
 "analysis_verbose", DEBUG_OPTION_REF(analysis_verbose), "Prints the results of the static analysis"
 "ranges_verbose", DEBUG_OPTION_REF(ranges_verbose), "Prints debug information about range analysis"
 "analysis_perf", DEBUG_OPTION_REF(analysis_perf), "Prints the performance information of the static analysis"
+"analysis_info", DEBUG_OPTION_REF(analysis_info), "Adds analysis information in text format in the source code"
 "print_pcfg", DEBUG_OPTION_REF(print_pcfg), "Prints PCFG in graphviz format"
 "print_pcfg_w_context", DEBUG_OPTION_REF(print_pcfg_w_context), "Prints PCFG in graphviz format with Context nodes"
 "print_pcfg_w_analysis", DEBUG_OPTION_REF(print_pcfg_w_analysis), "Prints PCFG in graphviz format with Analysis information"

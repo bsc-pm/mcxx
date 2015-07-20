@@ -36,6 +36,58 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
+namespace {
+
+    //! Prints use-definition information in strategic points of the source code
+    void print_use_def_in_source_code(ExtensibleGraph* pcfg)
+    {
+        const ObjectList<Node*>& tasks = pcfg->get_tasks_list();
+
+        int n;
+        for (ObjectList<Node*>::const_iterator it = tasks.begin();
+             it != tasks.end(); ++it)
+        {
+            Node* task = *it;
+            std::string ue_vars_str;
+            NodeclSet& ue_vars = task->get_ue_vars();
+            n = 0;
+            for (NodeclSet::iterator itu = ue_vars.begin(); itu != ue_vars.end(); )
+            {
+                ++n;
+                ue_vars_str += itu->prettyprint();
+                ++itu;
+                if (itu != ue_vars.end())
+                {
+                    ue_vars_str += ", ";
+                    if (n % 5 == 0)
+                        ue_vars_str += "\n          ";
+                }
+            }
+
+            std::string killed_vars_str;
+            NodeclSet& killed_vars = task->get_killed_vars();
+            n = 0;
+            for (NodeclSet::iterator itk = killed_vars.begin(); itk != killed_vars.end(); )
+            {
+                ++n;
+                killed_vars_str += itk->prettyprint();
+                ++itk;
+                if (itk != killed_vars.end())
+                {
+                    killed_vars_str += ", ";
+                    if (n % 5 == 0)
+                        killed_vars_str += "\n          ";
+                }
+            }
+
+            std::cerr << "ANALYSIS: Use-Def Info for task at " << task->get_graph_related_ast().get_locus_str() << " :"
+                      << (ue_vars_str.empty() ? "" : std::string("\n     Use: " + ue_vars_str))
+                      << (killed_vars_str.empty() ? "" : std::string("\n     Def: " + killed_vars_str)) << std::endl;
+        }
+    }
+
+}
+
     std::map<Symbol, ExtensibleGraph*> _pcfgs;
     SizeMap _pointer_to_size_map;
 
@@ -142,6 +194,11 @@ namespace Analysis {
         compute_usage_rec(graph);
         ExtensibleGraph::clear_visits(graph);
         _graph->set_usage_computed();
+
+        if (ANALYSIS_INFO)
+        {
+            print_use_def_in_source_code(_graph);
+        }
     }
 
     // Top bottom traversal
