@@ -1796,7 +1796,8 @@ namespace Vectorization
                         _environment._target_type.get_size() == call_type.get_size())
                 {
                     function_target_type = call_type;
-                    function_target_type_size = function_target_type.get_size();
+                    function_target_type_size =
+                        (function_target_type.is_void() ? 1 : function_target_type.get_size());
                 }
 
                 ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best "\
