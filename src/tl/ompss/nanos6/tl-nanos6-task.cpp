@@ -27,6 +27,7 @@
 
 #include "tl-nanos6-lower.hpp"
 #include "tl-nanos6-task-properties.hpp"
+#include "tl-counters.hpp"
 #include "tl-source.hpp"
 
 namespace TL { namespace Nanos6 {
@@ -35,6 +36,13 @@ namespace TL { namespace Nanos6 {
     {
         TaskProperties task_properties = TaskProperties::gather_task_properties(node);
 
+        Nodecl::NodeclBase args_size;
+        TL::Type data_env_struct;
+        task_properties.create_environment_structure(
+                /* out */
+                data_env_struct,
+                args_size);
+
         TL::Symbol task_info;
         Nodecl::NodeclBase local_init_task_info;
         task_properties.create_task_info(
@@ -42,14 +50,37 @@ namespace TL { namespace Nanos6 {
                 task_info,
                 local_init_task_info);
 
-        Nodecl::NodeclBase args_size;
-        TL::Type data_env_struct;
-        task_properties.create_info_structure(
-                /* out */
-                data_env_struct,
-                args_size);
+        TL::Scope sc = node.retrieve_context();
 
-        TL::Symbol args, task_ptr; // TODO
+        std::string args_name;
+        {
+            TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task-args");
+            std::stringstream ss;
+            ss << "nanos_data_env_" << (int)counter;
+            counter++;
+            args_name = ss.str();
+        }
+
+        TL::Symbol args = sc.new_symbol(args_name);
+        args.get_internal_symbol()->kind = SK_VARIABLE;
+        args.set_type(data_env_struct.get_pointer_to());
+        symbol_entity_specs_set_is_user_declared(
+                args.get_internal_symbol(),
+                1);
+
+        std::string task_ptr_name;
+        {
+            TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task-ptr");
+            std::stringstream ss;
+            ss << "nanos_task_ptr_" << (int)counter;
+            counter++;
+            task_ptr_name = ss.str();
+        }
+        TL::Symbol task_ptr = sc.new_symbol(task_ptr_name);
+        task_ptr.get_internal_symbol()->kind = SK_VARIABLE;
+        task_ptr.set_type(TL::Type::get_void_type().get_pointer_to());
+        symbol_entity_specs_set_is_user_declared(
+                task_ptr.get_internal_symbol(), 1);
 
         Nodecl::List new_stmts;
         if (!local_init_task_info.is_null())
@@ -66,7 +97,7 @@ namespace TL { namespace Nanos6 {
                 <<    "&" << as_symbol(task_info) << ","
                 <<    as_expression(args_size) << ","
                 /* out */
-                <<    "&" << as_symbol(args) << ","
+                <<    "(void**)&" << as_symbol(args) << ","
                 <<    "&" << as_symbol(task_ptr) << ");"
                 ;
             Nodecl::NodeclBase new_task = new_task_src.parse_statement(node);
@@ -77,6 +108,7 @@ namespace TL { namespace Nanos6 {
         {
             Nodecl::NodeclBase capture_env;
             task_properties.capture_environment(
+                    args,
                     /* out */ capture_env);
 
             new_stmts.append(capture_env);

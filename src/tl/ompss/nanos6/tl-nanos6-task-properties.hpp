@@ -37,17 +37,53 @@ namespace TL { namespace Nanos6 {
     struct TaskProperties
     {
         private:
-            void create_outline_function(
-                    /* out */
-                    TL::Symbol& outline_function);
-            void create_dependences_function(
-                    /* out */
-                    TL::Symbol& dependences_function);
-            void create_copies_function(
-                    /* out */
-                    TL::Symbol& copies_function);
+            typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
+            field_map_t field_map;
+
+            void create_outline_function();
+            void create_dependences_function();
+            void create_copies_function();
+
+            void add_field_to_class(
+                    type_t* class_type,
+                    TL::Scope class_scope,
+                    TL::Symbol var,
+                    TL::Type field_type);
+
+            TL::Scope compute_scope_for_environment_structure();
+
+            TL::Type info_structure;
+            TL::Symbol outline_function;
+            TL::Symbol dependences_function;
+            TL::Symbol copies_function;
 
         public:
+            TL::ObjectList<TL::Symbol> shared;
+            TL::ObjectList<TL::Symbol> private_;
+            TL::ObjectList<TL::Symbol> firstprivate;
+            Nodecl::NodeclBase final_;
+            bool is_tied;
+            std::string task_label;
+
+            TL::ObjectList<Nodecl::NodeclBase> dep_in;
+            TL::ObjectList<Nodecl::NodeclBase> dep_out;
+            TL::ObjectList<Nodecl::NodeclBase> dep_inout;
+
+            TL::ObjectList<Nodecl::NodeclBase> copy_in;
+            TL::ObjectList<Nodecl::NodeclBase> copy_out;
+            TL::ObjectList<Nodecl::NodeclBase> copy_inout;
+
+            bool is_function_task;
+            Nodecl::NodeclBase task_body;
+
+            // For inline related_function is the enclosing task,
+            // for function tasks, it is the function task itself
+            TL::Symbol related_function;
+            const locus_t* locus_of_task;
+
+            TaskProperties()
+                : is_tied(true), is_function_task(false) { }
+
             static TaskProperties gather_task_properties(const Nodecl::OpenMP::Task& node);
 
             void create_task_info(
@@ -55,12 +91,13 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol &task_info,
                     Nodecl::NodeclBase& local_init);
 
-            void create_info_structure(
+            void create_environment_structure(
                     /* out */
                     TL::Type& data_env_struct,
                     Nodecl::NodeclBase& args_size);
 
             void capture_environment(
+                    TL::Symbol args,
                     /* out */
                     Nodecl::NodeclBase& capture_env);
     };
