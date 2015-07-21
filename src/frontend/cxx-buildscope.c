@@ -21753,7 +21753,11 @@ static scope_entry_t* instantiate_declaration_common(
                     break;
                 }
             default:
-                internal_error("Not yet implemented for symbol kind %s\n", symbol_kind_name(orig_entry));
+                internal_error("%s: Not yet implemented for symbol '%s' of kind %s (is_def=%d)\n",
+                        locus_to_str(locus),
+                        orig_entry->symbol_name,
+                        symbol_kind_name(orig_entry),
+                        is_definition);
         }
     }
 
