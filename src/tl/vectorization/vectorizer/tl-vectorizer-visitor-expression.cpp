@@ -1329,7 +1329,16 @@ namespace Vectorization
                 }
                 else if (class_object.is<Nodecl::Symbol>())
                 {
-                    vectorize_regular_class_member_access(lhs.as<Nodecl::ClassMemberAccess>());
+                    if (Vectorizer::_vectorizer_analysis
+                            ->is_uniform(_environment._analysis_simd_scope, class_object, class_object)
+                            && !Utils::is_class_of_vector_fields(class_object.get_symbol().get_type()))
+                    {
+                        // Do nothing in this case
+                    }
+                    else
+                    {
+                        vectorize_regular_class_member_access(lhs.as<Nodecl::ClassMemberAccess>());
+                    }
                     walk(rhs);
                 }
                 else
@@ -2107,7 +2116,31 @@ namespace Vectorization
         }
         else if (class_object.is<Nodecl::Symbol>())
         {
-            vectorize_regular_class_member_access(n);
+            if (Vectorizer::_vectorizer_analysis
+                    ->is_uniform(_environment._analysis_simd_scope, class_object, class_object)
+                    && !Utils::is_class_of_vector_fields(class_object.get_symbol().get_type()))
+            {
+                if (!member.get_type().no_ref().is_pointer())
+                {
+                    Nodecl::VectorPromotion vector_prom =
+                        Nodecl::VectorPromotion::make(
+                                n.shallow_copy(),
+                                Utils::get_null_mask(),
+                                Utils::get_qualified_vector_to(n.get_type(),
+                                    _environment._vectorization_factor),
+                                n.get_locus());
+                    n.replace(vector_prom);
+                }
+                else
+                {
+                    running_error("Vectorizer: ClassMemberAccess type is not "\
+                            "supported yet: '%s'", n.prettyprint().c_str());
+                }
+            }
+            else
+            {
+                vectorize_regular_class_member_access(n);
+            }
         }
         else
         {

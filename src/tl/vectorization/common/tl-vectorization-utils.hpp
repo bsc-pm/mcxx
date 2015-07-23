@@ -98,6 +98,7 @@ namespace TL
             std::string get_var_counter();
 
             bool class_type_can_be_vectorized(TL::Type);
+            bool is_class_of_vector_fields(TL::Type type);
             TL::Type get_class_of_vector_fields(TL::Type src_type,
                     const unsigned int size);
             TL::Type get_class_of_vector_fields(TL::Type src_type,
