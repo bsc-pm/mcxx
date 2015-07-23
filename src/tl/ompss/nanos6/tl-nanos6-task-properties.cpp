@@ -327,11 +327,13 @@ namespace TL { namespace Nanos6 {
     }
 
     void TaskProperties::add_field_to_class(
-            type_t* new_class_type,
+            TL::Symbol new_class_symbol,
             TL::Scope class_scope,
             TL::Symbol var,
             TL::Type field_type)
     {
+        TL::Type new_class_type = new_class_symbol.get_user_defined_type();
+
         std::string orig_field_name = var.get_name();
         TL::Type orig_field_type = var.get_type();
 
@@ -341,11 +343,16 @@ namespace TL { namespace Nanos6 {
 
         field.set_type( field_type );
         field.get_internal_symbol()->locus = var.get_locus();
-        symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
 
-        class_type_add_member(new_class_type,
+        symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+        symbol_entity_specs_set_class_type(field.get_internal_symbol(),
+                new_class_type.get_internal_type());
+        symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
+        class_type_add_member(
+                new_class_type.get_internal_type(),
                 field.get_internal_symbol(),
                 /* is_definition */ 1);
+
         field_map[var] = field;
     }
 
@@ -414,7 +421,7 @@ namespace TL { namespace Nanos6 {
             }
 
             add_field_to_class(
-                    new_class_type,
+                    new_class_symbol,
                     class_scope,
                     *it,
                     type_of_field);
@@ -437,7 +444,7 @@ namespace TL { namespace Nanos6 {
             type_of_field = type_of_field.get_unqualified_type();
 
             add_field_to_class(
-                    new_class_type,
+                    new_class_symbol,
                     class_scope,
                     *it,
                     type_of_field);

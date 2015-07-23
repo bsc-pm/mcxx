@@ -45,7 +45,7 @@ namespace TL { namespace Nanos6 {
             void create_copies_function();
 
             void add_field_to_class(
-                    type_t* class_type,
+                    TL::Symbol class_symbol,
                     TL::Scope class_scope,
                     TL::Symbol var,
                     TL::Type field_type);
