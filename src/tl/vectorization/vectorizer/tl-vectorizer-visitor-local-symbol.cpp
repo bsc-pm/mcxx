@@ -224,6 +224,7 @@ namespace Vectorization
                 bool result;
                 ReferenceInfo ref_info = request_info_of_reference(n);
                 if (!tl_sym_type.is_vector()
+                        && !Utils::is_class_of_vector_fields(tl_sym_type)
                         && !is_mask
                         && !ref_info.is_uniform
                         && !ref_info.is_linear
@@ -312,6 +313,7 @@ namespace Vectorization
                 // Here we take into account the accessed member
                 ReferenceInfo ref_info = request_info_of_reference(n);
                 if (!tl_sym_type.is_vector() // ???
+                        && !Utils::is_class_of_vector_fields(tl_sym_type)
                         && !ref_info.is_uniform
                         && !ref_info.is_linear
                         /* && !ref_info.is_induction_variable */)
@@ -340,7 +342,8 @@ namespace Vectorization
                 TL::Type scalar_type = sym.get_type().no_ref();
 
                 bool result;
-                if (!scalar_type.is_vector())
+                if (!scalar_type.is_vector()
+                        && !Utils::is_class_of_vector_fields(scalar_type))
                 {
                     Nodecl::NodeclBase init = sym.get_value();
 
@@ -384,6 +387,25 @@ namespace Vectorization
                 TL::ObjectList<TL::Type>::iterator it_param = params.begin();
                 Nodecl::List::iterator it_arg = arguments.begin();
 
+                TL::Type function_target_type = n.get_type().no_ref();
+                int function_target_type_size = function_target_type.is_void() ? 1 : function_target_type.get_size();
+
+                // Get the best vector version of the function available
+                Nodecl::NodeclBase best_version_node;
+                if (n.get_called().is<Nodecl::Symbol>())
+                {
+                    best_version_node = Vectorizer::_function_versioning.get_best_version(
+                            n.get_called().get_symbol(),
+                            _environment._device,
+                            _environment._vectorization_factor * function_target_type_size,
+                            function_target_type,
+                            /* mask */ false);
+                }
+
+                TL::Symbol vector_function;
+                if (!best_version_node.is_null())
+                    vector_function = best_version_node.get_symbol();
+
                 bool result = false;
                 for (;
                         it_param != params.end() && it_arg != arguments.end();
@@ -402,14 +424,33 @@ namespace Vectorization
                                 continue;
                             }
 
-                            warn_printf("%s: warning: argument '%s' is bound to a reference of type '%s'. "
-                                    "Assuming that the address of the reference is a linear value\n",
-                                    it_arg->get_locus_str().c_str(),
-                                    it_arg->prettyprint().c_str(),
-                                    it_param->get_declaration(it_arg->retrieve_context(), "").c_str());
+                            if (vector_function.is_valid())
+                            {
+                                TL::ObjectList<TL::Type> vector_params_list = vector_function.get_type().parameters();
+                                int vector_param_type_idx = it_param - params.begin();
+                                ERROR_CONDITION(vector_param_type_idx >= (int)vector_params_list.size(),
+                                        "Invalid index", 0);
+                                TL::Type vector_param_type = vector_params_list[vector_param_type_idx];
+                                vector_param_type = vector_param_type.no_ref().get_unqualified_type();
 
-                            turn_local_to_vector(tl_sym, n);
-                            result = true;
+                                if (vector_param_type.is_vector()
+                                        || Utils::is_class_of_vector_fields(vector_param_type))
+                                {
+                                    turn_local_to_vector(tl_sym, n);
+                                    result = true;
+                                }
+                                else
+                                {
+                                    // Do nothing
+                                }
+                            }
+                            else
+                            {
+                                error_printf("%s: error: argument '%s' bound to a reference of type '%s' but there is no vector function for it\n",
+                                        it_arg->get_locus_str().c_str(),
+                                        it_arg->prettyprint().c_str(),
+                                        it_param->get_declaration(it_arg->retrieve_context(), "").c_str());
+                            }
                         }
                         else
                         {

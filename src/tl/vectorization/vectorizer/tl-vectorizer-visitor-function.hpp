@@ -55,9 +55,13 @@ namespace TL
             private:
                 VectorizerEnvironment& _environment;
                 const bool _masked_version;
+                TL::ObjectList<TL::Symbol> _uniform_symbols;
+                std::map<TL::Symbol, int> _linear_symbols;
 
             public:
                 VectorizerVisitorFunctionHeader(VectorizerEnvironment& environment,
+                        const TL::ObjectList<TL::Symbol> &uniform_symbols,
+                        const std::map<TL::Symbol, int> &linear_symbols,
                         const bool masked_version);
 
                 virtual void visit(const Nodecl::FunctionCode& function_code);

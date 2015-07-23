@@ -1243,7 +1243,10 @@ namespace TL {
 
 
             _vectorizer.vectorize_function_header(vector_func_code,
-                    function_environment, masked_version);
+                    function_environment,
+                    uniform_symbols,
+                    linear_symbols,
+                    masked_version);
 
             function_environment.unload_environment();
             _vectorizer.postprocess_code(simd_node);

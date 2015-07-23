@@ -577,6 +577,11 @@ namespace Utils
         return _class_of_vector_field_maps[class_of_vector];
     }
 
+    bool is_class_of_vector_fields(TL::Type type)
+    {
+        return _class_of_vector_field_maps.find(type) != _class_of_vector_field_maps.end();
+    }
+
     TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
             const unsigned int size,
             bool &is_new)

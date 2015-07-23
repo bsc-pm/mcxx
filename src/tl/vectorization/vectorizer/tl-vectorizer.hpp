@@ -76,8 +76,11 @@ namespace TL
 
                 void vectorize_loop(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment);
-                void vectorize_function_header(Nodecl::FunctionCode& func_code,
+                void vectorize_function_header(
+                        Nodecl::FunctionCode& function_code,
                         VectorizerEnvironment& environment,
+                        const TL::ObjectList<TL::Symbol> &uniform_symbols,
+                        const std::map<TL::Symbol, int> &linear_symbols,
                         const bool masked_version);
                 void vectorize_function(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
