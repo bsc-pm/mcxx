@@ -1674,7 +1674,9 @@ namespace Vectorization
                 {
                 std::cerr << "Param: " << param_it->get_name() << " " << print_declarator(param_it->get_type().get_internal_type()) << std::endl;
                 }
-                if (param_it->get_type().no_ref().is_vector())
+                TL::Type param_type = param_it->get_type().no_ref();
+                if (param_type.is_vector()
+                        || Utils::is_class_of_vector_fields(param_type.get_unqualified_type()))
                 {
                     VECTORIZATION_DEBUG()
                     {
@@ -1961,7 +1963,9 @@ namespace Vectorization
                 n.replace(new_red_symbol);
             }
             // Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
-            else if(tl_sym_type.is_vector() || tl_sym_type.is_mask())
+            else if(tl_sym_type.is_vector()
+                    || tl_sym_type.is_mask()
+                    || Utils::is_class_of_vector_fields(tl_sym_type.get_unqualified_type()))
             {
                 symbol_type_promotion(n);
             }
