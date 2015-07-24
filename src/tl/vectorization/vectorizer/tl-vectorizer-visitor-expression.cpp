@@ -1831,11 +1831,17 @@ namespace Vectorization
                             ast_print_node_type(best_version.get_kind()));
                 }
 
+                Nodecl::List new_arguments = n.get_arguments().shallow_copy().as<Nodecl::List>();
+                if (!mask.is_null())
+                {
+                    new_arguments.append(mask.shallow_copy());
+                }
+
                 const Nodecl::VectorFunctionCall vector_function_call =
                     Nodecl::VectorFunctionCall::make(
                             Nodecl::FunctionCall::make(
                                 new_called,
-                                n.get_arguments().shallow_copy(),
+                                new_arguments,
                                 n.get_alternate_name().shallow_copy(),
                                 n.get_function_form().shallow_copy(),
                                 Utils::get_qualified_vector_to(call_type,
