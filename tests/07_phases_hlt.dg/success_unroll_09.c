@@ -33,6 +33,7 @@ test_generator="config/mercurium-hlt run"
 */
 
 #include <stdlib.h>
+#include <string.h>
 
 void foo(int *a, int N)
 {
