@@ -280,6 +280,8 @@ namespace TL { namespace OpenMP {
                 pragma_line,
                 /* ignore_target_info */ true,
                 /* is_inline_task */ true);
+        device_data_environment.append(dependences);
+
         Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
         device_data_environment.append(map_clause);
 
