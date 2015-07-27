@@ -513,6 +513,7 @@ connect_node:
             case __OmpSimdParallelFor:
             case __OmpSimdFunction:
             case __OmpSingle:
+            case __OmpTarget:
             case __OmpTask:
             case __OmpWorkshare:
                 dot_graph += indent + "color=red4;\n" + indent +"style=bold;\n";

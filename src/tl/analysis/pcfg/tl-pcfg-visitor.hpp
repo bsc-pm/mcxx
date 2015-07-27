@@ -363,6 +363,7 @@ namespace Analysis {
         Ret visit(const Nodecl::OpenMP::BarrierFull& n);
         Ret visit(const Nodecl::OpenMP::BarrierSignal& n);
         Ret visit(const Nodecl::OpenMP::BarrierWait& n);
+        Ret visit(const Nodecl::OpenMP::Device& n);
         Ret visit(const Nodecl::OpenMP::Overlap& n);
         Ret visit(const Nodecl::OpenMP::CombinedWithParallel& n);
         Ret visit(const Nodecl::OpenMP::Critical& n);
@@ -382,6 +383,9 @@ namespace Analysis {
         Ret visit(const Nodecl::OpenMP::If& n);
         Ret visit(const Nodecl::OpenMP::Lastprivate& n);
         Ret visit(const Nodecl::OpenMP::Linear& n);
+        Ret visit(const Nodecl::OpenMP::MapFrom& n);
+        Ret visit(const Nodecl::OpenMP::MapTo& n);
+        Ret visit(const Nodecl::OpenMP::MapToFrom& n);
         Ret visit(const Nodecl::OpenMP::Mask& n);
         Ret visit(const Nodecl::OpenMP::Master& n);
         Ret visit(const Nodecl::OpenMP::NoMask& n);
@@ -404,6 +408,8 @@ namespace Analysis {
         Ret visit(const Nodecl::OpenMP::SimdReduction& n);
         Ret visit(const Nodecl::OpenMP::Single& n);
         Ret visit(const Nodecl::OpenMP::Suitable& n);
+        Ret visit(const Nodecl::OpenMP::Target& n);
+        Ret visit(const Nodecl::OpenMP::TargetTaskUndeferred& n);
         Ret visit(const Nodecl::OpenMP::Task& n);
         Ret visit(const Nodecl::OpenMP::TaskwaitDeep& n);
         Ret visit(const Nodecl::OpenMP::TaskwaitShallow& n);

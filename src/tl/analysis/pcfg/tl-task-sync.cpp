@@ -466,13 +466,16 @@ namespace {
         NBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
+                && !task_node_source.is<Nodecl::OpenMP::Target>()
                 && !task_node_source.is<Nodecl::OmpSs::TaskExpression>()
                 && !task_node_source.is<Nodecl::OmpSs::TaskCall>(),
-                "Expecting an OpenMP::Task, OmpSs::TaskExpression or OmpSs::TaskCall source node here got a %s",
+                "Expecting an OpenMP::Task, OpenMP::Target, "
+                "OmpSs::TaskExpression or OmpSs::TaskCall source node here got a %s",
                 ast_print_node_type(task_node_source.get_kind()));
         Nodecl::List task_source_env;
-        if (task_node_source.is<Nodecl::OpenMP::Task>())
-        {
+        if (task_node_source.is<Nodecl::OpenMP::Task>()
+            || task_node_source.is<Nodecl::OpenMP::Target>())
+        {   // The structure of the Task and Target nodes is the same
             Nodecl::OpenMP::Task task_source(task_node_source.as<Nodecl::OpenMP::Task>());
             task_source_env = task_source.get_environment().as<Nodecl::List>();
         }
@@ -516,13 +519,16 @@ namespace {
         NBase task_node_target = target->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
         ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
+                && !task_node_target.is<Nodecl::OpenMP::Target>()
                 && !task_node_target.is<Nodecl::OmpSs::TaskExpression>()
                 && !task_node_target.is<Nodecl::OmpSs::TaskCall>(),
-                "Expecting an OpenMP::Task or OmpSs::TaskCall target node here got a %s",
+                        "Expecting an OpenMP::Task, OpenMP::Target, "
+                        "OmpSs::TaskExpression or OmpSs::TaskCall target node here got a %s",
                 ast_print_node_type(task_node_target.get_kind()));
         Nodecl::List task_target_env;
-        if (task_node_target.is<Nodecl::OpenMP::Task>())
-        {
+        if (task_node_target.is<Nodecl::OpenMP::Task>()
+            || task_node_target.is<Nodecl::OpenMP::Target>())
+        {   // The structure of the Task and Target nodes is the same
             Nodecl::OpenMP::Task task_target(task_node_target.as<Nodecl::OpenMP::Task>());
             task_target_env = task_target.get_environment().as<Nodecl::List>();
         }

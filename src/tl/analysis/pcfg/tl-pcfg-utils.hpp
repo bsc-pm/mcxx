@@ -112,6 +112,7 @@ namespace Analysis {
     GRAPH_TYPE(OmpSingle) \
     GRAPH_TYPE(OmpWorkshare) \
     GRAPH_TYPE(OmpTask) \
+    GRAPH_TYPE(OmpTarget) \
     GRAPH_TYPE(SplitStmt) \
     GRAPH_TYPE(Switch) \
     GRAPH_TYPE(SwitchCase) \

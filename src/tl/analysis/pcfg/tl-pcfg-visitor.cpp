@@ -2198,6 +2198,12 @@ next_it:    ;
         return ObjectList<Node*>();
     }
 
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Device& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Final& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);
@@ -2346,7 +2352,25 @@ next_it:    ;
         _utils->_pragma_nodes.top()._clauses.append(n);
         return ObjectList<Node*>();
     }
-    
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::MapFrom& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::MapTo& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::MapToFrom& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Mask& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);
@@ -2705,6 +2729,82 @@ next_it:    ;
         return ObjectList<Node*>();
     }
 
+    // Target behaves like Task when there is no "nowait" clause
+    // Otherwise it is synchronous
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Target& n)
+    {
+        Node* last_outer = _utils->_outer_nodes.top();
+        // Create the new graph node containing the task
+        Node* target_node = _pcfg->create_graph_node(
+                _pcfg->_graph, n,
+                __OmpTarget, _utils->_context_nodecl.top());
+
+        Node* target_entry = target_node->get_graph_entry_node();
+        Node* target_exit = target_node->get_graph_exit_node();
+
+        Nodecl::List environ = n.get_environment().as<Nodecl::List>();
+        // Set clauses info to the task node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push(current_pragma);
+        _utils->_environ_entry_exit.push(std::pair<Node*, Node*>(target_entry, target_exit));
+        walk(environ);
+        target_node->set_pragma_node_info(_utils->_pragma_nodes.top());
+        _utils->_pragma_nodes.pop();
+        _utils->_environ_entry_exit.pop();
+
+        // There was not a nowait in the target
+        if (target_node->get_pragma_node_info().has_clause(NODECL_OPEN_M_P_TARGET_TASK_UNDEFERRED))
+        {
+            _pcfg->connect_nodes(_utils->_last_nodes, target_node);
+            target_node->set_outer_node(last_outer);
+
+            // Traverse the statements of the current task
+            _utils->_last_nodes = ObjectList<Node*>(1, target_entry);
+            walk(n.get_statements());
+
+            target_exit->set_id(++(_utils->_nid));
+            _pcfg->connect_nodes(_utils->_last_nodes, target_exit);
+
+            _utils->_outer_nodes.pop();
+            _utils->_last_nodes = ObjectList<Node*>(1, target_node);
+            return ObjectList<Node*>(1, target_node);
+        }
+        // There was a nowait in the target
+        else
+        {
+            // Pop out the outer node, since it is not the Target graph node,
+            // but the previous one (whichever it was)
+            _utils->_outer_nodes.pop();
+            Node* task_creation = new Node(_utils->_nid, __OmpTaskCreation, _utils->_outer_nodes.top());
+            _pcfg->connect_nodes(_utils->_last_nodes, task_creation);
+
+            const char* s = "Create";
+            int slen = strlen(s);
+            NBase label = Nodecl::StringLiteral::make(
+                Type(get_literal_string_type(slen+1, get_char_type())), const_value_make_string(s, slen));
+            _pcfg->connect_nodes(task_creation, target_node, __Always, label, /*is_task*/ true);
+
+            // Traverse the statements of the current task
+            _utils->_outer_nodes.push(target_node);     // Push again the target node as outer to process the inner statements
+            _utils->_last_nodes = ObjectList<Node*>(1, target_entry);
+            walk(n.get_statements());
+
+            target_exit->set_id(++(_utils->_nid));
+            _pcfg->connect_nodes(_utils->_last_nodes, target_exit);
+
+            _utils->_outer_nodes.pop();
+            _pcfg->_task_nodes_l.insert(target_node);
+            _utils->_last_nodes = ObjectList<Node*>(1, task_creation);
+            return ObjectList<Node*>(1, task_creation);
+        }
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::TargetTaskUndeferred& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Task& n)
     {
         Node* task_creation = new Node(_utils->_nid, __OmpTaskCreation, _utils->_outer_nodes.top());
@@ -2722,16 +2822,14 @@ next_it:    ;
         Node* task_entry = task_node->get_graph_entry_node();
         Node* task_exit = task_node->get_graph_exit_node();
 
-        // Set the stack of tasks properly
         // Traverse the statements of the current task
-
         _utils->_last_nodes = ObjectList<Node*>(1, task_entry);
         walk(n.get_statements());
 
         task_exit->set_id(++(_utils->_nid));
         _pcfg->connect_nodes(_utils->_last_nodes, task_exit);
 
-        // Set clauses info to the for node
+        // Set clauses info to the task node
         PCFGPragmaInfo current_pragma;
         _utils->_pragma_nodes.push(current_pragma);
         _utils->_environ_entry_exit.push(std::pair<Node*, Node*>(task_entry, task_exit));
