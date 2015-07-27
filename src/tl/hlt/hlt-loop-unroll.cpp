@@ -120,6 +120,11 @@ namespace TL { namespace HLT {
                 walk(nest);
             }
         }
+
+        virtual void visit(const Nodecl::ObjectInit& node)
+        {
+            walk(node.get_symbol().get_value());
+        }
     };
 
     }
