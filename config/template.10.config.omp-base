@@ -14,7 +14,7 @@ linker_name = @GCC@
 
 #analysis
 {analysis} compiler_phase = libtest_analysis.so
-{analysis} options = --debug-flags=analysis_verbose
+{analysis-verbose} options = --debug-flags=analysis_verbose
 {pcfg} options = --variable=pcfg_enabled:1
 {use-def} options = --variable=use_def_enabled:1
 {liveness} options = --variable=liveness_enabled:1

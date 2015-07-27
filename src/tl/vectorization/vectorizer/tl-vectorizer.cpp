@@ -183,8 +183,11 @@ namespace Vectorization
         }
     }
 
-    void Vectorizer::vectorize_function_header(Nodecl::FunctionCode& function_code,
+    void Vectorizer::vectorize_function_header(
+            Nodecl::FunctionCode& function_code,
             VectorizerEnvironment& environment,
+            const TL::ObjectList<TL::Symbol> &uniform_symbols,
+            const std::map<TL::Symbol, int> &linear_symbols,
             const bool masked_version)
     {
         VECTORIZATION_DEBUG()
@@ -195,7 +198,10 @@ namespace Vectorization
                     environment._vectorization_factor);
         }
 
-        VectorizerVisitorFunctionHeader visitor_function_header(environment, masked_version);
+        VectorizerVisitorFunctionHeader visitor_function_header(environment,
+                uniform_symbols,
+                linear_symbols,
+                masked_version);
         visitor_function_header.walk(function_code);
 
         VECTORIZATION_DEBUG()

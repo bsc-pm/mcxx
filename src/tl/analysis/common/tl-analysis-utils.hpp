@@ -40,6 +40,8 @@
 
 #define ANALYSIS_PERFORMANCE_MEASURE CURRENT_CONFIGURATION->debug_options.analysis_perf
 
+#define ANALYSIS_INFO CURRENT_CONFIGURATION->debug_options.analysis_info
+
 namespace TL {
 namespace Analysis {
 

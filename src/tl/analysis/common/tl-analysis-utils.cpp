@@ -56,8 +56,12 @@ namespace Utils {
 
         std::string filename = ::give_basename(ast.get_filename().c_str());
         std::stringstream line; line << ast.get_line();
+        std::string funcname = (ast.is<Nodecl::FunctionCode>()
+                ? std::string("_" + ast.as<Nodecl::FunctionCode>().get_symbol().get_name())
+                : ""
+        );
 
-        return filename + "_" + line.str() + "_" + date_str;
+        return filename + "_" + line.str() + funcname + "_" + date_str;
     }
 
     NBase find_main_function(NBase ast)
@@ -125,6 +129,30 @@ namespace Utils {
         else if(n.is<Nodecl::Preincrement>())
         {
             nodecl = get_nodecl_base(n.as<Nodecl::Preincrement>().get_rhs());
+        }
+        else if (n.is<Nodecl::Analysis::RangeUnion>())
+        {
+            const NBase& lhs_nodecl = get_nodecl_base(n.as<Nodecl::Analysis::RangeUnion>().get_lhs());
+            const NBase& rhs_nodecl = get_nodecl_base(n.as<Nodecl::Analysis::RangeUnion>().get_rhs());
+            if (Nodecl::Utils::structurally_equal_nodecls(lhs_nodecl, rhs_nodecl))
+                nodecl = lhs_nodecl;
+            else
+                internal_error("The base variable of the expressions in a union must be the same "
+                               "for the LHS and the RHS, but it is not for '%s'.\n", n.prettyprint().c_str());
+        }
+        else if (n.is<Nodecl::Analysis::RangeIntersection>())
+        {
+            const NBase& lhs_nodecl = get_nodecl_base(n.as<Nodecl::Analysis::RangeIntersection>().get_lhs());
+            const NBase& rhs_nodecl = get_nodecl_base(n.as<Nodecl::Analysis::RangeIntersection>().get_rhs());
+            if (Nodecl::Utils::structurally_equal_nodecls(lhs_nodecl, rhs_nodecl))
+                nodecl = lhs_nodecl;
+            else
+                internal_error("The base variable of the expressions in an intersection must be the same "
+                               "for the LHS and the RHS, but it is not for '%s'.\n", n.prettyprint().c_str());
+        }
+        else if (n.is<Nodecl::FunctionCall>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::FunctionCall>().get_called());
         }
         else
         {

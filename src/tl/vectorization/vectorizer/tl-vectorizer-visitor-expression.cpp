@@ -1329,7 +1329,16 @@ namespace Vectorization
                 }
                 else if (class_object.is<Nodecl::Symbol>())
                 {
-                    vectorize_regular_class_member_access(lhs.as<Nodecl::ClassMemberAccess>());
+                    if (Vectorizer::_vectorizer_analysis
+                            ->is_uniform(_environment._analysis_simd_scope, class_object, class_object)
+                            && !Utils::is_class_of_vector_fields(class_object.get_symbol().get_type()))
+                    {
+                        // Do nothing in this case
+                    }
+                    else
+                    {
+                        vectorize_regular_class_member_access(lhs.as<Nodecl::ClassMemberAccess>());
+                    }
                     walk(rhs);
                 }
                 else
@@ -1665,7 +1674,9 @@ namespace Vectorization
                 {
                 std::cerr << "Param: " << param_it->get_name() << " " << print_declarator(param_it->get_type().get_internal_type()) << std::endl;
                 }
-                if (param_it->get_type().no_ref().is_vector())
+                TL::Type param_type = param_it->get_type().no_ref();
+                if (param_type.is_vector()
+                        || Utils::is_class_of_vector_fields(param_type.get_unqualified_type()))
                 {
                     VECTORIZATION_DEBUG()
                     {
@@ -1796,7 +1807,8 @@ namespace Vectorization
                         _environment._target_type.get_size() == call_type.get_size())
                 {
                     function_target_type = call_type;
-                    function_target_type_size = function_target_type.get_size();
+                    function_target_type_size =
+                        (function_target_type.is_void() ? 1 : function_target_type.get_size());
                 }
 
                 ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best "\
@@ -1821,11 +1833,17 @@ namespace Vectorization
                             ast_print_node_type(best_version.get_kind()));
                 }
 
+                Nodecl::List new_arguments = n.get_arguments().shallow_copy().as<Nodecl::List>();
+                if (!mask.is_null())
+                {
+                    new_arguments.append(mask.shallow_copy());
+                }
+
                 const Nodecl::VectorFunctionCall vector_function_call =
                     Nodecl::VectorFunctionCall::make(
                             Nodecl::FunctionCall::make(
                                 new_called,
-                                n.get_arguments().shallow_copy(),
+                                new_arguments,
                                 n.get_alternate_name().shallow_copy(),
                                 n.get_function_form().shallow_copy(),
                                 Utils::get_qualified_vector_to(call_type,
@@ -1945,7 +1963,9 @@ namespace Vectorization
                 n.replace(new_red_symbol);
             }
             // Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
-            else if(tl_sym_type.is_vector() || tl_sym_type.is_mask())
+            else if(tl_sym_type.is_vector()
+                    || tl_sym_type.is_mask()
+                    || Utils::is_class_of_vector_fields(tl_sym_type.get_unqualified_type()))
             {
                 symbol_type_promotion(n);
             }
@@ -2106,7 +2126,31 @@ namespace Vectorization
         }
         else if (class_object.is<Nodecl::Symbol>())
         {
-            vectorize_regular_class_member_access(n);
+            if (Vectorizer::_vectorizer_analysis
+                    ->is_uniform(_environment._analysis_simd_scope, class_object, class_object)
+                    && !Utils::is_class_of_vector_fields(class_object.get_symbol().get_type()))
+            {
+                if (!member.get_type().no_ref().is_pointer())
+                {
+                    Nodecl::VectorPromotion vector_prom =
+                        Nodecl::VectorPromotion::make(
+                                n.shallow_copy(),
+                                Utils::get_null_mask(),
+                                Utils::get_qualified_vector_to(n.get_type(),
+                                    _environment._vectorization_factor),
+                                n.get_locus());
+                    n.replace(vector_prom);
+                }
+                else
+                {
+                    running_error("Vectorizer: ClassMemberAccess type is not "\
+                            "supported yet: '%s'", n.prettyprint().c_str());
+                }
+            }
+            else
+            {
+                vectorize_regular_class_member_access(n);
+            }
         }
         else
         {
