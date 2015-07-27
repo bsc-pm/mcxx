@@ -144,6 +144,20 @@ namespace TL { namespace Nanos6 {
         return tp;
     }
 
+    TaskProperties TaskProperties::gather_task_properties(const Nodecl::OmpSs::TaskCall& node)
+    {
+        TaskProperties tp;
+
+        TaskPropertiesVisitor tv(tp);
+        tv.walk(node.get_environment());
+
+        tp.related_function = Nodecl::Utils::get_enclosing_function(node);
+        tp.locus_of_task = node.get_locus();
+        tp.is_function_task = true;
+
+        return tp;
+    }
+
     void TaskProperties::create_task_info(
             /* out */
             TL::Symbol &task_info,

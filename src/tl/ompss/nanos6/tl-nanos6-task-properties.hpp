@@ -85,6 +85,7 @@ namespace TL { namespace Nanos6 {
                 : is_tied(true), is_function_task(false) { }
 
             static TaskProperties gather_task_properties(const Nodecl::OpenMP::Task& node);
+            static TaskProperties gather_task_properties(const Nodecl::OmpSs::TaskCall& node);
 
             void create_task_info(
                     /* out */
