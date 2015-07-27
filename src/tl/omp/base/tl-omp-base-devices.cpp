@@ -268,8 +268,15 @@ namespace TL { namespace OpenMP {
             device_data_environment.append(if_clause);
         }
 
-        Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
+        TL::PragmaCustomClause nowait = pragma_line.get_clause("nowait");
+        if (!nowait.is_defined())
+        {
+            device_data_environment.append(
+                    Nodecl::OpenMP::TargetTaskUndeferred::make()
+                    );
+        }
 
+        Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
         device_data_environment.append(map_clause);
 
         Nodecl::OpenMP::Target target_data =
