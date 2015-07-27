@@ -43,6 +43,11 @@ namespace TL { namespace Nanos6 {
     {
         std::cerr << "Nanos 6 phase" << std::endl;
 
+        FORTRAN_LANGUAGE()
+        {
+            this->fortran_load_api(dto);
+        }
+
         Nodecl::NodeclBase translation_unit =
             *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 

@@ -30,6 +30,8 @@
 #include "tl-counters.hpp"
 #include "tl-source.hpp"
 
+#include "cxx-exprtype.h"
+
 namespace TL { namespace Nanos6 {
 
     void Lower::visit(const Nodecl::OpenMP::Task& node)
@@ -91,17 +93,71 @@ namespace TL { namespace Nanos6 {
 
         // Create task
         {
-            Source new_task_src;
-            new_task_src
-                << "nanos_create_task("
-                <<    "&" << as_symbol(task_info) << ","
-                <<    as_expression(args_size) << ","
-                /* out */
-                <<    "(void**)&" << as_symbol(args) << ","
-                <<    "&" << as_symbol(task_ptr) << ");"
-                ;
-            Nodecl::NodeclBase new_task = new_task_src.parse_statement(node);
-            new_stmts.append(new_task);
+            TL::Symbol nanos_create_task_sym =
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos_create_task");
+            ERROR_CONDITION(!nanos_create_task_sym.is_valid()
+                    || !nanos_create_task_sym.is_function(),
+                    "Invalid symbol", 0);
+
+            // Source new_task_src;
+            // new_task_src
+            //     << "nanos_create_task("
+            //     <<    "&" << as_symbol(task_info) << ","
+            //     <<    as_expression(args_size) << ","
+            //     /* out */
+            //     <<    "(void**)&" << as_symbol(args) << ","
+            //     <<    "&" << as_symbol(task_ptr) << ");"
+            //     ;
+
+            // &task_info
+            Nodecl::NodeclBase task_info_ptr =
+                Nodecl::Reference::make(
+                    task_info.make_nodecl(
+                        /* set_ref_type */ true,
+                        node.get_locus()),
+                    task_info.get_type().get_pointer_to(),
+                    node.get_locus());
+
+            // (void**)&args
+            Nodecl::NodeclBase args_ptr_out =
+                Nodecl::Cast::make(
+                        Nodecl::Reference::make(
+                            args.make_nodecl(
+                                /* set_ref_type */ true,
+                                node.get_locus()),
+                            args.get_type().get_pointer_to(),
+                            node.get_locus()),
+                        TL::Type::get_void_type().get_pointer_to().get_pointer_to(),
+                        "C",
+                        node.get_locus());
+
+            // &task_ptr
+            Nodecl::NodeclBase task_ptr_out =
+                Nodecl::Reference::make(
+                        task_ptr.make_nodecl(
+                            /* set_ref_type */ true,
+                            node.get_locus()),
+                        task_ptr.get_type().get_pointer_to(),
+                        node.get_locus());
+
+            Nodecl::NodeclBase call_to_nanos_create_task =
+                Nodecl::ExpressionStatement::make(
+                        Nodecl::FunctionCall::make(
+                            nanos_create_task_sym.make_nodecl(/* set_ref_type */ true,
+                                node.get_locus()),
+                            Nodecl::List::make(
+                                task_info_ptr,
+                                args_size,
+                                /* out */
+                                args_ptr_out,
+                                task_ptr_out),
+                            /* alternate symbol */ Nodecl::NodeclBase::null(),
+                            /* function form */ Nodecl::NodeclBase::null(),
+                            TL::Type::get_void_type(),
+                            node.get_locus()),
+                        node.get_locus());
+
+            new_stmts.append(call_to_nanos_create_task);
         }
 
         // Capture environment
@@ -116,12 +172,29 @@ namespace TL { namespace Nanos6 {
 
         // Submit the created task
         {
-            Source nanos_submit_src;
-            nanos_submit_src
-                << "nanos_submit_task(" << as_symbol(task_ptr) << ");"
-                ;
+            TL::Symbol nanos_submit_task_sym =
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos_submit_task");
+            ERROR_CONDITION(!nanos_submit_task_sym.is_valid()
+                    || !nanos_submit_task_sym.is_function(),
+                    "Invalid symbol", 0);
 
-            Nodecl::NodeclBase new_task = nanos_submit_src.parse_statement(node);
+            Nodecl::NodeclBase task_ptr_arg = task_ptr.make_nodecl(/* set_ref_type */ true);
+            task_ptr_arg = ::cxx_nodecl_make_conversion(
+                    task_ptr_arg.get_internal_nodecl(),
+                    task_ptr.get_type().no_ref().get_internal_type(),
+                    node.get_locus());
+
+            Nodecl::NodeclBase new_task =
+                Nodecl::ExpressionStatement::make(
+                        Nodecl::FunctionCall::make(
+                            nanos_submit_task_sym.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(task_ptr_arg),
+                            /* alternate symbol */ Nodecl::NodeclBase::null(),
+                            /* function form */ Nodecl::NodeclBase::null(),
+                            TL::Type::get_void_type(),
+                            node.get_locus()),
+                        node.get_locus());
+
             new_stmts.append(new_task);
         }
 

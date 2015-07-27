@@ -41,6 +41,9 @@ namespace TL { namespace Nanos6 {
             virtual void pre_run(DTO& dto);
 
             virtual void phase_cleanup(DTO& data_flow);
+
+        private:
+            void fortran_load_api(DTO& dto);
     };
 
 } }

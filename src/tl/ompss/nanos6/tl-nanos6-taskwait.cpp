@@ -32,12 +32,21 @@ namespace TL { namespace Nanos6 {
 
     void Lower::visit(const Nodecl::OpenMP::TaskwaitShallow& node)
     {
-        // void nanos_taskwait(void);
+        TL::Symbol nanos_taskwait_sym =
+            TL::Scope::get_global_scope().get_symbol_from_name("nanos_taskwait");
+        ERROR_CONDITION(!nanos_taskwait_sym.is_valid()
+                || !nanos_taskwait_sym.is_function(),
+                "Invalid symbol", 0);
 
-        Source src;
-        src << "nanos_taskwait();";
-
-        Nodecl::NodeclBase taskwait_tree = src.parse_statement(node);
+        Nodecl::NodeclBase taskwait_tree =
+            Nodecl::ExpressionStatement::make(
+                    Nodecl::FunctionCall::make(
+                        nanos_taskwait_sym.make_nodecl(/* set_ref_type */ true, node.get_locus()),
+                        /* args */ Nodecl::NodeclBase::null(),
+                        /* alternate-name */ Nodecl::NodeclBase::null(),
+                        /* function-form */ Nodecl::NodeclBase::null(),
+                        TL::Type::get_void_type(),
+                        node.get_locus()));
 
         node.replace(taskwait_tree);
     }

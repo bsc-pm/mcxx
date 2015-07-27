@@ -425,13 +425,20 @@ namespace TL { namespace Nanos6 {
                 continue;
             }
 
-            if (type_of_field.is_array())
+            if (IS_FORTRAN_LANGUAGE)
             {
-                type_of_field = type_of_field.array_element().get_pointer_to();
+                type_of_field = TL::Type::get_void_type().get_pointer_to();
             }
             else
             {
-                type_of_field = type_of_field.get_pointer_to();
+                if (type_of_field.is_array())
+                {
+                    type_of_field = type_of_field.array_element().get_pointer_to();
+                }
+                else
+                {
+                    type_of_field = type_of_field.get_pointer_to();
+                }
             }
 
             add_field_to_class(
@@ -602,7 +609,7 @@ namespace TL { namespace Nanos6 {
         }
 
         TL::ObjectList<std::string> ol_parameter_names(1, "arg");
-        TL::ObjectList<TL::Type> ol_parameter_types(1, info_structure.get_pointer_to());
+        TL::ObjectList<TL::Type> ol_parameter_types(1, info_structure.get_lvalue_reference_to());
 
         outline_function
             = SymbolUtils::new_function_symbol(
@@ -638,9 +645,9 @@ namespace TL { namespace Nanos6 {
                 args.append(
                         Nodecl::Dereference::make(
                             Nodecl::ClassMemberAccess::make(
-                                Nodecl::Dereference::make(
+                                // Nodecl::Dereference::make(
                                     arg.make_nodecl(/* set_ref_type */ true),
-                                    arg.get_type().points_to().get_lvalue_reference_to()),
+                                    // arg.get_type().points_to().get_lvalue_reference_to()),
                                 field_map[*it].make_nodecl(),
                                 /* member_literal */ Nodecl::NodeclBase::null(),
                                 field_map[*it].get_type().get_lvalue_reference_to()),
@@ -650,9 +657,9 @@ namespace TL { namespace Nanos6 {
             {
                 args.append(
                         Nodecl::ClassMemberAccess::make(
-                            Nodecl::Dereference::make(
+                            // Nodecl::Dereference::make(
                                 arg.make_nodecl(/* set_ref_type */ true),
-                                arg.get_type().points_to().get_lvalue_reference_to()),
+                            //    arg.get_type().points_to().get_lvalue_reference_to()),
                             field_map[*it].make_nodecl(),
                             /* member_literal */ Nodecl::NodeclBase::null(),
                             field_map[*it].get_type().get_lvalue_reference_to()));
@@ -668,9 +675,9 @@ namespace TL { namespace Nanos6 {
             TL::Type expr_type = it->get_type().no_ref().get_lvalue_reference_to();
             args.append(
                     Nodecl::ClassMemberAccess::make(
-                        Nodecl::Dereference::make(
+                        // Nodecl::Dereference::make(
                             arg.make_nodecl(/* set_ref_type */ true),
-                            arg.get_type().points_to().get_lvalue_reference_to()),
+                        //    arg.get_type().points_to().get_lvalue_reference_to()),
                         field_map[*it].make_nodecl(),
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         expr_type)
