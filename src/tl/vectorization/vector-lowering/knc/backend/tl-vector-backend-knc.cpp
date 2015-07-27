@@ -2273,7 +2273,7 @@ namespace Vectorization
             // Use scalar symbol to look up
             if(_vectorizer.is_svml_function(scalar_sym,
                         "knc",
-                        vector_type.get_size(),
+                        vector_type.is_void() ? 1 : vector_type.get_size(),
                         scalar_type,
                         /*masked*/ !mask.is_null()))
             {
@@ -2282,7 +2282,7 @@ namespace Vectorization
 
                 walk(arguments);
 
-                args << mask_args;
+                // args << mask_args;
                 for (Nodecl::List::const_iterator it = arguments.begin();
                         it != arguments.end();
                         it++)
@@ -2311,7 +2311,7 @@ namespace Vectorization
                     args.append_with_separator(as_expression(*it), ", ");
                 }
 
-                args.append_with_separator(mask_args, ", ");
+                // args.append_with_separator(mask_args, ", ");
 
                 mask_casting << "("
                     << mask.get_type().no_ref().get_simple_declaration(
