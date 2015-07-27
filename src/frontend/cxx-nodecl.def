@@ -636,6 +636,7 @@ omp-device-info: NODECL_OPEN_M_P*DEVICE([device_id] expression)
                | NODECL_OPEN_M_P*MOTION_FROM([map_from] expression-seq)
                | NODECL_OPEN_M_P*NUM_TEAMS([num_teams] expression)
                | NODECL_OPEN_M_P*THREAD_LIMIT([thread_limit] expression)
+               | NODECL_OPEN_M_P*TARGET_TASK_UNDEFERRED()
 
 device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
                   | NODECL_OPEN_M_P*TARGET([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
