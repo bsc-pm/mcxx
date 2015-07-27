@@ -57,7 +57,7 @@ namespace TL { namespace OpenMP {
                     error_printf("%s: error: empty 'device' clause\n", locus_to_str(locus));
                 }
             }
-            else 
+            else
             {
                 device_id_expr = expr_list[0];
                 if (expr_list.size() > 1)
@@ -67,7 +67,7 @@ namespace TL { namespace OpenMP {
                 }
             }
             ERROR_CONDITION(device_id_expr.is_null(), "Expecting a valid device id here", 0);
-            
+
             if (!::is_integer_type(no_ref(device_id_expr.get_type().get_internal_type())))
             {
                 error_printf("%s: error: expression of 'device' must be an integer-expression\n",
@@ -276,6 +276,10 @@ namespace TL { namespace OpenMP {
                     );
         }
 
+        Nodecl::NodeclBase dependences = make_execution_environment(data_environment,
+                pragma_line,
+                /* ignore_target_info */ true,
+                /* is_inline_task */ true);
         Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
         device_data_environment.append(map_clause);
 

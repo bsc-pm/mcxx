@@ -276,7 +276,18 @@ namespace TL { namespace OpenMP {
         DataEnvironment& data_environment = _openmp_info->get_new_data_environment(ctr);
         _openmp_info->push_current_data_environment(data_environment);
 
-        handle_map_clause(ctr.get_pragma_line(), data_environment);
+        TL::PragmaCustomLine pragma_line = ctr.get_pragma_line();
+        handle_map_clause(pragma_line, data_environment);
+
+        ObjectList<Symbol> extra_symbols;
+        PragmaCustomClause depend_clause = pragma_line.get_clause("depend");
+        get_dependences_openmp(pragma_line,
+                depend_clause,
+                data_environment,
+                /* default-data-sharing */ DS_NONE,
+                extra_symbols);
+        get_data_extra_symbols(data_environment, extra_symbols);
+
         compute_implicit_device_mappings(ctr.get_statements(), data_environment);
     }
 
