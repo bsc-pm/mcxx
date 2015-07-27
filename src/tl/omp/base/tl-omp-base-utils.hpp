@@ -81,7 +81,7 @@ namespace TL { namespace OpenMP {
     template <typename T, typename List>
         void Base::make_copy_list(
                 List& dependences,
-                CopyDirection kind,
+                TL::OmpSs::CopyDirection kind,
                 const locus_t* locus,
                 ObjectList<Nodecl::NodeclBase>& result_list)
         {

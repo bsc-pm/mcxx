@@ -1,0 +1,18 @@
+# OpenMP + Intel OpenMP RTL
+[gomp-omp-base]
+options = --openmp
+{omp-dry-run|openmp-dry-run} options = --variable=omp_dry_run:1
+{debug} options = -g
+{(instrument|instrumentation)} options = --variable=instrument:1
+preprocessor_name = @GCC@
+preprocessor_options = -E
+compiler_name = @GCC@
+compiler_options =
+linker_name = @GCC@
+linker_options =
+{openmp} preprocessor_options = -I@PKGDATADIR@/gomp-omp -D_OPENMP=200805 -include gomp-omp.h
+{openmp} compiler_phase = libtlomp-base.so
+{openmp} fortran_preprocessor_options = -D_OPENMP=200805
+linker_options = -Xlinker --enable-new-dtags
+linker_options = -L@GOMP_OMP_LIB@ -Xlinker -rpath -Xlinker @GOMP_OMP_LIB@ -lgomp
+{openmp} compiler_phase = libtlgomp-omp-lowering.so

@@ -35,7 +35,7 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN void gcc_sign_in_spu_builtins(decl_context_t global_context);
+LIBMCXX_EXTERN void gcc_sign_in_spu_builtins(const decl_context_t* global_context);
 
 MCXX_END_DECLS
 

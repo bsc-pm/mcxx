@@ -81,7 +81,7 @@ namespace TL { namespace Nanox {
             }
     };
 
-    void LoweringVisitor::visit(const Nodecl::OpenMP::TargetDeclaration& construct)
+    void LoweringVisitor::visit(const Nodecl::OmpSs::TargetDeclaration& construct)
     {
 
         DeviceHandler device_handler = DeviceHandler::get_device_handler();

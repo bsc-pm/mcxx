@@ -72,7 +72,7 @@ void yyerror(AST* parsed_tree, const char* c);
 extern int yylex(void);
 
 #define YYMALLOC xmalloc
-#define YYFREE xfree
+#define YYFREE DELETE
 #define YYREALLOC xrealloc
 
 %}

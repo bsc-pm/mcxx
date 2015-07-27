@@ -9,22 +9,22 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void intel_check_assume(
         AST expression,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_out);
 LIBMCXX_EXTERN void intel_check_assume_nodecl(
         nodecl_t assumed_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_out);
 
 LIBMCXX_EXTERN void intel_check_assume_aligned(
         AST expression,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_out);
 LIBMCXX_EXTERN void intel_check_assume_aligned_nodecl(
         nodecl_t pointer_arg,
         nodecl_t alignment,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_out);
 

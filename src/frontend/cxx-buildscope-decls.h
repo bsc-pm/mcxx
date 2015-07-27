@@ -49,7 +49,7 @@ struct arguments_info_tag
 {
     scope_entry_t* entry;
     nodecl_t argument;
-    decl_context_t context;
+    const decl_context_t* context;
 } arguments_info_t;
 
 typedef 
@@ -93,6 +93,8 @@ struct gather_decl_spec_tag {
     bool is_hides_member:1;
     bool is_override:1;
     bool is_constexpr:1;
+    bool is_atomic:1;
+    bool is_noreturn:1;
 
     // GCC extension
     bool is_transparent_union:1;

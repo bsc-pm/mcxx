@@ -29,6 +29,8 @@
  <testinfo>
  test_generator=config/mercurium-analysis
  test_compile_fail=yes
+ test_ignore="yes"
+ test_ignore_reason="See ticket #2458"
  </testinfo>
 */
 

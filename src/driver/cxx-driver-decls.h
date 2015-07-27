@@ -116,7 +116,7 @@ typedef struct translation_unit_tag
 
     struct AST_tag* parsed_tree;
     nodecl_t nodecl;
-    decl_context_t global_decl_context;
+    const decl_context_t* global_decl_context;
 
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
@@ -170,6 +170,7 @@ typedef struct debug_options_tag
     char analysis_verbose;
     char ranges_verbose;
     char analysis_perf;
+    char analysis_info;
     char print_pcfg;
     char print_pcfg_w_context;
     char print_pcfg_w_analysis;
@@ -338,7 +339,7 @@ typedef struct parameter_linker_command_tag
 } parameter_linker_command_t;
 
 
-typedef const char* (*print_vector_type_fun)(decl_context_t, type_t*, print_symbol_callback_t, void*);
+typedef const char* (*print_vector_type_fun)(const decl_context_t*, type_t*, print_symbol_callback_t, void*);
 
 typedef struct compilation_configuration_tag
 {
@@ -508,6 +509,9 @@ typedef struct compilation_configuration_tag
     char enable_upc;
     // If this is not null, this should be a constant expression
     const char *upc_threads;
+
+    // Enable C11
+    char enable_c11;
 
     // Enable C++11
     char enable_cxx11;

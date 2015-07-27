@@ -61,7 +61,7 @@ typedef struct
     const char* name;
     char is_dir;
     char is_temporary;
-}* temporal_file_t;
+} temporal_file_value_t, *temporal_file_t;
 
 // Gives you a new temporal file that will be removed when
 // finishing the program
@@ -124,6 +124,12 @@ void mark_dir_as_temporary(const char* name);
 
 // Find the path where the application runs
 const char* find_home(const char* progname);
+
+// Find a file in the given directories
+const char* find_file_in_directories(
+        int num_dirs, 
+        const char** directories, 
+        const char* libname);
 
 MCXX_END_DECLS
 

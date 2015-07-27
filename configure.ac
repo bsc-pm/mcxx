@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.8],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.9],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -129,12 +129,22 @@ dnl ----- SQLITE - Required only for fortran ---
 
 PKG_PROG_PKG_CONFIG
 
+if test -z "$PKG_CONFIG";
+then
+    AC_MSG_ERROR([Could not find pkg-config.
+ * You may not have pkg-config installed
+    - In Ubuntu/Debian: apt-get install pkg-config
+    - In RHEL/Fedora: yum install pkgconfig
+    - In SuSE: zypper install pkg-config
+    - Install from sources at http://www.freedesktop.org/wiki/Software/pkg-config/
+ * If it is installed but not in the PATH then you may want to set the PKG_CONFIG variable])
+fi
 
 PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
                   [],
 AC_MSG_ERROR([Fortran support requires development files of sqlite3.
- * In Ubuntu/Debian: apt-get install libsqlite3-dev.
- * In RHEL/Fedora: yum install sqlite-devel.
+ * In Ubuntu/Debian: apt-get install libsqlite3-dev
+ * In RHEL/Fedora: yum install sqlite-devel
  * In SuSE: zypper install sqlite3-devel
  * Install from sources at http://www.sqlite.org:
    - Use sqlite-autoconf-xxx.tar.gz
@@ -854,6 +864,48 @@ AC_SUBST([DLB_INCLUDE])
 AC_SUBST([DLB_LIB])
 dnl --------------------- End of Dynamic Load Balancing -------------------------------
 
+dnl --------------------- Support for GOMP ---------------------------------
+is_enabled_tl_omp_gomp="no"
+
+AC_MSG_CHECKING([if enabled OpenMP TL support for GOMP])
+AC_ARG_ENABLE([tl-openmp-gomp],
+  AS_HELP_STRING([--enable-tl-openmp-gomp], [Enables support of OpenMP TL for GOMP (EXPERIMENTAL and UNSUPPORTED)]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_omp_gomp="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            is_enabled_tl_omp_gomp="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_omp_gomp="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+
+if test x$is_enabled_tl_omp_gomp = xyes;
+then
+   COMPILER_NAMES="${COMPILER_NAMES} gomp-mcc gomp-mcxx gomp-mfc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.gomp-omp-base 50.config.omp.gomp-rtl"
+fi
+
+# FIXME
+GOMP_OMP_INCLUDE=""
+GOMP_OMP_LIB=""
+
+AM_CONDITIONAL([BUILD_OMP_GOMP], test x$is_enabled_tl_omp_gomp = xyes)
+
+AC_SUBST([GOMP_OMP_INCLUDE])
+AC_SUBST([GOMP_OMP_LIB])
+dnl --------------------- End of Support for GOMP ---------------------------
+
 dnl --------------------- Support for Intel OpenMP RTL ---------------------------------
 is_enabled_tl_omp_intel="no"
 
@@ -956,6 +1008,7 @@ AC_ARG_ENABLE([nanox-cuda-device],
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
         cuda_enabled="yes"
+        cuda_valid="yes"
         AC_MSG_RESULT([no])
     else if test x"$enableval" = x"no";
          then
@@ -984,7 +1037,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 		CUDADIR="/usr/local/cuda"
 	])
 
-if test x$cuda_enabled = xyes ; then
+if test x$cuda_enabled = xyes -a x$cuda_valid = xno ; then
     if test -d "$CUDADIR" ;
     then
         AC_CHECK_PROG([NVCC], [nvcc], [nvcc], [], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
@@ -1092,6 +1145,7 @@ AC_ARG_ENABLE([nanox-opencl-device],
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
         opencl_enabled="yes"
+        opencl_valid="yes"
         AC_MSG_RESULT([no])
     else if test x"$enableval" = x"no";
          then
@@ -1109,7 +1163,7 @@ AC_ARG_ENABLE([nanox-opencl-device],
 )
 
 
-if test x$opencl_enabled = xyes;
+if test x$opencl_enabled = xyes -a x$opencl_valid = xno;
 then
    DISABLE_OPENCL=""
    AC_MSG_CHECKING([if nanox has opencl header installed])
@@ -2141,7 +2195,7 @@ then
    then
       echo "$GIT" "$srcdir" >& AS_MESSAGE_LOG_FD
       run_gitversion=`"$GIT" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
-      build_version="\"git $run_gitversion developer version\""
+      build_version="\"(developer version) $run_gitversion\""
    fi
 
    if test x"$GIT" = x -o x"$run_gitversion" = x;
@@ -2153,7 +2207,7 @@ elif test -e $srcdir/DIST_REVISION;
 then
      AC_MSG_CHECKING([revision of distributed release])
      run_gitversion=`cat $srcdir/DIST_REVISION`
-     build_version="\"$run_gitversion\""
+     build_version="\"(distributed version) $run_gitversion\""
      AC_MSG_RESULT([$build_version])
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
@@ -2170,6 +2224,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-c11
            tests/config/mercurium-cxx11
            tests/config/mercurium-cxx14
            tests/config/mercurium-run
@@ -2311,6 +2366,17 @@ if test x$is_enabled_tl_omp_intel = xyes;
 then
   echo ""
   echo "   Intel OpenMP RTL library:" $intel_omp_lib
+fi
+
+echo ""
+echo " * GNU GOMP :" $is_enabled_tl_omp_gomp
+
+if test x$is_enabled_tl_omp_gomp = xyes;
+then
+  echo ""
+  echo "   ********************************************************"
+  echo "   *** GNU GOMP support is EXPERIMENTAL and UNSUPPORTED ***"
+  echo "   ********************************************************"
 fi
 
 echo ""

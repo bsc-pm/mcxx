@@ -39,33 +39,20 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFunction::VectorizerVisitorFunction(VectorizerEnvironment& environment,
+        VectorizerVisitorFunctionHeader::VectorizerVisitorFunctionHeader(
+                VectorizerEnvironment& environment,
+                const TL::ObjectList<TL::Symbol> &uniform_symbols,
+                const std::map<TL::Symbol, int> &linear_symbols,
                 const bool masked_version) :
-            _environment(environment), _masked_version(masked_version)
+            _environment(environment),
+            _masked_version(masked_version),
+            _uniform_symbols(uniform_symbols),
+            _linear_symbols(linear_symbols)
         {
         }
 
-        void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
+        void VectorizerVisitorFunctionHeader::visit(const Nodecl::FunctionCode& function_code)
         {
-            /*
-            for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
-                    it_type != parameters_type.end();
-                    it_param_sym++, it_type++)
-            {
-                TL::Type sym_type = Utils::get_qualified_vector_to((*it_type),
-                        _environment._vectorization_factor);
-
-                // Set type to parameter TL::Symbol
-                (*it_param_sym).set_type(sym_type);
-
-                parameters_vector_type.append(sym_type);
-            }
-            */
-
-            // Vectorize Local Symbols & Parameters
-            VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
-            visitor_local_symbol.walk(function_code);
-
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
@@ -73,13 +60,91 @@ namespace TL
             objlist_tlsym_t parameters = vect_func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_vector_type;
 
+            TL::ObjectList<TL::Symbol> used_symbols = Nodecl::Utils::get_all_symbols(function_code.get_statements());
+
             for(objlist_tlsym_t::iterator it = parameters.begin();
                     it != parameters.end();
                     it ++)
             {
-                parameters_vector_type.append(it->get_type());
-            }
+                // If the symbol is not used we do not bother to touch it
+                if (used_symbols.contains(*it)
+                        // If not uniform or linear, vectorize the parameter
+                        && !_uniform_symbols.contains(*it)
+                        && (_linear_symbols.find(*it) == _linear_symbols.end()))
+                {
+                    TL::Type vector_type;
+                    TL::Type tl_sym_type = it->get_type().no_ref();
 
+                    if (tl_sym_type.is_bool())
+                    {
+                        vector_type = TL::Type::get_mask_type(
+                                _environment._vectorization_factor);
+                    }
+                    else if (tl_sym_type.is_integral_type()
+                            || tl_sym_type.is_floating_type())
+                    {
+                        vector_type = Utils::get_qualified_vector_to(
+                                tl_sym_type, _environment._vectorization_factor);
+                    }
+                    else if (tl_sym_type.is_class()
+                            && Utils::class_type_can_be_vectorized(tl_sym_type))
+                    {
+                        bool is_new = false;
+                        vector_type = Utils::get_class_of_vector_fields(
+                                tl_sym_type,
+                                _environment._vectorization_factor,
+                                is_new);
+                        if (is_new
+                                && IS_CXX_LANGUAGE)
+                        {
+                            VECTORIZATION_DEBUG()
+                            {
+                                std::cerr << "NEW CLASS -> " << vector_type.get_symbol().get_qualified_name() << std::endl;
+                                std::cerr << "(1) ENV = " << &_environment << std::endl;
+                            }
+                            _environment._vectorized_classes.append(
+                                    std::make_pair(tl_sym_type, vector_type)
+                                    );
+                        }
+                        VECTORIZATION_DEBUG()
+                        {
+                            std::cerr << "CLASS -> " << vector_type.get_symbol().get_qualified_name() << std::endl;
+                        }
+                    }
+                    else
+                    {
+                        running_error("%s: error: cannot vectorize parameter '%s' of type '%s'\n",
+                                function_code.get_locus_str().c_str(),
+                                it->get_name().c_str(),
+                                tl_sym_type.get_declaration(it->get_scope(), "").c_str());
+                    }
+
+                    if (it->get_type().is_lvalue_reference())
+                    {
+                        vector_type = vector_type.get_lvalue_reference_to();
+                    }
+
+                    it->set_type(vector_type);
+                }
+
+                // Adjust the type
+                TL::Type param_type = it->get_type();
+
+                if (param_type.is_array())
+                {
+                    param_type = param_type.array_element().get_pointer_to();
+                }
+                else if (param_type.is_function())
+                {
+                    param_type = param_type.get_pointer_to();
+                }
+                else
+                {
+                    param_type = param_type.get_unqualified_type();
+                }
+
+                parameters_vector_type.append(param_type);
+            }
 
             if(_masked_version)
             {
@@ -116,20 +181,49 @@ namespace TL
                     // vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
                     // vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
                 }
+            }
+
+            vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
+                        _environment._vectorization_factor).get_function_returning(
+                            parameters_vector_type));
+        }
+
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunctionHeader::unhandled_node(const Nodecl::NodeclBase& n)
+        {
+            std::cerr << "Function Visitor HEADER: Unknown node "
+                << ast_print_node_type(n.get_kind())
+                << " at " << n.get_locus()
+                << std::endl;
+
+            return Ret();
+        }
+
+
+
+        // Vectorize Local Symbols
+        //VectorizerVisitorLocalSymbol visitor_local_symbol(environment);
+        //visitor_local_symbol.walk(function_code);
+        VectorizerVisitorFunction::VectorizerVisitorFunction(VectorizerEnvironment& environment,
+                const bool masked_version) :
+            _environment(environment), _masked_version(masked_version)
+        {
+        }
+
+        void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
+        {
+            // Vectorize Local Symbols & Parameters
+            VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+            visitor_local_symbol.walk(function_code);
+
+            if(_masked_version)
+            {
+                TL::Symbol mask_sym = function_code.get_symbol().get_related_symbols().back();
 
                 Nodecl::Symbol mask_nodecl_sym =
                     mask_sym.make_nodecl(true, function_code.get_locus());
 
                 _environment._mask_list.push_back(mask_nodecl_sym);
             }
-
-            vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
-                        _environment._vectorization_factor).get_function_returning(
-                            parameters_vector_type));
-
-            // Vectorize Local Symbols
-            //VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
-            //visitor_local_symbol.walk(function_code);
 
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment);
@@ -164,7 +258,7 @@ namespace TL
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n)
         {
-            std::cerr << "Function Visitor: Unknown node "
+            std::cerr << "Function Visitor CODE: Unknown node "
                 << ast_print_node_type(n.get_kind())
                 << " at " << n.get_locus()
                 << std::endl;

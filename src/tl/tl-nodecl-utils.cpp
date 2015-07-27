@@ -813,15 +813,15 @@ namespace Nodecl
         TL::Symbol result;
         TL::Scope sc = n.retrieve_context();
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
-        if (decl_context.block_scope != NULL)
+        if (decl_context->block_scope != NULL)
         {
-            result = decl_context.block_scope->related_entry;
+            result = decl_context->block_scope->related_entry;
         }
-        else if (decl_context.function_scope != NULL)
+        else if (decl_context->function_scope != NULL)
         {
-            result = decl_context.function_scope->related_entry;
+            result = decl_context->function_scope->related_entry;
         }
 
         return result;
@@ -881,27 +881,40 @@ namespace Nodecl
             }
         }
 
-        void update_locus(nodecl_t n, const locus_t* l)
+        void update_locus(nodecl_t n, const locus_t* locus)
         {
             if (nodecl_is_null(n))
                 return;
 
-            std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
-
-            const locus_t* n_locus = nodecl_get_locus(n);
-
-            // Only update if this comes from internal_source
-            if (n_locus == NULL
-                    || locus_get_filename(n_locus) == NULL
-                    || (std::string(locus_get_filename(n_locus))
-                        .substr(0, internal_source.size()) == internal_source))
+            if (!nodecl_is_list(n))
             {
-                nodecl_set_locus(n, l);
+                std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
+
+                const locus_t* n_locus = nodecl_get_locus(n);
+
+                // Only update if this comes from internal_source
+                if (n_locus == NULL
+                        || locus_get_filename(n_locus) == NULL
+                        || (std::string(locus_get_filename(n_locus))
+                            .substr(0, internal_source.size()) == internal_source))
+                {
+                    nodecl_set_locus(n, locus);
+                }
+
+                for (int i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+                {
+                    update_locus(nodecl_get_child(n, i), locus);
+                }
             }
-
-            for (int i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+            else
             {
-                update_locus(nodecl_get_child(n, i), l);
+                int num_items;
+                nodecl_t* l = nodecl_unpack_list(n, &num_items);
+                for (int i = 0; i < num_items; i++)
+                {
+                    update_locus(l[i], locus);
+                }
+                DELETE(l);
             }
         }
     }
@@ -1423,8 +1436,8 @@ namespace Nodecl
 
             std::string register_name, symbol_name;
 
-            decl_context_t decl_context = _sc.get_decl_context();
-            decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+            const decl_context_t* decl_context = _sc.get_decl_context();
+            const decl_context_t* program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
 
             if (IS_FORTRAN_LANGUAGE
                     && is_numeric_label)
@@ -1495,12 +1508,12 @@ namespace Nodecl
             if (IS_FORTRAN_LANGUAGE)
             {
                 // Labels in Fortran live in the program unit context
-                new_label = ::new_symbol(program_unit_context, program_unit_context.current_scope,
+                new_label = ::new_symbol(program_unit_context, program_unit_context->current_scope,
                         uniquestr(register_name.c_str()));
             }
             else
             {
-                new_label = ::new_symbol(decl_context, decl_context.function_scope, uniquestr(register_name.c_str()));
+                new_label = ::new_symbol(decl_context, decl_context->function_scope, uniquestr(register_name.c_str()));
             }
             new_label->symbol_name = uniquestr(symbol_name.c_str());
             new_label->kind = SK_LABEL;

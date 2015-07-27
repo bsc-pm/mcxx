@@ -31,7 +31,7 @@
 #include "tl-omp-core.hpp"
 #include "tl-omp-base.hpp"
 
-namespace TL { namespace OpenMP {
+namespace TL { namespace OmpSs {
 
     // Some bits have been shamelessly copied from tl-lower-task-call.cpp
     typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;

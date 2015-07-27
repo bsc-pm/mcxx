@@ -2029,7 +2029,7 @@ namespace Vectorization
                 node.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
 
             // Use scalar symbol to look up
-            if(_vectorizer.is_svml_function(scalar_sym.get_name(),
+            if(_vectorizer.is_svml_function(scalar_sym,
                         "avx2",
                         _vector_length,
                         scalar_type,
@@ -2212,20 +2212,18 @@ namespace Vectorization
     void AVX2VectorLowering::visit(const Nodecl::VectorReductionAdd& node)
     {
         Nodecl::NodeclBase vector_src = node.get_vector_src();
-        Nodecl::NodeclBase scalar_dst = node.get_scalar_dst();
 
         TL::Type vtype = vector_src.get_type().no_ref();
-        TL::Type type = scalar_dst.get_type().basic_type();
+        TL::Type type = node.get_type().no_ref();
 
-        walk(scalar_dst);
         walk(vector_src);
 
         TL::Source intrin_src, horizontal_256_op_src, horizontal_128_op_src,
             horizontal_128_intrin_src, extract_op_src, extract_intrin_src,
             sse_suffix_elem, avx_suffix_type;
 
-        intrin_src << as_expression(scalar_dst)
-            << " += ({"
+        intrin_src             
+            << "({"
             << horizontal_256_op_src
             << horizontal_128_op_src
             << horizontal_128_op_src

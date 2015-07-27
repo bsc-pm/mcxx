@@ -349,11 +349,11 @@ namespace {
         NBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
-                && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
-                && !task_node_source.is<Nodecl::OpenMP::TaskCall>(),
-                "Expecting an OpenMP::Task, OpenMP::TaskExpression or OpenMP::TaskCall source node here got a %s",
+                && !task_node_source.is<Nodecl::OmpSs::TaskExpression>()
+                && !task_node_source.is<Nodecl::OmpSs::TaskCall>(),
+                "Expecting an OpenMP::Task, OmpSs::TaskExpression or OmpSs::TaskCall source node here got a %s",
                 ast_print_node_type(task_node_source.get_kind()));
-        if (task_node_source.is<Nodecl::OpenMP::TaskExpression>())
+        if (task_node_source.is<Nodecl::OmpSs::TaskExpression>())
         {
             // Return unknown
             return tribool();
@@ -365,9 +365,9 @@ namespace {
             Nodecl::OpenMP::Task task_source(task_node_source.as<Nodecl::OpenMP::Task>());
             task_source_env = task_source.get_environment().as<Nodecl::List>();
         }
-        else if (task_node_source.is<Nodecl::OpenMP::TaskCall>())
+        else if (task_node_source.is<Nodecl::OmpSs::TaskCall>())
         {
-            Nodecl::OpenMP::TaskCall task_source(task_node_source.as<Nodecl::OpenMP::TaskCall>());
+            Nodecl::OmpSs::TaskCall task_source(task_node_source.as<Nodecl::OmpSs::TaskCall>());
             task_source_env = task_source.get_environment().as<Nodecl::List>();
         }
         else
@@ -391,7 +391,7 @@ namespace {
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 source_dep_inout = *it;
-            else if (it->is<Nodecl::OpenMP::Commutative>())
+            else if (it->is<Nodecl::OmpSs::Commutative>())
                 source_dep_commutative = *it;
         }
 
@@ -401,12 +401,12 @@ namespace {
         ERROR_CONDITION(task_node_target_stmts.size() != 1, "Invalid list of statements", 0);
         NBase taskwait_node_target = task_node_target_stmts[0];
         ERROR_CONDITION(taskwait_node_target.is_null(), "Invalid target task tree", 0);
-        ERROR_CONDITION(!taskwait_node_target.is<Nodecl::OpenMP::WaitOnDependences>(),
-                "Expecting an OpenMP::WaitOnDependences target node here got a %s",
+        ERROR_CONDITION(!taskwait_node_target.is<Nodecl::OmpSs::WaitOnDependences>(),
+                "Expecting an OmpSs::WaitOnDependences target node here got a %s",
                 ast_print_node_type(taskwait_node_target.get_kind()));
 
         Nodecl::List task_target_env = taskwait_node_target
-            .as<Nodecl::OpenMP::WaitOnDependences>()
+            .as<Nodecl::OmpSs::WaitOnDependences>()
             .get_environment()
             .as<Nodecl::List>();
 
@@ -466,9 +466,9 @@ namespace {
         NBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
-                && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
-                && !task_node_source.is<Nodecl::OpenMP::TaskCall>(),
-                "Expecting an OpenMP::Task, OpenMP::TaskExpression or OpenMP::TaskCall source node here got a %s",
+                && !task_node_source.is<Nodecl::OmpSs::TaskExpression>()
+                && !task_node_source.is<Nodecl::OmpSs::TaskCall>(),
+                "Expecting an OpenMP::Task, OmpSs::TaskExpression or OmpSs::TaskCall source node here got a %s",
                 ast_print_node_type(task_node_source.get_kind()));
         Nodecl::List task_source_env;
         if (task_node_source.is<Nodecl::OpenMP::Task>())
@@ -476,12 +476,12 @@ namespace {
             Nodecl::OpenMP::Task task_source(task_node_source.as<Nodecl::OpenMP::Task>());
             task_source_env = task_source.get_environment().as<Nodecl::List>();
         }
-        else if (task_node_source.is<Nodecl::OpenMP::TaskCall>())
+        else if (task_node_source.is<Nodecl::OmpSs::TaskCall>())
         {
-            Nodecl::OpenMP::TaskCall task_source(task_node_source.as<Nodecl::OpenMP::TaskCall>());
+            Nodecl::OmpSs::TaskCall task_source(task_node_source.as<Nodecl::OmpSs::TaskCall>());
             task_source_env = task_source.get_site_environment().as<Nodecl::List>();
         }
-        else if (task_node_source.is<Nodecl::OpenMP::TaskExpression>())
+        else if (task_node_source.is<Nodecl::OmpSs::TaskExpression>())
         {
             // Return unknown
             return tribool();
@@ -507,7 +507,7 @@ namespace {
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 source_dep_inout = *it;
-            else if (it->is<Nodecl::OpenMP::Commutative>())
+            else if (it->is<Nodecl::OmpSs::Commutative>())
                 source_dep_commutative = *it;
         }
 
@@ -516,9 +516,9 @@ namespace {
         NBase task_node_target = target->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
         ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
-                && !task_node_target.is<Nodecl::OpenMP::TaskExpression>()
-                && !task_node_target.is<Nodecl::OpenMP::TaskCall>(),
-                "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s",
+                && !task_node_target.is<Nodecl::OmpSs::TaskExpression>()
+                && !task_node_target.is<Nodecl::OmpSs::TaskCall>(),
+                "Expecting an OpenMP::Task or OmpSs::TaskCall target node here got a %s",
                 ast_print_node_type(task_node_target.get_kind()));
         Nodecl::List task_target_env;
         if (task_node_target.is<Nodecl::OpenMP::Task>())
@@ -526,12 +526,12 @@ namespace {
             Nodecl::OpenMP::Task task_target(task_node_target.as<Nodecl::OpenMP::Task>());
             task_target_env = task_target.get_environment().as<Nodecl::List>();
         }
-        else if (task_node_target.is<Nodecl::OpenMP::TaskCall>())
+        else if (task_node_target.is<Nodecl::OmpSs::TaskCall>())
         {
-            Nodecl::OpenMP::TaskCall task_target(task_node_target.as<Nodecl::OpenMP::TaskCall>());
+            Nodecl::OmpSs::TaskCall task_target(task_node_target.as<Nodecl::OmpSs::TaskCall>());
             task_target_env = task_target.get_site_environment().as<Nodecl::List>();
         }
-        else if (task_node_target.is<Nodecl::OpenMP::TaskExpression>())
+        else if (task_node_target.is<Nodecl::OmpSs::TaskExpression>())
         {
             // Return unknown
             return tribool();
@@ -555,7 +555,7 @@ namespace {
                 target_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 target_dep_inout = *it;
-            else if (it->is<Nodecl::OpenMP::Commutative>())
+            else if (it->is<Nodecl::OmpSs::Commutative>())
                 target_dep_commutative = *it;
         }
 

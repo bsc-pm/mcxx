@@ -43,6 +43,7 @@ MCXX_END_DECLS
 #include "tl-nodecl-utils.hpp"
 
 #include "cxx-printscope.h"
+#include "cxx-gccbuiltins.h"
 namespace Codegen {
 
 void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::ostream* out)
@@ -58,10 +59,10 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::
     state.nontype_template_argument_needs_parentheses =
         old_state.nontype_template_argument_needs_parentheses;
 
-    decl_context_t decl_context = this->get_current_scope().get_decl_context();
+    const decl_context_t* decl_context = this->get_current_scope().get_decl_context();
 
-    state.global_namespace = decl_context.global_scope->related_entry;
-    state.opened_namespace = decl_context.namespace_scope->related_entry;
+    state.global_namespace = decl_context->global_scope->related_entry;
+    state.opened_namespace = decl_context->namespace_scope->related_entry;
 
     state.emit_declarations = this->is_file_output() ? State::EMIT_ALL_DECLARATIONS : State::EMIT_NO_DECLARATIONS;
 
@@ -70,7 +71,7 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::
     walk(n);
 
     // Make sure the starting namespace is closed
-    codegen_move_namespace_from_to(state.opened_namespace, decl_context.namespace_scope->related_entry);
+    codegen_move_namespace_from_to(state.opened_namespace, decl_context->namespace_scope->related_entry);
 
     // Restore previous state
     file = old_out;
@@ -510,6 +511,27 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
         walk(*it);
         *(file) << "]";
     }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorSubscript& node)
+{
+    emit_line_marker(node);
+    Nodecl::NodeclBase subscripted = node.get_subscripted();
+    Nodecl::NodeclBase subscript = node.get_subscript();
+
+    if (operand_has_lower_priority(node, subscripted))
+    {
+        *(file) << "(";
+    }
+    walk(subscripted);
+    if (operand_has_lower_priority(node, subscripted))
+    {
+        *(file) << ")";
+    }
+
+    *(file) << "[";
+    walk(subscript);
+    *(file) << "]";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
@@ -3878,7 +3900,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     *(file) << quote_c_string(bytes, length, prefix);
 
-    ::xfree(bytes);
+    DELETE(bytes);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ValueInitialization& node)
@@ -4518,19 +4540,25 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxImplicitInstantiation& node)
     TL::Symbol sym = node.get_symbol();
     if (sym.is_class())
     {
-       *file << "class template";
+        *file << "class template";
+        *file << " '";
+        *file << this->get_qualified_name(node.get_symbol());
+        *file << "'";
     }
     else if (sym.is_function())
     {
        *file << "template function";
+        *file << " '";
+        *file << this->get_declaration(
+                node.get_symbol().get_type(),
+                node.get_symbol().get_scope(),
+                this->get_qualified_name(node.get_symbol()));
+        *file << "'";
     }
     else
     {
         *file << "<<unexpected-symbol-kind>>";
     }
-    *file << " '";
-    *file << this->get_qualified_name(node.get_symbol());
-    *file << "'";
     *file << end_inline_comment() << "\n";
 }
 
@@ -4661,8 +4689,8 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     else if (sym.is_function())
     {
         indent();
-        decl_context_t decl_context = context.retrieve_context().get_decl_context();
-        move_to_namespace(decl_context.namespace_scope->related_entry);
+        const decl_context_t* decl_context = context.retrieve_context().get_decl_context();
+        move_to_namespace(decl_context->namespace_scope->related_entry);
 
         if (is_extern)
             *(file) << "extern ";
@@ -4746,7 +4774,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VlaWildcard& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::UnknownPragma& node)
 {
-    move_to_namespace(node.retrieve_context().get_decl_context().namespace_scope->related_entry);
+    move_to_namespace(node.retrieve_context().get_decl_context()->namespace_scope->related_entry);
 
     *(file) << "#pragma " << node.get_text() << "\n";
 }
@@ -6864,7 +6892,26 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     state.inside_structured_value = true;
                 }
 
+                bool extra_addr = false;
+                if (is_non_language_reference_variable(symbol))
+                {
+                    if (!symbol.get_type().no_ref().is_array())
+                    {
+                        extra_addr = true;
+                    }
+                }
+
+                if (extra_addr)
+                {
+                    *file << "&(";
+                }
+
                 walk(init);
+
+                if (extra_addr)
+                {
+                    *file << ")";
+                }
 
                 state.inside_structured_value = old;
             }
@@ -7285,7 +7332,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
 
     if (state.emit_declarations == State::EMIT_CURRENT_SCOPE_DECLARATIONS)
     {
-        if (this->get_current_scope().get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
+        if (this->get_current_scope().get_decl_context()->current_scope != symbol.get_scope().get_decl_context()->current_scope)
             return;
     }
 
@@ -7308,14 +7355,15 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         return;
     }
 
-    if (symbol.is_member())
-    {
-        TL::Symbol class_entry = symbol.get_class_type().get_symbol();
-        if (!symbol_or_its_bases_are_nested_in_defined_classes(class_entry))
-        {
-            define_symbol_if_nonnested(class_entry);
-        }
-    }
+    // We only emit members of classes currently being emitted
+    if (symbol.is_member()
+            && (state.classes_being_defined.empty()
+                || state.classes_being_defined.back() != symbol.get_class_type().get_symbol())
+            // but some declarations of members happen at non-class scope, and these have
+            // to be emitted always
+            && (scope == NULL
+                || !scope->is_namespace_scope()))
+        return;
 
     // Do nothing if already defined
     if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
@@ -7460,7 +7508,10 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         {
             move_to_namespace_of_symbol(symbol);
             indent();
-            *(file) << "namespace " << symbol.get_name() << " { }\n";
+            *(file)
+                << (symbol.is_inline() ? "inline " : "")
+                << "namespace "
+                << symbol.get_name() << " { }\n";
         }
 
     }
@@ -7498,7 +7549,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
     if (state.emit_declarations == State::EMIT_CURRENT_SCOPE_DECLARATIONS)
     {
-        if (this->get_current_scope().get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
+        if (this->get_current_scope().get_decl_context()->current_scope != symbol.get_scope().get_decl_context()->current_scope)
             return;
     }
 
@@ -8214,8 +8265,8 @@ void CxxBase::entry_local_definition(
         void (CxxBase::*def_sym_fun)(TL::Symbol))
 {
     // FIXME - Improve this
-    if (this->get_current_scope().get_decl_context().current_scope
-            == entry.get_scope().get_decl_context().current_scope)
+    if (this->get_current_scope().get_decl_context()->current_scope
+            == entry.get_scope().get_decl_context()->current_scope)
     {
         if (node.is<Nodecl::ObjectInit>()
                 || node.is<Nodecl::CxxDecl>()
@@ -8413,7 +8464,8 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                     define_entities_in_tree);
         }
     }
-    else if (t.is_vector())
+    else if (t.is_vector()
+            && !is_intel_vector_struct_type(t.get_internal_type(), NULL))
     {
         walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }
@@ -8546,7 +8598,7 @@ void CxxBase::codegen_fill_namespace_list_rec(
     else
     {
         codegen_fill_namespace_list_rec(
-                namespace_sym->decl_context.current_scope->related_entry,
+                namespace_sym->decl_context->current_scope->related_entry,
                 list,
                 position);
         ERROR_CONDITION(*position == MCXX_MAX_SCOPES_NESTING, "Too many scopes", 0);
@@ -8604,7 +8656,10 @@ void CxxBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
         }
 
         indent();
-        *(file) << "namespace " << real_name << gcc_attributes << " {\n";
+        *(file)
+            << (symbol_entity_specs_get_is_inline(namespace_nesting_to[i]) ? "inline " : "")
+            << "namespace "
+            << real_name << gcc_attributes << " {\n";
         if ((i + 1) < num_from)
         {
             *(file) << " ";
@@ -8621,7 +8676,7 @@ void CxxBase::move_to_namespace_of_symbol(TL::Symbol symbol)
     }
 
     // Get the namespace where this symbol has been declared
-    scope_t* enclosing_namespace = symbol.get_internal_symbol()->decl_context.namespace_scope;
+    scope_t* enclosing_namespace = symbol.get_internal_symbol()->decl_context->namespace_scope;
     scope_entry_t* namespace_sym = enclosing_namespace->related_entry;
 
     // First close the namespaces
@@ -8876,6 +8931,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CXX_POSTFIX_INITIALIZER:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
         case NODECL_CXX_DEP_FUNCTION_CALL:
+
+        case NODECL_VECTOR_SUBSCRIPT:
             {
                 return -2;
             }
@@ -9610,7 +9667,7 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
     *file << ")";
 }
 
-const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)
+const char* CxxBase::print_name_str(scope_entry_t* sym, const decl_context_t* decl_context, void *data)
 {
     // We obtain the current codegen from the data
     CxxBase* _this = (CxxBase*) data;
@@ -9707,7 +9764,7 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
     return result;
 }
 
-const char* CxxBase::print_type_str(type_t* t, decl_context_t decl_context, void *data)
+const char* CxxBase::print_type_str(type_t* t, const decl_context_t* decl_context, void *data)
 {
     const char* result = NULL;
     if (t == NULL)

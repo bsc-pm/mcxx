@@ -37,7 +37,7 @@
 
 void intel_check_assume(
         AST expression,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_out)
 {
     AST assumed_expr = ast_get_child(expression, 0);
@@ -53,7 +53,7 @@ void intel_check_assume(
 
 void intel_check_assume_nodecl(
         nodecl_t assumed_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_out)
 {
@@ -96,7 +96,7 @@ void intel_check_assume_nodecl(
 
 void intel_check_assume_aligned(
         AST expression,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_out)
 {
     AST pointer_expr = ast_get_child(expression, 0);
@@ -120,7 +120,7 @@ void intel_check_assume_aligned(
 void intel_check_assume_aligned_nodecl(
         nodecl_t pointer_arg,
         nodecl_t alignment,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_out)
 {

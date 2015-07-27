@@ -1,0 +1,27 @@
+[gomp-mcc : gomp-omp-base]
+language = C
+options = -std=gnu99
+preprocessor_name = @GCC@
+compiler_name = @GCC@
+linker_name = @GCC@
+
+
+[gomp-mcxx : gomp-omp-base]
+language = C++
+{openmp} preprocessor_options =
+options =
+preprocessor_name = @G++@
+compiler_name = @G++@
+linker_name = @G++@
+
+# Not supported yet
+#
+# [gomp-mfc : gomp-omp-base]
+# language = Fortran
+# options = -I @PKGDATADIR@/fortran/openmp
+# fortran_preprocessor_name = @GFORTRAN@
+# fortran_preprocessor_options = -cpp -E
+# compiler_name = @GFORTRAN@
+# compiler_options = -frecursive
+# linker_name = @GFORTRAN@
+# linker_options =

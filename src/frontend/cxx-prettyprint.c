@@ -225,6 +225,9 @@ HANDLER_PROTOTYPE(upc_synch_statement);
 HANDLER_PROTOTYPE(cuda_kernel_call_handler);
 HANDLER_PROTOTYPE(cuda_kernel_arguments_handler);
 
+// Intel
+HANDLER_PROTOTYPE(intel_assume_aligned);
+
 static prettyprint_entry_t handlers_list[] =
 {
     NODE_HANDLER(AST_TRANSLATION_UNIT, unary_container_handler, NULL),
@@ -588,6 +591,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_XL_BUILTIN_SPEC, simple_text_handler, "_Builtin"),
     // Nodecl nodes that may reach prettyprint due to diagnostics
     NODE_HANDLER(NODECL_CXX_DEP_NAME_SIMPLE, simple_text_handler, NULL),
+    NODE_HANDLER(AST_INTEL_ASSUME, prefix_with_parameter_then_son_handler, "__assume"),
+    NODE_HANDLER(AST_INTEL_ASSUME_ALIGNED, intel_assume_aligned, "__assume_aligned"),
 };
 
 static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx);
@@ -2606,6 +2611,17 @@ static void cuda_kernel_arguments_handler(FILE* f, AST a, prettyprint_context_t*
     token_fprintf(f, a, pt_ctx, ">>>");
 }
 
+static void intel_assume_aligned(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "__assume_aligned(");
+
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ", ");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+
+    token_fprintf(f, a, pt_ctx, ")");
+}
+
 static void trailing_return_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, " -> ");
@@ -2687,7 +2703,7 @@ extern const char* prettyprint_in_buffer_common(AST a,
     int bytes_file = ftell(temporal_file) + 20;
     rewind(temporal_file);
 
-    result = xmalloc(bytes_file * sizeof(char));
+    result = NEW_VEC(char, bytes_file);
     fread(result, bytes_file, sizeof(char), temporal_file);
     fclose(temporal_file);
 #endif
@@ -2700,7 +2716,7 @@ extern const char* prettyprint_in_buffer_common(AST a,
     }
 
     const char* unique_result = uniquestr(result);
-    xfree(result);
+    DELETE(result);
 
     return unique_result;
 }
@@ -2709,7 +2725,7 @@ extern int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
 {
     int result;
     int size = 512;
-    char* c = xmalloc(size * sizeof(char));
+    char* c = NEW_VEC(char, size);
     va_list va;
 
     va_copy(va, args);
@@ -2720,7 +2736,7 @@ extern int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
     {
         va_copy(va, args);
         size *= 2;
-        c = xrealloc(c, size * sizeof(char));
+        c = NEW_REALLOC(char, c, size);
         result = vsnprintf(c, size, format, va);
         va_end(va);
     }
@@ -2743,7 +2759,7 @@ extern int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
         }
     }
 
-    xfree(c);
+    DELETE(c);
 
     return result;
 }

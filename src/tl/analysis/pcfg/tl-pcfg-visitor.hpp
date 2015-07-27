@@ -143,7 +143,7 @@ namespace Analysis {
         Ret visit_taskwait( const Nodecl::NodeclBase& n );
 
         //! This method implements the visitor for taskwait on dependences
-        Ret visit_taskwait_on( const Nodecl::OpenMP::WaitOnDependences& n );
+        Ret visit_taskwait_on( const Nodecl::OmpSs::WaitOnDependences& n );
 
         //! This method implements the visitor for unary nodecls
         /*!
@@ -352,16 +352,16 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
         Ret visit( const Nodecl::OpenMP::BarrierWait& n );
         Ret visit( const Nodecl::OpenMP::Overlap& n );
-        Ret visit( const Nodecl::OpenMP::CombinedWorksharing& n );
-        Ret visit( const Nodecl::OpenMP::Commutative& n );
-        Ret visit( const Nodecl::OpenMP::Concurrent& n );
-        Ret visit( const Nodecl::OpenMP::CopyIn& n );
-        Ret visit( const Nodecl::OpenMP::CopyInout& n );
-        Ret visit( const Nodecl::OpenMP::CopyOut& n );
+        Ret visit( const Nodecl::OpenMP::CombinedWithParallel& n );
+        Ret visit( const Nodecl::OmpSs::Commutative& n );
+        Ret visit( const Nodecl::OmpSs::Concurrent& n );
+        Ret visit( const Nodecl::OmpSs::CopyIn& n );
+        Ret visit( const Nodecl::OmpSs::CopyInout& n );
+        Ret visit( const Nodecl::OmpSs::CopyOut& n );
         Ret visit( const Nodecl::OpenMP::Critical& n );
         Ret visit( const Nodecl::OpenMP::CriticalName& n );
         Ret visit( const Nodecl::OpenMP::DepIn& n );
-        Ret visit( const Nodecl::OpenMP::DepInValue& n );
+        Ret visit( const Nodecl::OmpSs::DepInValue& n );
         Ret visit( const Nodecl::OpenMP::DepInout& n );
         Ret visit( const Nodecl::OpenMP::DepOut& n );
         Ret visit( const Nodecl::OpenMP::Final& n );
@@ -391,7 +391,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Section& n );
         Ret visit( const Nodecl::OpenMP::Sections& n );
         Ret visit( const Nodecl::OpenMP::Shared& n );
-        Ret visit( const Nodecl::OpenMP::SharedAndAlloca& n );
+        Ret visit( const Nodecl::OmpSs::SharedAndAlloca& n );
         Ret visit( const Nodecl::OpenMP::Simd& n );
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
@@ -399,18 +399,18 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::SimdReduction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
         Ret visit( const Nodecl::OpenMP::Suitable& n );
-        Ret visit( const Nodecl::OpenMP::Target& n );
+        Ret visit( const Nodecl::OmpSs::Target& n );
         Ret visit( const Nodecl::OpenMP::Task& n );
-        Ret visit( const Nodecl::OpenMP::TaskCall& n );
-        Ret visit( const Nodecl::OpenMP::TaskExpression& n );
-        Ret visit( const Nodecl::OpenMP::TaskLabel& n );
+        Ret visit( const Nodecl::OmpSs::TaskCall& n );
+        Ret visit( const Nodecl::OmpSs::TaskExpression& n );
+        Ret visit( const Nodecl::OmpSs::TaskLabel& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
         Ret visit( const Nodecl::OpenMP::Uniform& n );
         Ret visit( const Nodecl::OpenMP::Unroll& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
         Ret visit( const Nodecl::OpenMP::VectorLengthFor& n );
-        Ret visit( const Nodecl::OpenMP::WaitOnDependences& n );
+        Ret visit( const Nodecl::OmpSs::WaitOnDependences& n );
         Ret visit( const Nodecl::OpenMP::Workshare& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Plus& n );
@@ -485,6 +485,7 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorNeg& n );
         Ret visit( const Nodecl::VectorPrefetch& n );
         Ret visit( const Nodecl::VectorPromotion& n );
+        Ret visit( const Nodecl::VectorRcp& n );
         Ret visit( const Nodecl::VectorReductionAdd& n );
         Ret visit( const Nodecl::VectorReductionMinus& n );
         Ret visit( const Nodecl::VectorReductionMul& n );

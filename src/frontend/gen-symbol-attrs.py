@@ -97,7 +97,7 @@ def print_type_and_name(_type, name):
     elif (_type == "symbol"):
         return [("scope_entry_t*", name, "", TypeKind.POINTER)]
     elif (_type == "scope"):
-        return [("decl_context_t", name, "", TypeKind.OTHER)]
+        return [("const decl_context_t*", name, "", TypeKind.OTHER)]
     elif (_type.startswith("typeof")):
         parts_of_type_name = get_up_to_matching_paren(_type[len("typeof"):])
         parts_of_type = parts_of_type_name.split(",");
@@ -235,9 +235,9 @@ def print_getters_setters(lines):
           print "static inline void symbol_entity_specs_remove_%s_cmp(scope_entry_t* s, %s item,\n        char (*cmp)(%s, %s))\n{\n    P_LIST_REMOVE_FUN(s->_entity_specs.%s, s->_entity_specs.%s, item, cmp);\n}" % (list_name, type_name, type_name, type_name, list_name, num_name)
           print "static inline void symbol_entity_specs_insert_%s_cmp(scope_entry_t* s, %s item,\n        char (*cmp)(%s, %s))\n{\n    P_LIST_ADD_ONCE_FUN(s->_entity_specs.%s, s->_entity_specs.%s, item, cmp);\n}" % (list_name, type_name, type_name, type_name, list_name, num_name)
           print "static inline void symbol_entity_specs_add_%s(scope_entry_t* s, %s item)\n{\n    symbol_entity_specs_append_%s(s, item);\n}" % (list_name, type_name, list_name)
-          print "static inline void symbol_entity_specs_reserve_%s(scope_entry_t* s, int num)\n{\n    s->_entity_specs.%s = num;\n    s->_entity_specs.%s = (%s*)xcalloc(num, sizeof (* (s->_entity_specs.%s) ));\n}" % (list_name, num_name, list_name, type_name, list_name)
+          print "static inline void symbol_entity_specs_reserve_%s(scope_entry_t* s, int num)\n{\n    s->_entity_specs.%s = num;\n    s->_entity_specs.%s = NEW_VEC0(%s, num);\n}" % (list_name, num_name, list_name, type_name)
           # print "static inline void symbol_entity_specs_clear_%s(scope_entry_t* s)\n{\n    s->_entity_specs.%s = NULL;\n    s->_entity_specs.%s = 0;\n}" % (list_name, list_name, num_name)
-          print "static inline void symbol_entity_specs_free_%s(scope_entry_t* s)\n{\n    s->_entity_specs.%s = 0;\n    xfree(s->_entity_specs.%s);\n    s->_entity_specs.%s = NULL;\n}" % (list_name, num_name, list_name, list_name)
+          print "static inline void symbol_entity_specs_free_%s(scope_entry_t* s)\n{\n    s->_entity_specs.%s = 0;\n    DELETE(s->_entity_specs.%s);\n    s->_entity_specs.%s = NULL;\n}" % (list_name, num_name, list_name, list_name)
           print "static inline void symbol_entity_specs_copy_%s_from(scope_entry_t* dest, scope_entry_t* source)\n{\n    symbol_entity_specs_reserve_%s(dest, source->_entity_specs.%s);\n    memcpy(dest->_entity_specs.%s,\n        source->_entity_specs.%s,\n        dest->_entity_specs.%s\n        * (sizeof (*(dest->_entity_specs.%s))));\n} " % (list_name, list_name, num_name, list_name, list_name, num_name, list_name)
           print ""
 
@@ -669,7 +669,7 @@ def print_deep_copy_entity_specs(lines):
 
     print """
     void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source,
-             decl_context_t decl_context, symbol_map_t* symbol_map,
+             const decl_context_t* decl_context, symbol_map_t* symbol_map,
              nodecl_deep_copy_map_t* nodecl_deep_copy_map,
              symbol_deep_copy_map_t* symbol_deep_copy_map)
     {
@@ -729,7 +729,7 @@ def print_deep_copy_entity_specs(lines):
                   print "default_argument_info_t* copied = NULL;"
                   print "if (source_default_arg != NULL)"
                   print "{"
-                  print "  copied = xcalloc(1, sizeof(*copied));"
+                  print "  copied = NEW0(default_argument_info_t);"
                   print "  copied->argument = nodecl_deep_copy_compute_maps(source_default_arg->argument, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
                   print "  copied->context = decl_context;"
                   print "}"

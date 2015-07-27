@@ -25,50 +25,33 @@
 --------------------------------------------------------------------*/
 
 
+#ifndef TL_LOWERING_UTILS_HPP
+#define TL_LOWERING_UTILS_HPP
 
-
-#ifndef TL_OMP_TARGET_HPP
-#define TL_OMP_TARGET_HPP
-
-#include "tl-objectlist.hpp"
 #include "tl-symbol.hpp"
 
-namespace TL
-{
-    namespace OpenMP
-    {
-        struct TargetContext
-        {
-            ObjectList<std::string> device_list;
+namespace TL { namespace GOMP {
 
-            ObjectList<Nodecl::NodeclBase> copy_in;
-            ObjectList<Nodecl::NodeclBase> copy_out;
-            ObjectList<Nodecl::NodeclBase> copy_inout;
+    TL::Symbol new_private_symbol(TL::Symbol original_symbol, TL::Scope private_scope);
+    TL::Symbol new_private_symbol(const std::string& base_name,
+            TL::Type type,
+            enum cxx_symbol_kind kind,
+            TL::Scope private_scope);
 
-            ObjectList<Nodecl::NodeclBase> ndrange;
-            ObjectList<Nodecl::NodeclBase> shmem; // shared memory
-            ObjectList<Nodecl::NodeclBase> onto;
+    void gather_vla_symbols(TL::Symbol symbol,
+            TL::ObjectList<TL::Symbol>& extra_symbols);
 
-            bool is_implicit;
-            bool has_implements;
-            Symbol implements;
 
-            // The name of the file where the kernels are defined
-            std::string file;
+    TL::Type create_outline_struct(
+            const TL::ObjectList<TL::Symbol>& all_passed_symbols,
+            TL::Symbol enclosing_function,
+            const locus_t* locus);
 
-            // The real name of the kernel
-            std::string name;
+    TL::Type create_outline_struct_task(
+            const TL::ObjectList<TL::Symbol>& all_passed_symbols,
+            const TL::ObjectList<TL::Symbol>& firstprivate_symbols,
+            TL::Symbol enclosing_function,
+            const locus_t* locus);
+} }
 
-            bool copy_deps;
-
-            TargetContext()
-                : device_list(), copy_in(), copy_out(), copy_inout(),
-                ndrange(), shmem(), onto(), is_implicit(),
-                has_implements(), implements(), file(), name(), copy_deps()
-            {
-            }
-        };
-    }
-}
-
-#endif // TL_OMP_TARGET_HPP
+#endif // TL_LOWERING_UTILS_HPP

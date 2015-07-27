@@ -39,7 +39,7 @@
 #include "tl-pragmasupport.hpp"
 #include "tl-omp-tasks.hpp"
 
-#include "tl-omp-target.hpp"
+#include "tl-ompss-target.hpp"
 
 #include "tl-lexer.hpp"
 namespace TL
@@ -89,14 +89,24 @@ namespace TL
                 static bool _already_informed_new_ompss_copy_deps;
 
                 std::shared_ptr<OpenMP::Info> _openmp_info;
-                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
+                void omp_target_handler_pre(TL::PragmaCustomStatement ctr);
+                void omp_target_handler_post(TL::PragmaCustomStatement ctr);
 
-                std::stack<TargetContext> _target_context;
+                std::shared_ptr<OmpSs::FunctionTaskSet> _function_task_set;
+                std::stack<OmpSs::TargetContext> _target_context;
 
-                void common_target_handler_pre(TL::PragmaCustomLine pragma_line,
-                        TargetContext& target_ctx,
+                void ompss_target_handler_pre(TL::PragmaCustomStatement ctr);
+                void ompss_target_handler_post(TL::PragmaCustomStatement ctr);
+
+                void ompss_target_handler_pre(TL::PragmaCustomDeclaration ctr);
+                void ompss_target_handler_post(TL::PragmaCustomDeclaration ctr);
+
+                void ompss_common_target_handler_pre(TL::PragmaCustomLine pragma_line,
+                        OmpSs::TargetContext& target_ctx,
                         TL::Scope scope,
                         bool is_pragma_task);
+                void ompss_get_target_info(TL::PragmaCustomLine pragma_line,
+                        DataEnvironment& data_environment);
 
                 void task_function_handler_pre(TL::PragmaCustomDeclaration construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);
@@ -105,57 +115,54 @@ namespace TL
                         PragmaCustomClause clause,
                         const TL::ObjectList<TL::Symbol> &symbols_in_construct,
                         ObjectList<DataReference>& data_ref_list,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
                 void get_reduction_symbols(
                         TL::PragmaCustomLine construct,
                         PragmaCustomClause clause,
                         const TL::ObjectList<TL::Symbol> &symbols_in_construct,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<ReductionSymbol>& sym_list,
                         ObjectList<Symbol>& extra_symbols);
 
                 void get_data_explicit_attributes(
                         TL::PragmaCustomLine construct,
                         Nodecl::NodeclBase statements,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol> &extra_symbols);
 
                 void get_data_implicit_attributes(
                         TL::PragmaCustomStatement construct,
                         DataSharingAttribute default_data_attr,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         bool there_is_default_clause);
 
                 void get_data_implicit_attributes_task(
                         TL::PragmaCustomStatement construct,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
                         bool there_is_default_clause);
 
                 void get_data_extra_symbols(
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         const ObjectList<Symbol>& extra_symbols);
 
                 void get_data_implicit_attributes_of_indirectly_accessible_symbols(
                         TL::PragmaCustomStatement construct,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<TL::Symbol>& nonlocal_symbols);
-
-                void get_target_info(TL::PragmaCustomLine pragma_line,
-                        DataSharingEnvironment& data_sharing_environment);
 
                 void get_dependences_info(
                         PragmaCustomLine construct,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
                 void get_dependences_ompss_info_clause(
                         PragmaCustomClause clause,
                         Nodecl::NodeclBase construct,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         DependencyDirection dep_attr,
                         DataSharingAttribute default_data_attr,
                         const std::string& clause_name,
@@ -168,7 +175,7 @@ namespace TL
                 void get_dependences_openmp(
                         TL::PragmaCustomLine construct,
                         TL::PragmaCustomClause clause,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
@@ -188,36 +195,47 @@ namespace TL
                 void loop_handler_pre(TL::PragmaCustomStatement construct,
                         Nodecl::NodeclBase loop,
                         void (Core::*common_loop_handler)(Nodecl::NodeclBase,
-                            Nodecl::NodeclBase, DataSharingEnvironment&, ObjectList<Symbol>&));
+                            Nodecl::NodeclBase, DataEnvironment&, ObjectList<Symbol>&));
+
+                void handle_map_clause(TL::PragmaCustomLine pragma_line,
+                        DataEnvironment& data_environment);
+
+                void compute_implicit_device_mappings(Nodecl::NodeclBase stmt,
+                        DataEnvironment& data_environment);
 
                 void common_parallel_handler(
                         TL::PragmaCustomStatement ctr,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
                 void common_for_handler(
                         Nodecl::NodeclBase outer_statement,
                         Nodecl::NodeclBase nodecl,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
                 void common_while_handler(
                         Nodecl::NodeclBase outer_statement,
                         Nodecl::NodeclBase statement,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
                 void common_construct_handler(
                         TL::PragmaCustomStatement construct,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
                 void common_workshare_handler(
                         TL::PragmaCustomStatement construct,
-                        DataSharingEnvironment& data_sharing_environment,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
-				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
+                void common_teams_handler(
+                        TL::PragmaCustomStatement ctr,
+                        DataEnvironment& data_environment,
+                        ObjectList<Symbol>& extra_symbols);
+
+                OmpSs::RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
 
                 void fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name);
 
@@ -246,7 +264,12 @@ namespace TL
                 bool _ompss_mode;
                 bool _copy_deps_by_default;
                 bool _untied_tasks_by_default;
+
+                // This variable is used to enable the experimental support of input by value dependences
                 bool _enable_input_by_value_dependences;
+
+                // This variable is used to enable the experimental support of nonvoid function tasks
+                bool _enable_nonvoid_function_tasks;
             public:
                 Core();
 
@@ -270,6 +293,8 @@ namespace TL
                 void set_allow_array_reductions(bool b) { _allow_array_reductions = b; }
 
                 void set_enable_input_by_value_dependences(bool b) { _enable_input_by_value_dependences = b; }
+
+                void set_enable_nonvoid_function_tasks(bool b) { _enable_nonvoid_function_tasks = b; }
 
                 void set_ompss_mode(bool b) { _ompss_mode = b; }
                 bool in_ompss_mode() const

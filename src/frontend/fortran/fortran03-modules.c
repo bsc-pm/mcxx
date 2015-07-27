@@ -53,7 +53,7 @@
  #error Q cannot be defined here
 #endif
 
-enum { CURRENT_MODULE_VERSION = 14 };
+enum { CURRENT_MODULE_VERSION = 15 };
 
 // Uncomment the next line to let you GCC help in wrong types in formats of sqlite3_mprintf
 // #define DEBUG_SQLITE3_MPRINTF 1
@@ -150,7 +150,7 @@ static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const
 static sqlite3_uint64 insert_default_argument_info_ptr(sqlite3* handle, void* p);
 static char query_contains_field(int ncols, char** names, const char* field_name, int *result);
 static void run_query(sqlite3* handle, const char* query);
-static decl_context_t load_decl_context(sqlite3* handle, sqlite3_uint64 oid);
+static const decl_context_t* load_decl_context(sqlite3* handle, sqlite3_uint64 oid);
 
 static const_value_t* load_const_value(sqlite3* handle, sqlite3_uint64 oid);
 
@@ -663,6 +663,7 @@ static sqlite3_uint64 run_insert_statement(sqlite3* handle, sqlite3_stmt* stmt)
     PREPARED_STATEMENT(_oid_already_inserted_scope) \
     PREPARED_STATEMENT(_oid_already_inserted_symbol) \
     PREPARED_STATEMENT(_oid_already_inserted_const_value) \
+    PREPARED_STATEMENT(_oid_already_inserted_decl_context) \
     PREPARED_STATEMENT(_pre_insert_symbol_stmt) \
     PREPARED_STATEMENT(_insert_type_simple_stmt) \
     PREPARED_STATEMENT(_insert_type_ref_to_stmt) \
@@ -673,6 +674,7 @@ static sqlite3_uint64 run_insert_statement(sqlite3* handle, sqlite3_stmt* stmt)
     PREPARED_STATEMENT(_insert_extra_attr_stmt) \
     PREPARED_STATEMENT(_insert_string_stmt) \
     PREPARED_STATEMENT(_insert_scope_stmt) \
+    PREPARED_STATEMENT(_pre_insert_decl_context_stmt) \
     PREPARED_STATEMENT(_insert_decl_context_stmt) \
     PREPARED_STATEMENT(_insert_const_value_stmt) \
     PREPARED_STATEMENT(_insert_raw_const_value_stmt) \
@@ -680,10 +682,10 @@ static sqlite3_uint64 run_insert_statement(sqlite3* handle, sqlite3_stmt* stmt)
     PREPARED_STATEMENT(_insert_multi_const_value_stmt) \
     PREPARED_STATEMENT(_insert_multi_const_value_part_stmt) \
     PREPARED_STATEMENT(_get_extended_attr_stmt) \
-    PREPARED_STATEMENT(_lookup_decl_context_stmt) \
     PREPARED_STATEMENT(_select_string_stmt) \
     PREPARED_STATEMENT(_select_scope_stmt) \
     PREPARED_STATEMENT(_select_decl_context_stmt) \
+    PREPARED_STATEMENT(_get_current_scope_of_decl_context_stmt) \
     PREPARED_STATEMENT(_select_ast_stmt) \
     PREPARED_STATEMENT(_select_type_stmt) \
     PREPARED_STATEMENT(_select_const_value_stmt) \
@@ -742,6 +744,7 @@ static void prepare_statements(sqlite3* handle)
     DO_PREPARE_STATEMENT(_oid_already_inserted_scope,       "SELECT oid FROM scope WHERE oid = $OID;");
     DO_PREPARE_STATEMENT(_oid_already_inserted_symbol,      "SELECT oid FROM symbol WHERE oid = $OID;");
     DO_PREPARE_STATEMENT(_oid_already_inserted_const_value, "SELECT oid FROM const_value WHERE oid = $OID;");
+    DO_PREPARE_STATEMENT(_oid_already_inserted_decl_context, "SELECT oid FROM decl_context WHERE oid = $OID;");
 
     // String table
     DO_PREPARE_STATEMENT(_insert_string_stmt, "INSERT INTO string_table(string) VALUES($NAME);");
@@ -782,9 +785,11 @@ static void prepare_statements(sqlite3* handle)
             "INSERT INTO scope(oid, kind, contained_in, related_entry) VALUES ($OID, $KIND, $CONTAINED, $ENTRY);");
 
     // Insert decl context
+    DO_PREPARE_STATEMENT(_pre_insert_decl_context_stmt,
+            "INSERT INTO decl_context (oid) VALUES (?);");
     DO_PREPARE_STATEMENT(_insert_decl_context_stmt,
-            "INSERT INTO decl_context (" DECL_CONTEXT_FIELDS ") "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
+            "INSERT OR REPLACE INTO decl_context (oid, " DECL_CONTEXT_FIELDS ") "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
 
     // Const value
     DO_PREPARE_STATEMENT(_insert_const_value_stmt, "INSERT INTO const_value(oid, raw_oid) "
@@ -809,21 +814,12 @@ static void prepare_statements(sqlite3* handle)
             "SELECT a.value FROM attributes a, string_table str "
             "WHERE a.symbol = $SYMBOL AND a.name = str.oid AND str.string = $NAME;");
 
-    DO_PREPARE_STATEMENT(_lookup_decl_context_stmt,
-            "SELECT oid FROM decl_context WHERE "
-            "flags = ? "
-            "AND namespace_scope = ? "
-            "AND global_scope = ? "
-            "AND block_scope = ? "
-            "AND class_scope = ? "
-            "AND function_scope = ? "
-            "AND prototype_scope = ? "
-            "AND current_scope = ? ;");
-
     DO_PREPARE_STATEMENT(_select_scope_stmt, 
             "SELECT oid, kind, contained_in, related_entry FROM scope WHERE oid = $OID;");
 
-    DO_PREPARE_STATEMENT(_select_decl_context_stmt, "SELECT " DECL_CONTEXT_FIELDS " FROM decl_context WHERE oid = $OID;");
+    DO_PREPARE_STATEMENT(_select_decl_context_stmt, "SELECT oid, " DECL_CONTEXT_FIELDS " FROM decl_context WHERE oid = $OID;");
+
+    DO_PREPARE_STATEMENT(_get_current_scope_of_decl_context_stmt, "SELECT current_scope FROM decl_context WHERE oid = $OID;");
 
     DO_PREPARE_STATEMENT(_select_ast_stmt, "SELECT a.oid, str0.string AS kind, str1.string AS file, a.line, str2.string AS text, a.ast0, a.ast1, a.ast2, a.ast3, "
             "a.type, a.symbol, a.is_lvalue, a.is_const_val, a.const_val, a.is_value_dependent "
@@ -915,7 +911,7 @@ static void* get_ptr_of_oid(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid
 
 static void insert_map_ptr(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid, void *ptr)
 {
-    sqlite3_int64* p = xcalloc(1, sizeof(*p));
+    sqlite3_int64* p = NEW0(sqlite3_int64);
     *p = oid;
 
     rb_tree_insert(_oid_map, p, ptr);
@@ -963,6 +959,9 @@ DEF_OID_ALREADY_INSERTED(symbol);
 
 static char oid_already_inserted_const_value(sqlite3* handle, void *ptr);
 DEF_OID_ALREADY_INSERTED(const_value);
+
+static char oid_already_inserted_decl_context(sqlite3* handle, void *ptr);
+DEF_OID_ALREADY_INSERTED(decl_context);
 
 static sqlite3_uint64 insert_string_in_string_table(sqlite3* handle, 
         const char* str)
@@ -1500,7 +1499,7 @@ static void insert_extra_attr_nodecl(sqlite3* handle, scope_entry_t* symbol, con
 
 static sqlite3_uint64 insert_default_argument_info_ptr(sqlite3* handle, void* p)
 {
-    // We cannot currently store the decl_context_t
+    // We cannot currently store the const decl_context_t*
     default_argument_info_t* d = (default_argument_info_t*)p;
     return insert_ast(handle, nodecl_get_ast(d->argument));
 }
@@ -1604,7 +1603,7 @@ static int get_extra_gcc_attrs(void *datum,
 
     symbol_entity_specs_add_gcc_attributes(p->symbol, gcc_attr);
 
-    xfree(attr_value);
+    DELETE(attr_value);
 
     return 0;
 }
@@ -1645,7 +1644,7 @@ static int get_extra_function_parameter_info_only(
     p->pf->nesting = 0;
     p->pf->position = position;
 
-    xfree(attr_value);
+    DELETE(attr_value);
 
     return 0;
 }
@@ -1674,7 +1673,7 @@ static int get_extra_default_argument_info(void *datum,
 {
     extra_default_argument_info_t* p = (extra_default_argument_info_t*)datum;
 
-    default_argument_info_t* d = xcalloc(1, sizeof(*d));
+    default_argument_info_t* d = NEW0(default_argument_info_t);
     // We are not storing the context yet
     d->context = CURRENT_COMPILED_FILE->global_decl_context;
     d->argument = _nodecl_wrap(load_ast(p->handle, safe_atoull(values[0])));
@@ -1685,22 +1684,23 @@ static int get_extra_default_argument_info(void *datum,
     return 0;
 }
 
-struct parameter_info_t
+typedef
+struct sql_parameter_info_tag
 {
     int ncols;
     char** values;
     char** names;
-};
+} sql_parameter_info_t;
 
-static void xfree_param_info(struct parameter_info_t *param_info, int num_rows)
+static void free_param_info(sql_parameter_info_t *param_info, int num_rows)
 {
     int i;
     for (i = 0; i < num_rows; i++)
     {
-        xfree(param_info[i].values);
-        xfree(param_info[i].names);
+        DELETE(param_info[i].values);
+        DELETE(param_info[i].names);
     }
-    xfree(param_info);
+    DELETE(param_info);
 }
 
 static char* safe_strdup(const char* c)
@@ -1719,11 +1719,11 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
     //
     // The whole records are kept in a temporary buffer and then the callback is called per each row
 
-    struct parameter_info_t *param_info = NULL;
+    sql_parameter_info_t *param_info = NULL;
     int num_rows = 0;
     int result_set_size = 4;
 
-    param_info = xrealloc(param_info, result_set_size * sizeof(*param_info));
+    param_info = NEW_REALLOC(sql_parameter_info_t, param_info, result_set_size);
 
     int result_query = sqlite3_step(prepared_stmt);
     while(result_query != SQLITE_DONE)
@@ -1736,7 +1736,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
                     if (num_rows > result_set_size)
                     {
                         result_set_size *= 2;
-                        param_info = xrealloc(param_info, result_set_size * sizeof(*param_info));
+                        param_info = NEW_REALLOC(sql_parameter_info_t, param_info, result_set_size);
                     }
 
                     int current_row = num_rows - 1;
@@ -1745,8 +1745,8 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
 
                     param_info[current_row].ncols = ncols;
 
-                    param_info[current_row].values = xcalloc(ncols, sizeof(*param_info[current_row].values));
-                    param_info[current_row].names = xcalloc(ncols, sizeof(*param_info[current_row].names));
+                    param_info[current_row].values = NEW_VEC0(char*, ncols);
+                    param_info[current_row].names = NEW_VEC0(char*, ncols);
                     int i;
                     for (i = 0; i < ncols; i++)
                     {
@@ -1763,7 +1763,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
             default:
                 {
                     *errmsg = sqlite3_errmsg(handle);
-                    xfree_param_info(param_info, num_rows);
+                    free_param_info(param_info, num_rows);
                     sqlite3_reset(prepared_stmt);
                     return result_query;
                 }
@@ -1780,7 +1780,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
         fun(datum, param_info[i].ncols, param_info[i].values, param_info[i].names);
     }
 
-    xfree_param_info(param_info, num_rows);
+    free_param_info(param_info, num_rows);
 
     *errmsg = NULL;
     return SQLITE_OK;
@@ -1822,61 +1822,40 @@ static sqlite3_uint64 insert_scope(sqlite3* handle, scope_t* scope)
     return oid;
 }
 
-static int get_decl_context_oid_(void *datum,
-        int ncols UNUSED_PARAMETER,
-        char **values, 
-        char **names UNUSED_PARAMETER)
+static sqlite3_uint64 insert_decl_context(sqlite3* handle, const decl_context_t* decl_context)
 {
-    sqlite3_uint64* oid = (sqlite3_uint64*)datum;
+    if (decl_context == NULL)
+        return 0;
 
-    *oid = safe_atoull(values[0]);
-
-    return 0;
-}
-
-static sqlite3_uint64 insert_decl_context(sqlite3* handle, decl_context_t decl_context)
-{
-    sqlite3_uint64 namespace_scope = insert_scope(handle, decl_context.namespace_scope);
-    sqlite3_uint64 global_scope = insert_scope(handle, decl_context.global_scope);
-    sqlite3_uint64 block_scope = insert_scope(handle, decl_context.block_scope);
-    sqlite3_uint64 class_scope = insert_scope(handle, decl_context.class_scope);
-    sqlite3_uint64 function_scope = insert_scope(handle, decl_context.function_scope);
-    sqlite3_uint64 prototype_scope = insert_scope(handle, decl_context.prototype_scope);
-    sqlite3_uint64 current_scope = insert_scope(handle, decl_context.current_scope);
-
-    sqlite3_bind_int  (_lookup_decl_context_stmt, 1, decl_context.decl_flags);
-    sqlite3_bind_int64(_lookup_decl_context_stmt, 2, namespace_scope);
-    sqlite3_bind_int64(_lookup_decl_context_stmt, 3, global_scope);
-    sqlite3_bind_int64(_lookup_decl_context_stmt, 4, block_scope);
-    sqlite3_bind_int64(_lookup_decl_context_stmt, 5, class_scope);
-    sqlite3_bind_int64(_lookup_decl_context_stmt, 6, function_scope);
-    sqlite3_bind_int64(_lookup_decl_context_stmt, 7, prototype_scope);
-    sqlite3_bind_int64(_lookup_decl_context_stmt, 8, current_scope);
-
-    const char * errmsg = NULL;
-    sqlite3_uint64 decl_context_oid = 0;
-    if (run_select_query_prepared(handle, _lookup_decl_context_stmt, get_decl_context_oid_, &decl_context_oid, &errmsg) != SQLITE_OK)
+    if (oid_already_inserted_decl_context(handle, (void*)decl_context))
     {
-        running_error("Error while running query: %s\n", errmsg);
+        return (sqlite3_uint64)(uintptr_t)decl_context;
     }
 
-    if (decl_context_oid != 0)
-    {
-        return decl_context_oid;
-    }
+    sqlite3_bind_int64(_pre_insert_decl_context_stmt, 1, P2ULL(decl_context));
+    sqlite3_uint64 decl_context_oid = run_insert_statement(handle, _pre_insert_decl_context_stmt);
 
-    sqlite3_bind_int  (_insert_decl_context_stmt, 1, decl_context.decl_flags);
-    sqlite3_bind_int64(_insert_decl_context_stmt, 2, namespace_scope);
-    sqlite3_bind_int64(_insert_decl_context_stmt, 3, global_scope);
-    sqlite3_bind_int64(_insert_decl_context_stmt, 4, block_scope);
-    sqlite3_bind_int64(_insert_decl_context_stmt, 5, class_scope);
-    sqlite3_bind_int64(_insert_decl_context_stmt, 6, function_scope);
-    sqlite3_bind_int64(_insert_decl_context_stmt, 7, prototype_scope);
-    sqlite3_bind_int64(_insert_decl_context_stmt, 8, current_scope);
+    sqlite3_uint64 namespace_scope = insert_scope(handle, decl_context->namespace_scope);
+    sqlite3_uint64 global_scope = insert_scope(handle, decl_context->global_scope);
+    sqlite3_uint64 block_scope = insert_scope(handle, decl_context->block_scope);
+    sqlite3_uint64 class_scope = insert_scope(handle, decl_context->class_scope);
+    sqlite3_uint64 function_scope = insert_scope(handle, decl_context->function_scope);
+    sqlite3_uint64 prototype_scope = insert_scope(handle, decl_context->prototype_scope);
+    sqlite3_uint64 current_scope = insert_scope(handle, decl_context->current_scope);
 
-    sqlite3_uint64 oid = run_insert_statement(handle, _insert_decl_context_stmt);
+    sqlite3_bind_int64(_insert_decl_context_stmt, 1, decl_context_oid);
+    sqlite3_bind_int  (_insert_decl_context_stmt, 2, decl_context->decl_flags);
+    sqlite3_bind_int64(_insert_decl_context_stmt, 3, namespace_scope);
+    sqlite3_bind_int64(_insert_decl_context_stmt, 4, global_scope);
+    sqlite3_bind_int64(_insert_decl_context_stmt, 5, block_scope);
+    sqlite3_bind_int64(_insert_decl_context_stmt, 6, class_scope);
+    sqlite3_bind_int64(_insert_decl_context_stmt, 7, function_scope);
+    sqlite3_bind_int64(_insert_decl_context_stmt, 8, prototype_scope);
+    sqlite3_bind_int64(_insert_decl_context_stmt, 9, current_scope);
 
-    return oid;
+    /* sqlite3_uint64 decl_context_oid = */ run_insert_statement(handle, _insert_decl_context_stmt);
+
+    return decl_context_oid;
 }
 
 static const char* module_packed_bits_to_hexstr(module_packed_bits_t module_packed_bits)
@@ -2000,6 +1979,8 @@ typedef struct
 } symbol_handle_t;
 
 static nodecl_t load_nodecl(sqlite3* handle, sqlite3_uint64 oid);
+static scope_t* load_scope(sqlite3* handle, sqlite3_uint64 oid);
+static sqlite3_uint64 get_current_scope_oid_of_decl_context_oid(sqlite3* handle, sqlite3_uint64 decl_context_oid);
 
 static int get_symbol(void *datum, 
         int ncols,
@@ -2124,7 +2105,7 @@ static int get_symbol(void *datum,
 
     if (*result == NULL)
     {
-        (*result) = xcalloc(1, sizeof(**result));
+        (*result) = NEW0(scope_entry_t);
     }
 
     insert_map_ptr(handle, oid, *result);
@@ -2153,10 +2134,20 @@ static int get_symbol(void *datum,
     (*result)->decl_context = load_decl_context(handle, decl_context_oid);
 
     (*result)->related_decl_context = load_decl_context(handle, related_decl_context_oid);
-    // Add it to its scope
+
+    // Add it to its scope if it has name
     if ((*result)->symbol_name != NULL)
     {
-        insert_entry((*result)->decl_context.current_scope, (*result));
+        // Now by accessing (*result)->decl_context->current_scope we would
+        // expose a cycle: (*result)->decl_context may have not been fully
+        // loaded yet at this point, so what we have to do is to get the oid of
+        // the current scope and get it, this will give us the correct scope
+        scope_t* current_scope =
+            load_scope(handle,
+                    get_current_scope_oid_of_decl_context_oid(handle, decl_context_oid)
+                    );
+
+        insert_entry(current_scope, (*result));
     }
 
     (*result)->value = load_nodecl(handle, value_oid);
@@ -2165,7 +2156,14 @@ static int get_symbol(void *datum,
     // Classes require a bit more of work
     if ((*result)->kind == SK_CLASS)
     {
-        decl_context_t class_context = new_class_context((*result)->decl_context, *result);
+        // Avoid cycle (see explanation above)
+        decl_context_t* fixed_decl_context = decl_context_clone((*result)->decl_context);
+        fixed_decl_context->current_scope =
+            load_scope(handle,
+                    get_current_scope_oid_of_decl_context_oid(handle, decl_context_oid)
+                    );
+
+        const decl_context_t* class_context = new_class_context(fixed_decl_context, *result);
         type_t* class_type = get_actual_class_type((*result)->type_information);
         class_type_set_inner_context(class_type, class_context);
 
@@ -2178,7 +2176,7 @@ static int get_symbol(void *datum,
             scope_entry_t* field = entry_list_iterator_current(it);
 
             // Insert the component in the class context otherwise further lookups will fail
-            insert_entry(class_context.current_scope, field);
+            insert_entry(class_context->current_scope, field);
 
             // Update field context
             field->decl_context = class_context;
@@ -2309,8 +2307,8 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
 
     for (i = 0; i < ncols; i++)
     {
-        xfree(values[i]);
-        xfree(names[i]);
+        DELETE(values[i]);
+        DELETE(names[i]);
     }
 
     return symbol_handle.symbol;
@@ -2323,8 +2321,6 @@ struct scope_info_tag
     sqlite3* handle;
     scope_t* scope;
 } scope_info_t;
-
-static scope_t* load_scope(sqlite3* handle, sqlite3_uint64 oid);
 
 static int get_scope_(void *datum, 
         int ncols UNUSED_PARAMETER, 
@@ -2374,37 +2370,81 @@ typedef
 struct decl_context_info_tag
 {
     sqlite3* handle;
-    decl_context_t* p_decl_context;
+    const decl_context_t* decl_context;
 } decl_context_t_info_t;
 
+
+static int get_current_scope_oid_of_decl_context_oid_(void *datum, 
+        int ncols UNUSED_PARAMETER, 
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    sqlite3_uint64* oid = (sqlite3_uint64*)datum;
+
+    *oid = safe_atoull(values[0]);
+
+    return 0;
+}
+
+static sqlite3_uint64 get_current_scope_oid_of_decl_context_oid(sqlite3* handle, sqlite3_uint64 decl_context_oid)
+{
+    if (decl_context_oid == 0)
+        return 0;
+
+    sqlite3_uint64 result_oid = 0;
+
+    const char *errmsg = NULL;
+    sqlite3_bind_int64(_get_current_scope_of_decl_context_stmt, 1, decl_context_oid);
+    if (run_select_query_prepared(handle, _get_current_scope_of_decl_context_stmt,
+                get_current_scope_oid_of_decl_context_oid_,
+                &result_oid, &errmsg) != SQLITE_OK)
+    {
+        running_error("Error while running query: %s\n", errmsg);
+    }
+
+    return result_oid;
+}
 
 static int get_decl_context_(void *datum, 
         int ncols UNUSED_PARAMETER, 
         char **values, 
         char **names UNUSED_PARAMETER)
 {
-    decl_context_t* p = ((decl_context_t_info_t*)datum)->p_decl_context;
-    sqlite3* handle = ((decl_context_t_info_t*)datum)->handle;
+    decl_context_t_info_t* decl_context_info = (decl_context_t_info_t*)datum;
 
-    p->decl_flags = safe_atoull(values[0]);
-    p->namespace_scope = load_scope(handle, safe_atoull(values[1]));
-    p->global_scope = load_scope(handle, safe_atoull(values[2]));
-    p->block_scope = load_scope(handle, safe_atoull(values[3]));
-    p->class_scope = load_scope(handle, safe_atoull(values[4]));
-    p->function_scope = load_scope(handle, safe_atoull(values[5]));
-    p->prototype_scope = load_scope(handle, safe_atoull(values[6]));
-    p->current_scope = load_scope(handle, safe_atoull(values[7]));
+    sqlite3* handle = decl_context_info->handle;
+    sqlite3_uint64 oid = safe_atoull(values[0]);
+    
+    const decl_context_t* ptr = (const decl_context_t*)get_ptr_of_oid(handle, oid);
+    if (ptr != NULL)
+    {
+        decl_context_info->decl_context = ptr;
+        return 0;
+    }
+
+    decl_context_t* p = NULL;
+    decl_context_info->decl_context = p = decl_context_empty();
+    insert_map_ptr(handle, oid, p);
+
+    p->decl_flags = safe_atoull(values[1]);
+    p->namespace_scope = load_scope(handle, safe_atoull(values[2]));
+    p->global_scope = load_scope(handle, safe_atoull(values[3]));
+    p->block_scope = load_scope(handle, safe_atoull(values[4]));
+    p->class_scope = load_scope(handle, safe_atoull(values[5]));
+    p->function_scope = load_scope(handle, safe_atoull(values[6]));
+    p->prototype_scope = load_scope(handle, safe_atoull(values[7]));
+    p->current_scope = load_scope(handle, safe_atoull(values[8]));
 
     return 0;
 }
 
-static decl_context_t load_decl_context(sqlite3* handle, sqlite3_uint64 decl_context_oid)
+static const decl_context_t* load_decl_context(sqlite3* handle, sqlite3_uint64 decl_context_oid)
 {
-    decl_context_t decl_context;
-    memset(&decl_context, 0, sizeof(decl_context));
+    if (decl_context_oid == 0)
+        return NULL;
 
     decl_context_t_info_t decl_context_info;
-    decl_context_info.p_decl_context = &decl_context;
+    decl_context_info.decl_context = NULL;
     decl_context_info.handle = handle;
 
     const char *errmsg = NULL;
@@ -2414,7 +2454,7 @@ static decl_context_t load_decl_context(sqlite3* handle, sqlite3_uint64 decl_con
         running_error("Error while running query: %s\n", errmsg);
     }
 
-    return decl_context;
+    return decl_context_info.decl_context;
 }
 
 typedef
@@ -2619,7 +2659,7 @@ static int get_type(void *datum,
 
             // At the moment we do not store the decl_context
             // Hopefully this will be enough
-            decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+            const decl_context_t* decl_context = CURRENT_COMPILED_FILE->global_decl_context;
             if (kind == TKT_ARRAY)
             {
                 *pt = get_array_type_bounds(element_type,
@@ -2661,7 +2701,7 @@ static int get_type(void *datum,
 
                 field = strtok_r(NULL, ",", &context);
             }
-            xfree(copy);
+            DELETE(copy);
             break;
         }
         case TKT_FUNCTION:
@@ -2686,7 +2726,7 @@ static int get_type(void *datum,
                     num_parameters++;
                     field = strtok_r(NULL, ",", &context);
                 }
-                xfree(copy);
+                DELETE(copy);
             }
 
             type_t* result = load_type(handle, ref);
@@ -3128,7 +3168,7 @@ static int get_module_extra_data(void *data,
             }
         case TL_DECL_CONTEXT:
             {
-                decl_context_t decl_context = load_decl_context(p->handle, safe_atoull(values[1]));
+                const decl_context_t* decl_context = load_decl_context(p->handle, safe_atoull(values[1]));
                 *(p->current_item) = tl_decl_context(decl_context);
                 break;
             }
@@ -3182,10 +3222,10 @@ static int get_module_extra_name(void *data,
     if (num_items == 0)
         return 0;
 
-    fortran_modules_data_t *module_data = xcalloc(1, sizeof(*module_data));
+    fortran_modules_data_t *module_data = NEW0(fortran_modules_data_t);
     module_data->name = uniquestr(values[1]);
     module_data->num_items = num_items;
-    module_data->items = xcalloc(num_items, sizeof(*(module_data->items)));
+    module_data->items = NEW_VEC0(tl_type_t, num_items);
 
     char* query = sqlite3_mprintf("SELECT kind, value FROM module_extra_data WHERE oid_name = %llu ORDER BY (order_);",
             safe_atoull(values[0]));
@@ -3205,7 +3245,7 @@ static int get_module_extra_name(void *data,
     fortran_modules_data_set_t* extra_info_attr = symbol_entity_specs_get_module_extra_info(p->module);
     if (extra_info_attr == NULL)
     {
-        extra_info_attr = xcalloc(1, sizeof(*extra_info_attr));
+        extra_info_attr = NEW0(fortran_modules_data_set_t);
         symbol_entity_specs_set_module_extra_info(p->module, extra_info_attr);
     }
 

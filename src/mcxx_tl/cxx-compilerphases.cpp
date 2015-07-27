@@ -731,7 +731,7 @@ extern "C"
         codegen_phase->run(dto);
     }
 
-    const char* codegen_to_str(nodecl_t node, decl_context_t decl_context)
+    const char* codegen_to_str(nodecl_t node, const decl_context_t* decl_context)
     {
         ERROR_CONDITION(CURRENT_CONFIGURATION->codegen_phase == NULL,
                 "Codegen phase has not been loaded yet for this configuration", 0);

@@ -1,26 +1,27 @@
-// These macros are defined in several places to automatically generate all OpenMP support
-// 
+// These macros are used in several places to automatically generate all OpenMP support
+//
 // OMP_CONSTRUCT(pragma_directive, id, predicate)
 //    * pragma_directive is a string | separated for compound directive names used when registering the construct
 //    * id an identifier used to build names
 //    * predicate is used to filter between languages: all languages "true"
 //
-// - OMP_DIRECTIVE is the same as OMP_CONSTRUCT but for directives
-// - OMP_CONSTRUCT_NOEND is the same as OMP_CONSTRUCT but *only* for Fortran constructs 
+// - OMP_DIRECTIVE is the same as OMP_CONSTRUCT but for standalone directives
+// - OMP_CONSTRUCT_NOEND is the same as OMP_CONSTRUCT but *only* for Fortran constructs
 // In Fortran every OMP_CONSTRUCT("x", x) will require the user write
-// 
+//
 //   $!SENTINEL X <clauses-opt>
 //      <block-opt>
 //   $!SENTINEL END X <clauses-opt>
-// 
+//
 // But sometimes it may be convenient to have something like this
-// 
+//
 //   $!SENTINEL X <clauses-opt>
 //     only-one-statement (probably a construct)
 //   [$!SENTINEL END X <clauses-opt>]         <-- optional
-// 
-// OMP_SECTIONS is special
-// 
+//
+// OMP_SECTIONS is special and it will be parsed flattened and at a later point
+// nested manually
+//
 
 OMP_CONSTRUCT("parallel", parallel, true)
 
@@ -53,6 +54,7 @@ OMP_CONSTRUCT("ordered", ordered, true)
 
 OMP_DIRECTIVE("declare|reduction", declare_reduction, true)
 
+// OmpSs
 OMP_CONSTRUCT_NOEND("target", target, true)
 OMP_DIRECTIVE("register", register, true)
 
@@ -62,6 +64,7 @@ OMP_CONSTRUCT_NOEND("do", do, IS_FORTRAN_LANGUAGE)
 OMP_CONSTRUCT("workshare", workshare, IS_FORTRAN_LANGUAGE)
 
 OMP_CONSTRUCT("simd", simd, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+OMP_CONSTRUCT("declare|simd", declare_simd, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
 OMP_CONSTRUCT_NOEND("simd", simd_fortran, IS_FORTRAN_LANGUAGE)
 
 // Not yet implemented
@@ -76,4 +79,38 @@ OMP_CONSTRUCT("simd|for", simd_for, true)
 OMP_CONSTRUCT("parallel|simd|for", parallel_simd_for, true)
 OMP_CONSTRUCT("simd|parallel", simd_parallel, true)
 
+// OpenMP 4.0
+// -- Already defined for OmpSs
+// OMP_CONSTRUCT("target", target, true)
+OMP_CONSTRUCT("target|data", target_data, true)
+OMP_DIRECTIVE("target|update", target_update, true)
+// -- Not possible to implement yet
+// OMP_CONSTRUCT("declare|target", declare_target, true)
+OMP_CONSTRUCT("teams", teams, true)
+OMP_CONSTRUCT_NOEND("distribute", distribute, true)
+// -- Not implemented
+// OMP_CONSTRUCT_NOEND("distribute|simd", distribute_simd, true)
+OMP_CONSTRUCT("distribute|parallel|for", distribute_parallel_for, true)
+OMP_CONSTRUCT_NOEND("distribute|parallel|do", distribute_parallel_do, IS_FORTRAN_LANGUAGE)
+//
+// -- Combined constructs
+OMP_CONSTRUCT("target|teams", target_teams, true)
+OMP_CONSTRUCT("teams|distribute", teams_distribute, true)
+// -- Not implemented
+// OMP_CONSTRUCT("teams|distribute|simd", teams_distribute_simd, true)
+OMP_CONSTRUCT("target|teams|distribute", target_teams_distribute, true)
+// -- Not implemented
+// OMP_CONSTRUCT("target|teams|distribute|simd", target_teams_distribute_simd, true)
+OMP_CONSTRUCT("teams|distribute|parallel|for", teams_distribute_parallel_for, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+OMP_CONSTRUCT_NOEND("teams|distribute|parallel|do", teams_distribute_parallel_do, IS_FORTRAN_LANGUAGE)
+OMP_CONSTRUCT("target|teams|distribute|parallel|for", target_teams_distribute_parallel_for, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+OMP_CONSTRUCT_NOEND("target|teams|distribute|parallel|do", target_teams_distribute_parallel_do, IS_FORTRAN_LANGUAGE)
+// -- Not implemented
+// OMP_CONSTRUCT("teams|distribute|parallel|for|simd", teams_distribute_parallel_for_simd, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+// OMP_CONSTRUCT_NOEND("teams|distribute|parallel|do|simd", teams_distribute_parallel_do_simd, IS_FORTRAN_LANGUAGE)
+// OMP_CONSTRUCT("target|teams|distribute|parallel|for|simd", target_teams_distribute_parallel_for_simd, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+// OMP_CONSTRUCT_NOEND("target|teams|distribute|parallel|do|simd", target_teams_distribute_parallel_do_simd, IS_FORTRAN_LANGUAGE)
+
+// OpenMP 4.1?
 OMP_CONSTRUCT_NOEND("taskloop", taskloop, true)
+

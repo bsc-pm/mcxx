@@ -29,7 +29,7 @@
 #endif
 
 #include "tl-omp-base.hpp"
-#include "tl-omp-base-task.hpp"
+#include "tl-ompss-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 
 #include "config.h"
@@ -122,6 +122,10 @@ namespace TL { namespace OpenMP {
                 _enable_input_by_value_dependences,
                 "0").connect(std::bind(&Base::set_enable_input_by_value_dependences, this, std::placeholders::_1));
 
+        register_parameter("enable_nonvoid_function_tasks",
+                "Enables experimental nonvoid function tasks (Only for C/C++)",
+                _enable_nonvoid_function_tasks,
+                "0").connect(std::bind(&Base::set_enable_nonvoid_function_tasks, this, std::placeholders::_1));
 
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
@@ -192,12 +196,13 @@ namespace TL { namespace OpenMP {
 
         this->PragmaCustomCompilerPhase::run(dto);
 
-        std::shared_ptr<FunctionTaskSet> function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
+        std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set =
+            std::static_pointer_cast<TL::OmpSs::FunctionTaskSet>(dto["openmp_task_info"]);
 
         Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
-        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
+        OmpSs::TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
                 /* ignore_template_functions */ CURRENT_CONFIGURATION->explicit_instantiation);
         transform_nonvoid_task_calls.walk(translation_unit);
         transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
@@ -211,7 +216,7 @@ namespace TL { namespace OpenMP {
         const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map =
             transform_nonvoid_task_calls.get_enclosing_stmt_to_return_variables_map();
 
-        FunctionCallVisitor function_call_visitor(
+        OmpSs::FunctionCallVisitor function_call_visitor(
                 function_task_set,
                 funct_call_to_enclosing_stmt_map,
                 enclosing_stmt_to_original_stmt_map,
@@ -276,13 +281,31 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(critical)
         INVALID_DECLARATION_HANDLER(atomic)
         INVALID_DECLARATION_HANDLER(master)
+        INVALID_DECLARATION_HANDLER(teams)
+        INVALID_DECLARATION_HANDLER(distribute)
+        INVALID_DECLARATION_HANDLER(distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(distribute_parallel_do)
+        INVALID_DECLARATION_HANDLER(target_teams)
+        INVALID_DECLARATION_HANDLER(target_data)
+        INVALID_DECLARATION_HANDLER(teams_distribute)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute)
+        INVALID_DECLARATION_HANDLER(teams_distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(teams_distribute_parallel_do)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
         INVALID_DECLARATION_HANDLER(taskloop)
+
+        INVALID_STATEMENT_HANDLER(declare_simd)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
         void Base::_name##_handler_post(TL::PragmaCustomStatement) { } \
         void Base::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
-        void Base::_name##_handler_post(TL::PragmaCustomDeclaration) { } \
+        void Base::_name##_handler_post(TL::PragmaCustomDeclaration) { }
+
+#define EMPTY_HANDLERS_STATEMENT(_name) \
+        void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
+        void Base::_name##_handler_post(TL::PragmaCustomStatement) { }
 
 #define EMPTY_HANDLERS_DIRECTIVE(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomDirective) { } \
@@ -291,6 +314,16 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_CONSTRUCT(ordered)
 
         EMPTY_HANDLERS_DIRECTIVE(section)
+
+        EMPTY_HANDLERS_STATEMENT(distribute_parallel_for)
+        EMPTY_HANDLERS_STATEMENT(distribute_parallel_do)
+        EMPTY_HANDLERS_STATEMENT(target_teams)
+        EMPTY_HANDLERS_STATEMENT(teams_distribute)
+        EMPTY_HANDLERS_STATEMENT(target_teams_distribute)
+        EMPTY_HANDLERS_STATEMENT(teams_distribute_parallel_for)
+        EMPTY_HANDLERS_STATEMENT(teams_distribute_parallel_do)
+        EMPTY_HANDLERS_STATEMENT(target_teams_distribute_parallel_for)
+        EMPTY_HANDLERS_STATEMENT(target_teams_distribute_parallel_do)
 
     void Base::set_simd(const std::string &simd_enabled_str)
     {
@@ -343,6 +376,13 @@ namespace TL { namespace OpenMP {
         bool b;
          parse_boolean_option("enable_input_by_value_dependences", str, b, "Assuming false.");
         _core.set_enable_input_by_value_dependences(b);
+    }
+
+    void Base::set_enable_nonvoid_function_tasks(const std::string& str)
+    {
+        bool b;
+         parse_boolean_option("enable_nonvoid_function_tasks", str, b, "Assuming false.");
+        _core.set_enable_nonvoid_function_tasks(b);
     }
 
     bool Base::untied_tasks_by_default() const
@@ -578,10 +618,10 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        OpenMP::DataSharingEnvironment &data_sharing_environment =
-            _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &data_environment =
+            _core.get_openmp_info()->get_data_environment(directive);
         Nodecl::List environment = this->make_execution_environment(
-                data_sharing_environment,
+                data_environment,
                 pragma_line,
                 /* ignore_target_info */ true,
                 /* is_inline_task */ false);
@@ -613,7 +653,7 @@ namespace TL { namespace OpenMP {
         pragma_line.diagnostic_unused_clauses();
 
         TL::ObjectList<OpenMP::DependencyItem> dependences;
-        data_sharing_environment.get_all_dependences(dependences);
+        data_environment.get_all_dependences(dependences);
         if (!dependences.empty())
         {
             if (!this->in_ompss_mode())
@@ -623,7 +663,7 @@ namespace TL { namespace OpenMP {
             }
 
             directive.replace(
-                    Nodecl::OpenMP::WaitOnDependences::make(
+                    Nodecl::OmpSs::WaitOnDependences::make(
                         environment,
                         directive.get_locus())
                     );
@@ -670,7 +710,7 @@ namespace TL { namespace OpenMP {
     void Base::task_handler_pre(TL::PragmaCustomStatement) { }
     void Base::task_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         if (emit_omp_report())
@@ -777,7 +817,7 @@ namespace TL { namespace OpenMP {
                     ;
                 }
                 execution_environment.append(
-                        Nodecl::OpenMP::TaskLabel::make(
+                        Nodecl::OmpSs::TaskLabel::make(
                             str_list[0],
                             directive.get_locus()));
             }
@@ -920,7 +960,7 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds,
@@ -933,7 +973,7 @@ namespace TL { namespace OpenMP {
                     && str_list.size() == 1)
             {
                 execution_environment.append(
-                        Nodecl::OpenMP::TaskLabel::make(
+                        Nodecl::OmpSs::TaskLabel::make(
                             str_list[0],
                             directive.get_locus()));
 
@@ -1057,7 +1097,7 @@ namespace TL { namespace OpenMP {
     void Base::single_handler_pre(TL::PragmaCustomStatement) { }
     void Base::single_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         if (emit_omp_report())
@@ -1117,7 +1157,7 @@ namespace TL { namespace OpenMP {
     void Base::workshare_handler_pre(TL::PragmaCustomStatement) { }
     void Base::workshare_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         if (emit_omp_report())
@@ -1195,7 +1235,7 @@ namespace TL { namespace OpenMP {
             ;
         }
 
-        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_with_parallel */ false);
         pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
     }
@@ -1204,9 +1244,9 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomStatement directive,
             Nodecl::NodeclBase statements,
             bool barrier_at_end,
-            bool is_combined_worksharing)
+            bool is_combined_with_parallel)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds,
@@ -1242,10 +1282,10 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        if (is_combined_worksharing)
+        if (is_combined_with_parallel)
         {
             execution_environment.append(
-                    Nodecl::OpenMP::CombinedWorksharing::make(
+                    Nodecl::OpenMP::CombinedWithParallel::make(
                         directive.get_locus()));
         }
 
@@ -1286,9 +1326,9 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomStatement directive,
             Nodecl::NodeclBase context,
             bool barrier_at_end,
-            bool is_combined_worksharing)
+            bool is_combined_with_parallel)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(
@@ -1301,7 +1341,7 @@ namespace TL { namespace OpenMP {
                     && str_list.size() == 1)
             {
                 execution_environment.append(
-                        Nodecl::OpenMP::TaskLabel::make(
+                        Nodecl::OmpSs::TaskLabel::make(
                             str_list[0],
                             directive.get_locus()));
 
@@ -1456,7 +1496,7 @@ namespace TL { namespace OpenMP {
         {
             if (emit_omp_report())
             {
-                if (!is_combined_worksharing)
+                if (!is_combined_with_parallel)
                 {
                     *_omp_report_file
                         << OpenMP::Report::indent
@@ -1473,10 +1513,10 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        if (is_combined_worksharing)
+        if (is_combined_with_parallel)
         {
             execution_environment.append(
-                    Nodecl::OpenMP::CombinedWorksharing::make(
+                    Nodecl::OpenMP::CombinedWithParallel::make(
                         directive.get_locus()));
         }
 
@@ -1513,7 +1553,7 @@ namespace TL { namespace OpenMP {
                 << directive.get_locus_str() << ": " << "------------\n"
             ;
         }
-        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_with_parallel */ false);
         pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
     }
@@ -1535,7 +1575,7 @@ namespace TL { namespace OpenMP {
                 ;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         warn_printf("%s: warning: 'taskloop' construct is EXPERIMENTAL\n",
@@ -1606,7 +1646,7 @@ namespace TL { namespace OpenMP {
                     ;
                 }
                 execution_environment.append(
-                        Nodecl::OpenMP::TaskLabel::make(
+                        Nodecl::OmpSs::TaskLabel::make(
                             str_list[0],
                             directive.get_locus()));
             }
@@ -1643,7 +1683,7 @@ namespace TL { namespace OpenMP {
     {
         Nodecl::NodeclBase stms = directive.get_statements();
 
-        decl_context_t new_context =
+        const decl_context_t* new_context =
             new_block_context(directive.retrieve_context().get_decl_context());
         Nodecl::NodeclBase ctx = Nodecl::List::make(
                 Nodecl::Context::make(
@@ -1692,7 +1732,7 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
@@ -1764,7 +1804,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase for_statement_code = loop_handler_post(directive,
                 statement,
                 /* barrier_at_end */ false,
-                /* is_combined_worksharing */ true);
+                /* is_combined_with_parallel */ true);
 
         statement = directive.get_statements();
         // This first context was added by nest_context_in_pragma
@@ -1794,57 +1834,50 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
-    void Base::target_handler_pre(TL::PragmaCustomStatement stmt)   { }
-    void Base::target_handler_pre(TL::PragmaCustomDeclaration decl) { }
+    void Base::target_handler_pre(TL::PragmaCustomStatement stmt)
+    {
+        if (!this->in_ompss_mode())
+        {
+            omp_target_handler_pre(stmt);
+        }
+        else
+        {
+            ompss_target_handler_pre(stmt);
+        }
+    }
+    void Base::target_handler_pre(TL::PragmaCustomDeclaration decl)
+    {
+        if (!this->in_ompss_mode())
+        {
+            omp_target_handler_pre(decl);
+        }
+        else
+        {
+            ompss_target_handler_pre(decl);
+        }
+    }
 
     void Base::target_handler_post(TL::PragmaCustomStatement stmt)
     {
-        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
-        pragma_line.diagnostic_unused_clauses();
-        stmt.replace(stmt.get_statements());
+        if (!this->in_ompss_mode())
+        {
+            omp_target_handler_post(stmt);
+        }
+        else
+        {
+            ompss_target_handler_post(stmt);
+        }
     }
 
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
-        if (decl.get_nested_pragma().is_null())
+        if (!this->in_ompss_mode())
         {
-            Nodecl::NodeclBase result;
-            ObjectList<Nodecl::NodeclBase> devices;
-            ObjectList<Nodecl::NodeclBase> symbols;
-
-            const locus_t* locus = decl.get_locus();
-
-            PragmaCustomClause device_clause = pragma_line.get_clause("device");
-            if (device_clause.is_defined())
-            {
-                ObjectList<std::string> device_names = device_clause.get_tokenized_arguments();
-                for (ObjectList<std::string>::iterator it = device_names.begin();
-                        it != device_names.end();
-                        ++it)
-                {
-                    devices.append(Nodecl::Text::make(*it, locus));
-                }
-            }
-
-            ERROR_CONDITION(!decl.has_symbol(),
-                    "%s: expecting a function declaration or definition", decl.get_locus_str().c_str());
-
-            Symbol sym = decl.get_symbol();
-            symbols.append(Nodecl::Symbol::make(sym, locus));
-
-            result = Nodecl::OpenMP::TargetDeclaration::make(
-                    Nodecl::List::make(devices),
-                    Nodecl::List::make(symbols),
-                    locus);
-
-            pragma_line.diagnostic_unused_clauses();
-            decl.replace(result);
+            omp_target_handler_post(decl);
         }
         else
         {
-            pragma_line.diagnostic_unused_clauses();
-            Nodecl::Utils::remove_from_enclosing_list(decl);
+            ompss_target_handler_post(decl);
         }
     }
 
@@ -2242,7 +2275,7 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
-            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(stmt);
+            OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(stmt);
 
             Nodecl::List environment = this->make_execution_environment(ds,
                     pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
@@ -2281,6 +2314,105 @@ namespace TL { namespace OpenMP {
     void Base::simd_fortran_handler_post(TL::PragmaCustomDeclaration stmt) { }
 
     // SIMD Functions
+#ifndef VECTORIZATION_DISABLED
+    void Base::register_simd_function(
+            OpenMP::DataEnvironment& ds,
+            TL::Symbol sym,
+            Nodecl::NodeclBase context_of_parameters,
+            TL::PragmaCustomLine pragma_line,
+            const locus_t* locus)
+    {
+        ERROR_CONDITION(!sym.is_valid(), "Expecting a symbol", 0);
+        ERROR_CONDITION(!sym.is_function(), "Expecting a function", 0);
+
+        if (sym.get_type().is_template_specialized_type()
+                && sym == sym.get_type().get_related_template_type().get_primary_template().get_symbol())
+        {
+            // This is a primary template
+            if (!CURRENT_CONFIGURATION->explicit_instantiation)
+            {
+                error_printf("%s: error: cannot use '#pragma omp simd' on template functions when they are not instantiated\n",
+                        locus_to_str(locus));
+            }
+            else
+            {
+                TL::Type template_type = sym.get_type().get_related_template_type();
+                TL::ObjectList<TL::Type> specializations = template_type.get_specializations();
+                for (TL::ObjectList<TL::Type>::iterator it = specializations.begin();
+                        it != specializations.end();
+                        it++)
+                {
+                    // Skip the primary
+                    if (it->get_symbol() == template_type.get_primary_template().get_symbol())
+                        continue;
+
+                    TL::Symbol current_specialization = it->get_symbol();
+
+                    ERROR_CONDITION(current_specialization.get_function_code().is_null(),
+                            "Expecting the code of this function", 0);
+                    Nodecl::FunctionCode function_code_spec =
+                        current_specialization.get_function_code().as<Nodecl::FunctionCode>();
+
+                    info_printf("%s: info: extending '#pragma omp declare simd' to function instantiation '%s'\n",
+                        locus_to_str(locus),
+                        current_specialization.get_qualified_name().c_str());
+
+                    Nodecl::NodeclBase context_of_parameters_spec = function_code_spec.get_statements();
+
+                    register_simd_function(ds,
+                            current_specialization,
+                            context_of_parameters_spec,
+                            pragma_line,
+                            locus);
+                }
+            }
+            // We are done
+            return;
+        }
+
+        Nodecl::NodeclBase function_code = sym.get_function_code();
+        ERROR_CONDITION(!function_code.is<Nodecl::FunctionCode>(), "Expecting a symbol with code", 0);
+
+        Nodecl::List environment = this->make_execution_environment(ds,
+                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
+
+        process_common_simd_clauses(pragma_line, 
+                context_of_parameters, environment);
+
+        // Mask
+        PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
+        PragmaCustomClause inbranch_clause = pragma_line.get_clause("inbranch");
+
+        if (mask_clause.is_defined()
+                || inbranch_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::Mask::make(locus));
+        }
+
+        // No Mask
+        PragmaCustomClause no_mask_clause = pragma_line.get_clause("nomask");
+        PragmaCustomClause not_inbranch_clause = pragma_line.get_clause("notinbranch");
+
+        if (no_mask_clause.is_defined()
+                || not_inbranch_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::NoMask::make(locus));
+        }
+
+        // Now we replace the whole function code with a SimdFunction
+        // (vectorizer will later create a new FunctionCode for it)
+        Nodecl::OpenMP::SimdFunction simd_func =
+            Nodecl::OpenMP::SimdFunction::make(
+                    function_code.shallow_copy(),
+                    environment,
+                    function_code.get_locus());
+
+        function_code.replace(simd_func);
+    }
+#endif
+
     void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
     void Base::simd_handler_post(TL::PragmaCustomDeclaration decl)
     {
@@ -2289,55 +2421,32 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
-            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(decl);
+            OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(decl);
 
-            Nodecl::List environment = this->make_execution_environment(ds,
-                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
-
-            process_common_simd_clauses(pragma_line, 
-                    decl.get_context_of_parameters(), environment);
-
-            // Mask
-            PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
-            
-            if (mask_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Mask::make(decl.get_locus()));
-            }
-
-            // No Mask
-            PragmaCustomClause no_mask_clause = pragma_line.get_clause("nomask");
-            
-            if (no_mask_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::NoMask::make(decl.get_locus()));
-            }
-
-            ERROR_CONDITION(!decl.has_symbol(), "Expecting a function definition here (1)", 0);
-
-            TL::Symbol sym = decl.get_symbol();
-            ERROR_CONDITION(!sym.is_function(), "Expecting a function definition here (2)", 0);
-
-            Nodecl::NodeclBase node = sym.get_function_code();
-            ERROR_CONDITION(!node.is<Nodecl::FunctionCode>(), "Expecting a function definition here (3)", 0);
-
-            Nodecl::OpenMP::SimdFunction simd_func =
-                Nodecl::OpenMP::SimdFunction::make(
-                        node.shallow_copy(),
-                        environment,
-                        node.get_locus());
-
-            node.replace(simd_func);
+            Base::register_simd_function(
+                    ds,
+                    decl.get_symbol(),
+                    decl.get_context_of_parameters(),
+                    pragma_line,
+                    decl.get_locus());
 
             pragma_line.diagnostic_unused_clauses();
             // Remove #pragma
             Nodecl::Utils::remove_from_enclosing_list(decl);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd\n", decl.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring #pragma omp declare simd\n", decl.get_locus_str().c_str());
 #endif
+    }
+
+    void Base::declare_simd_handler_pre(TL::PragmaCustomDeclaration decl)
+    {
+        simd_handler_pre(decl);
+    }
+
+    void Base::declare_simd_handler_post(TL::PragmaCustomDeclaration decl)
+    {
+        simd_handler_post(decl);
     }
 
     // SIMD For Statement
@@ -2470,7 +2579,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase sections_code = sections_handler_common(directive,
                 directive.get_statements(),
                 barrier_at_end,
-                /* is_combined_worksharing */ false);
+                /* is_combined_with_parallel */ false);
         pragma_line.diagnostic_unused_clauses();
         directive.replace(sections_code);
     }
@@ -2512,7 +2621,7 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
@@ -2602,7 +2711,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase sections_code = sections_handler_common(directive,
                 statement,
                 /* barrier_at_end */ false,
-                /* is_combined_worksharing */ true);
+                /* is_combined_with_parallel */ true);
 
         statement = directive.get_statements();
         // This first context was added by nest_context_in_pragma
@@ -2660,7 +2769,7 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
@@ -2753,7 +2862,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase for_statement_code = loop_handler_post(directive,
                 statement,
                 /* barrier_at_end */ false,
-                /* is_combined_worksharing */ true);
+                /* is_combined_with_parallel */ true);
 
         statement = directive.get_statements();
         // This first context was added by nest_context_in_pragma
@@ -2778,7 +2887,7 @@ namespace TL { namespace OpenMP {
     void Base::threadprivate_handler_post(TL::PragmaCustomDirective directive)
     {
         TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
 
         if (emit_omp_report())
         {
@@ -2875,19 +2984,20 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                error_printf("%s: error: invalid object specification '%s' in '#pragma omp register'\n",
+                error_printf("%s: error: object specification '%s' in '#pragma omp register' "
+                        "must be a variable-name or a shaping of a variable-name\n",
                         directive.get_locus_str().c_str(),
                         it->prettyprint().c_str());
             }
         }
-        
+
         if (valid_expr_list.empty())
             return;
 
         Nodecl::List list_expr = Nodecl::List::make(valid_expr_list);
 
-        Nodecl::OpenMP::Register new_register_directive = 
-            Nodecl::OpenMP::Register::make(
+        Nodecl::OmpSs::Register new_register_directive = 
+            Nodecl::OmpSs::Register::make(
                     list_expr,
                     directive.get_locus());
 
@@ -2926,7 +3036,7 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            Nodecl::NodeclBase operator()(DataSharingEnvironment::DataSharingInfoPair arg) const
+            Nodecl::NodeclBase operator()(DataEnvironment::DataSharingInfoPair arg) const
             {
                 return arg.first.make_nodecl(/*set_ref*/true, _locus);
             }
@@ -2977,7 +3087,7 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            void operator()(DataSharingEnvironment::DataSharingInfoPair arg) const
+            void operator()(DataEnvironment::DataSharingInfoPair arg) const
             {
                 // These variables confuse the user
                 if (arg.first.is_saved_expression())
@@ -3087,12 +3197,12 @@ namespace TL { namespace OpenMP {
 
     template <typename T>
     void Base::make_data_sharing_list(
-            OpenMP::DataSharingEnvironment &data_sharing_env,
+            OpenMP::DataEnvironment &data_sharing_env,
             OpenMP::DataSharingAttribute data_attr,
             const locus_t* locus,
             ObjectList<Nodecl::NodeclBase>& result_list)
     {
-        TL::ObjectList<DataSharingEnvironment::DataSharingInfoPair> symbols;
+        TL::ObjectList<DataEnvironment::DataSharingInfoPair> symbols;
         data_sharing_env.get_all_symbols_info(data_attr, symbols);
 
         if (!symbols.empty())
@@ -3109,7 +3219,7 @@ namespace TL { namespace OpenMP {
     }
 
     void Base::make_execution_environment_target_information(
-            TargetInfo &target_info,
+            TL::OmpSs::TargetInfo &target_info,
             TL::Symbol called_symbol,
             const locus_t* locus,
             // out
@@ -3124,9 +3234,9 @@ namespace TL { namespace OpenMP {
             devices.append(Nodecl::Text::make(*it, locus));
         }
 
-        ObjectList<CopyItem> copy_in = target_info.get_copy_in();
-        ObjectList<CopyItem> copy_out = target_info.get_copy_out();
-        ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
+        ObjectList<TL::OmpSs::CopyItem> copy_in = target_info.get_copy_in();
+        ObjectList<TL::OmpSs::CopyItem> copy_out = target_info.get_copy_out();
+        ObjectList<TL::OmpSs::CopyItem> copy_inout = target_info.get_copy_inout();
         if (emit_omp_report())
         {
             if (!copy_in.empty()
@@ -3139,21 +3249,21 @@ namespace TL { namespace OpenMP {
                     ;
             }
         }
-        make_copy_list<Nodecl::OpenMP::CopyIn>(
+        make_copy_list<Nodecl::OmpSs::CopyIn>(
                 copy_in,
-                OpenMP::COPY_DIR_IN,
+                TL::OmpSs::COPY_DIR_IN,
                 locus,
                 target_items);
 
-        make_copy_list<Nodecl::OpenMP::CopyOut>(
+        make_copy_list<Nodecl::OmpSs::CopyOut>(
                 copy_out,
-                OpenMP::COPY_DIR_OUT,
+                TL::OmpSs::COPY_DIR_OUT,
                 locus,
                 target_items);
 
-        make_copy_list<Nodecl::OpenMP::CopyInout>(
+        make_copy_list<Nodecl::OmpSs::CopyInout>(
                 copy_inout,
-                OpenMP::COPY_DIR_INOUT,
+                TL::OmpSs::COPY_DIR_INOUT,
                 locus,
                 target_items);
 
@@ -3162,9 +3272,8 @@ namespace TL { namespace OpenMP {
         if (!ndrange_exprs.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::NDRange::make(
+                    Nodecl::OmpSs::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -3172,9 +3281,8 @@ namespace TL { namespace OpenMP {
         if (!shmem_exprs.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::ShMem::make(
+                    Nodecl::OmpSs::ShMem::make(
                         Nodecl::List::make(shmem_exprs),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -3182,9 +3290,8 @@ namespace TL { namespace OpenMP {
         if (!onto_exprs.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::Onto::make(
+                    Nodecl::OmpSs::Onto::make(
                         Nodecl::List::make(onto_exprs),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -3192,9 +3299,8 @@ namespace TL { namespace OpenMP {
         if (!file.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::File::make(
+                    Nodecl::OmpSs::File::make(
                         Nodecl::Text::make(file),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -3202,14 +3308,13 @@ namespace TL { namespace OpenMP {
         if (!name.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::Name::make(
+                    Nodecl::OmpSs::Name::make(
                         Nodecl::Text::make(name),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
-        TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
-        for (TargetInfo::implementation_table_t::iterator it = implementation_table.begin();
+        TL::OmpSs::TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
+        for (TL::OmpSs::TargetInfo::implementation_table_t::iterator it = implementation_table.begin();
                 it != implementation_table.end(); ++it)
         {
             std::string device_name = it->first;
@@ -3220,7 +3325,7 @@ namespace TL { namespace OpenMP {
             {
                 TL::Symbol implementor = *it2;
                 target_items.append(
-                        Nodecl::OpenMP::Implements::make(
+                        Nodecl::OmpSs::Implements::make(
                             Nodecl::Text::make(device_name),
                             Nodecl::Symbol::make(implementor, locus),
                             locus));
@@ -3228,14 +3333,14 @@ namespace TL { namespace OpenMP {
         }
 
         result_list.append(
-                Nodecl::OpenMP::Target::make(
+                Nodecl::OmpSs::Target::make(
                     Nodecl::List::make(devices),
                     Nodecl::List::make(target_items),
                     locus));
     }
 
     Nodecl::List Base::make_execution_environment_for_combined_worksharings(
-            OpenMP::DataSharingEnvironment &data_sharing_env,
+            OpenMP::DataEnvironment &data_sharing_env,
             PragmaCustomLine pragma_line)
     {
         const locus_t* locus = pragma_line.get_locus();
@@ -3287,7 +3392,7 @@ namespace TL { namespace OpenMP {
                         locus));
         }
 
-        TargetInfo& target_info = data_sharing_env.get_target_info();
+        TL::OmpSs::TargetInfo& target_info = data_sharing_env.get_target_info();
         make_execution_environment_target_information(
                 target_info,
                 target_info.get_target_symbol(),
@@ -3323,7 +3428,7 @@ namespace TL { namespace OpenMP {
     }
 
     Nodecl::List Base::make_execution_environment(
-            OpenMP::DataSharingEnvironment &data_sharing_env,
+            OpenMP::DataEnvironment &data_sharing_env,
             PragmaCustomLine pragma_line,
             bool ignore_target_info,
             bool is_inline_task)
@@ -3443,9 +3548,9 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::DepInPrivate>(
+        make_dependency_list<Nodecl::OmpSs::DepInPrivate>(
                 dependences,
-                OpenMP::DEP_DIR_IN_PRIVATE,
+                OpenMP::DEP_OMPSS_DIR_IN_PRIVATE,
                 locus,
                 result_list);
 
@@ -3460,20 +3565,20 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::Concurrent>(
-                dependences, OpenMP::DEP_CONCURRENT,
+        make_dependency_list<Nodecl::OmpSs::Concurrent>(
+                dependences, OpenMP::DEP_OMPSS_CONCURRENT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::Commutative>(
-                dependences, OpenMP::DEP_COMMUTATIVE,
+        make_dependency_list<Nodecl::OmpSs::Commutative>(
+                dependences, OpenMP::DEP_OMPSS_COMMUTATIVE,
                 locus,
                 result_list);
 
         if (!ignore_target_info)
         {
             // Build the tree which contains the target information
-            TargetInfo& target_info = data_sharing_env.get_target_info();
+            TL::OmpSs::TargetInfo& target_info = data_sharing_env.get_target_info();
             make_execution_environment_target_information(
                     target_info,
                     target_info.get_target_symbol(),
@@ -3518,8 +3623,8 @@ namespace TL { namespace OpenMP {
         // new_loop_body_context because we will put it inside a new compound
         // statement
         TL::Scope new_loop_body_context = new_block_context(new_loop_context.get_decl_context());
-        scope_created_by_statement.get_decl_context().current_scope->contained_in = 
-            new_loop_body_context.get_decl_context().current_scope;
+        scope_created_by_statement.get_decl_context()->current_scope->contained_in = 
+            new_loop_body_context.get_decl_context()->current_scope;
 
         ss.str("");
         ss << "omp_block_" << (int)c;
@@ -3723,12 +3828,12 @@ namespace TL { namespace OpenMP {
             common_dependency_handler(n);
         }
 
-        virtual void visit(const Nodecl::OpenMP::Concurrent& n)
+        virtual void visit(const Nodecl::OmpSs::Concurrent& n)
         {
             common_dependency_handler(n);
         }
 
-        virtual void visit(const Nodecl::OpenMP::Commutative& n)
+        virtual void visit(const Nodecl::OmpSs::Commutative& n)
         {
             common_dependency_handler(n);
         }

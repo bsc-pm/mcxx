@@ -91,9 +91,23 @@ namespace Vectorization
 
                     //Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
-                    if (step.is_constant() && nodecl_is_one(step))
+                    if (step.is_constant())
                     {
-                        is_linear_stride_one = true;
+                        TL::Type sym_type = n.get_type().no_ref();
+
+                        if (sym_type.is_pointer())
+                        {
+                            int pointed_type_size = sym_type.points_to().get_size();
+                            int step_int = const_value_cast_to_4(step.get_constant());
+                            
+                            if (pointed_type_size == step_int)
+                                is_linear_stride_one = true;
+                        }
+                        else
+                        {
+                            if (nodecl_is_one(step))
+                                is_linear_stride_one = true;
+                        }
                     }
                 }
 

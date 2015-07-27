@@ -81,7 +81,7 @@ namespace Nodecl { namespace Utils { namespace Fortran {
 
             bool in_scope_of_reference_function(TL::Symbol sym)
             {
-                return (TL::Symbol(sym.get_scope().get_decl_context().current_scope->related_entry) == _reference_function);
+                return (TL::Symbol(sym.get_scope().get_decl_context()->current_scope->related_entry) == _reference_function);
             }
 
         public:
@@ -181,12 +181,12 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             {
                 walk(statements);
 
-                decl_context_t decl_context = _scope.get_decl_context();
+                const decl_context_t* decl_context = _scope.get_decl_context();
                 for (TL::ObjectList<TL::Symbol>::iterator it2 = _extra_insert_sym.begin();
                         it2 != _extra_insert_sym.end();
                         it2++)
                 {
-                    ::insert_entry(decl_context.current_scope, it2->get_internal_symbol());
+                    ::insert_entry(decl_context->current_scope, it2->get_internal_symbol());
                 }
 
                 // New symbols
@@ -196,7 +196,7 @@ namespace Nodecl { namespace Utils { namespace Fortran {
                         it2 != _extra_new_sym.end();
                         it2++)
                 {
-                    scope_entry_t* new_sym = ::new_symbol(decl_context, decl_context.current_scope, uniquestr(it2->get_name().c_str()));
+                    scope_entry_t* new_sym = ::new_symbol(decl_context, decl_context->current_scope, uniquestr(it2->get_name().c_str()));
                     new_symbols.append(new_sym);
                     _symbol_map->add_map(*it2, new_sym);
                 }
@@ -217,7 +217,7 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             scope_t* _scope;
         public:
             InsertUsedSymbols(TL::Scope sc)
-                : _scope(sc.get_decl_context().current_scope)
+                : _scope(sc.get_decl_context()->current_scope)
             {
             }
 

@@ -166,13 +166,13 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
 
     if (n == NULL)
     {
-        const_value_t* cval = xcalloc(1, sizeof(*cval));
+        const_value_t* cval = NEW0(const_value_t);
         cval->kind = CVK_INTEGER;
         cval->value.i = value;
         cval->num_bytes = num_bytes;
         cval->sign = sign;
 
-        cvalue_uint_t* k = xmalloc(sizeof(*k));
+        cvalue_uint_t* k = NEW(cvalue_uint_t);
         *k = value;
         rb_tree_insert(_int_hash_pool[pool], k, cval);
 
@@ -228,12 +228,12 @@ const_value_t* const_value_get_##name(type f) \
  \
     if (n == NULL) \
     { \
-        const_value_t* v = xcalloc(1, sizeof(*v)); \
+        const_value_t* v = NEW0(const_value_t); \
         v->kind = cvk_kind; \
         v->value.field = f; \
         v->sign = 1; \
  \
-        type* k = xmalloc(sizeof(*k)); \
+        type* k = NEW(type); \
         *k = f; \
         rb_tree_insert(_floating_cache, k, v); \
         return v; \
@@ -329,9 +329,11 @@ static const_value_t* multival_get_element_num(const_value_t* v, int element)
 
 static const_value_t* make_multival(int num_elements, const_value_t **elements)
 {
-    const_value_t* result = xcalloc(1, sizeof(*result));
-
-    result->value.m = xcalloc(1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
+    const_value_t* result = NEW0(const_value_t);
+    
+    result->value.m = xcalloc
+        /* cannot change this to NEW_VEC0 because of flexible member */
+        (1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
     result->value.m->num_elements = num_elements;
 
     int i;
@@ -1154,18 +1156,19 @@ static inline nodecl_t cache_const(const_value_t* v, type_t* basic_type, nodecl_
 
         if (cached_result == NULL)
         {
-            cached_result = xcalloc(1, sizeof(*cached_result));
+            cached_result = NEW0(const_value_hash_item_set_t);
             dhash_ptr_insert(_const_value_nodecl_cache, (const char*)v, cached_result);
         }
 
-        const_value_hash_item_t* cached_item = xcalloc(1, sizeof(*cached_item));
+        const_value_hash_item_t* cached_item = NEW0(const_value_hash_item_t);
         cached_item->n = n;
         cached_item->basic_type = basic_type;
 
         cached_result->num_items++;
-        cached_result->items = xrealloc(
+        cached_result->items = NEW_REALLOC(
+                const_value_hash_item_t*,
                 cached_result->items,
-                cached_result->num_items * sizeof(*cached_result->items));
+                cached_result->num_items);
         cached_result->items[cached_result->num_items - 1] = cached_item;
     }
 
@@ -1913,13 +1916,13 @@ const_value_t* const_value_make_vector(int num_elements, const_value_t **element
 }
 
 static const_value_t* const_value_make_multival_from_scalar(
-        int num_elements, 
+        int num_elements,
         const_value_t* value,
         const_value_t* (*const_value_make)(int num_elements, const_value_t** elements)
         )
 {
     ERROR_CONDITION(value == NULL, "Invalid constant", 0);
-    const_value_t** value_set = xcalloc(num_elements, sizeof(*value_set));
+    const_value_t** value_set = NEW_VEC(const_value_t*, num_elements);
 
     for (int i = 0; i < num_elements; i++)
     {
@@ -1928,7 +1931,7 @@ static const_value_t* const_value_make_multival_from_scalar(
 
     const_value_t* result = const_value_make(num_elements, value_set);
 
-    xfree(value_set);
+    DELETE(value_set);
 
     return result;
 }
@@ -3742,7 +3745,7 @@ void const_value_string_unpack_to_int(const_value_t* v,
 {
     ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
 
-    int *result = xcalloc(const_value_get_num_elements(v), sizeof(*result));
+    int *result = NEW_VEC0(int, const_value_get_num_elements(v));
 
     int i, nels = const_value_get_num_elements(v);
 
@@ -3775,7 +3778,7 @@ const char *const_value_string_unpack_to_string(const_value_t* v, char *is_null_
     }
     str[num_elements] = '\0';
 
-    xfree(values);
+    DELETE(values);
 
     return uniquestr(str);
 }
@@ -3883,7 +3886,7 @@ size_t const_value_get_raw_data_size(void)
 
 const_value_t* const_value_get_mask(cvalue_uint_t value, unsigned int num_bits)
 {
-    const_value_t* result = xcalloc(1, sizeof(*result));
+    const_value_t* result = NEW0(const_value_t);
 
     result->kind = CVK_MASK;
     result->num_bytes = num_bits / 8;
@@ -3922,7 +3925,7 @@ cvalue_uint_t const_value_mask_get_value(const_value_t* v)
 // This function is for supporting Fortran modules
 const_value_t* const_value_build_from_raw_data(const char* raw_buffer)
 {
-    const_value_t* result = xcalloc(1, sizeof(*result));
+    const_value_t* result = NEW0(const_value_t);
 
     // memcpy
     memcpy(result, raw_buffer, sizeof(const_value_t));

@@ -34,13 +34,13 @@
         
 
 static void common_build_scope_pragma_custom_clause_argument(AST a, 
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         nodecl_t *nodecl_output)
 {
     *nodecl_output = nodecl_make_pragma_clause_arg(ASTText(a), ast_get_locus(a));
 }
 
-static void common_build_scope_pragma_custom_clause(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void common_build_scope_pragma_custom_clause(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_argument = nodecl_null();
     if (ASTSon0(a) != NULL)
@@ -56,7 +56,7 @@ static void common_build_scope_pragma_custom_clause(AST a, decl_context_t decl_c
 void common_build_scope_pragma_custom_line(
         AST start_clauses, 
         AST end_clauses,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_clauses = nodecl_null();
@@ -115,10 +115,10 @@ void common_build_scope_pragma_custom_line(
 
 // Currently only used by Fortran
 void common_build_scope_pragma_custom_statement(AST a, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output,
         nodecl_t* nodecl_pragma_line,
-        void (*function_for_child)(AST, decl_context_t decl_context, nodecl_t*, void* info),
+        void (*function_for_child)(AST, const decl_context_t* decl_context, nodecl_t*, void* info),
         void* info)
 {
     common_build_scope_pragma_custom_line(ASTSon0(a), ASTSon2(a), decl_context, nodecl_pragma_line);
@@ -130,7 +130,7 @@ void common_build_scope_pragma_custom_statement(AST a,
 }
 
 void common_build_scope_pragma_custom_directive(AST a, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_pragma_line = nodecl_null();

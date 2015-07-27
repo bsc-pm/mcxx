@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2014 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,28 +24,40 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_COMPLEXITY_HPP
-#define TL_COMPLEXITY_HPP
+#ifndef TL_OMP_GOMP_HPP
+#define TL_OMP_GOMP_HPP
 
 #include "tl-compilerphase.hpp"
+#include "tl-nodecl.hpp"
 
-namespace TL {
-    
-    //! This class transforms OpenMP pragmas to the Nodecl representation of parallelism
-    class LIBTL_CLASS Complexity : public TL::CompilerPhase
+namespace TL { namespace GOMP {
+
+    class Lowering : public TL::CompilerPhase
     {
-    private:
-        std::string _disable_phase;
-        
-    public:
-        Complexity();
+        public:
+            Lowering();
 
-        virtual void run(TL::DTO& dto);
-        virtual void pre_run(TL::DTO& dto);
+            virtual void phase_cleanup(DTO& data_flow);
 
-        virtual ~Complexity() { }
+            virtual void run(DTO& dto);
+            virtual void pre_run(DTO& dto);
+
+            bool instrumentation_enabled() const;
+
+            bool simd_reductions_knc() const;
+
+        private:
+            std::string _openmp_dry_run;
+
+            std::string _instrumentation_str;
+            bool _instrumentation_enabled;
+            void set_instrumentation(const std::string& str);
+
+            std::string _simd_reductions_knc_str;
+            bool _simd_reductions_knc;
+            void set_simd_reduction_knc(const std::string &str);
     };
-    
-}
 
-#endif // TL_COMPLEXITY_HPP
+} }
+
+#endif // TL_OMP_GOMP_HPP

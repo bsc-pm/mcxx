@@ -52,14 +52,14 @@ namespace TL
 
     //! Class that represents a context
     /*!
-     * This class used to hold a scope_t* but now it holds a decl_context_t.
+     * This class used to hold a scope_t* but now it holds a const decl_context_t*.
      * This allows greater flexibility.
      */
     class LIBTL_CLASS Scope : public Object
     {
         private:
             bool _valid;
-            decl_context_t _decl_context;
+            const decl_context_t* _decl_context;
             static void get_head(const ObjectList<Symbol>& in, Symbol& out);
         protected:
             virtual tl_type_t* get_extended_attribute(const std::string& str) const;
@@ -69,18 +69,18 @@ namespace TL
             {
             }
 
-            Scope(const decl_context_t& decl_context)
-                : _valid(1), _decl_context(decl_context)
+            Scope(const decl_context_t* decl_context)
+                : _valid(decl_context != NULL), _decl_context(decl_context)
             {
             }
 
             Scope(const Scope& sc)
-                : Object(sc), _valid(1), _decl_context(sc._decl_context)
+                : Object(sc), _valid(sc._valid), _decl_context(sc._decl_context)
             {
             }
 
             //! Do not use this one unless directed to do so
-            decl_context_t get_decl_context() const
+            const decl_context_t* get_decl_context() const
             {
                 return _decl_context;
             }
@@ -88,15 +88,13 @@ namespace TL
             //! States whether the scope is valid
             bool is_valid() const
             {
-                if (_valid)
-                    return true;
-                return _decl_context.current_scope != NULL;
+                return _valid;
             }
 
             //! States if the current scope is either a class scope or a scope within a class scope
             bool inside_class_scope() const
             {
-                return (_decl_context.class_scope != NULL);
+                return (_decl_context->class_scope != NULL);
             }
 
             //! Returns the related class symbol
@@ -109,7 +107,7 @@ namespace TL
             //! States if the current scope is either a block scope or a scope within a block scope
             bool inside_block_scope() const
             {
-                return (_decl_context.block_scope != NULL);
+                return (_decl_context->block_scope != NULL);
             }
 
             //! States if the current scope is function scope
@@ -119,19 +117,19 @@ namespace TL
               */
             bool is_function_scope() const
             {
-                return _decl_context.current_scope->kind == FUNCTION_SCOPE;
+                return _decl_context->current_scope->kind == FUNCTION_SCOPE;
             }
 
             //! States if the current scope is block scope
             bool is_block_scope() const
             {
-                return _decl_context.current_scope->kind == BLOCK_SCOPE;
+                return _decl_context->current_scope->kind == BLOCK_SCOPE;
             }
 
             //! States if the current scope is class scope
             bool is_class_scope() const
             {
-                return _decl_context.current_scope->kind == CLASS_SCOPE;
+                return _decl_context->current_scope->kind == CLASS_SCOPE;
             }
 
             //! States if the current scope is namespace scope
@@ -140,7 +138,7 @@ namespace TL
               */
             bool is_namespace_scope() const
             {
-                return _decl_context.current_scope->kind == NAMESPACE_SCOPE;
+                return _decl_context->current_scope->kind == NAMESPACE_SCOPE;
             }
 
             //! States if the current scope is strictly enclosed into a potential encloser scope
@@ -156,7 +154,7 @@ namespace TL
               */
             bool is_prototype_scope() const
             {
-                return _decl_context.current_scope->kind == PROTOTYPE_SCOPE;
+                return _decl_context->current_scope->kind == PROTOTYPE_SCOPE;
             }
 
             //! States if the current scope is template scope

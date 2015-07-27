@@ -118,8 +118,8 @@ namespace Vectorization
                 Vectorizer::_vectorizer_analysis->
                 deep_copy(n, n).as<Nodecl::ForStatement>();
 
-            bool only_epilog = !Utils::is_all_one_mask(
-                    _environment._mask_list.back());
+            //bool only_epilog = !Utils::is_all_one_mask(
+            //        _environment._mask_list.back());
 
             n.append_sibling(epilog);
 
@@ -201,8 +201,15 @@ namespace Vectorization
                         main_loop_control.get_init().as<Nodecl::List>().
                         front().shallow_copy()));
             main_loop_control.set_init(Nodecl::NodeclBase::null());
+            CXX_LANGUAGE()
+            {
+                n.prepend_sibling(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            mask_condition_symbol.get_symbol(),
+                            mask_condition_symbol.get_locus()));
+            }
             n.prepend_sibling(main_loop_precond_stmt);
-
            
             _environment._analysis_scopes.pop_back();
 
@@ -293,7 +300,12 @@ namespace Vectorization
                 _environment._mask_list.pop_back();
             }
 
-            if (only_epilog)
+            // We remove main & epilogue structure
+            // It's going slower and generating only one
+            // loop with initial mask seems not to slow down
+            // the execution because masks instructions are
+            // paired with vector instructions
+            if (true) //(only_epilog)
             {
                 Nodecl::Utils::remove_from_enclosing_list(n);
             }
@@ -316,6 +328,7 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: -------------------------------\n");
         }
     }
+
 
 #define MASK_CHECK_THRESHOLD 9
     void VectorizerVisitorStatement::visit(const Nodecl::IfElseStatement& n)
@@ -356,6 +369,14 @@ namespace Vectorization
                             mask_condition_symbol.get_type(),
                             n.get_locus()));
 
+            CXX_LANGUAGE()
+            {
+                list.append(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            mask_condition_symbol.get_symbol(),
+                            mask_condition_symbol.get_locus()));
+            }
             list.append(mask_condition_exp);
 
             // If mask symbol
@@ -398,6 +419,14 @@ namespace Vectorization
             }
 
             // Add masks to the source code
+            CXX_LANGUAGE()
+            {
+                list.append(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            if_mask_symbol.get_symbol(),
+                            if_mask_symbol.get_locus()));
+            }
             list.append(if_mask_exp);
 
             // ***********
@@ -436,6 +465,14 @@ namespace Vectorization
                             n.get_locus()));
 
             // Add masks to the source code
+            CXX_LANGUAGE()
+            {
+                list.append(
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            else_mask_symbol.get_symbol(),
+                            else_mask_symbol.get_locus()));
+            }
             list.append(else_mask_exp);
 
             // ***************
@@ -565,6 +602,15 @@ namespace Vectorization
                                 if_mask_symbol.get_type(),
                                 make_locus("", 0, 0)));
 
+                CXX_LANGUAGE()
+                {
+                    list.append(
+                            Nodecl::CxxDef::make(
+                                Nodecl::NodeclBase::null(),
+                                new_exit_mask.get_symbol(),
+                                new_exit_mask.get_locus()));
+                }
+
                 list.append(new_mask_exp);
                 _environment._mask_list.push_back(new_exit_mask);
             }
@@ -601,8 +647,12 @@ namespace Vectorization
             // Vectorizing initialization
             if(!init.is_null())
             {
+                nodecl_set_parent(init.get_internal_nodecl(), n.get_internal_nodecl());
+
                 VectorizerVisitorExpression visitor_expression(_environment);
                 visitor_expression.walk(init);
+
+                nodecl_set_parent(init.get_internal_nodecl(), nodecl_null());
             }
         }
         else
@@ -797,6 +847,14 @@ namespace Vectorization
     }
 
     void VectorizerVisitorStatement::visit(const Nodecl::EmptyStatement& n)
+    {
+    }
+
+    void VectorizerVisitorStatement::visit(const Nodecl::CxxDecl& n)
+    {
+    }
+
+    void VectorizerVisitorStatement::visit(const Nodecl::CxxDef& n)
     {
     }
 

@@ -198,31 +198,32 @@ namespace Codegen
             Ret visit(const Nodecl::VirtualFunctionCall &);
             Ret visit(const Nodecl::VectorAdd &);
             Ret visit(const Nodecl::VectorAlignRight &);
-            Ret visit(const Nodecl::VectorConversion &);
-            Ret visit(const Nodecl::VectorMul &);
-            Ret visit(const Nodecl::VectorDiv &);
-            Ret visit(const Nodecl::VectorMod &);
-            Ret visit(const Nodecl::VectorMinus &);
-            Ret visit(const Nodecl::VectorEqual &);
-            Ret visit(const Nodecl::VectorDifferent &);
-            Ret visit(const Nodecl::VectorLowerThan &);
-            Ret visit(const Nodecl::VectorLowerOrEqualThan &);
-            Ret visit(const Nodecl::VectorGreaterThan &);
-            Ret visit(const Nodecl::VectorGreaterOrEqualThan &);
-            Ret visit(const Nodecl::VectorLogicalAnd &);
-            Ret visit(const Nodecl::VectorLogicalOr &);
-            Ret visit(const Nodecl::VectorBitwiseAnd &);
-            Ret visit(const Nodecl::VectorBitwiseOr &);
-            Ret visit(const Nodecl::VectorBitwiseXor &);
-            Ret visit(const Nodecl::VectorBitwiseShl &);
-            Ret visit(const Nodecl::VectorBitwiseShr &);
             Ret visit(const Nodecl::VectorArithmeticShr &);
             Ret visit(const Nodecl::VectorAssignment &);
-            Ret visit(const Nodecl::VectorMaskAssignment &);
+            Ret visit(const Nodecl::VectorBitwiseAnd &);
+            Ret visit(const Nodecl::VectorBitwiseOr &);
+            Ret visit(const Nodecl::VectorBitwiseShl &);
+            Ret visit(const Nodecl::VectorBitwiseShr &);
+            Ret visit(const Nodecl::VectorBitwiseXor &);
+            Ret visit(const Nodecl::VectorConversion &);
+            Ret visit(const Nodecl::VectorDifferent &);
+            Ret visit(const Nodecl::VectorDiv &);
+            Ret visit(const Nodecl::VectorEqual &);
+            Ret visit(const Nodecl::VectorGreaterOrEqualThan &);
+            Ret visit(const Nodecl::VectorGreaterThan &);
             Ret visit(const Nodecl::VectorLaneId &);
             Ret visit(const Nodecl::VectorLiteral &);
             Ret visit(const Nodecl::VectorLoad &);
+            Ret visit(const Nodecl::VectorLogicalAnd &);
+            Ret visit(const Nodecl::VectorLogicalOr &);
+            Ret visit(const Nodecl::VectorLowerOrEqualThan &);
+            Ret visit(const Nodecl::VectorLowerThan &);
+            Ret visit(const Nodecl::VectorMaskAssignment &);
+            Ret visit(const Nodecl::VectorMinus &);
+            Ret visit(const Nodecl::VectorMod &);
+            Ret visit(const Nodecl::VectorMul &);
             Ret visit(const Nodecl::VectorPromotion &);
+            Ret visit(const Nodecl::VectorSubscript &);
             Ret visit(const Nodecl::WhileStatement &);
 
             Ret visit(const Nodecl::AsmDefinition& node);
@@ -560,8 +561,8 @@ namespace Codegen
 
             TL::Type coerce_parameter_types_of_function_type(TL::Symbol sym);
 
-            static const char* print_name_str(scope_entry_t* s, decl_context_t decl_context, void *data);
-            static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);
+            static const char* print_name_str(scope_entry_t* s, const decl_context_t* decl_context, void *data);
+            static const char* print_type_str(type_t* t, const decl_context_t* decl_context, void *data);
 
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
             std::string get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name);

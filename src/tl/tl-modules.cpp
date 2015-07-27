@@ -184,7 +184,7 @@ namespace TL
     void ModuleReader::builtin_read(TL::Scope &sc)
     {
         tl_type_t &t = read_item_from_module();
-        ERROR_CONDITION(t.kind != TL_DECL_CONTEXT, "Invalid read of decl_context_t", 0);
+        ERROR_CONDITION(t.kind != TL_DECL_CONTEXT, "Invalid read of const decl_context_t*", 0);
         sc = TL::Scope(t.data._decl_context);
     }
 

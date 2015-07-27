@@ -44,13 +44,13 @@ LIBMCXX_EXTERN candidate_t* candidate_set_add(candidate_t* candidate_set,
 LIBMCXX_EXTERN void candidate_set_free(candidate_t** candidate_set);
 
 LIBMCXX_EXTERN scope_entry_t* solve_overload(candidate_t* candidate_set,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
 LIBMCXX_EXTERN char solve_initialization_of_nonclass_type(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -59,7 +59,7 @@ LIBMCXX_EXTERN char solve_initialization_of_nonclass_type(
 LIBMCXX_EXTERN scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_arguments,
         struct type_tag* target_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
 LIBMCXX_EXTERN char solve_initialization_of_class_type(
@@ -67,7 +67,7 @@ LIBMCXX_EXTERN char solve_initialization_of_class_type(
         type_t** argument_types, 
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         scope_entry_t** constructor,
         scope_entry_list_t** candidates);
@@ -77,7 +77,7 @@ LIBMCXX_EXTERN char solve_list_initialization_of_class_type(
         type_t** argument_types, 
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         scope_entry_t** constructor,
         scope_entry_list_t** candidates);

@@ -31,16 +31,59 @@
 #include "tl-symbol-utils.hpp"
 #include "tl-lower-reductions.hpp"
 
+#include <numeric>
+
 
 namespace TL { namespace Intel {
+
+struct AccountReductions : public Nodecl::ExhaustiveVisitor<void>
+{
+    typedef TL::ObjectList<TL::Type> reduction_list_t;
+    typedef TL::ObjectList<reduction_list_t> reduction_list_set_t;
+
+    reduction_list_set_t reduction_list_set;
+
+    AccountReductions()
+        : reduction_list_set()
+    {
+    }
+
+    virtual void visit(const Nodecl::OpenMP::Parallel&)
+    {
+        // Stop the visit here
+    }
+
+    virtual void visit(const Nodecl::OpenMP::Reduction& red)
+    {
+        Nodecl::List l = red.get_reductions().as<Nodecl::List>();
+
+        reduction_list_t reduction_list;
+        for (Nodecl::List::iterator it = l.begin();
+                it != l.end();
+                it++)
+        {
+            Nodecl::OpenMP::ReductionItem r = it->as<Nodecl::OpenMP::ReductionItem>();
+            reduction_list.append(r.get_reduction_type().get_type());
+        }
+
+        reduction_list_set.append(reduction_list);
+    }
+};
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
 {
     Nodecl::NodeclBase statements = construct.get_statements();
+    Nodecl::List environment = construct.get_environment().as<Nodecl::List>();
+
+    AccountReductions account_reductions;
+    if (_lowering->simd_reductions_knc())
+    {
+        account_reductions.walk(environment);
+        account_reductions.walk(statements);
+    }
+
     walk(statements);
     statements = construct.get_statements(); // Should not be necessary
-
-    Nodecl::List environment = construct.get_environment().as<Nodecl::List>();
 
     Nodecl::NodeclBase num_threads = construct.get_num_replicas();
 
@@ -383,7 +426,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
                 ;
 
             Nodecl::NodeclBase reduction_tree = reduction_src.parse_statement(outline_function_stmt);
-            reduction_code_list.prepend_sibling(reduction_tree);
+            reduction_code_list.append(reduction_tree);
         }
     }
 
@@ -400,6 +443,65 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
             << "__kmpc_push_num_threads(&" << as_symbol(ident_symbol) << ", "
             <<               "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
             <<               as_expression(num_threads.shallow_copy()) << ");"
+        ;
+    }
+
+    if (_lowering->simd_reductions_knc())
+    {
+        AccountReductions::reduction_list_t chosen_reduction;
+        int current_max = -1;
+        for (AccountReductions::reduction_list_set_t::iterator it =
+                account_reductions.reduction_list_set.begin();
+                it != account_reductions.reduction_list_set.end();
+                it++)
+        {
+            AccountReductions::reduction_list_t &current(*it);
+
+            TL::ObjectList<unsigned int> sizes = current.map(&TL::Type::get_size);
+
+            int sum = std::accumulate(sizes.begin(), sizes.end(), 0);
+
+            if (sum > current_max)
+            {
+                current_max = sum;
+                chosen_reduction = current;
+            }
+        }
+
+        Source array_of_sizes, array_of_sizes_def;
+
+        if (chosen_reduction.empty())
+        {
+            array_of_sizes << "0";
+        }
+        else
+        {
+            TL::Counter &red_var_count = TL::CounterManager::get_counter("intel-omp-outline");
+            array_of_sizes << "red_vars_sizes_" << (int)red_var_count;
+            red_var_count++;
+
+            array_of_sizes_def
+                << "static size_t " << array_of_sizes << "[] = { ";
+
+            for (AccountReductions::reduction_list_t::iterator it = chosen_reduction.begin();
+                    it != chosen_reduction.end();
+                    it++)
+            {
+                array_of_sizes_def << it->get_size() << ", ";
+            }
+
+            array_of_sizes_def
+                << "};"
+                ;
+
+        }
+
+        fork_call
+            << array_of_sizes_def
+            << "__kmpc_push_estimated_reduction_info(&" << as_symbol(ident_symbol) << ", "
+            <<               "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+            <<               chosen_reduction.size() << ", "
+            <<               array_of_sizes << ");"
         ;
     }
 

@@ -73,7 +73,7 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
     // Due to location limitations of Mercurium itself end_line will always be start_line
     scope_entry_t* new_ident_sym = ::new_symbol(
             CURRENT_COMPILED_FILE->global_decl_context,
-            CURRENT_COMPILED_FILE->global_decl_context.current_scope,
+            CURRENT_COMPILED_FILE->global_decl_context->current_scope,
             uniquestr(new_name.str().c_str()));
 
     new_ident_sym->kind = SK_VARIABLE;
@@ -138,7 +138,7 @@ TL::Symbol Intel::new_private_symbol(const std::string& base_name,
 
     scope_entry_t* new_private_sym = ::new_symbol(
             private_scope.get_decl_context(),
-            private_scope.get_decl_context().current_scope,
+            private_scope.get_decl_context()->current_scope,
             uniquestr(new_name.str().c_str()));
 
     new_private_sym->kind = kind;
@@ -173,7 +173,7 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
 
         scope_entry_t* new_ident_sym = ::new_symbol(
                 CURRENT_COMPILED_FILE->global_decl_context,
-                CURRENT_COMPILED_FILE->global_decl_context.current_scope,
+                CURRENT_COMPILED_FILE->global_decl_context->current_scope,
                 uniquestr(new_name.str().c_str()));
 
         new_ident_sym->kind = SK_VARIABLE;

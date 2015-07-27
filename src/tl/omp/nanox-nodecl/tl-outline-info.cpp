@@ -1187,7 +1187,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::OpenMP::Alloca& alloca)
+            void visit(const Nodecl::OmpSs::Alloca& alloca)
             {
                 Nodecl::List l = alloca.get_exprs().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
@@ -1206,7 +1206,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::OpenMP::SharedAndAlloca& alloca)
+            void visit(const Nodecl::OmpSs::SharedAndAlloca& alloca)
             {
                 Nodecl::List l = alloca.get_exprs().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
@@ -1230,12 +1230,12 @@ namespace TL { namespace Nanox {
                 add_dependences(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN);
             }
 
-            void visit(const Nodecl::OpenMP::DepInValue& dep_in_value)
+            void visit(const Nodecl::OmpSs::DepInValue& dep_in_value)
             {
                 add_dependences(dep_in_value.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_VALUE);
             }
 
-            void visit(const Nodecl::OpenMP::DepInPrivate& dep_in_private)
+            void visit(const Nodecl::OmpSs::DepInPrivate& dep_in_private)
             {
                 add_dependences(dep_in_private.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_PRIVATE);
             }
@@ -1250,64 +1250,66 @@ namespace TL { namespace Nanox {
                 add_dependences(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_INOUT);
             }
 
-            void visit(const Nodecl::OpenMP::Concurrent& concurrent)
+            void visit(const Nodecl::OmpSs::Concurrent& concurrent)
             {
                 add_dependences(concurrent.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
             }
 
-            void visit(const Nodecl::OpenMP::Commutative& commutative)
+            void visit(const Nodecl::OmpSs::Commutative& commutative)
             {
                 add_dependences(commutative.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
             }
 
-            void visit(const Nodecl::OpenMP::CopyIn& copy_in)
+            void visit(const Nodecl::OmpSs::CopyIn& copy_in)
             {
                 add_copies(copy_in.get_input_copies().as<Nodecl::List>(), OutlineDataItem::COPY_IN);
             }
 
-            void visit(const Nodecl::OpenMP::CopyOut& copy_out)
+            void visit(const Nodecl::OmpSs::CopyOut& copy_out)
             {
                 add_copies(copy_out.get_output_copies().as<Nodecl::List>(), OutlineDataItem::COPY_OUT);
             }
 
-            void visit(const Nodecl::OpenMP::CopyInout& copy_inout)
+            void visit(const Nodecl::OmpSs::CopyInout& copy_inout)
             {
                 add_copies(copy_inout.get_inout_copies().as<Nodecl::List>(), OutlineDataItem::COPY_INOUT);
             }
 
-            void visit(const Nodecl::OpenMP::Implements& implements)
+            void visit(const Nodecl::OmpSs::Implements& implements)
             {
-                _outline_info.add_implementation(
+                _outline_info.handle_implements_clause(
                         implements.get_function_name().as<Nodecl::Symbol>().get_symbol(),
                         implements.get_device().as<Nodecl::Text>().get_text());
             }
 
-            void visit(const Nodecl::OpenMP::NDRange& ndrange)
+            void visit(const Nodecl::OmpSs::NDRange& ndrange)
             {
-                _outline_info.set_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_ndrange(_outline_info.get_funct_symbol(),
                         ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
             }
 
-            void visit(const Nodecl::OpenMP::ShMem& shmem)
+            void visit(const Nodecl::OmpSs::ShMem& shmem)
             {
-                _outline_info.set_shmem(shmem.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_shmem(_outline_info.get_funct_symbol(),
                         shmem.get_shmem_expressions().as<Nodecl::List>().to_object_list());
             }
 
-            void visit(const Nodecl::OpenMP::Onto& onto)
+            void visit(const Nodecl::OmpSs::Onto& onto)
             {
-                _outline_info.set_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_onto(_outline_info.get_funct_symbol(),
                         onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
 
-            void visit(const Nodecl::OpenMP::File& file)
+            void visit(const Nodecl::OmpSs::File& file)
             {
-                _outline_info.set_file(file.get_function_name().as<Nodecl::Symbol>().get_symbol(), file.get_filename().get_text());
+                _outline_info.set_file(_outline_info.get_funct_symbol(),
+                    file.get_filename().get_text());
             }
 
-            void visit(const Nodecl::OpenMP::Name& name)
+            void visit(const Nodecl::OmpSs::Name& name)
             {
-                _outline_info.set_name(name.get_function_name().as<Nodecl::Symbol>().get_symbol(), name.get_name().get_text());
+                _outline_info.set_name(_outline_info.get_funct_symbol(),
+                    name.get_name().get_text());
             }
 
             void visit(const Nodecl::OpenMP::Firstprivate& firstprivate)
@@ -1409,7 +1411,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::OpenMP::Target& target)
+            void visit(const Nodecl::OmpSs::Target& target)
             {
                 Nodecl::List devices = target.get_devices().as<Nodecl::List>();
 
@@ -1445,7 +1447,7 @@ namespace TL { namespace Nanox {
     OutlineInfo::OutlineInfo(
             Nanox::Lowering& lowering,
             Nodecl::NodeclBase environment,
-            TL::Symbol funct_symbol, std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set)
+            TL::Symbol funct_symbol, std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set)
         : _lowering(lowering), _data_env_items(), _function_task_set(function_task_set)
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
@@ -1568,7 +1570,7 @@ namespace TL { namespace Nanox {
        return _implementation_table[function_symbol].get_device_names();
     }
 
-    void OutlineInfo::set_file(TL::Symbol function_symbol,std::string file)
+    void OutlineInfo::set_file(TL::Symbol function_symbol, const std::string& file)
     {
         ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
                 "Function symbol '%s' not found in outline info implementation table",
@@ -1586,7 +1588,7 @@ namespace TL { namespace Nanox {
         return _implementation_table[function_symbol].get_file();
     }
 
-    void OutlineInfo::set_name(TL::Symbol function_symbol,std::string name)
+    void OutlineInfo::set_name(TL::Symbol function_symbol,const std::string& name)
     {
         ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
                 "Function symbol '%s' not found in outline info implementation table",
@@ -1649,35 +1651,66 @@ namespace TL { namespace Nanox {
         _implementation_table[function_symbol].set_param_arg_map(param_arg_map);
     }
 
-    void OutlineInfo::add_implementation(TL::Symbol function_symbol, std::string device_name)
+    void OutlineInfo::add_new_implementation(
+            TL::Symbol function_symbol,
+            const std::string& device_name,
+            const std::string& file_args,
+            const std::string& name_args,
+            const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+            const TL::ObjectList<Nodecl::NodeclBase>& shmem_args,
+            const TL::ObjectList<Nodecl::NodeclBase>& onto_args)
     {
-        //if no impl present, we add it, otherwise just add a device
+        // If the current function symbol is not registered as an
+        // implementation we add it to the implementation table
+        // Otherwise, we add the device name to the device list
+        //
+        // It's not usual that the function symbol is already registered, it
+        // only happens when we have multiple devices for the same task
+        // (i.e. #pragma omp target device(smp, cuda))
         if(_implementation_table.count(function_symbol) == 0)
         {
             TargetInformation ti;
             ti.add_device_name(device_name);
             ti.set_outline_name(get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
-
-            if (_function_task_set != NULL)
-            {
-                set_file(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
-
-                set_ndrange(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
-
-                set_shmem(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_shmem());
-
-                set_onto(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
-            }
         }
         else
         {
             add_device_name(device_name,function_symbol);
         }
+
+        set_file(function_symbol, file_args);
+
+        set_name(function_symbol, name_args);
+
+        set_ndrange(function_symbol, ndrange_args);
+
+        set_shmem(function_symbol, shmem_args);
+
+        set_onto(function_symbol, onto_args);
+    }
+
+    void OutlineInfo::handle_implements_clause(TL::Symbol implementor_symbol, std::string device_name)
+    {
+        ERROR_CONDITION(_function_task_set == NULL, "Unreachable code", 0);
+
+        TL::OmpSs::TargetInfo& target_info =
+            _function_task_set->get_function_task(implementor_symbol).get_target_info();
+
+        // We have to create a new implementation of this task using the
+        // implementor symbol. Apart from that, we have to fill the Target
+        // Information of this new implementation. Since we don't have the
+        // TargetInformation of the implementor symbol in the tree, we have to
+        // use the information computed by Core phase
+        add_new_implementation(
+                implementor_symbol,
+                device_name,
+                target_info.get_file(),
+                target_info.get_name(),
+                target_info.get_ndrange(),
+                target_info.get_shmem(),
+                target_info.get_onto());
+
     }
 
     std::string OutlineInfo::get_outline_name(TL::Symbol function_symbol)
@@ -1708,7 +1741,7 @@ namespace TL { namespace Nanox {
             {
                 ss << function_symbol.in_module().get_name() << "_";
             }
-			
+
 			ss << function_symbol.get_filename() << "_" << (int)task_counter;
 
             unsigned int hash_int = simple_hash_str(ss.str().c_str());

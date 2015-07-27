@@ -61,7 +61,6 @@ namespace TL { namespace Nanox {
         TL::Symbol result = SymbolUtils::new_function_symbol(
                 CURRENT_COMPILED_FILE->global_decl_context,
                 ss.str(),
-                /* has_return */ false,
                 /* return_name */ "",
                 /* return_type */ get_void_type(),
                 parameter_names,

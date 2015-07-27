@@ -126,7 +126,7 @@ namespace TL
 
     Scope Scope::temporal_scope() const
     {
-        decl_context_t block_context = new_block_context(_decl_context);
+        const decl_context_t* block_context = new_block_context(_decl_context);
 
         return Scope(block_context);
     }
@@ -139,12 +139,12 @@ namespace TL
 
     bool Scope::operator<(Scope sc) const
     {
-        return (this->_decl_context.current_scope < sc._decl_context.current_scope);
+        return (this->_decl_context->current_scope < sc._decl_context->current_scope);
     }
 
     bool Scope::operator==(Scope sc) const
     {
-        return (this->_decl_context.current_scope == sc._decl_context.current_scope);
+        return (this->_decl_context->current_scope == sc._decl_context->current_scope);
     }
 
     bool Scope::operator!=(Scope sc) const
@@ -193,7 +193,7 @@ namespace TL
         ObjectList<Symbol> result;
 
         walk_scope_data_t walk_data(result, include_hidden);
-        dhash_ptr_walk(_decl_context.current_scope->dhash, (dhash_ptr_walk_fn*)walk_scope, &walk_data);
+        dhash_ptr_walk(_decl_context->current_scope->dhash, (dhash_ptr_walk_fn*)walk_scope, &walk_data);
 
         return result;
     }
@@ -213,7 +213,7 @@ namespace TL
         }
 
         // Create the symbol anyway
-        sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, uniquestr(artificial_name.c_str()));
+        sym_res = ::new_symbol(_decl_context, _decl_context->current_scope, uniquestr(artificial_name.c_str()));
         sym_res->kind = SK_OTHER;
 
         return Symbol(sym_res);
@@ -221,20 +221,20 @@ namespace TL
 
     Symbol Scope::new_symbol(const std::string& name)
     {
-        scope_entry_t* sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, uniquestr(name.c_str()));
+        scope_entry_t* sym_res = ::new_symbol(_decl_context, _decl_context->current_scope, uniquestr(name.c_str()));
         return Symbol(sym_res);
     }
 
     void Scope::insert_symbol(Symbol sym)
     {
-        insert_entry(_decl_context.current_scope, sym.get_internal_symbol());
+        insert_entry(_decl_context->current_scope, sym.get_internal_symbol());
     }
 
     bool Scope::scope_is_enclosed_by(Scope potential_encloser) const
     {
-        if (_decl_context.current_scope != potential_encloser.get_decl_context().current_scope)
+        if (_decl_context->current_scope != potential_encloser.get_decl_context()->current_scope)
         {
-            return ::scope_is_enclosed_by(_decl_context.current_scope, potential_encloser.get_decl_context().current_scope);
+            return ::scope_is_enclosed_by(_decl_context->current_scope, potential_encloser.get_decl_context()->current_scope);
         }
         else
         {
@@ -244,17 +244,17 @@ namespace TL
 
     Symbol Scope::get_class_of_scope()
     {
-        return _decl_context.class_scope->related_entry;
+        return _decl_context->class_scope->related_entry;
     }
 
     Symbol Scope::get_related_symbol() const
     {
-        return _decl_context.current_scope->related_entry;
+        return _decl_context->current_scope->related_entry;
     }
 
     template_parameter_list_t* Scope::get_template_parameters() const
     {
-       return _decl_context.template_parameters;
+       return _decl_context->template_parameters;
     }
 
     Symbol Scope::get_symbol_this() const

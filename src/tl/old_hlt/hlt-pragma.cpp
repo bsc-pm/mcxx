@@ -112,7 +112,7 @@ static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* over
     TL::ObjectList<TL::Type> param_type_list;
     param_type_list.append(types[0]);
     
-    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
+    result = NEW0(scope_entry_t);
     result->symbol_name = uniquestr(BUILTIN_IV_NAME);
     result->kind = SK_FUNCTION;
     result->type_information = ((TL::Type)types[0])
@@ -161,7 +161,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
     TL::ObjectList<TL::Type> param_type_list;
     param_type_list.append(types[0]);
 
-    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
+    result = NEW0(scope_entry_t);
     result->symbol_name = uniquestr(BUILTIN_VR_NAME);
     result->kind = SK_FUNCTION;
     result->type_information = ((TL::Type)types[0])
@@ -208,7 +208,7 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
         param_type_list.append(types[i]);
     }
 
-    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
+    result = NEW0(scope_entry_t);
     result->symbol_name = uniquestr(BUILTIN_GF_NAME);
     result->kind = SK_FUNCTION;
     result->type_information = TL::Type(types[0])
@@ -264,7 +264,7 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
         param_type_list.append(types[i]);
     }
 
-    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
+    result = NEW0(scope_entry_t);
     result->symbol_name = uniquestr(BUILTIN_VC_NAME);
     result->kind = SK_FUNCTION;
 
@@ -315,7 +315,7 @@ static scope_entry_t* solve_vector_index_overload_name(scope_entry_t* overloaded
     param_type_list.append(types[0]);
     param_type_list.append(types[1]);
 
-    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
+    result = NEW0(scope_entry_t);
     result->symbol_name = uniquestr(BUILTIN_VI_NAME);
     result->kind = SK_FUNCTION;
 
@@ -362,7 +362,7 @@ static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_f
     TL::ObjectList<TL::Type> params_list;
     params_list.append(types[0]);
 
-    result = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
+    result = NEW0(scope_entry_t);
     result->symbol_name = uniquestr(BUILTIN_VE_NAME);
     result->kind = SK_FUNCTION;
     result->type_information = ((TL::Type)types[0]).get_generic_vector_to()

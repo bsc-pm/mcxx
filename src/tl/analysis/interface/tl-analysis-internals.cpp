@@ -71,6 +71,47 @@ namespace Analysis {
                 return true;
         }
 
+        if (n.is<Nodecl::ArraySubscript>())
+        {
+            // Get all memory accesses 
+            // Note that we want all memory access, not only the symbols.
+            // Example: a[i]
+            // retrieving all symbols will return: a, i
+            // retrieving all memory accesses will return: a, i, a[i]
+            TL::ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
+
+            TL::tribool array_result = true;
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                    it = n_mem_accesses.begin();
+                    it != n_mem_accesses.end();
+                    it++)
+            {
+                Nodecl::NodeclBase &n_ma = *it;
+                Nodecl::NodeclBase n_ma_no_conv = n_ma.no_conv();
+
+                if (n != n_ma_no_conv)
+                {
+                    TL::tribool n_ma_result = uniform_property(scope_node,
+                            stmt_node, n_ma_no_conv, prev_n, pcfg, visited_nodes);
+
+                    // One false means non uniform
+                    if (n_ma_result.is_false())
+                    {
+                        array_result = n_ma_result;
+                        break;
+                    }
+
+                    // One unknown means means non-uniform or unknown
+                    // Continue
+                    if (n_ma_result.is_unknown())
+                    {
+                        array_result = n_ma_result;
+                    }
+                }
+            }
+            // All n_mem are uniform
+            return array_result;
+        }
 
         // Unknown RD
         if(n.is<Nodecl::Unknown>())
@@ -327,7 +368,7 @@ namespace Analysis {
                     return false;
             }
         }
-        
+       
         // Second get the information from the analysis: IV
 iv_as_linear:
         if(scope_node->is_loop_node())

@@ -212,8 +212,8 @@ static int diagnose_to_buffer_count(diagnostic_context_buffered_t* ctx,
 
 static void diagnose_to_buffer_discard(diagnostic_context_buffered_t* ctx)
 {
-    xfree(ctx->diagnostics);
-    xfree(ctx);
+    DELETE(ctx->diagnostics);
+    DELETE(ctx);
 }
 
 static void diagnose_to_buffer_commit(diagnostic_context_buffered_t* ctx, diagnostic_context_t* dest)
@@ -223,13 +223,13 @@ static void diagnose_to_buffer_commit(diagnostic_context_buffered_t* ctx, diagno
     {
         (dest->diagnose)(dest, ctx->diagnostics[i].severity, ctx->diagnostics[i].message);
     }
-    xfree(ctx->diagnostics);
-    xfree(ctx);
+    DELETE(ctx->diagnostics);
+    DELETE(ctx);
 }
 
 diagnostic_context_t* diagnostic_context_new_buffered(void)
 {
-    diagnostic_context_buffered_t *result = xcalloc(1, sizeof(*result));
+    diagnostic_context_buffered_t *result = NEW0(diagnostic_context_buffered_t);
 
     result->_base.diagnose = (diagnose_fun_t)diagnose_to_buffer;
     result->_base.get_count = (get_count_fun_t)diagnose_to_buffer_count;
@@ -276,7 +276,7 @@ static void diagnose_to_buffer_instantiation_commit(diagnostic_context_buffered_
         // Final NULL
         len += 1;
 
-        char* merged_message = xmalloc(len * sizeof(char));
+        char* merged_message = NEW_VEC(char, len);
         merged_message[0] = '\0';
 
         merged_message = strcat(merged_message, header_message);
@@ -289,19 +289,19 @@ static void diagnose_to_buffer_instantiation_commit(diagnostic_context_buffered_
         merged_message[len - 1] = '\0';
 
         const char* unique_merged_message = uniquestr(merged_message);
-        xfree(merged_message);
+        DELETE(merged_message);
 
         (dest->diagnose)(dest, severity, unique_merged_message);
     }
 
-    xfree(ctx->header_message_fun.data);
-    xfree(buffered_ctx->diagnostics);
-    xfree(ctx);
+    DELETE(ctx->header_message_fun.data);
+    DELETE(buffered_ctx->diagnostics);
+    DELETE(ctx);
 }
 
 diagnostic_context_t* diagnostic_context_new_instantiation(header_message_fun_t header_message_fun)
 {
-    diagnostic_context_buffered_instantiation_t *result = xcalloc(1, sizeof(*result));
+    diagnostic_context_buffered_instantiation_t *result = NEW0(diagnostic_context_buffered_instantiation_t);
 
     result->header_message_fun = header_message_fun;
     result->_base._base.diagnose = (diagnose_fun_t)diagnose_to_buffer;
@@ -343,7 +343,7 @@ void diagnostic_context_push(diagnostic_context_t* ctx)
     if (current_diagnostic_idx == max_diagnostic_contexts)
     {
         max_diagnostic_contexts *= 2;
-        diagnostic_stack = xrealloc(diagnostic_stack, sizeof(*diagnostic_stack)*max_diagnostic_contexts);
+        diagnostic_stack = NEW_REALLOC(diagnostic_context_t*, diagnostic_stack, max_diagnostic_contexts);
     }
 
     diagnostic_stack[current_diagnostic_idx] = ctx;
@@ -379,11 +379,11 @@ void diagnostic_context_pop_and_commit()
 
 void diagnostics_reset(void)
 {
-    xfree(diagnostic_stack);
+    DELETE(diagnostic_stack);
 
     max_diagnostic_contexts = 4;
     current_diagnostic_idx = 0;
-    diagnostic_stack = xcalloc(sizeof(*diagnostic_stack), max_diagnostic_contexts);
+    diagnostic_stack = NEW_VEC0(diagnostic_context_t*, max_diagnostic_contexts);
 
     diagnostic_stack[current_diagnostic_idx] = (diagnostic_context_t*)&diagnostic_context_stderr;
 

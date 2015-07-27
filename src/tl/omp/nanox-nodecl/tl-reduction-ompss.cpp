@@ -47,7 +47,7 @@ namespace TL { namespace Nanox {
         std::string fun_name;
         {
             std::stringstream ss;
-            ss << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            ss << "nanos_red_s_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
             fun_name = ss.str();
         }
 
@@ -158,7 +158,7 @@ namespace TL { namespace Nanox {
 
                 // We need this to avoid the original symbol be replaced
                 // incorrectly
-                scope_entry_t* shared_symbol_proxy = (scope_entry_t*)xcalloc(1, sizeof(*shared_symbol_proxy));
+                scope_entry_t* shared_symbol_proxy = NEW0(scope_entry_t);
                 shared_symbol_proxy->symbol_name = UNIQUESTR_LITERAL("<<reduction-variable>>"); // Crude way to ensure it is replaced
                 shared_symbol_proxy->kind = shared_symbol->kind;
                 symbol_entity_specs_copy_from(shared_symbol_proxy, shared_symbol);

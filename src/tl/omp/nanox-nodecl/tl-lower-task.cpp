@@ -62,7 +62,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
         symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
         type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
-        decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
+        const decl_context_t* class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
         TL::Scope class_scope(class_context);
 
         class_type_set_inner_context(new_class_type, class_context);
@@ -1971,36 +1971,32 @@ void LoweringVisitor::handle_copy_item(
     TL::Type copy_type = data_ref.get_data_type();
     TL::Type base_type = copy_type;
 
-    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, total_sizes;
+    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, dims_sizes;
 
     num_dimensions_of_copy = copy_type.get_num_dimensions();
     if (num_dimensions_of_copy == 0)
     {
         lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
         upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-        total_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+        dims_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
         num_dimensions_of_copy++;
     }
     else
     {
         TL::Type t = copy_type;
-        int rank = copy_type.fortran_rank();
+        int fortran_rank = copy_type.fortran_rank();
 
         while (t.is_array())
         {
             Nodecl::NodeclBase array_lb, array_ub;
             Nodecl::NodeclBase region_lb, region_ub;
-            Nodecl::NodeclBase region_size;
+            Nodecl::NodeclBase dim_size;
+
+            dim_size = t.array_get_size();
+            t.array_get_bounds(array_lb, array_ub);
             if (t.array_is_region())
             {
-                t.array_get_bounds(array_lb, array_ub);
                 t.array_get_region_bounds(region_lb, region_ub);
-                region_size = t.array_get_size();
-            }
-            else
-            {
-                t.array_get_bounds(array_lb, array_ub);
-                region_size = t.array_get_size();
             }
 
             if (IS_FORTRAN_LANGUAGE
@@ -2008,15 +2004,15 @@ void LoweringVisitor::handle_copy_item(
             {
                 if (array_lb.is_null())
                 {
-                    array_lb = get_lower_bound(data_ref, rank);
+                    array_lb = get_lower_bound(data_ref, fortran_rank);
                 }
                 if (array_ub.is_null())
                 {
-                    array_ub = get_upper_bound(data_ref, rank);
+                    array_ub = get_upper_bound(data_ref, fortran_rank);
                 }
-                if (region_size.is_null())
+                if (dim_size.is_null())
                 {
-                    region_size = get_size_for_dimension(t, rank, data_ref);
+                    dim_size = get_size_for_dimension(t, fortran_rank, data_ref);
                 }
             }
 
@@ -2036,11 +2032,11 @@ void LoweringVisitor::handle_copy_item(
 
             lower_bounds.append(adjusted_region_lb);
             upper_bounds.append(adjusted_region_ub);
-            total_sizes.append(region_size);
+            dims_sizes.append(dim_size);
 
             t = t.array_element();
 
-            rank--;
+            fortran_rank--;
         }
 
         base_type = t;
@@ -2048,7 +2044,7 @@ void LoweringVisitor::handle_copy_item(
         // Sanity check
         ERROR_CONDITION(num_dimensions_of_copy != (signed)lower_bounds.size()
                 || num_dimensions_of_copy != (signed)upper_bounds.size()
-                || num_dimensions_of_copy != (signed)total_sizes.size(),
+                || num_dimensions_of_copy != (signed)dims_sizes.size(),
                 "Mismatch between dimensions", 0);
 
     }
@@ -2064,7 +2060,7 @@ void LoweringVisitor::handle_copy_item(
             // In bytes
             ol_dimension_descriptors
                 << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k << "].size = "
-                << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                << "(" << as_expression(dims_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                 <<  "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
                 << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                 <<  "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
@@ -2073,7 +2069,7 @@ void LoweringVisitor::handle_copy_item(
                 ;
             imm_dimension_descriptors
                 << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
-                << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                << "(" << as_expression(dims_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                 <<  "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
                 << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                 <<  "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
@@ -2086,7 +2082,7 @@ void LoweringVisitor::handle_copy_item(
             // In elements
             ol_dimension_descriptors
                 << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
-                << as_expression(total_sizes[dim].shallow_copy()) << ";"
+                << as_expression(dims_sizes[dim].shallow_copy()) << ";"
                 << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
                 << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                 << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
@@ -2095,7 +2091,7 @@ void LoweringVisitor::handle_copy_item(
                 ;
             imm_dimension_descriptors
                 << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
-                << as_expression(total_sizes[dim].shallow_copy()) << ";"
+                << as_expression(dims_sizes[dim].shallow_copy()) << ";"
                 << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
                 << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                 << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
@@ -2859,140 +2855,123 @@ void LoweringVisitor::handle_dependency_item(
     dependency_flags_commutative << commutative;
 
     Type dependency_type = dep_expr.get_data_type();
-    int num_dimensions = dependency_type.get_num_dimensions();
+    TL::Type base_type = dependency_type;
+
+    int num_dimensions_of_dep = dependency_type.get_num_dimensions();
 
     // Compute the base type of the dependency and the array containing the size of each dimension
-    Type dependency_base_type = dependency_type;
-
-    Nodecl::NodeclBase *dimension_sizes = new Nodecl::NodeclBase[num_dimensions + 1];
-    for (int dim = 0; dim < num_dimensions; dim++)
-    {
-        dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_source_expr);
-
-        dependency_base_type = dependency_base_type.array_element();
-    }
-
-    std::string base_type_name = dependency_base_type.get_declaration(dep_expr.retrieve_context(), "");
-
     Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof_dependence();
     ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
     dependency_offset << as_expression(dep_expr_offset);
 
-    if (num_dimensions == 0)
+    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, dims_sizes;
+
+    if (num_dimensions_of_dep == 0)
     {
-        // This is a scalar
-        Source dimension_size, dimension_lower_bound, dimension_accessed_length;
-
-        dimension_size << "sizeof(" << base_type_name << ")";
-        dimension_lower_bound << "0";
-        dimension_accessed_length << dimension_size;
-
-        result_src
-            << dimension_array << "[0].size = " << dimension_size << ";"
-            << dimension_array << "[0].lower_bound = " << dimension_lower_bound << ";"
-            << dimension_array << "[0].accessed_length = " << dimension_accessed_length << ";"
-            ;
+        lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+        upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+        dims_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+        num_dimensions_of_dep++;
     }
     else
     {
-        // This an array
-        Source dimension_size, dimension_lower_bound, dimension_accessed_length;
+        TL::Type t = dependency_type;
+        int fortran_rank = dependency_type.fortran_rank();
 
-        // Compute the contiguous array type
-        Type contiguous_array_type = dependency_type;
-        while (contiguous_array_type.array_element().is_array())
+        while (t.is_array())
         {
-            contiguous_array_type = contiguous_array_type.array_element();
-        }
-
-        Nodecl::NodeclBase lb, ub, size;
-        if (contiguous_array_type.array_is_region())
-        {
-            // This should be the lower bound of the array region minus lower bound of the array
             Nodecl::NodeclBase array_lb, array_ub;
             Nodecl::NodeclBase region_lb, region_ub;
+            Nodecl::NodeclBase dim_size;
 
-            contiguous_array_type.array_get_bounds(array_lb, array_ub);
-            contiguous_array_type.array_get_region_bounds(region_lb, region_ub);
-
-            if (array_lb.is_null()
-                    && IS_FORTRAN_LANGUAGE)
+            dim_size = t.array_get_size();
+            t.array_get_bounds(array_lb, array_ub);
+            if (t.array_is_region())
             {
-                // Compute a LBOUND on it. The contiguous dimension is always 1 in Fortran
-                array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
+                t.array_get_region_bounds(region_lb, region_ub);
             }
 
-            // Meaning that in this context A(:) is OK
+            if (IS_FORTRAN_LANGUAGE
+                    && t.is_fortran_array())
+            {
+                if (array_lb.is_null())
+                {
+                    array_lb = get_lower_bound(dep_expr, fortran_rank);
+                }
+                if (array_ub.is_null())
+                {
+                    array_ub = get_upper_bound(dep_expr, fortran_rank);
+                }
+                if (dim_size.is_null())
+                {
+                    dim_size = get_size_for_dimension(t, fortran_rank, dep_expr);
+                }
+            }
+
+            // The region is the whole array
             if (region_lb.is_null())
                 region_lb = array_lb;
+            if (region_ub.is_null())
+                region_ub = array_ub;
 
             // Adjust bounds to be 0-based
-            lb = (Source() <<  "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")")
-                .parse_expression(ctr);
+            Nodecl::NodeclBase adjusted_region_lb =
+                (Source() << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")").
+                parse_expression(ctr);
+            Nodecl::NodeclBase adjusted_region_ub =
+                (Source() << "(" << as_expression(region_ub) << ") - (" << as_expression(array_lb) << ")").
+                parse_expression(ctr);
 
-            size = contiguous_array_type.array_get_region_size();
+            lower_bounds.append(adjusted_region_lb);
+            upper_bounds.append(adjusted_region_ub);
+            dims_sizes.append(dim_size);
 
-            if (size.is_null())
-                size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
+            t = t.array_element();
+
+            fortran_rank--;
+        }
+
+        base_type = t;
+
+        // Sanity check
+        ERROR_CONDITION(num_dimensions_of_dep != (signed)lower_bounds.size()
+                || num_dimensions_of_dep != (signed)upper_bounds.size()
+                || num_dimensions_of_dep != (signed)dims_sizes.size(),
+                "Mismatch between dimensions", 0);
+    }
+
+    int idx = 0;
+    for (int dim = num_dimensions_of_dep - 1; dim >= 0; dim--, idx++)
+    {
+        if (dim == num_dimensions_of_dep - 1)
+        {
+            // In bytes
+            result_src
+                << dimension_array << "[" << idx << "].size = "
+                << "(" << as_expression(dims_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                << dimension_array << "[" << idx  << "].lower_bound = "
+                << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                <<  dimension_array << "[" << idx  << "].accessed_length = "
+                << "((" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
+                ;
         }
         else
         {
-            // Lower bound here should be zero since we want all the array
-            lb = const_value_to_nodecl(const_value_get_signed_int(0));
-
-            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
+            // In elements
+            result_src
+                << dimension_array << "[" << idx  << "].size = "
+                << as_expression(dims_sizes[dim].shallow_copy()) << ";"
+                << dimension_array << "[" << idx  << "].lower_bound = "
+                << as_expression(lower_bounds[dim].shallow_copy()) << ";"
+                << dimension_array << "[" << idx  << "].accessed_length = "
+                << "(" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
+                ;
         }
-
-        dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1]);
-        dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
-        dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
-
-        result_src
-            << dimension_array << "[0].size = " << dimension_size << ";"
-            << dimension_array << "[0].lower_bound = " << dimension_lower_bound << ";"
-            << dimension_array << "[0].accessed_length = " << dimension_accessed_length << ";"
-            ;
-
-        if (num_dimensions > 1)
-        {
-            // All the remaining dimensions (but 0) are filled here
-            fill_dimensions(
-                    num_dimensions,
-                    /* current_dim */ num_dimensions,
-                    dimension_array,
-                    dep_source_expr,
-                    dimension_sizes,
-                    dependency_type,
-                    result_src,
-                    dep_source_expr.retrieve_context());
-        }
-
-        delete[] dimension_sizes;
     }
 
-    int num_dimension_items = num_dimensions;
-    if (num_dimension_items == 0)
-        num_dimension_items = 1;
-
-    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-    {
-        result_src
-            << "dependences[" << current_dep_num << "].address = (void*)"
-            << as_expression(base_address) << ";"
-            ;
-    }
-    else if (IS_FORTRAN_LANGUAGE)
-    {
-        result_src
-            << "dependences[" << current_dep_num << "].address ="
-            << as_expression(base_address) << ";"
-            ;
-    }
-    else
-    {
-        internal_error("Code unreachable", 0);
-    }
 
     result_src
         << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
@@ -3001,18 +2980,22 @@ void LoweringVisitor::handle_dependency_item(
         << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
         << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
         << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
-        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
+        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimensions_of_dep << ";"
         ;
 
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
         result_src
+            << "dependences[" << current_dep_num << "].address = (void*)"
+            << as_expression(base_address) << ";"
             << "dependences[" << current_dep_num << "].dimensions = " << dimension_array << ";"
             ;
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
         result_src
+            << "dependences[" << current_dep_num << "].address ="
+            << as_expression(base_address) << ";"
             << "dependences[" << current_dep_num << "].dimensions = &(" << dimension_array << "[0]);"
             ;
     }
@@ -3381,69 +3364,6 @@ Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr,
     src << "UBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
 
     return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
-}
-
-void LoweringVisitor::fill_dimensions(
-        int n_dims,
-        int current_dim,
-        Source& dimension_array,
-        Nodecl::NodeclBase dep_expr,
-        Nodecl::NodeclBase * dim_sizes,
-        Type dep_type,
-        Source& result_src,
-        Scope sc)
-{
-    // We do not handle the contiguous dimension here
-    if (current_dim > 1)
-    {
-        fill_dimensions(n_dims, current_dim - 1, dimension_array,
-                dep_expr, dim_sizes,
-                dep_type.array_element(),
-                result_src,
-                sc);
-
-        Source dimension_size, dimension_lower_bound, dimension_accessed_length;
-        Nodecl::NodeclBase array_lb, array_ub, size;
-        Nodecl::NodeclBase region_lb, region_ub;
-
-        if (dep_type.array_is_region())
-        {
-            dep_type.array_get_bounds(array_lb, array_ub);
-            dep_type.array_get_region_bounds(region_lb, region_ub);
-            size = dep_type.array_get_region_size();
-        }
-        else
-        {
-            dep_type.array_get_bounds(array_lb, array_ub);
-            size = get_size_for_dimension(dep_type, current_dim, dep_expr);
-        }
-
-        if (array_lb.is_null() && IS_FORTRAN_LANGUAGE)
-        {
-            array_lb = get_lower_bound(dep_expr, current_dim);
-        }
-
-        // The region is the whole array
-        if (region_lb.is_null())
-            region_lb = array_lb;
-        if (region_ub.is_null())
-            region_ub = array_ub;
-
-        // Adjust bounds to be 0-based
-        Nodecl::NodeclBase adjusted_lb = 
-            (Source() <<  "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")")
-            .parse_expression(sc);
-
-        dimension_size << as_expression(dim_sizes[n_dims - current_dim]);
-        dimension_lower_bound << as_expression(adjusted_lb);
-        dimension_accessed_length << as_expression(size);
-
-        result_src
-            << dimension_array << "[" << current_dim - 1 << "].size = " << dimension_size << ";"
-            << dimension_array << "[" << current_dim - 1 << "].lower_bound = " << dimension_lower_bound << ";"
-            << dimension_array << "[" << current_dim - 1 << "].accessed_length = " << dimension_accessed_length << ";"
-            ;
-    }
 }
 
 void LoweringVisitor::remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table)

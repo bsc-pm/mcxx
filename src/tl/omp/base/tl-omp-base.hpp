@@ -54,7 +54,7 @@ namespace TL
             private:
                 OpenMP::Core _core;
 
-                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<TL::OmpSs::FunctionTaskSet> _function_task_set;
 
                 std::string _openmp_dry_run;
 
@@ -96,6 +96,8 @@ namespace TL
                 std::string _enable_input_by_value_dependences;
                 void set_enable_input_by_value_dependences(const std::string &enable_input_by_value);
 
+                std::string _enable_nonvoid_function_tasks;
+                void set_enable_nonvoid_function_tasks(const std::string &enable_nonvoid_function_tasks);
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
@@ -113,26 +115,38 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
+                void ompss_target_handler_pre(TL::PragmaCustomStatement stmt);
+                void ompss_target_handler_post(TL::PragmaCustomStatement stmt);
+
+                void ompss_target_handler_pre(TL::PragmaCustomDeclaration decl);
+                void ompss_target_handler_post(TL::PragmaCustomDeclaration decl);
+
+                void omp_target_handler_pre(TL::PragmaCustomStatement stmt);
+                void omp_target_handler_post(TL::PragmaCustomStatement stmt);
+
+                void omp_target_handler_pre(TL::PragmaCustomDeclaration decl);
+                void omp_target_handler_post(TL::PragmaCustomDeclaration decl);
+
                 Nodecl::List make_execution_environment(
-                        OpenMP::DataSharingEnvironment&,
+                        OpenMP::DataEnvironment&,
                         PragmaCustomLine,
                         bool ignore_targer_info,
                         bool is_inline_task);
 
-                Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, 
+                Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataEnvironment &data_sharing_env, 
                         PragmaCustomLine pragma_line);
 
                 Nodecl::NodeclBase loop_handler_post(
                         TL::PragmaCustomStatement directive,
                         Nodecl::NodeclBase statement,
                         bool barrier_at_end,
-                        bool is_combined_worksharing);
+                        bool is_combined_with_parallel);
 
                 Nodecl::NodeclBase sections_handler_common(
                         TL::PragmaCustomStatement directive,
                         Nodecl::NodeclBase statement,
                         bool barrier_at_end,
-                        bool is_combined_worksharing);
+                        bool is_combined_with_parallel);
 
                 template <typename openmp_node>
                 void process_symbol_list_colon_int_clause(
@@ -167,10 +181,19 @@ namespace TL
                         TL::Symbol new_induction_var,
                         TL::Symbol block_extent_var);
 
+#ifndef VECTORIZATION_DISABLED
+                void register_simd_function(
+                        OpenMP::DataEnvironment& ds,
+                        TL::Symbol sym,
+                        Nodecl::NodeclBase context_of_parameters,
+                        TL::PragmaCustomLine pragma_line,
+                        const locus_t* locus);
+#endif
+
             public:
                 template <typename T>
                 void make_data_sharing_list(
-                        OpenMP::DataSharingEnvironment &data_sharing_env,
+                        OpenMP::DataEnvironment &data_sharing_env,
                         OpenMP::DataSharingAttribute data_attr,
                         const locus_t* locus,
                         ObjectList<Nodecl::NodeclBase>& result_list);
@@ -185,12 +208,12 @@ namespace TL
                 template <typename T, typename List>
                     void make_copy_list(
                             List& dependences,
-                            CopyDirection kind,
+                            TL::OmpSs::CopyDirection kind,
                             const locus_t* locus,
                             ObjectList<Nodecl::NodeclBase>& result_list);
 
                 void make_execution_environment_target_information(
-                        TargetInfo &target_info,
+                        TL::OmpSs::TargetInfo &target_info,
                         TL::Symbol sym,
                         const locus_t* locus,
                         // out
@@ -202,7 +225,7 @@ namespace TL
                     return _omp_report_file;
                 }
 
-                static std::string copy_direction_to_str(CopyDirection kind);
+                static std::string copy_direction_to_str(TL::OmpSs::CopyDirection kind);
                 static std::string dependence_direction_to_str(DependencyDirection kind);
 
                 void set_omp_report(bool b)

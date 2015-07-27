@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_CXXFLAGS=--variable=enable_nonvoid_function_tasks:1
 </testinfo>
 */
 

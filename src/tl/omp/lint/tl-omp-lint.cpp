@@ -136,8 +136,8 @@ namespace {
         task_locus = task->get_graph_related_ast().get_locus_str();
         // Get task label, if it has
         TL::Analysis::PCFGPragmaInfo pragma_info(task->get_pragma_node_info());
-        if(pragma_info.has_clause(NODECL_OPEN_M_P_TASK_LABEL))
-            task_label = "::" + pragma_info.get_clause(NODECL_OPEN_M_P_TASK_LABEL).as<Nodecl::OpenMP::TaskLabel>().get_text();
+        if(pragma_info.has_clause(NODECL_OMP_SS_TASK_LABEL))
+            task_label = "::" + pragma_info.get_clause(NODECL_OMP_SS_TASK_LABEL).as<Nodecl::OmpSs::TaskLabel>().get_text();
         // Compute tabulation
         tabulation = std::string((task_locus + task_label + ": omp-warning: ").size(), ' ');
     }
@@ -1444,9 +1444,9 @@ skip_current_var: ;
             Nodecl::List shared_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED).as<Nodecl::OpenMP::Shared>().get_symbols().shallow_copy().as<Nodecl::List>();
             task_scoped_vars.append( shared_vars );
         }
-        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA))
+        if (task_pragma_info.has_clause(NODECL_OMP_SS_SHARED_AND_ALLOCA))
         {
-            Nodecl::List shared_alloca_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA).as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().shallow_copy().as<Nodecl::List>();
+            Nodecl::List shared_alloca_vars = task_pragma_info.get_clause(NODECL_OMP_SS_SHARED_AND_ALLOCA).as<Nodecl::OmpSs::SharedAndAlloca>().get_exprs().shallow_copy().as<Nodecl::List>();
             task_scoped_vars.append( shared_alloca_vars );
         }
         

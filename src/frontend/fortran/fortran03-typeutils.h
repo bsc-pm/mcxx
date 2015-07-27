@@ -38,8 +38,8 @@ LIBMF03_EXTERN char fortran_is_intrinsic_type(type_t* t);
 
 LIBMF03_EXTERN int fortran_get_rank_of_type(type_t* t);
 LIBMF03_EXTERN type_t* fortran_get_rank0_type(type_t* t);
-LIBMF03_EXTERN type_t* fortran_get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context);
-LIBMF03_EXTERN type_t* fortran_get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank, decl_context_t decl_context);
+LIBMF03_EXTERN type_t* fortran_get_n_ranked_type(type_t* scalar_type, int rank, const decl_context_t* decl_context);
+LIBMF03_EXTERN type_t* fortran_get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank, const decl_context_t* decl_context);
 
 LIBMF03_EXTERN char fortran_equivalent_tk_types(type_t* t1, type_t* t2);
 LIBMF03_EXTERN char fortran_equivalent_tkr_types(type_t* t1, type_t* t2);

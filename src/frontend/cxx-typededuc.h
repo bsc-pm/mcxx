@@ -39,7 +39,7 @@ LIBMCXX_EXTERN deduction_result_t deduce_template_arguments_from_a_type(
         type_t* parameter,
         type_t* argument,
         template_parameter_list_t* explicit_template_argument_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // flags
         int pack_index,
@@ -57,7 +57,7 @@ LIBMCXX_EXTERN deduction_result_t deduce_template_arguments_from_function_declar
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments);
@@ -69,7 +69,7 @@ LIBMCXX_EXTERN deduction_result_t deduce_template_arguments_from_function_call(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments);
@@ -80,7 +80,7 @@ LIBMCXX_EXTERN deduction_result_t deduce_template_arguments_for_conversion_funct
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments);
@@ -88,7 +88,7 @@ LIBMCXX_EXTERN deduction_result_t deduce_template_arguments_for_conversion_funct
 LIBMCXX_EXTERN char deduce_arguments_of_auto_initialization(
         type_t* destination_type,
         type_t* initializer_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         template_parameter_list_t** deduced_template_arguments,
         char is_braced_array,
         const locus_t* locus);
@@ -99,7 +99,7 @@ LIBMCXX_EXTERN deduction_result_t deduce_template_arguments_from_address_of_a_fu
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments);
@@ -113,13 +113,13 @@ void deduction_set_free(deduction_set_t* deduction_set);
 deduction_result_t finish_deduced_template_arguments(
         template_parameter_list_t* type_template_parameters,
         deduction_set_t* deduction_result,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         /* inout */ template_parameter_list_t* deduced_template_arguments);
 deduction_result_t handle_explicit_template_arguments(
         template_parameter_list_t* template_parameters,
         template_parameter_list_t* raw_explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t** explicit_template_arguments);

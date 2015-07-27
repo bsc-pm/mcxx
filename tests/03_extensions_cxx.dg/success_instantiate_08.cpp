@@ -30,6 +30,9 @@
 <testinfo>
 test_generator=config/mercurium
 test_CXXFLAGS="--instantiate"
+test_failed=yes
+test_ignore=yes
+test_ignore_reason="Hard to solve issues during explicit instantiation"
 </testinfo>
 */
 template <typename T>

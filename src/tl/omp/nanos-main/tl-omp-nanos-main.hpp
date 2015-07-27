@@ -49,13 +49,19 @@ namespace TL
                 virtual ~NanosMain() { }
 
             private:
-                std::string _nmain_enabled_str;
                 Nodecl::NodeclBase _root;
 
-                bool _nmain_enabled;
+                std::string _nanos_main_enabled_str;
+                bool _nanos_main_enabled;
+                void set_nanos_main(const std::string& str);
 
-                void set_nmain(const std::string nmain_str);
+                std::string _instrumentation_enabled_str;
+                bool _instrumentation_enabled;
+                void set_instrumentation(const std::string& str);
+
                 void phase_cleanup(DTO& data_flow);
+
+                TL::Symbol get_main_function_symbol();
         };
 
     }

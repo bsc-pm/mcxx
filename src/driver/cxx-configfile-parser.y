@@ -62,7 +62,7 @@ static flag_expr_t* flag_or(flag_expr_t* op1, flag_expr_t* op2);
 static void register_implicit_names(flag_expr_t* flag_expr);
 
 #define YYMALLOC xmalloc
-#define YYFREE xfree
+#define YYFREE DELETE
 #define YYREALLOC xrealloc
 
 %}
@@ -344,7 +344,7 @@ static void register_implicit_names(flag_expr_t* flag_expr)
         if (flag_expr->kind == FLAG_OP_NAME
             || flag_expr->kind == FLAG_OP_IS_DEFINED)
         {
-            struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
+            parameter_flags_t *new_parameter_flag = NEW0(parameter_flags_t);
 
             new_parameter_flag->name = flag_expr->text;
             new_parameter_flag->value = PFV_UNDEFINED;
@@ -363,7 +363,7 @@ static void register_implicit_names(flag_expr_t* flag_expr)
 
 static flag_expr_t* new_flag(void)
 {
-    flag_expr_t* result = xcalloc(1, sizeof(*result));
+    flag_expr_t* result = NEW0(flag_expr_t);
     return result;
 }
 
@@ -441,13 +441,13 @@ static p_compilation_configuration_line process_option_line(
         }
     }
 
-    result = xcalloc(1, sizeof(*result));
+    result = NEW0(compilation_configuration_line_t);
 
     result->name = uniquestr(name->option_name);
     result->index = uniquestr(name->option_index);
     result->value = uniquestr(option_value_tmp);
 
-    xfree(option_value_tmp);
+    DELETE(option_value_tmp);
 
     result->flag_expr = flag_expr;
 
@@ -469,7 +469,7 @@ char flag_expr_eval(flag_expr_t* flag_expr)
                 int q;
                 for (q = 0; !found && q < compilation_process.num_parameter_flags; q++)
                 {
-                    struct parameter_flags_tag *parameter_flag = compilation_process.parameter_flags[q];
+                    parameter_flags_t *parameter_flag = compilation_process.parameter_flags[q];
                     found = (strcmp(parameter_flag->name, flag_expr->text) == 0);
                     value_of_flag = parameter_flag->value;
                 }

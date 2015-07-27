@@ -79,12 +79,12 @@ namespace {
             }
             else
             {
-                if (it->is<Nodecl::OpenMP::Target>() || it->is<Nodecl::OpenMP::If>()
+                if (it->is<Nodecl::OmpSs::Target>() || it->is<Nodecl::OpenMP::If>()
                         || it->is<Nodecl::OpenMP::Final>() || it->is<Nodecl::OpenMP::Untied>()
                         || it->is<Nodecl::OpenMP::Firstprivate>() || it->is<Nodecl::OpenMP::Private>()
                         || it->is<Nodecl::OpenMP::Shared>()
                         || it->is<Nodecl::OpenMP::FlushAtEntry>() || it->is<Nodecl::OpenMP::FlushAtExit>()
-                        || it->is<Nodecl::OpenMP::TaskLabel>())
+                        || it->is<Nodecl::OmpSs::TaskLabel>())
                 {}  // Ignore them, we expect them here
                 else
                 {
@@ -1208,7 +1208,7 @@ insert_values:
             task_label = "Task :: " + task.get_locus_str();
             Nodecl::List environ = task.get_environment().as<Nodecl::List>();
             for(Nodecl::List::iterator it = environ.begin(); it != environ.end(); ++it)
-                if(it->is<Nodecl::OpenMP::TaskLabel>())
+                if(it->is<Nodecl::OmpSs::TaskLabel>())
                 {
                     task_label = "_" + it->prettyprint();
                     break;

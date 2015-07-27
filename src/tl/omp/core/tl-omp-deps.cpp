@@ -42,19 +42,19 @@
 namespace TL { namespace OpenMP {
 
     void add_extra_symbols(Nodecl::NodeclBase data_ref,
-            DataSharingEnvironment& ds,
+            DataEnvironment& ds,
             ObjectList<Symbol>& extra_symbols)
     {
         struct DataRefVisitorDep : public Nodecl::ExhaustiveVisitor<void>
         {
             struct ExtraDataSharing : public Nodecl::ExhaustiveVisitor<void>
             {
-                DataSharingEnvironment& _data_sharing;
+                DataEnvironment& _data_sharing;
                 ObjectList<Symbol>& _symbols;
 
                 const ObjectList<Symbol>& _iterators;
 
-                ExtraDataSharing(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols,
+                ExtraDataSharing(DataEnvironment& ds_, ObjectList<Symbol>& symbols,
                         const ObjectList<Symbol>& iterators)
                     :_data_sharing(ds_), _symbols(symbols), _iterators(iterators) { }
 
@@ -90,7 +90,7 @@ namespace TL { namespace OpenMP {
 
             ObjectList<TL::Symbol> _iterators;
 
-            DataRefVisitorDep(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
+            DataRefVisitorDep(DataEnvironment& ds_, ObjectList<Symbol>& symbols)
                 : _extra_data_sharing(ds_, symbols, _iterators) { }
 
             void visit_pre(const Nodecl::Symbol &node)
@@ -142,7 +142,7 @@ namespace TL { namespace OpenMP {
     }
 
     static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             DependencyDirection dep_attr,
             DataSharingAttribute default_data_attr,
             bool in_ompss_mode,
@@ -284,7 +284,7 @@ namespace TL { namespace OpenMP {
     }
 
     void Core::get_dependences_info(TL::PragmaCustomLine construct,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
@@ -294,7 +294,7 @@ namespace TL { namespace OpenMP {
                 default_data_attr, "in", extra_symbols);
 
         PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
-        get_dependences_ompss_info_clause(input_private_clause, construct, data_sharing_environment, DEP_DIR_IN_PRIVATE,
+        get_dependences_ompss_info_clause(input_private_clause, construct, data_sharing_environment, DEP_OMPSS_DIR_IN_PRIVATE,
                 default_data_attr, "inprivate", extra_symbols);
 
         PragmaCustomClause output_clause = construct.get_clause("out", /* deprecated */ "output");
@@ -306,11 +306,11 @@ namespace TL { namespace OpenMP {
                 default_data_attr, "inout", extra_symbols);
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
-        get_dependences_ompss_info_clause(concurrent_clause, construct, data_sharing_environment, DEP_CONCURRENT,
+        get_dependences_ompss_info_clause(concurrent_clause, construct, data_sharing_environment, DEP_OMPSS_CONCURRENT,
                 default_data_attr, "concurrent", extra_symbols);
 
         PragmaCustomClause commutative_clause = construct.get_clause("commutative");
-        get_dependences_ompss_info_clause(commutative_clause, construct, data_sharing_environment, DEP_COMMUTATIVE,
+        get_dependences_ompss_info_clause(commutative_clause, construct, data_sharing_environment, DEP_OMPSS_COMMUTATIVE,
                 default_data_attr, "commutative", extra_symbols);
 
         // OpenMP standard clauses
@@ -320,7 +320,7 @@ namespace TL { namespace OpenMP {
     }
 
     namespace {
-        decl_context_t decl_context_map_id(decl_context_t d)
+        const decl_context_t* decl_context_map_id(const decl_context_t* d)
         {
             return d;
         }
@@ -445,7 +445,6 @@ namespace TL { namespace OpenMP {
                 internal_error("Code unreachable", 0);
             }
 
-            // Singleton
             dep_set->append(expr);
         }
 
@@ -455,7 +454,7 @@ namespace TL { namespace OpenMP {
     void Core::get_dependences_openmp(
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
@@ -479,8 +478,8 @@ namespace TL { namespace OpenMP {
     namespace {
 
         void ompss_multidep_check_range(AST range,
-                decl_context_t decl_context,
-                void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
+                const decl_context_t* decl_context,
+                void (*check_expression)(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output),
                 nodecl_t* nodecl_output)
         {
             switch (ASTKind(range))
@@ -632,9 +631,9 @@ namespace TL { namespace OpenMP {
 
         void ompss_multidep_expression(
                 AST a,
-                decl_context_t decl_context,
-                decl_context_t iterator_context,
-                void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
+                const decl_context_t* decl_context,
+                const decl_context_t* iterator_context,
+                void (*check_expression)(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output),
                 nodecl_t* nodecl_output)
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
@@ -661,9 +660,9 @@ namespace TL { namespace OpenMP {
                         scope_entry_t* entry = entry_list_head(entry_list);
                         entry_list_free(entry_list);
                         if (entry->kind == SK_VARIABLE
-                                && entry->decl_context.current_scope != NULL
-                                && entry->decl_context.current_scope->kind == BLOCK_SCOPE
-                                && entry->decl_context.current_scope->related_entry == decl_context.current_scope->related_entry)
+                                && entry->decl_context->current_scope != NULL
+                                && entry->decl_context->current_scope->kind == BLOCK_SCOPE
+                                && entry->decl_context->current_scope->related_entry == decl_context->current_scope->related_entry)
                         {
                             warn_printf("%s: warning: iterator name '%s' in multidependence shadows a previous variable\n",
                                     ast_location(identifier),
@@ -675,7 +674,7 @@ namespace TL { namespace OpenMP {
                 }
 
                 scope_entry_t* new_iterator = new_symbol(iterator_context,
-                        iterator_context.current_scope,
+                        iterator_context->current_scope,
                         iterator_name);
                 new_iterator->kind = SK_VARIABLE;
                 new_iterator->type_information = get_signed_int_type();
@@ -715,11 +714,11 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        void c_cxx_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+        void c_cxx_ompss_dep_expression(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
             {
-                decl_context_t iterator_context = new_block_context(decl_context);
+                const decl_context_t* iterator_context = new_block_context(decl_context);
                 ompss_multidep_expression(a,
                         decl_context,
                         iterator_context,
@@ -732,11 +731,11 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        void fortran_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+        void fortran_ompss_dep_expression(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
             {
-                decl_context_t iterator_context = new_block_context(decl_context);
+                const decl_context_t* iterator_context = new_block_context(decl_context);
                 ompss_multidep_expression(a,
                         decl_context,
                         iterator_context,
@@ -796,7 +795,7 @@ namespace TL { namespace OpenMP {
 
     void Core::get_dependences_ompss_info_clause(PragmaCustomClause clause,
             Nodecl::NodeclBase construct,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             DependencyDirection dep_attr,
             DataSharingAttribute default_data_attr,
             const std::string& clause_name,
@@ -817,15 +816,15 @@ namespace TL { namespace OpenMP {
             case DEP_DIR_UNDEFINED:
                 return "<<undefined-dependence>>";
             case DEP_DIR_IN:
-            case DEP_DIR_IN_VALUE:
+            case DEP_OMPSS_DIR_IN_VALUE:
                 return "in";
             case DEP_DIR_OUT:
                 return "out";
             case DEP_DIR_INOUT:
                 return "inout";
-            case DEP_CONCURRENT:
+            case DEP_OMPSS_CONCURRENT:
                 return "concurrent";
-            case DEP_COMMUTATIVE:
+            case DEP_OMPSS_COMMUTATIVE:
                 return "commutative";
             default:
                 return "<<unknown-dependence-kind?>>";

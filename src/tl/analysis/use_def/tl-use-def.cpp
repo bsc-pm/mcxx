@@ -36,6 +36,58 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
+namespace {
+
+    //! Prints use-definition information in strategic points of the source code
+    void print_use_def_in_source_code(ExtensibleGraph* pcfg)
+    {
+        const ObjectList<Node*>& tasks = pcfg->get_tasks_list();
+
+        int n;
+        for (ObjectList<Node*>::const_iterator it = tasks.begin();
+             it != tasks.end(); ++it)
+        {
+            Node* task = *it;
+            std::string ue_vars_str;
+            NodeclSet& ue_vars = task->get_ue_vars();
+            n = 0;
+            for (NodeclSet::iterator itu = ue_vars.begin(); itu != ue_vars.end(); )
+            {
+                ++n;
+                ue_vars_str += itu->prettyprint();
+                ++itu;
+                if (itu != ue_vars.end())
+                {
+                    ue_vars_str += ", ";
+                    if (n % 5 == 0)
+                        ue_vars_str += "\n          ";
+                }
+            }
+
+            std::string killed_vars_str;
+            NodeclSet& killed_vars = task->get_killed_vars();
+            n = 0;
+            for (NodeclSet::iterator itk = killed_vars.begin(); itk != killed_vars.end(); )
+            {
+                ++n;
+                killed_vars_str += itk->prettyprint();
+                ++itk;
+                if (itk != killed_vars.end())
+                {
+                    killed_vars_str += ", ";
+                    if (n % 5 == 0)
+                        killed_vars_str += "\n          ";
+                }
+            }
+
+            std::cerr << "ANALYSIS: Use-Def Info for task at " << task->get_graph_related_ast().get_locus_str() << " :"
+                      << (ue_vars_str.empty() ? "" : std::string("\n     Use: " + ue_vars_str))
+                      << (killed_vars_str.empty() ? "" : std::string("\n     Def: " + killed_vars_str)) << std::endl;
+        }
+    }
+
+}
+
     std::map<Symbol, ExtensibleGraph*> _pcfgs;
     SizeMap _pointer_to_size_map;
 
@@ -76,7 +128,7 @@ namespace Analysis {
             // Create the scope where the C lib functions will be registered
             Symbol sym(Scope::get_global_scope().new_symbol("__CLIB_USAGE__"));
             sym.get_internal_symbol()->kind = SK_NAMESPACE;
-            decl_context_t ctx = new_namespace_context(Scope::get_global_scope().get_decl_context(), sym.get_internal_symbol());
+            const decl_context_t* ctx = new_namespace_context(Scope::get_global_scope().get_decl_context(), sym.get_internal_symbol());
             sym.get_internal_symbol()->related_decl_context = ctx;
             _c_lib_sc = Scope(ctx);
 
@@ -142,6 +194,11 @@ namespace Analysis {
         compute_usage_rec(graph);
         ExtensibleGraph::clear_visits(graph);
         _graph->set_usage_computed();
+
+        if (ANALYSIS_INFO)
+        {
+            print_use_def_in_source_code(_graph);
+        }
     }
 
     // Top bottom traversal
@@ -731,10 +788,13 @@ namespace Analysis {
         // Check whether the constructor is not implicit, because in that case,
         // the code is not reachable and it cannot be assured that no other constructor
         // is called from there and has some side effects.
-        ERROR_CONDITION(s.is_defaulted(),
-                        "Call to an implicit constructor. "
-                        "Code is not reachable because Mercurium does not generate the implicit constructor.",
-                        0);
+        if (s.is_defaulted())
+        {
+            WARNING_MESSAGE("Call to an implicit constructor. "
+                    "Code is not reachable because Mercurium does not generate the implicit constructor.",
+                    0);
+            return;
+        }
         // Otherwise, look for the code of the called constructor and
         // perform IPA normally
         Nodecl::List l;

@@ -110,7 +110,7 @@ tl_type_t tl_nodecl(nodecl_t n)
     return result;
 }
 
-tl_type_t tl_decl_context(decl_context_t decl_context)
+tl_type_t tl_decl_context(const decl_context_t* decl_context)
 {
     tl_type_t result;
     result.kind = TL_DECL_CONTEXT;

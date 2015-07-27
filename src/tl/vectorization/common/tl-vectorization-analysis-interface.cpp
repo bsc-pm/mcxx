@@ -544,11 +544,6 @@ namespace Vectorization
         if (lower_bounds.size() != 1)
             return Nodecl::NodeclBase::null();
 
-        VECTORIZATION_DEBUG()
-        {
-            std::cerr << "Warning: Ticket 2195" << std::endl;
-        }
-
         //ERROR_CONDITION(lower_bounds.size() != 1,
         //                "Induction variable '%s' has %d lower bounds. "
         //                "Only 1 lower bound supported.\n",
@@ -837,7 +832,7 @@ namespace Vectorization
             // There is NO equal node in origin
             else
             {
-                internal_error("VectorizerAnalysis: Original node doesn't exist in the copy (Deep Copy)", 0);
+                //internal_error("VectorizerAnalysis: Original node doesn't exist in the copy (Deep Copy)", 0);
             }
         }
 

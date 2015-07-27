@@ -98,10 +98,10 @@ struct strbuilder_tag
 
 strbuilder_t* strbuilder_new(void)
 {
-    strbuilder_t* strb = xcalloc(1, sizeof(*strb));
+    strbuilder_t* strb = NEW0(strbuilder_t);
 
     strb->capacity = 8;
-    strb->str = xmalloc(sizeof(*strb->str)* strb->capacity);
+    strb->str = NEW_VEC(char, strb->capacity);
     strb->str[0] = '\0';
 
     return strb;
@@ -118,7 +118,7 @@ void strbuilder_append(strbuilder_t* strb, const char* str)
     while ((strb->position + len) >= strb->capacity)
     {
         strb->capacity *= 2;
-        strb->str = xrealloc(strb->str, strb->capacity * sizeof(*strb->str));
+        strb->str = NEW_REALLOC(char, strb->str, strb->capacity);
     }
 
     strcat(strb->str, str);
@@ -350,7 +350,7 @@ int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
 {
     int result;
     int size = 512;
-    char* c = xmalloc(size * sizeof(char));
+    char* c = NEW_VEC(char, size);
     va_list va;
 
     va_copy(va, args);
@@ -361,7 +361,7 @@ int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
     {
         va_copy(va, args);
         size *= 2;
-        c = xrealloc(c, size * sizeof(char));
+        c = NEW_REALLOC(char, c, size);
         result = vsnprintf(c, size, format, va);
         va_end(va);
     }

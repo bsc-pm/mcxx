@@ -34,7 +34,7 @@ MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN void copy_intrinsic_function_info(scope_entry_t* dest, scope_entry_t* intrinsic);
 
-void fortran_init_intrinsics(decl_context_t decl_context);
+void fortran_init_intrinsics(const decl_context_t* decl_context);
 
 scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol, 
         nodecl_t* nodecl_actual_arguments,
@@ -47,7 +47,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
         nodecl_t* nodecl_simplified,
         const locus_t* locus);
 
-decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context);
+const decl_context_t* fortran_get_context_of_intrinsics(const decl_context_t* decl_context);
 
 // These functions are for serialization purposes only
 int fortran_intrinsic_get_id(computed_function_type_t t);

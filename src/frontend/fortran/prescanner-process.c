@@ -88,7 +88,7 @@ static void remove_inlined_comments(void);
 static void normalize_line(prescanner_t*, char** line, unsigned int line_num);
 static void convert_lines(prescanner_t*);
 static void continuate_lines(prescanner_t*);
-static void xfree_line_t(line_t* l);
+static void free_line_t(line_t* l);
 
 static void fortran_prescanner_process(prescanner_t* prescanner);
 
@@ -368,7 +368,7 @@ static void join_continuated_lines(prescanner_t* prescanner)
             line_t* old_line = iter;
             iter = iter->next;
 
-            xfree_line_t(old_line);
+            free_line_t(old_line);
         }
         else // Not a continuating one
         {
@@ -452,10 +452,10 @@ static void join_two_lines(prescanner_t* prescanner, line_t* starting_line, line
     }
 
     // This is the easy one
-    // First we xreallocate starting_line because we will append continuation_line to it
+    // First we reallocate starting_line because we will append continuation_line to it
     int new_length = strlen(starting_line->line) + strlen(continuation_line->line) + 1;
 
-    starting_line->line = (char*)xrealloc(starting_line->line, sizeof(char)*new_length);
+    starting_line->line = NEW_REALLOC(char, starting_line->line, new_length);
 
     // If we pad the lines but we are not in a string, the padding that
     // cut_lines added is undesirable and we remove it
@@ -479,7 +479,7 @@ static void join_two_lines(prescanner_t* prescanner, line_t* starting_line, line
             discarded = comment;
             comment = comment->next;
             // Discard comment
-            xfree_line_t(discarded);
+            free_line_t(discarded);
             // Each comment counts as one line
             starting_line->joined_lines++;
         }
@@ -667,7 +667,7 @@ static void read_lines(prescanner_t* prescanner)
     {
         // We will start with a width + 10 buffer size
         int buffer_size = prescanner->width + 10;
-        char* line_buffer = (char*)xcalloc(buffer_size, sizeof(char));
+        char* line_buffer = NEW_VEC0(char, buffer_size);
 
         // Read till '\n' or till buffer_size-1
         if (fgets(line_buffer, buffer_size, prescanner->input_file) == NULL)
@@ -693,7 +693,7 @@ static void read_lines(prescanner_t* prescanner)
                 fprintf(stderr, "DEBUG: Enlarging after having read @%s|\n", line_buffer);
             }
             // Enlarge exponentially
-            line_buffer = (char*) xrealloc(line_buffer, 2*buffer_size*sizeof(char));
+            line_buffer = NEW_REALLOC(char, line_buffer, 2*buffer_size);
 
             // We read from the former end
             if (fgets(&line_buffer[length_read], buffer_size, prescanner->input_file) == NULL)
@@ -729,12 +729,12 @@ static void read_lines(prescanner_t* prescanner)
         if (is_blank_string(line_buffer))
         {
             // Merrily ignore this line
-            xfree(line_buffer);
+            DELETE(line_buffer);
         }
         else
         {
 
-            line_t* new_line = (line_t*) xcalloc(1, sizeof(line_t));
+            line_t* new_line = NEW0(line_t);
 
             DEBUG_CODE()
             {
@@ -780,7 +780,7 @@ static const char* get_filename_include(char* c, regmatch_t sub_matching[])
 {
     // Interesting information is in sub_matching[1]
     int i;
-    char* filename = xcalloc((sub_matching[1].rm_eo - sub_matching[1].rm_so), sizeof(char));
+    char* filename = NEW_VEC0(char, (sub_matching[1].rm_eo - sub_matching[1].rm_so));
     char delim = c[sub_matching[1].rm_so];
 
     // +1 and -1sub_matching[1].rm_so to jump over delimiters
@@ -798,7 +798,7 @@ static const char* get_filename_include(char* c, regmatch_t sub_matching[])
     filename[j] = '\0';
 
     const char* result = uniquestr(filename);
-    xfree(filename);
+    DELETE(filename);
 
     return result;
 }
@@ -813,7 +813,7 @@ static const char* fortran_literal(const char* c)
         p++;
     }
 
-    char* result = xcalloc(strlen(c) + num_quotes + 1, sizeof(char));
+    char* result = NEW_VEC0(char, strlen(c) + num_quotes + 1);
     int i = 0;
     p = c;  
 
@@ -856,7 +856,7 @@ static void normalize_line(prescanner_t* prescanner, char** line, unsigned int l
     // The new string has to be at least "width" long
     int real_size = (int)strlen(*line) < prescanner->width ? prescanner->width + 10 : (int)strlen(*line) + 10;
 
-    normalized_string = xcalloc(real_size, sizeof(char));
+    normalized_string = NEW_VEC0(char, real_size);
 
     const char* p = *line;
     char *q = normalized_string;
@@ -921,7 +921,7 @@ static void normalize_line(prescanner_t* prescanner, char** line, unsigned int l
     // The remainder of the line
     strcat(normalized_string, p);
 
-    xfree(*line);
+    DELETE(*line);
     *line = normalized_string;
 }
 
@@ -936,12 +936,12 @@ static void continuate_lines(prescanner_t* prescanner)
         {
             // We must cut this line
             // TODO - Check for overruns
-            char* c = xcalloc(strlen(&iter->line[prescanner->width]) + 2, sizeof(char));
+            char* c = NEW_VEC0(char, strlen(&iter->line[prescanner->width]) + 2);
             sprintf(c, "&%s", &iter->line[prescanner->width]);
             iter->line[prescanner->width] = '\0';
             strcat(iter->line, "&");
 
-            line_t* new_line = (line_t*)xcalloc(1, sizeof(*new_line));
+            line_t* new_line = NEW0(line_t);
             new_line->line = c;
             new_line->line_number = 0;
             new_line->next = iter->next;
@@ -955,10 +955,10 @@ static void continuate_lines(prescanner_t* prescanner)
     }
 }
 
-static void xfree_line_t(line_t* l)
+static void free_line_t(line_t* l)
 {
-    xfree(l->line);
-    xfree(l);
+    DELETE(l->line);
+    DELETE(l);
 }
 
 static void manage_included_file(

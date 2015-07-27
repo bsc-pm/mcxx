@@ -51,7 +51,7 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
                 static bool _gathers_scatters_disabled;
-                static std::string _analysis_func_name;
+                static TL::Symbol _analysis_func;
 
                 bool _svml_sse_enabled;
                 bool _svml_avx2_enabled;
@@ -76,6 +76,12 @@ namespace TL
 
                 void vectorize_loop(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment);
+                void vectorize_function_header(
+                        Nodecl::FunctionCode& function_code,
+                        VectorizerEnvironment& environment,
+                        const TL::ObjectList<TL::Symbol> &uniform_symbols,
+                        const std::map<TL::Symbol, int> &linear_symbols,
+                        const bool masked_version);
                 void vectorize_function(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
@@ -119,12 +125,12 @@ namespace TL
                         Nodecl::List& pre_nodecls,
                         Nodecl::List& post_nodecls);
 
-                void add_vector_function_version(const std::string& func_name,
+                void add_vector_function_version(TL::Symbol symbol,
                         const Nodecl::NodeclBase& func_version, const std::string& device,
                         const unsigned int vector_length, const TL::Type& target_type,
                         const bool masked, const FunctionPriority priority,
                         bool const is_svml_function);
-                bool is_svml_function(const std::string& func_name,
+                bool is_svml_function(TL::Symbol symbol,
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& target_type,

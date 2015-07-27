@@ -1112,7 +1112,7 @@ DEF_FUNCTION_TYPE_0(0, BT_VOID)
   { \
       if (COND) \
       { \
-      scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, uniquestr(NAME)); \
+      scope_entry_t* new_builtin = new_symbol(global_context, global_context->global_scope, uniquestr(NAME)); \
       new_builtin->kind = SK_FUNCTION; \
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
       symbol_entity_specs_set_is_builtin(new_builtin, 1); \
@@ -1980,7 +1980,7 @@ SIMPLIFY_GENERIC_FLOAT_TEST2(islessgreater)
 SIMPLIFY_GENERIC_FLOAT_TEST2(isunordered)
 
 
-static void gcc_sign_in_builtins_0(decl_context_t global_context)
+static void gcc_sign_in_builtins_0(const decl_context_t* global_context)
 {
 /* Category: math builtins.  */
 DEF_LIB_BUILTIN        (BUILT_IN_ACOS, "acos", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_acos)
@@ -2418,7 +2418,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_APPLY_ARGS, "apply_args", BT_FN_PTR_VAR, ATTR_L
 DEF_GCC_BUILTIN        (BUILT_IN_BSWAP32, "bswap32", BT_FN_UINT32_UINT32, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_BSWAP64, "bswap64", BT_FN_UINT64_UINT64, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_CLEAR_CACHE, "__clear_cache", BT_FN_VOID_PTR_PTR, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_LIB_BUILTIN        (BUILT_IN_CALLOC, "xcalloc", BT_FN_PTR_SIZE_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_LIB_BUILTIN        (BUILT_IN_CALLOC, "calloc", BT_FN_PTR_SIZE_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_CLASSIFY_TYPE, "classify_type", BT_FN_INT_VAR, ATTR_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZ, "clz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_clz)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZIMAX, "clzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
@@ -2489,7 +2489,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_ISUNORDERED, "isunordered", BT_FN_INT_VAR, ATTR
 DEF_LIB_BUILTIN        (BUILT_IN_LABS, "labs", BT_FN_LONG_LONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_labs)
 DEF_C99_BUILTIN        (BUILT_IN_LLABS, "llabs", BT_FN_LONGLONG_LONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_llabs)
 DEF_GCC_BUILTIN        (BUILT_IN_LONGJMP, "longjmp", BT_FN_VOID_PTR_INT, ATTR_NORETURN_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_LIB_BUILTIN        (BUILT_IN_MALLOC, "xmalloc", BT_FN_PTR_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_LIB_BUILTIN        (BUILT_IN_MALLOC, "malloc", BT_FN_PTR_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_NEXT_ARG, "next_arg", BT_FN_PTR_VAR, ATTR_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_PARITY, "parity", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_PARITYIMAX, "parityimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
@@ -2500,7 +2500,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTIMAX, "popcountimax", BT_FN_INT_UINTMAX
 DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTL, "popcountl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_popcountl)
 DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTLL, "popcountll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_popcountll)
 DEF_GCC_BUILTIN        (BUILT_IN_PREFETCH, "prefetch", BT_FN_VOID_CONST_PTR_VAR, ATTR_NOVOPS_LEAF_LIST, NO_EXPAND_FUN)
-DEF_LIB_BUILTIN        (BUILT_IN_REALLOC, "xrealloc", BT_FN_PTR_PTR_SIZE, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_LIB_BUILTIN        (BUILT_IN_REALLOC, "realloc", BT_FN_PTR_PTR_SIZE, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_RETURN, "return", BT_FN_VOID_PTR, ATTR_NORETURN_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_RETURN_ADDRESS, "return_address", BT_FN_PTR_UINT, ATTR_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_SAVEREGS, "saveregs", BT_FN_PTR_VAR, ATTR_NULL, NO_EXPAND_FUN)
@@ -2606,7 +2606,7 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values", NO_EXPAND
         nodecl_free(nodecl_args[i]); \
     } \
     const char* alias_str = UNIQUESTR_LITERAL(generic_name "_" #bytes); \
-    insert_alias(global_context.current_scope, specific, alias_str); \
+    insert_alias(global_context->current_scope, specific, alias_str); \
     if (!CURRENT_CONFIGURATION->xl_compatibility) \
     { /* We use the specific name always, except under XL compatibility */ \
         specific->symbol_name = alias_str; \
@@ -3215,9 +3215,9 @@ DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
 		  BT_FN_VOID_INT, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 }
 
-static void sign_in_sse_builtins(decl_context_t global_context);
+static void sign_in_sse_builtins(const decl_context_t* global_context);
 
-void gcc_sign_in_builtins(decl_context_t global_context)
+void gcc_sign_in_builtins(const decl_context_t* global_context)
 {
     gcc_sign_in_builtins_0(global_context);
 
@@ -3385,7 +3385,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
 
             // Craft a symbol here
             scope_entry_t* return_symbol = new_symbol(overloaded_function->decl_context, 
-                    overloaded_function->decl_context.current_scope,
+                    overloaded_function->decl_context->current_scope,
                     builtin_name);
             return_symbol->locus = overloaded_function->locus;
             return_symbol->symbol_name = overloaded_function->symbol_name;
@@ -3442,7 +3442,7 @@ GET_MXX_STRUCT_TYPE(128)
 GET_MXX_STRUCT_TYPE(256)
 GET_MXX_STRUCT_TYPE(512)
 
-static void sign_in_sse_builtins(decl_context_t decl_context)
+static void sign_in_sse_builtins(const decl_context_t* decl_context)
 {
     struct {
        const char* name;
@@ -3493,7 +3493,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
 
             // class-name
             {
-                scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name));
+                scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(name));
                 sym->locus = make_locus("(builtin-simd-type)", 0, 0);
                 sym->kind = SK_CLASS;
                 sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
@@ -3504,7 +3504,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
             // typedef-name
             CXX_LANGUAGE()
             {
-                scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(typedef_name));
+                scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(typedef_name));
                 sym->locus = make_locus("(builtin-simd-type)", 0, 0);
                 sym->kind = SK_TYPEDEF;
                 sym->type_information = *(vector_names[i].field);
@@ -3577,6 +3577,9 @@ void prepend_intel_vector_typedefs(nodecl_t* nodecl_output)
 char is_intel_vector_struct_type(type_t* t, int *size)
 {
     if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+    if (t == NULL)
         return 0;
 
 #define VECTOR_SIZE(n)  \
@@ -3741,7 +3744,7 @@ char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* d
         return 0;
 
     if (!is_vector_type(orig)
-            || is_vector_type(dest))
+            || !is_intel_vector_struct_type(dest, NULL))
         return 0;
 
     int vector_size = vector_type_get_vector_size(no_ref(orig));

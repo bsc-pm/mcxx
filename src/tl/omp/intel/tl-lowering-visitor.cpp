@@ -69,9 +69,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Workshare& construct)
             construct.get_locus_str().c_str());
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::TargetDeclaration& construct)
+void LoweringVisitor::visit(const Nodecl::OmpSs::TargetDeclaration& construct)
 {
-    error_printf("%s: error: OpenMP TargetDeclaration construct not yet implemented\n", 
+    error_printf("%s: error: OmpSs TargetDeclaration construct not yet implemented\n", 
             construct.get_locus_str().c_str());
 }
 
@@ -81,15 +81,15 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             construct.get_locus_str().c_str());
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
+void LoweringVisitor::visit(const Nodecl::OmpSs::TaskCall& construct)
 {
-    error_printf("%s: error: OpenMP TaskCall construct not yet implemented\n", 
+    error_printf("%s: error: OmpSs TaskCall construct not yet implemented\n", 
             construct.get_locus_str().c_str());
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& construct)
+void LoweringVisitor::visit(const Nodecl::OmpSs::TaskExpression& construct)
 {
-    error_printf("%s: error: OpenMP TaskExpression construct not yet implemented\n", 
+    error_printf("%s: error: OmpSs TaskExpression construct not yet implemented\n", 
             construct.get_locus_str().c_str());
 }
 
@@ -99,9 +99,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
             construct.get_locus_str().c_str());
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::WaitOnDependences& construct)
+void LoweringVisitor::visit(const Nodecl::OmpSs::WaitOnDependences& construct)
 {
-    error_printf("%s: error: OpenMP WaitOnDependences construct not yet implemented\n", 
+    error_printf("%s: error: OmpSs WaitOnDependences construct not yet implemented\n", 
             construct.get_locus_str().c_str());
 }
 

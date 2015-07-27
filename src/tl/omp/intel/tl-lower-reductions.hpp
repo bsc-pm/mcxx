@@ -48,16 +48,25 @@ namespace TL { namespace Intel {
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
 
-    TL::Symbol emit_callback_for_reduction_simd_knc(
-            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
-            TL::Type reduction_pack_type,
+    struct SIMDReductionPair
+    {
+        TL::Symbol horizontal_combiner;
+        TL::Symbol vertical_combiner;
+    };
+
+    SIMDReductionPair emit_callback_for_reduction_simd_knc(
+            Nodecl::OpenMP::ReductionItem &reduction_item,
+            Nodecl::NodeclBase location,
+            TL::Symbol current_function);
+
+    TL::Symbol emit_array_of_reduction_simd_functions(
+            const TL::ObjectList<SIMDReductionPair>& pairs,
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
 
     void update_reduction_uses(Nodecl::NodeclBase node,
             const TL::ObjectList<Nodecl::OpenMP::ReductionItem>& reduction_items,
             TL::Symbol reduction_pack_symbol);
-
 
     struct ReplaceInOutMaster : Nodecl::ExhaustiveVisitor<void>
     {

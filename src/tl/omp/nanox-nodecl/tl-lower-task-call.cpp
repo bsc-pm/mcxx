@@ -43,8 +43,30 @@
 
 namespace TL { namespace Nanox {
 
-typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
-typedef std::map<TL::Symbol, TL::Symbol> param_sym_to_arg_sym_t;
+// This container is not intended to be complete
+template <typename Key, typename Value>
+struct preserve_insertion_order_map
+{
+    typedef std::vector<Key> vector_t;
+    vector_t v;
+
+    typedef std::map<Key, Value> map_t;
+    map_t m;
+
+    Value& operator[](const Key& k)
+    {
+        typename map_t::iterator it = m.find(k);
+
+        if (it == m.end())
+        {
+            v.push_back(k);
+        }
+        return m[k];
+    }
+};
+
+typedef preserve_insertion_order_map<TL::Symbol, Nodecl::NodeclBase > sym_to_argument_expr_t;
+typedef preserve_insertion_order_map<TL::Symbol, TL::Symbol > param_sym_to_arg_sym_t;
 
 static void fill_map_parameters_to_arguments(
         TL::Symbol function,
@@ -105,8 +127,8 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
             return rewrite_expression_in_outline(sym.get_value(), map);
         }
 
-        param_sym_to_arg_sym_t::const_iterator it = map.find(sym);
-        if (it != map.end())
+        param_sym_to_arg_sym_t::map_t::const_iterator it = map.m.find(sym);
+        if (it != map.m.end())
         {
             TL::Symbol sym_2 = it->second;
             Nodecl::NodeclBase result = Nodecl::Symbol::make(
@@ -206,8 +228,8 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
             return rewrite_expression_in_dependency_c(sym.get_value().shallow_copy(), map);
         }
 
-        param_sym_to_arg_sym_t::const_iterator it = map.find(sym);
-        if (it != map.end())
+        param_sym_to_arg_sym_t::map_t::const_iterator it = map.m.find(sym);
+        if (it != map.m.end())
         {
             Nodecl::Symbol sym_ref = Nodecl::Symbol::make(it->second);
 
@@ -253,10 +275,10 @@ static Nodecl::NodeclBase rewrite_expression_in_terms_of_arguments(Nodecl::Nodec
     TL::Symbol sym = node.get_symbol();
     if (sym.is_valid())
     {
-        sym_to_argument_expr_t::const_iterator it_param = param_to_arg_expr.find(sym);
-        if (it_param != param_to_arg_expr.end())
+        sym_to_argument_expr_t::map_t::const_iterator it_param = param_to_arg_expr.m.find(sym);
+        if (it_param != param_to_arg_expr.m.end())
         {
-                Nodecl::NodeclBase expr = it_param->second;
+            Nodecl::NodeclBase expr = it_param->second;
                 node.replace(expr.shallow_copy());
         }
     }
@@ -399,10 +421,12 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
             const char* vla_name = NULL;
             uniquestr_sprintf(&vla_name, "mcc_vla_%d", get_vla_counter());
 
-            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(), new_decl_context.get_decl_context().current_scope, uniquestr(vla_name));
+            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(),
+                    new_decl_context.get_decl_context()->current_scope, uniquestr(vla_name));
             new_vla_dim->kind = SK_VARIABLE;
             new_vla_dim->type_information = old_vla_dim.get_internal_symbol()->type_information;
-            new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value, new_decl_context.get_decl_context(), symbol_map.get_symbol_map());
+            new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value,
+                    new_decl_context.get_decl_context(), symbol_map.get_symbol_map());
             new_vla_dim->locus = nodecl_get_locus(array_size.get_internal_nodecl());
 
             param_sym_to_arg_sym[old_vla_dim] = new_vla_dim;
@@ -591,8 +615,8 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
         {
             TL::Symbol sym = node.get_symbol();
 
-            sym_to_argument_expr_t::const_iterator it_param = _param_to_arg_expr.find(sym);
-            if (it_param != _param_to_arg_expr.end())
+            sym_to_argument_expr_t::map_t::const_iterator it_param = _param_to_arg_expr.m.find(sym);
+            if (it_param != _param_to_arg_expr.m.end())
             {
                 node.replace(it_param->second.shallow_copy());
             }
@@ -709,12 +733,12 @@ static void copy_target_info_from_params_to_args_c(
         // Create a new param_to_arg_expr map for every implementation
         TL::ObjectList<TL::Symbol> impl_parameters = implementor.get_function_parameters();
         sym_to_argument_expr_t impl_param_to_arg_expr;
-        for (sym_to_argument_expr_t::const_iterator it2 = param_to_arg_expr.begin();
-                it2 != param_to_arg_expr.end();
+        for (sym_to_argument_expr_t::vector_t::const_iterator it2 = param_to_arg_expr.v.begin();
+                it2 != param_to_arg_expr.v.end();
                 ++it2)
         {
-            TL::Symbol current_param = it2->first;
-            Nodecl::NodeclBase current_argum = it2->second;
+            TL::Symbol current_param = *it2;
+            Nodecl::NodeclBase current_argum = param_to_arg_expr.m.find(*it2)->second;
 
             ERROR_CONDITION(!current_param.is_parameter(), "Unreachable code", 0);
 
@@ -743,17 +767,20 @@ static void copy_target_info_from_params_to_args_c(
                     new_block_context_sc,
                     initializations_src);
 
-        ObjectList<std::string> devices= target_info.get_device_names();
+        ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
                 ++it2)
         {
             std::string device_name = *it2;
-            arguments_outline_info.add_implementation(implementor, device_name);
-            arguments_outline_info.set_ndrange(implementor, new_ndrange_args);
-            arguments_outline_info.set_shmem(implementor, new_shmem_args);
-            arguments_outline_info.set_onto(implementor, target_info.get_onto());
-            arguments_outline_info.set_file(implementor, target_info.get_file());
+            arguments_outline_info.add_new_implementation(
+                implementor,
+                device_name,
+                target_info.get_file(),
+                target_info.get_name(),
+                new_ndrange_args,
+                new_shmem_args,
+                target_info.get_onto());
         }
     }
 }
@@ -806,7 +833,7 @@ static void create_new_param_to_args_map_for_every_implementation(
 }
 
 void LoweringVisitor::visit_task_call_c(
-        const Nodecl::OpenMP::TaskCall& construct,
+        const Nodecl::OmpSs::TaskCall& construct,
         bool inside_task_expression,
         Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
@@ -919,12 +946,12 @@ void LoweringVisitor::visit_task_call_c(
     Nodecl::Utils::SimpleSymbolMap param_to_args_map;
 
     // First register all symbols
-    for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
-            it != param_to_arg_expr.end();
+    for (sym_to_argument_expr_t::vector_t::iterator it = param_to_arg_expr.v.begin();
+            it != param_to_arg_expr.v.end();
             it++)
     {
-        TL::Symbol parameter = it->first;
-        Nodecl::NodeclBase argument = it->second;
+        TL::Symbol parameter = *it;
+        Nodecl::NodeclBase argument = param_to_arg_expr.m.find(*it)->second;
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
@@ -1071,16 +1098,17 @@ void LoweringVisitor::visit_task_call_c(
     // void f(int *a, int n);
     //
     // We will first see 'a' and then 'n' but the dependence on 'a' uses 'n', so we need the map fully populated
-    for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
-            it != param_to_arg_expr.end();
+    for (sym_to_argument_expr_t::vector_t::iterator it = param_to_arg_expr.v.begin();
+            it != param_to_arg_expr.v.end();
             it++)
     {
         //The SHARING_SHARED_WITH_CAPTURE outline data items are skipped at this point
-        if (param_sym_to_arg_sym.find(it->first) == param_sym_to_arg_sym.end())
+        param_sym_to_arg_sym_t::map_t::iterator map_it = param_sym_to_arg_sym.m.find(*it);
+        if (map_it == param_sym_to_arg_sym.m.end())
             continue;
 
-        TL::Symbol &new_symbol = param_sym_to_arg_sym[it->first];
-        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
+        TL::Symbol &new_symbol = map_it->second;
+        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(*it);
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
         copy_outline_data_item_c(argument_outline_data_item, parameter_outline_data_item, param_sym_to_arg_sym);
     }
@@ -1236,7 +1264,7 @@ void LoweringVisitor::visit_task_call_c(
 // with the same parameters as the original task. This new function will have a simple body
 // with a task that calls the original function
 
-static void handle_save_expressions(decl_context_t function_context,
+static void handle_save_expressions(const decl_context_t* function_context,
         TL::Type t,
         // Out
         Nodecl::Utils::SimpleSymbolMap& symbol_map,
@@ -1269,7 +1297,7 @@ static void handle_save_expressions(decl_context_t function_context,
 
                 scope_entry_t* new_save_expression
                     = new_symbol(function_context,
-                            function_context.current_scope,
+                            function_context->current_scope,
                             orig_save_expression->symbol_name);
                 new_save_expression->kind = SK_VARIABLE;
                 new_save_expression->type_information = orig_save_expression->type_information;
@@ -1302,8 +1330,8 @@ static TL::Symbol new_function_symbol_adapter(
 {
     Scope sc = current_function.get_scope();
 
-    decl_context_t decl_context = sc.get_decl_context();
-    decl_context_t function_context;
+    const decl_context_t* decl_context = sc.get_decl_context();
+    const decl_context_t* function_context;
 
     function_context = new_program_unit_context(decl_context);
 
@@ -1317,7 +1345,7 @@ static TL::Symbol new_function_symbol_adapter(
             it++)
     {
         scope_entry_t* new_parameter_symbol
-            = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
+            = new_symbol(function_context, function_context->current_scope, uniquestr(it->get_name().c_str()));
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
@@ -1342,7 +1370,7 @@ static TL::Symbol new_function_symbol_adapter(
             it++)
     {
         scope_entry_t* new_parameter_symbol
-            = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
+            = new_symbol(function_context, function_context->current_scope, uniquestr(it->get_name().c_str()));
         new_parameter_symbol->kind = SK_VARIABLE;
         TL::Type t = it->get_type();
         if (!t.is_lvalue_reference())
@@ -1369,14 +1397,14 @@ static TL::Symbol new_function_symbol_adapter(
     }
 
     // Now everything is set to register the function
-    scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+    scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context->current_scope, function_name.c_str());
     symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
 
     new_function_sym->kind = SK_FUNCTION;
     new_function_sym->locus = make_locus("", 0, 0);
 
-    function_context.function_scope->related_entry = new_function_sym;
-    function_context.block_scope->related_entry = new_function_sym;
+    function_context->function_scope->related_entry = new_function_sym;
+    function_context->block_scope->related_entry = new_function_sym;
 
     new_function_sym->related_decl_context = function_context;
 
@@ -1408,7 +1436,7 @@ static TL::Symbol new_function_symbol_adapter(
     new_function_sym->type_information = function_type;
 
     // Add the called symbol in the scope of the function
-    insert_entry(function_context.current_scope, called_function.get_internal_symbol());
+    insert_entry(function_context->current_scope, called_function.get_internal_symbol());
 
     // Propagate USEd information
     Nodecl::Utils::Fortran::append_used_modules(
@@ -1442,7 +1470,7 @@ static TL::Symbol new_function_symbol_adapter(
 }
 
 Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
-        const Nodecl::OpenMP::TaskCall& construct,
+        const Nodecl::OmpSs::TaskCall& construct,
         TL::Symbol adapter_function,
         TL::Symbol called_function,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map,
@@ -1648,7 +1676,7 @@ struct FreeVariablesVisitor : public Nodecl::ExhaustiveVisitor<void>
 };
 
 void LoweringVisitor::visit_task_call_fortran(
-        const Nodecl::OpenMP::TaskCall& construct,
+        const Nodecl::OmpSs::TaskCall& construct,
         bool inside_task_expression,
         Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
@@ -1810,7 +1838,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
 
 void LoweringVisitor::visit_task_call(
-        const Nodecl::OpenMP::TaskCall& construct,
+        const Nodecl::OmpSs::TaskCall& construct,
         bool inside_task_expression,
         Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
@@ -1829,7 +1857,7 @@ void LoweringVisitor::visit_task_call(
     }
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
+void LoweringVisitor::visit(const Nodecl::OmpSs::TaskCall& construct)
 {
     visit_task_call(construct,
             /* inside_task_expression */  false,

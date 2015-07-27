@@ -101,18 +101,18 @@ rb_red_blk_tree* rb_tree_create( int (*comp_func) (const void*,const void*),
   rb_red_blk_tree* newTree;
   rb_red_blk_node* temp;
 
-  newTree=(rb_red_blk_tree*) xmalloc(sizeof(rb_red_blk_tree));
+  newTree=NEW(rb_red_blk_tree);
   newTree->comp_func=  comp_func;
   newTree->key_dtor_func= key_dtor_func != NULL ? key_dtor_func : null_dtor_func;
   newTree->info_dtor_func= info_dtor_func != NULL ? info_dtor_func : null_dtor_func;
 
   /*  see the comment in the rb_red_blk_tree structure in red_black_tree.h */
   /*  for information on nil and root */
-  temp=newTree->nil= (rb_red_blk_node*) xmalloc(sizeof(rb_red_blk_node));
+  temp=newTree->nil= NEW(rb_red_blk_node);
   temp->parent=temp->left=temp->right=temp;
   temp->red=0;
   temp->key=0;
-  temp=newTree->root= (rb_red_blk_node*) xmalloc(sizeof(rb_red_blk_node));
+  temp=newTree->root= NEW(rb_red_blk_node);
   temp->parent=temp->left=temp->right=newTree->nil;
   temp->key=0;
   temp->red=0;
@@ -298,7 +298,7 @@ static rb_red_blk_node * rb_tree_add(rb_red_blk_tree* tree, const void* key, voi
   rb_red_blk_node * x;
   rb_red_blk_node * newNode;
 
-  x=(rb_red_blk_node*) xmalloc(sizeof(rb_red_blk_node));
+  x= NEW(rb_red_blk_node);
   x->key=key;
   x->info=info;
 

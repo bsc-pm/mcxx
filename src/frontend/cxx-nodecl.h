@@ -54,7 +54,7 @@ nodecl_t nodecl_shallow_copy(nodecl_t t);
 static inline nodecl_t nodecl_duplicate(nodecl_t t);
 
 // Replicates the tree and duplicates bound variables. Free variables may be replaced using the given map
-nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t new_decl_context, symbol_map_t* symbol_map);
+nodecl_t nodecl_deep_copy(nodecl_t, const decl_context_t* new_decl_context, symbol_map_t* symbol_map);
 
 // Parent
 static inline nodecl_t nodecl_get_parent(nodecl_t t);
@@ -141,11 +141,11 @@ static inline char nodecl_is_err_stmt(nodecl_t);
 
 // Retrieve the context from a node (or the currently compiled file global
 // context if not context is found)
-static inline decl_context_t nodecl_retrieve_context(nodecl_t);
+static inline const decl_context_t* nodecl_retrieve_context(nodecl_t);
 
 // These only work on NODECL_CONTEXT or NODECL_PRAGMA_CONTEXT
-static inline decl_context_t nodecl_get_decl_context(nodecl_t n);
-static inline void nodecl_set_decl_context(nodecl_t, decl_context_t);
+static inline const decl_context_t* nodecl_get_decl_context(nodecl_t n);
+static inline void nodecl_set_decl_context(nodecl_t, const decl_context_t*);
 
 // Exchange
 DEPRECATED void nodecl_exchange(nodecl_t old_nod, nodecl_t new_node);

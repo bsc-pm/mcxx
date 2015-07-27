@@ -57,7 +57,7 @@ static void compute_associated_scopes(
 scope_entry_list_t* koenig_lookup(
         int num_arguments,
         type_t** argument_type_list,
-        decl_context_t normal_decl_context,
+        const decl_context_t* normal_decl_context,
         nodecl_t nodecl_simple_name,
         const locus_t* locus)
 {
@@ -104,10 +104,9 @@ scope_entry_list_t* koenig_lookup(
         scope_t* current_scope = koenig_info.associated_scopes[i];
 
         // Query only the scope
-        // Wrap the scope (this is a design quirk of decl_context_t)
-        decl_context_t current_context;
-        memset(&current_context, 0, sizeof(current_context));
-        current_context.current_scope = current_scope;
+        // Wrap the scope (this is a design quirk of const decl_context_t*)
+        decl_context_t* current_context = decl_context_empty();
+        current_context->current_scope = current_scope;
         
         DEBUG_CODE()
         {
@@ -180,8 +179,8 @@ scope_entry_list_t* koenig_lookup(
         fprintf(stderr, "KOENIG: Argument dependent lookup ended\n");
     }
 
-    xfree(koenig_info.associated_scopes);
-    xfree(koenig_info.associated_classes);
+    DELETE(koenig_info.associated_scopes);
+    DELETE(koenig_info.associated_classes);
 
     return result;
 }
@@ -348,8 +347,8 @@ static void compute_associated_scopes_rec(
      */
     if (is_enum_type(argument_type))
     {
-        decl_context_t type_decl_context = enum_type_get_context(argument_type);
-        scope_t* outer_namespace = type_decl_context.namespace_scope;
+        const decl_context_t* type_decl_context = enum_type_get_context(argument_type);
+        scope_t* outer_namespace = type_decl_context->namespace_scope;
 
         ERROR_CONDITION(outer_namespace == NULL, "The enclosing namespace scope is NULL!", 0);
 
@@ -458,7 +457,7 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
 
     // Add the scope of the current class
     ERROR_CONDITION(!is_named_class_type(type_info), "This must be a named class type", 0);
-    ERROR_CONDITION(class_type_get_context(type_info).current_scope == NULL, "Error, this scope should not be NULL", 0);
+    ERROR_CONDITION(class_type_get_context(type_info)->current_scope == NULL, "Error, this scope should not be NULL", 0);
 
     scope_entry_t* class_symbol = named_type_get_symbol(type_info);
     int i;
@@ -469,7 +468,7 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
             return;
     }
 
-    scope_t* outer_namespace = class_type_get_context(type_info).namespace_scope;
+    scope_t* outer_namespace = class_type_get_context(type_info)->namespace_scope;
 
     ERROR_CONDITION(outer_namespace == NULL, "Enclosing namespace not found", 0);
 

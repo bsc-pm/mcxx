@@ -748,12 +748,12 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.argc = argc;
 
     // Copy argv strings
-    compilation_process.argv = xcalloc(compilation_process.argc, sizeof(const char*));
+    compilation_process.argv = NEW_VEC(const char*, compilation_process.argc);
     memcpy((void*)compilation_process.argv, argv, sizeof(const char*) * compilation_process.argc);
 
     // Original versions
     compilation_process.original_argc = argc;
-    compilation_process.original_argv = xcalloc(compilation_process.argc, sizeof(const char*));
+    compilation_process.original_argv = NEW_VEC(const char*, compilation_process.argc);
     memcpy((void*)compilation_process.original_argv, argv, sizeof(const char*) * compilation_process.argc);
 
     compilation_process.exec_basename = give_basename(argv[0]);
@@ -1302,7 +1302,7 @@ int parse_arguments(int argc, const char* argv[],
                         *value = '\0';
                         value++;
 
-                        external_var_t* new_external_var = xcalloc(1, sizeof(*new_external_var));
+                        external_var_t* new_external_var = NEW0(external_var_t);
 
                         new_external_var->name = uniquestr(name);
                         new_external_var->value = uniquestr(value);
@@ -1730,8 +1730,8 @@ int parse_arguments(int argc, const char* argv[],
         list_compilation_configs[i]->do_not_prettyprint = CURRENT_CONFIGURATION->do_not_prettyprint;
     }
 
-    xfree(list_translation_units);
-    xfree(list_compilation_configs);
+    DELETE(list_translation_units);
+    DELETE(list_compilation_configs);
 
     // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
     // then, this output is the overall compilation process output
@@ -2088,6 +2088,11 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         CURRENT_CONFIGURATION->enable_cxx11 = 1;
                         CURRENT_CONFIGURATION->enable_cxx14 = 1;
                     }
+                    else if (strcmp(&argument[5], "c11") == 0
+                            || strcmp(&argument[5], "gnu11") == 0)
+                    {
+                        CURRENT_CONFIGURATION->enable_c11 = 1;
+                    }
                 }
                 else if (strcmp(argument, "-static") == 0) { }
                 else if (strcmp(argument, "-static-libgcc") == 0) { }
@@ -2344,14 +2349,14 @@ static void enable_debug_flag(const char* flags)
         }
     }
 
-    xfree(flag_list);
+    DELETE(flag_list);
 }
 
 void add_to_linker_command_configuration(
         const char *str, translation_unit_t* tr_unit, compilation_configuration_t* configuration)
 {
     parameter_linker_command_t * ptr_param =
-        (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
+        (parameter_linker_command_t *) NEW0(parameter_linker_command_t);
 
      ptr_param->argument = str;
 
@@ -2374,7 +2379,7 @@ void add_to_parameter_list(const char*** existing_options, const char **paramete
 {
     int num_existing_options = count_null_ended_array((void**)(*existing_options));
 
-    (*existing_options) = xrealloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
+    (*existing_options) = NEW_REALLOC(const char*, (*existing_options), num_existing_options + num_parameters + 1);
 
     int i;
     for (i = 0; i < num_parameters; i++)
@@ -2599,7 +2604,7 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->output_column_width = 132;
 
     // Add openmp as an implicitly enabled
-    struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
+    parameter_flags_t *new_parameter_flag = NEW0(parameter_flags_t);
 
     new_parameter_flag->name = uniquestr("openmp");
     new_parameter_flag->value = PFV_UNDEFINED;
@@ -3021,7 +3026,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         char is_fixed_form  = (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
                 // We prescan from fixed to free if 
                 //  - the file is fixed form OR we are forced to be fixed for (--fixed)
-                //  - AND we were NOT told to be xfree form (--free)
+                //  - AND we were NOT told to be DELETE form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
@@ -4168,7 +4173,7 @@ static void native_compilation(translation_unit_t* translation_unit,
             current_param = strtok(NULL, ",");
         }
 
-        xfree(tmp);
+        DELETE(tmp);
     }
 
     {
@@ -4727,29 +4732,136 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
     }
 }
 
+// We may have to extend the file_list with static libraries, this is not
+// as trivial as it sounds because most architectures assume shared by
+// default and then
+static void extend_file_list_with_static_libraries(
+        compilation_configuration_t* compilation_configuration,
+        const char *** file_list,
+        int *num_link_files)
+{
+    const char** libdir_paths = NULL;
+    int num_libdir_paths = 0;
+
+    // We assume that our environments target to shared by default
+    char link_as_static = 0;
+
+    // Check first if we want to force -static compilation
+    int j;
+    for (j = 0; j < compilation_configuration->num_args_linker_command; j++)
+    {
+        if (compilation_configuration->linker_command[j]->translation_unit != NULL)
+            continue;
+        const char* current_flag = compilation_configuration->linker_command[j]->argument;
+        if (strcmp(current_flag, "-static") == 0)
+        {
+            link_as_static = 1;
+            break;
+        }
+    }
+
+    for (j = 0; j < compilation_configuration->num_args_linker_command; j++)
+    {
+        if (compilation_configuration->linker_command[j]->translation_unit != NULL)
+            continue;
+
+        const char* current_flag = compilation_configuration->linker_command[j]->argument;
+        if (current_flag[0] == '-')
+        {
+            if (current_flag[1] == 'l')
+            {
+                if (current_flag[2] == '\0')
+                {
+                    // this is '-l' 'XXX' rather than '-lXXX'
+                    // move onto the next argument
+                    j++;
+                    if (j < compilation_configuration->num_args_linker_command)
+                    {
+                        if (compilation_configuration->linker_command[j]->translation_unit != NULL)
+                            continue;
+
+                        current_flag = compilation_configuration->linker_command[j]->argument;
+                    }
+                    else
+                    {
+                        // Do nothing for a '-l' that is astray
+                        continue;
+                    }
+                }
+
+                // -lXXX
+                if (!link_as_static)
+                {
+                    // We have to check if there is a .so first
+                    char *name = NULL;
+                    if (current_flag[2] == ':')
+                    {
+                        asprintf(&name, "%s.so", &current_flag[3]);
+                    }
+                    else
+                    {
+                        asprintf(&name, "lib%s.so", &current_flag[2]);
+                    }
+
+                    const char * dynamic_library = find_file_in_directories(
+                            num_libdir_paths,
+                            libdir_paths,
+                            name);
+
+                    DELETE(name);
+
+                    // If there is a .so, skip
+                    if (dynamic_library != NULL)
+                        continue;
+                }
+
+
+                // Check if there is a lib.a file
+                char *name = NULL;
+                if (current_flag[2] == ':')
+                {
+                    asprintf(&name, "%s.a", &current_flag[3]);
+                }
+                else
+                {
+                    asprintf(&name, "lib%s.a", &current_flag[2]);
+                }
+
+                const char * static_library = find_file_in_directories(
+                        num_libdir_paths,
+                        libdir_paths,
+                        name);
+
+                DELETE(name);
+
+                if (static_library != NULL)
+                {
+                    // If there is a .a, add to the list of files for extraction
+                    P_LIST_ADD(*file_list, *num_link_files, static_library);
+                }
+            }
+            else if (current_flag[1] == 'L')
+            {
+                // -LXXX
+                P_LIST_ADD(libdir_paths, num_libdir_paths,
+                        uniquestr(&current_flag[2]));
+            }
+        }
+    }
+
+    DELETE(libdir_paths);
+}
+
 static void link_objects(void)
 {
     if (CURRENT_CONFIGURATION->do_not_link
             || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
         return;
 
-    int j;
+    const char ** file_list = NULL;
     int num_link_files = 0;
-    for (j = 0; j < compilation_process.num_translation_units; j++)
-    {
-        translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
-        const char* extension = get_extension_filename(translation_unit->input_filename);
-        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
-            continue;
-
-        num_link_files++;
-    }
-
-    const char * file_list[num_link_files + 1];
-
-    int index = 0;
+    int j;
     for (j = 0; j < compilation_process.num_translation_units; j++)
     {
         translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
@@ -4762,16 +4874,21 @@ static void link_objects(void)
 
         if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
         {
-            file_list[index] = translation_unit->input_filename;
+            const char* current_file = translation_unit->input_filename;
+            P_LIST_ADD(file_list, num_link_files, current_file);
         }
         else
         {
-            file_list[index] = translation_unit->output_filename;
-            mark_file_as_temporary(file_list[index]);
+            const char* current_file = translation_unit->output_filename;
+            P_LIST_ADD(file_list, num_link_files, current_file);
+            mark_file_as_temporary(current_file);
         }
-
-        index++;
     }
+
+    extend_file_list_with_static_libraries(
+            CURRENT_CONFIGURATION,
+            &file_list,
+            &num_link_files);
 
     int num_additional_files = 0;
     const char** additional_files = NULL;
@@ -4782,6 +4899,8 @@ static void link_objects(void)
     link_files(additional_files, num_additional_files,
             /* linked_output_filename */ NULL,
             CURRENT_CONFIGURATION);
+
+    DELETE(file_list);
 }
 
 
@@ -5032,11 +5151,11 @@ static void print_memory_report(void)
             c);
 
     print_human(c, mallinfo_report.uordblks);
-    fprintf(stderr, " - Total size of memory occupied by chunks handed out by xmalloc: %s\n",
+    fprintf(stderr, " - Total size of memory occupied by chunks handed out by malloc: %s\n",
             c);
 
     print_human(c, mallinfo_report.fordblks);
-    fprintf(stderr, " - Total size of memory occupied by xfree (not in use) chunks: %s\n",
+    fprintf(stderr, " - Total size of memory occupied by DELETE (not in use) chunks: %s\n",
             c);
 
     print_human(c, mallinfo_report.keepcost);
@@ -5051,7 +5170,7 @@ static void print_memory_report(void)
     fprintf(stderr, "Size of entity specifiers (bytes): %zd\n",
             sizeof(entity_specifiers_t));
     fprintf(stderr, "Size of a context (bytes): %zd\n",
-            sizeof(decl_context_t));
+            sizeof(const decl_context_t*));
     fprintf(stderr, "Size of a type (bytes): %zd\n",
             get_type_t_size());
 
@@ -5238,5 +5357,5 @@ static void register_disable_intrinsics(const char* intrinsic_name)
 
     regfree(&match_intrinsic);
 
-    xfree(tmp);
+    DELETE(tmp);
 }

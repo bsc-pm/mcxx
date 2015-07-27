@@ -202,7 +202,7 @@ static void parse_parameters(int argc, char* argv[])
     prescanner.pad_strings = 1;
     prescanner.output_filename = NULL;
     prescanner.num_include_directories = 1;
-    prescanner.include_directories = xcalloc(1, sizeof(*prescanner.include_directories));
+    prescanner.include_directories = NEW0(const char*);
     prescanner.include_directories[0] = xstrdup(".");
     prescanner.output_include_directory = NULL;
 
@@ -257,8 +257,10 @@ static void parse_parameters(int argc, char* argv[])
                 {
                     char* directory = xstrdup(optarg);
                     prescanner.num_include_directories++;
-                    prescanner.include_directories = xrealloc(prescanner.include_directories, 
-                            prescanner.num_include_directories * sizeof(*prescanner.include_directories));
+                    prescanner.include_directories = NEW_REALLOC(
+                            const char*,
+                            prescanner.include_directories, 
+                            prescanner.num_include_directories);
                     prescanner.include_directories[prescanner.num_include_directories-1] = directory;
 
                     break;
@@ -277,8 +279,10 @@ static void parse_parameters(int argc, char* argv[])
                     prescanner.output_include_directory = directory;
 
                     prescanner.num_include_directories++;
-                    prescanner.include_directories = xrealloc(prescanner.include_directories, 
-                            prescanner.num_include_directories * sizeof(*prescanner.include_directories));
+                    prescanner.include_directories = NEW_REALLOC(
+                            const char*,
+                            prescanner.include_directories, 
+                            prescanner.num_include_directories);
                     prescanner.include_directories[prescanner.num_include_directories-1] = directory;
                     break;
                 }

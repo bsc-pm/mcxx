@@ -146,7 +146,7 @@ static const type_t* create_elements(type_trie_t* type_trie, const type_t** type
     if (type_trie->capacity == type_trie->num_elements)
     {
         type_trie->capacity *= 2;
-        type_trie->elements = xrealloc(type_trie->elements, type_trie->capacity * sizeof(*(type_trie->elements)));
+        type_trie->elements = NEW_REALLOC(type_trie_element_t, type_trie->elements, type_trie->capacity);
     }
 
     // Locate place where the element would go
@@ -213,9 +213,9 @@ static const type_t* create_elements(type_trie_t* type_trie, const type_t** type
 
 type_trie_t* allocate_type_trie(void)
 {
-    type_trie_t* t = xcalloc(1, sizeof(*t));
+    type_trie_t* t = NEW0(type_trie_t);
     t->capacity = 1;
-    t->elements = xcalloc(t->capacity, sizeof(*(t->elements)));
+    t->elements = NEW_VEC0(type_trie_element_t, t->capacity);
     return t;
 }
 

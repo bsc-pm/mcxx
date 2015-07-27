@@ -65,7 +65,7 @@ LIBMCXXTL_EXTERN void run_codegen_phase(FILE *out_file,
 LIBMCXXTL_EXTERN void initialize_dto(translation_unit_t* translation_unit);
 
 // This creates a dependence of fronted with mcxx_tl and tl, which is the worst thing it can happen
-LIBMCXXTL_EXTERN const char* codegen_to_str(nodecl_t node, decl_context_t decl_context);
+LIBMCXXTL_EXTERN const char* codegen_to_str(nodecl_t node, const decl_context_t* decl_context);
 
 LIBMCXXTL_EXTERN void codegen_set_parameter(int n, void* data);
 

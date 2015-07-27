@@ -343,6 +343,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                                 called_task.get_function_code(),
                                 called_task.get_scope(),
                                 *symbol_map));
+
+                    symbol_entity_specs_set_is_static(new_function.get_internal_symbol(), 1);
                 }
                 else
                 {
@@ -388,6 +390,10 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // Create the new unpacked function
     Source initial_statements, final_statements;
     TL::Symbol unpacked_function, forward_function;
+
+    std::stringstream ss_unpacked;
+    unsigned int hash_unpacked =
+      simple_hash_str(TL::CompilationProcess::get_current_file().get_filename().c_str());
     if (IS_FORTRAN_LANGUAGE)
     {
         forward_function = new_function_symbol_forward(
@@ -395,11 +401,13 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                 device_outline_name + "_forward",
                 info);
 
+        ss_unpacked << device_outline_name << "_" << hash_unpacked << "_unpack_";
+
         // The unpacked function is defined in the cuda intermediate file, but It's declared and used
         // in the Fortran source. For some linkage reasons, the name of this function must end with an "_"
         unpacked_function = new_function_symbol_unpacked(
                 current_function,
-                device_outline_name + "_unpack_",
+                ss_unpacked.str(),
                 info,
                 // out
                 symbol_map,
@@ -408,9 +416,11 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
     else
     {
+        ss_unpacked << device_outline_name << "_" << hash_unpacked << "_unpacked";
+
         unpacked_function = new_function_symbol_unpacked(
                 current_function,
-                device_outline_name + "_unpacked",
+                ss_unpacked.str(),
                 info,
                 // out
                 symbol_map,
@@ -629,7 +639,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             outline_src
                 << "{"
                 <<      instrument_before
-                <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
+                <<      unpacked_function.get_name() << "(" << unpacked_arguments << ");"
                 <<      instrument_after
                 << "}"
                 ;

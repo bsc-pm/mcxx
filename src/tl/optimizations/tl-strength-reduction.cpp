@@ -24,12 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <math.h>
-
-#include "cxx-cexpr.h"
-#include "tl-nodecl-utils.hpp"
 #include "tl-strength-reduction.hpp"
 #include "tl-expression-reduction.hpp"
+
+#include "tl-nodecl-utils.hpp"
+#include "cxx-cexpr.h"
+#include <math.h>
 
 TL::Optimizations::StrengthReduction::StrengthReduction(bool fast_math)
     : _fast_math(fast_math)
@@ -477,7 +477,6 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
             // Optimize 1 * rsqrt
             walk(mul);
         }
-        /*
         else
         {
             Nodecl::VectorMul mul =
@@ -492,8 +491,9 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
                         node.get_locus());
 
             node.replace(mul);
+            // Optimize 1 * rcp
+            walk(mul);
         }
-        */
     }
 }
 
@@ -522,3 +522,51 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMod& node)
     }
 }
 
+
+void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorSqrt& node)
+{
+    walk(node.get_rhs());
+
+    TL::Type type = node.get_type().basic_type();
+
+    if(_fast_math) // RSQRT
+    {
+        Nodecl::NodeclBase one_vector_node;
+        if (type.is_floating_type())
+        {
+            Nodecl::NodeclBase one_node = const_value_to_nodecl(
+                    const_value_cast_to_floating_type_value(
+                        const_value_get_double(1.0), type.get_internal_type()));
+
+            one_vector_node = Nodecl::VectorPromotion::make(one_node,
+                    node.get_mask().shallow_copy(),
+                    node.get_type(),
+                    node.get_locus());
+
+            one_vector_node.set_constant(const_value_make_vector_from_scalar(
+                        node.get_type().vector_num_elements(),
+                        one_node.get_constant()));
+        }
+        else
+        {
+            internal_error("Unsupported type\n", 0);
+        }
+
+        
+        Nodecl::VectorDiv div =
+            Nodecl::VectorDiv::make(
+                    one_vector_node,
+                    Nodecl::VectorRsqrt::make(
+                        node.get_rhs().shallow_copy(),
+                        node.get_mask().shallow_copy(),
+                        node.get_type()),
+                    node.get_mask().shallow_copy(),
+                    node.get_type(),
+                    node.get_locus());
+
+        node.replace(div);
+
+        // Optimize 1 * rsqrt
+        walk(div);
+    }
+}

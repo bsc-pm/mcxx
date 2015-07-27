@@ -61,8 +61,11 @@ namespace Vectorization
         _new_external_vector_symbol_map(new_external_vector_symbol_map)
     {
         if (target_type.is_valid())
+        {
+            _target_type = target_type;
             _vectorization_factor =
                 vector_length/target_type.get_size();
+        }
         else
             _vectorization_factor = 0;
 

@@ -32,14 +32,15 @@
 
 // Heavily inspired in lib/char_hash.c contributed by Jan Hoogerbrugge
 
-struct locus_link
+typedef
+struct locus_link_tag
 {
     unsigned int hash;
     locus_t* locus;
-    struct locus_link* next;
-};
+    struct locus_link_tag* next;
+} locus_link_t;
 
-static struct locus_link *hash_table[49999];
+static locus_link_t *hash_table[49999];
 
 static unsigned int hash_locus(const char *filename, unsigned int line, unsigned int col)
 {
@@ -64,7 +65,7 @@ const locus_t* make_locus(const char* filename, unsigned int line, unsigned int 
     unsigned int hash_index = hash % (sizeof(hash_table) / sizeof(hash_table[0]));
 
 
-    struct locus_link *p, *p_prev = 0, *new_link;
+    locus_link_t *p, *p_prev = 0, *new_link;
 
     for (p = hash_table[hash_index]; p; p_prev = p, p = p->next)
     {
@@ -85,8 +86,8 @@ const locus_t* make_locus(const char* filename, unsigned int line, unsigned int 
         }
     }
 
-    new_link = xmalloc(sizeof(*new_link));
-    new_link->locus = xmalloc(sizeof(*new_link->locus));
+    new_link = NEW(locus_link_t);
+    new_link->locus = NEW(locus_t);
     new_link->locus->filename = uniquestr(filename);
     new_link->locus->line = line;
     new_link->locus->col = col;

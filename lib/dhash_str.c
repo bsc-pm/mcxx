@@ -71,7 +71,7 @@ dhash_str_t* dhash_str_new(int initial_size)
 {
     if (initial_size < 0) abort();
 
-    dhash_str_t* result = xmalloc(sizeof(*result));
+    dhash_str_t* result = NEW(dhash_str_t);
 
     result->num_items = 0;
 
@@ -89,7 +89,7 @@ dhash_str_t* dhash_str_new(int initial_size)
         }
     }
 
-    result->buckets = xcalloc(sizeof(*(result->buckets)), prime_set[result->num_buckets_idx]);
+    result->buckets = NEW_VEC0(bucket_str_t*, prime_set[result->num_buckets_idx]);
 
     return result;
 }
@@ -156,7 +156,7 @@ static void dhash_str_do_insert(dhash_str_t* dhash, const char* key, dhash_str_i
     }
 
     // Insert
-    b = xmalloc(sizeof(*b));
+    b = NEW(bucket_str_t);
     b->key = key;
     b->info = info;
     b->next = dhash->buckets[hash];
@@ -176,7 +176,7 @@ static void dhash_str_increase_rehash(dhash_str_t* dhash)
 
     dhash->num_buckets_idx++;
     int num_new_buckets = prime_set[dhash->num_buckets_idx];
-    bucket_str_t **new_buckets = xcalloc(sizeof(*new_buckets), num_new_buckets);
+    bucket_str_t **new_buckets = NEW_VEC0(bucket_str_t*, num_new_buckets);
 
     int i;
     for (i = 0; i < num_old_buckets; i++)
@@ -187,7 +187,7 @@ static void dhash_str_increase_rehash(dhash_str_t* dhash)
         {
             uint32_t new_hash = Murmur3_32(old_b->key) % num_new_buckets;
 
-            bucket_str_t* new_b = xmalloc(sizeof(*new_b));
+            bucket_str_t* new_b = NEW(bucket_str_t);
             new_b->key = old_b->key;
             new_b->info = old_b->info;
             new_b->next = new_buckets[new_hash];

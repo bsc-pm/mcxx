@@ -79,4 +79,24 @@ void c_free(void *ptr);
 #define strdup (+use_xstrdup_instead)
 #endif
 
+#undef NEW
+#undef NEW0
+#undef NEW_VEC
+#undef NEW_VEC0
+
+#undef DELETE
+
+#undef NEW_REALLOC
+
+#define NEW(t) ((t*)xmalloc(sizeof(t)))
+#define NEW0(t) ((t*)xcalloc(1, sizeof(t)))
+
+#define NEW_VEC(t, n) ((t*)xmalloc(sizeof(t) * (n)))
+#define NEW_VEC0(t, n) ((t*)xcalloc((n), sizeof(t)))
+
+#define NEW_REALLOC(t, x, n) ((t*)xrealloc((x), (n) * sizeof(t)))
+
+#define DELETE(x) xfree((x))
+
+
 #endif // MEM_H

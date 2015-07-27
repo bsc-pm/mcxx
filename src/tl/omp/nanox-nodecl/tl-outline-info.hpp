@@ -483,7 +483,12 @@ namespace TL
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
-                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
+
+                // FIXME: This member is needed because when we are creating the node
+                // that represents the implements clause we are not including
+                // the target information of the implementor.
+                // FMI check the implementation of handle_implements_clause
+                std::shared_ptr<TL::OmpSs::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
@@ -492,12 +497,14 @@ namespace TL
                 // OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
+
             public:
                 OutlineInfo(Nanox::Lowering& lowering);
                 OutlineInfo(Nanox::Lowering& lowering,
                         Nodecl::NodeclBase environment,
                         TL::Symbol funct_symbol = Symbol::invalid(),
-                        std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set = std::shared_ptr<OpenMP::FunctionTaskSet>());
+                        std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set
+                            = std::shared_ptr<TL::OmpSs::FunctionTaskSet>());
 
                 ~OutlineInfo();
 
@@ -521,22 +528,31 @@ namespace TL
                 void add_device_name(std::string device_name,TL::Symbol function_symbol=Symbol::invalid());
                 ObjectList<std::string> get_device_names(TL::Symbol function_symbol=Symbol::invalid());
 
-                void set_file(TL::Symbol function_symbol,std::string file);
+                void set_file(TL::Symbol function_symbol,const std::string& file);
                 std::string get_file(TL::Symbol function_symbol);
 
-                void set_name(TL::Symbol function_symbol,std::string name);
+                void set_name(TL::Symbol function_symbol,const std::string& name);
                 std::string get_name(TL::Symbol function_symbol);
 
                 void set_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
                 void set_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
                 void set_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
 
-                /**
-                 * Adds implementation, if already exists, it adds device name to that symbol
-                 * @param device_name
-                 * @param function_symbol
+                /*
+                 * Adds a new implementation for a certain device to the
+                 * current task. Apart from creating a new entry in the
+                 * implementation table if neeeded, we also register the target
+                 * information of this new implementation
                  */
-                void add_implementation(TL::Symbol function_symbol, std::string device_name);
+                void add_new_implementation(
+                    TL::Symbol function_symbol,
+                    const std::string& device_name,
+                    const std::string& file_args,
+                    const std::string& name_args,
+                    const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                    const TL::ObjectList<Nodecl::NodeclBase>& shmem_args,
+                    const TL::ObjectList<Nodecl::NodeclBase>& onto_args);
+
                 implementation_table_t& get_implementation_table();
 
                 void set_param_arg_map(const Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol=Symbol::invalid());
@@ -553,6 +569,8 @@ namespace TL
                 bool only_has_smp_or_mpi_implementations() const;
 
                 bool firstprivates_always_by_reference() const;
+
+                void handle_implements_clause(TL::Symbol function_symbol, std::string device_name);
 
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);

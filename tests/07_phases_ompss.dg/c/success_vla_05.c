@@ -29,6 +29,8 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_ignore="yes"
+test_ignore_reason="See ticket #2432"
 </testinfo>
 */
 

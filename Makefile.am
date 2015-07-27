@@ -37,10 +37,10 @@ override DISTCHECK_CONFIGURE_FLAGS += --enable-distcheck-processing=yes
 
 # This rule generates DIST_REVISION
 git-version-dist-hook:
-	if [ -x "$(GIT)" ]; \
+	if test x"$(GIT)" != x; \
 	then \
 	    run_gitversion=`"$(GIT)" --git-dir=$(srcdir)/.git show "--pretty=format:%h %ci" HEAD | head -n 1`; \
-	    build_version="git $${run_gitversion} distributed version"; \
+	    build_version="$${run_gitversion}"; \
 	    echo "$${build_version}" > $(distdir)/DIST_REVISION; \
 	elif [ -e $(srcdir)/DIST_REVISION ]; \
 	then \
@@ -1453,12 +1453,13 @@ src_tl_analysis_complexity_libcomplexity_la_CFLAGS= $(tl_cflags)
 src_tl_analysis_complexity_libcomplexity_la_CXXFLAGS= $(tl_cflags) $(ANALYSIS_CFLAGS)
 src_tl_analysis_complexity_libcomplexity_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_complexity_libcomplexity_la_LIBADD = $(tl_libadd) \
-							src/tl/libtl.la \
-							$(ANALYSIS_LIBADD)
+	src/tl/libtl.la \
+	$(ANALYSIS_LIBADD)
 
-src_tl_analysis_complexity_libcomplexity_la_SOURCES = src/tl/analysis/complexity/tl-cyclomatic-complexity.hpp \
-							src/tl/analysis/complexity/tl-cyclomatic-complexity.cpp \
-							$(END)
+src_tl_analysis_complexity_libcomplexity_la_SOURCES = \
+	src/tl/analysis/complexity/tl-cyclomatic-complexity.hpp \
+	src/tl/analysis/complexity/tl-cyclomatic-complexity.cpp \
+	$(END)
 
 ##########################################################################
 # src/tl/analysis/interface
@@ -1538,32 +1539,6 @@ src_tl_analysis_test_phase_libtest_analysis_la_SOURCES = \
                               $(END)
 
 endif		# BUILD_ANALYSIS
-
-##########################################################################
-# src/tl/complexity
-##########################################################################
-
-if BUILD_TL_COMPLEXITY
-phases_LTLIBRARIES += src/tl/complexity/libtlcomplexity.la
-
-src_tl_complexity_libtlcomplexity_la_CXXFLAGS = $(phases_cxxflags) \
-						-I $(top_srcdir)/src/tl/analysis/pcfg \
-						-I $(top_srcdir)/src/tl/analysis/common \
-						-I $(top_srcdir)/src/tl/analysis/tdg \
-						-I $(top_srcdir)/src/tl/analysis/interface\
-						$(END)
-src_tl_complexity_libtlcomplexity_la_LDFLAGS = $(phases_ldflags)
-src_tl_complexity_libtlcomplexity_la_LIBADD = $(phases_libadd) \
-						$(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
-						$(top_builddir)/src/tl/analysis/tdg/libtdg.la \
-						$(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
-						$(END)
-
-src_tl_complexity_libtlcomplexity_la_SOURCES = \
-					src/tl/complexity/tl-complexity.hpp \
-					src/tl/complexity/tl-complexity.cpp \
-					$(END)
-endif
 
 ##########################################################################
 # src/tl/hlt
@@ -1781,14 +1756,18 @@ src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-omp.cpp \
    src/tl/omp/core/tl-omp-deps.hpp \
    src/tl/omp/core/tl-omp-deps.cpp \
+   src/tl/omp/core/tl-omp-core-devices.cpp \
    src/tl/omp/core/tl-omp-tasks.hpp \
    src/tl/omp/core/tl-omp-tasks.cpp \
-   src/tl/omp/core/tl-omp-target.hpp \
-   src/tl/omp/core/tl-omp-target.cpp \
    src/tl/omp/core/tl-omp-collapse.cpp \
    src/tl/omp/core/tl-omp-reduction.hpp \
    src/tl/omp/core/tl-omp-reduction.cpp \
    src/tl/omp/core/tl-omp-reduction-builtin.cpp \
+   src/tl/omp/core/tl-ompss.hpp \
+   src/tl/omp/core/tl-ompss.cpp \
+   src/tl/omp/core/tl-ompss-core.cpp \
+   src/tl/omp/core/tl-ompss-target.hpp \
+   src/tl/omp/core/tl-ompss-target.cpp \
    $(END)
 
 ##########################################################################
@@ -1829,8 +1808,10 @@ src_tl_omp_base_libtlomp_base_la_SOURCES = \
    src/tl/omp/base/tl-omp-base-utils.cpp \
    src/tl/omp/base/tl-omp-base.hpp \
    src/tl/omp/base/tl-omp-base.cpp \
-   src/tl/omp/base/tl-omp-base-task.hpp \
-   src/tl/omp/base/tl-omp-base-task.cpp \
+   src/tl/omp/base/tl-omp-base-devices.cpp \
+   src/tl/omp/base/tl-ompss-base-task.hpp \
+   src/tl/omp/base/tl-ompss-base-task.cpp \
+   src/tl/omp/base/tl-ompss-base-target.cpp \
    $(END)
 
 ##########################################################################
@@ -1894,6 +1875,7 @@ src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cxxflags) \
                           -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/omp/core \
                           -I $(top_srcdir)/src/tl/omp/common \
+                          -I $(top_srcdir)/src/tl/hlt \
                           $(END)
 
 src_tl_omp_simd_libtlomp_simd_la_LDFLAGS = $(phases_ldflags)
@@ -1902,6 +1884,7 @@ src_tl_omp_simd_libtlomp_simd_la_LIBADD = $(phases_libadd) \
                           $(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la \
                           $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
                           $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+                          $(top_builddir)/src/tl/hlt/libtl-hlt.la \
                           $(END)
 
 
@@ -2191,6 +2174,51 @@ src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/opencl/nanox-opencl.hpp \
        src/tl/omp/nanox-nodecl/devices/opencl/nanox-opencl.cpp \
        $(END)
+
+endif
+
+##########################################################################
+# src/tl/omp/gomp
+##########################################################################
+
+if BUILD_OMP_GOMP
+
+phases_LTLIBRARIES += src/tl/omp/gomp/libtlgomp-omp-lowering.la
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_CFLAGS= $(phases_cflags)\
+													-I$(srcdir)/src/tl/omp/core \
+													-I$(srcdir)/src/tl/omp/common \
+													$(END)
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_CXXFLAGS= $(phases_cxxflags) \
+													  -I$(srcdir)/src/tl/omp/core \
+													  -I$(srcdir)/src/tl/omp/common \
+													  $(END)
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_LIBADD= $(phases_libadd) \
+								src/tl/omp/common/libtlomp-common.la \
+								src/tl/omp/core/libtlomp-core.la \
+								$(END)
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_LDFLAGS= $(phases_ldflags)
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_SOURCES=\
+								   src/tl/omp/gomp/tl-omp-gomp.cpp \
+								   src/tl/omp/gomp/tl-omp-gomp.hpp \
+								   src/tl/omp/gomp/tl-lowering-visitor.hpp \
+								   src/tl/omp/gomp/tl-lowering-visitor.cpp \
+								   src/tl/omp/gomp/tl-lowering-utils.hpp \
+								   src/tl/omp/gomp/tl-lowering-utils.cpp \
+								   src/tl/omp/gomp/tl-lower-parallel.cpp \
+								   src/tl/omp/gomp/tl-lower-taskwait.cpp \
+								   src/tl/omp/gomp/tl-lower-task.cpp \
+								   src/tl/omp/gomp/tl-lower-master.cpp \
+								   src/tl/omp/gomp/tl-lower-single.cpp \
+								   src/tl/omp/gomp/tl-lower-barrier.cpp \
+								   src/tl/omp/gomp/tl-lower-for.cpp \
+								   src/tl/omp/gomp/tl-lower-reductions.hpp \
+								   src/tl/omp/gomp/tl-lower-reductions.cpp \
+								   $(END)
 
 endif
 
@@ -3008,12 +3036,14 @@ CONFIG_FILES =  \
        config/01.config.intel-plain \
        config/10.config.hlt \
        config/10.config.omp-base \
+       config/10.config.gomp-omp-base \
        config/10.config.intel-omp-base \
        config/40.config.cuda \
        config/50.config.omp.fpga \
        config/50.config.omp.mercurium \
        config/50.config.omp.profiling \
-	   config/50.config.omp.intel-rtl \
+       config/50.config.omp.intel-rtl \
+       config/50.config.omp.gomp-rtl \
        config/55.config.omp.ibm \
        config/55.config.omp.intel \
        config/55.config.omp.nvidia \
@@ -3328,6 +3358,24 @@ support/openmp/fortran/omp_lib.mf03 : $(srcdir)/support/openmp/fortran/omp_modul
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null -J support/openmp/fortran $(srcdir)/support/openmp/fortran/omp_modules.f90
 
 ##########################################################################
+# support/gomp_omp
+##########################################################################
+
+if BUILD_OMP_GOMP
+
+gomp_openmpdir=$(pkgdatadir)/gomp-omp
+
+gomp_openmp_DATA = \
+			  support/gomp_omp/gomp-omp.h \
+			  $(END)
+
+endif
+
+EXTRA_DIST += \
+			support/gomp_omp/gomp-omp.h \
+			$(END)
+
+##########################################################################
 # support/intel_omp
 ##########################################################################
 
@@ -3361,6 +3409,9 @@ EXTRA_DIST += \
 
 mpich_modules = \
 			  support/mpi/mpich/mpi.mf03 \
+			  support/mpi/mpich/mpi_constants.mf03 \
+			  support/mpi/mpich/mpi_base.mf03 \
+			  support/mpi/mpich/mpi_sizeofs.mf03 \
 			  $(END)
 
 EXTRA_DIST += \

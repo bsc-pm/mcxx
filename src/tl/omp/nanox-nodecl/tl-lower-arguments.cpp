@@ -192,7 +192,7 @@ namespace TL { namespace Nanox {
 
         symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
-        decl_context_t class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
+        const decl_context_t* class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
                 new_class_symbol.get_internal_symbol());
 
         TL::Scope class_scope(class_context);
@@ -262,8 +262,34 @@ namespace TL { namespace Nanox {
 
         CXX_LANGUAGE()
         {
+            TL::Scope def_scope;
+            if (related_symbol.is_member()
+                    && related_symbol.is_defined_inside_class())
+            {
+                def_scope = related_symbol.get_scope();
+            }
+            else
+            {
+                // We want the enclosing nonclass scope
+                def_scope = related_symbol.get_scope();
+                if (related_symbol.is_member())
+                {
+                    TL::Symbol class_sym = related_symbol.get_class_type().get_symbol();
+                    while (class_sym.is_member())
+                    {
+                        class_sym = class_sym.get_class_type().get_symbol();
+                    }
+
+                    decl_context_t *decl = decl_context_clone(class_sym.get_scope().get_decl_context());
+                    // Copy the template parameters
+                    decl->template_parameters = related_symbol.get_scope().get_decl_context()->template_parameters;
+
+                    def_scope = TL::Scope(decl);
+                }
+            }
+
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
-                    /* optative context */ nodecl_null(),
+                    Nodecl::Context::make(Nodecl::NodeclBase::null(), def_scope),
                     new_class_symbol,
                     construct.get_locus());
             Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, nodecl_decl);

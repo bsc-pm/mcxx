@@ -358,8 +358,12 @@ static inline void close_current_file(void)
     }
 }
 
-static inline char process_end_of_file(void)
+static int commit_text(int token_id, const char* str, token_location_t loc);
+
+static inline char process_end_of_file(char *emit_extra_eos)
 {
+    *emit_extra_eos = !lexer_state.last_eos;
+
     // Are we in the last file?
     if (lexer_state.include_stack_size == 0)
     {
@@ -369,7 +373,8 @@ static inline char process_end_of_file(void)
     else
     {
         DEBUG_CODE() DEBUG_MESSAGE("End of included file %s switching back to %s", 
-                lexer_state.current_file->current_location.filename, lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
+                lexer_state.current_file->current_location.filename,
+                lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
 
         close_current_file();
 
@@ -434,7 +439,7 @@ struct tiny_dyncharbuf_tag
 static inline void tiny_dyncharbuf_new(tiny_dyncharbuf_t* t, int initial_size)
 {
     t->capacity = initial_size;
-    t->buf = xmalloc(sizeof(*t->buf) * t->capacity);
+    t->buf = NEW_VEC(char, t->capacity);
     t->num = 0;
 }
 
@@ -443,7 +448,7 @@ static inline void tiny_dyncharbuf_add(tiny_dyncharbuf_t* t, char c)
     if (t->num >= t->capacity)
     {
         t->capacity *= 2;
-        t->buf = xrealloc(t->buf, sizeof(*(t->buf)) * (t->capacity + 1));
+        t->buf = NEW_REALLOC(char, t->buf, (t->capacity + 1));
     }
     t->buf[t->num] = c;
     t->num++;
@@ -850,7 +855,11 @@ static char finish_character(char result)
                                 {
                                     lexer_state.in_comment = 1;
                                 }
-                                xfree(sentinel.buf);
+                                DELETE(sentinel.buf);
+                            }
+                            else
+                            {
+                                lexer_state.in_comment = 1;
                             }
                         }
                     }
@@ -1103,7 +1112,9 @@ static inline int fixed_form_get(token_location_t* loc)
                     // continue to the next line (redundant)
                     continue;
                 }
-                else if (is_blank(lexer_state.current_file->current_pos[0]))
+                else if (is_blank(lexer_state.current_file->current_pos[0])
+                        // It may happen that this line is completely empty
+                        || is_newline(lexer_state.current_file->current_pos[0]))
                 {
                     // Make sure that we do not find a comment (except in the 6th column)
                     const char* const keep2 = lexer_state.current_file->current_pos;
@@ -1126,8 +1137,10 @@ static inline int fixed_form_get(token_location_t* loc)
                     }
 
                     if (!past_eof()
-                            && lexer_state.current_file->current_pos[0] == '!'
-                            && lexer_state.current_file->current_location.column != 6)
+                            && ((lexer_state.current_file->current_pos[0] == '!'
+                                    && lexer_state.current_file->current_location.column != 6)
+                                // It may happen that this line is just a bunch of whitespace
+                                || (is_newline(lexer_state.current_file->current_pos[0]))))
                     {
                         // Now advance till end of line
                         while (!past_eof()
@@ -1759,7 +1772,7 @@ static inline void peek_init(void)
 {
     if (_peek_queue.buffer == NULL)
     {
-        _peek_queue.buffer = xmalloc(PEEK_INITIAL_SIZE * sizeof(*_peek_queue.buffer));
+        _peek_queue.buffer = NEW_VEC(peek_token_info_t, PEEK_INITIAL_SIZE);
         _peek_queue.size = PEEK_INITIAL_SIZE;
     }
     _peek_queue.back = 0;
@@ -1795,13 +1808,13 @@ static void peek_print(void)
 static inline void peek_grow(void)
 {
     int new_size = _peek_queue.size * 2;
-    peek_token_info_t *new_buffer = xmalloc(new_size * sizeof(*new_buffer));
+    peek_token_info_t *new_buffer = NEW_VEC(peek_token_info_t, new_size);
 
     memcpy(&new_buffer[(new_size - 1) + _peek_queue.back + 1],
             _peek_queue.buffer,
             _peek_queue.size * sizeof(*new_buffer));
 
-    xfree(_peek_queue.buffer);
+    DELETE(_peek_queue.buffer);
     _peek_queue.buffer = new_buffer;
     _peek_queue.size = new_size;
 }
@@ -2052,7 +2065,7 @@ static int commit_text_and_free(int token_id, char* str,
         token_location_t loc)
 {
     token_id = commit_text(token_id, str, loc);
-    xfree(str);
+    DELETE(str);
     return token_id;
 }
 
@@ -2251,7 +2264,7 @@ static char* scan_fractional_part_of_real_literal(void)
     {
         char *kind_str = scan_kind();
         tiny_dyncharbuf_add_str(&str, kind_str);
-        xfree(kind_str);
+        DELETE(kind_str);
     }
 
     tiny_dyncharbuf_add(&str, '\0');
@@ -2313,7 +2326,7 @@ static char is_include_line(void)
     if (p != delim
             || include_filename_buf.num == 1)
     {
-        xfree(include_filename_buf.buf);
+        DELETE(include_filename_buf.buf);
         return 0;
     }
 
@@ -2329,10 +2342,21 @@ static char is_include_line(void)
         p = peek(peek_idx);
     }
 
+    if (p == '!')
+    {
+        // There is a comment after the include, skip everything until the next
+        // newline
+        while (!is_newline(p))
+        {
+            peek_idx++;
+            p = peek(peek_idx);
+        }
+    }
+
     if (!is_newline(p))
     {
         // There is junk
-        xfree(include_filename_buf.buf);
+        DELETE(include_filename_buf.buf);
         return 0;
     }
 
@@ -2351,12 +2375,22 @@ static char is_include_line(void)
     lexer_state.current_file->current_location.column = 1;
 
     // Now get the filename
-    const char* include_filename = find_file_in_directories(
-            CURRENT_CONFIGURATION->num_include_dirs,
-            CURRENT_CONFIGURATION->include_dirs,
+    // We first attempt the current working directory
+    const char* current_dir = ".";
+    const char* include_filename = fortran_find_file_in_directories(
+            1,
+            &current_dir,
             include_filename_buf.buf,
             /* origin */ loc.filename);
-    xfree(include_filename_buf.buf);
+    // otherwise use -Idir options
+    if (include_filename == NULL)
+    {
+        include_filename = fortran_find_file_in_directories(
+                CURRENT_CONFIGURATION->num_include_dirs,
+                CURRENT_CONFIGURATION->include_dirs,
+                include_filename_buf.buf,
+                /* origin */ loc.filename);
+    }
 
     if (include_filename == NULL)
     {
@@ -2364,8 +2398,9 @@ static char is_include_line(void)
                 loc.filename,
                 loc.line,
                 loc.column,
-                include_filename);
+                include_filename_buf.buf);
     }
+    DELETE(include_filename_buf.buf);
 
     int fd = open(include_filename, O_RDONLY);
     if (fd < 0)
@@ -2634,235 +2669,6 @@ static char is_nonexecutable_statement(int k)
     }
 }
 
-#if 0
-static inline void peek_keywords_of_statement(char expect_label)
-{
-    int peek_idx = 0;
-    int p = peek(peek_idx);
-
-    // Read the whole statement until a newline
-    // or ; (out of character-context)
-
-    if (expect_label)
-    {
-        // Skip label (if any)
-        while (is_decimal_digit(p))
-        {
-            peek_idx++;
-            p = peek(peek_idx);
-        }
-
-        // continuation column, there should be a blank here
-        ERROR_CONDITION(p != ' ', "Expecting a blank here, got '%c'", p);
-        peek_idx++;
-        p = peek(peek_idx);
-    }
-
-    char delim = 0;
-    char in_string = 0;
-
-    char free_comma = 0;
-    char free_equal = 0;
-    char free_colon = 0;
-    int parenthesis_level = 0;
-
-    char still_keyword = 1;
-    tiny_dyncharbuf_t keyword;
-    tiny_dyncharbuf_new(&keyword, 32);
-
-    while (!is_newline(p)
-            && ((p != ';'
-                    && p != '!') || in_string))
-    {
-        if (!is_letter(p))
-        {
-            still_keyword = 0;
-        }
-        else if (still_keyword)
-        {
-            tiny_dyncharbuf_add(&keyword, p);
-        }
-
-        if (p == '\'' || p == '"')
-        {
-            if (!in_string)
-            {
-                in_string = 1;
-                delim = p;
-            }
-            else if (p == delim)
-            {
-                int p1 = peek(peek_idx + 1);
-                if (p1 == p)
-                {
-                    // skip this extra delimiter
-                    peek_idx++;
-                }
-                else
-                {
-                    in_string = 0;
-                }
-            }
-        }
-        else if (!in_string)
-        {
-            if (p == '(')
-            {
-                parenthesis_level++;
-            }
-            else if (p == ')')
-            {
-                // At this point the statement can be wrong so protect
-                // parenthesis_level from becoming negative
-                if (parenthesis_level > 0)
-                    parenthesis_level--;
-            }
-            else if (parenthesis_level == 0)
-            {
-                if (p == ',')
-                {
-                    free_comma = 1;
-                }
-                else if (p == '=')
-                {
-                    free_equal = 1;
-                }
-                else if (p == ':')
-                {
-                    free_colon = 1;
-                }
-            }
-        }
-
-        peek_idx++;
-        p = peek(peek_idx);
-    }
-    tiny_dyncharbuf_add(&keyword, '\0');
-
-    lexer_state.fixed_form.num_keywords = 0;
-
-    if (!free_equal            // A=3, DO=1,10, INTEGER::A=3
-            || free_comma      // filter DO=1,10
-            || free_colon)     // filter INTEGER::A=3
-    {
-        // Now try to determine the keyword
-        // we prioritize the longer
-        int length = strlen(keyword.buf);
-
-        struct fortran_keyword_tag *kw = fortran_keywords_lookup(keyword.buf, length);
-        while (kw == NULL
-                && length > 0)
-        {
-            length--;
-            kw = fortran_keywords_lookup(keyword.buf, length);
-        }
-
-        if (kw != NULL)
-        {
-            // The keyword is known
-            lexer_state.fixed_form.keywords[0] = kw->token_id;
-            lexer_state.fixed_form.num_keywords++;
-
-            // We may have to do extra work if we find that this token is followed by others
-            char *current_keyword = keyword.buf + length;
-            char done = 0;
-            char is_function_or_subroutine = 0;
-            if (lexer_state.fixed_form.language_part == LANG_TOP_LEVEL
-                    || lexer_state.fixed_form.language_part == LANG_EXECUTABLE_PART)
-            {
-                // FIXME:
-                //        TYPE(A) FUNCTION B(C)
-
-                while (*current_keyword != '\0'
-                        && !done)
-                {
-                    // Special cases
-                    switch (kw->token_id)
-                    {
-                        case TOKEN_PURE:
-                        case TOKEN_IMPURE:
-                        case TOKEN_ELEMENTAL:
-                        case TOKEN_REAL:
-                        case TOKEN_INTEGER:
-                        case TOKEN_LOGICAL:
-                        case TOKEN_COMPLEX:
-                        case TOKEN_DOUBLEPRECISION:
-                        case TOKEN_DOUBLECOMPLEX:
-                            {
-                                // REAL FUNCTION A(B)
-                                // vs
-                                // REAL FUNCTIONA(B)
-                                //
-                                // Note that REALFUNCTIONA(B) = 3 does not reach this
-                                // code because there is a free equal
-
-                                length = strlen(current_keyword);
-
-                                kw = fortran_keywords_lookup(current_keyword, length);
-                                while (kw == NULL
-                                        && length > 0)
-                                {
-                                    length--;
-                                    kw = fortran_keywords_lookup(current_keyword, length);
-                                }
-
-                                if (kw == NULL)
-                                {
-                                    done = 1;
-                                    break;
-                                }
-
-                                ERROR_CONDITION(lexer_state.fixed_form.num_keywords >= MAX_KEYWORDS_PER_STMT,
-                                        "Too many keywords", 0);
-                                lexer_state.fixed_form.keywords[lexer_state.fixed_form.num_keywords] = kw->token_id;
-                                lexer_state.fixed_form.num_keywords++;
-
-                                current_keyword += length;
-
-                                if (kw->token_id == TOKEN_FUNCTION
-                                        || kw->token_id == TOKEN_SUBROUTINE)
-                                {
-                                    is_function_or_subroutine = 1;
-                                    done = 1;
-                                    lexer_state.fixed_form.language_part = LANG_NONEXECUTABLE_PART;
-                                    break;
-                                }
-                                break;
-                            }
-                        default:
-                            {
-                                if (is_nonexecutable_statement(kw->token_id))
-                                {
-                                    lexer_state.fixed_form.language_part = LANG_NONEXECUTABLE_PART;
-                                }
-                                else
-                                {
-                                    lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
-                                }
-                                done = 1;
-                                break;
-                            }
-                    }
-                }
-
-                if (!is_function_or_subroutine)
-                {
-                    // Discard extra keywords we may have encountered
-                    lexer_state.fixed_form.num_keywords = 1;
-                }
-            }
-        }
-    }
-    else
-    {
-        // Not a keyword, likely an assignment statement (or an error)
-        lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
-    }
-
-    xfree(keyword.buf);
-}
-#endif
-
 static inline int preanalyze_advance_parenthesis(int peek_idx)
 {
     int p = peek(peek_idx);
@@ -2966,7 +2772,7 @@ static inline int preanalyze_advance_parenthesis(int peek_idx)
         p = peek(peek_idx);
     }
 
-    xfree(int_str.buf);
+    DELETE(int_str.buf);
     return peek_idx;
 }
 
@@ -3417,9 +3223,71 @@ static inline void preanalyze_statement(char expect_label)
                     }
                     else
                     {
-                        // If we were in the executable part (or top level!) we
-                        // will assume that we are seing INTEGER FUNCTION F so
-                        // the keyword does not identify that statement
+                        p = peek(peek_idx);
+                        if (is_letter(p))
+                        {
+                            // If we were in the executable part (or top
+                            // level!) we will could be seing INTEGER FUNCTION
+                            // F so the keyword does not identify that
+                            // statement (instead FUNCTION would)
+                            //
+                            // But we will ensure that the next is permissible in this
+                            // case, otherwise
+                            //
+                            // INTEGER*1VALUES(4)
+                            //
+                            // will be tokenized as INTEGER*1 VALUE S(4) which is nonsense
+
+                            tiny_dyncharbuf_t next_keyword;
+                            tiny_dyncharbuf_new(&next_keyword, 16);
+
+                            int peek_idx2 = peek_idx;
+                            p = peek(peek_idx2);
+
+                            char next_kw_is_ok = 0;
+                            while (is_letter(p)
+                                    && !next_kw_is_ok)
+                            {
+                                tiny_dyncharbuf_add(&next_keyword, p);
+
+                                struct fortran_keyword_tag *t =
+                                    fortran_keywords_lookup(next_keyword.buf, next_keyword.num);
+                                if (t != NULL)
+                                {
+                                    switch (t->token_id)
+                                    {
+                                        case TOKEN_FUNCTION:
+                                        case TOKEN_PURE:
+                                        case TOKEN_ELEMENTAL:
+                                        case TOKEN_IMPURE:
+                                        case TOKEN_RECURSIVE:
+                                            // This seems OK at this point
+                                            next_kw_is_ok = 1;
+                                            break;
+                                        default:
+                                            // Wait and see
+                                            break;
+                                    }
+                                }
+
+                                peek_idx2++;
+                                p = peek(peek_idx2);
+                            }
+
+                            DELETE(next_keyword.buf);
+
+                            if (!next_kw_is_ok)
+                            {
+                                // Not followed by an acceptable keyword, the
+                                // current keyword identifies this statement
+                                done_with_keywords = 1;
+                            }
+                        }
+                        else
+                        {
+                            // Not followed by a letter, this keyword identifies this statement
+                            done_with_keywords = 1;
+                        }
                     }
                     break;
                 }
@@ -3503,7 +3371,7 @@ static inline void preanalyze_statement(char expect_label)
         }
     }
 
-    xfree(keyword.buf);
+    DELETE(keyword.buf);
 }
 
 static inline char is_known_sentinel(char** sentinel)
@@ -3536,7 +3404,7 @@ static inline char is_known_sentinel(char** sentinel)
     }
     else
     {
-        xfree(tmp_sentinel.buf);
+        DELETE(tmp_sentinel.buf);
         *sentinel = xstrdup(out_sentinel);
         return 1;
     }
@@ -3664,7 +3532,7 @@ static const char* return_pragma_prefix_longest_match(
         ERROR_CONDITION(start == NULL || end == NULL || (end <= start),
                 "Invalid values for the cursors", 0);
         // Keep the relevant directive of the lexed input
-        *relevant_directive = xmalloc((end - start + 1) * sizeof(char));
+        *relevant_directive = NEW_VEC(char, (end - start + 1));
         strncpy(*relevant_directive, start, end - start);
         (*relevant_directive)[end - start] = '\0';
 
@@ -3744,14 +3612,16 @@ extern int new_mf03lex(void)
                 case EOF:
                     {
                         reset_fixed_form();
-                        char end_of_scan = process_end_of_file();
+                        char emit_extra_eos = 0;
+                        char end_of_scan = process_end_of_file(&emit_extra_eos);
+
+                        if (emit_extra_eos)
+                        {
+                            return commit_text(EOS, NULL, get_current_location());
+                        }
+
                         if (end_of_scan)
                         {
-                            if (!lexer_state.last_eos)
-                            {
-                                // Make sure we force a final EOS
-                                return commit_text(EOS, NULL, get_current_location());
-                            }
                             return 0;
                         }
                         else
@@ -3850,7 +3720,7 @@ extern int new_mf03lex(void)
                                     tiny_dyncharbuf_add_str(&str, "!$");
                                     tiny_dyncharbuf_add_str(&str, sentinel);
 
-                                    xfree(sentinel);
+                                    DELETE(sentinel);
 
                                     // Everything will be scanned as a single token
                                     int c = peek(0);
@@ -3887,7 +3757,14 @@ extern int new_mf03lex(void)
                         {
                             return commit_text(EOS, NULL, loc);
                         }
-                        break;
+                        if (mf03_flex_debug)
+                        {
+                            fprintf(stderr, "SKIPPING SEMICOLON %s:%d:%d\n",
+                                    loc.filename,
+                                    loc.line,
+                                    loc.column);
+                        }
+                        continue;
                     }
                 case '(' :
                     {
@@ -4226,7 +4103,7 @@ extern int new_mf03lex(void)
 
                                 tiny_dyncharbuf_add_str(&t_str, str);
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
-                                xfree(kind_str);
+                                DELETE(kind_str);
                                 tiny_dyncharbuf_add(&t_str, '\0');
 
                                 return commit_text_and_free(TOKEN_TRUE, t_str.buf, loc);
@@ -4263,7 +4140,7 @@ extern int new_mf03lex(void)
 
                                 tiny_dyncharbuf_add_str(&t_str, str);
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
-                                xfree(kind_str);
+                                DELETE(kind_str);
                                 tiny_dyncharbuf_add(&t_str, '\0');
 
                                 return commit_text_and_free(TOKEN_FALSE, t_str.buf, loc);
@@ -4513,7 +4390,7 @@ extern int new_mf03lex(void)
                             tiny_dyncharbuf_new(&t_str, strlen(identifier.buf) + 32 + 1);
 
                             tiny_dyncharbuf_add_str(&t_str, identifier.buf);
-                            xfree(identifier.buf);
+                            DELETE(identifier.buf);
 
                             tiny_dyncharbuf_add(&t_str, c1); // _
                             tiny_dyncharbuf_add(&t_str, c2); // " or '
@@ -4522,7 +4399,7 @@ extern int new_mf03lex(void)
                             char *text = NULL;
                             scan_character_literal(t_str.buf, /* delim */ c2, /* allow_suffix_boz */ 0, loc,
                                     &token_id, &text);
-                            xfree(t_str.buf);
+                            DELETE(t_str.buf);
 
                             return commit_text_and_free(token_id, text, loc);
                         }
@@ -4588,9 +4465,9 @@ extern int new_mf03lex(void)
                             tiny_dyncharbuf_t t_str;
                             tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(fractional_part) + 1);
                             tiny_dyncharbuf_add_str(&t_str, digits.buf);
-                            xfree(digits.buf);
+                            DELETE(digits.buf);
                             tiny_dyncharbuf_add_str(&t_str, fractional_part);
-                            xfree(fractional_part);
+                            DELETE(fractional_part);
 
                             tiny_dyncharbuf_add(&t_str, '\0');
 
@@ -4630,9 +4507,9 @@ extern int new_mf03lex(void)
                                 tiny_dyncharbuf_t t_str;
                                 tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(fractional_part) + 1);
                                 tiny_dyncharbuf_add_str(&t_str, digits.buf);
-                                xfree(digits.buf);
+                                DELETE(digits.buf);
                                 tiny_dyncharbuf_add_str(&t_str, fractional_part);
-                                xfree(fractional_part);
+                                DELETE(fractional_part);
 
                                 tiny_dyncharbuf_add(&t_str, '\0');
 
@@ -4655,7 +4532,7 @@ extern int new_mf03lex(void)
                                 tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + 32 + 1);
 
                                 tiny_dyncharbuf_add_str(&t_str, digits.buf);
-                                xfree(digits.buf);
+                                DELETE(digits.buf);
 
                                 tiny_dyncharbuf_add(&t_str, c1); // _
                                 tiny_dyncharbuf_add(&t_str, c2); // " or '
@@ -4665,7 +4542,7 @@ extern int new_mf03lex(void)
                                 char* text;
                                 scan_character_literal(/*prefix */ t_str.buf, /* delim */ c2, /* allow_suffix_boz */ 0, loc,
                                         &token_id, &text);
-                                xfree(t_str.buf);
+                                DELETE(t_str.buf);
 
                                 return commit_text_and_free(token_id, text, loc);
                             }
@@ -4677,10 +4554,10 @@ extern int new_mf03lex(void)
                                 tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(kind_str) + 1);
 
                                 tiny_dyncharbuf_add_str(&t_str, digits.buf);
-                                xfree(digits.buf);
+                                DELETE(digits.buf);
 
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
-                                xfree(kind_str);
+                                DELETE(kind_str);
                                 tiny_dyncharbuf_add(&t_str, '\0');
 
                                 return commit_text_and_free(DECIMAL_LITERAL, t_str.buf, loc);
@@ -4691,7 +4568,7 @@ extern int new_mf03lex(void)
                             get();
                             // This is a Holleritz constant
                             int length = atoi(digits.buf);
-                            xfree(digits.buf);
+                            DELETE(digits.buf);
 
                             if (length == 0)
                             {
@@ -4757,10 +4634,10 @@ extern int new_mf03lex(void)
                                     if (lexer_state.num_nonblock_labels == lexer_state.size_nonblock_labels_stack)
                                     {
                                         lexer_state.size_nonblock_labels_stack = 2*lexer_state.size_nonblock_labels_stack + 1;
-                                        lexer_state.nonblock_labels_stack = xrealloc(
+                                        lexer_state.nonblock_labels_stack = NEW_REALLOC(
+                                                int,
                                                 lexer_state.nonblock_labels_stack,
-                                                lexer_state.size_nonblock_labels_stack
-                                                * sizeof(*lexer_state.nonblock_labels_stack));
+                                                lexer_state.size_nonblock_labels_stack);
                                     }
                                     lexer_state.nonblock_labels_stack[lexer_state.num_nonblock_labels] = label;
                                     lexer_state.num_nonblock_labels++;
@@ -4847,7 +4724,7 @@ extern int new_mf03lex(void)
                 case EOF:
                     {
                         lexer_state.substate = LEXER_SUBSTATE_NORMAL;
-                        xfree(lexer_state.sentinel);
+                        DELETE(lexer_state.sentinel);
                         lexer_state.sentinel = NULL;
                         error_printf("%s:%d:%d: error: unexpected end-of-file in directive\n",
                                 loc.filename,
@@ -4859,7 +4736,7 @@ extern int new_mf03lex(void)
                 case '\r':
                     {
                         lexer_state.substate = LEXER_SUBSTATE_NORMAL;
-                        xfree(lexer_state.sentinel);
+                        DELETE(lexer_state.sentinel);
                         lexer_state.sentinel = NULL;
                         if (!lexer_state.last_eos)
                         {
@@ -4957,11 +4834,11 @@ extern int new_mf03lex(void)
                                     tiny_dyncharbuf_add(&t_str, '\0');
 
                                     tiny_dyncharbuf_add_str(&str, t_str.buf);
-                                    xfree(t_str.buf);
+                                    DELETE(t_str.buf);
                                 }
                                 else
                                 {
-                                    xfree(t_str.buf);
+                                    DELETE(t_str.buf);
                                     break;
                                 }
                             }
@@ -5017,10 +4894,10 @@ extern int new_mf03lex(void)
                                             if (lexer_state.num_pragma_constructs == lexer_state.size_pragma_constructs_stack)
                                             {
                                                 lexer_state.size_pragma_constructs_stack = 2*lexer_state.size_pragma_constructs_stack + 1;
-                                                lexer_state.pragma_constructs_stack = xrealloc(
+                                                lexer_state.pragma_constructs_stack = NEW_REALLOC(
+                                                        char*,
                                                         lexer_state.pragma_constructs_stack,
-                                                        lexer_state.size_pragma_constructs_stack
-                                                        *sizeof(*lexer_state.pragma_constructs_stack));
+                                                        lexer_state.size_pragma_constructs_stack);
                                             }
                                             lexer_state.pragma_constructs_stack[lexer_state.num_pragma_constructs] = xstrdup(longest_match);
                                             lexer_state.num_pragma_constructs++;
@@ -5044,7 +4921,7 @@ extern int new_mf03lex(void)
                                                 }
                                                 else
                                                 {
-                                                    xfree(top);
+                                                    DELETE(top);
                                                     lexer_state.num_pragma_constructs--;
                                                     token_id = PRAGMA_CUSTOM_END_CONSTRUCT;
                                                 }
@@ -5076,7 +4953,7 @@ extern int new_mf03lex(void)
 
                             lexer_state.substate = LEXER_SUBSTATE_PRAGMA_FIRST_CLAUSE;
                             int n = commit_text_and_free(token_id, relevant_directive, loc);
-                            xfree(str.buf);
+                            DELETE(str.buf);
                             return n;
                             break;
                         }

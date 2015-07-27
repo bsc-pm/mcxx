@@ -27,7 +27,7 @@
 
 
 
-#include "tl-omp-target.hpp"
+#include "tl-ompss-target.hpp"
 #include "tl-omp-core.hpp"
 #include "cxx-diagnostic.h"
 
@@ -35,8 +35,8 @@ namespace TL
 {
     namespace OpenMP
     {
-        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line,
-                TargetContext& target_ctx,
+        void Core::ompss_common_target_handler_pre(TL::PragmaCustomLine pragma_line,
+                OmpSs::TargetContext& target_ctx,
                 TL::Scope scope,
                 bool is_pragma_task)
         {
@@ -230,9 +230,9 @@ namespace TL
                     ERROR_CONDITION(implements_list.size() != 1, "clause 'implements' expects one identifier", 0);
 
                     // Restore the scope chain we broke in an INTERFACE block
-                    decl_context_t decl_context = scope.get_decl_context();
+                    const decl_context_t* decl_context = scope.get_decl_context();
                     TL::Symbol current_procedure = scope.get_related_symbol();
-                    decl_context.current_scope->contained_in = current_procedure.get_internal_symbol()->decl_context.current_scope;
+                    decl_context->current_scope->contained_in = current_procedure.get_internal_symbol()->decl_context->current_scope;
 
                     TL::Scope fixed_scope = TL::Scope(decl_context);
 
@@ -262,18 +262,12 @@ namespace TL
         }
 
         // #pragma omp target on top of a #pragma omp task outline
-        void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
+        void Core::ompss_target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
-            if (!this->in_ompss_mode())
-            {
-                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
-                return;
-            }
-
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
-            TargetContext target_ctx;
+            OmpSs::TargetContext target_ctx;
 
-            common_target_handler_pre(pragma_line, target_ctx,
+            ompss_common_target_handler_pre(pragma_line, target_ctx,
                     ctr.get_context_of_parameters().retrieve_context(),
                     /* is_pragma_task */ false);
 
@@ -284,10 +278,10 @@ namespace TL
                 if (!function_sym.is_function())
                 {
                     warn_printf("%s: warning: '#pragma omp target' with an 'implements' clause must "
-                        "precede a single function declaration or a function definition\n",
-                        ctr.get_locus_str().c_str());
+                            "precede a single function declaration or a function definition\n",
+                            ctr.get_locus_str().c_str());
                     warn_printf("%s: warning: skipping the whole '#pragma omp target'\n",
-                        ctr.get_locus_str().c_str());
+                            ctr.get_locus_str().c_str());
                     return;
                 }
 
@@ -301,18 +295,18 @@ namespace TL
                 else
                 {
                     // The symbol mentioned in the 'implements' clause is a function task
-                    FunctionTaskInfo& function_task_info =
+                    OmpSs::FunctionTaskInfo& function_task_info =
                         _function_task_set->get_function_task(target_ctx.implements);
 
-                    TargetInfo &target_info = function_task_info.get_target_info();
-                    TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
+                    OmpSs::TargetInfo &target_info = function_task_info.get_target_info();
+                    OmpSs::TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
 
                     for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                             it != target_ctx.device_list.end();
                             it++)
                     {
                         const char* current_device_lowercase = strtolower(it->c_str());
-                        TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(current_device_lowercase);
+                        OmpSs::TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(current_device_lowercase);
                         // If the current device hasn't an entry in the map
                         if (it2 == implementation_table.end()
                                 // Or it has but the current symbol is not in the list
@@ -333,7 +327,7 @@ namespace TL
             _target_context.push(target_ctx);
         }
 
-        void Core::target_handler_post(TL::PragmaCustomDeclaration)
+        void Core::ompss_target_handler_post(TL::PragmaCustomDeclaration)
         {
             // It might be empty due to early exits in the preorder routine
             if (!_target_context.empty())
@@ -342,15 +336,8 @@ namespace TL
             }
         }
 
-        // #pragma omp target on top of a #pragma omp task inline
-        void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
+        void Core::ompss_target_handler_pre(TL::PragmaCustomStatement ctr)
         {
-            if (!this->in_ompss_mode())
-            {
-                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
-                return;
-            }
-
             Nodecl::NodeclBase nested_pragma = ctr.get_statements();
             if (!nested_pragma.is_null()
                     && nested_pragma.is<Nodecl::List>())
@@ -371,7 +358,7 @@ namespace TL
             }
 
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
-            TargetContext target_ctx;
+            OmpSs::TargetContext target_ctx;
 
             if (target_ctx.has_implements)
             {
@@ -382,7 +369,7 @@ namespace TL
                 return;
             }
 
-            common_target_handler_pre(pragma_line,
+            ompss_common_target_handler_pre(pragma_line,
                     target_ctx,
                     ctr.retrieve_context(),
                     /* is_pragma_task */ false);
@@ -390,7 +377,7 @@ namespace TL
             _target_context.push(target_ctx);
         }
 
-        void Core::target_handler_post(TL::PragmaCustomStatement)
+        void Core::ompss_target_handler_post(TL::PragmaCustomStatement)
         {
             // It might be empty due to early exits in the preorder routine
             if (!_target_context.empty())
@@ -400,13 +387,13 @@ namespace TL
         }
 
         static void add_copy_items(PragmaCustomLine construct, 
-                DataSharingEnvironment& data_sharing_environment,
+                DataEnvironment& data_sharing_environment,
                 const ObjectList<Nodecl::NodeclBase>& list,
-                CopyDirection copy_direction,
-                TargetInfo& target_info,
+                TL::OmpSs::CopyDirection copy_direction,
+                TL::OmpSs::TargetInfo& target_info,
                 bool in_ompss_mode)
         {
-            TL::ObjectList<CopyItem> items;
+            TL::ObjectList<TL::OmpSs::CopyItem> items;
 
             for (ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
                     it != list.end();
@@ -485,23 +472,23 @@ namespace TL
                     }
                 }
 
-                CopyItem copy_item(expr, copy_direction);
+                TL::OmpSs::CopyItem copy_item(expr, copy_direction);
                 items.append(copy_item);
             }
 
             switch (copy_direction)
             {
-                case COPY_DIR_IN:
+                case TL::OmpSs::COPY_DIR_IN:
                     {
                         target_info.append_to_copy_in(items);
                         break;
                     }
-                case COPY_DIR_OUT:
+                case TL::OmpSs::COPY_DIR_OUT:
                     {
                         target_info.append_to_copy_out(items);
                         break;
                     }
-                case COPY_DIR_INOUT:
+                case TL::OmpSs::COPY_DIR_INOUT:
                     {
                         target_info.append_to_copy_inout(items);
                         break;
@@ -515,33 +502,34 @@ namespace TL
 
         // This function is invoked only for inline tasks (and some other
         // constructs though target info is unused for them)
-        void Core::get_target_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing_environment)
+        void Core::ompss_get_target_info(TL::PragmaCustomLine construct,
+                DataEnvironment& data_sharing_environment)
         {
             if (_target_context.empty())
                 return;
 
-            TargetInfo target_info;
+            TL::OmpSs::TargetInfo target_info;
 
             TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
             ERROR_CONDITION(!enclosing_function.is_valid(), "This symbol is not valid", 0);
             target_info.set_target_symbol(enclosing_function);
-            TargetContext& target_ctx = _target_context.top();
+            OmpSs::TargetContext& target_ctx = _target_context.top();
 
             add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_in,
-                    COPY_DIR_IN,
+                    TL::OmpSs::COPY_DIR_IN,
                     target_info,
                     in_ompss_mode());
 
             add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_out,
-                    COPY_DIR_OUT,
+                    TL::OmpSs::COPY_DIR_OUT,
                     target_info,
                     in_ompss_mode());
 
             add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_inout,
-                    COPY_DIR_INOUT,
+                    TL::OmpSs::COPY_DIR_INOUT,
                     target_info,
                     in_ompss_mode());
 
@@ -571,7 +559,7 @@ namespace TL
                     switch (it->get_kind())
                     {
                         case DEP_DIR_IN:
-                        case DEP_DIR_IN_PRIVATE:
+                        case DEP_OMPSS_DIR_IN_PRIVATE:
                             {
                                 p = &dep_list_in;
                                 break;
@@ -582,8 +570,9 @@ namespace TL
                                 break;
                             }
                         case DEP_DIR_INOUT:
-                        case DEP_CONCURRENT:
-                        case DEP_COMMUTATIVE:
+                            // OmpSs
+                        case DEP_OMPSS_CONCURRENT:
+                        case DEP_OMPSS_COMMUTATIVE:
                             {
                                 p = &dep_list_inout;
                                 break;
@@ -599,19 +588,19 @@ namespace TL
 
                 add_copy_items(construct, data_sharing_environment,
                         dep_list_in,
-                        COPY_DIR_IN,
+                        TL::OmpSs::COPY_DIR_IN,
                         target_info,
                         in_ompss_mode());
 
                 add_copy_items(construct, data_sharing_environment,
                         dep_list_out,
-                        COPY_DIR_OUT,
+                        TL::OmpSs::COPY_DIR_OUT,
                         target_info,
                         in_ompss_mode());
 
                 add_copy_items(construct, data_sharing_environment,
                         dep_list_inout,
-                        COPY_DIR_INOUT,
+                        TL::OmpSs::COPY_DIR_INOUT,
                         target_info,
                         in_ompss_mode());
             }
@@ -623,13 +612,13 @@ namespace TL
                         || !target_ctx.copy_inout.empty())
                     && !_allow_shared_without_copies)
             {
-                ObjectList<CopyItem> all_copies;
+                ObjectList<TL::OmpSs::CopyItem> all_copies;
                 all_copies.append(target_info.get_copy_in());
                 all_copies.append(target_info.get_copy_out());
                 all_copies.append(target_info.get_copy_inout());
 
                 ObjectList<Symbol> all_copied_syms = all_copies
-                    .map(&CopyItem::get_copy_expression)
+                    .map(&TL::OmpSs::CopyItem::get_copy_expression)
                     .map(&DataReference::get_base_symbol);
 
                 // In devices with disjoint memory, it may be wrong to use a

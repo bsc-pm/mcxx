@@ -268,7 +268,7 @@ namespace TL { namespace Nanox {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
         Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
-            .find_first<Nodecl::OpenMP::TaskLabel>();
+            .find_first<Nodecl::OmpSs::TaskLabel>();
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)
@@ -438,7 +438,7 @@ namespace TL { namespace Nanox {
         ss << "wsd_" << (int)arg_counter++;
 
         // Create a detached symbol. Will put in a scope later, in loop_spawn
-        scope_entry_t* slicer_descriptor_internal = (scope_entry_t*)::xcalloc(1, sizeof(*slicer_descriptor_internal));
+        scope_entry_t* slicer_descriptor_internal = NEW0(scope_entry_t);
         // This is a transient scope but it will be changed before inserting the symbol
         // to its final scope
         slicer_descriptor_internal->decl_context = construct.retrieve_context().get_decl_context();

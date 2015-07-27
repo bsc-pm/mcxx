@@ -280,7 +280,7 @@ typedef enum access_specifier_t
 struct default_argument_info_tag
 {
     nodecl_t argument;
-    decl_context_t context;
+    const decl_context_t* context;
     char is_hidden;
 };
 
@@ -330,7 +330,7 @@ struct scope_entry_tag
 
     // Decl context when the symbol was declared it contains the scope where
     // the symbol was registered
-    decl_context_t decl_context;
+    const decl_context_t* decl_context;
 
     // The symbol name
     const char* symbol_name;
@@ -342,7 +342,7 @@ struct scope_entry_tag
 
     // Related decl_context of this symbol. Namespaces in C++ and all program
     // units in Fortran use this field
-    decl_context_t related_decl_context;
+    const decl_context_t* related_decl_context;
 
     // Initializations of several kind are saved here
     //  - initialization of const objects
@@ -401,7 +401,7 @@ struct scope_tag
     scope_entry_t* related_entry;
 };
 
-typedef const char* (*print_symbol_callback_t)(scope_entry_t*, decl_context_t, void*);
+typedef const char* (*print_symbol_callback_t)(scope_entry_t*, const decl_context_t*, void*);
 
 enum { MCXX_MAX_FIELD_PATH = 1 };
 

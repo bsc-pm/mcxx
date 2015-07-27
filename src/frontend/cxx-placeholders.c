@@ -55,7 +55,7 @@ static AST* decode_placeholder(const char *c)
     return tree;
 }
 
-void check_statement_placeholder(AST placeholder, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+void check_statement_placeholder(AST placeholder, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     AST* p = decode_placeholder(ASTText(placeholder));
 
