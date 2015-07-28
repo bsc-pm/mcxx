@@ -175,6 +175,21 @@ namespace TL { namespace Nanos6 {
                     || task_info_struct.is_class()),
                 "Invalid symbol", 0);
 
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Force this symbol to be BIND(C)
+            // FIXME: we want to be able to do this from the C FE
+            TL::Symbol sym = task_info_struct.get_type().advance_over_typedefs().get_symbol();
+            if (!sym.is_bind_c())
+            {
+                symbol_entity_specs_set_bind_info(
+                        sym.get_internal_symbol(),
+                        Nodecl::FortranBindC::make(
+                            Nodecl::NodeclBase::null()
+                            ).get_internal_nodecl());
+            }
+        }
+
         std::string task_info_name;
         {
             std::stringstream ss;
