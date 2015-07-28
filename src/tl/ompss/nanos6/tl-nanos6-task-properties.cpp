@@ -486,8 +486,10 @@ namespace TL { namespace Nanos6 {
 
         // FIXME - VLA
         args_size = const_value_to_nodecl_with_basic_type(
-                const_value_get_signed_int(
-                    info_structure.get_size()),
+                const_value_get_integer(
+                    info_structure.get_size(),
+                    /* bytes */ type_get_size(get_size_t_type()),
+                    /* sign */ 0),
                 get_size_t_type());
     }
 
