@@ -131,7 +131,7 @@ namespace TL { namespace Nanos6 {
         Scope sc = construct.retrieve_context();
         Scope new_block_context_sc = new_block_context(sc.get_decl_context());
 
-        TaskProperties parameter_task_properties = TaskProperties::gather_task_properties(construct);
+        TaskProperties parameter_task_properties = TaskProperties::gather_task_properties(_phase, construct);
 
         Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 

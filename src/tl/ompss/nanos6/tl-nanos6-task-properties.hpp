@@ -28,6 +28,7 @@
 #ifndef TL_NANOS6_TASK_PROPERTIES_HPP
 #define TL_NANOS6_TASK_PROPERTIES_HPP
 
+#include "tl-nanos6.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-type.hpp"
 #include "tl-symbol.hpp"
@@ -37,6 +38,8 @@ namespace TL { namespace Nanos6 {
     struct TaskProperties
     {
         private:
+            LoweringPhase* phase;
+
             typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
             field_map_t field_map;
 
@@ -81,11 +84,15 @@ namespace TL { namespace Nanos6 {
             TL::Symbol related_function;
             const locus_t* locus_of_task;
 
-            TaskProperties()
-                : is_tied(true), is_function_task(false) { }
+            TaskProperties(LoweringPhase* lowering_phase)
+                : phase(lowering_phase), is_tied(true), is_function_task(false) { }
 
-            static TaskProperties gather_task_properties(const Nodecl::OpenMP::Task& node);
-            static TaskProperties gather_task_properties(const Nodecl::OmpSs::TaskCall& node);
+            static TaskProperties gather_task_properties(
+                    LoweringPhase* phase,
+                    const Nodecl::OpenMP::Task& node);
+            static TaskProperties gather_task_properties(
+                    LoweringPhase* phase,
+                    const Nodecl::OmpSs::TaskCall& node);
 
             void create_task_info(
                     /* out */

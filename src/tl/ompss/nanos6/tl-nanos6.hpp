@@ -29,6 +29,7 @@
 #define TL_NANOS6_HPP
 
 #include "tl-compilerphase.hpp"
+#include "tl-nodecl.hpp"
 
 namespace TL { namespace Nanos6 {
 
@@ -42,8 +43,14 @@ namespace TL { namespace Nanos6 {
 
             virtual void phase_cleanup(DTO& data_flow);
 
+            Nodecl::List &get_extra_c_code() { return _extra_c_code; }
+
         private:
             void fortran_load_api(DTO& dto);
+
+            Nodecl::List _extra_c_code;
+            
+            friend struct Lower;
     };
 
 } }

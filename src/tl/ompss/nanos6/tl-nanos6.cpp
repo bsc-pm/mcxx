@@ -27,6 +27,10 @@
 
 #include "tl-nanos6.hpp"
 #include "tl-nanos6-lower.hpp"
+#include "tl-compilerpipeline.hpp"
+#include "codegen-phase.hpp"
+#include "cxx-profile.h"
+#include "cxx-driver-utils.h"
 
 namespace TL { namespace Nanos6 {
 
@@ -62,7 +66,43 @@ namespace TL { namespace Nanos6 {
 
     void LoweringPhase::phase_cleanup(DTO& dto)
     {
-        // std::cerr << "Nanos 6 phase cleanup" << std::endl;
+        if (_extra_c_code.is_null())
+            return;
+
+        std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
+        std::string new_filename = "nanos6_extra_code_" + original_filename  + ".c";
+
+        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
+        if (ancillary_file == NULL)
+        {
+            running_error("%s: error: cannot open file '%s'. %s\n",
+                    original_filename.c_str(),
+                    new_filename.c_str(),
+                    strerror(errno));
+        }
+
+        source_language_t prev_lang = CURRENT_CONFIGURATION->source_language;
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+
+        compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when there is extra C code", 0);
+
+        // Make sure phases are loaded (this is needed for codegen)
+        load_compiler_phases(configuration);
+
+        TL::CompilationProcess::add_file(new_filename, "auxcc");
+
+        ::mark_file_for_cleanup(new_filename.c_str());
+
+        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
+
+        CURRENT_CONFIGURATION->source_language = prev_lang;
+
+        fclose(ancillary_file);
+
+        // Do not forget to clear the node for next files
+        _extra_c_code = Nodecl::List();
     }
 
 } }

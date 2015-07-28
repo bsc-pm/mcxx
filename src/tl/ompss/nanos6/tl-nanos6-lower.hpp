@@ -40,7 +40,6 @@ namespace TL { namespace Nanos6 {
             LoweringPhase* _phase;
 
         public:
-
             Lower(LoweringPhase* phase) : _phase(phase) { }
 
             virtual void visit(const Nodecl::OpenMP::Task& n);

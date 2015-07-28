@@ -130,9 +130,11 @@ namespace TL { namespace Nanos6 {
 
     };
 
-    TaskProperties TaskProperties::gather_task_properties(const Nodecl::OpenMP::Task& node)
+    TaskProperties TaskProperties::gather_task_properties(
+            LoweringPhase* phase,
+            const Nodecl::OpenMP::Task& node)
     {
-        TaskProperties tp;
+        TaskProperties tp(phase);
 
         TaskPropertiesVisitor tv(tp);
         tv.walk(node.get_environment());
@@ -144,9 +146,11 @@ namespace TL { namespace Nanos6 {
         return tp;
     }
 
-    TaskProperties TaskProperties::gather_task_properties(const Nodecl::OmpSs::TaskCall& node)
+    TaskProperties TaskProperties::gather_task_properties(
+            LoweringPhase* phase,
+            const Nodecl::OmpSs::TaskCall& node)
     {
-        TaskProperties tp;
+        TaskProperties tp(phase);
 
         TaskPropertiesVisitor tv(tp);
         tv.walk(node.get_environment());
@@ -330,6 +334,15 @@ namespace TL { namespace Nanos6 {
                     task_body,
                     Nodecl::ObjectInit::make(task_info));
         }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            // FIXME - mangling of symbols
+            phase->get_extra_c_code().append(Nodecl::ObjectInit::make(task_info));
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 
     TL::Scope TaskProperties::compute_scope_for_environment_structure()
@@ -404,7 +417,8 @@ namespace TL { namespace Nanos6 {
         counter++;
 
         std::string structure_name;
-        if (IS_C_LANGUAGE)
+        if (IS_C_LANGUAGE
+                || IS_FORTRAN_LANGUAGE)
         {
             // We need an extra 'struct '
             structure_name = "struct " + ss.str();
