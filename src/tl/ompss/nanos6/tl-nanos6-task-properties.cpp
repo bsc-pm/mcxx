@@ -301,16 +301,20 @@ namespace TL { namespace Nanos6 {
 
         task_info.set_value(struct_init);
 
-        if (IS_CXX_LANGUAGE)
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
         {
+            if (IS_CXX_LANGUAGE)
+            {
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                        task_body,
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info));
+            }
+
             Nodecl::Utils::prepend_to_enclosing_top_level_location(
                     task_body,
-                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info));
+                    Nodecl::ObjectInit::make(task_info));
         }
-
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                task_body,
-                Nodecl::ObjectInit::make(task_info));
     }
 
     TL::Scope TaskProperties::compute_scope_for_environment_structure()
