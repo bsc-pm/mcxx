@@ -149,11 +149,11 @@ namespace {
                                  "the node that is sequentially executed. "\
                                  "Task creation node %d has %d children", current->get_id( ), children.size( ) );
             }
-            else if( current->is_omp_task_node( ) )
+            else if( current->is_omp_task_node( ) || current->is_ompss_async_target_node() )
             {
                 ObjectList<Node*> children = current->get_children( );
                 ERROR_CONDITION( children.empty( ),
-                                 "Task %d is never synchronized", current->get_id( ) );
+                                 "Task|Target %d is never synchronized", current->get_id( ) );
             }
         }
     }

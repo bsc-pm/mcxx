@@ -76,6 +76,7 @@ namespace Analysis {
     
     enum TDGNodeType {
         Task,
+        Target,
         Taskwait,
         Barrier
     };

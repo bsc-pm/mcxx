@@ -95,6 +95,7 @@ namespace Analysis {
     GRAPH_TYPE(LoopDoWhile) \
     GRAPH_TYPE(LoopFor) \
     GRAPH_TYPE(LoopWhile) \
+    GRAPH_TYPE(OmpAsyncTarget) \
     GRAPH_TYPE(OmpAtomic) \
     GRAPH_TYPE(OmpBarrierGraph) \
     GRAPH_TYPE(OmpCritical) \
@@ -110,9 +111,9 @@ namespace Analysis {
     GRAPH_TYPE(OmpSimdParallel) \
     GRAPH_TYPE(OmpSimdParallelFor) \
     GRAPH_TYPE(OmpSingle) \
+    GRAPH_TYPE(OmpSyncTarget) \
     GRAPH_TYPE(OmpWorkshare) \
     GRAPH_TYPE(OmpTask) \
-    GRAPH_TYPE(OmpTarget) \
     GRAPH_TYPE(SplitStmt) \
     GRAPH_TYPE(Switch) \
     GRAPH_TYPE(SwitchCase) \

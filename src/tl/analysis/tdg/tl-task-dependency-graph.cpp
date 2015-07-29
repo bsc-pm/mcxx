@@ -110,7 +110,7 @@ namespace {
             return false;
         
         // Return true only when we find the task traversing the current path
-        if(current->is_omp_task_node())
+        if(current->is_omp_task_node() || current->is_ompss_async_target_node())
         {
             if(current == task)
                 return true;
@@ -806,12 +806,14 @@ insert_values:
           _source_clauses(), _target_clauses(), _condition(condition)
     {
         // Fill source and target lists with the corresponding clauses
-        if(source->_pcfg_node->is_omp_task_node())
+        if (source->_pcfg_node->is_omp_task_node()
+            || source->_pcfg_node->is_ompss_async_target_node())
         {
             Nodecl::OpenMP::Task task = source->_pcfg_node->get_graph_related_ast().as<Nodecl::OpenMP::Task>();
             _source_clauses = get_task_dependency_clauses(task);
         }
-        if(target->_pcfg_node->is_omp_task_node())
+        if (target->_pcfg_node->is_omp_task_node()
+            || target->_pcfg_node->is_ompss_async_target_node())
         {
             Nodecl::OpenMP::Task task = target->_pcfg_node->get_graph_related_ast().as<Nodecl::OpenMP::Task>();
             _target_clauses = get_task_dependency_clauses(task);
@@ -878,14 +880,20 @@ insert_values:
     
     // TODO
     void TaskDependencyGraph::taskify_graph(Node* current)
-    {
-    }
+    {}
     
     void TaskDependencyGraph::create_tdg(Node* current)
     {
+        // 1.- Build the nodes from the TDG
         create_tdg_nodes_from_pcfg(current);
         ExtensibleGraph::clear_visits(current);
+
+        // 2.- Compute the data structures that will wrap the nodes
         set_tdg_nodes_control_structures();
+
+        // 3.- Connect the tasks in the TDG
+        // FIXME Synchronous target nodes will not be connected to a task|target|synchronization
+        // This means we will have to connect the node here manually
         connect_tdg_nodes_from_pcfg(current);
         ExtensibleGraph::clear_visits(current);
     }
@@ -907,6 +915,11 @@ insert_values:
             {
                 tdg_node_id = current->get_graph_related_ast().get_line();
                 tdg_current = new TDG_Node(current, Task);
+            }
+            else if(current->is_ompss_async_target_node())
+            {
+                tdg_node_id = current->get_graph_related_ast().get_line();
+                tdg_current = new TDG_Node(current, Target);
             }
             else if(current->is_omp_taskwait_node())
             {
@@ -1068,66 +1081,139 @@ insert_values:
             }
         }
     }
-    
-    void TaskDependencyGraph::connect_tdg_nodes_from_pcfg(Node* current)
+
+    // Traverse the PCFG forward until:
+    // - a barrier is found
+    // - a taskwait in the same task region is found
+    // - the current task region is exited
+    void TaskDependencyGraph::connect_tasks_to_previous_synchronization(Node* sync)
     {
-        if (!current->is_visited())
+        // Start traversing the children of the synchronization node
+        std::queue<Node*> worklist;
+        const ObjectList<Node*>& children = sync->get_children();
+        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            worklist.push(*it);
+
+        std::set<Node*> visited;
+        while (!worklist.empty())
         {
-            current->set_visited(true);
-            
-            if (current->is_omp_task_node())
+            Node* n = worklist.front();
+            worklist.pop();
+
+            // Base cases:
+            // - the node has already been visited
+            if (visited.find(n) != visited.end())
+                continue;
+            // - we have found a taskwait or a barrier node
+            if (n->is_omp_taskwait_node() || n->is_omp_barrier_graph_node())
+                continue;
+
+            // Treat the current node: if it is a task, then it has to be synchronized here!
+            visited.insert(n);
+            if (n->is_omp_task_node())
             {
-                // Connect all tasks synchronized here with the new Taskwait/Barrier TDG_Node
-                TDG_Node* tdg_sync = find_task_from_tdg_nodes_list(current);
-                const Edge_list& sync_exits = current->get_exit_edges();
-                for (Edge_list::const_iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
-                {
-                    Node* child = (*it)->get_target();
-                    if (child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
-                    {
-                        TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
-                        const NBase& cond = (*it)->get_condition();
-                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), cond);
-                        store_condition_list_of_symbols(cond, current->get_reaching_definitions_out());
-                    }
-                }
+                TDG_Node* tdg_sync = find_tdg_node_from_pcfg_node(sync);
+                TDG_Node* tdg_child_task = find_tdg_node_from_pcfg_node(n);
+                connect_tdg_nodes(tdg_sync, tdg_child_task, __Static,
+                                  /*condition*/ Nodecl::NodeclBase::null());
             }
-            else if (current->is_omp_taskwait_node() || current->is_omp_barrier_graph_node())
+
+            // Prepare following iterations
+            if (n->is_graph_node())
             {
-                TDG_Node* tdg_sync = find_task_from_tdg_nodes_list(current);
-                // Look for the real node to whom the current synchronization is connected
-                Edge_list sync_exits = current->get_exit_edges();
-                while (sync_exits.size()==1 &&
-                      (sync_exits[0]->get_target()->is_omp_flush_node() || sync_exits[0]->get_target()->is_exit_node()))
-                {
-                    Node* child = sync_exits[0]->get_target();
-                    if (child->is_exit_node())
-                        sync_exits = child->get_outer_node()->get_exit_edges();
-                    else
-                        sync_exits = child->get_exit_edges();
-                }
-                // Connect the synchronization to the exit node if it is a task or another synchronization
-                for (Edge_list::iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
-                {
-                    Node* child = (*it)->get_target();
-                    if (child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
-                    {
-                        TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
-                        const NBase& cond = (*it)->get_condition();
-                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), cond);
-                        store_condition_list_of_symbols(cond, current->get_reaching_definitions_out());
-                    }
-                }
+                if (!n->is_omp_task_node())
+                    worklist.push(n->get_graph_entry_node());
             }
-            
-            if (current->is_graph_node())
-                connect_tdg_nodes_from_pcfg(current->get_graph_entry_node());
-            
-            // Iterate over the children
-            const Node_list& children = current->get_children();
-            for (Node_list::const_iterator it = children.begin(); it != children.end(); ++it)
-                connect_tdg_nodes_from_pcfg(*it);
+            else if (n->is_exit_node())
+            {
+                children = n->get_outer_node()->get_children();
+                for (ObjectList<Node*>::const_iterator it = children.begin();
+                     it != children.end(); ++it)
+                    worklist.push(*it);
+            }
+            else
+            {
+                children = n->get_children();
+                for (ObjectList<Node*>::const_iterator it = children.begin();
+                     it != children.end(); ++it)
+                    worklist.push(*it);
+            }
         }
+    }
+
+    void TaskDependencyGraph::connect_tdg_nodes_from_pcfg(Node* n)
+    {
+        if (n->is_visited())
+            return;
+
+        n->set_visited(true);
+
+        if (n->is_omp_task_node()
+            || n->is_ompss_sync_target_node()
+            || n->is_ompss_async_target_node())
+        {
+            // Connect all tasks synchronized here with the new Taskwait/Barrier TDG_Node
+            TDG_Node* tdg_sync = find_task_from_tdg_nodes_list(n);
+            const Edge_list& sync_exits = n->get_exit_edges();
+            for (Edge_list::const_iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
+            {
+                Node* child = (*it)->get_target();
+                if (child->is_omp_task_node()
+                    || child->is_ompss_sync_target_node()
+                    || child->is_ompss_async_target_node()
+                    || child->is_omp_taskwait_node()
+                    || child->is_omp_barrier_graph_node())
+                {
+                    TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
+                    const NBase& cond = (*it)->get_condition();
+                    connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), cond);
+                    store_condition_list_of_symbols(cond, n->get_reaching_definitions_out());
+                }
+            }
+        }
+        else if (n->is_omp_taskwait_node() || n->is_omp_barrier_graph_node())
+        {
+            TDG_Node* tdg_sync = find_task_from_tdg_nodes_list(n);
+            // Look for the real node to whom the current synchronization is connected
+            Edge_list sync_exits = n->get_exit_edges();
+            while (sync_exits.size()==1 &&
+                    (sync_exits[0]->get_target()->is_omp_flush_node()
+                        || sync_exits[0]->get_target()->is_exit_node()))
+            {
+                Node* child = sync_exits[0]->get_target();
+                if (child->is_exit_node())
+                    sync_exits = child->get_outer_node()->get_exit_edges();
+                else
+                    sync_exits = child->get_exit_edges();
+            }
+            // Connect the synchronization to the exit node if it is a task or another synchronization
+            for (Edge_list::iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
+            {
+                Node* child = (*it)->get_target();
+                if (child->is_omp_task_node()
+                    || child->is_ompss_async_target_node()
+                    || child->is_omp_taskwait_node()
+                    || child->is_omp_barrier_graph_node())
+                {
+                    TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
+                    const NBase& cond = (*it)->get_condition();
+                    connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), cond);
+                    store_condition_list_of_symbols(cond, n->get_reaching_definitions_out());
+                }
+            }
+
+            // It may happen that a task appears after a taskwait|barrier,
+            // but they are not directly connected in the PCFG, so we have to analyze that situation here
+            connect_tasks_to_previous_synchronization(n);
+        }
+
+        if (n->is_graph_node())
+            connect_tdg_nodes_from_pcfg(n->get_graph_entry_node());
+
+        // Iterate over the children
+        const Node_list& children = n->get_children();
+        for (Node_list::const_iterator it = children.begin(); it != children.end(); ++it)
+            connect_tdg_nodes_from_pcfg(*it);
     }
     
 //     static std::string prettyprint_clauses(Nodecl_list clauses)
@@ -1512,15 +1598,22 @@ insert_values:
             json_tdg << "\t\t\t\t\"id\" : " << n->_id << ",\n";
                 
             // node locus and type
-            if (n->_type == Task)
-            {
-                json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_graph_related_ast().get_locus_str() << "\",\n";
-                json_tdg << "\t\t\t\t\"type\" : \"Task\"";
+            if (n->_type == Task || n->_type == Target || n->_type == Barrier)
+            {   // These are graph nodes
+                // We split locus into filename and line because
+                // for implicit barrier nodes the line is computed when filling the _tdg_nodes map
+                json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_graph_related_ast().get_filename()
+                         << ":" << it->first << "\",\n";
+                std::string type_str =
+                        ((n->_type == Task) ? "Task"
+                                            : ((n->_type == Target) ? "Target"
+                                                                    : "Barrier"));
+                json_tdg << "\t\t\t\t\"type\" : \"" << type_str << "\"";
             }
             else
-            {
+            {   // This is a normal node
                 json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_statements()[0].get_locus_str() << "\",\n";
-                json_tdg << "\t\t\t\t\"type\" : \"" << ((n->_type == Taskwait) ? "Taskwait" : "Barrier") << "\"";
+                json_tdg << "\t\t\t\t\"type\" : \"Taskwait\"";
             }
             
             // node control structures

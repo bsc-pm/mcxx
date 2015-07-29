@@ -670,7 +670,8 @@ namespace {
                     << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl;
 #endif
 
-        if (current->is_omp_task_node())
+        if (current->is_omp_task_node()
+            || current->is_ompss_async_target_node())
         {
             int new_domain_id = next_domain_id++;
             compute_task_synchronizations_rec(current->get_graph_entry_node(), changed, points_of_sync, new_domain_id, next_domain_id);
@@ -906,9 +907,9 @@ namespace {
         for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
         {
             Node* child = (*it)->get_target();
-            if (child->is_omp_task_node() &&
-                (visited_tasks.find(child)==visited_tasks.end()) &&     // Avoid cycles
-                ((*it)->get_sync_kind() != __Maybe))              // This path will be taken for sure
+            if ((child->is_omp_task_node() || child->is_ompss_async_target_node())
+                && (visited_tasks.find(child)==visited_tasks.end()) // Avoid cycles
+                && (((*it)->get_sync_kind() != __Maybe)))           // This path will be taken for sure
             {
                 if(task_domains_task(child, t2, visited_tasks))
                     return true;
@@ -926,21 +927,24 @@ namespace {
     
     void collect_tasks_between_nodes(Node* current, Node* last, Node* skip, ObjectList<Node*>& result)
     {
-        if(current->is_visited_aux() || (current == last))
+        if (current->is_visited_aux() || (current == last))
             return;
 
         current->set_visited_aux(true);
 
-        if(current->is_exit_node())
+        if (current->is_exit_node())
             return;
 
-        if(current->is_graph_node())
+        if (current->is_graph_node())
         {
             // Add inner tasks recursively, if exist
             collect_tasks_between_nodes(current->get_graph_entry_node(), last, skip, result);
 
-            // Add current node if it is a task
-            if (current->is_omp_task_node() && (current != skip) && !tasks_are_synchronized(current, skip))
+            // Add current node if it is a task or asynchronous target
+            if ((current->is_omp_task_node()
+                    || current->is_ompss_async_target_node())
+                && (current != skip)
+                && !tasks_are_synchronized(current, skip))
             {
                 result.insert(current);
             }
@@ -994,7 +998,8 @@ namespace {
                                     concurrent_tasks.insert(*it);
                                     goto task_synchronized;
                                 }
-                                else if ((*itc)->is_omp_task_node())
+                                else if ((*itc)->is_omp_task_node()
+                                    || (*itc)->is_ompss_async_target_node())
                                 {
                                     buff.push(*itc);
                                 }

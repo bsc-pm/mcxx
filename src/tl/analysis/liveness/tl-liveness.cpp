@@ -116,7 +116,8 @@ namespace Analysis {
         if (n->is_graph_node())
         {
             Node* exit = n->get_graph_exit_node();
-            if (n->is_omp_task_node())
+            if (n->is_omp_task_node()
+                || n->is_ompss_async_target_node())
                 solve_task_live_equations_rec(exit, changed, n);
             else
                 solve_live_equations_rec(exit, changed);
@@ -259,7 +260,10 @@ namespace Analysis {
                                 succ_live_in.insert(*itt);
                         }
                     }
-                    else if (c->is_omp_task_node())
+                    // FIXME We should include here any OpenMP|OmpSs node that may have private variables
+                    else if (c->is_omp_task_node()
+                            || c->is_ompss_async_target_node()
+                            || c->is_ompss_sync_target_node())
                     {   // Variables private to the task
                         const NodeclSet& p_vars = c->get_private_vars();
                         for (NodeclSet::iterator itt = all_live_in.begin(); itt != all_live_in.end(); ++itt)
@@ -318,7 +322,9 @@ namespace Analysis {
                     live_in.insert(*it);
             }
         }
-        else if (n->is_omp_task_node())
+        else if (n->is_omp_task_node()
+                || n->is_ompss_async_target_node()
+                || n->is_ompss_sync_target_node())
         {   // Variables private to the task
             NodeclSet p_vars = n->get_private_vars();
             for (NodeclSet::iterator it = all_live_in.begin(); it != all_live_in.end(); ++it)

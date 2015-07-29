@@ -498,6 +498,7 @@ connect_node:
             case __SwitchCase:
                 dot_graph += indent + "color=grey45;\n";
                 break;
+            case __OmpAsyncTarget:
             case __OmpAtomic:
             case __OmpBarrierGraph:
             case __OmpCritical:
@@ -513,7 +514,7 @@ connect_node:
             case __OmpSimdParallelFor:
             case __OmpSimdFunction:
             case __OmpSingle:
-            case __OmpTarget:
+            case __OmpSyncTarget:
             case __OmpTask:
             case __OmpWorkshare:
                 dot_graph += indent + "color=red4;\n" + indent +"style=bold;\n";
@@ -772,7 +773,8 @@ connect_node:
                 dot_analysis_info += ";\n";
             }
         }
-        if(current->is_omp_task_node())
+        if (current->is_omp_task_node()
+            || current->is_ompss_async_target_node())
         {
             std::string auto_scope_str = print_node_data_sharing(current);
             if(!auto_scope_str.empty())

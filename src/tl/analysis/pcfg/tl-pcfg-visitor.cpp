@@ -2737,7 +2737,7 @@ next_it:    ;
         // Create the new graph node containing the task
         Node* target_node = _pcfg->create_graph_node(
                 _pcfg->_graph, n,
-                __OmpTarget, _utils->_context_nodecl.top());
+                __OmpAsyncTarget, _utils->_context_nodecl.top());
 
         Node* target_entry = target_node->get_graph_entry_node();
         Node* target_exit = target_node->get_graph_exit_node();
@@ -2755,6 +2755,8 @@ next_it:    ;
         // There was not a nowait in the target
         if (target_node->get_pragma_node_info().has_clause(NODECL_OPEN_M_P_TARGET_TASK_UNDEFERRED))
         {
+            target_node->set_graph_type(__OmpSyncTarget);
+
             _pcfg->connect_nodes(_utils->_last_nodes, target_node);
             target_node->set_outer_node(last_outer);
 
