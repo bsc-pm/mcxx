@@ -737,6 +737,8 @@ src_frontend_fortran_libmf03_la_SOURCES = \
                      src/frontend/fortran/fortran03-modules-bits.h \
                      src/frontend/fortran/fortran03-modules.c \
                      src/frontend/fortran/fortran03-codegen.h \
+                     src/frontend/fortran/fortran03-mangling.h \
+                     src/frontend/fortran/fortran03-mangling.c \
                      src/frontend/fortran/libmf03-common.h \
                      $(END)
 

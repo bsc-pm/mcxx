@@ -97,6 +97,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-codegen.h"
 #include "fortran03-typeenviron.h"
+#include "fortran03-mangling.h"
 #include "cxx-driver-fortran.h"
 
 /* ------------------------------------------------------------------ */
@@ -249,6 +250,11 @@
 "  --list-fortran-array-descriptors\n" \
 "                           Prints list of supported Fortran\n" \
 "                           array descriptors and quits\n" \
+"  --fortran-name-mangling=<name>\n" \
+"                           Selects Fortran name mangling\n" \
+"  --list-fortran-name-manglings\n" \
+"                           Prints list of supported Fortran\n" \
+"                           name manglings and quits\n" \
 "  --search-includes=<dir>  Adds <dir> to the directories searched\n" \
 "                           when solving a Fortran INCLUDE line.\n" \
 "                           Does not affect the native compiler like\n" \
@@ -405,6 +411,8 @@ typedef enum
     OPTION_FORTRAN_CHARACTER_KIND,
     OPTION_FORTRAN_ARRAY_DESCRIPTOR,
     OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
+    OPTION_FORTRAN_NAME_MANGLING,
+    OPTION_LIST_FORTRAN_NAME_MANGLINGS,
     OPTION_SEARCH_MODULES,
     OPTION_SEARCH_INCLUDES,
     OPTION_MODULE_OUT_PATTERN,
@@ -485,6 +493,8 @@ struct command_line_long_options command_line_long_options[] =
     {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
     {"fortran-array-descriptor", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_ARRAY_DESCRIPTOR},
     {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
+    {"fortran-name-mangling", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_NAME_MANGLING},
+    {"list-fortran-name-manglings", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_NAME_MANGLINGS},
     {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
     {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
     {"module-out-pattern", CLP_REQUIRED_ARGUMENT, OPTION_MODULE_OUT_PATTERN},
@@ -575,7 +585,12 @@ static int parse_special_parameters(int *should_advance, int argc,
 static int parse_implicit_parameter_flag(int *should_advance, const char *special_parameter);
 
 static void list_environments(void);
+
 static void list_fortran_array_descriptors(void);
+
+static void list_fortran_name_manglings(void);
+static fortran_name_mangling_t* get_fortran_name_mangling(const char* descriptor_id);
+
 static void list_vector_flavors(void);
 
 static void register_disable_intrinsics(const char* intrinsic_name);
@@ -1382,6 +1397,20 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS:
                     {
                         list_fortran_array_descriptors();
+                        break;
+                    }
+                case OPTION_FORTRAN_NAME_MANGLING:
+                    {
+                        fortran_name_mangling_t* chosen_fortran_name_mangling = get_fortran_name_mangling(parameter_info.argument);
+                        if (chosen_fortran_name_mangling != NULL)
+                        {
+                            CURRENT_CONFIGURATION->fortran_name_mangling = chosen_fortran_name_mangling;
+                        }
+                        break;
+                    }
+                case OPTION_LIST_FORTRAN_NAME_MANGLINGS:
+                    {
+                        list_fortran_name_manglings();
                         break;
                     }
                 case OPTION_SEARCH_MODULES:
@@ -2588,6 +2617,7 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->type_environment = default_environment;
     CURRENT_CONFIGURATION->fortran_array_descriptor = default_fortran_array_descriptor;
+    CURRENT_CONFIGURATION->fortran_name_mangling = default_fortran_name_mangling;
 
     CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
 
@@ -5275,12 +5305,31 @@ static void list_fortran_array_descriptors(void)
     }
 
     fprintf(stdout, "\n");
-    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular descriptor.\n");
+    fprintf(stdout, "Command line parameter --fortran-array-descriptor=<name> can be used to choose a particular descriptor.\n");
     fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
             default_fortran_array_descriptor->descriptor_id,
             default_fortran_array_descriptor->descriptor_name);
 
     exit(EXIT_SUCCESS);
+}
+
+static fortran_name_mangling_t* get_fortran_name_mangling(const char* descriptor_id)
+{
+    fortran_name_mangling_t** fortran_name_mangling = NULL;
+
+    for (fortran_name_mangling = fortran_name_mangling_list;
+            (*fortran_name_mangling) != NULL;
+            fortran_name_mangling++)
+    {
+        if (strcmp(descriptor_id, (*fortran_name_mangling)->descriptor_id) == 0)
+        {
+            return (*fortran_name_mangling);
+        }
+    }
+
+    fprintf(stderr, "Unknown Fortran name mangling '%s'. "
+            "Use '--list-fortran-name-manglings' to get a list of supported Fortran name manglings\n", descriptor_id);
+    return NULL;
 }
 
 static void list_vector_flavors(void)
@@ -5300,6 +5349,30 @@ static void list_vector_flavors(void)
     fprintf(stdout, "\n");
     fprintf(stdout, "Command line parameter --vector-flavor=name can be used to choose a specific vector flavor\n");
     fprintf(stdout, "If not specified, default vector flavor is gnu\n");
+
+    exit(EXIT_SUCCESS);
+}
+
+static void list_fortran_name_manglings(void)
+{
+    fprintf(stdout, "Supported Fortran name manglings :\n\n");
+
+    fortran_name_mangling_t** fortran_name_mangling = NULL;
+
+    for (fortran_name_mangling = fortran_name_mangling_list;
+            (*fortran_name_mangling) != NULL;
+            fortran_name_mangling++)
+    {
+        fprintf(stdout, "  %-20s (%s)\n",
+                (*fortran_name_mangling)->descriptor_id,
+                (*fortran_name_mangling)->descriptor_name);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --fortran-name-mangling=<name> can be used to choose a particular descriptor.\n");
+    fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
+            default_fortran_name_mangling->descriptor_id,
+            default_fortran_name_mangling->descriptor_name);
 
     exit(EXIT_SUCCESS);
 }

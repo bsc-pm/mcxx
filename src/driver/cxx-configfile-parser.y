@@ -36,6 +36,7 @@
 #include "cxx-typeenviron.h"
 #include "cxx-typeutils.h"
 #include "fortran03-typeenviron.h"
+#include "fortran03-mangling.h"
 #include "mem.h"
 
 static void new_option_list(option_list_t* list);
@@ -155,6 +156,7 @@ profile: profile_header profile_body
 
     new_configuration->type_environment = default_environment;
     new_configuration->fortran_array_descriptor = default_fortran_array_descriptor;
+    new_configuration->fortran_name_mangling = default_fortran_name_mangling;
     new_configuration->print_vector_type = print_gnu_vector_type;
 
     if (get_compilation_configuration($1.profile_name) != NULL)
