@@ -36,11 +36,11 @@ namespace Analysis {
     unsigned int CGNode::_last_id = 0;
 
     CGNode::CGNode(CGNodeType type, const NBase& constraint)
-        : _id(++_last_id), _type(type),
-          _constraint(constraint), _valuation(), 
+        : _id(++CGNode::_last_id), _type(type),
+          _constraint(constraint), _valuation(),
           _entries(), _exits()
     {}
-    
+
     unsigned int CGNode::get_id() const
     { 
         return _id;
@@ -132,7 +132,8 @@ namespace Analysis {
                    CGNode* target,
                    bool back_edge,
                    bool future_edge)
-        : _source(source), _target(target), _is_back_edge(back_edge), _is_future_edge(future_edge)
+        : _source(source), _target(target),
+          _is_back_edge(back_edge), _is_future_edge(future_edge)
     {}
 
     CGNode* CGEdge::get_source() const
@@ -166,7 +167,7 @@ namespace Analysis {
     unsigned int SCC::_last_id = 0;
 
     SCC::SCC(std::map<CGNode*, SCC*>* const node_to_scc_map)
-        : _nodes(), _roots(), _id(++_last_id), _node_to_scc_map(node_to_scc_map)
+        : _nodes(), _roots(), _id(++SCC::_last_id), _node_to_scc_map(node_to_scc_map)
     {}
 
     bool SCC::empty() const

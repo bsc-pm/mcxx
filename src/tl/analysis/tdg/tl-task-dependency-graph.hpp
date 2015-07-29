@@ -154,11 +154,12 @@ namespace Analysis {
                 TDG_Node* parent, TDG_Node* child,
                 SyncKind sync_type, const NBase& condition);
 
-        TDG_Node* find_task_from_tdg_nodes_list(Node* task);
+        TDG_Node* find_tdg_node_from_pcfg_node(Node* task);
         void create_tdg_nodes_from_pcfg(Node* current);
         void set_tdg_nodes_control_structures();
         void connect_tdg_nodes_from_pcfg(Node* current);
         void store_condition_list_of_symbols(const NBase& condition, const NodeclMap& reach_defs);
+        void connect_tasks_to_previous_synchronization(Node* sync);
         
         void taskify_graph(Node* current);
         void create_tdg(Node* current);

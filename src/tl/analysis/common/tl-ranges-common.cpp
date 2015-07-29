@@ -666,6 +666,7 @@ namespace {
         else if (m.is_null())
             return n;
 
+        // Union for allowed operations
         NBase result;
         // If one element is the empty range, then the union is the other element
         if (n.is<Nodecl::Analysis::EmptyRange>())

@@ -42,6 +42,7 @@ namespace TL {
 namespace Analysis {
 
 namespace {
+
     // *** Variables and methods to simulate SSA during the Constraint Graph construction *** //
     unsigned int non_sym_constraint_id = 0;
 
@@ -148,10 +149,12 @@ namespace {
             Type t = n.get_type();
             ssa_sym.set_type(t);
             ssa_to_original_var[ssa_sym] = n;
+
             // 2. Build the value of the constraint
             NBase val = Nodecl::Range::make(minus_inf.shallow_copy(),
                                             plus_inf.shallow_copy(),
                                             const_value_to_nodecl(zero), t);
+
             // 3. Build the constraint and insert it in the constraints map
             ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
             Utils::Constraint c = cbv.build_constraint(ssa_sym, val, t, __GlobalVar);
@@ -375,6 +378,7 @@ namespace {
                 subscripts_str += "_";
             }
         }
+
         std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
         Symbol ssa_sym(lhs.retrieve_context().new_symbol(ssa_name));
         Type t = s.get_type();
@@ -915,7 +919,6 @@ namespace {
     {
         NBase lhs = n.get_lhs().no_conv();
         NBase rhs = n.get_rhs().no_conv();
-
         // 1.- Check the input is something we expect: LHS has a constraint or is a parameter
         ERROR_CONDITION(_input_constraints.find(lhs) == _input_constraints.end(),
                         "Some input constraint required for the LHS when parsing a %s nodecl",
@@ -1373,7 +1376,6 @@ namespace {
         dot_cg << "\tcompound=true;\n";
         dot_cg << "\tlabel=\"Constraint Graph of function '" << _name << "'\"";
         dot_cg << "\tnode [shape=record, fontname=\"Times-Roman\", fontsize=14];\n";
-
         for (CGValueToCGNode_map::const_iterator it = _nodes.begin(); it != _nodes.end(); ++it)
         {
             CGNode* n = it->second;
@@ -2265,6 +2267,22 @@ namespace {
                 Utils::Constraint new_c = cbv.build_constraint(old_ssa_var, val, t, __BackEdge);
                 constrs[orig_var] = new_c;
             }
+//             else if (!is_propagated_set)
+//             {   // We propagate those constraints created from the loop 
+//                 // 1.- Get a new symbol for the new constraint
+//                 std::stringstream ss; ss << get_next_id(orig_var);
+//                 Symbol orig_sym(orig_var.get_symbol());
+//                 std::string constr_name = orig_sym.get_name() + "_" + ss.str();
+//                 Symbol ssa_var(orig_var.retrieve_context().new_symbol(constr_name));
+//                 Type t(orig_sym.get_type());
+//                 ssa_var.set_type(t);
+//                 ssa_to_original_var[ssa_var] = orig_var;
+//                 // 2.- Build the value of the new constraint
+//                 NBase new_constraint_val = it->second.get_symbol().make_nodecl(/*set_ref_type*/false);
+//                 // 4.- Build the new constraint and insert it in the proper list
+//                 Utils::Constraint new_c = cbv.build_constraint(ssa_var, new_constraint_val, t, __Propagated);
+//                 constrs[orig_var] = new_c;
+//             }
         }
     }
     
@@ -2283,7 +2301,6 @@ namespace {
                 constraints,
                 ordered_constraints,
                 cbv);
-
     }
 
     // Utility method: for printing the constraints map if debugging is necessary
