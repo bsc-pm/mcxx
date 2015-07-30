@@ -56,9 +56,17 @@ namespace TL { namespace Nanos6 {
             TL::Scope compute_scope_for_environment_structure();
 
             TL::Type info_structure;
+
             TL::Symbol outline_function;
+            TL::Symbol outline_function_mangled;
+
             TL::Symbol dependences_function;
+            TL::Symbol dependences_function_mangled;
+
             TL::Symbol copies_function;
+            TL::Symbol copies_function_mangled;
+
+            Nodecl::NodeclBase rewrite_expression_using_args(TL::Symbol args, Nodecl::NodeclBase expr);
 
         public:
             TL::ObjectList<TL::Symbol> shared;
