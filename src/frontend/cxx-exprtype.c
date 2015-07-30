@@ -25437,7 +25437,9 @@ nodecl_t cxx_nodecl_make_function_call(
             function_type == NULL ? "<<NULL>>" : print_declarator(function_type));
 
     if (called_symbol != NULL
-            && !check_expr_flags.is_non_executable)
+            && (!check_expr_flags.is_non_executable
+                || (!check_expr_flags.do_not_call_constexpr
+                    && symbol_entity_specs_get_is_constexpr(called_symbol))))
     {
         if (symbol_entity_specs_get_is_constructor(called_symbol)
                 && symbol_entity_specs_get_alias_to(called_symbol) != NULL)
@@ -27238,6 +27240,19 @@ static void instantiate_cxx_arrow(nodecl_instantiate_expr_visitor_t* v, nodecl_t
             &v->nodecl_result);
 }
 
+static void instantiate_cxx_dot_ptr_member(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    nodecl_t nodecl_rhs = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+
+    check_nodecl_pointer_to_member(
+            nodecl_lhs,
+            nodecl_rhs,
+            v->decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
+}
+
 static void instantiate_array_subscript(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_subscripted = instantiate_expr_walk(v, nodecl_get_child(node, 0));
@@ -28415,6 +28430,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_class_member_access = instantiate_expr_visitor_fun(instantiate_class_member_access);
     NODECL_VISITOR(v)->visit_cxx_class_member_access = instantiate_expr_visitor_fun(instantiate_cxx_class_member_access);
     NODECL_VISITOR(v)->visit_cxx_arrow = instantiate_expr_visitor_fun(instantiate_cxx_arrow);
+    NODECL_VISITOR(v)->visit_cxx_dot_ptr_member = instantiate_expr_visitor_fun(instantiate_cxx_dot_ptr_member);
 
     // Array subscript
     NODECL_VISITOR(v)->visit_array_subscript = instantiate_expr_visitor_fun(instantiate_array_subscript);
