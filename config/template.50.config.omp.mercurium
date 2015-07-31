@@ -63,7 +63,7 @@ language = C
 {mmic} preprocessor_options = -E
 {mmic} compiler_name = @ICC@
 {mmic} linker_name = @ICC@
-{mmic} compiler_options = -mmic
+{mmic} compiler_options = -mmic -O0
 codegen_phase = libcodegen-cxx.so
 # gfortran
 target_options[smpfc] = no_sublink embed
