@@ -282,13 +282,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         return;
                 }
 
-                if (is_named_class_type(new_member->type_information))
-                {
-                    type_t* t = advance_over_typedefs(new_member->type_information);
+                // if (is_named_class_type(new_member->type_information))
+                // {
+                //     type_t* t = advance_over_typedefs(new_member->type_information);
 
-                    scope_entry_t* class_entry = named_type_get_symbol(t);
-                    class_type_complete_if_needed(class_entry, context_of_being_instantiated, locus);
-                }
+                //     scope_entry_t* class_entry = named_type_get_symbol(t);
+                //     class_type_complete_if_needed(class_entry, context_of_being_instantiated, locus);
+                // }
 
                 if (symbol_entity_specs_get_is_bitfield(new_member))
                 {
