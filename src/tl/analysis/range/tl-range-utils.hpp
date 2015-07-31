@@ -131,14 +131,20 @@ namespace Analysis {
     {
     private:
         // *** Members *** //
-        unsigned int _id;
-        CGNodeType _type;
-        NBase _constraint;
-        NBase _valuation;
-        std::set<CGEdge*> _entries;
-        std::set<CGEdge*> _exits;
+        unsigned int _id;       //! Identifier of the node
+        CGNodeType _type;       //! Type of the node (depends on its contents)
+        NBase _constraint;      //! Content of the node: a range, an operation or an SSA symbol
+        NBase _valuation;       //! Valuation calculated for the node (empty at the beginning)
+        // The entries set must be an ordered container
+        // to preserve the order of the operands
+        // in operations such as a subtraction
+        ObjectList<CGEdge*> _entries;       //! Set of ancestors of the node in the Constraint Graph
+        // Nonetheless, the exits do not have any order,
+        // so we use the set container,
+        // where it is easier to find elements
+        std::set<CGEdge*> _exits;           //! Set of descendants of the node in the Constraint Graph
 
-        static unsigned int _last_id;
+        static unsigned int _last_id;       //! Static variable used to store the last identifier assigned
 
     public:    
         // *** Constructor *** //
@@ -153,14 +159,16 @@ namespace Analysis {
         const NBase& get_valuation() const;
         void set_valuation(const NBase& valuation);
 
-        const std::set<CGEdge*>& get_entries() const;
-        std::set<CGNode*> get_parents();
+        ObjectList<CGEdge*>& get_entries();
+        ObjectList<CGNode*> get_parents();
         void add_entry(CGEdge* e);
 
         const std::set<CGEdge*>& get_exits() const;
         std::set<CGNode*> get_children();
-        CGEdge* add_child(CGNode* child, bool is_back_edge = false,
-                          bool is_future_edge = false);
+        CGEdge* add_child(
+                CGNode* child,
+                bool is_back_edge = false,
+                bool is_future_edge = false);
     };
 
     // **************** END CG Nodes ***************** //

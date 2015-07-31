@@ -24,7 +24,6 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "cxx-cexpr.h"
 #include "cxx-process.h"
 #include "tl-expression-reduction.hpp"
 #include "tl-range-analysis.hpp"
@@ -43,8 +42,10 @@ namespace Analysis {
 
 namespace {
 
+    // ************************************************************************************** //
     // *** Variables and methods to simulate SSA during the Constraint Graph construction *** //
-    unsigned int non_sym_constraint_id = 0;
+    static unsigned int sym_id = 0;
+    std::string fake_sym = "__return_sym_";
 
     std::map<Symbol, NBase> ssa_to_original_var;
 
@@ -52,6 +53,7 @@ namespace {
     //! the last identifier used to create a constraint for that variable
     std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> var_to_last_constraint_id;
 
+    unsigned int non_sym_constraint_id = 0;
     unsigned int get_next_id(const NBase& n)
     {
         unsigned int next_id = 0;
@@ -67,15 +69,18 @@ namespace {
         }
         return next_id;
     }
+    // ************************************************************************************** //
 
-    // *** Convenient global constants to create the ranges *** //
-    const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*sign*/1);
-    const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
+    // ************************************************************************************** //
+    // ***************** initialize global variables for ranges operations ****************** //
+    const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*signed*/ 1);
+    const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*signed*/ 1);
     const_value_t* minus_one = const_value_get_minus_one(/*num_bytes*/ 4, /*sign*/1);
-    const_value_t* int_max = const_value_get_integer(LONG_MAX, /*num_bytes*/4, /*sign*/1);
-    const NBase& plus_inf = Nodecl::Analysis::PlusInfinity::make(Type::get_long_int_type(), int_max);
-    const_value_t* int_min = const_value_get_integer(LONG_MIN, /*num_bytes*/4, /*sign*/1);
-    const NBase& minus_inf = Nodecl::Analysis::MinusInfinity::make(Type::get_long_int_type(), int_min);
+    const_value_t* long_max = const_value_get_integer(LONG_MAX, /*num_bytes*/4, /*sign*/1);
+    NBase plus_inf = Nodecl::Analysis::PlusInfinity::make(Type::get_long_int_type(), long_max);
+    const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/4, /*sign*/1);
+    NBase minus_inf = Nodecl::Analysis::MinusInfinity::make(Type::get_long_int_type(), long_min);
+    // ************************************************************************************** //
 }
 
     // ***************************************************************************** //
@@ -388,7 +393,10 @@ namespace {
         // 2.- Build the value of the constraint
         NBase val;
         if (rhs.is_constant())       // x = c;    -->    X1 = c
-            val = Nodecl::Range::make(rhs.shallow_copy(), rhs.shallow_copy(), const_value_to_nodecl(zero), t);
+        {
+            Nodecl::NodeclBase cnst = const_value_to_nodecl(rhs.get_constant());
+            val = Nodecl::Range::make(cnst.shallow_copy(), cnst.shallow_copy(), const_value_to_nodecl(zero), t);
+        }
         else 
         {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
             val = rhs.no_conv().shallow_copy();
@@ -497,7 +505,7 @@ namespace {
         switch (comparison_kind)
         {
             case NODECL_EQUAL:
-            {   
+            {
                 switch (side)
                 {
                     case 'l':
@@ -539,6 +547,7 @@ namespace {
                     default:
                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
                 };
+                break;
             }
             case NODECL_DIFFERENT:
             {
@@ -583,6 +592,7 @@ namespace {
                     default:
                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
                 };
+                break;
             }
             case NODECL_LOWER_OR_EQUAL_THAN:
             {   
@@ -636,7 +646,8 @@ namespace {
                     }
                     default:
                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-                }
+                };
+                break;
             }
             case NODECL_LOWER_THAN:
             {
@@ -804,8 +815,10 @@ namespace {
                 break;
             }
             default:
+            {
                 internal_error("Unexpected node kind %s while building constraint for a comparison.\n",
                                ast_print_node_type(comparison_kind));
+            }
         };
 
         // 4.4.- Build the TRUE and FALSE constraints and store them
@@ -1024,6 +1037,19 @@ namespace {
         visit_increment(n.get_rhs(), /*positive*/ true);
     }
 
+    // return x  -->  X1 = X0
+    // We need this to avoid removing the constraint when purging unused constraints
+    void ConstraintBuilder::visit(const Nodecl::ReturnStatement& n)
+    {
+        std::stringstream sym_id_str;
+        sym_id_str << fake_sym;
+        sym_id_str << ++sym_id;
+        Symbol ssa_sym(n.retrieve_context().new_symbol(sym_id_str.str()));
+        Nodecl::Symbol lhs = ssa_sym.make_nodecl(/*set_ref_type*/false);
+        NBase rhs = n.get_value();
+        visit_assignment(lhs, rhs);
+    }
+
     // ************** END visitor building constraints from statements ************* //
     // ***************************************************************************** //
 
@@ -1066,9 +1092,11 @@ namespace {
         return node;
     }
 
-    void ConstraintGraph::connect_nodes(CGNode* source, CGNode* target, bool is_back_edge)
+    void ConstraintGraph::connect_nodes(
+            CGNode* source, CGNode* target,
+            bool is_back_edge, bool is_future_edge)
     {
-        CGEdge* e = source->add_child(target, is_back_edge);
+        CGEdge* e = source->add_child(target, is_back_edge, is_future_edge);
         target->add_entry(e);
     }
 
@@ -1251,6 +1279,13 @@ namespace {
         const Constraints& constraints,
         const std::vector<Symbol>& ordered_constraints)
     {
+        if (RANGES_DEBUG)
+        {
+            std::cerr << "________________________________________________" << std::endl;
+            std::cerr << "BUILD CONSTRAINT GRAPH:" << std::endl;
+            std::cerr << "-----------------------" << std::endl;
+        }
+
         std::map<NBase, CGNode*> back_edges;
         for (std::vector<Symbol>::const_iterator ito = ordered_constraints.begin();
              ito != ordered_constraints.end(); ++ito)
@@ -1305,7 +1340,7 @@ namespace {
             {   // E.
                 const NBase& lhs = val.as<Nodecl::Analysis::RangeIntersection>().get_lhs().no_conv();
                 const NBase& rhs = val.as<Nodecl::Analysis::RangeIntersection>().get_rhs().no_conv();
-                
+
                 CGNode* source = insert_node(lhs);
                 CGNode* target = insert_node(ssa_var);  // A.
                 NBase range = rhs.shallow_copy();
@@ -1314,6 +1349,16 @@ namespace {
                 CGNode* range_node = insert_node(range, __Intersection);
                 connect_nodes(source, range_node);
                 connect_nodes(range_node, target);
+
+                // If the range contains "future" edges, we have to create them here
+                const ObjectList<Symbol>& range_syms = Nodecl::Utils::get_all_symbols(range);
+                for (ObjectList<Symbol>::const_iterator its = range_syms.begin();
+                     its != range_syms.end(); ++its)
+                {
+                    const NBase& ssa_ft_sym = its->make_nodecl(/*set_ref_type*/false);
+                    CGNode* ft_source = insert_node(ssa_ft_sym);
+                    connect_nodes(ft_source, range_node, /*is_back_edge*/false, /*is_future_edge*/true);
+                }
             }
             else if (val.is<Nodecl::Range>())
             {
@@ -1409,8 +1454,11 @@ namespace {
             for (std::set<CGEdge*>::iterator ite = exits.begin(); ite != exits.end(); ++ite)
             {
                 unsigned int target = (*ite)->get_target()->get_id();
-                bool back_edge = (*ite)->is_back_edge();
-                std::string attrs = " [label=\"\", style=\"" + std::string(back_edge ? "dotted" : "solid") + "\"]";
+                std::string edge_style =
+                        ((*ite)->is_back_edge() ? "dotted"
+                                                : ((*ite)->is_future_edge() ? "dashed"
+                                                                            : "solid"));
+                        std::string attrs = " [label=\"\", style=\"" + edge_style + "\"]";
                 dot_cg << "\t" << source << "->" << target << attrs << ";\n";
             }
         }
@@ -1447,10 +1495,14 @@ namespace {
         s.push(n);
 
         // Consider the successors of 'n'
-        std::set<CGNode*> succ = n->get_children();
-        for (std::set<CGNode*>::iterator it = succ.begin(); it != succ.end(); ++it)
+        const std::set<CGEdge*>& succ = n->get_exits();
+        for (std::set<CGEdge*>::iterator it = succ.begin(); it != succ.end(); ++it)
         {
-            CGNode* m = *it;
+            // Never follow future edges to compose the SCCs
+            if ((*it)->is_future_edge())
+                continue;
+
+            CGNode* m = (*it)->get_target();
             if (scc_index.find(m)==scc_index.end())
             {   // Initialize values for this node if it has not yet been initialized
                 scc_index[m] = -1;
@@ -1564,14 +1616,14 @@ namespace {
             case __Sym:
             {   // The node is an SSA symbol => its valuation depend on the entry operation
                 // 1.- Check the integrity of the Constraint Graph at this point
-                const std::set<CGNode*>& parents = n->get_parents();
+                const ObjectList<CGNode*>& parents = n->get_parents();
                 ERROR_CONDITION(parents.size() != 1,
                                 "A symbol node is expected to have one unique entry, "
                                 "but node %d has %d entries.\n",
                                 n->get_id(), parents.size());
                 // 2.- Evaluate the node
                 CGNode* parent = *parents.begin();
-                const std::set<CGNode*>& grandparents = parent->get_parents();
+                const ObjectList<CGNode*>& grandparents = parent->get_parents();
                 CGNodeType parent_type = parent->get_type();
                 NBase op1, op2;     // Variables defined and used in different cases of the following switch case
                 switch (parent_type)
@@ -1591,15 +1643,36 @@ namespace {
                     case __Intersection:
                     {
                         // 2.1.- Check the integrity of the Constraint Graph at this point
-                        ERROR_CONDITION(grandparents.size() != 1, 
-                                        "An intersection node is expected to have exactly 1 entry, "
+                        // Intersection nodes may have one unique flow entry and many future entries
+                        ObjectList<CGEdge*>& parent_entries = parent->get_entries();
+                        CGNode* flow_grandparent = NULL;
+                        bool has_future_entries = false;
+                        unsigned int n_flow_entries = 0;
+                        for (ObjectList<CGEdge*>::const_iterator it = parent_entries.begin();
+                             it != parent_entries.end(); ++it)
+                        {
+                            if ((*it)->is_future_edge())
+                                has_future_entries = true;
+                            else
+                            {
+                                flow_grandparent = (*it)->get_source();
+                                n_flow_entries++;
+                            }
+                        }
+                        ERROR_CONDITION(n_flow_entries != 1,
+                                        "An intersection node is expected to have exactly 1 flow entry, "
                                         "but node %d has %d entries.\n", 
                                         parent->get_id(), grandparents.size());
 
                         // 2.2.- Compute the intersection
-                        op1 = (*grandparents.begin())->get_valuation();
+                        op1 = flow_grandparent->get_valuation();
                         op2 = parent->get_constraint();
-                        new_valuation = Utils::range_intersection(op1, op2);
+                        // FIXME This shall be done only while widen operation
+                        // While narrowing, the "future" edges have already been solved
+                        if (has_future_entries)
+                            new_valuation = op1;
+                        else
+                            new_valuation = Utils::range_intersection(op1, op2);
                         break;
                     }
                     case __Phi:
@@ -1612,7 +1685,7 @@ namespace {
                         
                         // 2.2.- Join all entry valuations into the phi node
                         ObjectList<NBase> entry_valuations;
-                        std::set<CGNode*>::const_iterator it = grandparents.begin();
+                        ObjectList<CGNode*>::const_iterator it = grandparents.begin();
                         op1 = (*it)->get_valuation();
                         ++it;
                         for (; it != grandparents.end(); ++it)
@@ -1630,7 +1703,7 @@ namespace {
                                         "A binary operation node is expected to have exactly 2 entries, "
                                         "but node %d has %d entries.\n", 
                                         parent->get_id(), grandparents.size());
-                        std::set<CGNode*>::iterator it = grandparents.begin();
+                        ObjectList<CGNode*>::const_iterator it = grandparents.begin();
                         op1 = (*it)->get_valuation(); ++it;
                         op2 = (*it)->get_valuation();
                         switch (parent_type)
@@ -1748,8 +1821,8 @@ namespace {
             // 2.4.- It may happen that an operation node receives a constant from outside the component
             else if (type != __Sym && type != __Intersection)
             {
-                const std::set<CGNode*> parents = n->get_parents();
-                for (std::set<CGNode*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                const ObjectList<CGNode*>& parents = n->get_parents();
+                for (ObjectList<CGNode*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
                 {
                     CGNode* p = *it;
                     // Only check node form outside the component
@@ -1921,6 +1994,40 @@ namespace {
         }
     }
 
+    // Solve future edges propagating the values computed after the widening process
+    // Remove from the Constraint Graph the future edges, so they are not taken into account any more
+    void ConstraintGraph::futures(SCC* scc)
+    {
+        // Traverse the component looking for future edges
+        const std::list<CGNode*> roots = scc->get_roots();     // This is the phi node with an entry back edge
+        std::queue<CGNode*,std::list<CGNode*> > worklist(roots);
+        std::set<CGNode*> visited;
+        while (!worklist.empty())
+        {
+            // 1.- Get the next node to be treated
+            CGNode* n = worklist.front();
+            worklist.pop();
+
+            // 2.- Base case: we do not have to exit the component
+            if (_node_to_scc_map[n] != scc)
+                continue;
+
+            // 3.- Check whether the node has any future entry
+            ObjectList<CGEdge*>& entries = n->get_entries();
+            for (ObjectList<CGEdge*>::iterator it = entries.begin(); it != entries.end(); ++it)
+            {
+                if ((*it)->is_future_edge())
+                {
+                    // TODO Recalculate the valuation of the node
+
+                    // TODO Remove the edge from source and target, so we do not use it anymore
+                }
+            }
+
+            // .- Prepare the following iterations
+        }
+    }
+
     // The narrow operator used is the one proposed by Cousot and Cousot's:
     //     I[Y] = | I[Y]_ = -inf && e(Y)_ > -inf     -> [e(Y)_, I[Y]^]
     //            | I[Y]^ = +inf && e(Y)^ < +inf     -> [I[Y]_, e(Y)^]
@@ -1928,34 +2035,34 @@ namespace {
     //            | I[Y]^ < e(Y)^                    -> [I[Y]_, e(Y)^]
     void ConstraintGraph::narrow(SCC* scc)
     {
-        // 1.- Traverse the component applying the narrow operation
+        // Traverse the component applying the narrow operation
         const std::list<CGNode*> roots = scc->get_roots();     // This is the phi node with an entry back edge
         std::queue<CGNode*,std::list<CGNode*> > worklist(roots);
         std::set<CGNode*> visited;
         while (!worklist.empty())
         {
-            // 1.1.- Get the next node to be treated
+            // 1.- Get the next node to be treated
             CGNode* n = worklist.front();
             worklist.pop();
 
-            // 1.2.- Base case: if the node is not in the same SCC, then we will treat it later
+            // 2.- Base case: if the node is not in the same SCC, then we will treat it later
             if (_node_to_scc_map[n] != scc)
                 continue;
 
-            // 1.3.- Keep the old valuation to be able to compare if there has been some change
+            // 3.- Keep the old valuation to be able to compare if there has been some change
             //     We make a copy because otherwise the pointer may be modified
             const NBase& old_valuation = n->get_valuation().shallow_copy();
             NBase narrow_valuation = old_valuation;
 
-            // 1.4.- Calculate the current node, only if it is a symbol, because:
+            // 4.- Calculate the current node, only if it is a symbol, because:
             //        - __Const nodes will n ever change their valuation since it is the constraint itself
             //        - Operation nodes are never evaluated
             if (n->get_type() == __Sym)
             {
-                // 1.4.1.- Compute the new valuation of the node
+                // 4.1.- Compute the new valuation of the node
                 evaluate_cgnode(n);
 
-                // 1.4.2.- Apply the narrow operation
+                // 4.2.- Apply the narrow operation
                 const NBase& new_valuation = n->get_valuation();
                 ERROR_CONDITION(!new_valuation.is<Nodecl::Range>(),
                                 "Non-range interval '%s' found for CG-Node %d. Range expected\n",
@@ -1968,22 +2075,22 @@ namespace {
                 const Nodecl::Range& new_range = new_valuation.as<Nodecl::Range>();
                 const NBase& new_lb = new_range.get_lower();
                 const NBase& new_ub = new_range.get_upper();
-                if (Nodecl::Utils::structurally_equal_nodecls(old_lb, minus_inf)
+                if (old_lb.is<Nodecl::Analysis::MinusInfinity>()
                         && new_lb.is_constant()
                         && const_value_is_positive(const_value_sub(new_lb.get_constant(),
                                                                    minus_inf.get_constant())))
                 {
                     narrow_valuation = Nodecl::Range::make(new_lb, old_ub,
-                                                           Nodecl::NodeclBase(const_value_to_nodecl(zero)),
+                                                           const_value_to_nodecl(zero),
                                                            Type::get_long_int_type());
                 }
-                else if (Nodecl::Utils::structurally_equal_nodecls(old_ub, plus_inf)
-                        && new_ub.is_constant()
-                        && const_value_is_positive(const_value_sub(plus_inf.get_constant(),
-                                                                   new_ub.get_constant())))
+                else if (old_ub.is<Nodecl::Analysis::PlusInfinity>()
+                            && new_ub.is_constant()
+                            && const_value_is_positive(const_value_sub(plus_inf.get_constant(),
+                                                                    new_ub.get_constant())))
                 {
                     narrow_valuation = Nodecl::Range::make(old_lb, new_ub,
-                                                           Nodecl::NodeclBase(const_value_to_nodecl(zero)),
+                                                           const_value_to_nodecl(zero),
                                                            Type::get_long_int_type());
                 }
                 else
@@ -1996,13 +2103,13 @@ namespace {
                         if (const_value_is_positive(diff))
                         {
                             narrow_valuation = Nodecl::Range::make(new_lb, old_ub,
-                                                                   Nodecl::NodeclBase(const_value_to_nodecl(zero)),
+                                                                   const_value_to_nodecl(zero),
                                                                    Type::get_long_int_type());
                         }
                         else if (const_value_is_negative(diff))
                         {
                             narrow_valuation = Nodecl::Range::make(old_lb, new_ub,
-                                                                   Nodecl::NodeclBase(const_value_to_nodecl(zero)),
+                                                                   const_value_to_nodecl(zero),
                                                                    Type::get_long_int_type());
                         }
                     }
@@ -2024,7 +2131,7 @@ namespace {
                 }
             }
 
-            // 1.5.- Prepare next iteration by adding to the worklist the children nodes
+            // 5.- Prepare next iteration by adding to the worklist the children nodes
             // only if the new valuation is different from the previous one
             // or it is the first time we try to narrow this node
             if (n->get_type() != __Sym      // Nothing can change
@@ -2042,18 +2149,6 @@ namespace {
             // then we will not keep iterating over its children
             visited.insert(n);
         }
-    }
-
-    void ConstraintGraph::resolve_cycle(SCC* scc)
-    {
-        // Widening operation
-        widen(scc);
-
-        // Future resolution
-        // TODO This part cannot be implemented until the CG support futures
-
-        // Narrowing operation
-        narrow(scc);
     }
 
     // Only __Sym nodes are evaluated!
@@ -2075,7 +2170,11 @@ namespace {
         // Keep track of those SCC already solved, so we do not solve them again
         std::set<SCC*> visited;
 
-        // Iterate until there is no SCC to be solved
+        // First iteration solves all trivial components and,
+        // for cycles, applies the widen operation
+        // We store the components which are cycles,
+        // so we do not have to traverse the whole graph again
+        std::vector<SCC*> cycle_scc;    // Store them in the same order we solve them the first time
         while (!next_scc.empty())
         {
             // 1.- Get the next SCC to be solved
@@ -2092,8 +2191,7 @@ namespace {
             std::set<CGEdge*> entries;
             for (std::list<CGNode*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
             {
-                const std::set<CGEdge*> tmp = (*it)->get_entries();
-                entries.insert(tmp.begin(), tmp.end());
+                entries.insert((*it)->get_entries().begin(), (*it)->get_entries().end());
             }
             bool is_ready = true;
             for (std::set<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
@@ -2125,10 +2223,11 @@ namespace {
                 }
             }
             else
-            {   // Cycle resolution
+            {   // Cycle widening operation
                 if (RANGES_DEBUG)
-                    std::cerr << "  SCC " << scc->get_id() << "  ->  RESOLVE CYCLE" << std::endl;
-                resolve_cycle(scc);
+                    std::cerr << "  SCC " << scc->get_id() << "  ->  WIDEN" << std::endl;
+                widen(scc);
+                cycle_scc.push_back(scc);
             }
             visited.insert(scc);
 
@@ -2138,6 +2237,24 @@ namespace {
             for (ObjectList<SCC*>::const_iterator it = scc_exits.begin();
                  it != scc_exits.end(); ++it)
                 next_scc.push(*it);
+        }
+
+        // Apply the "futures" operation
+        for (std::vector<SCC*>::iterator it = cycle_scc.begin(); it != cycle_scc.end(); ++it)
+        {
+            SCC* scc = *it;
+            if (RANGES_DEBUG)
+                std::cerr << "  SCC " << scc->get_id() << "  ->  FUTURES" << std::endl;
+            futures(scc);
+        }
+
+        // Apply the narrow operation
+        for (std::vector<SCC*>::iterator it = cycle_scc.begin(); it != cycle_scc.end(); ++it)
+        {
+            SCC* scc = *it;
+            if (RANGES_DEBUG)
+                std::cerr << "  SCC " << scc->get_id() << "  ->  NARROW" << std::endl;
+            narrow(scc);
         }
     }
 
@@ -2180,6 +2297,13 @@ namespace {
     void RangeAnalysis::compute_constraints(
         /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
+        if (RANGES_DEBUG)
+        {
+            std::cerr << "________________________________________________" << std::endl;
+            std::cerr << "COMPUTE CONSTRAINTS:" << std::endl;
+            std::cerr << "--------------------" << std::endl;
+        }
+
         // 1.- Create constraint [-∞, +∞] for each parameter
         compute_parameters_constraints(pcfg_constraints);
 
@@ -2189,7 +2313,10 @@ namespace {
         std::set<Node*> treated;
         compute_constraints_rec(worklist, treated, pcfg_constraints);
 
-        //3.- Print in std out the constraints, if requested
+        // 3.- Remove the constraints that are never used
+        remove_unnecessary_constraints(pcfg_constraints);
+
+        // 4.- Print in std out the constraints, if requested
         if (RANGES_DEBUG)
             print_constraints();
     }
@@ -2322,8 +2449,6 @@ namespace {
         /*inout*/ std::set<Node*>& treated,
         /*inout*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
-        std::queue<Node*> next_worklist;
-
         while (!worklist.empty())
         {
             Node* n = worklist.front();
@@ -2342,9 +2467,9 @@ namespace {
                 Edge* e = *it;
                 if (e->is_back_edge())
                     n_has_backedge = true;
-                if (!e->is_back_edge()                                      // *it is a dominator of n
-                        && !e->get_source()->is_omp_task_node()             // *it is not a task node
-                        && treated.find(e->get_source())==treated.end())    // *it is not yet visited
+                if (!e->is_back_edge()                                      // e is a dominator of n
+                        && !e->get_source()->is_omp_task_node()             // e is not a task node
+                        && treated.find(e->get_source())==treated.end())    // e is not yet visited
                 {
                     ready = false;
                     break;
@@ -2581,6 +2706,7 @@ namespace {
 
             treated.insert(n);
 
+            // Make sure we compute constraints in the proper order (sequential order of the statements)
             if (!n->is_omp_task_node())
             {
                 const ObjectList<Edge*>& exits = n->get_exit_edges();
@@ -2589,6 +2715,7 @@ namespace {
                     //     - first compute the loop constraints (the TRUE edge)
                     //     - then compute the other children (store the nodes in next_worklist)
                     Node* next_in_loop = NULL;
+                    std::queue<Node*> next_worklist;
                     for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
                     {
                         Node* t = (*it)->get_target();
@@ -2605,14 +2732,17 @@ namespace {
                                     "Node %d has a back edge, but we have not found any 'true' edge.\n",
                                     n->get_id());
 
-                    std::queue<Node*> loop_worklist;
-                    loop_worklist.push(next_in_loop);
-                    compute_constraints_rec(loop_worklist, treated, pcfg_constraints);
+                    worklist.push(next_in_loop);
+                    while (!next_worklist.empty())
+                    {
+                        worklist.push(next_worklist.front());
+                        next_worklist.pop();
+                    }
                 }
                 else
                 {   // Otherwise,
                     //    - first propagate information to back edges, if there are
-                    //    - then compute the other children (store the nodes in next_worklist)
+                    //    - then compute the other children
                     for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
                     {
                         Node* t = (*it)->get_target();
@@ -2625,12 +2755,74 @@ namespace {
                         }
 
                         if (treated.find(t) == treated.end())
-                            next_worklist.push(t);
+                            worklist.push(t);
+                    }
+                }
+            }
+        }
+    }
+
+    void RangeAnalysis::remove_unnecessary_constraints(std::map<Node*, VarToConstraintMap>& pcfg_constraints)
+    {
+        // This purge is performed in order, because a constraint may only be used
+        // in the following constraints definitions, never in the previous
+        for (std::vector<Symbol>::iterator ssa_sym_it = _ordered_constraints.begin();
+             ssa_sym_it != _ordered_constraints.end(); )
+        {
+            // Look for the actual constraint only in constraints build after the current one
+            bool found = false;
+            std::vector<Symbol>::iterator its = ssa_sym_it;
+            for (++its; its != _ordered_constraints.end(); ++its)
+            {
+                const NBase& val = _constraints.find(*its)->second;
+                const ObjectList<NBase>& mem_accesses = Nodecl::Utils::get_all_memory_accesses(val);
+                for (ObjectList<NBase>::const_iterator itm = mem_accesses.begin();
+                        itm != mem_accesses.end() && !found; ++itm)
+                {
+                    if (itm->get_symbol() == *ssa_sym_it)
+                    {
+                        found = true;
+                        goto ssa_sym_found;
                     }
                 }
             }
 
-            compute_constraints_rec(next_worklist, treated, pcfg_constraints);
+            // If SSA symbol has not been found in any constraint in the system,
+            // remove the constraint that generates the symbol from the corresponding sets
+ssa_sym_found:
+            if (!found)
+            {
+                // Remove the constraint from the actual list of constraints
+                // This must be done first, otherwise the iterator points to some other place!
+                _constraints.erase(_constraints.find(*ssa_sym_it));
+
+                // Remove the entry from the var-to_ssa_var container
+                for (std::map<Node*, VarToConstraintMap>::iterator it = pcfg_constraints.begin();
+                     it != pcfg_constraints.end(); ++it)
+                {
+                    VarToConstraintMap& constrs = it->second;
+                    for(VarToConstraintMap::iterator itc = constrs.begin();
+                        itc != constrs.end(); )
+                    {
+                        if (itc->second.get_symbol() == *ssa_sym_it)
+                        {
+                            std::cerr << "Remove constraint for SSA var " << ssa_sym_it->get_name() << std::endl;
+                            constrs.erase(itc++);
+                        }
+                        else
+                        {
+                            ++itc;
+                        }
+                    }
+                }
+
+                // Remove the symbol from the ordered list of SSA symbols
+                _ordered_constraints.erase(ssa_sym_it);
+            }
+            else
+            {
+                ++ssa_sym_it;
+            }
         }
     }
 

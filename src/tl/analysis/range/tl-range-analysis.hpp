@@ -134,6 +134,7 @@ namespace Analysis {
         Ret visit(const Nodecl::Postincrement& n);
         Ret visit(const Nodecl::Predecrement& n);
         Ret visit(const Nodecl::Preincrement& n);
+        Ret visit(const Nodecl::ReturnStatement& n);
     };
 
     // ************************** END Visitor implementing constraint building **************************** //
@@ -163,14 +164,13 @@ namespace Analysis {
         CGNode* insert_node(CGNodeType type);
 
         //! Connects nodes #source and #target with a directed edge extended with #predicate
-        void connect_nodes(CGNode* source, CGNode* target, bool is_back_edge = false);
+        void connect_nodes(
+                CGNode* source, CGNode* target,
+                bool is_back_edge = false, bool is_future_edge = false);
 
-        void propagate_valuation_over_scc(std::queue<CGNode*>& worklist, SCC* scc);
         void widen(SCC* scc);
+        void futures(SCC* scc);
         void narrow(SCC* scc);
-
-        //! Method to solve constraints within a cycle
-        void resolve_cycle(SCC* scc);
 
         //! Method to evaluate the ranges in a single Constraint Graph node
         void evaluate_cgnode(CGNode* const node);
@@ -247,6 +247,15 @@ namespace Analysis {
         //! Method generating all constraints of the #pcfg
         void compute_constraints(
                 std::map<Node*, VarToConstraintMap>& constr_map);
+
+        //! Method that removes those constraints that are not used
+        /*! During the construction of the constraints, some constraints
+         *  may be built but generate unused SSA symbols
+         *  (conditions in either loops of selection statements).
+         *  These are not necessary nor useful, so it is better to remove them
+         *  here and reduce the complexity of the Constraint Graph
+         */
+        void remove_unnecessary_constraints(std::map<Node*, VarToConstraintMap>& constr_map);
 
         //! Method building a Constraint Graph from a set of constraints
         void build_constraint_graph();

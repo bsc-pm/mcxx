@@ -71,22 +71,23 @@ namespace Analysis {
         _valuation = valuation;
     }
 
-    const std::set<CGEdge*>& CGNode::get_entries() const
+    ObjectList<CGEdge*>& CGNode::get_entries()
     {
         return _entries;
     }
 
-    std::set<CGNode*> CGNode::get_parents()
+    ObjectList<CGNode*> CGNode::get_parents()
     {
-        std::set<CGNode*> parents;
-        for (std::set<CGEdge*>::iterator it = _entries.begin(); it != _entries.end(); ++it)
+        ObjectList<CGNode*> parents;
+        for (ObjectList<CGEdge*>::iterator it = _entries.begin(); it != _entries.end(); ++it)
             parents.insert((*it)->get_source());
         return parents;
     }
 
     void CGNode::add_entry(CGEdge* e)
     {
-        _entries.insert(e);
+        if (!_entries.contains(e))
+            _entries.insert(e);
     }
 
     const std::set<CGEdge*>& CGNode::get_exits() const
@@ -102,7 +103,10 @@ namespace Analysis {
         return children;
     }
 
-    CGEdge* CGNode::add_child(CGNode* child, bool is_back_edge, bool is_future_edge)
+    CGEdge* CGNode::add_child(
+            CGNode* child,
+            bool is_back_edge,
+            bool is_future_edge)
     {
         CGEdge* e = NULL;
         std::set<CGNode*> children = get_children();
@@ -245,9 +249,11 @@ namespace Analysis {
     void print_constraint(ConstraintKind c_kind, const Symbol& s, const NBase& val, const Type& t)
     {
         if (RANGES_DEBUG)
+        {
             std::cerr << "    " << print_constraint_kind(c_kind) << " Constraint "
                       << s.get_name() << " = " << val.prettyprint()
                       << " (" << t.print_declarator() << ")" << std::endl;
+        }
     }
 
     void print_sccs(const std::vector<SCC*>& scc_list)

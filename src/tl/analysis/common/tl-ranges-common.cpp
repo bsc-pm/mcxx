@@ -24,24 +24,31 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-#include <limits>
+#include <climits>
 
 #include "cxx-cexpr.h"
 #include "tl-ranges-common.hpp"
 #include "tl-expression-reduction.hpp"
 
-#include <climits>
-
 namespace TL {
 namespace Analysis {
 namespace Utils {
 
-// #define RANGES_COMMON_DEBUG
-
 namespace {
+
+    // ***************************************************************************** //
+    // ************* initialize global variables for ranges operations ************* //
+
     const_value_t* one = const_value_get_one(/*bytes*/ 4, /*signed*/ 1);
     const_value_t* zero = const_value_get_zero(/*bytes*/ 4, /*signed*/ 1);
-    
+    const_value_t* long_max = const_value_get_integer(LONG_MAX, /*num_bytes*/4, /*sign*/1);
+    NBase plus_inf = Nodecl::Analysis::PlusInfinity::make(Type::get_long_int_type(), long_max);
+    const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/4, /*sign*/1);
+    NBase minus_inf = Nodecl::Analysis::MinusInfinity::make(Type::get_long_int_type(), long_min);
+
+    // *********** END initialize global variables for ranges operations *********** //
+    // ***************************************************************************** //
+
     NBase get_max(const NBase& n1, const NBase& n2)
     {
         NBase result;
@@ -156,70 +163,123 @@ namespace {
         return false;
     }
 
+    NBase boundary_addition(const NBase& b1, const NBase& b2)
+    {
+        // 1.- Check errors
+        ERROR_CONDITION(b1.is<Nodecl::Analysis::PlusInfinity>() && b2.is<Nodecl::Analysis::MinusInfinity>(),
+                        " Cannot add +inf + -inf. Undefined result.\n", 0);
+        ERROR_CONDITION(b1.is<Nodecl::Analysis::MinusInfinity>() && b2.is<Nodecl::Analysis::PlusInfinity>(),
+                        " Cannot add -inf + +inf. Undefined result.\n", 0);
+
+        // 2.- Add the boundaries
+        NBase b;
+        if (b1.is<Nodecl::Analysis::MinusInfinity>() || b1.is<Nodecl::Analysis::PlusInfinity>())
+            b = b1;             // -inf + x = -inf, +inf + x = +inf
+        else if (b2.is<Nodecl::Analysis::MinusInfinity>() || b2.is<Nodecl::Analysis::PlusInfinity>())
+            b = b2;             // x + -inf = -inf, x + +inf = +inf
+        else if (b1.is_constant() && b2.is_constant())
+            b = NBase(const_value_to_nodecl(const_value_add(b1.get_constant(), b2.get_constant())));
+        else
+            b = Nodecl::Add::make(b1, b2, Type::get_int_type());
+
+        return b;
+    }
+
     NBase range_addition(const NBase& r1, const NBase& r2)
     {
-        if (r1.is<Nodecl::Analysis::EmptyRange>())
-            return r2;
-        if (r2.is<Nodecl::Analysis::EmptyRange>())
-            return r1;
-        if (!r1.is<Nodecl::Range>() || !r2.is<Nodecl::Range>())
-            return Nodecl::Add::make(r1, r2, r1.get_type());
+        // 1.- Check the integrity of the operands
+        ERROR_CONDITION(!r1.is<Nodecl::Range>() || !r2.is<Nodecl::Range>(),
+                        "Cannot add '%s' + '%s'. Expecting ranges.\n",
+                        r1.prettyprint().c_str(), r2.prettyprint().c_str());
 
+        // 2.- Get the boundaries of the ranges to be added
         NBase r1_lb = r1.as<Nodecl::Range>().get_lower();
         NBase r1_ub = r1.as<Nodecl::Range>().get_upper();
         NBase r2_lb = r2.as<Nodecl::Range>().get_lower();
         NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
-        TL::Type t = r1_lb.get_type();
 
-        NBase lb, ub;
-        if(r1_lb.is_constant() && r2_lb.is_constant())
-            lb = NBase(const_value_to_nodecl(const_value_add(r1_lb.get_constant(), r2_lb.get_constant())));
-        else
-            lb = Nodecl::Add::make(r1_lb, r2_lb, t);
-        if(r1_ub.is_constant() && r2_ub.is_constant())
-            ub = NBase(const_value_to_nodecl(const_value_add(r1_ub.get_constant(), r2_ub.get_constant())));
-        else
-            ub = Nodecl::Add::make(r1_ub, r2_ub, t);
+        // 3.- Compute the lower bound
+        const NBase& lb = boundary_addition(r1_lb, r2_lb);
 
-        NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
-        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
+        // 4.- Compute the upper bound
+        const NBase& ub = boundary_addition(r1_ub, r2_ub);
 
+        // 5.- The increment of a range not representing an induction variable is always 0
+        const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
+
+        // 6.- Build the range
+        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
+
+        // 7.- Report result if we are in debug mode
         if (RANGES_DEBUG)
             std::cerr << "        Range Addition " << r1.prettyprint() << " + " << r2.prettyprint()
                       << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
-    
+
+    NBase boundary_subtraction(const NBase& b1, const NBase& b2)
+    {
+        // 1.- Check errors
+        ERROR_CONDITION(b1.is<Nodecl::Analysis::PlusInfinity>() && b2.is<Nodecl::Analysis::PlusInfinity>(),
+                        " Cannot subtract +inf - +inf. Undefined result.\n", 0);
+        ERROR_CONDITION(b1.is<Nodecl::Analysis::MinusInfinity>() && b2.is<Nodecl::Analysis::MinusInfinity>(),
+                        " Cannot subtract -inf - -inf. Undefined result.\n", 0);
+
+        // 2.- Subtract the boundaries
+        NBase b;
+        if (b1.is<Nodecl::Analysis::MinusInfinity>() || b1.is<Nodecl::Analysis::PlusInfinity>())
+            b = b1;             // -inf - x = -inf, +inf - x = +inf
+        else if (b2.is<Nodecl::Analysis::MinusInfinity>())
+            b = plus_inf.shallow_copy();             // x - -inf = +inf
+        else if (b2.is<Nodecl::Analysis::PlusInfinity>())
+            b = minus_inf.shallow_copy();            // x - +inf = -inf
+        else if (b1.is_constant() && b2.is_constant())
+            b = NBase(const_value_to_nodecl(const_value_sub(b1.get_constant(), b2.get_constant())));
+        else
+            b = Nodecl::Minus::make(b1, b2, Type::get_int_type());
+
+        return b;
+    }
+
     NBase range_subtraction(const NBase& r1, const NBase& r2)
     {
-        if(!r1.is<Nodecl::Range>() || !r2.is<Nodecl::Range>())
-            return Nodecl::Minus::make(r1, r2, r1.get_type());
+        // 1.- Check the integrity of the operands
+        ERROR_CONDITION(!r1.is<Nodecl::Range>() || !r2.is<Nodecl::Range>(),
+                        "Cannot subtract '%s' - '%s'. Expecting ranges.\n",
+                        r1.prettyprint().c_str(), r2.prettyprint().c_str());
 
-        NBase result;
-
+        // 2.- Get the boundaries of the ranges to be subtracted
         NBase r1_lb = r1.as<Nodecl::Range>().get_lower();
         NBase r1_ub = r1.as<Nodecl::Range>().get_upper();
         NBase r2_lb = r2.as<Nodecl::Range>().get_lower();
         NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
-        TL::Type t = r1_lb.get_type();
 
-        NBase lb, ub;
-        if (r1_lb.is_constant() && r2_lb.is_constant())
-            lb = NBase(const_value_to_nodecl(const_value_sub(r1_lb.get_constant(), r2_lb.get_constant())));
-        else if (r1_lb.is<Nodecl::Analysis::MinusInfinity>() && r2_lb.is<Nodecl::Analysis::MinusInfinity>())
-            lb = r1_lb;
-        else
-            lb = Nodecl::Minus::make(r1_lb, r2_lb, t);
-        if (r1_ub.is_constant() && r2_ub.is_constant())
-            ub = NBase(const_value_to_nodecl(const_value_sub(r1_ub.get_constant(), r2_ub.get_constant())));
-        else if (r1_ub.is<Nodecl::Analysis::PlusInfinity>() && r2_ub.is<Nodecl::Analysis::PlusInfinity>())
-            ub = r1_ub;
-        else
-            ub = Nodecl::Minus::make(r1_ub, r2_ub, t);
+        // 3.- Compute the lower bound
+        NBase lb = boundary_subtraction(r1_lb, r2_lb);
 
-        NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
-        result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
+        // 4.- Compute the upper bound
+        NBase ub = boundary_subtraction(r1_ub, r2_ub);
+
+        // 5.- It may happen that the range is not consistent after the subtraction.
+        //     Normalize it here
+        if (lb.is_constant() && ub.is_constant())
+        {
+            const_value_t* lb_c = lb.get_constant();
+            const_value_t* ub_c = ub.get_constant();
+            if (const_value_is_positive(const_value_sub(lb_c, ub_c)))
+            {
+                const NBase& tmp = ub.shallow_copy();
+                ub = lb.shallow_copy();
+                lb = tmp;
+            }
+        }
+
+        // 6.- The increment of a range not representing an induction variable is always 0
+        const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
+
+        // 7.- Build the range
+        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
 
         if (RANGES_DEBUG)
             std::cerr << "        Range Subtraction " << r1.prettyprint() << " - " << r2.prettyprint()
