@@ -20453,6 +20453,19 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                 return;
             }
 
+            if (is_unresolved_overloaded_type(initializer_expr_type))
+            {
+                ERROR_CONDITION(!symbol_entity_specs_get_is_constructor(conversor),
+                        "This should be a constructor", 0);
+
+                update_unresolved_overload_argument(
+                        initializer_expr_type,
+                        function_type_get_parameter_type_num(conversor->type_information, 0),
+                        decl_context,
+                        nodecl_get_locus(nodecl_expr),
+                        &nodecl_expr);
+            }
+
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(conversor,
                         nodecl_get_locus(nodecl_expr)),
