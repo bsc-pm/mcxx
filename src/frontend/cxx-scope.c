@@ -2806,7 +2806,8 @@ type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
     if (is_auto_type(t)
             || is_decltype_auto_type(t))
     {
-        return get_cv_qualified_type(template_parameter, get_cv_qualifier(t));
+        return get_cv_qualified_type(template_parameter,
+                get_cv_qualifier(t) | get_cv_qualifier(template_parameter));
     }
     else if (is_pointer_type(t))
     {
