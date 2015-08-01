@@ -845,17 +845,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     symbol_entity_specs_set_function_code(new_member, nodecl_null());
                     // Do not share these
                     symbol_entity_specs_free_related_symbols(new_member);
-
-                    if (!nodecl_is_null(symbol_entity_specs_get_noexception(new_member)))
-                    {
-                        // FIXME - We should use the parameter context
-                        symbol_entity_specs_set_noexception(new_member,
-                            instantiate_expression_non_executable(
-                                    symbol_entity_specs_get_noexception(new_member),
-                                    new_member->decl_context,
-                                    instantiation_symbol_map,
-                                    /* pack_index */ -1));
-                    }
                 }
                 else
                 {
