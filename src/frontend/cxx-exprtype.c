@@ -9802,6 +9802,12 @@ static void check_new_expression_impl(
             /* is_auto */ 0,
             /* is_decltype_auto */ 0);
 
+    if (nodecl_is_err_expr(nodecl_init_out))
+    {
+        *nodecl_output = nodecl_init_out;
+        return;
+    }
+
     type_t* synthesized_type = new_type;
 
     if (is_array_type(new_type))
