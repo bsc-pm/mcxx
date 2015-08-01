@@ -7460,7 +7460,8 @@ static void cxx_compute_name_from_entry_list(
                 type_t* qualified_data_member_type = entry->type_information;
                 if (!symbol_entity_specs_get_is_mutable(entry))
                 {
-                    qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
+                    qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type,
+                            this_qualifier | get_cv_qualifier(qualified_data_member_type));
                 }
                 qualified_data_member_type = lvalue_ref(qualified_data_member_type);
 
