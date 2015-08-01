@@ -374,10 +374,9 @@ static char standard_conversion_between_types_for_overload(
         const locus_t* locus)
 {
     if (is_class_type(orig)
-            && is_class_type(dest))
+            && is_class_type(dest)
+            && equivalent_types(orig, dest))
     {
-        if (equivalent_types(orig, dest))
-        {
             standard_conversion_t result = {
                 .orig = orig,
                 .dest = dest,
@@ -387,17 +386,18 @@ static char standard_conversion_between_types_for_overload(
             *scs = result;
             return 1;
         }
-        else if (class_type_is_base_strict_instantiating(dest, orig, locus))
-        {
-            standard_conversion_t result = {
-                .orig = orig,
-                .dest = dest,
-                .conv = { SCI_DERIVED_TO_BASE, SCI_NO_CONVERSION, SCI_NO_CONVERSION }
-            };
+    else if (is_class_type(no_ref(orig))
+            && is_class_type(dest)
+            && class_type_is_base_strict_instantiating(dest, no_ref(orig), locus))
+    {
+        standard_conversion_t result = {
+            .orig = orig,
+            .dest = dest,
+            .conv = { SCI_DERIVED_TO_BASE, SCI_NO_CONVERSION, SCI_NO_CONVERSION }
+        };
 
-            *scs = result;
-            return 1;
-        }
+        *scs = result;
+        return 1;
     }
 
     return standard_conversion_between_types(scs,
