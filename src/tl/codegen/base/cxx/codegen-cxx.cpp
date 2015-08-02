@@ -1036,18 +1036,39 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
     Nodecl::List l = node.get_in_context().as<Nodecl::List>();
 
     // Transient kludge
-    bool emit_decls = 
-    (l.size() != 1
-           && !(l[0].is<Nodecl::CompoundStatement>()
-               || l[0].is<Nodecl::ForStatement>()
-               || l[0].is<Nodecl::WhileStatement>()
-               || l[0].is<Nodecl::SwitchStatement>()
-               || l[0].is<Nodecl::IfElseStatement>()));
+    bool emit_decls =
+        (l.size() != 1
+         && !(l[0].is<Nodecl::CompoundStatement>()
+             || l[0].is<Nodecl::ForStatement>()
+             || l[0].is<Nodecl::WhileStatement>()
+             || l[0].is<Nodecl::SwitchStatement>()
+             || l[0].is<Nodecl::IfElseStatement>()));
 
     if (emit_decls)
     {
         indent();
         *file << "/* << fake context >> { */\n";
+    }
+
+    if (emit_decls
+            || (
+                /* Sometimes we need to emit declarations when the condition/loop
+                   header defines a type
+
+                   if (((union { int x; float y; }){.x = a}).y > 3.4f)
+                   {
+                   }
+
+                   This will create a mcc_union_anon_X, which is in the context that surrounds
+                   the if statement.
+
+                   Of course, we do not want to do this for
+                   compound-statements, because them already define local
+                   entities.
+                 */
+                l.size() == 1
+                && !l[0].is<Nodecl::CompoundStatement>()))
+    {
         define_local_entities_in_trees(l);
     }
 
