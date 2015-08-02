@@ -11498,6 +11498,13 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
     }
 }
 
+static char is_gnu_inline_attr_name(const char* str)
+{
+    return (strcmp(str, "gnu_inline") == 0)
+        || (strcmp(str, "__gnu_inline__") == 0);
+
+}
+
 static void update_function_specifiers(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
         type_t* declarator_type,
@@ -11505,6 +11512,26 @@ static void update_function_specifiers(scope_entry_t* entry,
 {
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
     symbol_entity_specs_set_is_user_declared(entry, 1);
+
+    // Previous declaration
+    char is_gnu_inline_previous = 0;
+    int i, num_gcc_attributes = symbol_entity_specs_get_num_gcc_attributes(entry);
+    for (i = 0; i < num_gcc_attributes && !is_gnu_inline_previous; i++)
+    {
+        gcc_attribute_t gcc_attr = symbol_entity_specs_get_gcc_attributes_num(entry, i);
+        is_gnu_inline_previous = is_gnu_inline_attr_name(gcc_attr.attribute_name);
+    }
+
+    // Current declaration
+    char is_gnu_inline_current = 0;
+    num_gcc_attributes = gather_info->num_gcc_attributes;
+    for (i = 0; i < num_gcc_attributes && !is_gnu_inline_current; i++)
+    {
+        gcc_attribute_t gcc_attr = gather_info->gcc_attributes[i];
+        is_gnu_inline_current = is_gnu_inline_attr_name(gcc_attr.attribute_name);
+    }
+
+    char is_gnu_inline = is_gnu_inline_current || is_gnu_inline_previous;
 
     C_LANGUAGE()
     {
@@ -11544,7 +11571,9 @@ static void update_function_specifiers(scope_entry_t* entry,
             //
             // Note that in general we do not force extern to functions, this is a
             // special case required by the subtle C99 semantics regarding inline
-            if (!symbol_entity_specs_get_is_extern(entry)
+
+            if (!is_gnu_inline
+                    && !symbol_entity_specs_get_is_extern(entry)
                     && !symbol_entity_specs_get_is_static(entry)
                     // This covers cases A and B shown above
                     && (symbol_entity_specs_get_is_inline(entry)
@@ -11566,10 +11595,39 @@ static void update_function_specifiers(scope_entry_t* entry,
             || gather_info->is_constexpr);
 
     // Merge extern attribute
-    symbol_entity_specs_set_is_extern(entry,
-            (symbol_entity_specs_get_is_extern(entry)
-             || gather_info->is_extern)
-            && !symbol_entity_specs_get_is_static(entry));
+    if (!is_gnu_inline)
+    {
+        symbol_entity_specs_set_is_extern(entry,
+                (symbol_entity_specs_get_is_extern(entry)
+                 || gather_info->is_extern)
+                && !symbol_entity_specs_get_is_static(entry));
+    }
+    else
+    {
+        // extern void bar();
+        // __attribute__((gnu_inline)) void bar();
+        if ((symbol_entity_specs_get_is_extern(entry)
+                    && is_gnu_inline_current
+                    && !gather_info->is_extern)
+                || (is_gnu_inline_previous
+                    && gather_info->is_extern))
+        {
+            // Remove the extern, otherwise an extra extern will be emitted
+            // along with __attribute__((gnu_inline)) which causes a behaviour
+            // like that of the bare "inline" in C99
+            symbol_entity_specs_set_is_extern(entry, 0);
+        }
+        // extern __attribute__((gnu_inline)) void bar();
+        else if (gather_info->is_extern
+                && is_gnu_inline_current)
+        {
+            // Usual case as above
+            symbol_entity_specs_set_is_extern(entry,
+                    (symbol_entity_specs_get_is_extern(entry)
+                     || gather_info->is_extern)
+                    && !symbol_entity_specs_get_is_static(entry));
+        }
+    }
 
     // Remove the friend-declared attribute if we find the function but
     // this is not a friend declaration
