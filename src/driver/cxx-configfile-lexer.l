@@ -114,6 +114,16 @@ location_t current_location = { NULL, NULL, 1, 1};
     return CONFIGFILE_NAME;
 }
 
+":true:" {
+    handle_token(yytext);
+    return CONFIGFILE_FLAG_TRUE;
+}
+
+":false:" {
+    handle_token(yytext);
+    return CONFIGFILE_FLAG_FALSE;
+}
+
 }
 
 <maybe_comes_option_line>{
