@@ -568,9 +568,9 @@ nanox_mic_enabled=no
 MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
 show_mic_tools_warning=NO
 MIC_LIBS=""
-NANOX_GATE="\# "
-NANOX_NEW_LINK="\# "
-NANOX_OLD_LINK="\# "
+NANOX_GATE=":false:"
+NANOX_NEW_LINK=":false:"
+NANOX_OLD_LINK=":false:"
 
 if test x$is_enabled_ompss = xyes;
 then
@@ -580,7 +580,7 @@ fi
 
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
-   NANOX_GATE=""
+   NANOX_GATE=":true:"
    AC_ARG_WITH([nanox],
            AS_HELP_STRING([--with-nanox=dir], [Directory of Nanos++ installation]),
            [
@@ -660,11 +660,11 @@ then
    elif test "$nanox_pm_selection" = "new";
    then
        AC_MSG_RESULT([new mechanism])
-       NANOX_NEW_LINK=""
+       NANOX_NEW_LINK=":true:"
    elif test "$nanox_pm_selection" = "old";
    then
        AC_MSG_RESULT([old mechanism])
-       NANOX_OLD_LINK=""
+       NANOX_OLD_LINK=":true:"
    fi
 
    AC_ARG_WITH([nanox-mic],
@@ -833,7 +833,7 @@ dnl ---------------------- Support for Nanos 6 ---------------------------------
 
 is_enabled_tl_ompss_nanos6="no"
 
-NANOS6_GATE="\# "
+NANOS6_GATE=":false:"
 
 AC_MSG_CHECKING(["if enabled OmpSs TL support for Nanos 6])
 AC_ARG_ENABLE([tl-ompss-nanos6],
@@ -860,7 +860,7 @@ AC_ARG_ENABLE([tl-ompss-nanos6],
 
 if test x$is_enabled_tl_ompss_nanos6 = xyes;
 then
-   NANOS6_GATE=""
+   NANOS6_GATE=":true:"
    AC_ARG_WITH([nanos6],
            AS_HELP_STRING([--with-nanos6=dir], [Directory of Nanos 6 installation]),
            [
@@ -904,7 +904,9 @@ AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
 
 if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
 then
-    AC_MSG_ERROR([Nanos++ and Nanos 6 support cannot be enabled at the same time])
+    NANOX_GATE="nanox"
+    NANOS6_GATE='!nanox'
+    AC_MSG_NOTICE([Nanos++ and Nanos 6 support enabled at the same time. Mercurium will default to Nanos6. Nanos++ will require --nanox])
 fi
 
 dnl ---------------------- End of Support for Nanos 6 -----------------------------------------
