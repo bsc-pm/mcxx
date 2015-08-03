@@ -11609,7 +11609,10 @@ static void update_function_specifiers(scope_entry_t* entry,
         if ((symbol_entity_specs_get_is_extern(entry)
                     && is_gnu_inline_current
                     && !gather_info->is_extern)
+                // __attribute__((gnu_inline)) void bar();
+                // extern void bar();
                 || (is_gnu_inline_previous
+                    && !is_gnu_inline_current
                     && gather_info->is_extern))
         {
             // Remove the extern, otherwise an extra extern will be emitted
