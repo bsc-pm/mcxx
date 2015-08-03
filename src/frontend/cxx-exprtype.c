@@ -13448,7 +13448,7 @@ static void implement_nongeneric_lambda_expression(
 {
     // Create class name
     const char* lambda_class_name_str = NULL;
-    uniquestr_sprintf(&lambda_class_name_str, "__lambda_class_%d__", lambda_counter);
+    uniquestr_sprintf(&lambda_class_name_str, "___lambda_class_%d__", lambda_counter);
     lambda_counter++;
 
     scope_entry_t* lambda_class = new_symbol(decl_context, decl_context->current_scope, lambda_class_name_str);
@@ -14046,7 +14046,7 @@ static void implement_generic_lambda_expression(
 {
     // Create class name
     const char* lambda_class_name_str = NULL;
-    uniquestr_sprintf(&lambda_class_name_str, "__lambda_class_%d__", lambda_counter);
+    uniquestr_sprintf(&lambda_class_name_str, "___lambda_class_%d__", lambda_counter);
     lambda_counter++;
 
     scope_entry_t* lambda_class = new_symbol(decl_context, decl_context->current_scope, lambda_class_name_str);
