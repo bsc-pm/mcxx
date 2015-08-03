@@ -4645,7 +4645,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingDecl& node)
     }
 
     indent();
-    *(file) << "using " << this->get_qualified_name(sym) << ";\n";
+    *(file) << "using " << this->get_qualified_name(sym, context) << ";\n";
 }
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingNamespace & node)
 {
