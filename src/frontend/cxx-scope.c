@@ -2643,14 +2643,23 @@ static type_t* update_dependent_typename(
             || member->kind == SK_TYPEDEF
             || member->kind == SK_ENUM)
     {
+        if (is_error_type(member->type_information))
+            return NULL;
+
         return get_user_defined_type(member);
     }
     else if (member->kind == SK_TEMPLATE_ALIAS)
     {
+        if (is_error_type(member->type_information))
+            return NULL;
+
         return member->type_information;
     }
     else if (member->kind == SK_DEPENDENT_ENTITY)
     {
+        if (is_error_type(member->type_information))
+            return NULL;
+
         return member->type_information;
     }
     else
