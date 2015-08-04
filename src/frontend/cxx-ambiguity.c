@@ -2468,3 +2468,37 @@ void solve_ambiguous_parameter_clause(AST parameter_clause, const decl_context_t
             NULL,
             NULL);
 }
+
+AST find_ambiguity(AST a)
+{
+    if (a == NULL)
+    {
+        return NULL;
+    }
+    else if (ASTKind(a) == AST_AMBIGUITY)
+    {
+        return a;
+    }
+    else if (ASTKind(a) == AST_NODE_LIST)
+    {
+        AST iter;
+        for_each_element(a, iter)
+        {
+            AST result = find_ambiguity(ASTSon1(iter));
+            if (result != NULL)
+                return result;
+        }
+    }
+    else
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            AST result = find_ambiguity(ast_get_child(a, i));
+            if (result != NULL)
+                return result;
+        }
+    }
+
+    return NULL;
+}

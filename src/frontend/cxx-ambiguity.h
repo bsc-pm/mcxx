@@ -82,9 +82,8 @@ LIBMCXX_EXTERN char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_li
 
 LIBMCXX_EXTERN int either_type(AST t1, AST t2, node_t n1, node_t n2);
 
-// States if we are checking ambiguities
-LIBMCXX_EXTERN DEPRECATED void enter_test_expression(void);
-LIBMCXX_EXTERN DEPRECATED void leave_test_expression(void);
+// Used by the driver for a final test
+LIBMCXX_EXTERN AST find_ambiguity(AST a);
 
 MCXX_END_DECLS
 

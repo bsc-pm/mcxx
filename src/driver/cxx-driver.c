@@ -59,6 +59,7 @@
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
 #include "cxx-ast.h"
+#include "cxx-ambiguity.h"
 #include "cxx-graphviz.h"
 #include "cxx-html.h"
 #include "cxx-prettyprint.h"
@@ -555,7 +556,6 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
 static void terminating_signal_handler(int sig);
 #endif
 static char check_tree(AST a);
-static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
 static void embed_files(void);
 static void link_objects(void);
@@ -4927,8 +4927,15 @@ static void terminating_signal_handler(int sig)
 
 static char check_tree(AST a)
 {
-    AST ambiguous_node = NULL;
-    if (!check_for_ambiguities(a, &ambiguous_node))
+    // Check consistency of links
+    if (!ast_check(a))
+    {
+        internal_error("Tree is inconsistent\n", 0);
+    }
+
+    // If links look OK, make sure no ambiguities remain
+    AST ambiguous_node = find_ambiguity(a);
+    if (ambiguous_node != NULL)
     {
         fprintf(stderr, "============================\n");
         fprintf(stderr, "  Ambiguities not resolved\n");
@@ -4956,34 +4963,8 @@ static char check_tree(AST a)
         return 0;
     }
 
-    // Check consistency of links
-    if (!ast_check(a))
-    {
-        internal_error("Tree is inconsistent\n", 0);
-    }
-
     return 1;
 }
-
-static char check_for_ambiguities(AST a, AST* ambiguous_node)
-{
-    if (a == NULL)
-        return 1;
-
-    if (ASTKind(a) == AST_AMBIGUITY)
-    {
-        *ambiguous_node = a;
-        return 0;
-    }
-    else
-    {
-        return check_for_ambiguities(ASTSon0(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon1(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon2(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon3(a), ambiguous_node);
-    }
-}
-
 
 void load_compiler_phases(compilation_configuration_t* config)
 {

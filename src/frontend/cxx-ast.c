@@ -102,6 +102,18 @@ char ast_check(const_AST root)
                     }
                 }
             }
+
+            // Extra check for lists (only top level lists are verified)
+            if (ast_get_kind(node) == AST_NODE_LIST
+                    && (ast_get_parent(node) == NULL
+                        || (ast_get_kind(ast_get_parent(node)) != AST_NODE_LIST))
+                    && !ast_check_list_tree(node))
+            {
+                fprintf(stderr, "List rooted %p (%s) is incorrectly built\n",
+                        node,
+                        ast_location(node));
+                ok = 0;
+            }
         }
         else
         {
@@ -117,6 +129,90 @@ char ast_check(const_AST root)
 
     return ok;
 }
+
+char ast_check_list_tree(const_AST root)
+{
+    int stack_capacity = 1024;
+    int stack_length = 1;
+    const_AST *stack = NEW_VEC(const_AST, stack_capacity);
+
+    stack[0] = root;
+
+#define PUSH_BACK(child) \
+    { \
+        if (stack_length == stack_capacity) \
+        { \
+            stack_capacity *= 2; \
+            stack = NEW_REALLOC(const_AST, stack, stack_capacity); \
+        } \
+        stack_length++; \
+        stack[stack_length - 1] = (child); \
+    }
+
+    char ok = 1;
+    while (stack_length > 0)
+    {
+        const_AST a = stack[stack_length - 1];
+        stack_length--;
+
+        if ((a == NULL)
+                || (ASTKind(a) != AST_NODE_LIST)
+                || (ASTSon1(a) == NULL)
+                || (ASTKind(ASTSon1(a)) == AST_NODE_LIST))
+        {
+            ok = 0;
+            break;
+        }
+
+        if (ASTSon0(a) == NULL)
+            break;
+
+        if ((ASTKind(ASTSon0(a)) != AST_NODE_LIST)
+                || (ASTSon0(a) != NULL && ASTParent(ASTSon0(a)) != a)
+                || (ASTParent(ASTSon1(a)) != a))
+        {
+            ok = 0;
+            break;
+        }
+
+        PUSH_BACK(ASTSon0(a));
+    }
+
+    DELETE(stack);
+
+    return ok;
+}
+
+#if 0
+char ast_check_list_tree(const_AST a)
+{
+    if (a == NULL)
+        return 0;
+
+    if (ASTKind(a) != AST_NODE_LIST)
+        return 0;
+
+    if (ASTSon1(a) == NULL)
+        return 0;
+
+    if (ASTKind(ASTSon1(a)) == AST_NODE_LIST)
+        return 0;
+
+    if (ASTSon0(a) == NULL)
+        return 1;
+
+    if (ASTKind(ASTSon0(a)) != AST_NODE_LIST)
+        return 0;
+
+    if (ASTSon0(a) != NULL && ASTParent(ASTSon0(a)) != a)
+        return 0;
+
+    if (ASTParent(ASTSon1(a)) != a)
+        return 0;
+
+    return ast_check_list_tree(ASTSon0(a));
+}
+#endif
 
 static void ast_copy_one_node(AST dest, AST orig)
 {
