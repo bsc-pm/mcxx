@@ -873,7 +873,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     type_t* primary_type = template_type_get_primary_type(new_member->type_information);
                     new_member = named_type_get_symbol(primary_type);
 
-                    new_member->defined = primary_template_sym->defined;
+                    new_member->defined = 0;
                     symbol_entity_specs_set_function_code(new_member, nodecl_null());
                     symbol_entity_specs_set_is_instantiable(new_member, 1);
                     symbol_entity_specs_set_emission_template(new_member, primary_template_sym);
@@ -2489,10 +2489,6 @@ static char instantiate_true_template_function(scope_entry_t* entry, const locus
     type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
 
-    // Cannot be instantiated
-    if (!primary_specialization_function->defined)
-        return 0;
-
     scope_entry_t* emission_template =
         symbol_entity_specs_get_emission_template(primary_specialization_function);
     ERROR_CONDITION(emission_template == NULL, "Function lacks emission template", 0);
@@ -2758,6 +2754,8 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
         {
             symbol_entity_specs_set_is_defined_inside_class_specifier(entry, 0);
         }
+
+        entry->defined = 1;
     }
 
     diagnostic_context_pop_and_commit();
