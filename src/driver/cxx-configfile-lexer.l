@@ -266,6 +266,8 @@ int open_configuration_file_for_scan(const char* scanned_filename)
 
 	yy_switch_to_buffer(scanning_buffer);
 
+    BEGIN(INITIAL);
+
     return 1;
 }
 
