@@ -51,7 +51,7 @@ namespace TL { namespace Nanos6 {
                         n.get_symbols()
                         .as<Nodecl::List>()
                         .to_object_list()
-                        .map(&Nodecl::NodeclBase::get_symbol));
+                        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
             }
 
             virtual void visit(const Nodecl::OpenMP::Shared& n)
@@ -60,7 +60,7 @@ namespace TL { namespace Nanos6 {
                         n.get_symbols()
                         .as<Nodecl::List>()
                         .to_object_list()
-                        .map(&Nodecl::NodeclBase::get_symbol));
+                        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
             }
 
             virtual void visit(const Nodecl::OpenMP::Private& n)
@@ -69,7 +69,7 @@ namespace TL { namespace Nanos6 {
                         n.get_symbols()
                         .as<Nodecl::List>()
                         .to_object_list()
-                        .map(&Nodecl::NodeclBase::get_symbol));
+                        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
             }
 
             // virtual void visit(const Nodecl::OpenMP::TaskReduction& n)
@@ -222,7 +222,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase operator()(const std::string& name)
             {
                 TL::ObjectList<TL::Symbol> l;
-                ERROR_CONDITION( ( l = fields.find(&TL::Symbol::get_name, std::string(name))).empty(),
+                ERROR_CONDITION( ( l = fields.find<std::string>(&TL::Symbol::get_name, std::string(name))).empty(),
                         "Field '%s' not found", name.c_str());
                 return l[0].make_nodecl(/* set_ref_type */ true);
             }
@@ -914,7 +914,7 @@ namespace TL { namespace Nanos6 {
                 }
             } solve_param_names(c_forwarded_empty_stmt.retrieve_context());
 
-            TL::ObjectList<Nodecl::NodeclBase> refs_to_params = c_forwarded_parameter_names.map(
+            TL::ObjectList<Nodecl::NodeclBase> refs_to_params = c_forwarded_parameter_names.map<Nodecl::NodeclBase>(
                     solve_param_names
                     );
 
