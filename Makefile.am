@@ -3141,9 +3141,9 @@ config_edit = \
      -e "s|@CUDA_INCLUDES[@]|$(CUDA_INCLUDES)|g" \
      -e "s|@CUDA_LIBS[@]|$(CUDA_LIBS)|g" \
      -e "s|@CUDA_RPATH[@]|$(CUDA_RPATH)|g" \
-     -e 's|@DISABLE_CUDA[@]|$(DISABLE_CUDA)|g' \
-     -e 's|@DISABLE_OPENCL[@]|$(DISABLE_OPENCL)|g' \
-     -e 's|@DISABLE_MPI[@]|$(DISABLE_MPI)|g' \
+     -e 's|@ENABLE_CUDA[@]|$(ENABLE_CUDA)|g' \
+     -e 's|@ENABLE_OPENCL[@]|$(ENABLE_OPENCL)|g' \
+     -e 's|@ENABLE_MPI[@]|$(ENABLE_MPI)|g' \
      -e 's|@MPIFORT[@]|$(MPIFORT)|g' \
      -e 's|@MPICXX[@]|$(MPICXX)|g' \
      -e 's|@MPICC[@]|$(MPICC)|g' \
@@ -3167,8 +3167,8 @@ config_edit = \
      -e 's|@MPICC[@]|$(MPICC)|g' \
      -e 's|@MPICXX[@]|$(MPICXX)|g' \
      -e 's|@MIC_LIBS[@]|$(MIC_LIBS)|g' \
-     -e 's|@DISABLEMPI_ICC[@]|$(DISABLEMPI_ICC)|g' \
-     -e 's|@DISABLEMPI_GCC[@]|$(DISABLEMPI_GCC)|g' \
+     -e 's|@ENABLEMPI_ICC[@]|$(ENABLEMPI_ICC)|g' \
+     -e 's|@ENABLEMPI_GCC[@]|$(ENABLEMPI_GCC)|g' \
      -e 's|@INTEL_OMP_LIB[@]|$(INTEL_OMP_LIB)|g' \
      -e 's|@INTEL_OMP_INCLUDE[@]|$(INTEL_OMP_INCLUDE)|g' \
      -e 's|@MIC_TOOLS[@]|$(MIC_TOOLS)|g' \

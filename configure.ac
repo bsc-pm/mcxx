@@ -1154,19 +1154,19 @@ AC_SUBST([CUDA_INCLUDES])
 AC_SUBST([CUDA_LIBS])
 AC_SUBST([CUDA_RPATH])
 
-
 if test x$is_enabled_tl_omp_nanox = xyes -a x$cuda_valid = xyes;
 then
+   ENABLE_CUDA=":true:"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvfc mnvcc mnvcxx"
 
    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 else
-   DISABLE_CUDA="\#CUDA support disabled"
+   ENABLE_CUDA=":false:"
 fi
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_CUDA], test x$is_enabled_tl_omp_nanox = xyes -a x$cuda_valid = xyes)
 
-AC_SUBST([DISABLE_CUDA])
+AC_SUBST([ENABLE_CUDA])
 AC_SUBST([cuda_valid])
 
 dnl --------------------- End of Support for CUDA in Nanox --------------------------------
@@ -1250,7 +1250,7 @@ AC_ARG_ENABLE([nanox-opencl-device],
 
 if test x$opencl_enabled = xyes -a x$opencl_valid = xno;
 then
-   DISABLE_OPENCL=""
+   ENABLE_OPENCL=":true:"
    AC_MSG_CHECKING([if nanox has opencl header installed])
    #tests if opencl headers are usable and correct
    #backup vars before we do the tests
@@ -1273,11 +1273,11 @@ if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
     COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
-    DISABLE_OPENCL="\#OpenCL support disabled"
+    ENABLE_OPENCL=":false:"
 fi
 
 AC_SUBST([opencl_valid])
-AC_SUBST([DISABLE_OPENCL])
+AC_SUBST([ENABLE_OPENCL])
 
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_OPENCL], test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes)
 
@@ -1314,6 +1314,9 @@ AC_ARG_ENABLE([nanox-mpi-device],
 
 if test x$mpi_enabled = xyes;
 then
+   # I think these variables are not used anymore
+   ENABLEMPI_GCC=":true:"
+   ENABLEMPI_ICC=":true:"
 
    mpi_found=no
    MPIMODULE=""
@@ -1344,7 +1347,7 @@ then
       MPICC=$MPI_CNAME
       MPICXX=$MPI_CXXNAME
       MPIFORT=$MPI_FORTNAME
-      DISABLEMPI_GCC="\#do not uncomment"
+      ENABLEMPI_GCC=":false:"
    else
       mpi_valid=no
    fi
@@ -1356,7 +1359,7 @@ then
          MPICC=$MPI_CNAME
          MPICXX=$MPI_CXXNAME
          MPIFORT=$MPI_FORTNAME
-         DISABLEMPI_GCC="\#do not uncomment"
+         ENABLEMPI_GCC=":false:"
        else
                     mpi_valid=no
        fi
@@ -1371,7 +1374,7 @@ then
            MPICC=$MPI_CNAME
            MPICXX=$MPI_CXXNAME
            MPIFORT=$MPI_FORTNAME                            
-           DISABLEMPI_ICC="\#do not uncomment"
+           ENABLEMPI_ICC=":false:"
       else
            mpi_valid=no
       fi
@@ -1383,7 +1386,7 @@ then
            MPICC=$MPI_CNAME
            MPICXX=$MPI_CXXNAME
            MPIFORT=$MPI_FORTNAME
-           DISABLEMPI_ICC="\#do not uncomment"
+           ENABLEMPI_ICC=":false:"
          else
            mpi_valid=no
          fi
@@ -1401,7 +1404,7 @@ then
        MPIFORT=mpif90
     fi
 
-   DISABLE_MPI=""
+   ENABLE_MPI=":true:"
    if test x$mpi_found = xyes; then
        AC_MSG_CHECKING([if nanox has mpi enabled])
        #tests if mpi headers are usable and correct
@@ -1431,17 +1434,17 @@ then
 
    SCRIPT_COMPILER_NAMES="${SCRIPT_COMPILER_NAMES} mpimcc mpimcxx mpimfc"
 else
-    DISABLE_MPI="\#do not uncomment"
+    ENABLE_MPI=":false:"
 fi
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_MPI], test x$mpi_valid = xyes)
 
-AC_SUBST([DISABLEMPI_ICC])
-AC_SUBST([DISABLEMPI_GCC])
+AC_SUBST([ENABLEMPI_ICC])
+AC_SUBST([ENABLEMPI_GCC])
 AC_SUBST([MPICC])
 AC_SUBST([MIC_LIBS])
 AC_SUBST([MPICXX])
 AC_SUBST([MPIFORT])
-AC_SUBST([DISABLE_MPI])
+AC_SUBST([ENABLE_MPI])
 
 dnl --------------------- End MPI support in Mercurium --------------------------------
 
