@@ -35,6 +35,8 @@
 
 #include "fortran03-mangling.h"
 
+#include <algorithm>
+
 namespace TL { namespace Nanos6 {
 
     struct TaskPropertiesVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -548,6 +550,35 @@ namespace TL { namespace Nanos6 {
                 get_size_t_type());
     }
 
+    namespace {
+        struct GenerateParamsNames
+        {
+            int x;
+            GenerateParamsNames() : x(0) { }
+            std::string operator()()
+            {
+                std::stringstream ss;
+                ss << "p_" << x;
+                x++;
+                return ss.str();
+            }
+        };
+
+        struct SolveParamNames
+        {
+            TL::Scope sc;
+            SolveParamNames(TL::Scope sc_)
+                : sc(sc_) { }
+            Nodecl::NodeclBase operator()(const std::string& str)
+            {
+                TL::Symbol sym = sc.get_symbol_from_name(str);
+                ERROR_CONDITION(!sym.is_valid(), "Symbol '%s' not found", sym.get_name().c_str());
+
+                return sym.make_nodecl(/* set_ref_type */ true);
+            }
+        };
+    }
+
     void TaskProperties::create_outline_function()
     {
         // Unpacked function
@@ -859,20 +890,10 @@ namespace TL { namespace Nanos6 {
             outline_empty_stmt.prepend_sibling(call_to_forward);
 
             TL::ObjectList<std::string> c_forwarded_parameter_names(forwarded_parameter_names.size(), "");
-            struct GenerateParamsNames
-            {
-                int x;
-                GenerateParamsNames() : x(0) { }
-                std::string operator()()
-                {
-                    std::stringstream ss;
-                    ss << "p_" << x;
-                    x++;
-                    return ss.str();
-                }
-            } generate_params_names;
 
             c_forwarded_parameter_names[0] = "ol";
+
+            GenerateParamsNames generate_params_names;
             std::generate(c_forwarded_parameter_names.begin() + 1, c_forwarded_parameter_names.end(), generate_params_names);
 
             TL::ObjectList<TL::Type> c_forwarded_parameter_types (
@@ -899,20 +920,8 @@ namespace TL { namespace Nanos6 {
                     c_forwarded_function,
                     c_forwarded_function_code,
                     c_forwarded_empty_stmt);
-
-            struct SolveParamNames
-            {
-                TL::Scope sc;
-                SolveParamNames(TL::Scope sc_)
-                    : sc(sc_) { }
-                Nodecl::NodeclBase operator()(const std::string& str)
-                {
-                    TL::Symbol sym = sc.get_symbol_from_name(str);
-                    ERROR_CONDITION(!sym.is_valid(), "Symbol '%s' not found", sym.get_name().c_str());
-
-                    return sym.make_nodecl(/* set_ref_type */ true);
-                }
-            } solve_param_names(c_forwarded_empty_stmt.retrieve_context());
+            
+            SolveParamNames solve_param_names(c_forwarded_empty_stmt.retrieve_context());
 
             TL::ObjectList<Nodecl::NodeclBase> refs_to_params = c_forwarded_parameter_names.map<Nodecl::NodeclBase>(
                     solve_param_names
