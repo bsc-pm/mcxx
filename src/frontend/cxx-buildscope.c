@@ -9568,9 +9568,10 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     || (symbol_entity_specs_get_alias_to(class_entry) != NULL
                         && symbol_entity_specs_get_alias_to(class_entry)->defined))
             {
-                error_printf("%s: class '%s' already defined in %s\n",
+                error_printf("%s: class '%s' already defined\n",
                         ast_location(class_id_expression),
-                        get_qualified_symbol_name(class_entry, class_entry->decl_context),
+                        get_qualified_symbol_name(class_entry, class_entry->decl_context));
+                info_printf("%s: info: location of previous definition\n",
                         locus_to_str(class_symbol_get_canonical_symbol(class_entry)->locus));
                 *type_info = get_error_type();
                 return;
@@ -16266,9 +16267,10 @@ static scope_entry_t* build_scope_function_definition_declarator(
                     decl_context,
                     qualified_name);
         }
-        error_printf("%s: error: function '%s' already defined in '%s'\n",
+        error_printf("%s: error: function '%s' already defined\n",
                 ast_location(function_definition),
-                funct_name,
+                funct_name);
+        info_printf("%s: info: location of previous definition\n",
                 locus_to_str(entry->locus));
         return NULL;
     }
