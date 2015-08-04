@@ -288,8 +288,8 @@ namespace TL
             TL::Symbol reduction_pack_symbol)
     {
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
 
         UpdateReductionUses update(reduction_pack_symbol, reduction_symbols);
         update.walk(node);

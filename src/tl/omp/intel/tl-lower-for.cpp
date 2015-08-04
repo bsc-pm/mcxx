@@ -98,11 +98,11 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     {
         TL::ObjectList<Symbol> tmp =
             private_list  // TL::ObjectList<OpenMP::Private>
-            .map(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         private_symbols.insert(tmp);
@@ -111,11 +111,11 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     {
         TL::ObjectList<Symbol> tmp =
             firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-            .map(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         private_symbols.insert(tmp);
@@ -125,11 +125,11 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     {
         TL::ObjectList<Symbol> tmp =
             lastprivate_list  // TL::ObjectList<OpenMP::Lastprivate>
-            .map(&Nodecl::OpenMP::Lastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Lastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         private_symbols.insert(tmp);
@@ -139,11 +139,11 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     {
         TL::ObjectList<Symbol> tmp =
             firstlastprivate_list  // TL::ObjectList<OpenMP::FirstLastprivate>
-            .map(&Nodecl::OpenMP::FirstLastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::FirstLastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         private_symbols.insert(tmp);
@@ -153,11 +153,11 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
 
     TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items
         = reduction_list
-        .map(&Nodecl::OpenMP::Reduction::get_reductions)
-        .map(&Nodecl::NodeclBase::as<Nodecl::List>)
-        .map(&Nodecl::List::to_object_list)
+        .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Reduction::get_reductions)
+        .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+        .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list)
         .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
-        .map(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
+        .map<Nodecl::OpenMP::ReductionItem>(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
 
     Source loop_construct;
     Nodecl::NodeclBase stmt_placeholder;
@@ -224,8 +224,8 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     if (!reduction_items.empty())
     {
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
 
         TL::Symbol reduction_pack_type = declare_reduction_pack(reduction_symbols, construct);
         reduction_pack_symbol = Intel::new_private_symbol(

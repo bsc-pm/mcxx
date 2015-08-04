@@ -2287,6 +2287,7 @@ namespace {
     }
 
     // Utility method: for printing the constraints map if debugging is necessary
+    UNUSED_FUNCTION
     void print_var_to_constraint_map(const VarToConstraintMap& constrs)
     {
         for (VarToConstraintMap::const_iterator it = constrs.begin(); it != constrs.end(); ++it)

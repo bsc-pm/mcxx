@@ -210,7 +210,7 @@ namespace Nodecl
                 // Ignore the internal symbol which represents the C++ NULL constant
                 && n.as<Nodecl::Symbol>().get_symbol().get_name() != "__null")
         {
-            result.insert(n.as<Nodecl::Symbol>(),
+            result.insert<TL::Symbol>(n.as<Nodecl::Symbol>(),
                    &Nodecl::Symbol::get_symbol);
         }
         else if (n.is<Nodecl::ObjectInit>())

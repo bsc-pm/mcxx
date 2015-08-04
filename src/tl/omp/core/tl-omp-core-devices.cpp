@@ -225,7 +225,7 @@ namespace TL { namespace OpenMP {
     {
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(stmt)
-            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         for (TL::ObjectList<TL::Symbol>::iterator it = nonlocal_symbols.begin();
                 it != nonlocal_symbols.end();

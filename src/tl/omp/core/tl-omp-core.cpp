@@ -410,7 +410,7 @@ namespace TL { namespace OpenMP {
 
         bool operator()(DataReference t) const
         {
-            return !_ref_list.contains(t, &DataReference::get_base_symbol);
+            return !_ref_list.contains<TL::Symbol>(t, &DataReference::get_base_symbol);
         }
     };
 
@@ -423,7 +423,7 @@ namespace TL { namespace OpenMP {
                 it != firstprivate.end();
                 it++)
         {
-            if (lastprivate.contains(*it, std::function<TL::Symbol(DataReference)>(&DataReference::get_base_symbol)))
+            if (lastprivate.contains<TL::Symbol>(*it, std::function<TL::Symbol(DataReference)>(&DataReference::get_base_symbol)))
             {
                 result.append(*it);
             }
@@ -900,7 +900,7 @@ namespace TL { namespace OpenMP {
 
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         ObjectList<Symbol> already_nagged;
 
@@ -1398,7 +1398,7 @@ namespace TL { namespace OpenMP {
 
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         if (!_ompss_mode)
         {

@@ -54,37 +54,26 @@ namespace std
 }
 #endif
 
+template <typename T>
+struct LiftPointer;
 
-template <typename T, typename F>
-struct LiftPointer
+template <typename S, typename T>
+struct LiftPointer<S(T)>
 {
-    private:
-#if defined(HAVE_CXX11)
-        typedef typename std::result_of<F(T)>::type Ret;
-#else
-        typedef typename std::tr1::result_of<F(T)>::type Ret;
-#endif
-        std::function<Ret(T)> _f;
+    std::function<S(const T&)> f;
+    LiftPointer(const std::function<S(const T&)>& f_)
+        : f(f_) { }
 
-    public:
-    LiftPointer(F f)
-        : _f(f) { }
-
-    Ret operator ()(T *t) const
+    S operator ()(const T* pt)
     {
-        return _f(*t);
+        return f(*pt);
     }
-
-#if !defined(HAVE_CXX11)
-    typedef Ret result_type;
-#endif
 };
 
-
-template <typename T, typename F>
-LiftPointer<T, F> lift_pointer(F fun)
+template <typename S, typename T>
+std::function<S(const T* const &)> lift_pointer(const std::function<S(const T&)>& f)
 {
-    LiftPointer<T, F> lifted(fun);
+    LiftPointer<S(T)> lifted(f);
     return lifted;
 }
 

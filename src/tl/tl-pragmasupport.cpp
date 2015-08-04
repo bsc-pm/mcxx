@@ -490,7 +490,7 @@ namespace TL
         ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
 
         ObjectList<std::string> clauses_strings = nodes
-            .map(&Nodecl::NodeclBase::get_text);
+            .map<std::string>(&Nodecl::NodeclBase::get_text);
 
         return clauses_strings;
     }

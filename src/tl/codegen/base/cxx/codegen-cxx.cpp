@@ -8158,7 +8158,7 @@ bool CxxBase::is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym)
             || sym.is_dependent_friend_class())
         return friends.contains(sym);
     else
-        return friends.map(&TL::Symbol::get_alias_to).contains(sym);
+        return friends.map<TL::Symbol>(&TL::Symbol::get_alias_to).contains(sym);
 }
 
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,

@@ -618,8 +618,8 @@ namespace TL
                 all_copies.append(target_info.get_copy_inout());
 
                 ObjectList<Symbol> all_copied_syms = all_copies
-                    .map(&TL::OmpSs::CopyItem::get_copy_expression)
-                    .map(&DataReference::get_base_symbol);
+                    .map<DataReference>(&TL::OmpSs::CopyItem::get_copy_expression)
+                    .map<TL::Symbol>(&DataReference::get_base_symbol);
 
                 // In devices with disjoint memory, it may be wrong to use a
                 // global variables inside a pragma task without copying it.

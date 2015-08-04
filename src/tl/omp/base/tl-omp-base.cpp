@@ -3020,9 +3020,6 @@ namespace TL { namespace OpenMP {
             {
                 return arg.make_nodecl(/*set_ref*/true, _locus);
             }
-#if !defined(HAVE_CXX11)
-            typedef Nodecl::NodeclBase result_type;
-#endif
     };
 
     struct SymbolReasonBuilder
@@ -3040,10 +3037,6 @@ namespace TL { namespace OpenMP {
             {
                 return arg.first.make_nodecl(/*set_ref*/true, _locus);
             }
-
-#if !defined(HAVE_CXX11)
-            typedef Nodecl::NodeclBase result_type;
-#endif
     };
 
     struct ReportSymbols
@@ -3117,10 +3110,6 @@ namespace TL { namespace OpenMP {
 
                 *_omp_report_file << ss.str();
             }
-
-#if !defined(HAVE_CXX11)
-            typedef void result_type;
-#endif
     };
 
     struct ReductionSymbolBuilder
@@ -3142,10 +3131,6 @@ namespace TL { namespace OpenMP {
                         /* reduction type */ Nodecl::Type::make(arg.get_reduction_type(), _locus),
                         _locus);
             }
-
-#if !defined(HAVE_CXX11)
-            typedef Nodecl::NodeclBase result_type;
-#endif
     };
 
     struct ReportReductions
@@ -3189,10 +3174,6 @@ namespace TL { namespace OpenMP {
                 *_omp_report_file
                     << ss.str();
             }
-
-#if !defined(HAVE_CXX11)
-            typedef void result_type;
-#endif
     };
 
     template <typename T>
@@ -3207,7 +3188,8 @@ namespace TL { namespace OpenMP {
 
         if (!symbols.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolReasonBuilder(locus));
+            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols =
+                symbols.map<Nodecl::NodeclBase>(SymbolReasonBuilder(locus));
 
             if (emit_omp_report())
             {
@@ -3381,12 +3363,12 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
-        TL::ObjectList<Symbol> reduction_symbols = reductions.map(
-                std::function<TL::Symbol(ReductionSymbol)>(&ReductionSymbol::get_symbol));
+        TL::ObjectList<Symbol> reduction_symbols =
+            reductions.map<TL::Symbol>(&ReductionSymbol::get_symbol);
         if (!reduction_symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols =
-                reduction_symbols.map(SymbolBuilder(locus));
+                reduction_symbols.map<Nodecl::NodeclBase>(SymbolBuilder(locus));
 
             result_list.append(Nodecl::OpenMP::Shared::make(Nodecl::List::make(nodecl_symbols),
                         locus));
@@ -3480,7 +3462,7 @@ namespace TL { namespace OpenMP {
         if (!reductions.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> reduction_nodes =
-                reductions.map(ReductionSymbolBuilder(locus));
+                reductions.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(locus));
 
             if (emit_omp_report())
             {
@@ -3504,7 +3486,7 @@ namespace TL { namespace OpenMP {
         if (!simd_reductions.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> simd_reduction_nodes =
-                simd_reductions.map(ReductionSymbolBuilder(locus));
+                simd_reductions.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(locus));
 
             result_list.append(
                     Nodecl::OpenMP::SimdReduction::make(Nodecl::List::make(simd_reduction_nodes),
