@@ -32,6 +32,8 @@
 #include "cxx-profile.h"
 #include "cxx-driver-utils.h"
 
+#include <errno.h>
+
 namespace TL { namespace Nanos6 {
 
     LoweringPhase::LoweringPhase()
