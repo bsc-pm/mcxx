@@ -16,10 +16,10 @@ typedef struct
 
 	void* task_label;
 	void* declaration_source;
-} task_info;
+} nanos_task_info;
 
 void nanos_create_task(
-	task_info *taskinfo,
+	nanos_task_info *taskinfo,
 	size_t argsblocksize,
 	/* out */ void **argsblockpointer,
 	/* out */ void **taskpointer
@@ -28,6 +28,26 @@ void nanos_create_task(
 void nanos_submit_task(void *task);
 
 void nanos_taskwait(void);
+
+typedef
+struct {
+    size_t size;
+    size_t lower_bound;
+    size_t accessed_length;
+} nanos_rank_info;
+
+void nanos_register_dep_in(
+        void *addr,
+        int rank,
+        nanos_rank_info* info);
+void nanos_register_dep_out(
+        void *addr,
+        int rank,
+        nanos_rank_info* info);
+void nanos_register_dep_inout(
+        void *addr,
+        int rank,
+        nanos_rank_info* info);
 
 #ifdef __cplusplus
 }
