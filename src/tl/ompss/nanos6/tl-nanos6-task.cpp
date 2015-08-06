@@ -93,6 +93,14 @@ namespace TL { namespace Nanos6 {
 
         // Create task
         {
+            if (IS_CXX_LANGUAGE)
+            {
+                new_stmts.append(
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), args));
+                new_stmts.append(
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_ptr));
+            }
+
             TL::Symbol nanos_create_task_sym =
                 TL::Scope::get_global_scope().get_symbol_from_name("nanos_create_task");
             ERROR_CONDITION(!nanos_create_task_sym.is_valid()

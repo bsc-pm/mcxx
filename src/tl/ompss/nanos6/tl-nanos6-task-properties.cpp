@@ -555,6 +555,15 @@ namespace TL { namespace Nanos6 {
                     /* bytes */ type_get_size(get_size_t_type()),
                     /* sign */ 0),
                 get_size_t_type());
+
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    task_body,
+                    Nodecl::CxxDef::make(
+                        Nodecl::NodeclBase::null(),
+                        new_class_symbol));
+        }
     }
 
     namespace {
