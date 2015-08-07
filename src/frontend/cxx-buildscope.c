@@ -3112,6 +3112,12 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                         ast_location(a));
                 break;
             }
+        case AST_AMBIGUITY:
+            {
+                solve_ambiguous_decl_specifier(a, decl_context);
+                gather_decl_spec_information(a, gather_info, decl_context);
+                break;
+            }
         default:
             internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTKind(a)), ast_location(a));
             break;

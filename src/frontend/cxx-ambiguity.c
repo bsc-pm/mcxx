@@ -2469,6 +2469,43 @@ void solve_ambiguous_parameter_clause(AST parameter_clause, const decl_context_t
             NULL);
 }
 
+static char solve_ambiguous_decl_specifier_check_intepretation(
+        AST decl_specifier,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        int position UNUSED_PARAMETER,
+        void *info UNUSED_PARAMETER)
+{
+    if (ASTKind(decl_specifier) == AST_ALIGNAS_TYPE)
+    {
+        AST type_id = ASTSon0(decl_specifier);
+        return check_type_id_tree(type_id, decl_context);
+    }
+    else if (ASTKind(decl_specifier) == AST_ALIGNAS)
+    {
+        AST expr = ASTSon0(decl_specifier);
+        nodecl_t nodecl_dummy = nodecl_null();
+        char result = check_expression_non_executable_must_be_constant(expr, decl_context, &nodecl_dummy);
+        nodecl_free(nodecl_dummy);
+        return result;
+    }
+    else
+    {
+        internal_error("Invalid node %s", ast_print_node_type(ASTKind(decl_specifier)));
+    }
+
+}
+
+void solve_ambiguous_decl_specifier(AST decl_spec, const decl_context_t* decl_context)
+{
+    /* Ambiguity at this level only involves alignas(X) where X can be an expression or a type-id */
+    solve_ambiguity_generic(
+            decl_spec,
+            decl_context, NULL,
+            solve_ambiguous_decl_specifier_check_intepretation,
+            NULL,
+            NULL);
+}
+
 AST find_ambiguity(AST a)
 {
     if (a == NULL)
