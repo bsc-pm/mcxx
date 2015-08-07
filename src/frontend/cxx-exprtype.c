@@ -24710,6 +24710,118 @@ static nodecl_t compute_assignment_for_nonarray_member(
     return nodecl_assig;
 }
 
+char check_construction_expression_for_class_type(
+        type_t* lhs_type,
+        type_t* seq_of_types,
+        const decl_context_t *decl_context,
+        const locus_t* locus,
+        scope_entry_t** function)
+{
+    ERROR_CONDITION(!is_named_class_type(lhs_type), "Invalid type", 0);
+
+    nodecl_t nodecl_initializer = nodecl_null();
+
+    int num_types = sequence_of_types_get_num_types(seq_of_types);
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        nodecl_initializer = nodecl_append_to_list(
+                nodecl_initializer,
+                nodecl_make_dummy(
+                    sequence_of_types_get_type_num(seq_of_types, i),
+                    locus));
+    }
+
+    nodecl_initializer = nodecl_make_cxx_parenthesized_initializer(
+            nodecl_initializer,
+            seq_of_types,
+            locus);
+
+    diagnostic_context_push_buffered();
+
+    nodecl_t nodecl_output = nodecl_null();
+    check_nodecl_parenthesized_initializer(
+            nodecl_initializer,
+            decl_context,
+            lhs_type,
+            /* is_explicit */ 0,
+            /* is_explicit_type_cast */ 0,
+            /* emit_cast */ 0,
+            &nodecl_output);
+
+    diagnostic_context_pop_and_discard();
+
+    char result = 0;
+    if (!nodecl_is_err_expr(nodecl_output))
+    {
+        ERROR_CONDITION(nodecl_get_kind(nodecl_output) != NODECL_FUNCTION_CALL,
+                "Expecting a function call here", 0);
+        *function = nodecl_get_symbol(nodecl_get_child(nodecl_output, 0));
+        ERROR_CONDITION(*function == NULL, "Missing symbol from call", 0);
+        result = 1;
+    }
+
+    nodecl_free(nodecl_output);
+
+    return result;
+}
+
+char check_copy_construction_expression_for_class_type(
+        type_t* lhs_type,
+        const decl_context_t* decl_context,
+        const locus_t* locus,
+        scope_entry_t** function)
+{
+    ERROR_CONDITION(!is_named_class_type(lhs_type), "Invalid type", 0);
+    type_t* rhs = get_lvalue_reference_type(lhs_type);
+    return check_construction_expression_for_class_type(
+            lhs_type,
+            get_sequence_of_types_append_type(NULL, rhs),
+            decl_context,
+            locus,
+            function);
+}
+
+char check_assignment_expression_for_class_type(
+        type_t* lhs_type,
+        type_t* rhs_type,
+        const decl_context_t* decl_context,
+        const locus_t* locus,
+        scope_entry_t** function)
+{
+    ERROR_CONDITION(!is_named_class_type(lhs_type), "Invalid type", 0);
+
+    nodecl_t nodecl_lhs = nodecl_make_dummy(get_lvalue_reference_type(lhs_type), locus);
+    nodecl_t nodecl_rhs = nodecl_make_dummy(rhs_type, locus);
+
+    diagnostic_context_push_buffered();
+
+    nodecl_t nodecl_assig = nodecl_null();
+    check_binary_expression_(
+            AST_ASSIGNMENT,
+            &nodecl_lhs,
+            &nodecl_rhs,
+            decl_context,
+            locus,
+            &nodecl_assig);
+
+    diagnostic_context_pop_and_discard();
+
+    char result = 0;
+    if (!nodecl_is_err_expr(nodecl_assig))
+    {
+        ERROR_CONDITION(nodecl_get_kind(nodecl_assig) != NODECL_FUNCTION_CALL,
+                "Expecting a function call here", 0);
+        *function = nodecl_get_symbol(nodecl_get_child(nodecl_assig, 0));
+        ERROR_CONDITION(*function == NULL, "Missing symbol from call", 0);
+        result = 1;
+    }
+
+    nodecl_free(nodecl_assig);
+
+    return result;
+}
+
 static void compute_assignment_for_array_member_rec(
         type_t* current_type,
         nodecl_t nodecl_lhs,

@@ -772,6 +772,9 @@ static char eval_type_trait__is_standard_layout(type_t*, type_t*, const decl_con
 static char eval_type_trait__is_trivial(type_t*, type_t*, const decl_context_t*, const locus_t*);
 static char eval_type_trait__is_union(type_t*, type_t*, const decl_context_t*, const locus_t*);
 static char eval_type_trait__is_final(type_t*, type_t*, const decl_context_t*, const locus_t*);
+static char eval_type_trait__is_trivially_assignable(type_t*, type_t*, const decl_context_t*, const locus_t*);
+static char eval_type_trait__is_trivially_constructible(type_t*, type_t*, const decl_context_t*, const locus_t*);
+static char eval_type_trait__is_trivially_copyable(type_t*, type_t*, const decl_context_t*, const locus_t*);
 
 /*
    __has_nothrow_assign (type)
@@ -1266,6 +1269,80 @@ static char eval_type_trait__is_final(type_t* first_type,
         && symbol_entity_specs_get_is_final(named_type_get_symbol(first_type));
 }
 
+static char eval_type_trait__is_trivially_constructible(type_t* first_type,
+        type_t* second_type,
+        const decl_context_t* decl_context,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(second_type != NULL
+            && !is_sequence_of_types(second_type),
+            "Expecting a sequence of types here", 0);
+
+    // The generic dispatcher will give us when there are no expressions
+    if (second_type == NULL)
+        second_type = get_sequence_of_types(0, NULL);
+
+    if (is_named_class_type(first_type))
+    {
+        scope_entry_t* ctor = NULL;
+
+        int num_types = sequence_of_types_get_num_types(second_type);
+
+        // It will not be trivial at all
+        if (num_types >= 2)
+            return 0;
+
+        char result =
+            check_construction_expression_for_class_type(
+                    first_type,
+                    second_type,
+                    decl_context,
+                    locus,
+                    &ctor);
+        return result && symbol_entity_specs_get_is_trivial(ctor);
+    }
+    return 0;
+}
+
+static char eval_type_trait__is_trivially_assignable(type_t* first_type,
+        type_t* second_type UNUSED_PARAMETER,
+        const decl_context_t* decl_context,
+        const locus_t* locus)
+{
+    if (is_named_class_type(first_type))
+    {
+        scope_entry_t* assig_operator = NULL;
+        if (check_assignment_expression_for_class_type(
+                    first_type,
+                    second_type,
+                    decl_context, locus, &assig_operator))
+        {
+            return symbol_entity_specs_get_is_trivial(assig_operator);
+        }
+    }
+    return 0;
+}
+
+static char eval_type_trait__is_trivially_copyable(type_t* first_type,
+        type_t* second_type UNUSED_PARAMETER,
+        const decl_context_t* decl_context,
+        const locus_t* locus)
+{
+    if (is_named_class_type(first_type))
+    {
+        scope_entry_t* ctor = NULL;
+        if (check_copy_construction_expression_for_class_type(
+                    first_type,
+                    decl_context,
+                    locus,
+                    &ctor))
+        {
+            return symbol_entity_specs_get_is_trivial(ctor);
+        }
+    }
+    return 0;
+}
+
 typedef
 struct gxx_type_traits_fun_type_tag
 {
@@ -1297,12 +1374,16 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     { "__is_trivial", eval_type_trait__is_trivial },
     { "__is_union", eval_type_trait__is_union },
     { "__is_final", eval_type_trait__is_final },
+    { "__is_trivially_assignable", eval_type_trait__is_trivially_assignable },
+    { "__is_trivially_constructible", eval_type_trait__is_trivially_constructible },
+    { "__is_trivially_copyable", eval_type_trait__is_trivially_copyable },
     // Sentinel
     {NULL, NULL},
 };
 
 // This function is used in this file and also in cxx-exprtype.c
-void common_check_gxx_type_traits(type_t* lhs_type,
+void common_check_gxx_type_traits(
+        type_t* lhs_type,
         type_t* rhs_type,
         type_t* gxx_trait_type,
         const char* trait_name,
@@ -1390,13 +1471,35 @@ void check_gxx_type_traits(AST expression, const decl_context_t* decl_context, n
 
     if (second_type_id != NULL)
     {
-        second_type = compute_type_for_type_id_tree(second_type_id, decl_context,
-                /* out_simple_type */ NULL, /* out_gather_info */ NULL);
-
-        if (is_error_type(second_type))
+        if (ASTKind(second_type_id) != AST_NODE_LIST)
         {
-            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
-            return;
+            second_type = compute_type_for_type_id_tree(second_type_id, decl_context,
+                    /* out_simple_type */ NULL, /* out_gather_info */ NULL);
+
+            if (is_error_type(second_type))
+            {
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+                return;
+            }
+        }
+        else
+        {
+            // We encode the types as a sequence and then we expect the trait
+            // evaluation to unpack them as needed
+            AST it;
+            for_each_element(second_type_id, it)
+            {
+                AST current_type_id = ASTSon1(it);
+                type_t* current_type = compute_type_for_type_id_tree(current_type_id, decl_context,
+                        /* out_simple_type */ NULL, /* out_gather_info */ NULL);
+
+                if (is_error_type(current_type))
+                {
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+                    return;
+                }
+                second_type = get_sequence_of_types_append_type(second_type, current_type);
+            }
         }
     }
 

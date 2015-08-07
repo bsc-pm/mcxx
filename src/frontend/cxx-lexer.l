@@ -94,6 +94,9 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_union", GXX_IS_UNION },
     { "__is_final", GXX_IS_FINAL },
     { "__underlying_type", GXX_UNDERLYING_TYPE },
+    { "__is_trivially_assignable", GXX_IS_TRIVIALLY_ASSIGNABLE },
+    { "__is_trivially_constructible", GXX_IS_TRIVIALLY_CONSTRUCTIBLE },
+    { "__is_trivially_copyable", GXX_IS_TRIVIALLY_COPYABLE },
     // Sentinel
     { NULL, 0 },
 };
@@ -1370,7 +1373,10 @@ type {
 "__is_trivial" |
 "__is_union" |
 "__is_final" |
-"__underlying_type" {
+"__underlying_type" |
+"__is_trivially_assignable" |
+"__is_trivially_constructible" |
+"__is_trivially_copyable" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }
  /*!endif*/
