@@ -3266,14 +3266,60 @@ DEBIAN_EXTRA=\
               scripts/debian/control \
               $(END)
 
-LATEST_GXX=g++-4.9
-LATEST_GXX_FLAGS=-fabi-version=6 \
-				 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 -mavx \
-				 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd -msha \
-				 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 \
-				 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt \
-				 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mrdseed \
-				 $(END)
+LATEST_GXX=g++-5.1
+
+LATEST_GXX_FLAGS =
+LATEST_GXX_FLAGS += -fabi-version=6
+LATEST_GXX_FLAGS += -m3dnow
+LATEST_GXX_FLAGS += -mabm
+LATEST_GXX_FLAGS += -maes
+LATEST_GXX_FLAGS += -mavx
+LATEST_GXX_FLAGS += -mavx2
+LATEST_GXX_FLAGS += -mavx512bw
+LATEST_GXX_FLAGS += -mavx512cd
+LATEST_GXX_FLAGS += -mavx512dq
+LATEST_GXX_FLAGS += -mavx512er
+LATEST_GXX_FLAGS += -mavx512f
+LATEST_GXX_FLAGS += -mavx512ifma
+LATEST_GXX_FLAGS += -mavx512pf
+LATEST_GXX_FLAGS += -mavx512vbmi
+LATEST_GXX_FLAGS += -mavx512vl
+LATEST_GXX_FLAGS += -mbmi
+LATEST_GXX_FLAGS += -mbmi2
+LATEST_GXX_FLAGS += -mclflushopt
+LATEST_GXX_FLAGS += -mclwb
+LATEST_GXX_FLAGS += -mf16c
+LATEST_GXX_FLAGS += -mfma
+LATEST_GXX_FLAGS += -mfma4
+LATEST_GXX_FLAGS += -mfsgsbase
+LATEST_GXX_FLAGS += -mfxsr
+LATEST_GXX_FLAGS += -mlwp
+LATEST_GXX_FLAGS += -mlzcnt
+LATEST_GXX_FLAGS += -mmmx
+LATEST_GXX_FLAGS += -mmpx
+LATEST_GXX_FLAGS += -mno-fma4
+LATEST_GXX_FLAGS += -mpclmul
+LATEST_GXX_FLAGS += -mpcommit
+LATEST_GXX_FLAGS += -mpopcnt
+LATEST_GXX_FLAGS += -mprefetchwt1
+LATEST_GXX_FLAGS += -mrdrnd
+LATEST_GXX_FLAGS += -mrdseed
+LATEST_GXX_FLAGS += -mrtm
+LATEST_GXX_FLAGS += -msha
+LATEST_GXX_FLAGS += -msse
+LATEST_GXX_FLAGS += -msse2
+LATEST_GXX_FLAGS += -msse3
+LATEST_GXX_FLAGS += -msse4
+LATEST_GXX_FLAGS += -msse4.1
+LATEST_GXX_FLAGS += -msse4.2
+LATEST_GXX_FLAGS += -msse4a
+LATEST_GXX_FLAGS += -mssse3
+LATEST_GXX_FLAGS += -mtbm
+LATEST_GXX_FLAGS += -mxop
+LATEST_GXX_FLAGS += -mxsave
+LATEST_GXX_FLAGS += -mxsavec
+LATEST_GXX_FLAGS += -mxsaveopt
+LATEST_GXX_FLAGS += -mxsaves
 
 scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp
 	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir) -o scripts/generate_builtins_ia32.bin $(srcdir)/scripts/builtins_ia32.cpp
