@@ -1712,7 +1712,9 @@ int parse_arguments(int argc, const char* argv[],
             && !CURRENT_CONFIGURATION->do_not_process_files)
                         // Do not process anything
     {
-        fprintf(stderr, "%s: assuming stdout as default output since -E has been specified\n", compilation_process.exec_basename);
+        fprintf(stderr, "%s: assuming stdout as default output since %s has been specified\n",
+                compilation_process.exec_basename,
+                E_specified ? "-E" : "-y");
         if (!CURRENT_CONFIGURATION->preprocessor_uses_stdout)
         {
             output_file = uniquestr("-");
