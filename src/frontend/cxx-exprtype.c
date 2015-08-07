@@ -12328,7 +12328,10 @@ static void check_nodecl_function_call_cxx(
         called_type = nodecl_get_type(nodecl_called);
     }
 
-    if (this_symbol != NULL
+    if ((nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_NAME_SIMPLE
+                || nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_NAME_NESTED
+                || nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
+            && this_symbol != NULL
             && is_dependent_type(this_symbol->type_information)
             && any_is_member_function(candidates))
     {
@@ -12339,7 +12342,10 @@ static void check_nodecl_function_call_cxx(
         any_arg_is_type_dependent = 1;
     }
 
-    if (this_symbol == NULL
+    if ((nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_NAME_SIMPLE
+                || nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_NAME_NESTED
+                || nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
+            && this_symbol == NULL
             && any_is_member_function_of_a_dependent_class(candidates))
     {
         // If 'this' is not available and we are doing a call F(X) or A::F(X)
