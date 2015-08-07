@@ -4812,7 +4812,28 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GxxTrait& node)
     if (!rhs.is_null())
     {
         *(file) << ", ";
-        walk(rhs);
+
+        TL::Type t = rhs.get_type();
+
+        if (!is_sequence_of_types(t.get_internal_type()))
+        {
+            walk(rhs);
+        }
+        else
+        {
+            int n = sequence_of_types_get_num_types(t.get_internal_type());
+
+            for (int i = 0; i < n; i++)
+            {
+                if (i > 0)
+                {
+                    (*file) << ", ";
+                }
+
+                TL::Type type = sequence_of_types_get_type_num(t.get_internal_type(), i);
+                *(file) << this->get_declaration(type, this->get_current_scope(),  "");
+            }
+        }
     }
 
     *(file) << ")";

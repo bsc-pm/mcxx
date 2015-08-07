@@ -1489,16 +1489,63 @@ void check_gxx_type_traits(AST expression, const decl_context_t* decl_context, n
             AST it;
             for_each_element(second_type_id, it)
             {
-                AST current_type_id = ASTSon1(it);
-                type_t* current_type = compute_type_for_type_id_tree(current_type_id, decl_context,
-                        /* out_simple_type */ NULL, /* out_gather_info */ NULL);
+                // We cannot simply call compute_type_for_type_id_tree
+                // because gcc allows template-pack expansions
 
-                if (is_error_type(current_type))
+                AST current_type_id = ASTSon1(it);
+
+                AST type_specifier = ASTSon0(current_type_id);
+                AST abstract_declarator = ASTSon1(current_type_id);
+
+                gather_decl_spec_t gather_info;
+                memset(&gather_info, 0, sizeof(gather_info));
+                // gcc allows pack expansions here
+                gather_info.parameter_declaration = 1;
+
+                char this_is_a_pack = 0;
+                char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+                if (get_declarator_id_pack(abstract_declarator, decl_context) != NULL)
                 {
-                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
-                    return;
+                    set_is_inside_pack_expansion(1);
+                    this_is_a_pack = 1;
                 }
-                second_type = get_sequence_of_types_append_type(second_type, current_type);
+
+                nodecl_t dummy_nodecl_output = nodecl_null();
+
+                type_t* simple_type_info = NULL;
+                build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, decl_context,
+                        &dummy_nodecl_output);
+
+                type_t* declarator_type = simple_type_info;
+
+                if (!is_error_type(declarator_type))
+                {
+                    compute_declarator_type(abstract_declarator,
+                            &gather_info, simple_type_info,
+                            &declarator_type, decl_context,
+                            &dummy_nodecl_output);
+                }
+
+                set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
+
+                if (this_is_a_pack)
+                {
+                    // If this parameter declaration explicitly introduces a pack,
+                    // make sure it has a pack type somewhere
+                    if (type_does_not_contain_any_template_parameter_pack(
+                                declarator_type,
+                                ast_get_locus(current_type_id)))
+                        return;
+
+                    declarator_type = get_pack_type(declarator_type);
+                }
+
+                nodecl_free(dummy_nodecl_output);
+
+                if (is_error_type(declarator_type))
+                    return;
+
+                second_type = get_sequence_of_types_append_type(second_type, declarator_type);
             }
         }
     }
