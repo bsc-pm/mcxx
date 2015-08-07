@@ -755,6 +755,7 @@ static char check_type_specifier_aux(AST type_id, const decl_context_t* decl_con
             {
                 nodecl_t nodecl_dummy = nodecl_null();
                 char result = check_expression_non_executable(ASTSon0(type_id), decl_context, &nodecl_dummy);
+                nodecl_free(nodecl_dummy);
                 return result;
             }
         case AST_GCC_TYPEOF :
@@ -1231,6 +1232,7 @@ static char check_expression_statement(AST a, const decl_context_t* decl_context
 
     nodecl_t nodecl_expr = nodecl_null();
     char result = check_expression(expression, decl_context, &nodecl_expr);
+    nodecl_free(nodecl_expr);
 
     return result;
 }
@@ -1580,6 +1582,7 @@ static char check_init_declarator(AST init_declarator,
                 {
                     nodecl_t nodecl_dummy = nodecl_null();
                     result = check_expression(initializer, initializer_context, &nodecl_dummy);
+                    nodecl_free(nodecl_dummy);
                     break;
                 }
             case AST_PARENTHESIZED_INITIALIZER:
@@ -1611,6 +1614,7 @@ static char check_declarator_rec(AST declarator, const decl_context_t* decl_cont
                 {
                     nodecl_t nodecl_dummy = nodecl_null();
                     char result = check_expression(ASTSon1(declarator), decl_context, &nodecl_dummy);
+                    nodecl_free(nodecl_dummy);
 
                     if (!result)
                     {
@@ -1805,6 +1809,7 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
         {
             nodecl_t nodecl_dummy = nodecl_null();
             check_expression(default_arg, decl_context, &nodecl_dummy);
+            nodecl_free(nodecl_dummy);
         }
     }
 
@@ -1947,6 +1952,7 @@ static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init
                 {
                     current = 1;
                 }
+                nodecl_free(nodecl_dummy);
             }
             break;
         default :
@@ -1987,6 +1993,7 @@ static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifi
     {
         nodecl_t nodecl_dummy = nodecl_null();
         current_typeof = check_expression_non_executable(typeof_argument, decl_context, &nodecl_dummy);
+        nodecl_free(nodecl_dummy);
     }
     else
     {
