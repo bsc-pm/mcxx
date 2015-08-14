@@ -144,7 +144,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase construct,
             LoweringVisitor::reduction_task_map_t & reduction_map)
     {
-        TL::Type reduction_type = reduction_item.get_type();
+        TL::Type reduction_type = reduction_item.get_type().no_ref();
 
         // Reuse the reduction functions If they are already computed
         LoweringVisitor::reduction_task_map_t::iterator it = reduction_map.find(red);
@@ -456,9 +456,6 @@ namespace TL { namespace Nanox {
             bool generate_final_stmts,
             Nodecl::NodeclBase& final_statements)
     {
-        if (!Nanos::Version::interface_is_at_least("task_reduction", 1000))
-            return false;
-
         int num_reductions = 0;
 
         TL::Source
@@ -488,7 +485,7 @@ namespace TL { namespace Nanox {
             std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
             TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
 
-            TL::Type reduction_type = reduction_item.get_type();
+            TL::Type reduction_type = reduction_item.get_type().no_ref();
 
             TL::Symbol reduction_function, reduction_function_original_var;
             create_reduction_functions(reduction_info,
@@ -534,14 +531,7 @@ namespace TL { namespace Nanox {
                                 fortran_get_rank_of_type(reduction_type.get_internal_type()));
 
                     TL::Symbol ptr_of_sym = get_function_ptr_of(reduction_item, construct.retrieve_context());
-                    if (reduction_item.is_allocatable())
-                    {
-                        orig_address << ptr_of_sym.get_name() << "(" << (*it)->get_field_name() << ")";
-                    }
-                    else
-                    {
-                        orig_address <<  "(void *) &" << (*it)->get_field_name();
-                    }
+                    orig_address <<  "(void *) &" << (*it)->get_field_name();
 
                     extra_array_red_decl << "void* indirect;";
                     storage_var << "indirect";
@@ -551,7 +541,7 @@ namespace TL { namespace Nanox {
                         <<      "(void **) &" << storage_name << ","
                         <<      "indirect,"
                         <<      size_of_array_descriptor << ");"
-                        ;
+                            ;
 
                     final_clause_stuff
                         << "if (" << storage_var << " == 0)"
@@ -701,7 +691,7 @@ namespace TL { namespace Nanox {
                     TL::Symbol reduction_sym = it->first;
                     std::string storage_name = it->second;
                     TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
-                    ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
+                    ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid", 0);
 
                     Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
                             storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
@@ -719,14 +709,15 @@ namespace TL { namespace Nanox {
             }
         }
 
+        ERROR_CONDITION(num_reductions != 0 &&
+                !Nanos::Version::interface_is_at_least("task_reduction", 1001),
+                "The runtime version specified does not support task reductions", 0);
+
         return (num_reductions != 0);
     }
 
     void LoweringVisitor::register_reductions(Nodecl::NodeclBase construct, OutlineInfo& outline_info, TL::Source& src)
     {
-        if (!Nanos::Version::interface_is_at_least("task_reduction", 1000))
-            return;
-
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
@@ -735,11 +726,14 @@ namespace TL { namespace Nanox {
             if ((*it)->get_sharing() != OutlineDataItem::SHARING_TASK_REDUCTION)
                 continue;
 
-            std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
+            ERROR_CONDITION(!Nanos::Version::interface_is_at_least("task_reduction", 1001),
+                  "The runtime version specified does not support task reductions", 0);
+
+            std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair = (*it)->get_reduction_info();
             TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
 
             TL::Symbol reduction_item = (*it)->get_symbol();
-            TL::Type reduction_type = reduction_item.get_type();
+            TL::Type reduction_type = reduction_item.get_type().no_ref();
 
             TL::Symbol reduction_function, reduction_function_original_var;
             create_reduction_functions(reduction_info,
@@ -756,17 +750,32 @@ namespace TL { namespace Nanox {
                     initializer_function,
                     _reduction_on_tasks_ini_map);
 
-            TL::Source size_to_be_allocated, target_address;
-            if (IS_FORTRAN_LANGUAGE
-                    && reduction_type.is_array())
+            if (!IS_FORTRAN_LANGUAGE
+                    || !reduction_type.is_array())
             {
-                size_t size_of_array_descriptor =
+                // Common case: the runtime will host the private copies of the list item
+                src
+                    << "nanos_err = nanos_task_reduction_register("
+                    <<      "(void *) &" << (*it)->get_field_name() << ","  // object address
+                    <<      "sizeof(" << as_type(reduction_type) << "),"    // reduction element size
+                    <<      "(void (*)(void *, void *)) &"
+                    <<          initializer_function.get_name() << ","      // initializer
+                    <<      "(void (*)(void *, void *)) &"
+                    <<          reduction_function.get_name() << ");"       // reducer
+                    ;
+            }
+            else {
+                // Specific case for Fortran Array Reductions: the runtime will
+                // host a private array descriptor for each thread. Later, in
+                // the initializer function, this array descriptors will be
+                // initialized and their array storage will be allocated
+                TL::Source target_address;
+                size_t size_array_descriptor =
                     fortran_size_of_array_descriptor(
                             fortran_get_rank0_type(reduction_type.get_internal_type()),
                             fortran_get_rank_of_type(reduction_type.get_internal_type()));
-                size_to_be_allocated << size_of_array_descriptor;
 
-                if (reduction_item.is_allocatable())
+                if (reduction_type.array_requires_descriptor())
                 {
                     TL::Symbol ptr_of_sym = get_function_ptr_of(reduction_item, construct.retrieve_context());
                     target_address << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << ")";
@@ -775,23 +784,20 @@ namespace TL { namespace Nanox {
                 {
                     target_address << "(void *) &" << (*it)->get_field_name();
                 }
-            }
-            else
-            {
-                size_to_be_allocated << "sizeof(" << as_type(reduction_type) << ")";
-                target_address << "(void *) &" << (*it)->get_field_name();
-            }
 
-            src
-                << "nanos_err = nanos_task_reduction_register("
-                <<      target_address << "," // object address
-                <<      "(void *) & " << (*it)->get_field_name() << ","
-                <<      size_to_be_allocated << ","    // size
-                <<      "__alignof__(" << as_type(reduction_type) << "),"
-                <<      "(void (*)(void *, void *))& " << initializer_function.get_name() << ","         // initializer
-                <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
-                <<      "(void (*)(void *, void *)) &" << reduction_function_original_var.get_name() << ");" // reducer ori
-                ;
+                src
+                    << "nanos_err = nanos_task_fortran_array_reduction_register("
+                    <<      target_address << ","                                  // Address to the array descriptor
+                    <<      "(void *) & " << (*it)->get_field_name() << ","        // Address to the storage
+                    <<      size_array_descriptor << ","                           // size
+                    <<      "(void (*)(void *, void *)) &"
+                    <<          initializer_function.get_name() << ","             // initializer
+                    <<      "(void (*)(void *, void *)) &"
+                    <<          reduction_function.get_name() << ","               // reducer
+                    <<      "(void (*)(void *, void *)) &"
+                    <<          reduction_function_original_var.get_name() << ");" // reducer ori
+                    ;
+            }
         }
     }
 }}
