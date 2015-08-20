@@ -355,9 +355,25 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         }
     }
 
+    // We do not want to replace reductions in the body
+    Nodecl::Utils::SimpleSymbolMap symbol_map_fixed(&symbol_map);
+    if (!reduction_items.empty())
+    {
+        TL::ObjectList<Symbol> reduction_symbols = reduction_items
+            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+        for (TL::ObjectList<Symbol>::iterator it = reduction_symbols.begin();
+                it != reduction_symbols.end();
+                it++)
+        {
+            // We can't actually remove but we can remap to itself
+            symbol_map_fixed.add_map(*it, *it);
+        }
+    }
+
     Nodecl::NodeclBase parallel_body = Nodecl::Utils::deep_copy(statements,
             outline_function_stmt,
-            symbol_map);
+            symbol_map_fixed);
     if (!reduction_items.empty())
     {
         update_reduction_uses(parallel_body, reduction_items, reduction_pack_symbol);
@@ -395,7 +411,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
                 ReplaceInOutMaster replace_inout(
                         *it_fields,
                         reduction->get_omp_in(), reduction_pack_symbol,
-                        reduction->get_omp_out(), reduced_symbol);
+                        reduction->get_omp_out(), symbol_map.map(reduced_symbol));
                 replace_inout.walk(combiner_expr);
 
                 master_combiner << as_expression(combiner_expr) << ";"
