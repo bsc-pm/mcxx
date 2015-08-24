@@ -6252,113 +6252,27 @@ void check_nodecl_member_initializer_list(
     }
     DELETE(list);
 
-    // Now review the remaining objects not initialized yet
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(virtual_bases);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    // Now review the remaining objects not initialized yet unless this
+    // constructor was a delegating one
+    if (!is_delegating_constructor)
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-
-        if (entry->kind == SK_CLASS)
-            entry = class_symbol_get_canonical_symbol(entry);
-
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(virtual_bases);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(constructor, locus),
-                    /* called_name */ nodecl_null(),
-                    /* args */ nodecl_null(),
-                    nodecl_make_cxx_function_form_implicit(locus),
-                    symbol_entity_specs_get_class_type(constructor),
-                    decl_context,
-                    locus);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    nodecl_call_to_ctor,
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-        }
-    }
-    entry_list_iterator_free(it);
+            if (entry->kind == SK_CLASS)
+                entry = class_symbol_get_canonical_symbol(entry);
 
-    for (it = entry_list_iterator_begin(direct_base_classes);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry_list_contains(already_initialized, entry))
+                continue;
 
-        if (entry->kind == SK_CLASS)
-            entry = class_symbol_get_canonical_symbol(entry);
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
 
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
-        {
-            nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(constructor, locus),
-                    /* called_name */ nodecl_null(),
-                    /* args */ nodecl_null(),
-                    nodecl_make_cxx_function_form_implicit(locus),
-                    symbol_entity_specs_get_class_type(constructor),
-                    decl_context,
-                    locus);
-
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    nodecl_call_to_ctor,
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-        }
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(nonstatic_data_members);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        if (IS_CXX11_LANGUAGE
-                && !nodecl_is_null(entry->value))
-        {
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    // FIXME: We may have to fix the 'this' symbol used in the value
-                    nodecl_shallow_copy(entry->value),
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-            continue;
-        }
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
-        {
-            type_t* t = entry->type_information;
-
-            if (is_array_type(t))
-                t = array_type_get_element_type(t);
-
-            if (is_pod_type(t))
-            {
-                // No initialization for POD-types
-            }
-            else if (is_class_type(t))
+            if (valid)
             {
                 nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, locus),
@@ -6375,13 +6289,103 @@ void check_nodecl_member_initializer_list(
                         locus);
                 *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
             }
-            else
+        }
+        entry_list_iterator_free(it);
+
+        for (it = entry_list_iterator_begin(direct_base_classes);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
+            if (entry->kind == SK_CLASS)
+                entry = class_symbol_get_canonical_symbol(entry);
+
+            if (entry_list_contains(already_initialized, entry))
+                continue;
+
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+            if (valid)
             {
-                internal_error("Code unreachable", 0);
+                nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                        nodecl_make_symbol(constructor, locus),
+                        /* called_name */ nodecl_null(),
+                        /* args */ nodecl_null(),
+                        nodecl_make_cxx_function_form_implicit(locus),
+                        symbol_entity_specs_get_class_type(constructor),
+                        decl_context,
+                        locus);
+
+                nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                        nodecl_call_to_ctor,
+                        entry,
+                        locus);
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
             }
         }
+        entry_list_iterator_free(it);
+
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry_list_contains(already_initialized, entry))
+                continue;
+
+            if (IS_CXX11_LANGUAGE
+                    && !nodecl_is_null(entry->value))
+            {
+                nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                        // FIXME: We may have to fix the 'this' symbol used in the value
+                        nodecl_shallow_copy(entry->value),
+                        entry,
+                        locus);
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+                continue;
+            }
+
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+            if (valid)
+            {
+                type_t* t = entry->type_information;
+
+                if (is_array_type(t))
+                    t = array_type_get_element_type(t);
+
+                if (is_pod_type(t))
+                {
+                    // No initialization for POD-types
+                }
+                else if (is_class_type(t))
+                {
+                    nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(constructor, locus),
+                            /* called_name */ nodecl_null(),
+                            /* args */ nodecl_null(),
+                            nodecl_make_cxx_function_form_implicit(locus),
+                            symbol_entity_specs_get_class_type(constructor),
+                            decl_context,
+                            locus);
+
+                    nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                            nodecl_call_to_ctor,
+                            entry,
+                            locus);
+                    *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+            }
+        }
+        entry_list_iterator_free(it);
     }
-    entry_list_iterator_free(it);
 }
 
 static void build_scope_ctor_initializer_dependent(
