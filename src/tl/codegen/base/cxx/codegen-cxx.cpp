@@ -7016,8 +7016,19 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         && state.in_member_declaration)
                 {
                     // This is an in member declaration initialization
-                    *(file) << " = ";
-                    walk(init);
+                    if (IS_CXX11_LANGUAGE
+                            && nodecl_calls_to_constructor_indirectly(init))
+                    {
+                        *(file) << " { ";
+                        Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
+                        walk(constructor_args[0]);
+                        *(file) << " }";
+                    }
+                    else
+                    {
+                        *(file) << " = ";
+                        walk(init);
+                    }
                 }
                 else if (state.in_condition)
                 {
