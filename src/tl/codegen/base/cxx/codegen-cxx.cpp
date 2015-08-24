@@ -7887,20 +7887,40 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
             else if (symbol.is_member())
             {
-                if (scope != NULL && scope->is_namespace_scope())
+                if (scope != NULL
+                        && scope->is_namespace_scope())
                 {
-                    // We may need zero or more empty template headers
-                    TL::TemplateParameters tpl = template_parameters;
-                    while (tpl.is_valid())
+                    if (symbol.is_defaulted())
                     {
-                        if (!tpl.get_is_explicit_instantiation()
-                                && tpl.get_is_explicit_specialization())
+                        // Special case for dependent defaulted special members
+                        // defined out of the class specifier
+                        //
+                        // template <typename T>
+                        // struct A
+                        // {
+                        //    A();
+                        // };
+                        //
+                        // template <typename T>   // <-- we have to emit this
+                        // A<T>::A() = default;
+                        codegen_template_headers_all_levels(template_parameters,
+                                /* show_default_values */ false);
+                    }
+                    else
+                    {
+                        // We may need zero or more empty template headers
+                        TL::TemplateParameters tpl = template_parameters;
+                        while (tpl.is_valid())
                         {
-                            indent();
-                            *(file) << "template <>\n";
-                            member_of_explicit_template_class = true;
+                            if (!tpl.get_is_explicit_instantiation()
+                                    && tpl.get_is_explicit_specialization())
+                            {
+                                indent();
+                                *(file) << "template <>\n";
+                                member_of_explicit_template_class = true;
+                            }
+                            tpl = tpl.get_enclosing_parameters();
                         }
-                        tpl = tpl.get_enclosing_parameters();
                     }
                 }
             }
@@ -8052,12 +8072,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 && symbol.is_member())
         {
             if (symbol.is_defined_inside_class() // (A)
-                    || (state.classes_being_defined.empty() // (B)
-                        || (state.classes_being_defined.back() != symbol.get_class_type().get_symbol())))
-
+                    || (scope != NULL
+                        && scope->is_namespace_scope()) // (B)
+               )
             {
                 // (A) Defaulted inside the class specifier
-                // (B) Defaulted but not inside the class specifier. But we are not inside the 
+                // (B) Defaulted but not inside the class specifier. But we are not inside the
                 // class specifier either.
                 pure_spec += " = default ";
             }
