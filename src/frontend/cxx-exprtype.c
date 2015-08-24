@@ -20522,6 +20522,9 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
         arguments[0] = initializer_expr_type;
 
+        char requires_extra_direct_initialization = 0;
+        enum initialization_kind orig_initialization_kind = initialization_kind;
+
         if (is_class_type(no_ref(initializer_expr_type))
                 && class_type_is_derived_instantiating(
                     get_unqualified_type(no_ref(initializer_expr_type)),
@@ -20532,6 +20535,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         }
         else
         {
+            requires_extra_direct_initialization = 1;
             initialization_kind |= IK_BY_USER_DEFINED_CONVERSION;
         }
 
@@ -20604,6 +20608,17 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                 declared_type_no_cv,
                 decl_context,
                 nodecl_get_locus(nodecl_expr));
+
+        if (requires_extra_direct_initialization)
+        {
+            check_nodecl_expr_initializer(
+                    *nodecl_output,
+                    decl_context,
+                    declared_type,
+                    disallow_narrowing,
+                    orig_initialization_kind,
+                    nodecl_output);
+        }
     }
 }
 
