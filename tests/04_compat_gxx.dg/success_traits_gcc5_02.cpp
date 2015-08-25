@@ -1,7 +1,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-fe-only
-test_CXXFLAGS="-std=c++11"
+test_CXXFLAGS="-std=c++11 --pp=off"
 </testinfo>
 */
 
