@@ -271,6 +271,9 @@ namespace TL
 
                 // This variable is used to enable the experimental support of nonvoid function tasks
                 bool _enable_nonvoid_function_tasks;
+
+                // States if we have seen a declare target
+                bool _inside_declare_target;
             public:
                 Core();
 

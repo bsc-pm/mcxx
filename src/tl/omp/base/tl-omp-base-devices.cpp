@@ -626,4 +626,90 @@ namespace TL { namespace OpenMP {
         ctr.replace(distribute);
     }
 
+    void Base::declare_target_handler_pre(TL::PragmaCustomDirective ctr)
+    {
+        _start_declare_target = ctr;
+    }
+    void Base::declare_target_handler_post(TL::PragmaCustomDirective ctr) { }
+
+    void Base::end_declare_target_handler_pre(TL::PragmaCustomDirective ctr) { }
+    void Base::end_declare_target_handler_post(TL::PragmaCustomDirective ctr)
+    {
+
+        Nodecl::NodeclBase n = _start_declare_target.get_parent();
+        ERROR_CONDITION(!n.is<Nodecl::List>(), "Invalid node", 0);
+
+        // FIXME: this way of traversing a list bounded by two nodes can be
+        // vastly improved
+        // Skip the starting node
+        n = n.get_parent();
+
+        TL::ObjectList<TL::Symbol> symbol_set;
+
+        for(;;)
+        {
+            // Something is amiss here
+            if (n.is_null()
+                    || !n.is<Nodecl::List>())
+                break;
+
+            Nodecl::NodeclBase::Children c = n.children();
+            Nodecl::NodeclBase current = c[1];
+
+            // We reached the end
+            if (current == ctr)
+                break;
+
+            if (current.is<Nodecl::ObjectInit>())
+            {
+                info_printf("%s: note: target declaration of '%s'\n",
+                        current.get_locus_str().c_str(),
+                        current.get_symbol().get_qualified_name().c_str());
+                symbol_set.insert(current.get_symbol());
+            }
+            else if (current.is<Nodecl::FunctionCode>())
+            {
+                info_printf("%s: note: target declaration of function '%s'\n",
+                        current.get_locus_str().c_str(),
+                        current.get_symbol().get_qualified_name().c_str());
+                symbol_set.insert(current.get_symbol());
+            }
+            // else if (current.is<Nodecl::CxxDecl>())
+            // {
+            // }
+            // else if (current.is<Nodecl::CxxDef>())
+            // {
+            // }
+            else
+            {
+                // Ignore any other node for now
+            }
+
+            n = n.get_parent();
+        }
+
+        // Now remove start
+        Nodecl::Utils::remove_from_enclosing_list(_start_declare_target);
+        _start_declare_target = Nodecl::NodeclBase::null();
+
+        struct MakeSymbol
+        {
+            static Nodecl::NodeclBase make(const TL::Symbol &sym, const locus_t* locus)
+            {
+                return sym.make_nodecl(locus);
+            }
+        };
+
+        // And replace the current node
+        TL::ObjectList<Nodecl::NodeclBase> nodecl_sym_list =
+            symbol_set.map<Nodecl::NodeclBase>(std::bind(MakeSymbol::make, std::placeholders::_1, ctr.get_locus()));
+
+        Nodecl::NodeclBase declare_target =
+            Nodecl::OpenMP::DeclareTarget::make(
+                    Nodecl::List::make(nodecl_sym_list),
+                    ctr.get_locus());
+
+        ctr.replace(declare_target);
+    }
+
 } }

@@ -51,7 +51,8 @@ namespace TL { namespace OpenMP {
         _allow_shared_without_copies(false),
         _allow_array_reductions(true),
         _ompss_mode(false),
-        _copy_deps_by_default(true)
+        _copy_deps_by_default(true),
+        _inside_declare_target(false)
     {
         set_phase_name("OpenMP Core Analysis");
         set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -129,6 +130,13 @@ namespace TL { namespace OpenMP {
             this->set_ignore_template_functions(true);
 
         PragmaCustomCompilerPhase::run(dto);
+
+        if (_inside_declare_target)
+        {
+            error_printf("%s: error: missing '#pragma omp end declare target'\n",
+                    translation_unit.get_locus_str().c_str());
+            _inside_declare_target = false;
+        }
 
         _function_task_set->emit_module_info();
     }

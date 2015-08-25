@@ -504,9 +504,9 @@ range-discrete : NODECL_RANGE_DISCRETE([discrete_seq]expression-seq-opt)
 ##############################
 # OpenMP                     #
 ##############################
-
 # Note that we use OPEN_M_P as we want nice names (OpenMP instead of Openmp) in the C++ part
 
+top-level : device-constructs-top-level
 statement-but-object-init: parallel-statements
 
 parallel-statements : parallel-execution
@@ -653,7 +653,7 @@ device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environmen
                   | NODECL_OPEN_M_P*TEAMS([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
                   | NODECL_OPEN_M_P*DISTRIBUTE([environment]omp-exec-environment-seq-opt, [loop]statement)
 
-
+device-constructs-top-level : NODECL_OPEN_M_P*DECLARE_TARGET([declarations]name-seq)
 
 ##############################
 # OpenMP SIMD                #

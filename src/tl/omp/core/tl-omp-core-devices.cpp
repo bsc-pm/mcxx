@@ -403,4 +403,26 @@ namespace TL { namespace OpenMP {
     }
     void Core::target_teams_distribute_parallel_do_handler_post(TL::PragmaCustomStatement ctr) { }
 
+    void Core::declare_target_handler_pre(TL::PragmaCustomDirective ctr)
+    {
+        if (_inside_declare_target)
+        {
+            error_printf("%s: error: nesting of '#pragma omp declare target' not implemented\n",
+                    ctr.get_locus_str().c_str());
+        }
+        _inside_declare_target = true;
+    }
+    void Core::declare_target_handler_post(TL::PragmaCustomDirective ctr) { }
+
+    void Core::end_declare_target_handler_pre(TL::PragmaCustomDirective ctr) { }
+    void Core::end_declare_target_handler_post(TL::PragmaCustomDirective ctr)
+    {
+        if (!_inside_declare_target)
+        {
+            error_printf("%s: error: invalid nesting of '#pragma omp end declare target'\n",
+                    ctr.get_locus_str().c_str());
+        }
+        _inside_declare_target = false;
+    }
+
 } }
