@@ -42,7 +42,6 @@ top-level : function-code
           | pragma-directive
           | compatibility
           | cxx-decl
-          | simd-func-construct
 
 name : NODECL_SYMBOL() symbol type-opt const-value-opt
 type : NODECL_TYPE() type
@@ -89,7 +88,6 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | pragma-statement
           | c-cxx-only-statements
           | fortran-only-statements
-          | parallel-statements
           | compatibility
           | NODECL_ERR_STATEMENT()
           | assert-construct
@@ -509,6 +507,8 @@ range-discrete : NODECL_RANGE_DISCRETE([discrete_seq]expression-seq-opt)
 
 # Note that we use OPEN_M_P as we want nice names (OpenMP instead of Openmp) in the C++ part
 
+statement-but-object-init: parallel-statements
+
 parallel-statements : parallel-execution
                     | synchronization
 
@@ -658,6 +658,8 @@ device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environmen
 ##############################
 # OpenMP SIMD                #
 ##############################
+top-level : simd-func-construct
+
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
