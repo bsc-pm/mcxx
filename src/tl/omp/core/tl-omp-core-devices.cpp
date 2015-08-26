@@ -261,7 +261,7 @@ namespace TL { namespace OpenMP {
 
             if (data_environment.get_device_mapping(sym).direction == MAP_DIR_UNDEFINED)
             {
-                if (sym.get_type().is_array())
+                if (!OpenMP::is_scalar_type(sym.get_type()))
                 {
                     MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT,
                             sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));

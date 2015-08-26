@@ -326,6 +326,8 @@ namespace TL
                 }
         };
 
+        bool is_scalar_type(TL::Type t);
+
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct);
 

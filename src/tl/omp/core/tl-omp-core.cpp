@@ -34,6 +34,8 @@
 #include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
 
+#include "fortran03-typeutils.h"
+
 #include <algorithm>
 
 namespace TL { namespace OpenMP {
@@ -2537,6 +2539,22 @@ namespace TL { namespace OpenMP {
 
             return stmt;
         }
+
+    bool is_scalar_type(TL::Type t)
+    {
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            return ::is_scalar_type(t.get_internal_type());
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            return ::fortran_is_scalar_type(t.no_ref().get_internal_type());
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
 
     void openmp_core_run_next_time(DTO& dto)
     {
