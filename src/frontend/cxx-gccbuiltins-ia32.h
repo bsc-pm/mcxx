@@ -26232,3 +26232,13 @@ get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 ;
 symbol_entity_specs_set_is_builtin(sym___builtin_ia32_xtest, 1);
 }
+{
+scope_entry_list_t *entry_list = query_in_scope_str(decl_context, uniquestr("__builtin_ia32_pbroadcastq512_gpr_mask"), /* field_path */ NULL);
+ERROR_CONDITION(entry_list == NULL, "Symbol '__builtin_ia32_pbroadcastq512_gpr_mask' should have been declared",0);
+scope_entry_t* orig_sym = entry_list_head(entry_list);
+entry_list_free(entry_list);
+scope_entry_t* new_sym = new_symbol(decl_context, decl_context->current_scope, uniquestr("__builtin_ia32_pbroadcastq512_mem_mask"));
+new_sym->kind = SK_FUNCTION;new_sym->do_not_print = 1;
+new_sym->type_information = orig_sym->type_information;
+symbol_entity_specs_set_is_builtin(new_sym, 1);
+}

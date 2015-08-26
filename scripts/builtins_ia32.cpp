@@ -2230,16 +2230,31 @@ VECTOR_INTRIN(__builtin_ia32_xsaveopt64) \
 VECTOR_INTRIN(__builtin_ia32_xsaves) \
 VECTOR_INTRIN(__builtin_ia32_xsaves64) \
 VECTOR_INTRIN(__builtin_ia32_xtest) \
+\
+VECTOR_ALIAS(__builtin_ia32_pbroadcastq512_mem_mask, __builtin_ia32_pbroadcastq512_gpr_mask) \
 END
 
-
-
-
+static void do_alias(const char* newname, const char* existing)
+{
+    std::cout << "{\n"
+        << "scope_entry_list_t *entry_list = query_in_scope_str(decl_context, uniquestr(\"" << existing << "\"), /* field_path */ NULL);\n"
+        << "ERROR_CONDITION(entry_list == NULL, \"Symbol '" << existing << "' should have been declared\",0);\n"
+        << "scope_entry_t* orig_sym = entry_list_head(entry_list);\n"
+        << "entry_list_free(entry_list);\n"
+        << "scope_entry_t* new_sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(\"" << newname << "\"));\n"
+        << "new_sym->kind = SK_FUNCTION;"
+        << "new_sym->do_not_print = 1;\n"
+        << "new_sym->type_information = orig_sym->type_information;\n"
+        << "symbol_entity_specs_set_is_builtin(new_sym, 1);\n"
+        << "}\n";
+}
 
 int main(int, char**)
 {
 #define VECTOR_INTRIN(X) \
     f<__typeof__(X)>(#X);
+#define VECTOR_ALIAS(newname, existing) \
+    do_alias(#newname, #existing);
     VECTOR_INTRINSICS_LIST
 #undef VECTOR_INTRIN
 }
