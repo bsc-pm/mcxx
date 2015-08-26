@@ -320,6 +320,10 @@ namespace TL { namespace OpenMP {
                 ctr.get_statements(),
                 data_environment,
                 extra_symbols);
+        get_data_implicit_attributes(ctr,
+                DS_SHARED,
+                data_environment,
+                /* there_is_default_clause */ false);
 
         PragmaCustomClause depend_clause = pragma_line.get_clause("depend");
         // depend
