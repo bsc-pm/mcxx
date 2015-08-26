@@ -220,8 +220,10 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Core::compute_implicit_device_mappings(Nodecl::NodeclBase stmt,
-            DataEnvironment& data_environment)
+    void Core::compute_implicit_device_mappings(
+            Nodecl::NodeclBase stmt,
+            DataEnvironment& data_environment,
+            DefaultMapValue defaultmap_value)
     {
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(stmt)
@@ -259,12 +261,42 @@ namespace TL { namespace OpenMP {
 
             if (data_environment.get_device_mapping(sym).direction == MAP_DIR_UNDEFINED)
             {
-                MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT,
-                        sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));
-                data_environment.set_device_mapping(
-                        sym,
-                        map_value,
-                        "implicitly mapped because symbol is used inside data device environment");
+                if (sym.get_type().is_array())
+                {
+                    MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT,
+                            sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));
+                    data_environment.set_device_mapping(
+                            sym,
+                            map_value,
+                            "implicitly mapped because is not a scalar and "
+                            "is used inside the data device environment");
+                }
+                else if (defaultmap_value == DEFAULTMAP_SCALAR)
+                {
+                    MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT,
+                            sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));
+                    data_environment.set_device_mapping(
+                            sym,
+                            map_value,
+                            "implicitly mapped because it is a scalar and "
+                            "defaultmap(tofrom:scalar) has been specified");
+                }
+                else
+                {
+                    if (data_sharing.attr != DS_NONE)
+                    {
+                        warn_printf("%s: warning: overriding data-sharing of variable '%s' to firstprivate "
+                                "because it is not mapped in the data device environment\n",
+                                stmt.get_locus_str().c_str(),
+                                sym.get_qualified_name().c_str());
+                    }
+                    data_environment.set_data_sharing(
+                            sym,
+                            DS_FIRSTPRIVATE,
+                            DSK_IMPLICIT,
+                            "because it is a scalar used inside the data device environment "
+                            "and there is no defaultmap(tofrom:scalar)");
+                }
             }
         }
 
@@ -277,10 +309,20 @@ namespace TL { namespace OpenMP {
         _openmp_info->push_current_data_environment(data_environment);
 
         TL::PragmaCustomLine pragma_line = ctr.get_pragma_line();
+
+        // map
         handle_map_clause(pragma_line, data_environment);
 
-        ObjectList<Symbol> extra_symbols;
+        TL::ObjectList<Symbol> extra_symbols;
+        // private | firstprivate
+        get_data_explicit_attributes(
+                pragma_line,
+                ctr.get_statements(),
+                data_environment,
+                extra_symbols);
+
         PragmaCustomClause depend_clause = pragma_line.get_clause("depend");
+        // depend
         get_dependences_openmp(pragma_line,
                 depend_clause,
                 data_environment,
@@ -288,7 +330,25 @@ namespace TL { namespace OpenMP {
                 extra_symbols);
         get_data_extra_symbols(data_environment, extra_symbols);
 
-        compute_implicit_device_mappings(ctr.get_statements(), data_environment);
+        DefaultMapValue defaultmap_value = DEFAULTMAP_NONE;
+        TL::PragmaCustomClause defaultmap_clause = pragma_line.get_clause("defaultmap");
+        if (defaultmap_clause.is_defined())
+        {
+            TL::ObjectList<std::string> defaultmap_args = defaultmap_clause.get_tokenized_arguments();
+            if (defaultmap_args.size() == 1
+                    && defaultmap_args[0] == "tofrom:scalar")
+            {
+                defaultmap_value = DEFAULTMAP_SCALAR;
+            }
+            else
+            {
+                error_printf("%s: error: invalid argument '%s' for clause 'defaultmap', it should be 'tofrom:scalar'",
+                        ctr.get_locus_str().c_str(),
+                        concat_strings(defaultmap_clause.get_raw_arguments()).c_str());
+            }
+        }
+
+        compute_implicit_device_mappings(ctr.get_statements(), data_environment, defaultmap_value);
     }
 
     void Core::omp_target_handler_post(TL::PragmaCustomStatement ctr)
@@ -302,7 +362,8 @@ namespace TL { namespace OpenMP {
         _openmp_info->push_current_data_environment(data_environment);
 
         handle_map_clause(ctr.get_pragma_line(), data_environment);
-        compute_implicit_device_mappings(ctr.get_statements(), data_environment);
+        // FIXME: We should not be doing this
+        // compute_implicit_device_mappings(ctr.get_statements(), data_environment);
     }
 
     void Core::target_data_handler_post(TL::PragmaCustomStatement ctr)

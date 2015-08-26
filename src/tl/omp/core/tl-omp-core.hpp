@@ -201,8 +201,15 @@ namespace TL
                 void handle_map_clause(TL::PragmaCustomLine pragma_line,
                         DataEnvironment& data_environment);
 
+                enum DefaultMapValue
+                {
+                    DEFAULTMAP_NONE = 0,
+                    DEFAULTMAP_SCALAR = 1,
+                };
+
                 void compute_implicit_device_mappings(Nodecl::NodeclBase stmt,
-                        DataEnvironment& data_environment);
+                        DataEnvironment& data_environment,
+                        DefaultMapValue);
 
                 void common_parallel_handler(
                         TL::PragmaCustomStatement ctr,
