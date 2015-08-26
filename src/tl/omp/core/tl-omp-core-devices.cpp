@@ -261,42 +261,13 @@ namespace TL { namespace OpenMP {
 
             if (data_environment.get_device_mapping(sym).direction == MAP_DIR_UNDEFINED)
             {
-                if (!OpenMP::is_scalar_type(sym.get_type()))
-                {
-                    MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT,
-                            sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));
-                    data_environment.set_device_mapping(
-                            sym,
-                            map_value,
-                            "implicitly mapped because is not a scalar and "
-                            "is used inside the data device environment");
-                }
-                else if (defaultmap_value == DEFAULTMAP_SCALAR)
-                {
-                    MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT,
-                            sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));
-                    data_environment.set_device_mapping(
-                            sym,
-                            map_value,
-                            "implicitly mapped because it is a scalar and "
-                            "defaultmap(tofrom:scalar) has been specified");
-                }
-                else
-                {
-                    if (data_sharing.attr != DS_NONE)
-                    {
-                        warn_printf("%s: warning: overriding data-sharing of variable '%s' to firstprivate "
-                                "because it is not mapped in the data device environment\n",
-                                stmt.get_locus_str().c_str(),
-                                sym.get_qualified_name().c_str());
-                    }
-                    data_environment.set_data_sharing(
-                            sym,
-                            DS_FIRSTPRIVATE,
-                            DSK_IMPLICIT,
-                            "because it is a scalar used inside the data device environment "
-                            "and there is no defaultmap(tofrom:scalar)");
-                }
+                MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT,
+                        sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));
+                data_environment.set_device_mapping(
+                        sym,
+                        map_value,
+                        "implicitly mapped tofrom because "
+                        "is used inside the data device environment");
             }
         }
 
