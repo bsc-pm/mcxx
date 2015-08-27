@@ -2305,10 +2305,12 @@ then
      build_version="\"(distributed version) $run_gitversion\""
      AC_MSG_RESULT([$build_version])
 fi
-AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
 
-mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
-AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
+MCXX_BUILD_VERSION="$build_version"
+AC_SUBST([MCXX_BUILD_VERSION])
+
+MCXX_CONFIGURE_ARGS='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
+AC_SUBST([MCXX_CONFIGURE_ARGS])
 
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([SCRIPT_COMPILER_NAMES])
@@ -2316,6 +2318,7 @@ AC_SUBST([INSTALL_CONFIG_FILES])
 
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile
+           src/driver/cxx-driver-build-info.h
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium

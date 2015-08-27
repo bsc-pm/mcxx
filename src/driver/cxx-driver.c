@@ -99,6 +99,7 @@
 #include "fortran03-typeenviron.h"
 #include "fortran03-mangling.h"
 #include "cxx-driver-fortran.h"
+#include "cxx-driver-build-info.h"
 
 /* ------------------------------------------------------------------ */
 #define HELP_STRING \

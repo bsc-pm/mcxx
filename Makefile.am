@@ -774,6 +774,7 @@ src_frontend_fortran_libmf03_la_CFLAGS = \
 				    -I$(top_builddir)/src/frontend/fortran \
 				    -I$(top_srcdir)/src/driver \
 				    -I$(top_srcdir)/src/driver/fortran \
+				    -I$(top_builddir)/src/driver \
                     $(FORTRAN_FLEX_FLAGS) \
                     -fexceptions \
 					-std=gnu99 \
@@ -2807,6 +2808,7 @@ src_driver_plaincxx_SOURCES = \
   src/driver/cxx-fileextensions.c \
   src/driver/cxx-debugflags.c \
   src/driver/cxx-driver.c \
+  src/driver/cxx-driver-build-info.h \
   src/driver/cxx-driver-decls.h \
   src/driver/cxx-driver.h \
   src/driver/cxx-driver-utils.c \
