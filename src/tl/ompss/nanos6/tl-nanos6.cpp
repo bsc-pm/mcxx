@@ -83,11 +83,11 @@ namespace TL { namespace Nanos6 {
                     strerror(errno));
         }
 
-        source_language_t prev_lang = CURRENT_CONFIGURATION->source_language;
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+        compilation_configuration_t* prev_configuration = CURRENT_CONFIGURATION;
 
         compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
         ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when there is extra C code", 0);
+        SET_CURRENT_CONFIGURATION(configuration);
 
         // Make sure phases are loaded (this is needed for codegen)
         load_compiler_phases(configuration);
@@ -99,7 +99,7 @@ namespace TL { namespace Nanos6 {
         Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
         phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
-        CURRENT_CONFIGURATION->source_language = prev_lang;
+        SET_CURRENT_CONFIGURATION(prev_configuration);
 
         fclose(ancillary_file);
 
