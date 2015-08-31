@@ -1420,7 +1420,7 @@ namespace TL { namespace Nanos6 {
                 {
                     new_expr = Nodecl::Dereference::make(
                             new_expr,
-                            sym.get_type().get_lvalue_reference_to(),
+                            sym.get_type().no_ref().get_lvalue_reference_to(),
                             new_expr.get_locus());
                 }
 

@@ -27,6 +27,8 @@
 
 #include "tl-nanos6-lower.hpp"
 #include "tl-nanos6-task-properties.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "tl-symbol-utils.hpp"
 #include "tl-counters.hpp"
 #include "cxx-exprtype.h"
 #include <map>
@@ -259,7 +261,136 @@ namespace TL { namespace Nanos6 {
 
     void Lower::visit_task_call_fortran(const Nodecl::OmpSs::TaskCall& construct)
     {
-        internal_error("Not yet implemented", 0);
+        TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+
+        Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
+        Nodecl::NodeclBase parameters_environment = construct.get_environment();
+
+        ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
+
+        // For Fortran we create an adaptor function because otherwise it is
+        // impossible to represent some arguments as temporaries. The adaptor
+        // function has the same type as the function task. We create it as a sibling
+        // of the current function. Note that we rely on Fortran codegen to add the
+        // required USEs in this function
+
+        TL::Symbol called_sym = function_call.get_called().get_symbol();
+        Nodecl::NodeclBase orig_arguments = function_call.get_arguments();
+
+        std::string adapter_name;
+        {
+            TL::Counter& counter = CounterManager::get_counter("nanos6-fortran-adapter");
+            std::stringstream ss;
+            ss << enclosing_function.get_name() << "_adapter_" << (int)counter;
+            counter++;
+            adapter_name = ss.str();
+        }
+
+        TL::ObjectList<TL::Symbol> orig_parameter_symbols = called_sym.get_related_symbols();
+        TL::ObjectList<std::string> parameter_names =
+            orig_parameter_symbols.map<std::string>(&TL::Symbol::get_name);
+        TL::ObjectList<TL::Type> parameter_types = called_sym.get_type().parameters();
+
+        TL::Symbol adapter_function = SymbolUtils::new_function_symbol(
+                enclosing_function,
+                adapter_name,
+                TL::Type::get_void_type(),
+                parameter_names,
+                parameter_types);
+
+
+        Nodecl::NodeclBase empty_stmt, adapter_function_code;
+        SymbolUtils::build_empty_body_for_function(
+                adapter_function,
+                adapter_function_code,
+                empty_stmt);
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
+
+        TL::ObjectList<TL::Symbol> new_parameter_symbols = adapter_function.get_related_symbols();
+
+        Nodecl::Utils::SimpleSymbolMap parameter_symbol_map;
+        // Map original parameters to new symbols
+        {
+            for (TL::ObjectList<TL::Symbol>::iterator
+                    it_orig = orig_parameter_symbols.begin(),
+                    it_new = new_parameter_symbols.begin();
+
+                    it_orig != orig_parameter_symbols.end()
+                    && it_new != new_parameter_symbols.end();
+
+                    it_orig++, it_new++)
+            {
+                parameter_symbol_map.add_map(*it_orig, *it_new);
+            }
+        }
+
+        // Build body
+        struct SymbolToArgument
+        {
+            static Nodecl::NodeclBase run(TL::Symbol sym)
+            {
+                return sym.make_nodecl(/* set_ref */ true);
+            }
+        };
+
+        TL::Scope scope_inside_new_function = empty_stmt.retrieve_context();
+        Scope new_task_block_context_sc =
+            new_block_context(scope_inside_new_function.get_decl_context());
+
+        TL::ObjectList<Nodecl::NodeclBase> new_arguments
+            = new_parameter_symbols.map<Nodecl::NodeclBase>(SymbolToArgument::run)
+            ;
+
+        Nodecl::List new_task_statements;
+        new_task_statements.append(
+                Nodecl::ExpressionStatement::make(
+                    Nodecl::FunctionCall::make(
+                        called_sym.make_nodecl(/* set_ref */ true),
+                        Nodecl::List::make(new_arguments),
+                        /* alternate */ Nodecl::NodeclBase::null(),
+                        /* function-form */ Nodecl::NodeclBase::null(),
+                        called_sym.get_type().returns(),
+                        construct.get_locus()),
+                    construct.get_locus()));
+
+        Nodecl::NodeclBase new_task_body =
+            Nodecl::List::make(
+                    Nodecl::Context::make(
+                        Nodecl::List::make(
+                            Nodecl::CompoundStatement::make(
+                                new_task_statements,
+                                Nodecl::NodeclBase::null(),
+                                construct.get_locus())
+                            ),
+                        new_task_block_context_sc,
+                        construct.get_locus())
+                    );
+
+        Nodecl::NodeclBase new_omp_exec_environment;
+        new_omp_exec_environment = Nodecl::Utils::deep_copy(
+                parameters_environment,
+                scope_inside_new_function,
+                parameter_symbol_map);
+
+        Nodecl::NodeclBase new_task_construct =
+            Nodecl::OpenMP::Task::make(
+                    new_omp_exec_environment,
+                    new_task_body,
+                    construct.get_locus());
+        empty_stmt.replace(new_task_construct);
+
+        // Now follow the usual path
+        this->walk(empty_stmt);
+
+        // Replace the call site
+        construct.replace(
+                    Nodecl::FunctionCall::make(
+                        adapter_function.make_nodecl(/* set_ref */ true),
+                        orig_arguments.shallow_copy(),
+                        /* alternate */ Nodecl::NodeclBase::null(),
+                        /* function-form */ Nodecl::NodeclBase::null(),
+                        called_sym.get_type().returns(),
+                        construct.get_locus()));
     }
 
     void Lower::visit_task_call(const Nodecl::OmpSs::TaskCall& construct)
