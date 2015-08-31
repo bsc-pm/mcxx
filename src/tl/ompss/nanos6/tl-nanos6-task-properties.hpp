@@ -32,6 +32,7 @@
 #include "tl-nodecl.hpp"
 #include "tl-type.hpp"
 #include "tl-symbol.hpp"
+#include "tl-datareference.hpp"
 
 namespace TL { namespace Nanos6 {
 
@@ -67,6 +68,19 @@ namespace TL { namespace Nanos6 {
             TL::Symbol copies_function_mangled;
 
             Nodecl::NodeclBase rewrite_expression_using_args(TL::Symbol args, Nodecl::NodeclBase expr);
+
+            void register_linear_dependence(
+                    TL::DataReference& data_ref,
+                    TL::Symbol handler,
+                    TL::Symbol arg,
+                    TL::Symbol register_fun,
+                    Nodecl::List& register_statements);
+            void register_dependence_for_array(
+                    TL::DataReference& data_ref,
+                    TL::Symbol handler,
+                    TL::Symbol arg,
+                    TL::Symbol register_fun,
+                    Nodecl::List& register_statements);
 
         public:
             TL::ObjectList<TL::Symbol> shared;

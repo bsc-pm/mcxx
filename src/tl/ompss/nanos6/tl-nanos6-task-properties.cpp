@@ -29,7 +29,6 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-symbol-utils.hpp"
-#include "tl-datareference.hpp"
 #include "tl-counters.hpp"
 #include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
@@ -982,246 +981,87 @@ namespace TL { namespace Nanos6 {
         Nodecl::Utils::prepend_to_enclosing_top_level_location(task_body, outline_function_code);
     }
 
-    static void register_dependence_for_scalar(
-            int &rank,
-            TL::Type data_type,
-            TL::Symbol current_rank_info,
-            TL::Type rank_info_type,
-            TL::Scope global_context,
-            Nodecl::NodeclBase dependences_empty_stmt,
-            GetField &get_field)
+    void TaskProperties::register_linear_dependence(
+            TL::DataReference& data_ref,
+            TL::Symbol handler,
+            TL::Symbol arg,
+            TL::Symbol register_fun,
+            Nodecl::List& register_statements)
     {
-        rank = 1;
-        current_rank_info.set_type(rank_info_type.get_array_to(
-                    const_value_to_nodecl(const_value_get_signed_int(rank)),
-                    global_context));
+        Nodecl::NodeclBase base_addr = data_ref.get_base_address();
+        base_addr = rewrite_expression_using_args(arg, base_addr);
 
-        const_value_t* cval_zero_ptrdiff =
-            const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), /* sign */ 1);
+        TL::Type data_type = data_ref.get_data_type();
 
-        Nodecl::NodeclBase rank_0 =
-            Nodecl::ArraySubscript::make(
-                    current_rank_info.make_nodecl(/* set_ref_type */ true),
-                    Nodecl::List::make(
-                        const_value_to_nodecl_with_basic_type(
-                            cval_zero_ptrdiff,
-                            get_ptrdiff_t_type())),
-                    rank_info_type.get_lvalue_reference_to());
+        /// void nanos_register_XXX_dep(void *handler, void *start, size_t length);
 
-        TL::Type size_t_type = ::get_size_t_type();
-        TL::Type size_t_ref = size_t_type.get_lvalue_reference_to();
+        Nodecl::List arg_list;
+        // handler
+        arg_list.append(
+                Nodecl::Conversion::make(
+                    handler.make_nodecl(/* set_ref_type */ true),
+                    handler.get_type()));
+        // start
+        arg_list.append(
+                Nodecl::Conversion::make(
+                    base_addr,
+                    TL::Type::get_void_type().get_pointer_to()));
+        // length
+        arg_list.append(
+                const_value_to_nodecl_with_basic_type(
+                    const_value_get_integer(
+                        data_type.get_size(),
+                        type_get_size(get_size_t_type()),
+                        /* sign */ 1),
+                    get_size_t_type()));
 
-        const_value_t* cval_zero_size_t =
-            const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), /* sign */ 1);
+        Nodecl::NodeclBase function_call = Nodecl::ExpressionStatement::make(
+                Nodecl::FunctionCall::make(
+                    register_fun.make_nodecl(/* set_ref_type */ true),
+                    arg_list,
+                    /* alternate-symbol */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    TL::Type::get_void_type()));
 
-        dependences_empty_stmt.prepend_sibling(
-                Nodecl::ExpressionStatement::make(
-                    Nodecl::Assignment::make(
-                        Nodecl::ClassMemberAccess::make(
-                            rank_0.shallow_copy(),
-                            get_field("size"),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            size_t_type),
-                        const_value_to_nodecl_with_basic_type(
-                            const_value_get_integer(
-                                data_type.get_size(),
-                                size_t_type.get_size(),
-                                /* is_signed */ 0),
-                            size_t_type.get_internal_type()),
-                        size_t_ref)));
-        dependences_empty_stmt.prepend_sibling(
-                Nodecl::ExpressionStatement::make(
-                    Nodecl::Assignment::make(
-                        Nodecl::ClassMemberAccess::make(
-                            rank_0.shallow_copy(),
-                            get_field("lower_bound"),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            size_t_type),
-                        const_value_to_nodecl_with_basic_type(
-                            cval_zero_size_t,
-                            size_t_type.get_internal_type()),
-                        size_t_ref)));
-        dependences_empty_stmt.prepend_sibling(
-                Nodecl::ExpressionStatement::make(
-                    Nodecl::Assignment::make(
-                        Nodecl::ClassMemberAccess::make(
-                            rank_0.shallow_copy(),
-                            get_field("accessed_length"),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            size_t_type),
-                        const_value_to_nodecl_with_basic_type(
-                            const_value_get_integer(
-                                data_type.get_size(),
-                                size_t_type.get_size(),
-                                /* is_signed */ 0),
-                            size_t_type.get_internal_type()),
-                        size_t_ref)));
-
-        nodecl_free(rank_0.get_internal_nodecl());
+        register_statements.append(function_call);
     }
 
-    static void register_dependence_for_array(
-            int &rank,
-            TL::Type data_type,
-            TL::Symbol current_rank_info,
-            TL::Type rank_info_type,
-            TL::Scope global_context,
-            Nodecl::NodeclBase dependences_empty_stmt,
-            GetField &get_field)
+    void TaskProperties::register_dependence_for_array(
+            TL::DataReference& data_ref,
+            TL::Symbol handler,
+            TL::Symbol arg,
+            TL::Symbol register_fun,
+            Nodecl::List& register_statements)
     {
-        rank = data_type.get_num_dimensions();
-        ERROR_CONDITION(rank <= 0, "Invalid rank", 0);
+        Nodecl::NodeclBase base_addr = data_ref.get_base_address();
+        base_addr = rewrite_expression_using_args(arg, base_addr);
 
-        current_rank_info.set_type(rank_info_type.get_array_to(
-                    const_value_to_nodecl(const_value_get_signed_int(rank)),
-                    global_context));
+        TL::Type data_type = data_ref.get_data_type();
 
-        TL::ObjectList<TL::Type> rank_data;
-        for (TL::Type it = data_type; it.is_array(); it = it.array_element())
+        ERROR_CONDITION(!data_type.is_array(), "Invalid data type here", 0);
+        if (data_type.array_is_region())
         {
-            rank_data.push_back(it);
+            internal_error("Regions not implemented yet", 0);
         }
-        std::reverse(rank_data.begin(), rank_data.end());
-
-        TL::Type scalar_type = rank_data.front().array_element();
-
-        TL::ObjectList<TL::Type>::iterator current_array = rank_data.begin();
-        int current_array_idx = 0;
-
-        // Remaining ranks are expressed in elements
-        for(current_array = rank_data.begin(),
-                current_array_idx = 0;
-                current_array != rank_data.end();
-                current_array++,
-                current_array_idx++)
+        else
         {
-            const_value_t* current_index_value =
-                const_value_get_integer(current_array_idx,
-                        type_get_size(get_ptrdiff_t_type()), /* sign */ 1);
-
-            Nodecl::NodeclBase current_rank_array_subscript =
-                Nodecl::ArraySubscript::make(
-                        current_rank_info.make_nodecl(/* set_ref_type */ true),
-                        Nodecl::List::make(
-                            const_value_to_nodecl_with_basic_type(
-                                current_index_value,
-                                get_ptrdiff_t_type())),
-                        rank_info_type.get_lvalue_reference_to());
-
-            TL::Type size_t_type = ::get_size_t_type();
-            TL::Type size_t_ref = size_t_type.get_lvalue_reference_to();
-
-            Nodecl::NodeclBase size_expr, lower_bound, accessed_length;
-
-            // FIXME - VLAs!
-            size_expr = current_array->array_get_size().shallow_copy();
-            if (current_array_idx == 0)
-            {
-                // In bytes
-                size_expr = Nodecl::Mul::make(
-                        size_expr,
-                        const_value_to_nodecl_with_basic_type(
-                            const_value_get_integer(
-                                scalar_type.get_size(),
-                                type_get_size(get_size_t_type()),
-                                /* sign */ 0),
-                            get_size_t_type()),
-                        size_t_type);
-            }
-
-            if (current_array->array_is_region())
-            {
-                Nodecl::NodeclBase region_lower, region_upper;
-                current_array->array_get_region_bounds(region_lower, region_upper);
-
-                lower_bound = region_lower.shallow_copy();
-                accessed_length = Nodecl::Add::make(
-                        Nodecl::Minus::make(
-                            region_upper,
-                            region_lower,
-                            size_t_type),
-                        const_value_to_nodecl_with_basic_type(
-                            const_value_get_integer(
-                                1,
-                                size_t_type.get_size(),
-                                /* is_signed */ 1),
-                            size_t_type.get_internal_type()),
-                        size_t_type);
-
-                if (current_array_idx == 0)
-                {
-                    lower_bound = Nodecl::Mul::make(
-                            lower_bound,
-                            const_value_to_nodecl_with_basic_type(
-                                const_value_get_integer(
-                                    scalar_type.get_size(),
-                                    type_get_size(get_size_t_type()),
-                                    /* sign */ 0),
-                                get_size_t_type()),
-                            size_t_type);
-
-                    accessed_length = Nodecl::Mul::make(
-                            accessed_length,
-                            const_value_to_nodecl_with_basic_type(
-                                const_value_get_integer(
-                                    scalar_type.get_size(),
-                                    type_get_size(get_size_t_type()),
-                                    /* sign */ 0),
-                                get_size_t_type()),
-                            size_t_type);
-                }
-            }
-            else
-            {
-                lower_bound = const_value_to_nodecl_with_basic_type(
-                        const_value_get_integer(
-                            0,
-                            size_t_type.get_size(),
-                            /* is_signed */ 0),
-                        size_t_type.get_internal_type());
-
-                accessed_length = size_expr.shallow_copy();
-            }
-
-            dependences_empty_stmt.prepend_sibling(
-                    Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                            Nodecl::ClassMemberAccess::make(
-                                current_rank_array_subscript.shallow_copy(),
-                                get_field("size"),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                size_t_type),
-                            size_expr,
-                            size_t_ref)));
-            dependences_empty_stmt.prepend_sibling(
-                    Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                            Nodecl::ClassMemberAccess::make(
-                                current_rank_array_subscript.shallow_copy(),
-                                get_field("lower_bound"),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                size_t_type),
-                            lower_bound,
-                            size_t_ref)));
-            dependences_empty_stmt.prepend_sibling(
-                    Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                            Nodecl::ClassMemberAccess::make(
-                                current_rank_array_subscript.shallow_copy(),
-                                get_field("accessed_length"),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                size_t_type),
-                            accessed_length,
-                            size_t_ref)));
-
-            nodecl_free(current_rank_array_subscript.get_internal_nodecl());
+            register_linear_dependence(
+                    data_ref,
+                    handler,
+                    arg,
+                    register_fun,
+                    register_statements);
         }
     }
 
     void TaskProperties::create_dependences_function()
     {
-        TL::ObjectList<std::string> dep_parameter_names(1, "arg");
-        TL::ObjectList<TL::Type> dep_parameter_types(1, info_structure.get_lvalue_reference_to());
+        TL::ObjectList<std::string> dep_parameter_names(2);
+        dep_parameter_names[0] = "handler";
+        dep_parameter_names[1] = "arg";
+        TL::ObjectList<TL::Type> dep_parameter_types(2);
+        dep_parameter_types[0] = TL::Type::get_void_type().get_pointer_to();
+        dep_parameter_types[1] = info_structure.get_lvalue_reference_to();
 
         // Outline function
         std::string dep_name;
@@ -1269,17 +1109,18 @@ namespace TL { namespace Nanos6 {
                 dependences_empty_stmt);
 
         TL::Scope dependences_inside_scope = dependences_empty_stmt.retrieve_context();
+        TL::Symbol handler = dependences_inside_scope.get_symbol_from_name("handler");
         TL::Symbol arg = dependences_inside_scope.get_symbol_from_name("arg");
         ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
 
         TL::Scope global_context = TL::Scope::get_global_scope();
-        TL::Symbol register_dep_in = global_context.get_symbol_from_name("nanos_register_dep_in");
+        TL::Symbol register_dep_in = global_context.get_symbol_from_name("nanos_register_input_dep");
         ERROR_CONDITION(!register_dep_in.is_valid(), "Invalid symbol", 0);
 
-        TL::Symbol register_dep_out = global_context.get_symbol_from_name("nanos_register_dep_out");
+        TL::Symbol register_dep_out = global_context.get_symbol_from_name("nanos_register_output_dep");
         ERROR_CONDITION(!register_dep_out.is_valid(), "Invalid symbol", 0);
 
-        TL::Symbol register_dep_inout = global_context.get_symbol_from_name("nanos_register_dep_inout");
+        TL::Symbol register_dep_inout = global_context.get_symbol_from_name("nanos_register_inout_dep");
         ERROR_CONDITION(!register_dep_inout.is_valid(), "Invalid symbol", 0);
 
         struct DependencesSet
@@ -1292,12 +1133,6 @@ namespace TL { namespace Nanos6 {
             { dep_inout, register_dep_inout },
         };
 
-        TL::Symbol rank_info_type_sym = global_context.get_symbol_from_name("nanos_rank_info");
-        ERROR_CONDITION(!rank_info_type_sym.is_valid(), "Invalid symbol", 0);
-        TL::Type rank_info_type = rank_info_type_sym.get_user_defined_type();
-
-        TL::ObjectList<TL::Symbol> fields = rank_info_type.get_nonstatic_data_members();
-        GetField get_field(fields);
 
         for (DependencesSet *dep_set = deps;
                 dep_set != (DependencesSet*)(&deps + 1);
@@ -1311,71 +1146,29 @@ namespace TL { namespace Nanos6 {
                     it++)
             {
                 TL::DataReference data_ref = *it;
-
-                Nodecl::NodeclBase base_addr = data_ref.get_base_address();
-                base_addr = rewrite_expression_using_args(arg, base_addr);
-
-                std::string current_rank_info_name;
-                {
-                    TL::Counter &counter = TL::CounterManager::get_counter("nanos6-rank-info");
-                    std::stringstream ss;
-                    ss << "rank_info_" << (int)counter;
-                    counter++;
-                    current_rank_info_name = ss.str();
-                }
-
-                TL::Symbol current_rank_info = dependences_inside_scope.new_symbol(current_rank_info_name);
-                current_rank_info.get_internal_symbol()->kind = SK_VARIABLE;
-                symbol_entity_specs_set_is_user_declared(current_rank_info.get_internal_symbol(), 1);
-
-                if (IS_CXX_LANGUAGE)
-                {
-                    dependences_empty_stmt.prepend_sibling(
-                            Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), current_rank_info)
-                            );
-                }
-
-                int rank = -1;
                 TL::Type data_type = data_ref.get_data_type();
+
+                Nodecl::List register_statements;
                 if (!data_type.is_array())
                 {
-                    register_dependence_for_scalar(
-                            rank,
-                            data_type,
-                            current_rank_info,
-                            rank_info_type,
-                            global_context,
-                            dependences_empty_stmt,
-                            get_field);
+                    register_linear_dependence(
+                            data_ref,
+                            handler,
+                            arg,
+                            dep_set->register_fun,
+                            register_statements);
                 }
                 else
                 {
                     register_dependence_for_array(
-                            rank,
-                            data_type,
-                            current_rank_info,
-                            rank_info_type,
-                            global_context,
-                            dependences_empty_stmt,
-                            get_field);
+                            data_ref,
+                            handler,
+                            arg,
+                            dep_set->register_fun,
+                            register_statements);
                 }
-                ERROR_CONDITION(rank <= 0, "Invalid rank", 0);
 
-                Nodecl::List arg_list;
-                arg_list.append(base_addr);
-                arg_list.append(const_value_to_nodecl(const_value_get_signed_int(rank)));
-                arg_list.append(
-                        Nodecl::Conversion::make(
-                            current_rank_info.make_nodecl(/* set_ref_type */ true),
-                            rank_info_type.get_pointer_to()));
-                Nodecl::NodeclBase function_call = Nodecl::ExpressionStatement::make(
-                        Nodecl::FunctionCall::make(
-                            dep_set->register_fun.make_nodecl(/* set_ref_type */ true),
-                            arg_list,
-                            /* alternate-symbol */ Nodecl::NodeclBase::null(),
-                            /* function-form */ Nodecl::NodeclBase::null(),
-                            TL::Type::get_void_type()));
-                dependences_empty_stmt.prepend_sibling(function_call);
+                dependences_empty_stmt.prepend_sibling(register_statements);
             }
         }
 
