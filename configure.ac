@@ -739,8 +739,6 @@ then
    NANOX_LIBS="${nanox_lib}"
    NANOX="${nanox}"
 
-   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
-
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
    COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
 
@@ -901,6 +899,11 @@ AC_SUBST([NANOS6_LIB])
 AC_SUBST([NANOS6_GATE])
 
 AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
+
+if test x$is_enabled_tl_ompss_nanos6 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
+then
+   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
+fi
 
 if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
 then
