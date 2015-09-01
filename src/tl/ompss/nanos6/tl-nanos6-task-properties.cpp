@@ -1114,13 +1114,13 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
 
         TL::Scope global_context = TL::Scope::get_global_scope();
-        TL::Symbol register_dep_in = global_context.get_symbol_from_name("nanos_register_input_dep");
+        TL::Symbol register_dep_in = global_context.get_symbol_from_name("nanos_register_read_depinfo");
         ERROR_CONDITION(!register_dep_in.is_valid(), "Invalid symbol", 0);
 
-        TL::Symbol register_dep_out = global_context.get_symbol_from_name("nanos_register_output_dep");
+        TL::Symbol register_dep_out = global_context.get_symbol_from_name("nanos_register_write_depinfo");
         ERROR_CONDITION(!register_dep_out.is_valid(), "Invalid symbol", 0);
 
-        TL::Symbol register_dep_inout = global_context.get_symbol_from_name("nanos_register_inout_dep");
+        TL::Symbol register_dep_inout = global_context.get_symbol_from_name("nanos_register_readwrite_depinfo");
         ERROR_CONDITION(!register_dep_inout.is_valid(), "Invalid symbol", 0);
 
         struct DependencesSet

@@ -35,12 +35,10 @@ typedef struct
 	void (*register_copies)(void *handler, void *args_block);
 	
 	//! \brief A string that identifies the type of task
-	void *task_label;
+	char const *task_label;
 	
 	//! \brief A string that identifies the source location of the definition of the task
-	void *declaration_source;
-	
-	void *reserved_to_fill_up_the_cache_line[3];
+	char const *declaration_source;
 } nanos_task_info __attribute__((aligned(64)));
 
 
@@ -79,21 +77,21 @@ void nanos_taskwait(void);
 //! \param[in] handler the handler received in register_depinfo
 //! \param[in] start first address accessed
 //! \param[in] length number of bytes until and including the last byte accessed
-void nanos_register_input_dep(void *handler, void *start, size_t length);
+void nanos_register_read_depinfo(void *handler, void *start, size_t length);
 
 //! \brief Register a task write access on linear range of addresses
 //!
 //! \param[in] handler the handler received in register_depinfo
 //! \param[in] start first address accessed
 //! \param[in] length number of bytes until and including the last byte accessed
-void nanos_register_output_dep(void *handler, void *start, size_t length);
+void nanos_register_write_depinfo(void *handler, void *start, size_t length);
 
 //! \brief Register a task read and write access on linear range of addresses
 //!
 //! \param[in] handler the handler received in register_depinfo
 //! \param[in] start first address accessed
 //! \param[in] length number of bytes until and including the last byte accessed
-void nanos_register_inout_dep(void *handler, void *start, size_t length);
+void nanos_register_readwrite_depinfo(void *handler, void *start, size_t length);
 
 
 // TODO: nanos_register_input_copy, nanos_register_output_copy and nanos_register_inout_copy
