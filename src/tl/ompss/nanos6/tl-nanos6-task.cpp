@@ -36,6 +36,9 @@ namespace TL { namespace Nanos6 {
 
     void Lower::visit(const Nodecl::OpenMP::Task& node)
     {
+        Nodecl::NodeclBase stmts = node.get_statements();
+        walk(stmts);
+
         TaskProperties task_properties = TaskProperties::gather_task_properties(_phase, node);
 
         Nodecl::NodeclBase args_size;

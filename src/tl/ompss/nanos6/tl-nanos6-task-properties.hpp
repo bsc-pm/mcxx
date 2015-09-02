@@ -30,6 +30,7 @@
 
 #include "tl-nanos6.hpp"
 #include "tl-nodecl.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-type.hpp"
 #include "tl-symbol.hpp"
 #include "tl-datareference.hpp"
@@ -68,6 +69,7 @@ namespace TL { namespace Nanos6 {
             TL::Symbol copies_function_mangled;
 
             Nodecl::NodeclBase rewrite_expression_using_args(TL::Symbol args, Nodecl::NodeclBase expr);
+            TL::Type rewrite_type_using_args(TL::Symbol arg, TL::Type t);
 
             void register_linear_dependence(
                     TL::DataReference& data_ref,
@@ -82,10 +84,18 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol register_fun,
                     Nodecl::List& register_statements);
 
+            void walk_type_for_saved_expressions(TL::Type t);
+            static bool is_saved_expression(Nodecl::NodeclBase n);
+            void handle_array_bound(Nodecl::NodeclBase n);
+            TL::Type rewrite_type_for_outline(TL::Type t, Nodecl::Utils::SymbolMap& symbol_map);
+
         public:
             TL::ObjectList<TL::Symbol> shared;
             TL::ObjectList<TL::Symbol> private_;
             TL::ObjectList<TL::Symbol> firstprivate;
+            // A superset of firstprivate that also includes captured because
+            // of runtime sized types
+            TL::ObjectList<TL::Symbol> captured_value;
             Nodecl::NodeclBase final_;
             bool is_tied;
             std::string task_label;
@@ -130,6 +140,8 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol args,
                     /* out */
                     Nodecl::NodeclBase& capture_env);
+
+            void compute_captured_values();
     };
 
 } }
