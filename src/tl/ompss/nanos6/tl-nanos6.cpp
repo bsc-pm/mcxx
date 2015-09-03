@@ -47,7 +47,10 @@ namespace TL { namespace Nanos6 {
 
     void LoweringPhase::run(DTO& dto)
     {
-        std::cerr << "Nanos 6 phase" << std::endl;
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            std::cerr << "Nanos 6 phase" << std::endl;
+        }
 
         FORTRAN_LANGUAGE()
         {
@@ -63,7 +66,10 @@ namespace TL { namespace Nanos6 {
 
     void LoweringPhase::pre_run(DTO& dto)
     {
-        std::cerr << "Nanos 6 prerun" << std::endl;
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            std::cerr << "Nanos 6 prerun" << std::endl;
+        }
     }
 
     void LoweringPhase::phase_cleanup(DTO& dto)
