@@ -557,6 +557,7 @@ nanox_mic_lib=""
 nanox=""
 nanox_pm_selection="none"
 NANOX=""
+NANOX_ENABLED="$is_enabled_tl_omp_nanox"
 NANOX_INCLUDES=""
 NANOX_LIBS=""
 NANOX_GNU_LDFLAGS=""
@@ -745,6 +746,7 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 40.config.cuda"
 fi
 
+AC_SUBST([NANOX_ENABLED])
 AC_SUBST([NANOX_GATE])
 AC_SUBST([NANOX_NEW_LINK])
 AC_SUBST([NANOX_OLD_LINK])
@@ -893,9 +895,12 @@ NANOS6_INCLUDES="${nanos6_include}"
 NANOS6_LIB="${nanos6_lib}"
 NANOS6="${nanos6}"
 
+NANOS6_ENABLED="$is_enabled_tl_ompss_nanos6"
+
 AC_SUBST([NANOS6])
 AC_SUBST([NANOS6_INCLUDES])
 AC_SUBST([NANOS6_LIB])
+AC_SUBST([NANOS6_ENABLED])
 AC_SUBST([NANOS6_GATE])
 
 AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
