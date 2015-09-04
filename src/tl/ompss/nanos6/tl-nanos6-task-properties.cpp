@@ -968,14 +968,16 @@ namespace TL { namespace Nanos6 {
                         args.append(
                                 Nodecl::Dereference::make(
                                     Nodecl::Cast::make(
-                                        Nodecl::ClassMemberAccess::make(
-                                            arg.make_nodecl(/* set_ref_type */ true),
-                                            field_map[*it].make_nodecl(),
-                                            /* member_literal */ Nodecl::NodeclBase::null(),
-                                            field_map[*it].get_type().get_lvalue_reference_to()),
-                                        param_type.no_ref().get_pointer_to(),
+                                        Nodecl::Reference::make(
+                                            Nodecl::ClassMemberAccess::make(
+                                                arg.make_nodecl(/* set_ref_type */ true),
+                                                field_map[*it].make_nodecl(),
+                                                /* member_literal */ Nodecl::NodeclBase::null(),
+                                                field_map[*it].get_type().get_lvalue_reference_to()),
+                                            field_map[*it].get_type().get_pointer_to()),
+                                        param_type.get_pointer_to(),
                                         "C"),
-                                    param_type
+                                    param_type.get_lvalue_reference_to()
                                     )
                                 );
                     }
