@@ -1345,8 +1345,9 @@ static TL::Symbol new_function_symbol_adapter(
             it != parameters_of_called_function.end();
             it++)
     {
+        std::string param_name = "p_" + it->get_name() + "_";
         scope_entry_t* new_parameter_symbol
-            = new_symbol(function_context, function_context->current_scope, uniquestr(it->get_name().c_str()));
+            = new_symbol(function_context, function_context->current_scope, uniquestr(param_name.c_str()));
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
@@ -1365,13 +1366,14 @@ static TL::Symbol new_function_symbol_adapter(
         symbol_map.add_map(*it, new_parameter_symbol);
     }
 
-    // Free variables
+    // Free variables (if any)
     for (TL::ObjectList<TL::Symbol>::const_iterator it = free_vars.begin();
             it != free_vars.end();
             it++)
     {
+        std::string param_name = "v_" + it->get_name() + "_";
         scope_entry_t* new_parameter_symbol
-            = new_symbol(function_context, function_context->current_scope, uniquestr(it->get_name().c_str()));
+            = new_symbol(function_context, function_context->current_scope, uniquestr(param_name.c_str()));
         new_parameter_symbol->kind = SK_VARIABLE;
         TL::Type t = it->get_type();
         if (!t.is_lvalue_reference())
