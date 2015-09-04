@@ -72,6 +72,9 @@ void nanos_submit_task(void *task);
 void nanos_taskwait(void);
 
 
+void nanos_user_lock(void **handlerPointer);
+void nanos_user_unlock(void **handlerPointer);
+
 //! \brief Register a task read access on linear range of addresses
 //!
 //! \param[in] handler the handler received in register_depinfo

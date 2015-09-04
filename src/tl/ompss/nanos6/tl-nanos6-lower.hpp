@@ -45,6 +45,7 @@ namespace TL { namespace Nanos6 {
             virtual void visit(const Nodecl::OpenMP::Task& n);
             virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& n);
             virtual void visit(const Nodecl::OmpSs::TaskCall& n);
+            virtual void visit(const Nodecl::OpenMP::Critical& n);
 
         private:
             void visit_task_call(const Nodecl::OmpSs::TaskCall& construct);
