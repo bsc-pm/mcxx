@@ -307,6 +307,7 @@
 "                           allows parallel compilation of the same\n" \
 "                           source codes without reusing intermediate\n" \
 "                           filenames\n" \
+"  --Xcompiler OPTION       Equivalent to --Wn,OPTION\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -427,6 +428,7 @@ typedef enum
     OPTION_XL_COMPATIBILITY,
     OPTION_LINE_MARKERS,
     OPTION_PARALLEL,
+    OPTION_XCOMPILER,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -514,6 +516,7 @@ struct command_line_long_options command_line_long_options[] =
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
+    {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1646,6 +1649,15 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_PARALLEL:
                     {
                         compilation_process.parallel_process = 1;
+                        break;
+                    }
+                case OPTION_XCOMPILER:
+                    {
+                        const char * parameter[] = { uniquestr(parameter_info.argument) };
+                        add_to_parameter_list(
+                                &CURRENT_CONFIGURATION->native_compiler_options,
+                                parameter,
+                                1);
                         break;
                     }
                 default:
