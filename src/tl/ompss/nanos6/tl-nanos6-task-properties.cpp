@@ -124,13 +124,10 @@ namespace TL { namespace Nanos6 {
             // {
             // }
 
-            virtual void unhandled_node(const Nodecl::NodeclBase &n)
+            virtual void visit(const Nodecl::OpenMP::FunctionTaskParsingContext& n)
             {
-                error_printf("%s: error: unhandled node '%s'\n",
-                        n.get_locus_str().c_str(),
-                        ast_print_node_type(n.get_kind()));
+                _task_properties.locus_of_task_declaration = n.get_locus();
             }
-
     };
 
     TaskProperties TaskProperties::gather_task_properties(
@@ -139,12 +136,14 @@ namespace TL { namespace Nanos6 {
     {
         TaskProperties tp(phase);
 
+        tp.locus_of_task_creation = node.get_locus();
+        tp.locus_of_task_declaration = node.get_locus();
+
         TaskPropertiesVisitor tv(tp);
         tv.walk(node.get_environment());
 
         tp.compute_captured_values();
         tp.related_function = Nodecl::Utils::get_enclosing_function(node);
-        tp.locus_of_task = node.get_locus();
         tp.task_body = node.get_statements();
 
         return tp;
@@ -156,12 +155,15 @@ namespace TL { namespace Nanos6 {
     {
         TaskProperties tp(phase);
 
+        tp.locus_of_task_creation = node.get_locus();
+        Nodecl::FunctionCall call = node.get_call().as<Nodecl::FunctionCall>();
+        tp.locus_of_task_declaration = call.get_called().get_symbol().get_locus();
+
         TaskPropertiesVisitor tv(tp);
         tv.walk(node.get_environment());
 
         tp.compute_captured_values();
         tp.related_function = Nodecl::Utils::get_enclosing_function(node);
-        tp.locus_of_task = node.get_locus();
         tp.is_function_task = true;
 
         return tp;
@@ -261,6 +263,7 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_task_info(
             /* out */
             TL::Symbol &task_info,
+            TL::Symbol& task_invocation_info,
             Nodecl::NodeclBase& local_init)
     {
         create_outline_function();
@@ -391,7 +394,7 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::NodeclBase field_declaration_source = get_field("declaration_source");
 
-        const char* c = locus_to_str(locus_of_task);
+        const char* c = locus_to_str(locus_of_task_declaration);
         Nodecl::NodeclBase init_declaration_source =
             const_value_to_nodecl(const_value_make_string_null_ended(c, strlen(c)));
 
@@ -424,6 +427,48 @@ namespace TL { namespace Nanos6 {
 
         task_info.set_value(struct_init);
 
+        // Task invocation info
+        TL::Symbol task_invocation_info_struct =
+            TL::Scope::get_global_scope().get_symbol_from_name("nanos_task_invocation_info");
+        ERROR_CONDITION(!task_invocation_info_struct.is_valid(), "Invalid symbol", 0);
+
+        std::string task_invocation_info_name;
+        {
+            std::stringstream ss;
+            TL::Counter &counter = TL::CounterManager::get_counter("nanos6-args");
+            ss << "task_invocation_info_" << (int)counter;
+            counter++;
+            task_invocation_info_name = ss.str();
+        }
+
+        task_invocation_info = TL::Scope::get_global_scope().new_symbol(task_invocation_info_name);
+        task_invocation_info.get_internal_symbol()->kind = SK_VARIABLE;
+        symbol_entity_specs_set_is_user_declared(
+                task_invocation_info.get_internal_symbol(), 1);
+        task_invocation_info.set_type(task_invocation_info_struct.get_user_defined_type());
+
+
+        TL::ObjectList<TL::Symbol> task_invocation_fields = task_invocation_info_struct.get_type().get_nonstatic_data_members();
+        GetField get_field_task_invocation_info(task_invocation_fields);
+
+        Nodecl::NodeclBase field_invocation_source = get_field_task_invocation_info("invocation_source");
+
+        c = locus_to_str(locus_of_task_creation);
+        Nodecl::NodeclBase init_invocation_source =
+            const_value_to_nodecl(const_value_make_string_null_ended(c, strlen(c)));
+
+        Nodecl::NodeclBase task_invocation_init = 
+            Nodecl::StructuredValue::make(
+                    Nodecl::List::make(
+                        Nodecl::FieldDesignator::make(
+                            field_invocation_source,
+                            init_invocation_source,
+                            field_invocation_source.get_type())
+                            ),
+                        Nodecl::StructuredValueBracedImplicit::make(),
+                        task_info.get_type());
+        task_invocation_info.set_value(task_invocation_init);
+
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
         {
@@ -432,15 +477,22 @@ namespace TL { namespace Nanos6 {
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(
                         task_body,
                         Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info));
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                        task_body,
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info));
             }
 
             Nodecl::Utils::prepend_to_enclosing_top_level_location(
                     task_body,
                     Nodecl::ObjectInit::make(task_info));
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    task_body,
+                    Nodecl::ObjectInit::make(task_invocation_info));
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
             phase->get_extra_c_code().append(Nodecl::ObjectInit::make(task_info));
+            phase->get_extra_c_code().append(Nodecl::ObjectInit::make(task_invocation_info));
         }
         else
         {
@@ -558,7 +610,7 @@ namespace TL { namespace Nanos6 {
                 if (type_of_field.no_ref().is_array())
                 {
                     error_printf("%s: error: capturing the value of the runtime-sized array '%s' is not supported\n",
-                            locus_to_str(locus_of_task),
+                            locus_to_str(locus_of_task_creation),
                             it->get_qualified_name().c_str());
                 }
                 type_of_field = TL::Type::get_void_type().get_pointer_to();
@@ -613,7 +665,7 @@ namespace TL { namespace Nanos6 {
         finish_class_type(new_class_type,
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
                 sc.get_decl_context(),
-                locus_of_task,
+                locus_of_task_creation,
                 &nodecl_output);
         set_is_complete_type(new_class_type, /* is_complete */ 1);
         set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
@@ -1635,7 +1687,7 @@ namespace TL { namespace Nanos6 {
             if (!is_standard_layout_type(it->get_type().no_ref().get_internal_type()))
             {
                 error_printf("%s: error: capture of symbol '%s' with non-standard layout type is not supported\n",
-                        locus_to_str(locus_of_task),
+                        locus_to_str(locus_of_task_creation),
                         it->get_qualified_name().c_str());
             }
             else if (!it->get_type().no_ref().is_array())
