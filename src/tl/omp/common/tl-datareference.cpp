@@ -71,10 +71,25 @@ namespace TL
 
                 _data_ref._data_type = t;
 
-                Nodecl::NodeclBase reference = Nodecl::Reference::make(
-                        n.shallow_copy(),
-                        t.get_pointer_to(),
-                        n.get_locus());
+                Nodecl::NodeclBase reference;
+
+                if ((IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                        && t.is_array())
+                {
+                    // Array to pointer
+                    reference = Nodecl::Conversion::make(
+                            n.shallow_copy(),
+                            t.array_element().get_pointer_to(),
+                            n.get_locus());
+                }
+                else
+                {
+                    reference = Nodecl::Reference::make(
+                            n.shallow_copy(),
+                            t.get_pointer_to(),
+                            n.get_locus());
+                }
 
                 // We need to propagate some flags from the symbol to the new reference node
                 nodecl_expr_set_is_type_dependent(
@@ -411,14 +426,14 @@ namespace TL
                 return rebuilt_type;
             }
 
-            virtual void visit(const Nodecl::MultiReference& multi_deps)
+            virtual void visit(const Nodecl::MultiExpression& multi_deps)
             {
                 TL::Symbol sym = multi_deps.get_symbol();
                 Nodecl::NodeclBase range = multi_deps.get_range();
 
                 _data_ref._iterators.append(std::make_pair(sym, range));
 
-                walk(multi_deps.get_dependence());
+                walk(multi_deps.get_base());
 
                 if (!_data_ref._is_valid)
                 {

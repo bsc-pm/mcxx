@@ -1619,6 +1619,14 @@ namespace Vectorization
                     function_target_type,
                     !mask.is_null());
 
+        bool is_svml = 
+            Vectorizer::_function_versioning.is_svml_function(
+                    func_name,
+                    _environment._device,
+                    _environment._vectorization_factor * function_target_type_size,
+                    function_target_type,
+                    !mask.is_null());
+
         bool vectorize_all_arguments = false;
         if (!best_version.is_null())
         {
@@ -1837,6 +1845,14 @@ namespace Vectorization
                 if (!mask.is_null())
                 {
                     new_arguments.append(mask.shallow_copy());
+                    if (is_svml)
+                    {
+                        VECTORIZATION_DEBUG()
+                        {
+                            std::cerr << "SPECIAL CASE FOR SVML"  << new_called.prettyprint() << std::endl;
+                        }
+                        new_arguments.append(new_arguments[0].shallow_copy());
+                    }
                 }
 
                 const Nodecl::VectorFunctionCall vector_function_call =

@@ -59,6 +59,7 @@
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
 #include "cxx-ast.h"
+#include "cxx-ambiguity.h"
 #include "cxx-graphviz.h"
 #include "cxx-html.h"
 #include "cxx-prettyprint.h"
@@ -96,7 +97,9 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-codegen.h"
 #include "fortran03-typeenviron.h"
+#include "fortran03-mangling.h"
 #include "cxx-driver-fortran.h"
+#include "cxx-driver-build-info.h"
 
 /* ------------------------------------------------------------------ */
 #define HELP_STRING \
@@ -248,6 +251,11 @@
 "  --list-fortran-array-descriptors\n" \
 "                           Prints list of supported Fortran\n" \
 "                           array descriptors and quits\n" \
+"  --fortran-name-mangling=<name>\n" \
+"                           Selects Fortran name mangling\n" \
+"  --list-fortran-name-manglings\n" \
+"                           Prints list of supported Fortran\n" \
+"                           name manglings and quits\n" \
 "  --search-includes=<dir>  Adds <dir> to the directories searched\n" \
 "                           when solving a Fortran INCLUDE line.\n" \
 "                           Does not affect the native compiler like\n" \
@@ -299,6 +307,7 @@
 "                           allows parallel compilation of the same\n" \
 "                           source codes without reusing intermediate\n" \
 "                           filenames\n" \
+"  --Xcompiler OPTION       Equivalent to --Wn,OPTION\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -356,68 +365,72 @@ static char *_alternate_signal_stack;
 typedef enum
 {
     OPTION_UNDEFINED = 1024,
-    OPTION_VERSION,
-    OPTION_PREPROCESSOR_NAME,
-    OPTION_NATIVE_COMPILER_NAME,
-    OPTION_LINKER_NAME,
-    OPTION_DEBUG_FLAG,
-    OPTION_HELP_DEBUG_FLAGS,
-    OPTION_HELP_TARGET_OPTIONS,
-    OPTION_OUTPUT_DIRECTORY,
-    OPTION_OPENMP,
-    OPTION_NO_OPENMP,
-    OPTION_EXTERNAL_VAR,
-    OPTION_CONFIG_FILE,
+    // Keep the following options sorted (but leave OPTION_UNDEFINED as is)
+    OPTION_ALWAYS_PREPROCESS,
     OPTION_CONFIG_DIR,
-    OPTION_PROFILE,
-    OPTION_TYPECHECK,
-    OPTION_PREPROCESSOR_USES_STDOUT,
+    OPTION_CONFIG_FILE,
+    OPTION_DEBUG_FLAG,
+    OPTION_DISABLE_FILE_LOCKING,
     OPTION_DISABLE_GXX_TRAITS,
-    OPTION_ENABLE_MS_BUILTIN,
+    OPTION_DISABLE_INTRINSICS,
+    OPTION_DISABLE_SIZEOF,
+    OPTION_DO_NOT_PROCESS_FILE,
+    OPTION_DO_NOT_UNLOAD_PHASES,
+    OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
+    OPTION_DO_NOT_WRAP_FORTRAN_MODULES,
+    OPTION_EMPTY_SENTINELS,
+    OPTION_ENABLE_CUDA,
     OPTION_ENABLE_INTEL_BUILTINS,
     OPTION_ENABLE_INTEL_VECTOR_TYPES,
-    OPTION_PASS_THROUGH,
-    OPTION_DISABLE_SIZEOF,
-    OPTION_SET_ENVIRONMENT,
-    OPTION_LIST_ENVIRONMENTS,
-    OPTION_PRINT_CONFIG_FILE,
-    OPTION_PRINT_CONFIG_DIR,
-    OPTION_ENABLE_UPC,
-    OPTION_ENABLE_CUDA,
+    OPTION_ENABLE_MS_BUILTIN,
     OPTION_ENABLE_OPENCL,
-    OPTION_OPENCL_OPTIONS,
-    OPTION_DO_NOT_UNLOAD_PHASES,
-    OPTION_INSTANTIATE_TEMPLATES,
-    OPTION_ALWAYS_PREPROCESS,
+    OPTION_ENABLE_UPC,
+    OPTION_EXTERNAL_VAR,
+    OPTION_FORTRAN_ARRAY_DESCRIPTOR,
+    OPTION_FORTRAN_CHARACTER_KIND,
     OPTION_FORTRAN_COLUMN_WIDTH,
+    OPTION_FORTRAN_DOUBLEPRECISION_KIND,
     OPTION_FORTRAN_FIXED,
     OPTION_FORTRAN_FIXED_FORM_LENGTH,
     OPTION_FORTRAN_FREE,
-    OPTION_EMPTY_SENTINELS,
-    OPTION_DISABLE_INTRINSICS,
-    OPTION_FORTRAN_PREPROCESSOR,
-    OPTION_FORTRAN_PRESCANNER,
-    OPTION_FORTRAN_DOUBLEPRECISION_KIND,
     OPTION_FORTRAN_INTEGER_KIND,
     OPTION_FORTRAN_LOGICAL_KIND,
+    OPTION_FORTRAN_NAME_MANGLING,
+    OPTION_FORTRAN_PREPROCESSOR,
+    OPTION_FORTRAN_PRESCANNER,
     OPTION_FORTRAN_REAL_KIND,
-    OPTION_FORTRAN_CHARACTER_KIND,
-    OPTION_FORTRAN_ARRAY_DESCRIPTOR,
-    OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
-    OPTION_SEARCH_MODULES,
-    OPTION_SEARCH_INCLUDES,
-    OPTION_MODULE_OUT_PATTERN,
-    OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
-    OPTION_DO_NOT_WRAP_FORTRAN_MODULES,
-    OPTION_VECTOR_FLAVOR,
-    OPTION_LIST_VECTOR_FLAVORS,
-    OPTION_NO_WHOLE_FILE,
-    OPTION_DO_NOT_PROCESS_FILE,
-    OPTION_DISABLE_FILE_LOCKING,
-    OPTION_XL_COMPATIBILITY,
+    OPTION_HELP_DEBUG_FLAGS,
+    OPTION_HELP_TARGET_OPTIONS,
+    OPTION_INSTANTIATE_TEMPLATES,
     OPTION_LINE_MARKERS,
+    OPTION_LINKER_NAME,
+    OPTION_LIST_ENVIRONMENTS,
+    OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
+    OPTION_LIST_FORTRAN_NAME_MANGLINGS,
+    OPTION_LIST_VECTOR_FLAVORS,
+    OPTION_MODULE_OUT_PATTERN,
+    OPTION_NATIVE_COMPILER_NAME,
+    OPTION_NO_OPENMP,
+    OPTION_NO_WHOLE_FILE,
+    OPTION_OPENCL_OPTIONS,
+    OPTION_OPENMP,
+    OPTION_OUTPUT_DIRECTORY,
     OPTION_PARALLEL,
+    OPTION_PASS_THROUGH,
+    OPTION_PREPROCESSOR_NAME,
+    OPTION_PREPROCESSOR_USES_STDOUT,
+    OPTION_PRINT_CONFIG_DIR,
+    OPTION_PRINT_CONFIG_FILE,
+    OPTION_PROFILE,
+    OPTION_SEARCH_INCLUDES,
+    OPTION_SEARCH_MODULES,
+    OPTION_SET_ENVIRONMENT,
+    OPTION_TYPECHECK,
+    OPTION_VECTOR_FLAVOR,
     OPTION_VERBOSE,
+    OPTION_VERSION,
+    OPTION_XCOMPILER,
+    OPTION_XL_COMPATIBILITY,
 } COMMAND_LINE_OPTIONS;
 
 
@@ -484,6 +497,8 @@ struct command_line_long_options command_line_long_options[] =
     {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
     {"fortran-array-descriptor", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_ARRAY_DESCRIPTOR},
     {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
+    {"fortran-name-mangling", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_NAME_MANGLING},
+    {"list-fortran-name-manglings", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_NAME_MANGLINGS},
     {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
     {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
     {"module-out-pattern", CLP_REQUIRED_ARGUMENT, OPTION_MODULE_OUT_PATTERN},
@@ -502,6 +517,7 @@ struct command_line_long_options command_line_long_options[] =
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
+    {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
     // sentinel
     {NULL, 0, 0}
 };
@@ -555,7 +571,6 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
 static void terminating_signal_handler(int sig);
 #endif
 static char check_tree(AST a);
-static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
 static void embed_files(void);
 static void link_objects(void);
@@ -575,7 +590,12 @@ static int parse_special_parameters(int *should_advance, int argc,
 static int parse_implicit_parameter_flag(int *should_advance, const char *special_parameter);
 
 static void list_environments(void);
+
 static void list_fortran_array_descriptors(void);
+
+static void list_fortran_name_manglings(void);
+static fortran_name_mangling_t* get_fortran_name_mangling(const char* descriptor_id);
+
 static void list_vector_flavors(void);
 
 static void register_disable_intrinsics(const char* intrinsic_name);
@@ -1384,6 +1404,20 @@ int parse_arguments(int argc, const char* argv[],
                         list_fortran_array_descriptors();
                         break;
                     }
+                case OPTION_FORTRAN_NAME_MANGLING:
+                    {
+                        fortran_name_mangling_t* chosen_fortran_name_mangling = get_fortran_name_mangling(parameter_info.argument);
+                        if (chosen_fortran_name_mangling != NULL)
+                        {
+                            CURRENT_CONFIGURATION->fortran_name_mangling = chosen_fortran_name_mangling;
+                        }
+                        break;
+                    }
+                case OPTION_LIST_FORTRAN_NAME_MANGLINGS:
+                    {
+                        list_fortran_name_manglings();
+                        break;
+                    }
                 case OPTION_SEARCH_MODULES:
                     {
                         P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
@@ -1618,6 +1652,15 @@ int parse_arguments(int argc, const char* argv[],
                         compilation_process.parallel_process = 1;
                         break;
                     }
+                case OPTION_XCOMPILER:
+                    {
+                        const char * parameter[] = { uniquestr(parameter_info.argument) };
+                        add_to_parameter_list(
+                                &CURRENT_CONFIGURATION->native_compiler_options,
+                                parameter,
+                                1);
+                        break;
+                    }
                 default:
                     {
                         const char* unhandled_flag = "<<<unknown!>>>";
@@ -1683,7 +1726,9 @@ int parse_arguments(int argc, const char* argv[],
             && !CURRENT_CONFIGURATION->do_not_process_files)
                         // Do not process anything
     {
-        fprintf(stderr, "%s: assuming stdout as default output since -E has been specified\n", compilation_process.exec_basename);
+        fprintf(stderr, "%s: assuming stdout as default output since %s has been specified\n",
+                compilation_process.exec_basename,
+                E_specified ? "-E" : "-y");
         if (!CURRENT_CONFIGURATION->preprocessor_uses_stdout)
         {
             output_file = uniquestr("-");
@@ -2588,6 +2633,7 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->type_environment = default_environment;
     CURRENT_CONFIGURATION->fortran_array_descriptor = default_fortran_array_descriptor;
+    CURRENT_CONFIGURATION->fortran_name_mangling = default_fortran_name_mangling;
 
     CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
 
@@ -4927,8 +4973,15 @@ static void terminating_signal_handler(int sig)
 
 static char check_tree(AST a)
 {
-    AST ambiguous_node = NULL;
-    if (!check_for_ambiguities(a, &ambiguous_node))
+    // Check consistency of links
+    if (!ast_check(a))
+    {
+        internal_error("Tree is inconsistent\n", 0);
+    }
+
+    // If links look OK, make sure no ambiguities remain
+    AST ambiguous_node = find_ambiguity(a);
+    if (ambiguous_node != NULL)
     {
         fprintf(stderr, "============================\n");
         fprintf(stderr, "  Ambiguities not resolved\n");
@@ -4956,34 +5009,8 @@ static char check_tree(AST a)
         return 0;
     }
 
-    // Check consistency of links
-    if (!ast_check(a))
-    {
-        internal_error("Tree is inconsistent\n", 0);
-    }
-
     return 1;
 }
-
-static char check_for_ambiguities(AST a, AST* ambiguous_node)
-{
-    if (a == NULL)
-        return 1;
-
-    if (ASTKind(a) == AST_AMBIGUITY)
-    {
-        *ambiguous_node = a;
-        return 0;
-    }
-    else
-    {
-        return check_for_ambiguities(ASTSon0(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon1(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon2(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon3(a), ambiguous_node);
-    }
-}
-
 
 void load_compiler_phases(compilation_configuration_t* config)
 {
@@ -5294,12 +5321,31 @@ static void list_fortran_array_descriptors(void)
     }
 
     fprintf(stdout, "\n");
-    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular descriptor.\n");
+    fprintf(stdout, "Command line parameter --fortran-array-descriptor=<name> can be used to choose a particular descriptor.\n");
     fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
             default_fortran_array_descriptor->descriptor_id,
             default_fortran_array_descriptor->descriptor_name);
 
     exit(EXIT_SUCCESS);
+}
+
+static fortran_name_mangling_t* get_fortran_name_mangling(const char* descriptor_id)
+{
+    fortran_name_mangling_t** fortran_name_mangling = NULL;
+
+    for (fortran_name_mangling = fortran_name_mangling_list;
+            (*fortran_name_mangling) != NULL;
+            fortran_name_mangling++)
+    {
+        if (strcmp(descriptor_id, (*fortran_name_mangling)->descriptor_id) == 0)
+        {
+            return (*fortran_name_mangling);
+        }
+    }
+
+    fprintf(stderr, "Unknown Fortran name mangling '%s'. "
+            "Use '--list-fortran-name-manglings' to get a list of supported Fortran name manglings\n", descriptor_id);
+    return NULL;
 }
 
 static void list_vector_flavors(void)
@@ -5319,6 +5365,30 @@ static void list_vector_flavors(void)
     fprintf(stdout, "\n");
     fprintf(stdout, "Command line parameter --vector-flavor=name can be used to choose a specific vector flavor\n");
     fprintf(stdout, "If not specified, default vector flavor is gnu\n");
+
+    exit(EXIT_SUCCESS);
+}
+
+static void list_fortran_name_manglings(void)
+{
+    fprintf(stdout, "Supported Fortran name manglings :\n\n");
+
+    fortran_name_mangling_t** fortran_name_mangling = NULL;
+
+    for (fortran_name_mangling = fortran_name_mangling_list;
+            (*fortran_name_mangling) != NULL;
+            fortran_name_mangling++)
+    {
+        fprintf(stdout, "  %-20s (%s)\n",
+                (*fortran_name_mangling)->descriptor_id,
+                (*fortran_name_mangling)->descriptor_name);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --fortran-name-mangling=<name> can be used to choose a particular descriptor.\n");
+    fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
+            default_fortran_name_mangling->descriptor_id,
+            default_fortran_name_mangling->descriptor_name);
 
     exit(EXIT_SUCCESS);
 }

@@ -374,10 +374,9 @@ static char standard_conversion_between_types_for_overload(
         const locus_t* locus)
 {
     if (is_class_type(orig)
-            && is_class_type(dest))
+            && is_class_type(dest)
+            && equivalent_types(orig, dest))
     {
-        if (equivalent_types(orig, dest))
-        {
             standard_conversion_t result = {
                 .orig = orig,
                 .dest = dest,
@@ -387,17 +386,18 @@ static char standard_conversion_between_types_for_overload(
             *scs = result;
             return 1;
         }
-        else if (class_type_is_base_strict_instantiating(dest, orig, locus))
-        {
-            standard_conversion_t result = {
-                .orig = orig,
-                .dest = dest,
-                .conv = { SCI_DERIVED_TO_BASE, SCI_NO_CONVERSION, SCI_NO_CONVERSION }
-            };
+    else if (is_class_type(no_ref(orig))
+            && is_class_type(dest)
+            && class_type_is_base_strict_instantiating(dest, no_ref(orig), locus))
+    {
+        standard_conversion_t result = {
+            .orig = orig,
+            .dest = dest,
+            .conv = { SCI_DERIVED_TO_BASE, SCI_NO_CONVERSION, SCI_NO_CONVERSION }
+        };
 
-            *scs = result;
-            return 1;
-        }
+        *scs = result;
+        return 1;
     }
 
     return standard_conversion_between_types(scs,
@@ -867,11 +867,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, const decl_context_t* 
                             symbol_entity_specs_get_class_type(solved_function));
             }
             // And proceed evaluating this ICS
-        }
-        else
-        {
-            // Invalid ICS
-            return;
         }
     }
 
@@ -1660,9 +1655,42 @@ static char solve_initialization_of_reference_type_ics(
                     }
                     else if (symbol_entity_specs_get_is_constructor(constructor))
                     {
-                        relevant_type = get_cv_qualified_type(
-                                symbol_entity_specs_get_class_type(constructor),
-                                get_cv_qualifier(no_ref(orig)));
+                        // Note that this cannot happen with conversions because unresolved overloaded are not classes
+                        if (is_unresolved_overloaded_type(orig))
+                        {
+                            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(orig);
+                            scope_entry_t* solved_function = address_of_overloaded_function(
+                                    unresolved_set,
+                                    unresolved_overloaded_type_get_explicit_template_arguments(orig),
+                                    // first parameter of the constructor
+                                    function_type_get_parameter_type_num(constructor->type_information, 0),
+                                    decl_context,
+                                    locus);
+                            entry_list_free(unresolved_set);
+
+                            if (solved_function != NULL)
+                            {
+                                if (!symbol_entity_specs_get_is_member(solved_function)
+                                        || symbol_entity_specs_get_is_static(solved_function))
+                                {
+                                    orig = get_lvalue_reference_type(solved_function->type_information);
+                                }
+                                else
+                                {
+                                    orig = get_pointer_to_member_type(
+                                            solved_function->type_information,
+                                            symbol_entity_specs_get_class_type(solved_function));
+                                }
+                            }
+                            else
+                            {
+                                internal_error("Code unreachable", 0);
+                            }
+                        }
+
+                        relevant_type = symbol_entity_specs_get_class_type(constructor),
+                                      get_cv_qualifier(no_ref(orig));
+
                     }
                     else
                     {
@@ -1703,6 +1731,40 @@ static char solve_initialization_of_reference_type_ics(
                         conversor,
                         candidates,
                         locus);
+
+                if (ok)
+                {
+                    if (is_unresolved_overloaded_type(orig))
+                    {
+                        scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(orig);
+                        scope_entry_t* solved_function = address_of_overloaded_function(
+                                unresolved_set,
+                                unresolved_overloaded_type_get_explicit_template_arguments(orig),
+                                dest,
+                                decl_context,
+                                locus);
+                        entry_list_free(unresolved_set);
+
+                        if (solved_function != NULL)
+                        {
+                            if (!symbol_entity_specs_get_is_member(solved_function)
+                                    || symbol_entity_specs_get_is_static(solved_function))
+                            {
+                                orig = get_lvalue_reference_type(solved_function->type_information);
+                            }
+                            else
+                            {
+                                orig = get_pointer_to_member_type(
+                                        solved_function->type_information,
+                                        symbol_entity_specs_get_class_type(solved_function));
+                            }
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+                    }
+                }
             }
             if (ok && (!type_is_reference_related_to(no_ref(dest), no_ref(orig))
                         // if is type reference related then dest must be more or equal cv-qualified
@@ -1780,10 +1842,6 @@ static char solve_initialization_of_nonclass_type_ics(
                         solved_function->type_information,
                         symbol_entity_specs_get_class_type(solved_function));
             }
-        }
-        else
-        {
-            return 0;
         }
     }
 

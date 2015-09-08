@@ -6776,6 +6776,8 @@ static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
     parameter_info_t param_info[num_parameters+1];
     memset(param_info, 0, sizeof(param_info));
 
+    cv_qualifier_t cv_qualifier = get_cv_qualifier(t);
+
     char has_ellipsis = function_type_get_has_ellipsis(t);
     ref_qualifier_t ref_qualifier = function_type_get_ref_qualifier(t);
 
@@ -6796,7 +6798,10 @@ static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
         param_info[num_parameters - 1].type_info = get_ellipsis_type();
     }
 
-    return new_function_type(new_return, param_info, num_parameters, ref_qualifier);
+    type_t* result = new_function_type(new_return, param_info, num_parameters, ref_qualifier);
+    result = get_cv_qualified_type(result, cv_qualifier);
+
+    return result;
 }
 
 extern inline type_t* function_type_replace_return_type(type_t* t, type_t* new_return)

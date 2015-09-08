@@ -494,9 +494,9 @@ dnl -- End of extra compiler checks ---
 
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_ompss="no"
-AC_MSG_CHECKING([if enabled OmpSs support in the compiler])
+AC_MSG_CHECKING([if enabled OmpSs support in the compiler for Nanos++])
 AC_ARG_ENABLE([ompss],
-    AS_HELP_STRING([--enable-ompss], [Enables support of OmpSs Programming Model]),
+    AS_HELP_STRING([--enable-ompss], [Enables support of OmpSs Programming Model using Nanos++]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
@@ -568,8 +568,9 @@ nanox_mic_enabled=no
 MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
 show_mic_tools_warning=NO
 MIC_LIBS=""
-NANOX_NEW_LINK="\# "
-NANOX_OLD_LINK="\# "
+NANOX_GATE=":false:"
+NANOX_NEW_LINK=":false:"
+NANOX_OLD_LINK=":false:"
 
 if test x$is_enabled_ompss = xyes;
 then
@@ -579,6 +580,7 @@ fi
 
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
+   NANOX_GATE=":true:"
    AC_ARG_WITH([nanox],
            AS_HELP_STRING([--with-nanox=dir], [Directory of Nanos++ installation]),
            [
@@ -658,11 +660,11 @@ then
    elif test "$nanox_pm_selection" = "new";
    then
        AC_MSG_RESULT([new mechanism])
-       NANOX_NEW_LINK=""
+       NANOX_NEW_LINK=":true:"
    elif test "$nanox_pm_selection" = "old";
    then
        AC_MSG_RESULT([old mechanism])
-       NANOX_OLD_LINK=""
+       NANOX_OLD_LINK=":true:"
    fi
 
    AC_ARG_WITH([nanox-mic],
@@ -737,14 +739,13 @@ then
    NANOX_LIBS="${nanox_lib}"
    NANOX="${nanox}"
 
-   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
-
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
    COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 40.config.cuda"
 fi
 
+AC_SUBST([NANOX_GATE])
 AC_SUBST([NANOX_NEW_LINK])
 AC_SUBST([NANOX_OLD_LINK])
 
@@ -825,6 +826,93 @@ AC_SUBST([NANOX_SSE])
 AC_SUBST([SVML_ENABLED])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
+
+dnl ---------------------- Support for Nanos 6 -----------------------------------------
+
+is_enabled_tl_ompss_nanos6="no"
+
+NANOS6_GATE=":false:"
+
+AC_MSG_CHECKING(["if enabled OmpSs TL support for Nanos 6])
+AC_ARG_ENABLE([tl-ompss-nanos6],
+  AS_HELP_STRING([--enable-tl-ompss-nanos6], [Enables support of OmpSs TL for Nanos 6]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_ompss_nanos6="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            is_enabled_tl_ompss_nanos6="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+     is_enabled_tl_ompss_nanos6="no"
+     AC_MSG_RESULT([no])
+  ]
+)
+
+if test x$is_enabled_tl_ompss_nanos6 = xyes;
+then
+   NANOS6_GATE=":true:"
+   AC_ARG_WITH([nanos6],
+           AS_HELP_STRING([--with-nanos6=dir], [Directory of Nanos 6 installation]),
+           [
+            nanos6_include="${withval}/include/nanos6"
+            nanos6_lib="${withval}/lib"
+            nanos6="${withval}"
+            # kludge
+            if test -d "${withval}/lib64";
+            then
+             nanos6_lib="${withval}/lib64"
+            fi
+           ]
+   )
+
+   AC_ARG_WITH([nanos6-include],
+           AS_HELP_STRING([--with-nanos6-include=dir], [Directory of Nanos 6 headers]),
+           [
+            nanos6_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([nanos6-lib],
+           AS_HELP_STRING([--with-nanos6-lib=dir], [Directory of Nanos 6 libraries]),
+           [
+            nanos6_lib="${withval}"
+           ]
+   )
+fi
+
+AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
+NANOS6_INCLUDES="${nanos6_include}"
+NANOS6_LIB="${nanos6_lib}"
+NANOS6="${nanos6}"
+
+AC_SUBST([NANOS6])
+AC_SUBST([NANOS6_INCLUDES])
+AC_SUBST([NANOS6_LIB])
+AC_SUBST([NANOS6_GATE])
+
+AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
+
+if test x$is_enabled_tl_ompss_nanos6 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
+then
+   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
+fi
+
+if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
+then
+    NANOX_GATE="nanox"
+    NANOS6_GATE='!nanox'
+    AC_MSG_NOTICE([Nanos++ and Nanos 6 support enabled at the same time. Mercurium will default to Nanos6. Nanos++ will require --nanox])
+fi
+
+dnl ---------------------- End of Support for Nanos 6 -----------------------------------------
 
 dnl --------------------- Dynamic Load Balancing -------------------------------
 # Eventually we can attempt to figure this out from the nanos-installation
@@ -1069,19 +1157,19 @@ AC_SUBST([CUDA_INCLUDES])
 AC_SUBST([CUDA_LIBS])
 AC_SUBST([CUDA_RPATH])
 
-
 if test x$is_enabled_tl_omp_nanox = xyes -a x$cuda_valid = xyes;
 then
+   ENABLE_CUDA=":true:"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvfc mnvcc mnvcxx"
 
    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 else
-   DISABLE_CUDA="\#CUDA support disabled"
+   ENABLE_CUDA=":false:"
 fi
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_CUDA], test x$is_enabled_tl_omp_nanox = xyes -a x$cuda_valid = xyes)
 
-AC_SUBST([DISABLE_CUDA])
+AC_SUBST([ENABLE_CUDA])
 AC_SUBST([cuda_valid])
 
 dnl --------------------- End of Support for CUDA in Nanox --------------------------------
@@ -1165,7 +1253,7 @@ AC_ARG_ENABLE([nanox-opencl-device],
 
 if test x$opencl_enabled = xyes -a x$opencl_valid = xno;
 then
-   DISABLE_OPENCL=""
+   ENABLE_OPENCL=":true:"
    AC_MSG_CHECKING([if nanox has opencl header installed])
    #tests if opencl headers are usable and correct
    #backup vars before we do the tests
@@ -1188,11 +1276,11 @@ if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
     COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
-    DISABLE_OPENCL="\#OpenCL support disabled"
+    ENABLE_OPENCL=":false:"
 fi
 
 AC_SUBST([opencl_valid])
-AC_SUBST([DISABLE_OPENCL])
+AC_SUBST([ENABLE_OPENCL])
 
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_OPENCL], test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes)
 
@@ -1229,6 +1317,9 @@ AC_ARG_ENABLE([nanox-mpi-device],
 
 if test x$mpi_enabled = xyes;
 then
+   # I think these variables are not used anymore
+   ENABLEMPI_GCC=":true:"
+   ENABLEMPI_ICC=":true:"
 
    mpi_found=no
    MPIMODULE=""
@@ -1259,7 +1350,7 @@ then
       MPICC=$MPI_CNAME
       MPICXX=$MPI_CXXNAME
       MPIFORT=$MPI_FORTNAME
-      DISABLEMPI_GCC="\#do not uncomment"
+      ENABLEMPI_GCC=":false:"
    else
       mpi_valid=no
    fi
@@ -1271,7 +1362,7 @@ then
          MPICC=$MPI_CNAME
          MPICXX=$MPI_CXXNAME
          MPIFORT=$MPI_FORTNAME
-         DISABLEMPI_GCC="\#do not uncomment"
+         ENABLEMPI_GCC=":false:"
        else
                     mpi_valid=no
        fi
@@ -1286,7 +1377,7 @@ then
            MPICC=$MPI_CNAME
            MPICXX=$MPI_CXXNAME
            MPIFORT=$MPI_FORTNAME                            
-           DISABLEMPI_ICC="\#do not uncomment"
+           ENABLEMPI_ICC=":false:"
       else
            mpi_valid=no
       fi
@@ -1298,7 +1389,7 @@ then
            MPICC=$MPI_CNAME
            MPICXX=$MPI_CXXNAME
            MPIFORT=$MPI_FORTNAME
-           DISABLEMPI_ICC="\#do not uncomment"
+           ENABLEMPI_ICC=":false:"
          else
            mpi_valid=no
          fi
@@ -1316,7 +1407,7 @@ then
        MPIFORT=mpif90
     fi
 
-   DISABLE_MPI=""
+   ENABLE_MPI=":true:"
    if test x$mpi_found = xyes; then
        AC_MSG_CHECKING([if nanox has mpi enabled])
        #tests if mpi headers are usable and correct
@@ -1346,17 +1437,17 @@ then
 
    SCRIPT_COMPILER_NAMES="${SCRIPT_COMPILER_NAMES} mpimcc mpimcxx mpimfc"
 else
-    DISABLE_MPI="\#do not uncomment"
+    ENABLE_MPI=":false:"
 fi
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_MPI], test x$mpi_valid = xyes)
 
-AC_SUBST([DISABLEMPI_ICC])
-AC_SUBST([DISABLEMPI_GCC])
+AC_SUBST([ENABLEMPI_ICC])
+AC_SUBST([ENABLEMPI_GCC])
 AC_SUBST([MPICC])
 AC_SUBST([MIC_LIBS])
 AC_SUBST([MPICXX])
 AC_SUBST([MPIFORT])
-AC_SUBST([DISABLE_MPI])
+AC_SUBST([ENABLE_MPI])
 
 dnl --------------------- End MPI support in Mercurium --------------------------------
 
@@ -1390,13 +1481,20 @@ AC_ARG_ENABLE([tl-openmp-profile],
 )
 
 
-dnl --------------------- Shared between Nanox and Nanos4 ------------------
+dnl --------------------- Shared between Nanox and Nanos6 ------------------
 
+dnl -- Nanox and Nanos6
+if test x$is_enabled_tl_omp_nanox = xyes \
+      -o x$is_enabled_tl_omp_profile = xyes \
+      -o x$is_enabled_tl_ompss_nanos6 = xyes;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
+fi
+
+dnl -- Only Nanox
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
-
    if test x$is_enabled_tl_omp_profile = xyes;
    then
        COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
@@ -1454,7 +1552,7 @@ AM_CONDITIONAL([BUILD_OMP_PROFILE], test x$is_enabled_tl_omp_profile = xyes)
 AC_SUBST([MIC_COMPILATION])
 AC_SUBST([MIC_TESTING])
 AC_SUBST([MIC_TESTING_DEVICE])
-dnl --------------------- End of shared between Nanox and Nanos4 ------------------
+dnl --------------------- End of shared between Nanox and Nanos6 ------------------
 
 
 is_enabled_pkgdir_install="no"
@@ -2210,10 +2308,12 @@ then
      build_version="\"(distributed version) $run_gitversion\""
      AC_MSG_RESULT([$build_version])
 fi
-AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
 
-mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
-AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
+MCXX_BUILD_VERSION="$build_version"
+AC_SUBST([MCXX_BUILD_VERSION])
+
+MCXX_CONFIGURE_ARGS='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
+AC_SUBST([MCXX_CONFIGURE_ARGS])
 
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([SCRIPT_COMPILER_NAMES])
@@ -2221,6 +2321,7 @@ AC_SUBST([INSTALL_CONFIG_FILES])
 
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile
+           src/driver/cxx-driver-build-info.h
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
@@ -2327,9 +2428,9 @@ echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
 echo " * Nanos++ OpenMP :" $is_enabled_tl_omp_nanox
-echo ""
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
+  echo ""
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
 
@@ -2355,13 +2456,27 @@ echo ""
 echo " * Dynamic Load Balancing (DLB) :" $is_enabled_dlb
 if test x$is_enabled_dlb = xyes;
 then
+  echo ""
   echo "   DLB includes :" $dlb_include
   echo "   DLB libraries:" $dlb_lib
 fi
 
 echo ""
-echo " * Intel OpenMP RTL :" $is_enabled_tl_omp_intel
+echo " * Nanos 6 OmpSs :" $is_enabled_tl_ompss_nanos6
+if test x$is_enabled_tl_ompss_nanos6 = xyes;
+then
+  echo ""
+  echo "   Nanos 6 includes :" $nanos6_include
+  echo "   Nanos 6 libraries:" $nanos6_lib
 
+  if test ! -e "$nanos6_include" -o ! -d "$nanos6_include";
+  then
+     AC_MSG_WARN([directory '${nanos6_include}' does not seem to exist, compilation is likely to fail])
+  fi
+fi
+
+echo ""
+echo " * Intel OpenMP RTL :" $is_enabled_tl_omp_intel
 if test x$is_enabled_tl_omp_intel = xyes;
 then
   echo ""
@@ -2370,7 +2485,6 @@ fi
 
 echo ""
 echo " * GNU GOMP :" $is_enabled_tl_omp_gomp
-
 if test x$is_enabled_tl_omp_gomp = xyes;
 then
   echo ""

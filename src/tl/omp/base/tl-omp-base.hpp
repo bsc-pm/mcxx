@@ -232,6 +232,8 @@ namespace TL
                 {
                     _omp_report = b;
                 }
+
+                Nodecl::NodeclBase _start_declare_target;
         };
 
         namespace Report

@@ -2332,10 +2332,10 @@ void LoweringVisitor::fill_copies_region(
 
                         // Now ignore the multidependence as such...
                         Nodecl::NodeclBase current_copy = copy_expr;
-                        while (current_copy.is<Nodecl::MultiReference>())
+                        while (current_copy.is<Nodecl::MultiExpression>())
                         {
                             current_copy =
-                                current_copy.as<Nodecl::MultiReference>().get_dependence();
+                                current_copy.as<Nodecl::MultiExpression>().get_base();
                         }
 
                         // and update it
@@ -3227,10 +3227,10 @@ void LoweringVisitor::fill_dependences_internal(
 
                         // Now ignore the multidependence as such...
                         Nodecl::NodeclBase current_dep = dep_expr;
-                        while (current_dep.is<Nodecl::MultiReference>())
+                        while (current_dep.is<Nodecl::MultiExpression>())
                         {
                             current_dep =
-                                current_dep.as<Nodecl::MultiReference>().get_dependence();
+                                current_dep.as<Nodecl::MultiExpression>().get_base();
                         }
 
                         // and update it

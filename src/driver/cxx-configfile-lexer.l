@@ -114,6 +114,16 @@ location_t current_location = { NULL, NULL, 1, 1};
     return CONFIGFILE_NAME;
 }
 
+":true:" {
+    handle_token(yytext);
+    return CONFIGFILE_FLAG_TRUE;
+}
+
+":false:" {
+    handle_token(yytext);
+    return CONFIGFILE_FLAG_FALSE;
+}
+
 }
 
 <maybe_comes_option_line>{
@@ -255,6 +265,8 @@ int open_configuration_file_for_scan(const char* scanned_filename)
     struct yy_buffer_state* scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
 
 	yy_switch_to_buffer(scanning_buffer);
+
+    BEGIN(INITIAL);
 
     return 1;
 }

@@ -502,6 +502,9 @@ typedef struct compilation_configuration_tag
     // Fortran array descriptor (compiler dependent)
     struct fortran_array_descriptor_t* fortran_array_descriptor;
 
+    // Fortran mangling (compiler dependent)
+    struct fortran_name_mangling_t* fortran_name_mangling;
+
     // Flags affecting some bits of the language
     code_shape_t code_shape;
 

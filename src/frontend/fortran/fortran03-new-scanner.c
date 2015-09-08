@@ -3868,6 +3868,8 @@ extern int new_mf03lex(void)
                 case '+' :
                 case '-' :
                 case ':' :
+                case '{' :
+                case '}' :
                     {
                         const char s[] = {c0, '\0'};
                         return commit_text(c0, s, loc);

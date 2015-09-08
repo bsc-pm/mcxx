@@ -3112,6 +3112,12 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                         ast_location(a));
                 break;
             }
+        case AST_AMBIGUITY:
+            {
+                solve_ambiguous_decl_specifier(a, decl_context);
+                gather_decl_spec_information(a, gather_info, decl_context);
+                break;
+            }
         default:
             internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTKind(a)), ast_location(a));
             break;
@@ -6246,113 +6252,27 @@ void check_nodecl_member_initializer_list(
     }
     DELETE(list);
 
-    // Now review the remaining objects not initialized yet
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(virtual_bases);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    // Now review the remaining objects not initialized yet unless this
+    // constructor was a delegating one
+    if (!is_delegating_constructor)
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-
-        if (entry->kind == SK_CLASS)
-            entry = class_symbol_get_canonical_symbol(entry);
-
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(virtual_bases);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(constructor, locus),
-                    /* called_name */ nodecl_null(),
-                    /* args */ nodecl_null(),
-                    nodecl_make_cxx_function_form_implicit(locus),
-                    symbol_entity_specs_get_class_type(constructor),
-                    decl_context,
-                    locus);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    nodecl_call_to_ctor,
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-        }
-    }
-    entry_list_iterator_free(it);
+            if (entry->kind == SK_CLASS)
+                entry = class_symbol_get_canonical_symbol(entry);
 
-    for (it = entry_list_iterator_begin(direct_base_classes);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry_list_contains(already_initialized, entry))
+                continue;
 
-        if (entry->kind == SK_CLASS)
-            entry = class_symbol_get_canonical_symbol(entry);
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
 
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
-        {
-            nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(constructor, locus),
-                    /* called_name */ nodecl_null(),
-                    /* args */ nodecl_null(),
-                    nodecl_make_cxx_function_form_implicit(locus),
-                    symbol_entity_specs_get_class_type(constructor),
-                    decl_context,
-                    locus);
-
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    nodecl_call_to_ctor,
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-        }
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(nonstatic_data_members);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        if (IS_CXX11_LANGUAGE
-                && !nodecl_is_null(entry->value))
-        {
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    // FIXME: We may have to fix the 'this' symbol used in the value
-                    nodecl_shallow_copy(entry->value),
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-            continue;
-        }
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
-        {
-            type_t* t = entry->type_information;
-
-            if (is_array_type(t))
-                t = array_type_get_element_type(t);
-
-            if (is_pod_type(t))
-            {
-                // No initialization for POD-types
-            }
-            else if (is_class_type(t))
+            if (valid)
             {
                 nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, locus),
@@ -6369,13 +6289,103 @@ void check_nodecl_member_initializer_list(
                         locus);
                 *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
             }
-            else
+        }
+        entry_list_iterator_free(it);
+
+        for (it = entry_list_iterator_begin(direct_base_classes);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
+            if (entry->kind == SK_CLASS)
+                entry = class_symbol_get_canonical_symbol(entry);
+
+            if (entry_list_contains(already_initialized, entry))
+                continue;
+
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+            if (valid)
             {
-                internal_error("Code unreachable", 0);
+                nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                        nodecl_make_symbol(constructor, locus),
+                        /* called_name */ nodecl_null(),
+                        /* args */ nodecl_null(),
+                        nodecl_make_cxx_function_form_implicit(locus),
+                        symbol_entity_specs_get_class_type(constructor),
+                        decl_context,
+                        locus);
+
+                nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                        nodecl_call_to_ctor,
+                        entry,
+                        locus);
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
             }
         }
+        entry_list_iterator_free(it);
+
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry_list_contains(already_initialized, entry))
+                continue;
+
+            if (IS_CXX11_LANGUAGE
+                    && !nodecl_is_null(entry->value))
+            {
+                nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                        // FIXME: We may have to fix the 'this' symbol used in the value
+                        nodecl_shallow_copy(entry->value),
+                        entry,
+                        locus);
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+                continue;
+            }
+
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+            if (valid)
+            {
+                type_t* t = entry->type_information;
+
+                if (is_array_type(t))
+                    t = array_type_get_element_type(t);
+
+                if (is_pod_type(t))
+                {
+                    // No initialization for POD-types
+                }
+                else if (is_class_type(t))
+                {
+                    nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(constructor, locus),
+                            /* called_name */ nodecl_null(),
+                            /* args */ nodecl_null(),
+                            nodecl_make_cxx_function_form_implicit(locus),
+                            symbol_entity_specs_get_class_type(constructor),
+                            decl_context,
+                            locus);
+
+                    nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                            nodecl_call_to_ctor,
+                            entry,
+                            locus);
+                    *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+            }
+        }
+        entry_list_iterator_free(it);
     }
-    entry_list_iterator_free(it);
 }
 
 static void build_scope_ctor_initializer_dependent(
@@ -9568,9 +9578,10 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     || (symbol_entity_specs_get_alias_to(class_entry) != NULL
                         && symbol_entity_specs_get_alias_to(class_entry)->defined))
             {
-                error_printf("%s: class '%s' already defined in %s\n",
+                error_printf("%s: class '%s' already defined\n",
                         ast_location(class_id_expression),
-                        get_qualified_symbol_name(class_entry, class_entry->decl_context),
+                        get_qualified_symbol_name(class_entry, class_entry->decl_context));
+                info_printf("%s: info: location of previous definition\n",
                         locus_to_str(class_symbol_get_canonical_symbol(class_entry)->locus));
                 *type_info = get_error_type();
                 return;
@@ -11498,6 +11509,13 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
     }
 }
 
+static char is_gnu_inline_attr_name(const char* str)
+{
+    return (strcmp(str, "gnu_inline") == 0)
+        || (strcmp(str, "__gnu_inline__") == 0);
+
+}
+
 static void update_function_specifiers(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
         type_t* declarator_type,
@@ -11505,6 +11523,26 @@ static void update_function_specifiers(scope_entry_t* entry,
 {
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
     symbol_entity_specs_set_is_user_declared(entry, 1);
+
+    // Previous declaration
+    char is_gnu_inline_previous = 0;
+    int i, num_gcc_attributes = symbol_entity_specs_get_num_gcc_attributes(entry);
+    for (i = 0; i < num_gcc_attributes && !is_gnu_inline_previous; i++)
+    {
+        gcc_attribute_t gcc_attr = symbol_entity_specs_get_gcc_attributes_num(entry, i);
+        is_gnu_inline_previous = is_gnu_inline_attr_name(gcc_attr.attribute_name);
+    }
+
+    // Current declaration
+    char is_gnu_inline_current = 0;
+    num_gcc_attributes = gather_info->num_gcc_attributes;
+    for (i = 0; i < num_gcc_attributes && !is_gnu_inline_current; i++)
+    {
+        gcc_attribute_t gcc_attr = gather_info->gcc_attributes[i];
+        is_gnu_inline_current = is_gnu_inline_attr_name(gcc_attr.attribute_name);
+    }
+
+    char is_gnu_inline = is_gnu_inline_current || is_gnu_inline_previous;
 
     C_LANGUAGE()
     {
@@ -11544,7 +11582,9 @@ static void update_function_specifiers(scope_entry_t* entry,
             //
             // Note that in general we do not force extern to functions, this is a
             // special case required by the subtle C99 semantics regarding inline
-            if (!symbol_entity_specs_get_is_extern(entry)
+
+            if (!is_gnu_inline
+                    && !symbol_entity_specs_get_is_extern(entry)
                     && !symbol_entity_specs_get_is_static(entry)
                     // This covers cases A and B shown above
                     && (symbol_entity_specs_get_is_inline(entry)
@@ -11566,9 +11606,42 @@ static void update_function_specifiers(scope_entry_t* entry,
             || gather_info->is_constexpr);
 
     // Merge extern attribute
-    symbol_entity_specs_set_is_extern(entry,
-            symbol_entity_specs_get_is_extern(entry)
-            || gather_info->is_extern);
+    if (!is_gnu_inline)
+    {
+        symbol_entity_specs_set_is_extern(entry,
+                (symbol_entity_specs_get_is_extern(entry)
+                 || gather_info->is_extern)
+                && !symbol_entity_specs_get_is_static(entry));
+    }
+    else
+    {
+        // extern void bar();
+        // __attribute__((gnu_inline)) void bar();
+        if ((symbol_entity_specs_get_is_extern(entry)
+                    && is_gnu_inline_current
+                    && !gather_info->is_extern)
+                // __attribute__((gnu_inline)) void bar();
+                // extern void bar();
+                || (is_gnu_inline_previous
+                    && !is_gnu_inline_current
+                    && gather_info->is_extern))
+        {
+            // Remove the extern, otherwise an extra extern will be emitted
+            // along with __attribute__((gnu_inline)) which causes a behaviour
+            // like that of the bare "inline" in C99
+            symbol_entity_specs_set_is_extern(entry, 0);
+        }
+        // extern __attribute__((gnu_inline)) void bar();
+        else if (gather_info->is_extern
+                && is_gnu_inline_current)
+        {
+            // Usual case as above
+            symbol_entity_specs_set_is_extern(entry,
+                    (symbol_entity_specs_get_is_extern(entry)
+                     || gather_info->is_extern)
+                    && !symbol_entity_specs_get_is_static(entry));
+        }
+    }
 
     // Remove the friend-declared attribute if we find the function but
     // this is not a friend declaration
@@ -16204,9 +16277,10 @@ static scope_entry_t* build_scope_function_definition_declarator(
                     decl_context,
                     qualified_name);
         }
-        error_printf("%s: error: function '%s' already defined in '%s'\n",
+        error_printf("%s: error: function '%s' already defined\n",
                 ast_location(function_definition),
-                funct_name,
+                funct_name);
+        info_printf("%s: info: location of previous definition\n",
                 locus_to_str(entry->locus));
         return NULL;
     }

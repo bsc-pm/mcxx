@@ -34,6 +34,7 @@
 #include "fortran03-scope.h"
 #include "fortran03-intrinsics.h"
 #include "cxx-exprtype.h"
+#include "cxx-driver-build-info.h"
 #include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
 #include "cxx-entrylist.h"
