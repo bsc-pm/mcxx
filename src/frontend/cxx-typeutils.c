@@ -12533,6 +12533,23 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
             return 1;
         }
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                && IS_CXX_LANGUAGE
+                && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig)
+                && intel_vector_struct_to_intel_vector_struct_reinterpret_type(unqualif_ref_orig, unqualif_ref_dest))
+        {
+            // For C++ we allow this extra reinterpretation
+            //    __mXXX{,d,i}&& <-> __mXXX{,d,i}&&
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            (*result) = get_identity_scs(t_orig, t_dest);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of "
+                        "a rvalue-reference between Intel-compatible vector types\n");
+            }
+            return 1;
+        }
     }
 
     // cv1 T1 -> const T2&
@@ -13151,25 +13168,47 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             dest = vector_type_get_element_type(no_ref(dest));
         }
         // Intel vector conversions
-        else if (CURRENT_CONFIGURATION->enable_intel_vector_types)
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                // vector type
+                //    -> struct __m128 / struct __m256 / struct __M512
+                && (vector_type_to_intel_vector_struct_reinterpret_type(orig, dest)
+                    // lvalue reference to vector type
+                    //    -> lvalue reference to struct __m128 / struct __m256 / struct __M512
+                    || (is_lvalue_reference_type(orig)
+                        && is_lvalue_reference_type(dest)
+                        && vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest)))))
         {
-            if (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
-                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig)))
-            {
-                // vector type -> struct __m128 / struct __m256 / struct __M512
-                // We do not account this as a conversion of any kind, we just let
-                // these types be transparently compatible
-                orig = dest;
-            }
-            else if (IS_CXX_LANGUAGE
-                    && intel_vector_struct_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest)))
-            {
-                // For C++ we allow this extra reinterpretation
-                //    __mXXX{,d,i} <-> __mXXX{,d,i}
-                // We do not account this as a conversion of any kind, we just let
-                // these types be transparently compatible
-                orig = dest;
-            }
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                // struct __m128 / struct __m256 / struct __M512
+                // -> vector type
+                && (vector_type_to_intel_vector_struct_reinterpret_type(dest, orig)
+                    // lvalue reference to struct __m128 / struct __m256 / struct __M512
+                    // -> lvalue reference to vector type
+                    || (is_lvalue_reference_type(orig)
+                        && is_lvalue_reference_type(dest)
+                        && vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig)))))
+        {
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                && IS_CXX_LANGUAGE
+                && (intel_vector_struct_to_intel_vector_struct_reinterpret_type(orig, dest)
+                    || (is_lvalue_reference_type(orig)
+                        && is_lvalue_reference_type(dest)
+                        && intel_vector_struct_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest)))))
+        {
+            // For C++ we allow this extra reinterpretation
+            //    __mXXX{,d,i} <-> __mXXX{,d,i}
+            //    __mXXX{,d,i}& <-> __mXXX{,d,i}&
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
         }
     }
 
