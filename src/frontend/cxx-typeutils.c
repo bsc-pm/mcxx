@@ -13138,9 +13138,10 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             orig = dest;
         }
         // Vector conversions
-        // scalar -->__attribute_((vector_size(X)))  
-        else if (is_vector_type(no_ref(dest)) 
-                && is_arithmetic_type(no_ref(orig)))
+        // scalar -->__attribute_((vector_size(X)))
+        // [C++] scalar --> rvalue reference of __attribute_((vector_size(X)))
+        else if (is_arithmetic_type(orig)
+                && is_vector_type(dest))
         {
             DEBUG_CODE()
             {
