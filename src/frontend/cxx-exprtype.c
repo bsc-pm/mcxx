@@ -20579,12 +20579,6 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                 return;
             }
 
-            if (function_has_been_deleted(decl_context, chosen_conversor, nodecl_get_locus(nodecl_expr)))
-            {
-                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
-                return;
-            }
-
             if (symbol_entity_specs_get_is_constructor(chosen_conversor))
             {
                 type_t* param_type = function_type_get_parameter_type_num(chosen_conversor->type_information, 0);
