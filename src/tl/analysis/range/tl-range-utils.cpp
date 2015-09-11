@@ -233,29 +233,6 @@ namespace Analysis {
     // *********************************************** //
     // ***************** I/O methods ***************** //
 
-    inline std::string print_constraint_kind(ConstraintKind c_kind)
-    {
-        switch(c_kind)
-        {
-            #undef CONSTRAINT_KIND
-            #define CONSTRAINT_KIND(X) case __##X : return #X;
-            CONSTRAINT_KIND_LIST
-            #undef CONSTRAINT_KIND
-            default: WARNING_MESSAGE("Unexpected type of node '%d'", c_kind);
-        }
-        return "";
-    }
-
-    void print_constraint(ConstraintKind c_kind, const Symbol& s, const NBase& val, const Type& t)
-    {
-        if (RANGES_DEBUG)
-        {
-            std::cerr << "    " << print_constraint_kind(c_kind) << " Constraint "
-                      << s.get_name() << " = " << val.prettyprint()
-                      << " (" << t.print_declarator() << ")" << std::endl;
-        }
-    }
-
     void print_sccs(const std::vector<SCC*>& scc_list)
     {
         if (RANGES_DEBUG)

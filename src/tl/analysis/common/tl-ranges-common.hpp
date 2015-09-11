@@ -64,6 +64,29 @@ namespace Utils {
     // ******************************************************************************************* //
     // ******************************* Range Analysis Constraints ******************************** //
 
+    #define CONSTRAINT_KIND_LIST        \
+    CONSTRAINT_KIND(BackEdge)           \
+    CONSTRAINT_KIND(BinaryOp)           \
+    CONSTRAINT_KIND(ComparatorTrue)     \
+    CONSTRAINT_KIND(ComparatorFalse)    \
+    CONSTRAINT_KIND(Function)           \
+    CONSTRAINT_KIND(GlobalVar)          \
+    CONSTRAINT_KIND(Mod)                \
+    CONSTRAINT_KIND(ModTrue)            \
+    CONSTRAINT_KIND(ModFalse)           \
+    CONSTRAINT_KIND(Parameter)          \
+    CONSTRAINT_KIND(Propagated)         \
+    CONSTRAINT_KIND(Replace)            \
+    CONSTRAINT_KIND(UnaryOp)            \
+    CONSTRAINT_KIND(Undefined)
+
+    enum ConstraintKind {
+        #undef CONSTRAINT_KIND
+        #define CONSTRAINT_KIND(X) __##X,
+        CONSTRAINT_KIND_LIST
+        #undef CONSTRAINT_KIND
+    };
+
     /*! The possible constraints are:
      *  - Y = [lb, ub]
      *  - Y = X1 bin_op X2
@@ -73,19 +96,25 @@ namespace Utils {
     struct Constraint {
         TL::Symbol _ssa_sym;    /*!< symbol associated to a given variable at this point of the program */
         NBase _value;           /*!< value applying to the variable */
+        ConstraintKind _kind;   /*!< kind of the constraint */
 
         // *** Constructors *** //
         Constraint();               // Required for std::map operations
-        Constraint(const TL::Symbol& constr_sym, const NBase& value);
+        Constraint(const TL::Symbol& constr_sym,
+                   const NBase& value, const ConstraintKind& kind);
 
         // *** Getters and Setters *** //
         const TL::Symbol& get_symbol() const;
         void set_symbol(const TL::Symbol& s);
-        const NBase& get_value() const;
+        NBase& get_value();
+        const ConstraintKind& get_kind() const;
 
         // *** Comparators *** //
         bool operator!=(const Constraint& c) const;
         bool operator==(const Constraint& c) const;
+
+        // *** Utils *** //
+        void print_constraint();
     };
 
     // ***************************** END Range Analysis Constraints ****************************** //

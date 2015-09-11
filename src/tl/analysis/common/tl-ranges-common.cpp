@@ -923,11 +923,13 @@ namespace {
     // ******************************* Range Analysis Constraints ******************************** //
 
     Constraint::Constraint()
-        : _ssa_sym(Symbol()), _value(NBase::null())
+        : _ssa_sym(Symbol()), _value(NBase::null()),
+          _kind(ConstraintKind::__Undefined)
     {}
 
-    Constraint::Constraint(const TL::Symbol& ssa_sym, const NBase& value)
-        : _ssa_sym(ssa_sym), _value(value)
+    Constraint::Constraint(const TL::Symbol& ssa_sym,
+                           const NBase& value, const ConstraintKind& kind)
+        : _ssa_sym(ssa_sym), _value(value), _kind(kind)
     {}
 
     const TL::Symbol& Constraint::get_symbol() const
@@ -940,9 +942,14 @@ namespace {
         _ssa_sym = s;
     }
 
-    const NBase& Constraint::get_value() const
+    NBase& Constraint::get_value()
     {
         return _value;
+    }
+
+    const ConstraintKind& Constraint::get_kind() const
+    {
+        return _kind;
     }
 
     bool Constraint::operator!=(const Constraint& c) const
@@ -957,6 +964,30 @@ namespace {
         return ((this->_ssa_sym == c._ssa_sym)
                     && Nodecl::Utils::structurally_equal_nodecls(this->_value, c._value,
                                                                  /*skip_conversions*/true));
+    }
+
+    inline std::string print_constraint_kind(ConstraintKind c_kind)
+    {
+        switch(c_kind)
+        {
+            #undef CONSTRAINT_KIND
+            #define CONSTRAINT_KIND(X) case __##X : return #X;
+            CONSTRAINT_KIND_LIST
+            #undef CONSTRAINT_KIND
+            default: WARNING_MESSAGE("Unexpected type of node '%d'", c_kind);
+        }
+        return "";
+    }
+
+    void Constraint::print_constraint()
+    {
+        if (RANGES_DEBUG)
+        {
+            std::cerr << "    " << print_constraint_kind(_kind)
+                      << " Constraint " << _ssa_sym.get_name()
+                      << " = " << _value.prettyprint()
+                      << std::endl;
+        }
     }
 
     // ***************************** END Range Analysis Constraints ****************************** //

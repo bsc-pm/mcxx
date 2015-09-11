@@ -108,7 +108,8 @@ namespace Analysis {
                 std::vector<Symbol> *ordered_constraints);
 
         // *** Modifiers *** //
-        Utils::Constraint build_constraint(const Symbol& s, const NBase& val, const Type& t, ConstraintKind c_kind);
+        Utils::Constraint build_constraint(const Symbol& s,
+                const NBase& val, Utils::ConstraintKind c_kind);
         void compute_parameters_constraints(const ObjectList<Symbol>& params);
         void set_false_constraint_to_inf(const NBase& n);
 

@@ -47,6 +47,8 @@ namespace {
     static unsigned int sym_id = 0;
     std::string fake_sym = "__return_sym_";
 
+    Scope ssa_scope;
+
     std::map<Symbol, NBase> ssa_to_original_var;
 
     //! This maps stores the relationship between each variable in a given node and 
@@ -115,7 +117,7 @@ namespace {
                 subscripts_str += "_";
             }
             std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
-            Symbol ssa_sym(n.retrieve_context().new_symbol(ssa_name));
+            Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
             Type t = s.get_type();
             ssa_sym.set_type(t);
             ssa_to_original_var[ssa_sym] = n;
@@ -127,7 +129,7 @@ namespace {
 
             // 3. Build the constraint and insert it in the constraints map
             ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
-            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, t, __GlobalVar);
+            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, Utils::ConstraintKind::__GlobalVar);
             (*_input_constraints)[n] = c;
 
             n.replace(ssa_sym.make_nodecl(/*set_ref_type*/false));
@@ -150,7 +152,7 @@ namespace {
             // 1. Build a symbol for the new constraint based on the name of the original variable
             std::stringstream ss; ss << get_next_id(n);
             std::string ssa_name = n.prettyprint() + "_" + ss.str();
-            Symbol ssa_sym(n.retrieve_context().new_symbol(ssa_name));
+            Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
             Type t = n.get_type();
             ssa_sym.set_type(t);
             ssa_to_original_var[ssa_sym] = n;
@@ -162,7 +164,7 @@ namespace {
 
             // 3. Build the constraint and insert it in the constraints map
             ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
-            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, t, __GlobalVar);
+            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, Utils::ConstraintKind::__GlobalVar);
             (*_input_constraints)[n] = c;
 
             n.replace(ssa_sym.make_nodecl(/*set_ref_type*/false));
@@ -195,7 +197,7 @@ namespace {
                 std::stringstream ss; ss << get_next_id(n);
                 Symbol orig_s(Utils::get_nodecl_base(n).get_symbol());
                 std::string constr_name = orig_s.get_name() + "_" + ss.str();
-                Symbol s(n.retrieve_context().new_symbol(constr_name));
+                Symbol s(ssa_scope.new_symbol(constr_name));
                 Type t = orig_s.get_type();
                 s.set_type(t);
                 ssa_to_original_var[s] = n;
@@ -205,7 +207,7 @@ namespace {
                                                 const_value_to_nodecl(zero), t);
                 // 3. Build the constraint and insert it in the constraints map
                 ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
-                Utils::Constraint c = cbv.build_constraint(s, val, t, __GlobalVar);
+                Utils::Constraint c = cbv.build_constraint(s, val, Utils::ConstraintKind::__GlobalVar);
                 (*_input_constraints)[n] = c;
                 return;
             }
@@ -253,19 +255,22 @@ namespace {
     Utils::Constraint ConstraintBuilder::build_constraint(
             const Symbol& s,
             const NBase& val,
-            const Type& t,
-            ConstraintKind c_kind)
+            Utils::ConstraintKind c_kind)
     {
         // Create the constraint
-        Utils::Constraint c(s, val);
+        Utils::Constraint c(s, val, c_kind);
 
-        // Insert the constraint in the global structures that will allow us building the Constraint Graph
+        // Insert the constraint in the global structures
+        // that will allow us building the Constraint Graph
+        // We only insert in the ordered constraints set if the SSA variable was not there yet
+        // This is caused by the constraints derived from the back edges,
+        // which reuse SSA variables that were calculated before
         if (_constraints->find(s) == _constraints->end())
             _ordered_constraints->push_back(s);
         (*_constraints)[s] = val;
 
         // Print the constraint in the standard error
-        print_constraint(c_kind, s, val, t);
+        c.print_constraint();
 
         return c;
     }
@@ -297,7 +302,7 @@ namespace {
                                             const_value_to_nodecl(zero), t);
 
             // Build the constraint and insert it in the constraints map
-            Utils::Constraint c = build_constraint(ssa_sym, val, t, __Parameter);
+            Utils::Constraint c = build_constraint(ssa_sym, val, Utils::ConstraintKind::__Parameter);
             _output_constraints[param_n] = c;
         }
     }
@@ -332,7 +337,7 @@ namespace {
                             plus_inf.shallow_copy(),
                             const_value_to_nodecl(zero), t),
                     t);
-            Utils::Constraint new_c_false = build_constraint(old_s, val_false, t, __Replace);
+            Utils::Constraint new_c_false = build_constraint(old_s, val_false, Utils::ConstraintKind::__Replace);
             _output_false_constraints[lhs] = new_c_false;
         }
         else if (n.is<Nodecl::LogicalAnd>() || n.is<Nodecl::Different>())
@@ -385,7 +390,7 @@ namespace {
         }
 
         std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
-        Symbol ssa_sym(lhs.retrieve_context().new_symbol(ssa_name));
+        Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
         Type t = s.get_type();
         ssa_sym.set_type(t);
         ssa_to_original_var[ssa_sym] = lhs;
@@ -405,7 +410,7 @@ namespace {
         }
 
         // 3.- Build the constraint and insert it in the corresponding maps
-        Utils::Constraint c = build_constraint(ssa_sym, val, t, __BinaryOp);
+        Utils::Constraint c = build_constraint(ssa_sym, val, Utils::ConstraintKind::__BinaryOp);
         _input_constraints[lhs] = c;
         _output_constraints[lhs] = c;
     }
@@ -424,7 +429,7 @@ namespace {
         Symbol s(Utils::get_nodecl_base(rhs).get_symbol());
         Type t(s.get_type());
         std::string constr_name = s.get_name() + "_" + ss.str();
-        Symbol ssa_sym(rhs.retrieve_context().new_symbol(constr_name));
+        Symbol ssa_sym(ssa_scope.new_symbol(constr_name));
         ssa_sym.set_type(t);
         ssa_to_original_var[ssa_sym] = rhs;
 
@@ -440,7 +445,7 @@ namespace {
             val = Nodecl::Minus::make(entry_ssa_sym.make_nodecl(/*set_ref_type*/false),
                                       const_value_to_nodecl(one), t);
         }
-        Utils::Constraint c = build_constraint(ssa_sym, val, t, __UnaryOp);
+        Utils::Constraint c = build_constraint(ssa_sym, val, Utils::ConstraintKind::__UnaryOp);
         _input_constraints[rhs] = c;
         _output_constraints[rhs] = c;
     }
@@ -470,8 +475,7 @@ namespace {
 
         // 3.- Get the last ssa symbol related to the original symbol
         std::string last_ssa_name = _input_constraints.find(n)->second.get_symbol().get_name();
-        Scope ctx = n.retrieve_context();
-        Symbol last_ssa = ctx.get_symbol_from_name(last_ssa_name);
+        Symbol last_ssa = ssa_scope.get_symbol_from_name(last_ssa_name);
         ERROR_CONDITION(!last_ssa.is_valid(),
                         "No symbol '%s' found while building constraint for variable '%s'",
                         last_ssa_name.c_str(), n.prettyprint().c_str());
@@ -491,12 +495,12 @@ namespace {
         // 4.2.- Build the symbols created for the TRUE and FALSE edges
         // 4.2.1.- Build the TRUE constraint symbol
         std::stringstream ss_true; ss_true << get_next_id(n);
-        Symbol s_true(ctx.new_symbol(s_name + "_" + ss_true.str()));
+        Symbol s_true(ssa_scope.new_symbol(s_name + "_" + ss_true.str()));
         s_true.set_type(t);
         ssa_to_original_var[s_true] = n;
         // 4.2.2.- Build the FALSE constraint symbol
         std::stringstream ss_false; ss_false << get_next_id(n);
-        Symbol s_false(ctx.new_symbol(s_name + "_" + ss_false.str()));
+        Symbol s_false(ssa_scope.new_symbol(s_name + "_" + ss_false.str()));
         s_false.set_type(t);
         ssa_to_original_var[s_false] = n;
 
@@ -822,9 +826,9 @@ namespace {
         };
 
         // 4.4.- Build the TRUE and FALSE constraints and store them
-        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
+        Utils::Constraint c_true = build_constraint(s_true, val_true, Utils::ConstraintKind::__ComparatorTrue);
         _output_true_constraints[n] = c_true;
-        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
+        Utils::Constraint c_false = build_constraint(s_false, val_false, Utils::ConstraintKind::__ComparatorFalse);
         _output_false_constraints[n] = c_false;
     }
 
@@ -942,7 +946,7 @@ namespace {
         std::string s_name = s.get_name();
         // Get the last ssa symbol related to the original symbol
         std::string last_ssa_name = _input_constraints.find(n)->second.get_symbol().get_name();
-        Symbol last_ssa_s = n.retrieve_context().get_symbol_from_name(last_ssa_name);
+        Symbol last_ssa_s = ssa_scope.get_symbol_from_name(last_ssa_name);
         ERROR_CONDITION(!s.is_valid(),
                         "No symbol '%s' found while building constraint for node '%s'",
                         s.get_name().c_str(), n.prettyprint().c_str());
@@ -959,7 +963,7 @@ namespace {
         // x < x;       --TRUE-->       X1 = X0 ∩ [0, c-1]
         // 2.1.1.- Build the TRUE constraint symbol
         std::stringstream ss_true; ss_true << get_next_id(lhs);
-        Symbol s_true(n.retrieve_context().new_symbol(s_name + "_" + ss_true.str()));
+        Symbol s_true(ssa_scope.new_symbol(s_name + "_" + ss_true.str()));
         s_true.set_type(t);
         ssa_to_original_var[s_true] = lhs;
         // 2.1.2.- Build the TRUE constraint value
@@ -973,13 +977,13 @@ namespace {
                                     const_value_to_nodecl(zero), t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
-        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ModTrue);
+        Utils::Constraint c_true = build_constraint(s_true, val_true, Utils::ConstraintKind::__ModTrue);
         _output_true_constraints[lhs] = c_true;
         // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
         // x < c;       --FALSE-->      X1 = X0 ∩ ([-∞, -1] U [c, -∞])
         // 2.2.1.- Build the FALSE constraint symbol
         std::stringstream ss_false; ss_false << get_next_id(lhs);
-        Symbol s_false(n.retrieve_context().new_symbol(s_name + "_" + ss_false.str()));
+        Symbol s_false(ssa_scope.new_symbol(s_name + "_" + ss_false.str()));
         s_false.set_type(t);
         ssa_to_original_var[s_false] = lhs;
         // 2.2.2.- Build the FALSE constraint value
@@ -996,7 +1000,7 @@ namespace {
                     t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
-        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ModFalse);
+        Utils::Constraint c_false = build_constraint(s_false, val_false, Utils::ConstraintKind::__ModFalse);
         _output_false_constraints[lhs] = c_false;
     }
 
@@ -1044,7 +1048,7 @@ namespace {
         std::stringstream sym_id_str;
         sym_id_str << fake_sym;
         sym_id_str << ++sym_id;
-        Symbol ssa_sym(n.retrieve_context().new_symbol(sym_id_str.str()));
+        Symbol ssa_sym(ssa_scope.new_symbol(sym_id_str.str()));
         Nodecl::Symbol lhs = ssa_sym.make_nodecl(/*set_ref_type*/false);
         NBase rhs = n.get_value();
         visit_assignment(lhs, rhs);
@@ -2265,11 +2269,21 @@ namespace {
 
     // ***************************************************************************** //
     // ********************* Class implementing range analysis ********************* //
-    
+
     RangeAnalysis::RangeAnalysis(ExtensibleGraph* pcfg)
         : _pcfg(pcfg), _cg(new ConstraintGraph(pcfg->get_name())), 
           _constraints(), _ordered_constraints()
-    {}
+    {
+        const NBase& pcfg_ast = pcfg->get_graph()->get_graph_related_ast();
+        if (pcfg_ast.is<Nodecl::FunctionCode>())
+        {
+            ssa_scope = pcfg_ast.as<Nodecl::FunctionCode>().get_statements().retrieve_context();
+        }
+        else
+        {
+            ssa_scope = pcfg_ast.retrieve_context();
+        }
+    }
     
     void RangeAnalysis::compute_range_analysis()
     {   
@@ -2314,7 +2328,7 @@ namespace {
         compute_constraints_rec(worklist, treated, pcfg_constraints);
 
         // 3.- Remove the constraints that are never used
-        remove_unnecessary_constraints(pcfg_constraints);
+//         remove_unnecessary_constraints(pcfg_constraints);
 
         // 4.- Print in std out the constraints, if requested
         if (RANGES_DEBUG)
@@ -2345,95 +2359,133 @@ namespace {
 
 namespace {
 
-    void create_recomputed_constraint(
-            const VarToConstraintMap& new_constrs,
-            VarToConstraintMap& constrs,
-            Constraints *constraints,
-            std::vector<Symbol> *ordered_constraints,
-            ConstraintBuilder& cbv)
+    // This method builds Phi constraints caused by a back edge
+    // In order to keep the algorithms working the method must:
+    // 1.- Create the new phi constraint
+    // 2.- Insert it in the proper place
+    // Example:
+    //    * [IN]  Constraint from previous nodes (child):  C1
+    //    * [IN]  Constraint from the back edge (parent):  C2
+    //    * [OUT] Constraint generated in this method:     C3 = phi(C1, C2)
+    //    -> The order in the ordered_constraints container must be: C1, C3, C2
+    //       Because the phi constraint appears before C2
+    //       in a sequential execution of the program
+    void compute_constraint_from_back_edge(
+        Constraints *constraints,
+        std::vector<Symbol> *ordered_constraints,
+        std::map<Node*, VarToConstraintMap>& pcfg_constraints,
+        /*dominated*/ Node* parent, /*dominator*/ Node* child)
     {
-        // Example:
-        //     we had:      i1 = i0
-        //     we have:     i3 = phi(i1,i2)
-        //     but we want: i3 = i0
-        //                  i1 = phi(i3,i2)
-        for (VarToConstraintMap::const_iterator it = new_constrs.begin();
-             it != new_constrs.end(); ++it)
+        const VarToConstraintMap& parent_constrs = pcfg_constraints[parent];
+        VarToConstraintMap& child_constrs = pcfg_constraints[child];
+        ConstraintBuilder cbv(child_constrs, constraints, ordered_constraints);
+
+        for (VarToConstraintMap::const_iterator it = parent_constrs.begin();
+             it != parent_constrs.end(); ++it)
         {
             const NBase& orig_var = it->first;
-            if ((constrs.find(orig_var) != constrs.end())
-                    && (constrs[orig_var] != it->second))
+            Utils::Constraint parent_c = it->second;
+            // Recompute constraint if the child has
+            // a constraint computed with a different value
+            if ((child_constrs.find(orig_var) != child_constrs.end())
+                && (child_constrs[orig_var] != parent_c))
             {
                 // 1.- Get a new symbol for the new constraint
                 std::stringstream ss; ss << get_next_id(orig_var);
                 Symbol orig_sym(orig_var.get_symbol());
                 std::string constr_name = orig_sym.get_name() + "_" + ss.str();
-                Symbol ssa_var(orig_var.retrieve_context().new_symbol(constr_name));
+                Symbol phi_ssa_sym(ssa_scope.new_symbol(constr_name));
                 Type t(orig_sym.get_type());
-                ssa_var.set_type(t);
-                ssa_to_original_var[ssa_var] = orig_var;
-                // 2.- Rebuild the old constraint               (i1 = i0   =>   i3 = i0)
-                Utils::Constraint& old_c = constrs[orig_var];
-                Symbol old_ssa_var = old_c.get_symbol();
-                NBase old_val = old_c.get_value();
-                (*constraints)[ssa_var] = old_val;
-                // Look for the position to insert the new constraint
+                phi_ssa_sym.set_type(t);
+                ssa_to_original_var[phi_ssa_sym] = orig_var;
+
+                // 2.- Replace the occurrences of the child_ssa_sym with phi_ssa_sym
+                //     only if there are modifications within the loop caused by the back edge
+                //     (i.e. parent_val is not a __ComparatorTrue)
+                //     Do this before inserting the new one, because we do not want it to be replaced
+                std::stack<Node*> nodes;
+                nodes.push(parent->get_children()[0]);  // parent is the last node of a loop,
+                                                        // and it only has one child, the condition of the loop
+                NBase phi_ssa_var = phi_ssa_sym.make_nodecl(/*set_ref_type*/false);
+                Utils::Constraint& child_c = child_constrs[orig_var];
+                Symbol child_ssa_sym = child_c.get_symbol();
+                NBase child_ssa_var = child_ssa_sym.make_nodecl(/*set_ref_type*/false);
+                NBase parent_val = parent_c.get_value();
+                // The constraint may be a __ComparatorTrue
+                if (parent_c.get_kind() != Utils::ConstraintKind::__ComparatorTrue)
+                {
+                    std::set<Node*> treated;
+                    treated.insert(parent);
+                    while (!nodes.empty())
+                    {
+                        // Get the node to be treated
+                        Node* n = nodes.top();
+                        nodes.pop();
+
+                        // Base case: the node has already been processed
+                        if (treated.find(n) != treated.end())
+                            break;
+                        treated.insert(n);
+
+                        // Gather the constraints generated by this node
+                        VarToConstraintMap& n_constrs = pcfg_constraints[n];
+                        if (n_constrs.find(orig_var) != n_constrs.end())
+                        {
+                            Utils::Constraint& n_c = n_constrs[orig_var];
+                            NBase& n_val = n_c.get_value();
+                            if (RANGES_DEBUG
+                                && Nodecl::Utils::nodecl_contains_nodecl_by_structure(n_val, child_ssa_var))
+                            {
+                                std::cerr << "    REPLACE " << child_ssa_var.prettyprint()
+                                          << " WITH " << phi_ssa_var.prettyprint()
+                                          << " IN " << n_val.prettyprint() << std::endl;
+                            }
+                            Nodecl::Utils::nodecl_replace_nodecl_by_structure(n_val, child_ssa_var, phi_ssa_var);
+                        }
+
+                        // Prepare following iterations
+                        ObjectList<Node*> children =
+                            n->is_exit_node() ? n->get_outer_node()->get_children()
+                                            : n->get_children();
+                        for (ObjectList<Node*>::iterator itc = children.begin();
+                            itc != children.end(); ++itc)
+                        {
+                            nodes.push(*itc);
+                        }
+                    }
+                }
+
+                // 3.- Build the value of the new constraint    (i1 = phi(i3,i2))
+                Symbol parent_ssa_sym = parent_c.get_symbol();
+                NBase parent_ssa_var = parent_ssa_sym.make_nodecl(/*set_ref_type*/false);
+                Nodecl::List exprs = Nodecl::List::make(child_ssa_var, parent_ssa_var);
+                NBase val = Nodecl::Analysis::Phi::make(exprs, t);
+
+                // 4.- Build the new constraint and insert it in the proper list
+                Utils::Constraint recomputed_c = cbv.build_constraint(phi_ssa_sym, val,
+                                                                      Utils::ConstraintKind::__BackEdge);
+                child_c = recomputed_c;
+
+                // 5.- Reorder the new constraint in the proper place in the ordered list
+                //     build_constraint has inserted prior to the parent_ssa_var
+                // 5.1.- Remove the new SSA symbol (the last in the vector)
+                ordered_constraints->pop_back();
+                // 5.2.- Insert the new SSA symbol properly
                 std::vector<Symbol>::iterator ito = ordered_constraints->begin();
-                while (*ito != old_ssa_var && ito != ordered_constraints->end())
+                while (*ito != parent_ssa_sym && ito != ordered_constraints->end())
                     ++ito;
                 ERROR_CONDITION(ito == ordered_constraints->end(),
                                 "SSA variable %s not found in the list of ordered constraints\n",
-                                ssa_var.get_name().c_str());
-                ordered_constraints->insert(ito, ssa_var);
-                // 3.- Build the value of the new constraint    (i1 = phi(i3,i2))
-                NBase e1 = ssa_var.make_nodecl(/*set_ref_type*/false);
-                NBase e2 = it->second.get_symbol().make_nodecl(/*set_ref_type*/false);
-                Nodecl::List exprs = Nodecl::List::make(e1, e2);
-                NBase val = Nodecl::Analysis::Phi::make(exprs, t);
-                // 4.- Build the new constraint and insert it in the proper list
-                Utils::Constraint new_c = cbv.build_constraint(old_ssa_var, val, t, __BackEdge);
-                constrs[orig_var] = new_c;
+                                phi_ssa_sym.get_name().c_str());
+                ordered_constraints->insert(ito, phi_ssa_sym);
             }
-//             else if (!is_propagated_set)
-//             {   // We propagate those constraints created from the loop 
-//                 // 1.- Get a new symbol for the new constraint
-//                 std::stringstream ss; ss << get_next_id(orig_var);
-//                 Symbol orig_sym(orig_var.get_symbol());
-//                 std::string constr_name = orig_sym.get_name() + "_" + ss.str();
-//                 Symbol ssa_var(orig_var.retrieve_context().new_symbol(constr_name));
-//                 Type t(orig_sym.get_type());
-//                 ssa_var.set_type(t);
-//                 ssa_to_original_var[ssa_var] = orig_var;
-//                 // 2.- Build the value of the new constraint
-//                 NBase new_constraint_val = it->second.get_symbol().make_nodecl(/*set_ref_type*/false);
-//                 // 4.- Build the new constraint and insert it in the proper list
-//                 Utils::Constraint new_c = cbv.build_constraint(ssa_var, new_constraint_val, t, __Propagated);
-//                 constrs[orig_var] = new_c;
-//             }
         }
-    }
-    
-    void compute_constraint_from_back_edge(
-            Node* n,
-            const VarToConstraintMap& new_constraint_map,
-            Constraints *constraints,
-            std::vector<Symbol> *ordered_constraints,
-            std::map<Node*, VarToConstraintMap>& pcfg_constraints)
-    {
-        VarToConstraintMap& constrs = pcfg_constraints[n];
-        ConstraintBuilder cbv(constrs, constraints, ordered_constraints);
-        create_recomputed_constraint(
-                new_constraint_map,
-                constrs,
-                constraints,
-                ordered_constraints,
-                cbv);
     }
 
     // Utility method: for printing the constraints map if debugging is necessary
-    void print_var_to_constraint_map(const VarToConstraintMap& constrs)
+    void print_var_to_constraint_map(VarToConstraintMap& constrs)
     {
-        for (VarToConstraintMap::const_iterator it = constrs.begin(); it != constrs.end(); ++it)
+        for (VarToConstraintMap::iterator it = constrs.begin(); it != constrs.end(); ++it)
         {
             std::cerr << "      " << it->first.prettyprint() << "  ::  " << it->second.get_symbol().get_name() << " -> "
                       << it->second.get_value().prettyprint() << std::endl;
@@ -2449,13 +2501,34 @@ namespace {
         /*inout*/ std::set<Node*>& treated,
         /*inout*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
+        // For each loop, we need to treat the inner nodes before treat the exit node.
+        // Since the algorithm traverses children without an order,
+        // we impose that order by inserting into the worklist the exit node
+        // each time we find an already treated node (the condition of a loop)
+        // next_worklist stores the exit node of each loop
+        // (it is a container because we may find nested loops)
+        std::queue<Node*> next_worklist;
         while (!worklist.empty())
         {
             Node* n = worklist.front();
             worklist.pop();
 
             if (treated.find(n) != treated.end())
+            {
+                if (!n->is_exit_node())
+                {
+                    // Insert in the worklist the remaining nodes
+                    // exit node of the treated node, which is a condition of a loop)
+                    if (!next_worklist.empty())
+                    {
+                        worklist.push(next_worklist.front());
+                        next_worklist.pop();
+                    }
+                }
+
+                // Keep iterating
                 continue;
+            }
 
             // 1.- Check whether all n parents (coming from non-back-edges) are already computed
             //     Also save whether the node has back-edges (needed to order the computation of the next steps)
@@ -2545,7 +2618,7 @@ namespace {
                                 std::stringstream ss; ss << get_next_id(orig_var);
                                 Symbol orig_sym(orig_var.get_symbol());
                                 std::string constr_name = orig_sym.get_name() + "_" + ss.str();
-                                Symbol ssa_var(orig_var.retrieve_context().new_symbol(constr_name));
+                                Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
                                 ssa_to_original_var[ssa_var] = orig_var;
@@ -2558,7 +2631,8 @@ namespace {
                                 if (input_constrs.find(orig_var) != input_constrs.end())
                                     input_constrs.erase(orig_var);
                                 // 2.2.1.1.4.- Build the current constraint and insert it in the proper list
-                                Utils::Constraint new_c = cbv_propagated.build_constraint(ssa_var, new_constraint_val, t, __Propagated);
+                                Utils::Constraint new_c = cbv_propagated.build_constraint(ssa_var, new_constraint_val,
+                                                                                          Utils::ConstraintKind::__Propagated);
                                 merged_input_constrs[orig_var] = new_c;
                             }
                             else
@@ -2569,7 +2643,7 @@ namespace {
                             }
                         }
                         // 2.2.1.2.- Treat non-OpenMP nodes
-                        const Utils::Constraint& c = itc->second;
+                        Utils::Constraint c = itc->second;
                         if (input_constrs.find(orig_var) == input_constrs.end() &&
                             merged_input_constrs.find(orig_var) == merged_input_constrs.end())
                         {   // No constraints found yet for variable orig_var
@@ -2584,7 +2658,7 @@ namespace {
                             NBase old_value = old_c.get_value();
 
                             // 2.2.1.2.2.- If the new constraint is different from the old one, compute the combination of both
-                            NBase current_value = c.get_value();
+                            NBase& current_value = c.get_value();
                             if (!Nodecl::Utils::structurally_equal_nodecls(old_value, current_value,
                                 /*skip_conversion_nodes*/true))
                             {
@@ -2592,7 +2666,7 @@ namespace {
                                 std::stringstream ss; ss << get_next_id(orig_var);
                                 Symbol orig_sym(orig_var.get_symbol());
                                 std::string constr_name = orig_sym.get_name() + "_" + ss.str();
-                                Symbol ssa_var(orig_var.retrieve_context().new_symbol(constr_name));
+                                Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
                                 ssa_to_original_var[ssa_var] = orig_var;
@@ -2619,7 +2693,8 @@ namespace {
                                 if (input_constrs.find(orig_var) != input_constrs.end())
                                     input_constrs.erase(orig_var);
                                 // 2.2.1.2.2.4.- Build the current constraint and insert it in the proper list
-                                Utils::Constraint new_c = cbv_propagated.build_constraint(ssa_var, new_value, t, __Propagated);
+                                Utils::Constraint new_c = cbv_propagated.build_constraint(ssa_var, new_value,
+                                                                                          Utils::ConstraintKind::__Propagated);
                                 merged_input_constrs[orig_var] = new_c;
                             }
                         }
@@ -2714,29 +2789,13 @@ namespace {
                 {   // This means the node is the condition of a loop
                     //     - first compute the loop constraints (the TRUE edge)
                     //     - then compute the other children (store the nodes in next_worklist)
-                    Node* next_in_loop = NULL;
-                    std::queue<Node*> next_worklist;
                     for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
                     {
                         Node* t = (*it)->get_target();
-                        if (treated.find(t) == treated.end())
-                        {
-                            if ((*it)->is_true_edge())
-                                next_in_loop = t;
-                            else
-                                next_worklist.push(t);
-                        }
-                    }
-
-                    ERROR_CONDITION(next_in_loop==NULL,
-                                    "Node %d has a back edge, but we have not found any 'true' edge.\n",
-                                    n->get_id());
-
-                    worklist.push(next_in_loop);
-                    while (!next_worklist.empty())
-                    {
-                        worklist.push(next_worklist.front());
-                        next_worklist.pop();
+                        if ((*it)->is_true_edge())
+                            worklist.push(t);
+                        else
+                            next_worklist.push(t);
                     }
                 }
                 else
@@ -2749,13 +2808,11 @@ namespace {
                         if ((*it)->is_back_edge())
                         {   // Propagate here constraints from the back edge
                             compute_constraint_from_back_edge(
-                                    t, pcfg_constraints[n],
-                                    &_constraints, &_ordered_constraints,
-                                    pcfg_constraints);
+                                &_constraints, &_ordered_constraints,
+                                pcfg_constraints, n, t);
                         }
 
-                        if (treated.find(t) == treated.end())
-                            worklist.push(t);
+                        worklist.push(t);
                     }
                 }
             }
@@ -2764,6 +2821,9 @@ namespace {
 
     void RangeAnalysis::remove_unnecessary_constraints(std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
+        if (RANGES_DEBUG)
+            std::cerr << std::endl;
+
         // This purge is performed in order, because a constraint may only be used
         // in the following constraints definitions, never in the previous
         for (std::vector<Symbol>::iterator ssa_sym_it = _ordered_constraints.begin();
@@ -2794,6 +2854,11 @@ ssa_sym_found:
             {
                 // Remove the constraint from the actual list of constraints
                 // This must be done first, otherwise the iterator points to some other place!
+                if (RANGES_DEBUG)
+                {
+                    std::cerr << "    Remove Constraint " << ssa_sym_it->get_name()
+                            << " = " << _constraints.find(*ssa_sym_it)->second.prettyprint() << std::endl;
+                }
                 _constraints.erase(_constraints.find(*ssa_sym_it));
 
                 // Remove the entry from the var-to_ssa_var container
@@ -2806,7 +2871,6 @@ ssa_sym_found:
                     {
                         if (itc->second.get_symbol() == *ssa_sym_it)
                         {
-                            std::cerr << "Remove constraint for SSA var " << ssa_sym_it->get_name() << std::endl;
                             constrs.erase(itc++);
                         }
                         else
