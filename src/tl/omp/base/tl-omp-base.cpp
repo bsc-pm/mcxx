@@ -863,35 +863,7 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        PragmaCustomClause final_clause = pragma_line.get_clause("final");
-        {
-            ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(directive);
-            if (final_clause.is_defined()
-                    && expr_list.size() == 1)
-            {
-                execution_environment.append(Nodecl::OpenMP::Final::make(expr_list[0].shallow_copy()));
-
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "When this task is executed it will be final "
-                        "if the expression '" << expr_list[0].prettyprint() << "' holds\n"
-                        // << OpenMP::Report::indent
-                        // << OpenMP::Report::indent
-                        // << "A final task does not create any deferred task when it is executed\n"
-                        ;
-                }
-            }
-            else
-            {
-                if (final_clause.is_defined())
-                {
-                    error_printf("%s: error: ignoring invalid 'final' clause\n",
-                            directive.get_locus_str().c_str());
-                }
-            }
-        }
+        handle_final_clause(directive, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -3735,6 +3707,40 @@ namespace TL { namespace OpenMP {
                 block_extent_var);
 
         w.walk(execution_environment);
+    }
+
+    void Base::handle_final_clause(
+            const TL::PragmaCustomStatement& directive,
+            Nodecl::List& execution_environment)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomClause final_clause = pragma_line.get_clause("final");
+        ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(directive);
+        if (final_clause.is_defined()
+                && expr_list.size() == 1)
+        {
+            execution_environment.append(Nodecl::OpenMP::Final::make(expr_list[0].shallow_copy()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "When this task is executed it will be final "
+                    "if the expression '" << expr_list[0].prettyprint() << "' holds\n"
+                    // << OpenMP::Report::indent
+                    // << OpenMP::Report::indent
+                    // << "A final task does not create any deferred task when it is executed\n"
+                    ;
+            }
+        }
+        else
+        {
+            if (final_clause.is_defined())
+            {
+                error_printf("%s: error: ignoring invalid 'final' clause\n",
+                        directive.get_locus_str().c_str());
+            }
+        }
     }
 
     void Base::handle_label_clause(

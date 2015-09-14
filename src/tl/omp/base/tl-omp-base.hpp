@@ -185,6 +185,10 @@ namespace TL
                         const TL::PragmaCustomStatement& pragma_line,
                         Nodecl::List& execution_environment);
 
+                void handle_final_clause(
+                        const TL::PragmaCustomStatement& pragma_line,
+                        Nodecl::List& execution_environment);
+
 #ifndef VECTORIZATION_DISABLED
                 void register_simd_function(
                         OpenMP::DataEnvironment& ds,
