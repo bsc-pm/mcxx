@@ -916,7 +916,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
             prescanner_switch_to_buffer(yybuf);
 
             BEGIN(PREFIX_SPEC);
-            statement = prescannerlex();
+            /* statement = */ prescannerlex();
             BEGIN(0);
 
             add_blank(&li->statement_list[statement_index].statement, prescannertext);
@@ -1513,7 +1513,7 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 
     while (YYSTATE == OMP_DIRECTIVE)
     {
-        lex = prescannerlex();
+        /* lex = */ prescannerlex();
 
         strcat(result, " ");
         strcat(result, prescannertext);

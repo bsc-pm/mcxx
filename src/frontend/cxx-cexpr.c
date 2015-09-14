@@ -1428,7 +1428,7 @@ nodecl_t const_value_to_nodecl_(const_value_t* v,
                                     v->value.m->elements[i]));
                 }
 
-                nodecl_t result = nodecl_null();
+                nodecl_t result;
                 if (promote_from_scalar)
                 {
                     nodecl_t scalar_node = const_value_to_nodecl_(

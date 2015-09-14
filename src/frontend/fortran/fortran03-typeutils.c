@@ -629,7 +629,7 @@ static void wrong_init_kind(const char* typename, int kind_size, type_t* (*kind_
 
 void fortran_init_kinds(void)
 {
-    char already_init = 0;
+    static char already_init = 0;
     if (already_init)
         return;
 

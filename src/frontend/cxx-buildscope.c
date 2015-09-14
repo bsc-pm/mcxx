@@ -2922,8 +2922,6 @@ void build_scope_decl_specifier_seq(AST a,
 
             // Manually add the int tree to make things easier
             ast_set_child(a, 1, ASTLeaf(AST_IMPLICIT_INT_TYPE, ast_get_locus(a), NULL));
-            type_spec = ASTSon1(a);
-
             *type_info = get_signed_int_type();
         }
     }
@@ -4513,7 +4511,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         }
 
         class_entry = entry;
-        class_type = class_entry->type_information;
 
         if (!class_gather_info.is_friend
                 && symbol_entity_specs_get_is_friend_declared(entry))
@@ -5241,6 +5238,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_enum->symbol_name = symbol_name;
             new_enum->decl_context = decl_context;
         }
+        ERROR_CONDITION(new_enum == NULL, "Invalid enumerator", 0);
+
         anonymous_enums++;
 
         new_enum->locus = ast_get_locus(a);
@@ -9402,7 +9401,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             internal_error("Code unreachable", 0);
     }
 
-    decl_context_t* inner_decl_context = decl_context_empty();
+    decl_context_t* inner_decl_context;
 
     if (class_id_expression != NULL)
     {
@@ -9783,6 +9782,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             class_entry->symbol_name = symbol_name;
             class_entry->decl_context = decl_context;
         }
+        ERROR_CONDITION(class_entry == NULL, "Invalid symbol", 0);
+
         anonymous_classes++;
 
         class_entry->kind = SK_CLASS;
@@ -9793,7 +9794,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         symbol_entity_specs_set_is_unnamed(class_entry, 1);
 
-        class_type = class_entry->type_information;
         inner_decl_context = new_class_context(decl_context, class_entry);
         class_type_set_inner_context(class_type, inner_decl_context);
 
@@ -13599,7 +13599,6 @@ static char find_function_declaration(AST declarator_id,
                     if ((function_type_get_ref_qualifier(function_type_being_declared_advanced_to_context) != REF_QUALIFIER_NONE)
                             != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
                     {
-                        function_matches = 0;
                         error_printf("%s: error: declaration cannot overload '%s'\n",
                                 ast_location(declarator_id),
                                 print_decl_type_str(considered_type,
@@ -22052,7 +22051,7 @@ static nodecl_t instantiate_loop_init(nodecl_instantiate_stmt_visitor_t* v, node
     {
         // We can expect object-inits here, the name of the tree is misleading
         nodecl_t expr = expr_list[i];
-        nodecl_t new_expr = nodecl_null();
+        nodecl_t new_expr;
 
         if (nodecl_get_kind(expr) == NODECL_OBJECT_INIT)
         {

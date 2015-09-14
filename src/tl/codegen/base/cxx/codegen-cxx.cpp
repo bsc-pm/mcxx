@@ -5691,7 +5691,6 @@ void CxxBase::old_define_class_symbol_aux(TL::Symbol symbol,
                         && member.get_type().basic_type().get_symbol().is_member()
                         && member.get_type().basic_type().get_symbol().get_class_type().get_symbol() == symbol)
                 {
-                    member_declaration_does_define = true;
                     // But we only emit the name and an end for the declaration
                     if (previous_was_just_member_declarator_name)
                         (*file) << ", ";
@@ -5767,7 +5766,6 @@ void CxxBase::old_define_class_symbol_aux(TL::Symbol symbol,
     // Somehow it was left open
     if (previous_was_just_member_declarator_name)
     {
-        previous_was_just_member_declarator_name = false;
         (*file) << ";\n";
     }
 
@@ -6294,7 +6292,6 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                         && member.get_type().basic_type().get_symbol().is_member()
                         && member.get_type().basic_type().get_symbol().get_class_type().get_symbol() == symbol)
                 {
-                    member_declaration_does_define = true;
                     // But we only emit the name and an end for the declaration
                     if (previous_was_just_member_declarator_name)
                         (*file) << ", ";
@@ -6391,7 +6388,6 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
     // Somehow it was left open
     if (previous_was_just_member_declarator_name)
     {
-        previous_was_just_member_declarator_name = false;
         (*file) << ";\n";
     }
 

@@ -3450,7 +3450,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
-    nodecl_t nodecl = nodecl_null();
+    nodecl_t nodecl;
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {

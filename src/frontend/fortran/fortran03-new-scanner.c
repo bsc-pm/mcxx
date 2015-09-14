@@ -3013,7 +3013,6 @@ static inline void preanalyze_statement(char expect_label)
         {
             // Well, we could not classify this statement with any known
             // keyword, maybe there are no more keywords or it is an error
-            done_with_keywords = 1;
             break;
         }
         allow_named_label = 0;

@@ -5046,7 +5046,7 @@ static nodecl_t compute_whole_size_given_bounds(
             || nodecl_is_null(upper_bound))
         return nodecl_null();
 
-    nodecl_t whole_size = nodecl_null();
+    nodecl_t whole_size;
     if (nodecl_is_constant(lower_bound)
             && nodecl_is_constant(upper_bound))
     {

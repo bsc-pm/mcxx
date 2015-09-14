@@ -2266,7 +2266,6 @@ void LoweringVisitor::fill_copies_region(
                 TL::DataReference copy_expr(copy_it->expression);
                 if (!copy_expr.is_multireference())
                 {
-                    there_are_dynamic_copies = true;
                     // We handled them above
                     continue;
                 }

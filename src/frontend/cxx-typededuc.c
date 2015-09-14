@@ -3811,7 +3811,6 @@ deduction_result_t finish_deduced_template_arguments(
                         nodecl_t list[num_deduced + 1];
                         memset(list, 0, sizeof(list));
 
-                        j = 0;
                         if (explicit_list != NULL)
                         {
                             for (j = 0; j < num_explicit_list; j++)
