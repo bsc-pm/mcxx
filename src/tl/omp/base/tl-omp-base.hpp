@@ -181,6 +181,10 @@ namespace TL
                         TL::Symbol new_induction_var,
                         TL::Symbol block_extent_var);
 
+                void handle_label_clause(
+                        const TL::PragmaCustomStatement& pragma_line,
+                        Nodecl::List& execution_environment);
+
 #ifndef VECTORIZATION_DISABLED
                 void register_simd_function(
                         OpenMP::DataEnvironment& ds,
