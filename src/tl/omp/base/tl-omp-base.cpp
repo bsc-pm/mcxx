@@ -1255,6 +1255,8 @@ namespace TL { namespace OpenMP {
 
         handle_label_clause(directive, execution_environment);
 
+        if (this->in_ompss_mode())
+            handle_final_clause(directive, execution_environment);
 
         if (pragma_line.get_clause("schedule").is_defined())
         {

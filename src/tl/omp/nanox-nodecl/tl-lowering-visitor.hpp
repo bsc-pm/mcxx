@@ -353,6 +353,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& reduction_initialization,
                 Nodecl::NodeclBase& reduction_code);
         void lower_for_slicer(const Nodecl::OpenMP::For& construct);
+
         void loop_spawn_slicer(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
@@ -361,7 +362,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
                 TL::Symbol slicer_descriptor,
-                Nodecl::NodeclBase task_label);
+                Nodecl::NodeclBase task_label,
+                Nodecl::NodeclBase final_clause);
 
         static bool there_are_reductions(OutlineInfo& outline_info);
 
