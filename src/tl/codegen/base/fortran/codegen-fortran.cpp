@@ -3739,6 +3739,8 @@ OPERATOR_TABLE
             }
         }
 
+        bool has_value_attribute = false;
+
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
         if (entry.is_variable()
@@ -3773,7 +3775,12 @@ OPERATOR_TABLE
                             || entry.get_type().points_to().is_pointer()) */
                     {
                         declared_type = TL::Type(get_size_t_type());
-                        attribute_list += ", VALUE";
+                        if (!CURRENT_CONFIGURATION->ifort_compatibility
+                                || entry.is_optional())
+                        {
+                            attribute_list += ", VALUE";
+                        }
+                        has_value_attribute = true;
                     }
                     // else
                     // {
@@ -3792,7 +3799,12 @@ OPERATOR_TABLE
                 // }
                 else
                 {
-                    attribute_list += ", VALUE";
+                    if (!CURRENT_CONFIGURATION->ifort_compatibility
+                            || entry.is_optional())
+                    {
+                        attribute_list += ", VALUE";
+                    }
+                    has_value_attribute = true;
                 }
             }
             if (entry.is_optional())
@@ -3926,6 +3938,14 @@ OPERATOR_TABLE
                 indent();
                 *(file) << "BIND(C, NAME=\"" << entry.get_name() << "\") :: /" << common_name << "/ \n";
             }
+
+           if (has_value_attribute
+                   && CURRENT_CONFIGURATION->ifort_compatibility
+                   && !entry.is_optional())
+           {
+               *(file)
+                   << "!DEC$ ATTRIBUTES VALUE :: " << entry.get_name() << "\n";
+           }
 
             if (entry.is_in_common())
             {

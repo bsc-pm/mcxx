@@ -302,6 +302,8 @@
 "  --xl-compat              Enables compatibility features with\n" \
 "                           IBM XL C/C++/Fortran. This flag may be\n" \
 "                           required when using such compiler.\n" \
+"  --ifort-compat           Enables some compatibility features\n" \
+"                           required by Intel Fortran\n" \
 "  --line-markers           Adds line markers to the generated file\n" \
 "  --parallel               EXPERIMENTAL: behave in a way that \n" \
 "                           allows parallel compilation of the same\n" \
@@ -401,6 +403,7 @@ typedef enum
     OPTION_FORTRAN_REAL_KIND,
     OPTION_HELP_DEBUG_FLAGS,
     OPTION_HELP_TARGET_OPTIONS,
+    OPTION_IFORT_COMPATIBILITY,
     OPTION_INSTANTIATE_TEMPLATES,
     OPTION_LINE_MARKERS,
     OPTION_LINKER_NAME,
@@ -515,6 +518,7 @@ struct command_line_long_options command_line_long_options[] =
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
+    {"ifort-compat", CLP_NO_ARGUMENT, OPTION_IFORT_COMPATIBILITY },
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
     {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
@@ -1640,6 +1644,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_XL_COMPATIBILITY:
                     {
                         CURRENT_CONFIGURATION->xl_compatibility = 1;
+                        break;
+                    }
+                case OPTION_IFORT_COMPATIBILITY:
+                    {
+                        CURRENT_CONFIGURATION->ifort_compatibility = 1;
                         break;
                     }
                 case OPTION_LINE_MARKERS:

@@ -552,6 +552,9 @@ typedef struct compilation_configuration_tag
     // Enable IBM XL compatibility
     char xl_compatibility;
 
+    // Enable IFORT compatibility
+    char ifort_compatibility;
+
     // Emit line markers in the output files
     char line_markers;
 } compilation_configuration_t;

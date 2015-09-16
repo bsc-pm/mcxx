@@ -21,7 +21,7 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builti
 
 [ismpfc: omp-base]
 language = Fortran
-options = --do-not-wrap-modules --fortran-array-descriptor=ifort --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+options = --ifort-compat --do-not-wrap-modules --fortran-array-descriptor=ifort --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
 options = -I @PKGDATADIR@/fortran/openmp
 {!ompss} options = --variable=copy_deps_by_default:0
 {ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0
