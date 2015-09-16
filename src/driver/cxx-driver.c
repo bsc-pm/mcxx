@@ -4955,7 +4955,7 @@ static void link_objects(void)
 
     // Additional files are those coming from secondary profiles
     link_files(additional_files, num_additional_files,
-            /* linked_output_filename */ NULL,
+            compilation_process.linked_output_filename,
             CURRENT_CONFIGURATION);
 
     DELETE(file_list);
