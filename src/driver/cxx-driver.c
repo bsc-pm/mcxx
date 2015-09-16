@@ -1158,8 +1158,6 @@ int parse_arguments(int argc, const char* argv[],
                                 return 1;
                             }
                             output_file = uniquestr(parameter_info.argument);
-                            add_to_linker_command(uniquestr("-o"),NULL);
-                            add_to_linker_command(uniquestr(parameter_info.argument),NULL);
                         }
                         break;
                     }
@@ -1793,7 +1791,7 @@ int parse_arguments(int argc, const char* argv[],
     {
         if (!CURRENT_CONFIGURATION->do_not_link)
         {
-            CURRENT_CONFIGURATION->linked_output_filename = output_file;
+            compilation_process.linked_output_filename = output_file;
         }
     }
 
@@ -4515,7 +4513,7 @@ static void link_files(const char** file_list, int num_files,
     {
         linker_args[i] = uniquestr("-o");
         i++;
-        linker_args[i] = compilation_configuration->linked_output_filename;
+        linker_args[i] = linked_output_filename;
         i++;
     }
 
@@ -4620,7 +4618,7 @@ static void do_combining(target_options_map_t* target_map,
                     // We will stick to CSS convention of calling the symbol 'spe_prog'
                     /* FIXME: no flags at the moment */
                     "spe_prog", 
-                    configuration->linked_output_filename,
+                    compilation_process.linked_output_filename,
                     output_filename,
                     NULL,
                 };
@@ -4630,8 +4628,8 @@ static void do_combining(target_options_map_t* target_map,
                     running_error("Error when embedding SPU executable");
                 }
 
-                remove(configuration->linked_output_filename);
-                configuration->linked_output_filename = output_filename;
+                remove(compilation_process.linked_output_filename);
+                compilation_process.linked_output_filename = output_filename;
                 break;
             }
         case COMBINING_MODE_INCBIN:
@@ -4658,7 +4656,7 @@ static void do_combining(target_options_map_t* target_map,
                         configuration->configuration_name,
                         configuration->configuration_name,
                         configuration->configuration_name,
-                        configuration->linked_output_filename,
+                        compilation_process.linked_output_filename,
                         configuration->configuration_name
                         );
 
@@ -4679,8 +4677,8 @@ static void do_combining(target_options_map_t* target_map,
                     running_error("Error when complining embedding assembler");
                 }
 
-                remove(configuration->linked_output_filename);
-                configuration->linked_output_filename = output_filename;
+                remove(compilation_process.linked_output_filename);
+                compilation_process.linked_output_filename = output_filename;
                 break;
             }
         default:
@@ -4761,17 +4759,17 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 #else
             const char* linked_output_suffix = "a.exe";
 #endif
-            if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+            if (compilation_process.linked_output_filename != NULL)
             {
-                linked_output_suffix = give_basename(CURRENT_CONFIGURATION->linked_output_filename);
+                linked_output_suffix = give_basename(compilation_process.linked_output_filename);
             }
 
-            configuration->linked_output_filename =
+            const char* current_sublinked_output =
                 strappend(configuration->configuration_name, linked_output_suffix);
 
             // Here the file list contains all the elements of this secondary profile.
-            link_files(multifile_file_list, multifile_num_files, 
-                    configuration->linked_output_filename,
+            link_files(multifile_file_list, multifile_num_files,
+                    current_sublinked_output,
                     configuration);
 
             do_combining(target_map, configuration);
@@ -4779,10 +4777,15 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             // Now add the linked output as an additional link file
             if (target_map->do_combining)
             {
-                P_LIST_ADD((*additional_files), 
-                        (*num_additional_files), 
-                        configuration->linked_output_filename);
+                P_LIST_ADD((*additional_files),
+                        (*num_additional_files),
+                        current_sublinked_output);
             }
+
+            // Keep this subgoal
+            P_LIST_ADD(compilation_process.linked_subgoal_filename,
+                    compilation_process.num_subgoals,
+                    current_sublinked_output);
         }
     }
 }

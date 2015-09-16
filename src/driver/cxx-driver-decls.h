@@ -235,6 +235,13 @@ typedef struct compilation_process_tag
     struct compilation_file_process_tag** translation_units;
     int num_translation_units;
 
+    // Meaningful only if we are going to link
+    const char *linked_output_filename;
+
+    // Used for sublinking
+    int num_subgoals;
+    const char **linked_subgoal_filename;
+
     // For further use. They can be modified as we need
     int argc;
     const char** argv;
@@ -372,9 +379,6 @@ typedef struct compilation_configuration_tag
 
     // Source language information
     source_language_t source_language;
-
-    // Output filename
-    const char* linked_output_filename;
 
     // Toolchain information
     const char* preprocessor_name;
