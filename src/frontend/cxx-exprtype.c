@@ -16109,24 +16109,30 @@ static void check_nodecl_member_access(
             return;
         }
 
-        if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
+        type_t* return_type =
+            function_type_get_return_type(selected_operator_arrow->type_information);
+
+        if (!is_pointer_to_class_type(no_ref(return_type)))
         {
+            error_printf("%s: error: '%s' returns '%s' that is not a pointer to a class type (or reference thereof)\n",
+                    nodecl_locus_to_str(nodecl_accessed),
+                    get_qualified_symbol_name(selected_operator_arrow, decl_context),
+                    print_type_str(
+                        return_type,
+                        decl_context));
+
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_accessed);
             nodecl_free(nodecl_member);
             return;
         }
 
-        // Now we update the nodecl_accessed with the resulting type, this is used later when solving
-        // overload in calls made using this syntax.
-        type_t* t = function_type_get_return_type(selected_operator_arrow->type_information);
-
         // The accessed type is the pointed type
-        accessed_type = lvalue_ref(pointer_type_get_pointee_type(no_ref(t)));
+        accessed_type = lvalue_ref(pointer_type_get_pointee_type(no_ref(return_type)));
 
         // a -> b becomes (*(a.operator->())).b
         // here we are building *(a.operator->())
-        nodecl_accessed_out = 
+        nodecl_accessed_out =
             nodecl_make_dereference(
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator_arrow, nodecl_get_locus(nodecl_accessed)),
@@ -16134,10 +16140,11 @@ static void check_nodecl_member_access(
                         nodecl_make_list_1(nodecl_accessed),
                         // Ideally this should be binary infix but this call does not fit in any cathegory
                         /* function form */ nodecl_null(), 
-                        t,
+                        return_type,
                         decl_context,
                         nodecl_get_locus(nodecl_accessed)),
-                    pointer_type_get_pointee_type(t), nodecl_get_locus(nodecl_accessed));
+                    accessed_type,
+                    nodecl_get_locus(nodecl_accessed));
     }
 
     if (IS_CXX_LANGUAGE
