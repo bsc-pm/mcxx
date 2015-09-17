@@ -220,6 +220,12 @@ typedef struct parameter_flags_tag
     parameter_flag_value_t value;
 } parameter_flags_t;
 
+typedef struct subgoal_tag
+{
+    const char* linked_subgoal_filename;
+    struct compilation_configuration_tag* configuration;
+} subgoal_t;
+
 typedef struct compilation_process_tag
 {
     // Result of the execution
@@ -240,7 +246,7 @@ typedef struct compilation_process_tag
 
     // Used for sublinking
     int num_subgoals;
-    const char **linked_subgoal_filename;
+    subgoal_t *subgoals;
 
     // For further use. They can be modified as we need
     int argc;
@@ -578,6 +584,7 @@ typedef struct compilation_file_process_tag
 {
     translation_unit_t *translation_unit;
     compilation_configuration_t *compilation_configuration;
+    int tag; // zero by default
 
     char already_compiled;
 

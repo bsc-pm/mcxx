@@ -101,8 +101,13 @@ namespace TL
              * \param file_path The file path of the added file
              */
             static CompiledFile add_file(
-                    const std::string& file_path
+                    const std::string& file_path,
+                    int tag
                     );
+            static CompiledFile add_file(const std::string& file_path)
+            {
+                return CompilationProcess::add_file(file_path, 0);
+            }
             //! Add a file to the compiler pipeline
             /*!
              * \param file_path The file path of the added file
@@ -110,8 +115,15 @@ namespace TL
              */
             static CompiledFile add_file(
                     const std::string& file_path,
-                    bool &new_file
+                    bool &new_file,
+                    int tag
                     );
+            static CompiledFile add_file(
+                    const std::string& file_path,
+                    bool &new_file)
+            {
+                return CompilationProcess::add_file(file_path, new_file, 0);
+            }
             //! Add a file to the compiler pipeline with a given configuration
             /*!
              * \param file_path The file path of the added file
@@ -119,8 +131,17 @@ namespace TL
              */
             static CompiledFile add_file(
                     const std::string& file_path,
-                    const std::string& configuration_name
+                    const std::string& configuration_name,
+                    int tag
                     );
+            static CompiledFile add_file(
+                    const std::string& file_path,
+                    const std::string& configuration_name)
+            {
+                return CompilationProcess::add_file(file_path,
+                        configuration_name,
+                        0);
+            }
             //! Add a file to the compiler pipeline with a given configuration
             /*!
              * \param file_path The file path of the added file
@@ -130,8 +151,20 @@ namespace TL
             static CompiledFile add_file(
                     const std::string& file_path, 
                     const std::string& configuration_name, 
-                    bool &new_file
+                    bool &new_file,
+                    int tag
                     );
+            static CompiledFile add_file(
+                    const std::string& file_path, 
+                    const std::string& configuration_name, 
+                    bool &new_file)
+            {
+                return CompilationProcess::add_file(file_path,
+                        configuration_name,
+                        new_file,
+                        0);
+            }
+
             //! Gets the current compiled file
             static CompiledFile get_current_file();
     };

@@ -990,7 +990,8 @@ int parse_arguments(int argc, const char* argv[],
                     // create a new translation unit
                     translation_unit_t * ptr_tr = add_new_file_to_compilation_process(
                         /* add to the global file process */ NULL, parameter_info.argument,
-                        output_file, current_configuration);
+                        output_file, current_configuration,
+                        /* tag */ 0);
 
                     P_LIST_ADD(list_translation_units, num_translation_units,ptr_tr);
                     P_LIST_ADD(list_compilation_configs, num_compilation_configs, current_configuration);
@@ -4784,9 +4785,15 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             }
 
             // Keep this subgoal
-            P_LIST_ADD(compilation_process.linked_subgoal_filename,
+            subgoal_t new_subgoal;
+            memset(&new_subgoal, 0, sizeof(new_subgoal));
+
+            new_subgoal.linked_subgoal_filename = current_sublinked_output;
+            new_subgoal.configuration = configuration;
+
+            P_LIST_ADD(compilation_process.subgoals,
                     compilation_process.num_subgoals,
-                    current_sublinked_output);
+                    new_subgoal);
         }
     }
 }

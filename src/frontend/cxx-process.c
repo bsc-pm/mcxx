@@ -48,8 +48,10 @@ static void *backtrace_buffer[BACKTRACE_SIZE];
 
 translation_unit_t* add_new_file_to_compilation_process(
         compilation_file_process_t* current_file_process,
-        const char* file_path, const char* output_file, 
-        compilation_configuration_t* configuration)
+        const char* file_path,
+        const char* output_file,
+        compilation_configuration_t* configuration,
+        int tag)
 {
     translation_unit_t* translation_unit = NEW0(translation_unit_t);
     // Initialize with the translation unit root tree
@@ -64,6 +66,7 @@ translation_unit_t* add_new_file_to_compilation_process(
 
     new_compiled_file->translation_unit = translation_unit;
     new_compiled_file->compilation_configuration = configuration;
+    new_compiled_file->tag = tag;
 
     if ((configuration->do_not_link
             || configuration->do_not_compile)
