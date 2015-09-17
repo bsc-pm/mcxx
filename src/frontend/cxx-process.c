@@ -53,6 +53,8 @@ translation_unit_t* add_new_file_to_compilation_process(
         compilation_configuration_t* configuration,
         int tag)
 {
+    ERROR_CONDITION(tag < 0, "Invalid tag", 0);
+
     translation_unit_t* translation_unit = NEW0(translation_unit_t);
     // Initialize with the translation unit root tree
     translation_unit->input_filename = uniquestr(file_path);

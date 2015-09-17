@@ -4711,18 +4711,18 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
     if (no_multifile_info)
         return;
 
-    const char** multifile_profiles = NULL;
+    multifile_extracted_profile_t* multifile_profiles = NULL;
     int num_multifile_profiles = 0;
     multifile_get_extracted_profiles(&multifile_profiles, &num_multifile_profiles);
 
     for (i = 0; i < num_multifile_profiles; i++)
     {
-        compilation_configuration_t* configuration = get_compilation_configuration(multifile_profiles[i]);
+        compilation_configuration_t* configuration = get_compilation_configuration(multifile_profiles[i].name);
 
         if (configuration == NULL)
         {
             running_error("Multifile needs a profile '%s' not defined in the configuration\n",
-                    multifile_profiles[i]);
+                    multifile_profiles[i].name);
         }
 
         target_options_map_t* target_map = get_target_options(configuration, target_configuration->configuration_name);
@@ -4730,7 +4730,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
         if (target_map == NULL)
         {
             running_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
-                    configuration->configuration_name, 
+                    configuration->configuration_name,
                     target_configuration->configuration_name);
         }
 
@@ -4738,7 +4738,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
         int multifile_num_files = 0;
 
         multifile_get_profile_file_list(
-                multifile_profiles[i],
+                &multifile_profiles[i],
                 &multifile_file_list, 
                 &multifile_num_files);
 
