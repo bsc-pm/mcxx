@@ -71,7 +71,10 @@ location_t current_location = { NULL, NULL, 1, 1};
 
 [\n] { BEGIN(INITIAL); }
 
-[^\n]* { /* Ignore comment */ }
+[^\n]* {
+    current_location.line++;
+    /* Ignore comment */
+}
 
 }
 
@@ -237,6 +240,13 @@ static void handle_token(const char * text)
     configfilelloc.first_column = current_location.column;
     configfilelloc.last_column = configfilelloc.first_column + strlen(text);
     current_location.column = configfilelloc.last_column;
+
+#if 0
+    fprintf(stderr, "TOKEN: |%s| at %s:%d\n",
+            configfilelval.str,
+            configfilelloc.filename,
+            configfilelloc.first_line);
+#endif
 }
 
 extern int configfiledebug;

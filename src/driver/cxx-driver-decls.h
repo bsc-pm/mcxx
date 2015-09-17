@@ -288,6 +288,11 @@ typedef struct compilation_configuration_line
     const char *value;
 
     flag_expr_t* flag_expr;
+
+    // location
+    const char *filename;
+    int line;
+
 } compilation_configuration_line_t;
 
 #if 0

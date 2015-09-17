@@ -2856,8 +2856,9 @@ static void commit_configuration(void)
 
             if (config_directive == NULL)
             {
-                fprintf(stderr, "%s: configuration directive '%s' skipped since it is unknown\n", 
-                        compilation_process.exec_basename,
+                fprintf(stderr, "%s:%d: warning: skipping unknown configuration directive '%s'\n",
+                        configuration_line->filename,
+                        configuration_line->line,
                         configuration_line->name);
                 continue;
             }
