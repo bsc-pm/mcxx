@@ -4761,13 +4761,26 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 #else
             const char* linked_output_suffix = "a.exe";
 #endif
+
             if (compilation_process.linked_output_filename != NULL)
             {
                 linked_output_suffix = give_basename(compilation_process.linked_output_filename);
             }
 
-            const char* current_sublinked_output =
-                strappend(configuration->configuration_name, linked_output_suffix);
+            const char* current_sublinked_output = NULL;
+            int tag = multifile_profiles[i].tag;
+            if (tag == 0)
+            {
+                uniquestr_sprintf(&current_sublinked_output,
+                        "%s%s",
+                        configuration->configuration_name, linked_output_suffix);
+            }
+            else
+            {
+                uniquestr_sprintf(&current_sublinked_output,
+                        "%s%s-%d",
+                        configuration->configuration_name, linked_output_suffix, tag);
+            }
 
             // Here the file list contains all the elements of this secondary profile.
             link_files(multifile_file_list, multifile_num_files,
