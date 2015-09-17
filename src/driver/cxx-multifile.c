@@ -355,14 +355,15 @@ void multifile_get_extracted_profiles(
                         p++;
 
                         new_extracted_profile.name = uniquestr(p);
+                        new_extracted_profile.tag = tag;
                     }
                     else
                     {
                         new_extracted_profile.name = uniquestr(dir_entry->d_name);
-                        P_LIST_ADD(*multifile_extracted_profile,
-                                *num_multifile_profiles,
-                                new_extracted_profile);
                     }
+                    P_LIST_ADD(*multifile_extracted_profile,
+                            *num_multifile_profiles,
+                            new_extracted_profile);
                 }
             }
 
@@ -391,7 +392,7 @@ void multifile_get_profile_file_list(
     else
     {
         snprintf(profile_dir, 1023,
-                "%s%stag.%d%s",
+                "%s%stag.%d.%s",
                 get_multifile_dir(),
                 DIR_SEPARATOR,
                 multifile_extracted_profile->tag,
