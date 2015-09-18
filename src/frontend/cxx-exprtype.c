@@ -2616,7 +2616,8 @@ static char any_operand_is_class_or_enum_or_pointer_or_array_or_function_or_poin
 
 static char is_promoteable_integral_type(type_t* t)
 {
-    return (is_signed_char_type(t)
+    return (is_char_type(t)
+            || is_signed_char_type(t)
             || is_unsigned_char_type(t)
             || is_signed_short_int_type(t)
             || is_unsigned_short_int_type(t)

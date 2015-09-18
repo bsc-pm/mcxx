@@ -3898,7 +3898,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
             );
 
     std::string prefix;
-    if (is_signed_char_type(base_type) || is_unsigned_char_type(base_type))
+    if (is_char_type(base_type)
+            || is_signed_char_type(base_type)
+            || is_unsigned_char_type(base_type))
     {
         // No prefix
     }

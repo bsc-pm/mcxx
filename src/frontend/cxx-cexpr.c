@@ -1774,7 +1774,11 @@ const_value_t* const_value_cast_to_floating_type_value(const_value_t* val, type_
 
 const_value_t* integer_type_get_minimum(type_t* t)
 {
-    if (is_wchar_t_type(t))
+    if (is_char_type(t))
+    {
+        t = (CURRENT_CONFIGURATION->type_environment->char_type)();
+    }
+    else if (is_wchar_t_type(t))
     {
         t = (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)();
     }
@@ -1806,7 +1810,11 @@ const_value_t* integer_type_get_minimum(type_t* t)
 
 const_value_t* integer_type_get_maximum(type_t* t)
 {
-    if (is_wchar_t_type(t))
+    if (is_char_type(t))
+    {
+        t = (CURRENT_CONFIGURATION->type_environment->char_type)();
+    }
+    else if (is_wchar_t_type(t))
     {
         t = (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)();
     }
