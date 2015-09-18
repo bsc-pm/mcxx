@@ -17734,6 +17734,12 @@ char is_narrowing_conversion_type(type_t* orig_type,
         type_t* dest_type,
         const_value_t* orig_value)
 {
+    // Make sure we are aware of the signedness of 'char' here
+    if (is_char_type(orig_type))
+        orig_type = (CURRENT_CONFIGURATION->type_environment->char_type)();
+    if (is_char_type(dest_type))
+        dest_type = (CURRENT_CONFIGURATION->type_environment->char_type)();
+
     if (is_floating_type(orig_type)
             && is_integer_type(dest_type))
     {
