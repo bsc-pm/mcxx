@@ -474,6 +474,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
+
+        void fortran_dependence_extra_check(
+                const TL::DataReference& dep_expr,
+                // out
+                bool &is_fortran_allocatable_dependence,
+                bool &is_fortran_pointer_dependence);
 };
 
 } }

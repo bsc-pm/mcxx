@@ -2777,6 +2777,54 @@ void LoweringVisitor::fill_dependences(
             result_src);
 }
 
+void LoweringVisitor::fortran_dependence_extra_check(
+        const TL::DataReference& dep_expr,
+        // out
+        bool &is_fortran_allocatable_dependence,
+        bool &is_fortran_pointer_dependence)
+{
+    is_fortran_allocatable_dependence = false;
+    is_fortran_pointer_dependence = false;
+
+    if (!IS_FORTRAN_LANGUAGE)
+        return;
+
+    TL::Symbol relevant_symbol;
+    for (Nodecl::NodeclBase n = dep_expr;;)
+    {
+        if (n.is<Nodecl::Symbol>())
+        {
+            relevant_symbol = n.get_symbol();
+            break;
+        }
+        else if (n.is<Nodecl::ClassMemberAccess>())
+        {
+            n = n.as<Nodecl::ClassMemberAccess>().get_member();
+        }
+        else if (n.is<Nodecl::ArraySubscript>())
+        {
+            n = n.as<Nodecl::ArraySubscript>().get_subscripted();
+        }
+        else if (n.is<Nodecl::Dereference>())
+        {
+            n = n.as<Nodecl::Dereference>().get_rhs();
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if (relevant_symbol.is_valid())
+    {
+        is_fortran_allocatable_dependence = relevant_symbol.is_allocatable();
+        is_fortran_pointer_dependence = relevant_symbol.get_type().no_ref().is_pointer();
+
+        ERROR_CONDITION(is_fortran_allocatable_dependence
+                && is_fortran_pointer_dependence, "Not possible", 0);
+    }
+}
+
 void LoweringVisitor::handle_dependency_item(
         Nodecl::NodeclBase ctr,
         TL::DataReference dep_expr,
@@ -2865,6 +2913,50 @@ void LoweringVisitor::handle_dependency_item(
     dependency_offset << as_expression(dep_expr_offset);
 
     ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, dims_sizes;
+
+    bool is_fortran_allocatable_dependence = false;
+    bool is_fortran_pointer_dependence = false;
+
+    fortran_dependence_extra_check(
+            dep_expr,
+            // out
+            is_fortran_allocatable_dependence,
+            is_fortran_pointer_dependence);
+
+    if (is_fortran_allocatable_dependence)
+    {
+        Nodecl::NodeclBase n = dep_expr;
+        if (n.is<Nodecl::ArraySubscript>())
+            n = n.as<Nodecl::ArraySubscript>().get_subscripted();
+        n = n.shallow_copy();
+
+        Source check_for_allocated_src;
+        check_for_allocated_src
+            << "ALLOCATED(" << as_expression(n) << ")";
+
+        Nodecl::NodeclBase check_for_allocated =
+            check_for_allocated_src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+
+        result_src << "if (" << as_expression(check_for_allocated) << ") {"
+            ;
+    }
+    else if (is_fortran_pointer_dependence)
+    {
+        Nodecl::NodeclBase n = dep_expr;
+        if (n.is<Nodecl::ArraySubscript>())
+            n = n.as<Nodecl::ArraySubscript>().get_subscripted();
+        n = n.shallow_copy();
+
+        Source check_for_allocated_src;
+        check_for_allocated_src
+            << "ASSOCIATED(" << as_expression(n) << ")";
+
+        Nodecl::NodeclBase check_for_associated =
+            check_for_allocated_src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
+
+        result_src << "if (" << as_expression(check_for_associated) << ") {"
+            ;
+    }
 
     if (num_dimensions_of_dep == 0)
     {
@@ -2997,11 +3089,24 @@ void LoweringVisitor::handle_dependency_item(
             << as_expression(base_address) << ";"
             << "dependences[" << current_dep_num << "].dimensions = &(" << dimension_array << "[0]);"
             ;
+
+        if (is_fortran_allocatable_dependence
+                || is_fortran_pointer_dependence)
+        {
+            result_src
+                << "} else {"
+                <<    "dependences[" << current_dep_num << "].address = 0;"
+                <<    "dependences[" << current_dep_num << "].offset = 0;"
+                << "}"
+                ;
+        }
     }
     else
     {
         internal_error("Code unreachable", 0);
     }
+
+
 }
 
 void LoweringVisitor::fill_dependences_internal(
