@@ -65,20 +65,20 @@ namespace {
         return result;
     }
 
-    Nodecl::List extract_reaching_definitions_map_from_clause( const PragmaCustomClause& c, ReferenceScope sc )
+    Nodecl::List extract_reaching_definitions_map_from_clause(const PragmaCustomClause& c, ReferenceScope sc)
     {
         Nodecl::List result;
 
-        ObjectList<std::string> args = c.get_tokenized_arguments( ExpressionTokenizerTrim( ';' ) );
-        for( ObjectList<std::string>::iterator it = args.begin( ); it != args.end( ); ++it )
+        ObjectList<std::string> args = c.get_tokenized_arguments(ExpressionTokenizerTrim(';'));
+        for(ObjectList<std::string>::iterator it = args.begin(); it != args.end(); ++it)
         {   // Each token will have the form: "var : value-list"
             // Split the token using the ':'
             std::string token = *it;
-            std::string::iterator end_pos = std::remove( token.begin( ), token.end( ), ' ' );
-            token.erase( end_pos, token.end( ) );
-            int colon_pos = token.find( ':' );
-            std::string reach_def = token.substr( 0, colon_pos );
-            std::string value = token.substr( colon_pos+1, token.size( )-colon_pos );
+            std::string::iterator end_pos = std::remove(token.begin(), token.end(), ' ');
+            token.erase(end_pos, token.end());
+            int colon_pos = token.find(':');
+            std::string reach_def = token.substr(0, colon_pos);
+            std::string value = token.substr(colon_pos+1, token.size()-colon_pos);
 
             // Parse the variable which is a reaching definition
             NBase reach_def_nodecl = get_nodecl_from_string(reach_def, sc);
@@ -87,73 +87,73 @@ namespace {
             // Create the ReachDefExpr corresponding to a pair of <reach_def, value>
             std::string current_value;
             int pos = 0;
-            while( value.find( ',', pos ) != std::string::npos )
+            while(value.find(',', pos) != std::string::npos)
             {
-                current_value = value.substr( pos, value.find( ',', pos ) - pos );
+                current_value = value.substr(pos, value.find(',', pos) - pos);
                 NBase value_nodecl = get_nodecl_from_string(current_value, sc);
-                result.append( Nodecl::Analysis::ReachDefExpr::make( reach_def_nodecl.shallow_copy( ), value_nodecl ) );
+                result.append(Nodecl::Analysis::ReachDefExpr::make(reach_def_nodecl.shallow_copy(), value_nodecl));
 
-                pos = value.find( ',', pos ) + 1;
+                pos = value.find(',', pos) + 1;
             }
-            current_value = value.substr( pos, value.size( ) - pos );
+            current_value = value.substr(pos, value.size() - pos);
             NBase value_nodecl = get_nodecl_from_string(current_value, sc);
-            result.append( Nodecl::Analysis::ReachDefExpr::make( reach_def_nodecl.shallow_copy( ), value_nodecl ) );
+            result.append(Nodecl::Analysis::ReachDefExpr::make(reach_def_nodecl.shallow_copy(), value_nodecl));
         }
 
         return result;
     }
 
-    Nodecl::List extract_induction_variable_info_from_clause( const PragmaCustomClause& c, ReferenceScope sc )
+    Nodecl::List extract_induction_variable_info_from_clause(const PragmaCustomClause& c, ReferenceScope sc)
     {   // Each token will have the form: "iv : lb : ub : stride "
         Nodecl::List result;
 
-        ObjectList<std::string> args = c.get_tokenized_arguments( ExpressionTokenizerTrim( ';' ) );
-        for( ObjectList<std::string>::iterator it = args.begin( ); it != args.end( ); ++it )
+        ObjectList<std::string> args = c.get_tokenized_arguments(ExpressionTokenizerTrim(';'));
+        for(ObjectList<std::string>::iterator it = args.begin(); it != args.end(); ++it)
         {
             // Split the token using the ':'
             std::string token = *it;
-            std::string::iterator end_pos = std::remove( token.begin( ), token.end( ), ' ' );
-            token.erase( end_pos, token.end( ) );
+            std::string::iterator end_pos = std::remove(token.begin(), token.end(), ' ');
+            token.erase(end_pos, token.end());
 
-            int colon_pos = token.find( ':' );
-            std::string iv = token.substr( 0, colon_pos );
+            int colon_pos = token.find(':');
+            std::string iv = token.substr(0, colon_pos);
             colon_pos++;
-            std::string lb = token.substr( colon_pos, token.find( ':', colon_pos )-colon_pos );
-            colon_pos = token.find( ':', colon_pos ) + 1;
-            std::string ub = token.substr( colon_pos, token.find( ':', colon_pos )-colon_pos );
-            colon_pos = token.find( ':', colon_pos ) + 1;
-            std::string stride = token.substr( colon_pos, token.find( ':', colon_pos )-colon_pos );
+            std::string lb = token.substr(colon_pos, token.find(':', colon_pos)-colon_pos);
+            colon_pos = token.find(':', colon_pos) + 1;
+            std::string ub = token.substr(colon_pos, token.find(':', colon_pos)-colon_pos);
+            colon_pos = token.find(':', colon_pos) + 1;
+            std::string stride = token.substr(colon_pos, token.find(':', colon_pos)-colon_pos);
 
             NBase iv_nodecl = get_nodecl_from_string(iv, sc);
             Nodecl::List lb_nodecl = get_nodecl_list_from_string(lb, sc);
             Nodecl::List ub_nodecl = get_nodecl_list_from_string(ub, sc);
             NBase stride_nodecl = get_nodecl_from_string(stride, sc);
 
-            result.append( Nodecl::Analysis::InductionVarExpr::make( iv_nodecl, lb_nodecl, ub_nodecl, stride_nodecl ) );
+            result.append(Nodecl::Analysis::InductionVarExpr::make(iv_nodecl, lb_nodecl, ub_nodecl, stride_nodecl));
         }
 
         return result;
     }
 
-    void check_task_synchronizations( Node* current )
+    void check_task_synchronizations(Node* current)
     {
-        if( !current->is_visited( ) )
+        if (!current->is_visited())
         {
-            current->set_visited( true );
+            current->set_visited(true);
 
-            if( current->is_omp_task_creation_node( ) )
+            if (current->is_omp_task_creation_node())
             {   // This nodes have two children, the task they create and the child that is sequentially executed
-                ObjectList<Node*> children = current->get_children( );
-                ERROR_CONDITION( children.size( ) != 2,
+                ObjectList<Node*> children = current->get_children();
+                ERROR_CONDITION(children.size() != 2,
                                  "A task creation node must have 2 children, the created task and "\
                                  "the node that is sequentially executed. "\
-                                 "Task creation node %d has %d children", current->get_id( ), children.size( ) );
+                                 "Task creation node %d has %d children", current->get_id(), children.size());
             }
-            else if( current->is_omp_task_node( ) || current->is_ompss_async_target_node() )
+            else if (current->is_omp_task_node() || current->is_ompss_async_target_node())
             {
-                ObjectList<Node*> children = current->get_children( );
-                ERROR_CONDITION( children.empty( ),
-                                 "Task|Target %d is never synchronized", current->get_id( ) );
+                ObjectList<Node*> children = current->get_children();
+                ERROR_CONDITION(children.empty(),
+                                 "Task|Target %d is never synchronized", current->get_id());
             }
         }
     }
@@ -198,7 +198,7 @@ namespace {
 
     void compare_assert_map_with_analysis_map(NodeclMap assert_map, NodeclMap analysis_map,
                                                std::string locus_str, int node_id,
-                                               std::string clause_name, std::string analysis_name )
+                                               std::string clause_name, std::string analysis_name)
     {
         if (!assert_map.empty())
         {
@@ -230,7 +230,7 @@ namespace {
                                             && it_s->second.first.prettyprint()=="UNKNOWN"))
                                 found = true;
                         }
-                        if(!found)
+                        if (!found)
                         {   // Check whether the assert value for this expression is "UNDEFINED"
                             ERROR_CONDITION(value.get_symbol().get_name() != "UNDEFINED", 
                                             "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
@@ -250,7 +250,7 @@ namespace {
         Nodecl::List res;
         for(Nodecl::List::const_iterator it = assert_list.begin(); it != assert_list.end(); ++it)
         {
-            if(!Nodecl::Utils::nodecl_is_in_nodecl_list(*it, analysis_list))
+            if (!Nodecl::Utils::nodecl_is_in_nodecl_list(*it, analysis_list))
                 res.append(*it);
         }
         return res;
@@ -281,7 +281,7 @@ namespace {
         }
         else
         {
-            Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
+            Nodecl::List diff = nodecl_list_difference(assert_list, analysis_list);
             if (!diff.empty())
             {
                 internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
@@ -305,12 +305,12 @@ namespace {
             // Treat current node
             std::string locus_str = "";
             if (current->is_graph_node())
-                locus_str = current->get_graph_related_ast( ).get_locus_str( );
+                locus_str = current->get_graph_related_ast().get_locus_str();
             else
             {
                 ObjectList<NBase> stmts = current->get_statements();
-                if( !stmts.empty( ) )
-                    locus_str = stmts[0].get_locus_str( );
+                if (!stmts.empty())
+                    locus_str = stmts[0].get_locus_str();
             }
 
             // Check UseDef analysis
@@ -377,9 +377,9 @@ namespace {
                 const NodeclSet& live_out = current->get_live_out_vars();
 
                 if (current->has_live_in_assertion())
-                    compare_assert_set_with_analysis_set(assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In");
+                    compare_assert_set_with_analysis_set(assert_live_in, live_in, locus_str, current->get_id(), "live_in", "Live In");
                 if (current->has_live_out_assertion())
-                    compare_assert_set_with_analysis_set(assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out");
+                    compare_assert_set_with_analysis_set(assert_live_out, live_out, locus_str, current->get_id(), "live_out", "Live Out");
                 // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
                 if (current->has_dead_assertion())
                 {
@@ -423,10 +423,10 @@ namespace {
                 const NodeclMap& reach_defs_out = current->get_reaching_definitions_out();
 
                 if (current->has_reach_defs_in_assertion())
-                    compare_assert_map_with_analysis_map(assert_reach_defs_in, reach_defs_in, locus_str, current->get_id( ),
+                    compare_assert_map_with_analysis_map(assert_reach_defs_in, reach_defs_in, locus_str, current->get_id(),
                                                          "reaching_definition_in", "Input Reaching Definitions");
                 if (current->has_reach_defs_out_assertion())
-                    compare_assert_map_with_analysis_map(assert_reach_defs_out, reach_defs_out, locus_str, current->get_id( ),
+                    compare_assert_map_with_analysis_map(assert_reach_defs_out, reach_defs_out, locus_str, current->get_id(),
                                                          "reaching_definition_out", "Output Reaching Definitions");
             }
 
@@ -512,7 +512,7 @@ namespace {
                                                 Utils::prettyprint_iv_boundary_list(iv->get_ub()).c_str());
                                 NodeclSet::const_iterator it_ub_a = ub_a.begin();
                                 NodeclSet::const_iterator it_ub = ub.begin();
-                                for ( ; it_ub_a != ub_a.end(); ++it_ub_a, ++it_ub)
+                                for (; it_ub_a != ub_a.end(); ++it_ub_a, ++it_ub)
                                 {
 
                                     ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_ub_a, *it_ub, /*skip_conversions*/true),
@@ -673,211 +673,212 @@ namespace {
         }
     }
 
-    void check_pragma_clauses( PragmaCustomLine pragma_line, const locus_t* loc, Nodecl::List& environment )
+    void check_pragma_clauses(PragmaCustomLine pragma_line, const locus_t* loc, Nodecl::List& environment)
     {
         // Use-Def analysis clauses
         // #pragma analysis_check assert upper_exposed(expr-list)
-        if( pragma_line.get_clause( "upper_exposed" ).is_defined( ) )
+        if (pragma_line.get_clause("upper_exposed").is_defined())
         {
-            PragmaCustomClause upper_exposed_clause = pragma_line.get_clause( "upper_exposed" );
+            PragmaCustomClause upper_exposed_clause = pragma_line.get_clause("upper_exposed");
 
             environment.append(
                 Nodecl::Analysis::UpperExposed::make(
-                    Nodecl::List::make( upper_exposed_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(upper_exposed_clause.get_arguments_as_expressions()), loc));
         }
-        if( pragma_line.get_clause( "defined" ).is_defined( ) )
+        if (pragma_line.get_clause("defined").is_defined())
         {
-            PragmaCustomClause defined_clause = pragma_line.get_clause( "defined" );
+            PragmaCustomClause defined_clause = pragma_line.get_clause("defined");
 
             environment.append(
                 Nodecl::Analysis::Defined::make(
-                    Nodecl::List::make( defined_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(defined_clause.get_arguments_as_expressions()), loc));
         }
-        if( pragma_line.get_clause( "undefined" ).is_defined( ) )
+        if (pragma_line.get_clause("undefined").is_defined())
         {
-            PragmaCustomClause undefined_clause = pragma_line.get_clause( "undefined" );
+            PragmaCustomClause undefined_clause = pragma_line.get_clause("undefined");
 
             environment.append(
                 Nodecl::Analysis::Undefined::make(
-                    Nodecl::List::make( undefined_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(undefined_clause.get_arguments_as_expressions()), loc));
         }
 
         // Liveness analysis clauses
         // #pragma analysis_check assert live_in(expr-list)
-        if( pragma_line.get_clause( "live_in" ).is_defined( ) )
+        if (pragma_line.get_clause("live_in").is_defined())
         {
-            PragmaCustomClause live_in_clause = pragma_line.get_clause( "live_in" );
+            PragmaCustomClause live_in_clause = pragma_line.get_clause("live_in");
 
             environment.append(
                 Nodecl::Analysis::LiveIn::make(
-                    Nodecl::List::make( live_in_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(live_in_clause.get_arguments_as_expressions()), loc));
         }
-        if( pragma_line.get_clause( "live_out" ).is_defined( ) )
+        if (pragma_line.get_clause("live_out").is_defined())
         {
-            PragmaCustomClause live_out_clause = pragma_line.get_clause( "live_out" );
+            PragmaCustomClause live_out_clause = pragma_line.get_clause("live_out");
 
             environment.append(
                 Nodecl::Analysis::LiveOut::make(
-                    Nodecl::List::make( live_out_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(live_out_clause.get_arguments_as_expressions()), loc));
         }
-        if( pragma_line.get_clause( "dead" ).is_defined( ) )
+        if (pragma_line.get_clause("dead").is_defined())
         {
-            PragmaCustomClause dead_clause = pragma_line.get_clause( "dead" );
+            PragmaCustomClause dead_clause = pragma_line.get_clause("dead");
 
             environment.append(
                 Nodecl::Analysis::Dead::make(
-                    Nodecl::List::make( dead_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(dead_clause.get_arguments_as_expressions()), loc));
         }
 
         // Reaching definition analysis clauses
         // #pragma analysis_check assert reaching_definition_in(<expr:expr-list>-list)
-        if( pragma_line.get_clause( "reaching_definition_in" ).is_defined( ) )
+        if (pragma_line.get_clause("reaching_definition_in").is_defined())
         {
-            PragmaCustomClause reach_defs_in_clause = pragma_line.get_clause( "reaching_definition_in" );
+            PragmaCustomClause reach_defs_in_clause = pragma_line.get_clause("reaching_definition_in");
             Nodecl::List reach_defs_in =
-                extract_reaching_definitions_map_from_clause( reach_defs_in_clause,
-                                                              pragma_line.retrieve_context( ) );
+                extract_reaching_definitions_map_from_clause(reach_defs_in_clause,
+                                                              pragma_line.retrieve_context());
 
-            environment.append( Nodecl::Analysis::ReachingDefinitionIn::make( reach_defs_in, loc ) );
+            environment.append(Nodecl::Analysis::ReachingDefinitionIn::make(reach_defs_in, loc));
         }
-        if( pragma_line.get_clause( "reaching_definition_out" ).is_defined( ) )
+        if (pragma_line.get_clause("reaching_definition_out").is_defined())
         {
-            PragmaCustomClause reach_defs_out_clause = pragma_line.get_clause( "reaching_definition_out" );
+            PragmaCustomClause reach_defs_out_clause = pragma_line.get_clause("reaching_definition_out");
 
             Nodecl::List reach_defs_out =
-                extract_reaching_definitions_map_from_clause( reach_defs_out_clause,
-                                                              pragma_line.retrieve_context( ) );
+                extract_reaching_definitions_map_from_clause(reach_defs_out_clause,
+                                                              pragma_line.retrieve_context());
 
-            environment.append( Nodecl::Analysis::ReachingDefinitionOut::make( reach_defs_out, loc ) );
+            environment.append(Nodecl::Analysis::ReachingDefinitionOut::make(reach_defs_out, loc));
         }
 
         // Induction variables analysis clauses
-        if( pragma_line.get_clause( "induction_var" ).is_defined( ) )
+        if (pragma_line.get_clause("induction_var").is_defined())
         {
-            PragmaCustomClause induction_vars_clause = pragma_line.get_clause( "induction_var" );
+            PragmaCustomClause induction_vars_clause = pragma_line.get_clause("induction_var");
 
             Nodecl::List induction_vars =
-                extract_induction_variable_info_from_clause( induction_vars_clause,
-                                                             pragma_line.retrieve_context( ) );
+                extract_induction_variable_info_from_clause(induction_vars_clause,
+                                                             pragma_line.retrieve_context());
 
-            environment.append( Nodecl::Analysis::InductionVariable::make( induction_vars, loc ) );
+            environment.append(Nodecl::Analysis::InductionVariable::make(induction_vars, loc));
         }
 
         // Auto-scope analysis clauses
-        if( pragma_line.get_clause( "auto_sc_firstprivate" ).is_defined( ) )
+        if (pragma_line.get_clause("auto_sc_firstprivate").is_defined())
         {
-            PragmaCustomClause auto_sc_fp_vars_clause = pragma_line.get_clause( "auto_sc_firstprivate" );
+            PragmaCustomClause auto_sc_fp_vars_clause = pragma_line.get_clause("auto_sc_firstprivate");
 
             environment.append(
                 Nodecl::Analysis::AutoScope::Firstprivate::make(
-                    Nodecl::List::make( auto_sc_fp_vars_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(auto_sc_fp_vars_clause.get_arguments_as_expressions()), loc));
         }
-        if( pragma_line.get_clause( "auto_sc_private" ).is_defined( ) )
+        if (pragma_line.get_clause("auto_sc_private").is_defined())
         {
-            PragmaCustomClause auto_sc_p_vars_clause = pragma_line.get_clause( "auto_sc_private" );
+            PragmaCustomClause auto_sc_p_vars_clause = pragma_line.get_clause("auto_sc_private");
 
             environment.append(
                 Nodecl::Analysis::AutoScope::Private::make(
-                    Nodecl::List::make( auto_sc_p_vars_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(auto_sc_p_vars_clause.get_arguments_as_expressions()), loc));
         }
-        if( pragma_line.get_clause( "auto_sc_shared" ).is_defined( ) )
+        if (pragma_line.get_clause("auto_sc_shared").is_defined())
         {
-            PragmaCustomClause auto_sc_s_vars_clause = pragma_line.get_clause( "auto_sc_shared" );
+            PragmaCustomClause auto_sc_s_vars_clause = pragma_line.get_clause("auto_sc_shared");
 
             environment.append(
                 Nodecl::Analysis::AutoScope::Shared::make(
-                    Nodecl::List::make( auto_sc_s_vars_clause.get_arguments_as_expressions( ) ), loc ) );
+                    Nodecl::List::make(auto_sc_s_vars_clause.get_arguments_as_expressions()), loc));
         }
         
         // Correctness clauses
-        if(pragma_line.get_clause("correctness_auto_storage").is_defined())
+        if (pragma_line.get_clause("correctness_auto_storage").is_defined())
         {
             PragmaCustomClause correctness_auto_storage_clause = pragma_line.get_clause("correctness_auto_storage");
             environment.append(
                 Nodecl::Analysis::Correctness::AutoStorage::make(
-                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_dead").is_defined())
+        if (pragma_line.get_clause("correctness_dead").is_defined())
         {
             PragmaCustomClause correctness_dead_clause = pragma_line.get_clause("correctness_dead");
             environment.append(
                 Nodecl::Analysis::Correctness::Dead::make(
-                    Nodecl::List::make(correctness_dead_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_dead_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_auto_storage").is_defined())
+        if (pragma_line.get_clause("correctness_auto_storage").is_defined())
         {
             PragmaCustomClause correctness_auto_storage_clause = pragma_line.get_clause("correctness_auto_storage");
             environment.append(
                 Nodecl::Analysis::Correctness::AutoStorage::make(
-                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_incoherent_fp").is_defined())
+        if (pragma_line.get_clause("correctness_incoherent_fp").is_defined())
         {
             PragmaCustomClause correctness_incoherent_fp_clause = pragma_line.get_clause("correctness_incoherent_fp");
             environment.append(
                 Nodecl::Analysis::Correctness::IncoherentFp::make(
-                    Nodecl::List::make(correctness_incoherent_fp_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_incoherent_fp_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_incoherent_p").is_defined())
+        if (pragma_line.get_clause("correctness_incoherent_p").is_defined())
         {
             PragmaCustomClause correctness_incoherent_p_clause = pragma_line.get_clause("correctness_incoherent_p");
             environment.append(
                 Nodecl::Analysis::Correctness::IncoherentP::make(
-                    Nodecl::List::make(correctness_incoherent_p_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_incoherent_p_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_incoherent_in").is_defined())
+        if (pragma_line.get_clause("correctness_incoherent_in").is_defined())
         {
             PragmaCustomClause correctness_incoherent_in_clause = pragma_line.get_clause("correctness_incoherent_in");
             environment.append(
                 Nodecl::Analysis::Correctness::IncoherentIn::make(
-                    Nodecl::List::make(correctness_incoherent_in_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_incoherent_in_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_incoherent_in_pointed").is_defined())
+        if (pragma_line.get_clause("correctness_incoherent_in_pointed").is_defined())
         {
             PragmaCustomClause correctness_incoherent_in_pointed_clause = pragma_line.get_clause("correctness_incoherent_in_pointed");
             environment.append(
                 Nodecl::Analysis::Correctness::IncoherentInPointed::make(
-                    Nodecl::List::make(correctness_incoherent_in_pointed_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_incoherent_in_pointed_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_incoherent_out").is_defined())
+        if (pragma_line.get_clause("correctness_incoherent_out").is_defined())
         {
             PragmaCustomClause correctness_incoherent_out_clause = pragma_line.get_clause("correctness_incoherent_out");
             environment.append(
                 Nodecl::Analysis::Correctness::IncoherentOut::make(
-                    Nodecl::List::make(correctness_incoherent_out_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_incoherent_out_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_incoherent_out_pointed").is_defined())
+        if (pragma_line.get_clause("correctness_incoherent_out_pointed").is_defined())
         {
             PragmaCustomClause correctness_incoherent_out_pointed_clause = pragma_line.get_clause("correctness_incoherent_out_pointed");
             environment.append(
                 Nodecl::Analysis::Correctness::IncoherentOutPointed::make(
-                    Nodecl::List::make(correctness_incoherent_out_pointed_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_incoherent_out_pointed_clause.get_arguments_as_expressions()), loc));
         }
-        if(pragma_line.get_clause("correctness_race").is_defined())
+        if (pragma_line.get_clause("correctness_race").is_defined())
         {
             PragmaCustomClause correctness_race_clause = pragma_line.get_clause("correctness_race");
             environment.append(
                 Nodecl::Analysis::Correctness::Race::make(
-                    Nodecl::List::make(correctness_race_clause.get_arguments_as_expressions( ) ), loc ));
+                    Nodecl::List::make(correctness_race_clause.get_arguments_as_expressions()), loc));
         }
     }
 }
 
-    AnalysisCheckPhase::AnalysisCheckPhase( )
+
+    AnalysisCheckPhase::AnalysisCheckPhase()
         : PragmaCustomCompilerPhase("analysis_check"), _correctness_log_path("")
     {
-        set_phase_name( "Phase checking the correctness of different analysis" );
-        set_phase_description( "This phase checks first the robustness of a PCFG and then "\
-                                " the correctness of different analysis based on user defined pragmas." );
+        set_phase_name("Phase checking the correctness of different analysis");
+        set_phase_description("This phase checks first the robustness of a PCFG and then "\
+                                " the correctness of different analysis based on user defined pragmas.");
 
         // Register constructs
         register_construct("assert");
         register_construct("assert_decl");
 
-        dispatcher( ).statement.pre["assert"].connect( std::bind( &AnalysisCheckPhase::assert_handler_pre, this, std::placeholders::_1 ) );
-        dispatcher( ).statement.post["assert"].connect( std::bind( &AnalysisCheckPhase::assert_handler_post, this, std::placeholders::_1 ) );
-        dispatcher( ).declaration.pre["assert_decl"].connect( std::bind( &AnalysisCheckPhase::assert_decl_handler_pre, this, std::placeholders::_1 ) );
-        dispatcher( ).declaration.post["assert_decl"].connect( std::bind( &AnalysisCheckPhase::assert_decl_handler_post, this, std::placeholders::_1 ) );
+        dispatcher().statement.pre["assert"].connect(std::bind(&AnalysisCheckPhase::assert_handler_pre, this, std::placeholders::_1));
+        dispatcher().statement.post["assert"].connect(std::bind(&AnalysisCheckPhase::assert_handler_post, this, std::placeholders::_1));
+        dispatcher().declaration.pre["assert_decl"].connect(std::bind(&AnalysisCheckPhase::assert_decl_handler_pre, this, std::placeholders::_1));
+        dispatcher().declaration.post["assert_decl"].connect(std::bind(&AnalysisCheckPhase::assert_decl_handler_post, this, std::placeholders::_1));
         
         // Register parameters
         register_parameter("correctness_log_dir",
@@ -891,39 +892,39 @@ namespace {
                            "0").connect(std::bind(&AnalysisCheckPhase::set_ompss_mode, this, std::placeholders::_1));
     }
 
-    void AnalysisCheckPhase::assert_handler_pre( TL::PragmaCustomStatement directive )
+    void AnalysisCheckPhase::assert_handler_pre(TL::PragmaCustomStatement directive)
     {   // Nothing to be done
     }
 
-    void AnalysisCheckPhase::assert_handler_post( TL::PragmaCustomStatement directive )
+    void AnalysisCheckPhase::assert_handler_post(TL::PragmaCustomStatement directive)
     {
-        PragmaCustomLine pragma_line = directive.get_pragma_line( );
-        const locus_t* loc = directive.get_locus( );
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        const locus_t* loc = directive.get_locus();
         Nodecl::List environment;
-        check_pragma_clauses( pragma_line, loc, environment );
+        check_pragma_clauses(pragma_line, loc, environment);
         Nodecl::Analysis::Assert assert_nodecl = Nodecl::Analysis::Assert::make(
-                directive.get_statements( ), environment, directive.get_locus( ) );
+                directive.get_statements(), environment, directive.get_locus());
 
-        pragma_line.diagnostic_unused_clauses( );
-        directive.replace( assert_nodecl );
+        pragma_line.diagnostic_unused_clauses();
+        directive.replace(assert_nodecl);
     }
 
-    void AnalysisCheckPhase::assert_decl_handler_pre( TL::PragmaCustomDeclaration directive )
+    void AnalysisCheckPhase::assert_decl_handler_pre(TL::PragmaCustomDeclaration directive)
     {   // Nothing to be done
     }
 
-    void AnalysisCheckPhase::assert_decl_handler_post( TL::PragmaCustomDeclaration directive )
+    void AnalysisCheckPhase::assert_decl_handler_post(TL::PragmaCustomDeclaration directive)
     {
-        PragmaCustomLine pragma_line = directive.get_pragma_line( );
-        const locus_t* loc = directive.get_locus( );
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        const locus_t* loc = directive.get_locus();
 
         Nodecl::List environment;
-        check_pragma_clauses( pragma_line, loc, environment );
+        check_pragma_clauses(pragma_line, loc, environment);
         Nodecl::Analysis::AssertDecl assert_nodecl = Nodecl::Analysis::AssertDecl::make(
-                environment, directive.get_symbol( ), directive.get_locus( ) );
+                environment, directive.get_symbol(), directive.get_locus());
 
-        pragma_line.diagnostic_unused_clauses( );
-        directive.replace( assert_nodecl );
+        pragma_line.diagnostic_unused_clauses();
+        directive.replace(assert_nodecl);
     }
     
     void AnalysisCheckPhase::run(TL::DTO& dto)
@@ -966,34 +967,34 @@ namespace {
         v.walk(ast);
     }
 
-    void AnalysisCheckPhase::check_pcfg_consistency( ExtensibleGraph* graph )
+    void AnalysisCheckPhase::check_pcfg_consistency(ExtensibleGraph* graph)
     {
-        Node* graph_node = graph->get_graph( );
-        check_task_synchronizations( graph_node );
-        ExtensibleGraph::clear_visits( graph_node );
+        Node* graph_node = graph->get_graph();
+        check_task_synchronizations(graph_node);
+        ExtensibleGraph::clear_visits(graph_node);
     }
 
-    void AnalysisCheckPhase::check_analysis_assertions( ExtensibleGraph* graph )
+    void AnalysisCheckPhase::check_analysis_assertions(ExtensibleGraph* graph)
     {
-        Node* graph_node = graph->get_graph( );
-        check_assertions_rec( graph_node );
-        ExtensibleGraph::clear_visits( graph_node );
+        Node* graph_node = graph->get_graph();
+        check_assertions_rec(graph_node);
+        ExtensibleGraph::clear_visits(graph_node);
     }
 
     void AnalysisCheckPhase::set_ompss_mode(const std::string& ompss_mode_str)
     {
-        if(ompss_mode_str == "1")
+        if (ompss_mode_str == "1")
             _ompss_mode_enabled = true;
     }
     
-    void AnalysisCheckVisitor::visit( const Nodecl::Analysis::Assert& n )
+    void AnalysisCheckVisitor::visit(const Nodecl::Analysis::Assert& n)
     {
-        Nodecl::Utils::remove_from_enclosing_list( n );
+        Nodecl::Utils::remove_from_enclosing_list(n);
     }
 
-    void AnalysisCheckVisitor::visit( const Nodecl::Analysis::AssertDecl& n )
+    void AnalysisCheckVisitor::visit(const Nodecl::Analysis::AssertDecl& n)
     {
-        Nodecl::Utils::remove_from_enclosing_list( n );
+        Nodecl::Utils::remove_from_enclosing_list(n);
     }
 }
 }
