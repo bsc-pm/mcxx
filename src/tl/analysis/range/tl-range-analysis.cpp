@@ -45,7 +45,7 @@ namespace {
     // ************************************************************************************** //
     // *** Variables and methods to simulate SSA during the Constraint Graph construction *** //
     static unsigned int sym_id = 0;
-    std::string fake_sym = "__return_sym_";
+    std::string fake_sym = "__return_sym";
 
     Scope ssa_scope;
 
@@ -1045,10 +1045,7 @@ namespace {
     // We need this to avoid removing the constraint when purging unused constraints
     void ConstraintBuilder::visit(const Nodecl::ReturnStatement& n)
     {
-        std::stringstream sym_id_str;
-        sym_id_str << fake_sym;
-        sym_id_str << ++sym_id;
-        Symbol ssa_sym(ssa_scope.new_symbol(sym_id_str.str()));
+        Symbol ssa_sym(ssa_scope.new_symbol(fake_sym));
         Nodecl::Symbol lhs = ssa_sym.make_nodecl(/*set_ref_type*/false);
         NBase rhs = n.get_value();
         visit_assignment(lhs, rhs);
@@ -1102,6 +1099,13 @@ namespace {
     {
         CGEdge* e = source->add_child(target, is_back_edge, is_future_edge);
         target->add_entry(e);
+    }
+    
+    void ConstraintGraph::disconnect_nodes(
+            CGNode* source, CGEdge* exit)
+    {
+        source->remove_exit(exit);
+        exit->get_target()->remove_entry(source);
     }
 
     static CGNodeType get_op_type_from_value(const NBase& val)
@@ -2017,18 +2021,74 @@ namespace {
                 continue;
 
             // 3.- Check whether the node has any future entry
-            ObjectList<CGEdge*>& entries = n->get_entries();
-            for (ObjectList<CGEdge*>::iterator it = entries.begin(); it != entries.end(); ++it)
+            const ObjectList<CGEdge*>& entries = n->get_entries();
+            for (ObjectList<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); )
             {
                 if ((*it)->is_future_edge())
                 {
-                    // TODO Recalculate the valuation of the node
+                    // Recalculate the constraint
+                    // (since it is a range, it has no valuation,
+                    // for it is the constraint itself)
 
-                    // TODO Remove the edge from source and target, so we do not use it anymore
+                    // 3.1.- Get the symbol generating the future edge
+                    CGNode* source = (*it)->get_source();
+                    const NBase& s = source->get_constraint();
+                    const Nodecl::Range& s_val = source->get_valuation().as<Nodecl::Range>();
+                    const NBase& s_val_lb = s_val.get_lower();
+                    const NBase& s_val_ub = s_val.get_upper();
+
+                    // 3.2.- Get the current constraint
+                    const Nodecl::Range& c_val = n->get_constraint().as<Nodecl::Range>();
+                    const NBase& c_val_lb = c_val.get_lower();
+                    const NBase& c_val_ub = c_val.get_upper();
+                    NBase future_valuation;
+                    // Not just replace!!! since the boundary may be an operation
+                    if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(c_val_lb, s))
+                    {
+                        future_valuation = Nodecl::Range::make(
+                                s_val_lb,
+                                c_val_ub,
+                                const_value_to_nodecl(zero),
+                                Type::get_long_int_type());
+                    }
+                    else if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(c_val_ub, s))
+                    {
+                        future_valuation = Nodecl::Range::make(
+                                c_val_lb,
+                                s_val_ub,
+                                const_value_to_nodecl(zero),
+                                Type::get_long_int_type());
+                    }
+                    else
+                    {
+                        internal_error("Unreachable code\n", 0);
+                    }
+                    n->set_constraint(future_valuation);
+
+                    // Remove the edge from source and target, so we do not use it anymore
+                    disconnect_nodes(source, *it);
+                    // FIXME We should delete the edge
+
+                    if (RANGES_DEBUG)
+                    {
+                        std::cerr << "    FUTURES " << n->get_id()
+                                  << "  ::  " << c_val.prettyprint()
+                                  << " -> " << future_valuation.prettyprint() << std::endl;
+                    }
+                }
+                else
+                {
+                    ++it;
                 }
             }
 
-            // .- Prepare the following iterations
+            // 4.- Prepare the following iterations (do not follow backward edges)
+            const std::set<CGEdge*>& exits = n->get_exits();
+            for (std::set<CGEdge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+            {
+                if (!(*it)->is_back_edge())
+                    worklist.push((*it)->get_target());
+            }
         }
     }
 

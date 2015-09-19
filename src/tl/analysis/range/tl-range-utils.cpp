@@ -61,6 +61,11 @@ namespace Analysis {
         return _constraint; 
     }
 
+    void CGNode::set_constraint(const NBase& constraint)
+    {
+        _constraint = constraint;
+    }
+
     const NBase& CGNode::get_valuation() const
     { 
         return _valuation;
@@ -88,6 +93,25 @@ namespace Analysis {
     {
         if (!_entries.contains(e))
             _entries.insert(e);
+    }
+
+    void CGNode::remove_entry(CGNode* source)
+    {
+        ObjectList<CGEdge*>::iterator it;
+        for (it = _entries.begin(); it != _entries.end(); ++it)
+        {
+            if ((*it)->get_source() == source)
+            {
+                _entries.erase(it);
+                --it;   // Decrement to allow the correctness of the comparison outside the loop
+                break;
+            }
+        }
+        if (it == _entries.end())
+        {
+            internal_error("Trying to delete an non-existent edge between nodes '%d' and '%d'",
+                           source->get_id(), _id);
+        }
     }
 
     const std::set<CGEdge*>& CGNode::get_exits() const
@@ -122,6 +146,18 @@ namespace Analysis {
                     e = *it;
         }
         return e;
+    }
+
+    void CGNode::remove_exit(CGEdge* e)
+    {
+        int n_erased = _exits.erase(e);
+
+        if (n_erased == 0)
+        {
+            CGNode* target = e->get_target();
+            internal_error("Trying to delete an non-existent edge between nodes '%d' and '%d'",
+                           _id, target->get_id());
+        }
     }
 
     // **************** END Constraint Graph Nodes ***************** //

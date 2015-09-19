@@ -133,12 +133,14 @@ namespace Analysis {
         std::string get_type_as_string() const;
 
         const NBase& get_constraint() const;
+        void set_constraint(const NBase& constraint);
         const NBase& get_valuation() const;
         void set_valuation(const NBase& valuation);
 
         ObjectList<CGEdge*>& get_entries();
         ObjectList<CGNode*> get_parents();
         void add_entry(CGEdge* e);
+        void remove_entry(CGNode* source);
 
         const std::set<CGEdge*>& get_exits() const;
         std::set<CGNode*> get_children();
@@ -146,6 +148,7 @@ namespace Analysis {
                 CGNode* child,
                 bool is_back_edge = false,
                 bool is_future_edge = false);
+        void remove_exit(CGEdge* exit);
     };
 
     // **************** END CG Nodes ***************** //

@@ -168,6 +168,8 @@ namespace Analysis {
         void connect_nodes(
                 CGNode* source, CGNode* target,
                 bool is_back_edge = false, bool is_future_edge = false);
+        void disconnect_nodes(
+                CGNode* source, CGEdge* exit);
 
         void widen(SCC* scc);
         void futures(SCC* scc);
