@@ -2351,7 +2351,7 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
                     templated_context->template_parameters = sym->decl_context->template_parameters;
 
                     nodecl_t parent = nodecl_get_parent(list[i]);
-                    nodecl_t new_decl = nodecl_null();
+                    nodecl_t new_decl;
 
                     if (symbol_entity_specs_get_is_constexpr(sym)
                             && !nodecl_is_null(symbol_entity_specs_get_function_code(sym)))

@@ -302,6 +302,8 @@
 "  --xl-compat              Enables compatibility features with\n" \
 "                           IBM XL C/C++/Fortran. This flag may be\n" \
 "                           required when using such compiler.\n" \
+"  --ifort-compat           Enables some compatibility features\n" \
+"                           required by Intel Fortran\n" \
 "  --line-markers           Adds line markers to the generated file\n" \
 "  --parallel               EXPERIMENTAL: behave in a way that \n" \
 "                           allows parallel compilation of the same\n" \
@@ -401,6 +403,7 @@ typedef enum
     OPTION_FORTRAN_REAL_KIND,
     OPTION_HELP_DEBUG_FLAGS,
     OPTION_HELP_TARGET_OPTIONS,
+    OPTION_IFORT_COMPATIBILITY,
     OPTION_INSTANTIATE_TEMPLATES,
     OPTION_LINE_MARKERS,
     OPTION_LINKER_NAME,
@@ -515,6 +518,7 @@ struct command_line_long_options command_line_long_options[] =
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
+    {"ifort-compat", CLP_NO_ARGUMENT, OPTION_IFORT_COMPATIBILITY },
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
     {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
@@ -986,7 +990,8 @@ int parse_arguments(int argc, const char* argv[],
                     // create a new translation unit
                     translation_unit_t * ptr_tr = add_new_file_to_compilation_process(
                         /* add to the global file process */ NULL, parameter_info.argument,
-                        output_file, current_configuration);
+                        output_file, current_configuration,
+                        /* tag */ 0);
 
                     P_LIST_ADD(list_translation_units, num_translation_units,ptr_tr);
                     P_LIST_ADD(list_compilation_configs, num_compilation_configs, current_configuration);
@@ -1154,8 +1159,6 @@ int parse_arguments(int argc, const char* argv[],
                                 return 1;
                             }
                             output_file = uniquestr(parameter_info.argument);
-                            add_to_linker_command(uniquestr("-o"),NULL);
-                            add_to_linker_command(uniquestr(parameter_info.argument),NULL);
                         }
                         break;
                     }
@@ -1642,6 +1645,11 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->xl_compatibility = 1;
                         break;
                     }
+                case OPTION_IFORT_COMPATIBILITY:
+                    {
+                        CURRENT_CONFIGURATION->ifort_compatibility = 1;
+                        break;
+                    }
                 case OPTION_LINE_MARKERS:
                     {
                         CURRENT_CONFIGURATION->line_markers = 1;
@@ -1784,7 +1792,7 @@ int parse_arguments(int argc, const char* argv[],
     {
         if (!CURRENT_CONFIGURATION->do_not_link)
         {
-            CURRENT_CONFIGURATION->linked_output_filename = output_file;
+            compilation_process.linked_output_filename = output_file;
         }
     }
 
@@ -2849,8 +2857,9 @@ static void commit_configuration(void)
 
             if (config_directive == NULL)
             {
-                fprintf(stderr, "%s: configuration directive '%s' skipped since it is unknown\n", 
-                        compilation_process.exec_basename,
+                fprintf(stderr, "%s:%d: warning: skipping unknown configuration directive '%s'\n",
+                        configuration_line->filename,
+                        configuration_line->line,
                         configuration_line->name);
                 continue;
             }
@@ -3450,7 +3459,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
-    nodecl_t nodecl = nodecl_null();
+    nodecl_t nodecl;
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
@@ -4506,7 +4515,7 @@ static void link_files(const char** file_list, int num_files,
     {
         linker_args[i] = uniquestr("-o");
         i++;
-        linker_args[i] = compilation_configuration->linked_output_filename;
+        linker_args[i] = linked_output_filename;
         i++;
     }
 
@@ -4611,7 +4620,7 @@ static void do_combining(target_options_map_t* target_map,
                     // We will stick to CSS convention of calling the symbol 'spe_prog'
                     /* FIXME: no flags at the moment */
                     "spe_prog", 
-                    configuration->linked_output_filename,
+                    compilation_process.linked_output_filename,
                     output_filename,
                     NULL,
                 };
@@ -4621,8 +4630,8 @@ static void do_combining(target_options_map_t* target_map,
                     running_error("Error when embedding SPU executable");
                 }
 
-                remove(configuration->linked_output_filename);
-                configuration->linked_output_filename = output_filename;
+                remove(compilation_process.linked_output_filename);
+                compilation_process.linked_output_filename = output_filename;
                 break;
             }
         case COMBINING_MODE_INCBIN:
@@ -4649,7 +4658,7 @@ static void do_combining(target_options_map_t* target_map,
                         configuration->configuration_name,
                         configuration->configuration_name,
                         configuration->configuration_name,
-                        configuration->linked_output_filename,
+                        compilation_process.linked_output_filename,
                         configuration->configuration_name
                         );
 
@@ -4670,8 +4679,8 @@ static void do_combining(target_options_map_t* target_map,
                     running_error("Error when complining embedding assembler");
                 }
 
-                remove(configuration->linked_output_filename);
-                configuration->linked_output_filename = output_filename;
+                remove(compilation_process.linked_output_filename);
+                compilation_process.linked_output_filename = output_filename;
                 break;
             }
         default:
@@ -4702,18 +4711,18 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
     if (no_multifile_info)
         return;
 
-    const char** multifile_profiles = NULL;
+    multifile_extracted_profile_t* multifile_profiles = NULL;
     int num_multifile_profiles = 0;
     multifile_get_extracted_profiles(&multifile_profiles, &num_multifile_profiles);
 
     for (i = 0; i < num_multifile_profiles; i++)
     {
-        compilation_configuration_t* configuration = get_compilation_configuration(multifile_profiles[i]);
+        compilation_configuration_t* configuration = get_compilation_configuration(multifile_profiles[i].name);
 
         if (configuration == NULL)
         {
             running_error("Multifile needs a profile '%s' not defined in the configuration\n",
-                    multifile_profiles[i]);
+                    multifile_profiles[i].name);
         }
 
         target_options_map_t* target_map = get_target_options(configuration, target_configuration->configuration_name);
@@ -4721,7 +4730,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
         if (target_map == NULL)
         {
             running_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
-                    configuration->configuration_name, 
+                    configuration->configuration_name,
                     target_configuration->configuration_name);
         }
 
@@ -4729,7 +4738,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
         int multifile_num_files = 0;
 
         multifile_get_profile_file_list(
-                multifile_profiles[i],
+                &multifile_profiles[i],
                 &multifile_file_list, 
                 &multifile_num_files);
 
@@ -4752,17 +4761,30 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 #else
             const char* linked_output_suffix = "a.exe";
 #endif
-            if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+
+            if (compilation_process.linked_output_filename != NULL)
             {
-                linked_output_suffix = give_basename(CURRENT_CONFIGURATION->linked_output_filename);
+                linked_output_suffix = give_basename(compilation_process.linked_output_filename);
             }
 
-            configuration->linked_output_filename =
-                strappend(configuration->configuration_name, linked_output_suffix);
+            const char* current_sublinked_output = NULL;
+            int tag = multifile_profiles[i].tag;
+            if (tag == 0)
+            {
+                uniquestr_sprintf(&current_sublinked_output,
+                        "%s%s",
+                        configuration->configuration_name, linked_output_suffix);
+            }
+            else
+            {
+                uniquestr_sprintf(&current_sublinked_output,
+                        "%s%s-%d",
+                        configuration->configuration_name, linked_output_suffix, tag);
+            }
 
             // Here the file list contains all the elements of this secondary profile.
-            link_files(multifile_file_list, multifile_num_files, 
-                    configuration->linked_output_filename,
+            link_files(multifile_file_list, multifile_num_files,
+                    current_sublinked_output,
                     configuration);
 
             do_combining(target_map, configuration);
@@ -4770,10 +4792,21 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             // Now add the linked output as an additional link file
             if (target_map->do_combining)
             {
-                P_LIST_ADD((*additional_files), 
-                        (*num_additional_files), 
-                        configuration->linked_output_filename);
+                P_LIST_ADD((*additional_files),
+                        (*num_additional_files),
+                        current_sublinked_output);
             }
+
+            // Keep this subgoal
+            subgoal_t new_subgoal;
+            memset(&new_subgoal, 0, sizeof(new_subgoal));
+
+            new_subgoal.linked_subgoal_filename = current_sublinked_output;
+            new_subgoal.configuration = configuration;
+
+            P_LIST_ADD(compilation_process.subgoals,
+                    compilation_process.num_subgoals,
+                    new_subgoal);
         }
     }
 }
@@ -4943,7 +4976,7 @@ static void link_objects(void)
 
     // Additional files are those coming from secondary profiles
     link_files(additional_files, num_additional_files,
-            /* linked_output_filename */ NULL,
+            compilation_process.linked_output_filename,
             CURRENT_CONFIGURATION);
 
     DELETE(file_list);

@@ -874,6 +874,7 @@ extern inline type_t* get_signed_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
         _type->info->valid_size = 1;
@@ -891,6 +892,7 @@ extern inline type_t* get_signed_short_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->type->is_short = 1;
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_short;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_short;
@@ -909,6 +911,7 @@ extern inline type_t* get_signed_long_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->type->is_long = 1;
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_long;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_long;
@@ -927,6 +930,7 @@ extern inline type_t* get_signed_long_long_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->type->is_long = 2;
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_long_long;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_long_long;
@@ -1045,6 +1049,7 @@ extern inline type_t* get_signed_int128_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->info->size = 16;
         _type->type->is_long = 3;
         _type->info->alignment = 16;
@@ -5046,7 +5051,7 @@ static nodecl_t compute_whole_size_given_bounds(
             || nodecl_is_null(upper_bound))
         return nodecl_null();
 
-    nodecl_t whole_size = nodecl_null();
+    nodecl_t whole_size;
     if (nodecl_is_constant(lower_bound)
             && nodecl_is_constant(upper_bound))
     {
@@ -8728,9 +8733,7 @@ extern inline char is_signed_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
-            // The next one is silly but I wanted to express that
-            // is_signed flag is of little utility in 'int'
-            && (t->type->is_signed || !t->type->is_signed) 
+            && t->type->is_signed
             && !t->type->is_unsigned
             && !t->type->is_long
             && !t->type->is_short);
@@ -8758,6 +8761,7 @@ extern inline char is_signed_short_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && t->type->is_signed
             && !t->type->is_unsigned
             && !t->type->is_long
             && t->type->is_short);
@@ -8771,6 +8775,7 @@ extern inline char is_unsigned_short_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && !t->type->is_signed
             && t->type->is_unsigned
             && !t->type->is_long
             && t->type->is_short);
@@ -8784,6 +8789,7 @@ extern inline char is_signed_long_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && t->type->is_signed
             && !t->type->is_unsigned
             && (t->type->is_long == 1)
             && !t->type->is_short);
@@ -8797,6 +8803,7 @@ extern inline char is_unsigned_long_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && !t->type->is_signed
             && t->type->is_unsigned
             && (t->type->is_long == 1)
             && !t->type->is_short);
@@ -8810,6 +8817,7 @@ extern inline char is_signed_long_long_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && t->type->is_signed
             && !t->type->is_unsigned
             && (t->type->is_long == 2)
             && !t->type->is_short);
@@ -8823,6 +8831,7 @@ extern inline char is_unsigned_long_long_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && !t->type->is_signed
             && t->type->is_unsigned
             && (t->type->is_long == 2)
             && !t->type->is_short);
@@ -8836,6 +8845,7 @@ extern inline char is_signed_int128_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && t->type->is_signed
             && !t->type->is_unsigned
             && (t->type->is_long == 3)
             && !t->type->is_short);
@@ -8849,6 +8859,7 @@ extern inline char is_unsigned_int128_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && !t->type->is_signed
             && t->type->is_unsigned
             && (t->type->is_long == 3)
             && !t->type->is_short);
@@ -8860,7 +8871,7 @@ extern inline char is_signed_byte_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_BYTE
-            && t->type->is_signed 
+            && t->type->is_signed
             && !t->type->is_unsigned
             && !t->type->is_long
             && !t->type->is_short);
@@ -8872,21 +8883,30 @@ extern inline char is_unsigned_byte_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_BYTE
+            && !t->type->is_signed
             && t->type->is_unsigned
-            && !t->type->is_signed 
             && !t->type->is_long
             && !t->type->is_short);
 }
 
-extern inline char is_character_type(type_t* t)
-{
-    return is_signed_char_type(t) || is_unsigned_char_type(t);
-}
-
 extern inline char is_char_type(type_t* t)
 {
-    // FIXME: Make a flag to choose signed or unsigned chars
-    return is_signed_char_type(t);
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_CHAR
+            && !t->type->is_signed
+            && !t->type->is_unsigned);
+}
+
+extern inline char is_character_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_CHAR);
 }
 
 extern inline char is_char16_t_type(type_t* t)
@@ -8930,6 +8950,7 @@ extern inline char is_signed_char_type(type_t* t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_CHAR
+            && t->type->is_signed
             && !t->type->is_unsigned);
 }
 
@@ -8940,6 +8961,7 @@ extern inline char is_unsigned_char_type(type_t* t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_CHAR
+            && !t->type->is_signed
             && t->type->is_unsigned);
 }
 
@@ -10268,8 +10290,10 @@ static const char* get_simple_type_name_string_internal_impl(const decl_context_
                 {
                     result = strappend(result, "unsigned ");
                 }
-                else if (simple_type->is_signed)
+                else if (simple_type->is_signed
+                        && (simple_type->builtin_type != BT_INT))
                 {
+                    // We emit this only for char
                     result = strappend(result, "signed ");
                 }
 
@@ -12533,6 +12557,23 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
             return 1;
         }
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                && IS_CXX_LANGUAGE
+                && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig)
+                && intel_vector_struct_to_intel_vector_struct_reinterpret_type(unqualif_ref_orig, unqualif_ref_dest))
+        {
+            // For C++ we allow this extra reinterpretation
+            //    __mXXX{,d,i}&& <-> __mXXX{,d,i}&&
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            (*result) = get_identity_scs(t_orig, t_dest);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of "
+                        "a rvalue-reference between Intel-compatible vector types\n");
+            }
+            return 1;
+        }
     }
 
     // cv1 T1 -> const T2&
@@ -13138,9 +13179,10 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             orig = dest;
         }
         // Vector conversions
-        // scalar -->__attribute_((vector_size(X)))  
-        else if (is_vector_type(no_ref(dest)) 
-                && is_arithmetic_type(no_ref(orig)))
+        // scalar -->__attribute_((vector_size(X)))
+        // [C++] scalar --> rvalue reference of __attribute_((vector_size(X)))
+        else if (is_arithmetic_type(orig)
+                && is_vector_type(dest))
         {
             DEBUG_CODE()
             {
@@ -13150,25 +13192,47 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             dest = vector_type_get_element_type(no_ref(dest));
         }
         // Intel vector conversions
-        else if (CURRENT_CONFIGURATION->enable_intel_vector_types)
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                // vector type
+                //    -> struct __m128 / struct __m256 / struct __M512
+                && (vector_type_to_intel_vector_struct_reinterpret_type(orig, dest)
+                    // lvalue reference to vector type
+                    //    -> lvalue reference to struct __m128 / struct __m256 / struct __M512
+                    || (is_lvalue_reference_type(orig)
+                        && is_lvalue_reference_type(dest)
+                        && vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest)))))
         {
-            if (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
-                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig)))
-            {
-                // vector type -> struct __m128 / struct __m256 / struct __M512
-                // We do not account this as a conversion of any kind, we just let
-                // these types be transparently compatible
-                orig = dest;
-            }
-            else if (IS_CXX_LANGUAGE
-                    && intel_vector_struct_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest)))
-            {
-                // For C++ we allow this extra reinterpretation
-                //    __mXXX{,d,i} <-> __mXXX{,d,i}
-                // We do not account this as a conversion of any kind, we just let
-                // these types be transparently compatible
-                orig = dest;
-            }
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                // struct __m128 / struct __m256 / struct __M512
+                // -> vector type
+                && (vector_type_to_intel_vector_struct_reinterpret_type(dest, orig)
+                    // lvalue reference to struct __m128 / struct __m256 / struct __M512
+                    // -> lvalue reference to vector type
+                    || (is_lvalue_reference_type(orig)
+                        && is_lvalue_reference_type(dest)
+                        && vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig)))))
+        {
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                && IS_CXX_LANGUAGE
+                && (intel_vector_struct_to_intel_vector_struct_reinterpret_type(orig, dest)
+                    || (is_lvalue_reference_type(orig)
+                        && is_lvalue_reference_type(dest)
+                        && intel_vector_struct_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest)))))
+        {
+            // For C++ we allow this extra reinterpretation
+            //    __mXXX{,d,i} <-> __mXXX{,d,i}
+            //    __mXXX{,d,i}& <-> __mXXX{,d,i}&
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
         }
     }
 

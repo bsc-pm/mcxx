@@ -723,9 +723,11 @@ char is_more_specialized_template_function(
 
     specialization_comparison_t cmp_1[num_types];
     comparison_extra_t cmp_1_extra[num_types];
+    memset(cmp_1_extra, 0, sizeof(cmp_1_extra));
 
     specialization_comparison_t cmp_2[num_types];
     comparison_extra_t cmp_2_extra[num_types];
+    memset(cmp_2_extra, 0, sizeof(cmp_2_extra));
 
     int i;
     for (i = 0; i < num_types; i++)

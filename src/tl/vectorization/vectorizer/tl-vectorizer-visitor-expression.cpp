@@ -2467,6 +2467,13 @@ namespace Vectorization
                     n.replace(vector_induction_var);
             }
         }
+        else if (Vectorizer::_vectorizer_analysis->is_uniform(
+                    _environment._analysis_simd_scope, ind_var_increment,
+                    ind_var_increment))
+        {
+            running_error("Vectorizer: Linear step is not constant but uniform: %s. Not supported",
+                    ind_var_increment.prettyprint().c_str());
+        }
         else
         {
             running_error("Vectorizer: Linear step is not constant: %s.",

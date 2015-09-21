@@ -45,7 +45,9 @@ static void add_to_option_list(option_list_t* list, p_compilation_configuration_
 static p_compilation_configuration_line process_option_line(
         flag_expr_t* flag_expr,
         profile_option_name_t* name, 
-        const char* option_value);
+        const char* option_value,
+        const char* filename,
+        int line);
 
 struct flag_expr_tag
 {
@@ -225,7 +227,7 @@ option_line_seq : option_line_seq option_line
 // We need a lexical tie in since we allow free text after the '=' 
 option_line : flag_spec option_name '=' option_value EOL
 {
-    $$ = process_option_line($1, &$2, $4);
+    $$ = process_option_line($1, &$2, $4, @2.filename, @2.first_line);
 }
 // Degenerated cases. Do nothing with them
 | flag_spec EOL
@@ -453,19 +455,18 @@ static flag_expr_t* flag_or(flag_expr_t* op1, flag_expr_t* op2)
 
 static p_compilation_configuration_line process_option_line(
         flag_expr_t* flag_expr,
-        profile_option_name_t* name, 
-        const char* option_value)
+        profile_option_name_t* name,
+        const char* option_value,
+        const char* filename,
+        int line)
 {
     p_compilation_configuration_line result;
-
-    // fprintf(stderr, "--> PROCESSING OPTION LINE -> '%s' = '%s'\n", 
-    //         name->option_name, option_value);
 
     char* option_value_tmp = xstrdup(option_value);
     {
         // Trim the option value
         char *p = &option_value_tmp[strlen(option_value_tmp) - 1];
-        while (p >= option_value_tmp 
+        while (p >= option_value_tmp
                 && (*p == ' ' || *p == '\t'))
         {
             *p = '\0';
@@ -482,6 +483,12 @@ static p_compilation_configuration_line process_option_line(
     DELETE(option_value_tmp);
 
     result->flag_expr = flag_expr;
+    result->filename = filename;
+    result->line = line;
+
+#if 0
+    fprintf(stderr, "LINE: |%s| at %s:%d\n", result->name, result->filename, result->line);
+#endif
 
     register_implicit_names(flag_expr);
 

@@ -965,10 +965,8 @@ char compute_type_of_dependent_conversion_type_id(
         ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
     }
 
-    type_t* t = get_error_type();
-
     diagnostic_context_push_buffered();
-    t = compute_type_for_type_id_tree(type_id, decl_context,
+    type_t* t = compute_type_for_type_id_tree(type_id, decl_context,
             /* out_simple_type */ NULL, /* out_gather_info */ NULL);
     diagnostic_context_pop_and_discard();
 
@@ -1614,7 +1612,7 @@ type_t* build_dependent_typename_for_entry(
 
     template_parameter_list_t* template_arguments = NULL;
 
-    nodecl_t nodecl_current = nodecl_null(); 
+    nodecl_t nodecl_current;
 
     const char* template_tag = "";
     if (nodecl_get_kind(nodecl_last) == NODECL_CXX_DEP_TEMPLATE_ID)
@@ -1633,7 +1631,7 @@ type_t* build_dependent_typename_for_entry(
         nodecl_current = nodecl_make_cxx_dep_template_id(nodecl_current, template_tag, template_arguments, locus);
     }
 
-    nodecl_t dependent_parts = nodecl_null();
+    nodecl_t dependent_parts;
     if (nodecl_is_null(nodecl_prev))
     {
         dependent_parts = nodecl_make_list_1(nodecl_current);
@@ -5973,6 +5971,8 @@ scope_entry_t* lookup_of_template_parameter(const decl_context_t* context,
     }
 
     template_parameter_t** current_nesting = levels[j - template_parameter_nesting];
+    ERROR_CONDITION(current_nesting == NULL, "Invalid nesting", 0);
+
     template_parameter_value_t** current_values = value_levels[j - template_parameter_nesting];
     int current_num_items = num_items[j - template_parameter_nesting];
     
@@ -6944,16 +6944,13 @@ static scope_entry_list_t* query_nodecl_conversion_name(
             ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
         }
 
-        type_t* type_looked_up_in_class = get_error_type();
-        type_t* type_looked_up_in_enclosing = get_error_type();
-
         diagnostic_context_push_buffered();
-        type_looked_up_in_class = compute_type_for_type_id_tree(type_id, class_context,
+        type_t* type_looked_up_in_class = compute_type_for_type_id_tree(type_id, class_context,
                 /* out_simple_type */ NULL, /* out_gather_info */ NULL);
         diagnostic_context_pop_and_discard();
 
         diagnostic_context_push_buffered();
-        type_looked_up_in_enclosing = compute_type_for_type_id_tree(type_id, top_level_decl_context,
+        type_t* type_looked_up_in_enclosing = compute_type_for_type_id_tree(type_id, top_level_decl_context,
                 /* out_simple_type */ NULL, /* out_gather_info */ NULL
                 );
         diagnostic_context_pop_and_discard();

@@ -1024,8 +1024,13 @@ static void check_array_ref_(
 
     type_t* dimension_type = array_type;
     nodecl_t nodecl_indexes[num_subscripts];
+    memset(nodecl_indexes, 0, sizeof(nodecl_indexes));
+
     nodecl_t nodecl_lower_dim[num_subscripts];
+    memset(nodecl_lower_dim, 0, sizeof(nodecl_lower_dim));
+
     nodecl_t nodecl_upper_dim[num_subscripts];
+    memset(nodecl_upper_dim, 0, sizeof(nodecl_upper_dim));
     int i;
     for (i = 0; i < num_subscripts; i++)
     {
@@ -5621,7 +5626,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     if (!equivalent_types(get_unqualified_type(char1), get_unqualified_type(char2)))
         return NULL;
 
-    type_t* result = NULL;
+    type_t* result;
     if (!nodecl_is_null(length1)
             && !nodecl_is_null(length2))
     {
@@ -5629,7 +5634,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
                 fortran_get_default_logical_type(), 
                 const_value_get_signed_int(1), 
                 make_locus("", 0, 0));
-        nodecl_t upper = nodecl_null();
+        nodecl_t upper;
         if (nodecl_is_constant(length1) 
                 && nodecl_is_constant(length2))
         {
@@ -6080,8 +6085,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context
             // Restore the rank of the common type
             if (!is_error_type(result))
             {
-                nodecl_t nodecl_argument_list = nodecl_null();
-
+                nodecl_t nodecl_argument_list;
                 if (nodecl_is_null(nodecl_lhs))
                 {
                     nodecl_argument_list = nodecl_make_list_1(nodecl_arguments[0]);

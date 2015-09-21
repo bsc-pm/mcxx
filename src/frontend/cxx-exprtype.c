@@ -2616,7 +2616,8 @@ static char any_operand_is_class_or_enum_or_pointer_or_array_or_function_or_poin
 
 static char is_promoteable_integral_type(type_t* t)
 {
-    return (is_signed_char_type(t)
+    return (is_char_type(t)
+            || is_signed_char_type(t)
             || is_unsigned_char_type(t)
             || is_signed_short_int_type(t)
             || is_unsigned_short_int_type(t)
@@ -8395,7 +8396,6 @@ static void check_nodecl_array_subscript_expression_cxx(
             internal_error("Code unreachable", 0);
         }
         subscripted_type = nodecl_get_type(nodecl_subscripted);
-        subscript_type = nodecl_get_type(nodecl_subscript);
 
         if (check_expr_flags.must_be_constant
                 && nodecl_get_kind(nodecl_subscripted) == NODECL_SYMBOL
@@ -9616,8 +9616,6 @@ static void check_new_expression_impl(
         return;
     }
 
-    nodecl_t nodecl_allocation_function = nodecl_null();
-    nodecl_t nodecl_placement_list_out = nodecl_null();
 
     // At least the size_t parameter (+1 because we may need an implicit)
     int num_arguments = 2;
@@ -9757,6 +9755,7 @@ static void check_new_expression_impl(
         return;
     }
 
+    nodecl_t nodecl_placement_list_out = nodecl_null();
     // Store conversions
     if (!nodecl_is_null(nodecl_placement_list))
     {
@@ -9789,7 +9788,7 @@ static void check_new_expression_impl(
         DELETE(list);
     }
 
-    nodecl_allocation_function = nodecl_make_symbol(chosen_operator_new, locus);
+    nodecl_t nodecl_allocation_function = nodecl_make_symbol(chosen_operator_new, locus);
 
     nodecl_t nodecl_init_out = nodecl_null();
 
@@ -11537,11 +11536,11 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                             nodecl_get_locus(nodecl_arg));
                 if (entry != NULL)
                 {
-                    nodecl_t nodecl_argument = nodecl_null();
+                    nodecl_t nodecl_argument;
                     if (!symbol_entity_specs_get_is_member(entry)
                             || symbol_entity_specs_get_is_static(entry))
                     {
-                        argument_type = get_lvalue_reference_type(entry->type_information);
+                        // argument_type = get_lvalue_reference_type(entry->type_information);
                         nodecl_argument = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_arg));
                     }
                     else
@@ -15639,7 +15638,7 @@ static char is_pseudo_destructor_id(const decl_context_t* decl_context,
     if (num_items >= 2)
     {
         // Build the same list without the last name
-        nodecl_t nodecl_new_nested_name = nodecl_null();
+        nodecl_t nodecl_new_nested_name;
         if ((num_items - 1) > 1)
         {
             int i;
@@ -16111,24 +16110,30 @@ static void check_nodecl_member_access(
             return;
         }
 
-        if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
+        type_t* return_type =
+            function_type_get_return_type(selected_operator_arrow->type_information);
+
+        if (!is_pointer_to_class_type(no_ref(return_type)))
         {
+            error_printf("%s: error: '%s' returns '%s' that is not a pointer to a class type (or reference thereof)\n",
+                    nodecl_locus_to_str(nodecl_accessed),
+                    get_qualified_symbol_name(selected_operator_arrow, decl_context),
+                    print_type_str(
+                        return_type,
+                        decl_context));
+
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_accessed);
             nodecl_free(nodecl_member);
             return;
         }
 
-        // Now we update the nodecl_accessed with the resulting type, this is used later when solving
-        // overload in calls made using this syntax.
-        type_t* t = function_type_get_return_type(selected_operator_arrow->type_information);
-
         // The accessed type is the pointed type
-        accessed_type = lvalue_ref(pointer_type_get_pointee_type(no_ref(t)));
+        accessed_type = lvalue_ref(pointer_type_get_pointee_type(no_ref(return_type)));
 
         // a -> b becomes (*(a.operator->())).b
         // here we are building *(a.operator->())
-        nodecl_accessed_out = 
+        nodecl_accessed_out =
             nodecl_make_dereference(
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator_arrow, nodecl_get_locus(nodecl_accessed)),
@@ -16136,10 +16141,11 @@ static void check_nodecl_member_access(
                         nodecl_make_list_1(nodecl_accessed),
                         // Ideally this should be binary infix but this call does not fit in any cathegory
                         /* function form */ nodecl_null(), 
-                        t,
+                        return_type,
                         decl_context,
                         nodecl_get_locus(nodecl_accessed)),
-                    pointer_type_get_pointee_type(t), nodecl_get_locus(nodecl_accessed));
+                    accessed_type,
+                    nodecl_get_locus(nodecl_accessed));
     }
 
     if (IS_CXX_LANGUAGE
@@ -17519,7 +17525,7 @@ static char update_stack_to_designator(type_t* declared_type,
                         char done = 0;
                         while (!done)
                         {
-                            nodecl_t current_name = nodecl_null();
+                            nodecl_t current_name;
                             if (nodecl_get_kind(n) == NODECL_SYMBOL)
                             {
                                 current_name = n;
@@ -17669,7 +17675,7 @@ static void nodecl_make_designator_rec(nodecl_t *nodecl_output,
 
     nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus);
 
-    nodecl_t child_0 = nodecl_null();
+    nodecl_t child_0;
 
     if (nodecl_get_kind(designators[current_designator]) == NODECL_C99_FIELD_DESIGNATOR)
     {
@@ -17728,6 +17734,12 @@ char is_narrowing_conversion_type(type_t* orig_type,
         type_t* dest_type,
         const_value_t* orig_value)
 {
+    // Make sure we are aware of the signedness of 'char' here
+    if (is_char_type(orig_type))
+        orig_type = (CURRENT_CONFIGURATION->type_environment->char_type)();
+    if (is_char_type(dest_type))
+        dest_type = (CURRENT_CONFIGURATION->type_environment->char_type)();
+
     if (is_floating_type(orig_type)
             && is_integer_type(dest_type))
     {
@@ -20067,7 +20079,7 @@ static void compute_nodecl_designator_list(AST designator_list, const decl_conte
     AST it;
     for_each_element(designator_list, it)
     {
-        nodecl_t nodecl_designator = nodecl_null();
+        nodecl_t nodecl_designator;
         AST designator = ASTSon1(it);
         switch (ASTKind(designator))
         {
@@ -20574,12 +20586,6 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             entry_list_free(candidates);
 
             if (function_has_been_deleted(decl_context, chosen_conversor, locus))
-            {
-                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
-                return;
-            }
-
-            if (function_has_been_deleted(decl_context, chosen_conversor, nodecl_get_locus(nodecl_expr)))
             {
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
                 return;
@@ -24515,7 +24521,8 @@ static nodecl_t compute_member_initializer_for_array_member(
         t = array_type_get_element_type(t);
     }
 
-    int dim_sizes[num_dims];
+    int dim_sizes[num_dims + 1];
+    memset(dim_sizes, 0, sizeof(dim_sizes));
 
     int i = 0;
     t = array_type;
@@ -24926,7 +24933,7 @@ static nodecl_t compute_assignment_for_array_member(
         t = array_type_get_element_type(t);
     }
 
-    int dim_sizes[num_dims];
+    int dim_sizes[num_dims + 1];
 
     int i = 0;
     t = array_type;
@@ -25070,7 +25077,7 @@ static void call_assignment_operator_for_data_member_or_base_class(
                 }
                 else
                 {
-                    nodecl_t nodecl_assig = nodecl_null();
+                    nodecl_t nodecl_assig;
                     if (is_array_type(entry->type_information))
                     {
                         nodecl_assig = compute_assignment_for_array_member(
@@ -26924,7 +26931,6 @@ static void instantiate_dependent_typename(
             v->instantiation_symbol_map,
             nodecl_get_locus(node));
 
-    nodecl_t complete_nodecl_name = nodecl_null();
     scope_entry_t* dependent_entry = NULL;
     nodecl_t dependent_parts = nodecl_null();
 
@@ -26953,7 +26959,7 @@ static void instantiate_dependent_typename(
     }
 
     nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
-    complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
+    nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
             list_of_dependent_parts,
             v->decl_context,
             v->instantiation_symbol_map,
@@ -27788,7 +27794,7 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
 
 static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
-    nodecl_t nodecl_called = nodecl_null();
+    nodecl_t nodecl_called;
     nodecl_t orig_called = nodecl_get_child(node, 0);
 
     if (nodecl_get_kind(orig_called) == NODECL_CXX_DEP_NAME_SIMPLE

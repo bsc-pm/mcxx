@@ -703,8 +703,6 @@ void apply_gcc_attribute_to_type(AST a,
                 && (strcmp(attribute_name, "aligned") == 0
                     || strcmp(attribute_name, "__aligned__") == 0))
         {
-            attribute_name = "aligned";
-
             if (ASTSon0(expr_list) != NULL)
             {
                 error_printf("%s: error: attribute 'aligned' only allows one argument\n",

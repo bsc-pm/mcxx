@@ -783,18 +783,25 @@ namespace TL { namespace OpenMP {
             // Create an implicit target for this one
             _target_context.push(OmpSs::TargetContext());
             _target_context.top().is_implicit = true;
-
-            ompss_common_target_handler_pre(pragma_line,
-                    _target_context.top(),
-                    scope,
-                    /* is_pragma_task */ true);
         }
+
+        ompss_common_target_handler_pre(pragma_line,
+                _target_context.top(),
+                scope,
+                /* is_pragma_task */ true);
 
         // Target info applies after
         ompss_get_target_info(pragma_line, data_environment);
 
         get_data_implicit_attributes_task(construct, data_environment, default_data_attr, there_is_default_clause);
         get_data_extra_symbols(data_environment, extra_symbols);
+
+        // The target context has been fully consumed by this inline task,
+        // this prevents from it leaking to nested tasks (see ticket #2500)
+        //
+        // Recall that std::stack does not have a clear operation so we assign
+        // to it a new std::stack
+        _target_context = std::stack<TL::OmpSs::TargetContext>();
     }
 
     TL::OmpSs::RealTimeInfo Core::task_real_time_handler_pre(TL::PragmaCustomLine construct)

@@ -49,7 +49,7 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-bui
 
 [imfc : omp-base]
 language = Fortran
-options = --do-not-wrap-modules --fortran-array-descriptor=ifort --enable-intel-builtins --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+options = --ifort-compat --do-not-wrap-modules --fortran-array-descriptor=ifort --enable-intel-builtins --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
 options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = @IFORT@
 fortran_preprocessor_options = -P

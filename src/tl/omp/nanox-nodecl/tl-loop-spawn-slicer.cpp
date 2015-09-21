@@ -30,6 +30,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-nanos.hpp"
 #include "tl-predicateutils.hpp"
+#include "cxx-cexpr.h"
 
 namespace TL { namespace Nanox {
 
@@ -40,7 +41,8 @@ namespace TL { namespace Nanox {
             const std::string& outline_name,
             TL::Symbol structure_symbol,
             TL::Symbol slicer_descriptor,
-            Nodecl::NodeclBase task_label)
+            Nodecl::NodeclBase task_label,
+            Nodecl::NodeclBase final_clause)
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -125,9 +127,29 @@ namespace TL { namespace Nanox {
         if (!_lowering->final_clause_transformation_disabled()
                 && Nanos::Version::interface_is_at_least("master", 5024))
         {
-            dynamic_wd_info
-                << "nanos_dyn_props.flags.is_final = 0;"
-                ;
+           if (final_clause.is_null())
+              final_clause = const_value_to_nodecl(const_value_get_signed_int(0));
+
+           if (IS_FORTRAN_LANGUAGE
+                 && !final_clause.is_constant())
+           {
+              dynamic_wd_info
+                 << "if (" << as_expression(final_clause) << ")"
+                 << "{"
+                 <<      "nanos_dyn_props.flags.is_final = 1;"
+                 << "}"
+                 << "else"
+                 << "{"
+                 <<      "nanos_dyn_props.flags.is_final = 0;"
+                 << "}"
+                 ;
+           }
+           else
+           {
+              dynamic_wd_info
+                 << "nanos_dyn_props.flags.is_final = " << as_expression(final_clause) << ";"
+                 ;
+           }
         }
 
         // Only tasks created in a parallel construct are marked as implicit

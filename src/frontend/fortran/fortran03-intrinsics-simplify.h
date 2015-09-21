@@ -734,7 +734,7 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
         t = array_type_get_element_type(t);
     }
 
-    nodecl_t result = nodecl_null();
+    nodecl_t result;
     if (rank > 0)
     {
         result = nodecl_make_structured_value(
@@ -1596,12 +1596,13 @@ static nodecl_t simplify_maxminval(scope_entry_t* entry UNUSED_PARAMETER, int nu
         const_value_t* neuter
         )
 {
-    nodecl_t array = nodecl_null();
-    nodecl_t dim = nodecl_null();
-    nodecl_t mask = nodecl_null();
+    nodecl_t array;
+    nodecl_t dim;
+    nodecl_t mask;
     if (num_arguments == 2)
     {
         array = arguments[0];
+        dim = nodecl_null();
         mask = arguments[1];
     }
     else if (num_arguments == 3)
