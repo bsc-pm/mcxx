@@ -7516,7 +7516,7 @@ static void cxx_compute_name_from_entry_list(
 
         if (is_dependent_type(entry->type_information)
                 || is_decltype_auto_type(entry->type_information)
-                || type_contains_auto(entry->type_information))
+                || type_is_derived_from_auto(entry->type_information))
         {
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
@@ -11445,7 +11445,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                             && !is_pointer_to_function_type(type)
                             && !is_dependent_type(type)
                             && !is_decltype_auto_type(type)
-                            && !type_contains_auto(type)))
+                            && !type_is_derived_from_auto(type)))
                     && (entry->kind != SK_TEMPLATE
                         || !is_function_type(
                             named_type_get_symbol(template_type_get_primary_type(type))
@@ -11475,7 +11475,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                                 || is_pointer_to_function_type(type)
                                 || is_dependent_type(type)
                                 || is_decltype_auto_type(type)
-                                || type_contains_auto(type)))
+                                || type_is_derived_from_auto(type)))
                         // Or It's a local function
                         || (entry->kind == SK_FUNCTION
                             &&  entry->decl_context->current_scope->kind == BLOCK_SCOPE))
@@ -13490,13 +13490,13 @@ static void implement_nongeneric_lambda_expression(
     symbol_entity_specs_set_is_defined_inside_class_specifier(constructor, 1);
 
     // Now deduce the exact function type because we will need it soon
-    if (type_contains_auto(function_type_get_return_type(lambda_function_type))
+    if (type_is_derived_from_auto(function_type_get_return_type(lambda_function_type))
                 || is_decltype_auto_type(function_type_get_return_type(lambda_function_type)))
     {
         scope_entry_t* result_symbol =
             symbol_entity_specs_get_result_var(lambda_symbol);
         type_t* deduced_return_type = result_symbol->type_information;
-        if (type_contains_auto(deduced_return_type)
+        if (type_is_derived_from_auto(deduced_return_type)
                 || is_decltype_auto_type(deduced_return_type))
         {
             deduced_return_type = get_void_type();
@@ -14105,7 +14105,7 @@ static void implement_generic_lambda_expression(
     for (i = 0; i < num_parameters; i++)
     {
         type_t* param_type = function_type_get_parameter_type_num(lambda_function_type, i);
-        if (type_contains_auto(param_type))
+        if (type_is_derived_from_auto(param_type))
         {
             template_parameter_t* current_template_parameter
                 = NEW0(template_parameter_t);
@@ -14769,7 +14769,7 @@ static void implement_lambda_expression(
     {
         type_t* param_type = function_type_get_parameter_type_num(lambda_function_type, i);
 
-        if (type_contains_auto(param_type))
+        if (type_is_derived_from_auto(param_type))
         {
             is_generic_lambda = 1;
         }

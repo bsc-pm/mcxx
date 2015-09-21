@@ -16012,7 +16012,7 @@ extern inline char is_auto_type(type_t* t)
         && t->kind == TK_AUTO;
 }
 
-extern inline char type_contains_auto(type_t* t)
+extern inline char type_is_derived_from_auto(type_t* t)
 {
     if (is_auto_type(t))
     {
@@ -16020,25 +16020,25 @@ extern inline char type_contains_auto(type_t* t)
     }
     else if (is_pointer_type(t))
     {
-        return type_contains_auto(pointer_type_get_pointee_type(t));
+        return type_is_derived_from_auto(pointer_type_get_pointee_type(t));
     }
     else if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
     {
-        return type_contains_auto(reference_type_get_referenced_type(t));
+        return type_is_derived_from_auto(reference_type_get_referenced_type(t));
     }
     else if (is_array_type(t))
     {
-        return type_contains_auto(array_type_get_element_type(t));
+        return type_is_derived_from_auto(array_type_get_element_type(t));
     }
     else if (is_function_type(t))
     {
-        return type_contains_auto(function_type_get_return_type(t));
+        return type_is_derived_from_auto(function_type_get_return_type(t));
 
     }
     else if (is_vector_type(t))
     {
-        return type_contains_auto(vector_type_get_element_type(t));
+        return type_is_derived_from_auto(vector_type_get_element_type(t));
     }
     else
     {
