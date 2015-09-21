@@ -27197,6 +27197,16 @@ static void instantiate_cxx_lambda(nodecl_instantiate_expr_visitor_t* v, nodecl_
         symbol_entity_specs_set_related_symbols_num(instantiated_lambda_symbol, i, param);
     }
 
+    nodecl_t nodecl_orig_lambda_body =
+            symbol_entity_specs_get_function_code(instantiated_lambda_symbol);
+    nodecl_t nodecl_updated_lambda_body = instantiate_statement(
+            nodecl_orig_lambda_body,
+            nodecl_retrieve_context(nodecl_orig_lambda_body),
+            v->decl_context,
+            v->instantiation_symbol_map);
+    symbol_entity_specs_set_function_code(instantiated_lambda_symbol,
+            nodecl_updated_lambda_body);
+
     nodecl_t captures = nodecl_get_child(node, 0);
     nodecl_t instantiated_captures = nodecl_shallow_copy(captures);
 
@@ -27213,8 +27223,8 @@ static void instantiate_cxx_lambda(nodecl_instantiate_expr_visitor_t* v, nodecl_
     implement_lambda_expression(
             v->decl_context,
             instantiated_captures,
-            lambda_symbol,
-            lambda_symbol->type_information,
+            instantiated_lambda_symbol,
+            instantiated_lambda_symbol->type_information,
             nodecl_get_locus(node),
             &v->nodecl_result);
 
