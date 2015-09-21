@@ -3302,6 +3302,7 @@ LATEST_GXX_FLAGS += -mlwp
 LATEST_GXX_FLAGS += -mlzcnt
 LATEST_GXX_FLAGS += -mmmx
 LATEST_GXX_FLAGS += -mmpx
+LATEST_GXX_FLAGS += -mmwaitx
 LATEST_GXX_FLAGS += -mno-fma4
 LATEST_GXX_FLAGS += -mpclmul
 LATEST_GXX_FLAGS += -mpcommit
@@ -3326,8 +3327,11 @@ LATEST_GXX_FLAGS += -mxsavec
 LATEST_GXX_FLAGS += -mxsaveopt
 LATEST_GXX_FLAGS += -mxsaves
 
-scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp
-	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir) -o scripts/generate_builtins_ia32.bin $(srcdir)/scripts/builtins_ia32.cpp
+scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp Makefile
+	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir)\
+		-o scripts/generate_builtins_ia32.bin \
+		$(srcdir)/scripts/builtins_ia32.cpp \
+		-Wl,-rpath,$$(dirname $$($(LATEST_GXX) -print-file-name=libstdc++.so))
 
 # These files are only regenerated manually
 .PHONY: generate_builtins_ia32
