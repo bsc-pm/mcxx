@@ -938,7 +938,19 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase body = Nodecl::Utils::deep_copy(task_body, unpacked_inside_scope, symbol_map);
         unpacked_empty_stmt.prepend_sibling(body);
 
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(task_body, unpacked_function_code);
+        if (IS_CXX_LANGUAGE
+                && !related_function.is_member())
+        {
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    task_body,
+                    Nodecl::CxxDecl::make(
+                        Nodecl::Context::make(
+                            Nodecl::NodeclBase::null(),
+                            related_function.get_scope()),
+                        unpacked_function));
+        }
+
+        Nodecl::Utils::append_to_enclosing_top_level_location(task_body, unpacked_function_code);
 
         // Outline function
         std::string ol_name;
@@ -1289,7 +1301,18 @@ namespace TL { namespace Nanos6 {
             phase->get_extra_c_code().append(c_forwarded_function_code);
         }
 
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(task_body, outline_function_code);
+        if (IS_CXX_LANGUAGE
+                && !related_function.is_member())
+        {
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(task_body,
+                    Nodecl::CxxDecl::make(
+                        Nodecl::Context::make(
+                            Nodecl::NodeclBase::null(),
+                            related_function.get_scope()),
+                        outline_function));
+        }
+
+        Nodecl::Utils::append_to_enclosing_top_level_location(task_body, outline_function_code);
     }
 
     void TaskProperties::register_linear_dependence(
@@ -1492,7 +1515,18 @@ namespace TL { namespace Nanos6 {
             }
         }
 
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(task_body, dependences_function_code);
+        if (IS_CXX_LANGUAGE
+                && !related_function.is_member())
+        {
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(task_body,
+                    Nodecl::CxxDecl::make(
+                        Nodecl::Context::make(
+                            Nodecl::NodeclBase::null(),
+                            related_function.get_scope()),
+                        dependences_function));
+        }
+
+        Nodecl::Utils::append_to_enclosing_top_level_location(task_body, dependences_function_code);
     }
 
     Nodecl::NodeclBase TaskProperties::rewrite_expression_using_args(TL::Symbol arg, Nodecl::NodeclBase expr)
