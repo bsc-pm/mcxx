@@ -7373,8 +7373,9 @@ static void cxx_compute_name_from_entry_list(
                 && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER
                 && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
     {
-        error_printf("%s: error: name '%s' is not valid in this context\n",
+        error_printf("%s: error: %s '%s' is not valid in this context\n",
                 nodecl_locus_to_str(nodecl_name),
+                symbol_kind_descriptive_name(entry->kind),
                 codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;

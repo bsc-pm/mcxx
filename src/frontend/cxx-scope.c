@@ -6191,6 +6191,16 @@ static const char* symbol_kind_table_str[] =
 #undef SYMBOL_KIND
 };
 
+static const char* symbol_kind_descriptive_name_table_str[] =
+{
+    [SK_UNDEFINED] = "<<invalid symbol>>",
+#define SYMBOL_KIND(x, desc) \
+        [x] = desc,
+    SYMBOL_KIND_TABLE
+    SYMBOL_KIND_TABLE_FORTRAN
+#undef SYMBOL_KIND
+};
+
 const char* symbol_kind_name(scope_entry_t* entry)
 {
     if (entry == NULL)
@@ -6205,6 +6215,12 @@ const char* symbol_kind_to_str(enum cxx_symbol_kind symbol_kind)
 {
     ERROR_CONDITION (symbol_kind >= SK_LAST_KIND, "Invalid kind", 0);
     return symbol_kind_table_str[symbol_kind];
+}
+
+const char* symbol_kind_descriptive_name(enum cxx_symbol_kind symbol_kind)
+{
+    ERROR_CONDITION (symbol_kind >= SK_LAST_KIND, "Invalid kind", 0);
+    return symbol_kind_descriptive_name_table_str[symbol_kind];
 }
 
 enum cxx_symbol_kind symbol_str_to_kind(const char* str)

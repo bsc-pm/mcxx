@@ -227,6 +227,9 @@ LIBMCXX_EXTERN void scope_for_each_entity(scope_t* sc, void *data, void (fun)(sc
 // Internal use only
 LIBMCXX_EXTERN scope_t* _new_scope(void);
 
+// Return a descriptive name of the symbol kind, used during diagnostics
+const char* symbol_kind_descriptive_name(enum cxx_symbol_kind symbol_kind);
+
 // Debug functions
 LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);
 
