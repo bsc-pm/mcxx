@@ -3108,6 +3108,12 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             {
                 warn_printf("%s: warning: ignoring alignment-specifier\n",
                         ast_location(a));
+
+                // Clear child to avoid check_tree to fail
+                AST child = ast_get_child(a, 0);
+                ast_free(child);
+
+                ast_set_child(a, 0, NULL);
                 break;
             }
         case AST_AMBIGUITY:
