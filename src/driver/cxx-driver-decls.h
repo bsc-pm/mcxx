@@ -381,7 +381,8 @@ typedef struct compilation_configuration_tag
     char do_not_link;
     char generate_assembler;
     char enable_openmp;
-	char force_language;
+    char force_language;
+    char handoff_to_native;
 
     // -Werror
     char warnings_as_errors;
