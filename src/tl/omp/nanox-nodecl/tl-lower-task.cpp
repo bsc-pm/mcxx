@@ -3064,21 +3064,13 @@ void LoweringVisitor::handle_dependency_item(
     }
 
 
-    result_src
-        << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
-        << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
-        << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
-        << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
-        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
-        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimensions_of_dep << ";"
-        ;
 
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
         result_src
             << "dependences[" << current_dep_num << "].address = (void*)"
             << as_expression(base_address) << ";"
+	    << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
             << "dependences[" << current_dep_num << "].dimensions = " << dimension_array << ";"
             ;
     }
@@ -3087,6 +3079,7 @@ void LoweringVisitor::handle_dependency_item(
         result_src
             << "dependences[" << current_dep_num << "].address ="
             << as_expression(base_address) << ";"
+	    << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
             << "dependences[" << current_dep_num << "].dimensions = &(" << dimension_array << "[0]);"
             ;
 
@@ -3106,7 +3099,14 @@ void LoweringVisitor::handle_dependency_item(
         internal_error("Code unreachable", 0);
     }
 
-
+    result_src
+        << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
+        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
+        << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+        << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
+        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
+        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimensions_of_dep << ";"
+        ;
 }
 
 void LoweringVisitor::fill_dependences_internal(
