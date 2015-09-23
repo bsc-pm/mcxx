@@ -127,6 +127,12 @@ namespace TL { namespace OpenMP {
                 _enable_nonvoid_function_tasks,
                 "0").connect(std::bind(&Base::set_enable_nonvoid_function_tasks, this, std::placeholders::_1));
 
+        register_omp();
+        register_ompss();
+    }
+
+    void Base::register_omp()
+    {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -148,7 +154,10 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
+    }
 
+    void Base::register_ompss()
+    {
         // OSS constructs
         dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Base::taskwait_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Base::taskwait_handler_post, this, std::placeholders::_1));
@@ -162,6 +171,11 @@ namespace TL { namespace OpenMP {
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["task"].connect(
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["critical"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["critical"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_post, this, std::placeholders::_1));
     }
 
     void Base::pre_run(TL::DTO& dto)
