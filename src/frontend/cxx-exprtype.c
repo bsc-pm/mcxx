@@ -9531,6 +9531,7 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
         const decl_context_t* decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
+        char allow_excess_of_initializers,
         nodecl_t* nodecl_output);
 static void check_nodecl_equal_initializer(nodecl_t equal_initializer, 
         const decl_context_t* decl_context, 
@@ -9539,12 +9540,6 @@ static void check_nodecl_equal_initializer(nodecl_t equal_initializer,
 void check_nodecl_expr_initializer_in_argument(nodecl_t expr, 
         const decl_context_t* decl_context, 
         type_t* declared_type, 
-        nodecl_t* nodecl_output);
-void check_nodecl_braced_initializer(nodecl_t braced_initializer, 
-        const decl_context_t* decl_context, 
-        type_t* declared_type, 
-        char is_explicit_type_cast,
-        enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output);
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
         const decl_context_t* decl_context, 
@@ -11281,6 +11276,7 @@ static void check_nodecl_explicit_type_conversion(
                 decl_context,
                 type_info,
                 /* is_explicit_type_cast */ 1,
+                /* allow_excess_of_initializers */ 0,
                 IK_DIRECT_INITIALIZATION,
                 &nodecl_initializer);
     }
@@ -18183,6 +18179,7 @@ void check_nodecl_braced_initializer(
         const decl_context_t* decl_context,
         type_t* declared_type,
         char is_explicit_type_cast,
+        char allow_excess_of_initializers,
         enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output)
 {
@@ -18224,6 +18221,7 @@ void check_nodecl_braced_initializer(
                 decl_context,
                 no_ref(declared_type),
                 is_explicit_type_cast,
+                allow_excess_of_initializers,
                 initialization_kind,
                 nodecl_output);
         return;
@@ -18442,6 +18440,27 @@ void check_nodecl_braced_initializer(
                     if ((type_stack[type_stack_idx].num_items != -1)
                             && type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_items)
                     {
+                        if (!allow_excess_of_initializers)
+                        {
+                            warn_printf("%s: error: too many initializers for type '%s'\n",
+                                    nodecl_locus_to_str(nodecl_initializer_clause),
+                                    print_type_str(type_stack[type_stack_idx].type, decl_context));
+
+                            // Free the stack
+                            while (type_stack_idx >= 0)
+                            {
+                                DELETE(type_stack[type_stack_idx].values);
+                                type_stack[type_stack_idx].values = NULL;
+
+                                DELETE(type_stack[type_stack_idx].fields);
+                                type_stack[type_stack_idx].fields = NULL;
+                                type_stack_idx--;
+                            }
+
+                            *nodecl_output = nodecl_make_err_expr(locus);
+                            return;
+                        }
+
                         warn_printf("%s: warning: too many initializers for type '%s', ignoring\n",
                                 nodecl_locus_to_str(nodecl_initializer_clause),
                                 print_type_str(type_stack[type_stack_idx].type, decl_context));
@@ -18536,6 +18555,7 @@ void check_nodecl_braced_initializer(
                     nodecl_t nodecl_init_output = nodecl_null();
                     check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_to_be_initialized,
                             /* disallow_narrowing */ IS_CXX11_LANGUAGE && !is_vector_type(current_type),
+                            allow_excess_of_initializers,
                             &nodecl_init_output);
 
                     if (nodecl_is_err_expr(nodecl_init_output))
@@ -18694,6 +18714,7 @@ void check_nodecl_braced_initializer(
                         check_nodecl_initializer_clause(nodecl_tmp, decl_context,
                                 type_to_be_initialized,
                                 /* disallow_narrowing */ IS_CXX11_LANGUAGE,
+                                /* allow_excess_of_initializers */ 1,
                                 &nodecl_init_output);
                         if (!nodecl_is_err_expr(nodecl_init_output))
                         {
@@ -19163,6 +19184,7 @@ void check_nodecl_braced_initializer(
             nodecl_t nodecl_expr_out = nodecl_null();
             check_nodecl_initializer_clause(initializer_clause, decl_context, declared_type,
                     /* disallow_narrowing */ IS_CXX11_LANGUAGE,
+                    /* allow_excess_of_initializers */ 0,
                     &nodecl_expr_out);
 
             if (nodecl_is_err_expr(nodecl_expr_out))
@@ -19670,6 +19692,7 @@ void check_initializer_clause(AST initializer,
             &nodecl_init);
     check_nodecl_initializer_clause(nodecl_init, decl_context, declared_type,
             /* disallow_narrowing */ 0,
+            /* allow_excess_of_initializers */ 1,
             nodecl_output);
 }
 
@@ -20305,6 +20328,7 @@ static void check_nodecl_function_argument_initialization_(
     {
         check_nodecl_braced_initializer(nodecl_expr, decl_context, declared_type,
                 /* is_explicit_type_cast */ 0,
+                /* allow_excess_of_initializers */ 0,
                 initialization_kind,
                 nodecl_output);
     }
@@ -20649,7 +20673,9 @@ void check_nodecl_equal_initializer(nodecl_t nodecl_initializer,
     {
         nodecl_t nodecl_expr = nodecl_get_child(nodecl_initializer, 0);
         check_nodecl_initializer_clause(nodecl_expr, decl_context, declared_type,
-               /* disallow_narrowing */ 0, nodecl_output);
+               /* disallow_narrowing */ 0,
+               /* allow_excess_of_initializers */ 1,
+               nodecl_output);
     }
 }
 
@@ -20938,7 +20964,9 @@ void check_nodecl_initialization(
         case NODECL_CXX_BRACED_INITIALIZER:
             {
                 check_nodecl_braced_initializer(nodecl_initializer, decl_context, declared_type,
-                        /* is_explicit_type_cast */ 0, IK_DIRECT_INITIALIZATION, nodecl_output);
+                        /* is_explicit_type_cast */ 0,
+                        /* allow_excess_of_initializers */ 0,
+                        IK_DIRECT_INITIALIZATION, nodecl_output);
                 break;
             }
         case NODECL_CXX_PARENTHESIZED_INITIALIZER:
@@ -20960,6 +20988,7 @@ static void check_nodecl_initializer_clause(
         const decl_context_t* decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
+        char allow_excess_of_initializers,
         nodecl_t* nodecl_output)
 {
     if (nodecl_is_err_expr(initializer_clause))
@@ -20985,6 +21014,7 @@ static void check_nodecl_initializer_clause(
             {
                 check_nodecl_braced_initializer(initializer_clause, decl_context, declared_type,
                         /* is_explicit_type_cast */ 0,
+                        allow_excess_of_initializers,
                         IK_COPY_INITIALIZATION,
                         nodecl_output);
                 break;
@@ -22176,7 +22206,9 @@ static void check_gcc_postfix_expression(AST expression,
     }
 
     check_nodecl_braced_initializer(nodecl_braced_init, decl_context, t,
-            /* is_explicit_type_cast */ 0, IK_DIRECT_INITIALIZATION,
+            /* is_explicit_type_cast */ 0,
+            /* allow_excess_of_initializers */ 0,
+            IK_DIRECT_INITIALIZATION,
             nodecl_output);
 
     // This is an lvalue

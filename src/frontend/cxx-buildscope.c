@@ -20023,7 +20023,8 @@ static void build_scope_nodecl_return_statement(
                     nodecl_return_expression,
                     decl_context,
                     return_type,
-                    /* disallow_narrowing */ 0,
+                    /* is_explicit_type_cast */ 0,
+                    /* allow_excess_of_initializers */ 0,
                     IK_COPY_INITIALIZATION,
                     &nodecl_return_expression);
         }
