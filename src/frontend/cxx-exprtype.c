@@ -18252,9 +18252,15 @@ void check_nodecl_braced_initializer(
 
         // This case is a bit weird, the standard says to value initialize the class object
         // but since it requires a constructor, this is like default initializing it
-        *nodecl_output = nodecl_make_value_initialization(constructor, 
-                get_unqualified_type(declared_type),
-                locus);
+        *nodecl_output =
+            cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(constructor, locus),
+                    /* called_name */ nodecl_null(),
+                    /* args */ nodecl_null(),
+                    nodecl_make_cxx_function_form_default_init_braced(locus),
+                    declared_type,
+                    decl_context,
+                    locus);
         return;
     }
     else if ((is_class_type(declared_type)
@@ -23290,16 +23296,42 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
 
     if (is_class_type_or_array_thereof(entry->type_information))
     {
-        type_t* t = entry->type_information;
-        if (is_array_type(t))
-            t = array_type_get_element_type(t);
-        t = get_unqualified_type(t);
-
-        entry->value = nodecl_make_value_initialization(constructor, t, locus);
-
         type_t* class_type = entry->type_information;
         if (is_array_type(class_type))
             class_type = array_type_get_element_type(class_type);
+        class_type = get_unqualified_type(class_type);
+
+        entry->value = 
+            cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(
+                        class_type_get_default_constructor(class_type), locus),
+                    /* called_name */ nodecl_null(),
+                    /* args */ nodecl_null(),
+                    nodecl_make_cxx_function_form_default_init(locus),
+                    class_type,
+                    decl_context,
+                    locus);
+
+        if (is_array_type(entry->type_information)
+                && nodecl_is_constant(entry->value))
+        {
+            if (!array_type_is_unknown_size(entry->type_information))
+            {
+                nodecl_t array_size = array_type_get_array_size_expr(entry->type_information);
+
+                if (nodecl_is_constant(array_size))
+                {
+                    // Note that we change the constant but we do not materialize the calls
+                    nodecl_set_constant(
+                            entry->value,
+                            const_value_make_array_from_scalar(
+                                const_value_cast_to_signed_int(
+                                    nodecl_get_constant(array_size)
+                                    ),
+                                nodecl_get_constant(entry->value)));
+                }
+            }
+        }
 
         scope_entry_t* destructor = class_type_get_destructor(class_type);
         ERROR_CONDITION(destructor == NULL, "Invalid destructor", 0);
@@ -27719,11 +27751,6 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
     //FIXME: We should check this new structured value
 }
 
-static void instantiate_value_initialization(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
-{
-    v->nodecl_result = nodecl_shallow_copy(node);
-}
-
 static void instantiate_field_designator(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_name = nodecl_shallow_copy(nodecl_get_child(node, 0));
@@ -28704,8 +28731,6 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_bitwise_not = instantiate_expr_visitor_fun(instantiate_unary_op);
 
     NODECL_VISITOR(v)->visit_structured_value = instantiate_expr_visitor_fun(instantiate_structured_value);
-
-    NODECL_VISITOR(v)->visit_value_initialization = instantiate_expr_visitor_fun(instantiate_value_initialization);
 
     NODECL_VISITOR(v)->visit_field_designator = instantiate_expr_visitor_fun(instantiate_field_designator);
     NODECL_VISITOR(v)->visit_index_designator = instantiate_expr_visitor_fun(instantiate_index_designator);

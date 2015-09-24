@@ -14482,11 +14482,7 @@ static void build_scope_template_simple_declaration(AST a, const decl_context_t*
 
                 if (valid && is_class_type_or_array_thereof(entry->type_information))
                 {
-                    type_t* t = entry->type_information;
-                    if (is_array_type(t))
-                        t = array_type_get_element_type(t);
-                    t = get_unqualified_type(t);
-                    entry->value = nodecl_make_value_initialization(constructor, t, ast_get_locus(a));
+                    check_default_initialization_and_destruction_declarator(entry, decl_context, ast_get_locus(a));
                 }
             }
             else
@@ -21770,7 +21766,8 @@ static scope_entry_t* instantiate_declaration_common(
         nodecl_instantiate_stmt_visitor_t* v,
         scope_entry_t* orig_entry,
         const locus_t* locus,
-        char is_definition)
+        char is_definition,
+        char check_initializer)
 {
     scope_entry_t* new_entry = instantiation_symbol_do_map(v->instantiation_symbol_map, orig_entry);
     if (new_entry == NULL)
@@ -21795,61 +21792,67 @@ static scope_entry_t* instantiate_declaration_common(
                             /* pack */ -1);
                     // Warning: this is a common source of issues
                     symbol_entity_specs_copy_from(new_entry, orig_entry);
-                    nodecl_t value = instantiate_expression(orig_entry->value,
-                            v->new_decl_context,
-                            v->instantiation_symbol_map,
-                            /* pack_index */ -1);
 
-                    nodecl_t nodecl_init = nodecl_null();
-
-                    if (!nodecl_is_null(value))
+                    if (check_initializer)
                     {
-                        if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
-                                || nodecl_get_kind(value) == NODECL_CXX_BRACED_INITIALIZER
-                                || nodecl_get_kind(value) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
+                        nodecl_t value = instantiate_expression(orig_entry->value,
+                                v->new_decl_context,
+                                v->instantiation_symbol_map,
+                                /* pack_index */ -1);
+
+                        nodecl_t nodecl_init = nodecl_null();
+                        if (!nodecl_is_null(value))
                         {
-                            check_nodecl_initialization(
-                                    value,
-                                    v->new_decl_context,
-                                    new_entry,
-                                    get_unqualified_type(new_entry->type_information),
-                                    &nodecl_init,
-                                    type_is_derived_from_auto(new_entry->type_information)
-                                        || is_decltype_auto_type(new_entry->type_information),
-                                    is_decltype_auto_type(new_entry->type_information));
-
-                            type_t* initializer_type = nodecl_get_type(nodecl_init);
-                            ERROR_CONDITION(initializer_type == NULL, "Missing type", 0);
-
-                            if (is_array_type(new_entry->type_information)
-                                    && nodecl_is_null(array_type_get_array_size_expr(new_entry->type_information)))
+                            if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
+                                    || nodecl_get_kind(value) == NODECL_CXX_BRACED_INITIALIZER
+                                    || nodecl_get_kind(value) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
                             {
-                                ERROR_CONDITION (is_dependent_type(initializer_type), "Invalid type", 0);
+                                check_nodecl_initialization(
+                                        value,
+                                        v->new_decl_context,
+                                        new_entry,
+                                        get_unqualified_type(new_entry->type_information),
+                                        &nodecl_init,
+                                        type_is_derived_from_auto(new_entry->type_information)
+                                        || is_decltype_auto_type(new_entry->type_information),
+                                        is_decltype_auto_type(new_entry->type_information));
 
-                                cv_qualifier_t cv_qualif = get_cv_qualifier(new_entry->type_information);
-                                new_entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                                type_t* initializer_type = nodecl_get_type(nodecl_init);
+                                ERROR_CONDITION(initializer_type == NULL, "Missing type", 0);
+
+                                if (is_array_type(new_entry->type_information)
+                                        && nodecl_is_null(array_type_get_array_size_expr(new_entry->type_information)))
+                                {
+                                    ERROR_CONDITION (is_dependent_type(initializer_type), "Invalid type", 0);
+
+                                    cv_qualifier_t cv_qualif = get_cv_qualifier(new_entry->type_information);
+                                    new_entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                                }
                             }
+                            else
+                            {
+                                check_nodecl_expr_initializer(value,
+                                        v->new_decl_context,
+                                        get_unqualified_type(new_entry->type_information),
+                                        /* disallow_narrowing */ 0,
+                                        IK_DIRECT_INITIALIZATION,
+                                        &nodecl_init);
+                            }
+
+                            new_entry->value = nodecl_init;
                         }
-                        else if (nodecl_get_kind(value) == NODECL_VALUE_INITIALIZATION)
+                        else
                         {
                             check_default_initialization_and_destruction_declarator(
                                     new_entry,
                                     v->new_decl_context,
                                     locus);
-                            nodecl_init = new_entry->value;
-                        }
-                        else
-                        {
-                            check_nodecl_expr_initializer(value,
-                                    v->new_decl_context,
-                                    get_unqualified_type(new_entry->type_information),
-                                    /* disallow_narrowing */ 0,
-                                    IK_DIRECT_INITIALIZATION,
-                                    &nodecl_init);
                         }
                     }
-
-                    new_entry->value = nodecl_init;
+                    else
+                    {
+                        new_entry->value = nodecl_null();
+                    }
 
                     break;
                 }
@@ -21881,7 +21884,13 @@ static void instantiate_cxx_def_or_decl(
         nodecl_t (*fun)(nodecl_t, scope_entry_t*, const locus_t*),
         char is_definition)
 {
-    scope_entry_t* new_entry = instantiate_declaration_common(v, nodecl_get_symbol(node), nodecl_get_locus(node), is_definition);
+    scope_entry_t* new_entry =
+        instantiate_declaration_common(
+                v,
+                nodecl_get_symbol(node),
+                nodecl_get_locus(node),
+                is_definition,
+                /* check_initializer */ 1);
 
     nodecl_t orig_nodecl_context = nodecl_get_child(node, 0);
     nodecl_t new_nodecl_context = nodecl_null();
@@ -21917,7 +21926,12 @@ static nodecl_t instantiate_object_init_node(
         nodecl_instantiate_stmt_visitor_t* v,
         nodecl_t node)
 {
-    scope_entry_t* new_entry = instantiate_declaration_common(v, nodecl_get_symbol(node), nodecl_get_locus(node), /* is_definition */ 1);
+    scope_entry_t* new_entry = instantiate_declaration_common(
+            v,
+            nodecl_get_symbol(node),
+            nodecl_get_locus(node),
+            /* is_definition */ 1,
+            /* check_initializer */ 1);
 
     return nodecl_make_object_init(new_entry, nodecl_get_locus(node));
 }
@@ -22014,7 +22028,8 @@ static void instantiate_cxx_for_ranged(nodecl_instantiate_stmt_visitor_t* v, nod
             v,
             iterator_symbol,
             iterator_symbol->locus,
-            /* is_definition */ 1);
+            /* is_definition */ 1,
+            /* check_initializer */ 0);
 
     v->new_decl_context = current_decl_context;
     // Go back to the enclosing context
