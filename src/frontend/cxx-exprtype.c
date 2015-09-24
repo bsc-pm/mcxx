@@ -25226,13 +25226,22 @@ static void define_defaulted_copy_or_move_constructor(scope_entry_t* entry,
     nodecl_t nodecl_function_code =
         nodecl_make_function_code(
                 nodecl_make_context(
-                    nodecl_null(),
+                    nodecl_make_list_1(
+                        nodecl_make_compound_statement(
+                            nodecl_null(),
+                            nodecl_null(),
+                            locus)),
                     block_context,
                     locus),
                 nodecl_member_init_list,
                 entry,
                 locus);
     symbol_entity_specs_set_function_code(entry, nodecl_function_code);
+
+    symbol_entity_specs_set_is_constexpr(entry,
+            check_constexpr_constructor(entry, entry->locus,
+                nodecl_member_init_list,
+                /* diagnose */ 0, /* emit_error */ 0));
 }
 
 static void define_defaulted_copy_constructor(scope_entry_t* entry,
