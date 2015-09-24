@@ -15723,8 +15723,8 @@ char check_constexpr_constructor(scope_entry_t* entry,
         {
             warn_or_error_printf(emit_error,
                     "%s: %s: a constructor of a class with virtual base classes cannot be constexpr\n",
-                    emit_error ? "error" : "warning",
-                    locus_to_str(locus));
+                    locus_to_str(locus),
+                    emit_error ? "error" : "warning");
         }
         entry_list_free(virtual_base_classes);
         return 0;
@@ -15963,8 +15963,8 @@ char check_constexpr_constructor(scope_entry_t* entry,
                 warn_or_error_printf(
                         emit_error,
                         "%s: %s: constructor cannot be constexpr because entity '%s' is not initialized\n",
-                        emit_error ? "error" : "warning",
                         locus_to_str(locus),
+                        emit_error ? "error" : "warning",
                         get_qualified_symbol_name(all_members[i], all_members[i]->decl_context));
             }
             return 0;
@@ -15977,8 +15977,8 @@ char check_constexpr_constructor(scope_entry_t* entry,
                         emit_error,
                         "%s: %s: constructor cannot be constexpr because entity '%s' is not "
                         "initialized using a constexpr constructor\n",
-                        emit_error ? "error" : "warning",
                         locus_to_str(locus),
+                        emit_error ? "error" : "warning",
                         get_qualified_symbol_name(all_members[i], all_members[i]->decl_context));
             }
             return 0;
