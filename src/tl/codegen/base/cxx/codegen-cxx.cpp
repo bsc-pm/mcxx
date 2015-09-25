@@ -1036,18 +1036,39 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
     Nodecl::List l = node.get_in_context().as<Nodecl::List>();
 
     // Transient kludge
-    bool emit_decls = 
-    (l.size() != 1
-           && !(l[0].is<Nodecl::CompoundStatement>()
-               || l[0].is<Nodecl::ForStatement>()
-               || l[0].is<Nodecl::WhileStatement>()
-               || l[0].is<Nodecl::SwitchStatement>()
-               || l[0].is<Nodecl::IfElseStatement>()));
+    bool emit_decls =
+        (l.size() != 1
+         && !(l[0].is<Nodecl::CompoundStatement>()
+             || l[0].is<Nodecl::ForStatement>()
+             || l[0].is<Nodecl::WhileStatement>()
+             || l[0].is<Nodecl::SwitchStatement>()
+             || l[0].is<Nodecl::IfElseStatement>()));
 
     if (emit_decls)
     {
         indent();
         *file << "/* << fake context >> { */\n";
+    }
+
+    if (emit_decls
+            || (
+                /* Sometimes we need to emit declarations when the condition/loop
+                   header defines a type
+
+                   if (((union { int x; float y; }){.x = a}).y > 3.4f)
+                   {
+                   }
+
+                   This will create a mcc_union_anon_X, which is in the context that surrounds
+                   the if statement.
+
+                   Of course, we do not want to do this for
+                   compound-statements, because them already define local
+                   entities.
+                 */
+                l.size() == 1
+                && !l[0].is<Nodecl::CompoundStatement>()))
+    {
         define_local_entities_in_trees(l);
     }
 
@@ -3877,7 +3898,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
             );
 
     std::string prefix;
-    if (is_signed_char_type(base_type) || is_unsigned_char_type(base_type))
+    if (is_char_type(base_type)
+            || is_signed_char_type(base_type)
+            || is_unsigned_char_type(base_type))
     {
         // No prefix
     }
@@ -3901,11 +3924,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
     *(file) << quote_c_string(bytes, length, prefix);
 
     DELETE(bytes);
-}
-
-CxxBase::Ret CxxBase::visit(const Nodecl::ValueInitialization& node)
-{
-    // Do not print anything for this node
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
@@ -4624,7 +4642,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingDecl& node)
     }
 
     indent();
-    *(file) << "using " << this->get_qualified_name(sym) << ";\n";
+    *(file) << "using " << this->get_qualified_name(sym, context) << ";\n";
 }
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingNamespace & node)
 {
@@ -4791,7 +4809,28 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GxxTrait& node)
     if (!rhs.is_null())
     {
         *(file) << ", ";
-        walk(rhs);
+
+        TL::Type t = rhs.get_type();
+
+        if (!is_sequence_of_types(t.get_internal_type()))
+        {
+            walk(rhs);
+        }
+        else
+        {
+            int n = sequence_of_types_get_num_types(t.get_internal_type());
+
+            for (int i = 0; i < n; i++)
+            {
+                if (i > 0)
+                {
+                    (*file) << ", ";
+                }
+
+                TL::Type type = sequence_of_types_get_type_num(t.get_internal_type(), i);
+                *(file) << this->get_declaration(type, this->get_current_scope(),  "");
+            }
+        }
     }
 
     *(file) << ")";
@@ -5649,7 +5688,6 @@ void CxxBase::old_define_class_symbol_aux(TL::Symbol symbol,
                         && member.get_type().basic_type().get_symbol().is_member()
                         && member.get_type().basic_type().get_symbol().get_class_type().get_symbol() == symbol)
                 {
-                    member_declaration_does_define = true;
                     // But we only emit the name and an end for the declaration
                     if (previous_was_just_member_declarator_name)
                         (*file) << ", ";
@@ -5725,7 +5763,6 @@ void CxxBase::old_define_class_symbol_aux(TL::Symbol symbol,
     // Somehow it was left open
     if (previous_was_just_member_declarator_name)
     {
-        previous_was_just_member_declarator_name = false;
         (*file) << ";\n";
     }
 
@@ -6252,7 +6289,6 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                         && member.get_type().basic_type().get_symbol().is_member()
                         && member.get_type().basic_type().get_symbol().get_class_type().get_symbol() == symbol)
                 {
-                    member_declaration_does_define = true;
                     // But we only emit the name and an end for the declaration
                     if (previous_was_just_member_declarator_name)
                         (*file) << ", ";
@@ -6349,7 +6385,6 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
     // Somehow it was left open
     if (previous_was_just_member_declarator_name)
     {
-        previous_was_just_member_declarator_name = false;
         (*file) << ";\n";
     }
 
@@ -6917,11 +6952,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
             }
             CXX_LANGUAGE()
             {
-                if (init.is<Nodecl::ValueInitialization>())
-                {
-                    // Do not emit anything
-                }
-                else if (init.is<Nodecl::CxxEqualInitializer>()
+                if (init.is<Nodecl::CxxEqualInitializer>()
                         || init.is<Nodecl::CxxBracedInitializer>()
                         || init.is<Nodecl::CxxParenthesizedInitializer>())
                 {
@@ -6946,10 +6977,18 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                 else if (symbol.get_type().is_array()
                         && !init.is<Nodecl::StructuredValue>())
                 {
-                    // Only for char and wchar_t
-                    // const char c[] = "1234";
-                    *(file) << " = ";
-                    walk(init);
+                    if (nodecl_calls_to_constructor(init)
+                            && nodecl_calls_to_constructor_default_init(init))
+                    {
+                        // Do not emit anything here
+                    }
+                    else
+                    {
+                        // Only for char and wchar_t
+                        // const char c[] = "1234";
+                        *(file) << " = ";
+                        walk(init);
+                    }
                 }
                 else if (!symbol.get_type().is_array()
                         && init.is<Nodecl::StructuredValue>())
@@ -6974,8 +7013,19 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         && state.in_member_declaration)
                 {
                     // This is an in member declaration initialization
-                    *(file) << " = ";
-                    walk(init);
+                    if (IS_CXX11_LANGUAGE
+                            && nodecl_calls_to_constructor_indirectly(init))
+                    {
+                        *(file) << " { ";
+                        Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
+                        walk(constructor_args[0]);
+                        *(file) << " }";
+                    }
+                    else
+                    {
+                        *(file) << " = ";
+                        walk(init);
+                    }
                 }
                 else if (state.in_condition)
                 {
@@ -6990,40 +7040,58 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     *(file) << " = ";
                     walk(init);
                 }
-                else if (nodecl_is_zero_args_call_to_constructor(init))
-                {
-                    // A a; we cannot emmit it as A a(); since this would declare a function () returning A
-                    (*file) << " = ";
-                    walk(init);
-                }
                 else
                 {
-                    *(file) << "(";
                     if (nodecl_calls_to_constructor(init))
                     {
                         Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
+                        bool is_default_init = nodecl_calls_to_constructor_default_init(init);
+                        if (is_default_init)
+                        {
+                            *file << start_inline_comment();
+                        }
 
-                        // Here we add extra parentheses lest the direct-initialization looked like
-                        // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
-                        //
-                        // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
-                        // "function (pointer to function() returning A) returning A"
-                        // [extra blanks added for clarity in the example above]
+                        std::string lparen, rparen;
+                        if (nodecl_calls_to_constructor_default_init_braced(init))
+                        {
+                            lparen = "{";
+                            rparen = "}";
+                        }
+                        else
+                        {
+                            // Here we add extra parentheses lest the direct-initialization looked like
+                            // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                            //
+                            // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                            // "function (pointer to function() returning A) returning A"
+                            // [extra blanks added for clarity in the example above]
+                            lparen = "(";
+                            rparen = ")";
+                        }
+
+                        *(file) << lparen;
                         walk_initializer_list(constructor_args, ", ");
+                        *(file) << rparen;
+
+                        if (is_default_init)
+                        {
+                            *file << end_inline_comment();
+                        }
                     }
                     else if (nodecl_is_parenthesized_explicit_type_conversion(init)
                             || nodecl_calls_to_constructor_indirectly(init))
                     {
                         // Same reason above
-                        *file << "(";
+                        *file << "((";
                         walk(init);
-                        *file << ")";
+                        *file << "))";
                     }
                     else
                     {
+                        *file << "(";
                         walk(init);
+                        *file << ");";
                     }
-                    *(file) << ")";
                 }
             }
         }
@@ -7845,20 +7913,40 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
             else if (symbol.is_member())
             {
-                if (scope != NULL && scope->is_namespace_scope())
+                if (scope != NULL
+                        && scope->is_namespace_scope())
                 {
-                    // We may need zero or more empty template headers
-                    TL::TemplateParameters tpl = template_parameters;
-                    while (tpl.is_valid())
+                    if (symbol.is_defaulted())
                     {
-                        if (!tpl.get_is_explicit_instantiation()
-                                && tpl.get_is_explicit_specialization())
+                        // Special case for dependent defaulted special members
+                        // defined out of the class specifier
+                        //
+                        // template <typename T>
+                        // struct A
+                        // {
+                        //    A();
+                        // };
+                        //
+                        // template <typename T>   // <-- we have to emit this
+                        // A<T>::A() = default;
+                        codegen_template_headers_all_levels(template_parameters,
+                                /* show_default_values */ false);
+                    }
+                    else
+                    {
+                        // We may need zero or more empty template headers
+                        TL::TemplateParameters tpl = template_parameters;
+                        while (tpl.is_valid())
                         {
-                            indent();
-                            *(file) << "template <>\n";
-                            member_of_explicit_template_class = true;
+                            if (!tpl.get_is_explicit_instantiation()
+                                    && tpl.get_is_explicit_specialization())
+                            {
+                                indent();
+                                *(file) << "template <>\n";
+                                member_of_explicit_template_class = true;
+                            }
+                            tpl = tpl.get_enclosing_parameters();
                         }
-                        tpl = tpl.get_enclosing_parameters();
                     }
                 }
             }
@@ -8010,12 +8098,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 && symbol.is_member())
         {
             if (symbol.is_defined_inside_class() // (A)
-                    || (state.classes_being_defined.empty() // (B)
-                        || (state.classes_being_defined.back() != symbol.get_class_type().get_symbol())))
-
+                    || (scope != NULL
+                        && scope->is_namespace_scope()) // (B)
+               )
             {
                 // (A) Defaulted inside the class specifier
-                // (B) Defaulted but not inside the class specifier. But we are not inside the 
+                // (B) Defaulted but not inside the class specifier. But we are not inside the
                 // class specifier either.
                 pure_spec += " = default ";
             }
@@ -8137,7 +8225,7 @@ bool CxxBase::is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym)
             || sym.is_dependent_friend_class())
         return friends.contains(sym);
     else
-        return friends.map(&TL::Symbol::get_alias_to).contains(sym);
+        return friends.map<TL::Symbol>(&TL::Symbol::get_alias_to).contains(sym);
 }
 
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
@@ -9249,6 +9337,7 @@ bool CxxBase::nodecl_calls_to_constructor_indirectly(Nodecl::NodeclBase node)
                     node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0]));
 }
 
+
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
@@ -9273,12 +9362,20 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node)
     return 0;
 }
 
-bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
+bool CxxBase::nodecl_calls_to_constructor_default_init(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
 
-    return (nodecl_calls_to_constructor(node)
-            && nodecl_calls_to_constructor_get_arguments(node).empty());
+    return (node.is<Nodecl::FunctionCall>()
+            && node.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormDefaultInit>());
+}
+
+bool CxxBase::nodecl_calls_to_constructor_default_init_braced(Nodecl::NodeclBase node)
+{
+    node = node.no_conv();
+
+    return (node.is<Nodecl::FunctionCall>()
+            && node.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormDefaultInitBraced>());
 }
 
 std::string CxxBase::unmangle_symbol_name(TL::Symbol symbol)

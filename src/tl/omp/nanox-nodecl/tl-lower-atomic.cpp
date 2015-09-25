@@ -209,8 +209,6 @@ namespace TL { namespace Nanox {
 
                         t = rhs.get_type();
 
-                        is_lvalue = t.is_lvalue_reference();
-
                         if (t.is_any_reference())
                             t = t.references_to();
 

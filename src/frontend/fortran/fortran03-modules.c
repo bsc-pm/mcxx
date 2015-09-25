@@ -34,6 +34,7 @@
 #include "fortran03-scope.h"
 #include "fortran03-intrinsics.h"
 #include "cxx-exprtype.h"
+#include "cxx-driver-build-info.h"
 #include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
 #include "cxx-entrylist.h"
@@ -2266,7 +2267,9 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
 
     int ncols = sqlite3_column_count(_load_symbol_stmt);
     char* values[ncols+1];
+    memset(values, 0, sizeof(values));
     char* names[ncols+1];
+    memset(names, 0, sizeof(names));
 
     int i;
     for (i = 0; i < ncols; i++)

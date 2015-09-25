@@ -334,7 +334,7 @@ namespace TL
         PragmaCustomLine get_pragma_line() const;
     };
 
-    struct PragmaMapDispatcher
+    struct SinglePragmaMapDispatcher
     {
         typedef Signal1<TL::PragmaCustomDirective> SignalDirective;
         typedef std::map<std::string, SignalDirective> DirectiveMap;
@@ -367,10 +367,20 @@ namespace TL
         Declaration declaration;
     };
 
+    struct PragmaMapDispatcher
+    {
+        private:
+            std::map<std::string, SinglePragmaMapDispatcher> _single_pragma_map_dispatcher;
+        public:
+            SinglePragmaMapDispatcher& operator[](const std::string& str)
+            {
+                return _single_pragma_map_dispatcher[str];
+            }
+    };
+
     class LIBTL_CLASS PragmaVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-            std::string _pragma_handled;
             PragmaMapDispatcher& _map_dispatcher;
 
             static std::string remove_blanks(std::string str)
@@ -400,96 +410,97 @@ namespace TL
 
             bool _ignore_template_functions;
         public:
-            PragmaVisitor(const std::string& pragma_handled, 
-                    PragmaMapDispatcher & map_dispatcher,
+            PragmaVisitor(PragmaMapDispatcher & map_dispatcher,
                     bool ignore_template_functions)
-                : _pragma_handled(pragma_handled),
-                _map_dispatcher(map_dispatcher),
+                : _map_dispatcher(map_dispatcher),
                 _ignore_template_functions(ignore_template_functions)
             { }
 
             virtual void visit_pre(const Nodecl::PragmaCustomDirective & n)
             {
-                if (n.get_text() == _pragma_handled)
-                {
-                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
-                    PragmaMapDispatcher::DirectiveMap::iterator it = _map_dispatcher.directive.pre.find(pragma_name);
+                std::string pragma_handled = n.get_text();
+                std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                SinglePragmaMapDispatcher &single_dispatcher = _map_dispatcher[pragma_handled];
+                SinglePragmaMapDispatcher::DirectiveMap::iterator it =
+                    single_dispatcher.directive.pre.find(pragma_name);
 
-                    if (it != _map_dispatcher.directive.pre.end())
-                    {
-                        it->second.signal(n);
-                    }
+                if (it != single_dispatcher.directive.pre.end())
+                {
+                    it->second.signal(n);
                 }
             }
 
             virtual void visit_post(const Nodecl::PragmaCustomDirective & n)
             {
-                if (n.get_text() == _pragma_handled)
-                {
-                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
-                    PragmaMapDispatcher::DirectiveMap::iterator it = _map_dispatcher.directive.post.find(pragma_name);
+                std::string pragma_handled = n.get_text();
+                std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                SinglePragmaMapDispatcher &single_dispatcher = _map_dispatcher[pragma_handled];
+                SinglePragmaMapDispatcher::DirectiveMap::iterator it =
+                    single_dispatcher.directive.post.find(pragma_name);
 
-                    if (it != _map_dispatcher.directive.post.end())
-                    {
-                        it->second.signal(n);
-                    }
+                if (it != single_dispatcher.directive.post.end())
+                {
+                    it->second.signal(n);
                 }
             }
 
             virtual void visit_pre(const Nodecl::PragmaCustomStatement & n)
             {
-                if (n.get_text() == _pragma_handled)
+                std::string pragma_handled = n.get_text();
+                std::string pragma_name = get_pragma_name(n.get_pragma_line());
+
+                SinglePragmaMapDispatcher &single_dispatcher = _map_dispatcher[pragma_handled];
+                SinglePragmaMapDispatcher::StatementMap::iterator it =
+                    single_dispatcher.statement.pre.find(pragma_name);
+
+                if (it != single_dispatcher.statement.pre.end())
                 {
-                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
-
-                    PragmaMapDispatcher::StatementMap::iterator it = _map_dispatcher.statement.pre.find(pragma_name);
-
-                    if (it != _map_dispatcher.statement.pre.end())
-                    {
-                        it->second.signal(n);
-                    }
+                    it->second.signal(n);
                 }
             }
 
             virtual void visit_post(const Nodecl::PragmaCustomStatement & n)
             {
-                if (n.get_text() == _pragma_handled)
-                {
-                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
-                    PragmaMapDispatcher::StatementMap::iterator it = _map_dispatcher.statement.post.find(pragma_name);
+                std::string pragma_handled = n.get_text();
+                std::string pragma_name = get_pragma_name(n.get_pragma_line());
 
-                    if (it != _map_dispatcher.statement.post.end())
-                    {
-                        it->second.signal(n);
-                    }
+                SinglePragmaMapDispatcher &single_dispatcher = _map_dispatcher[pragma_handled];
+                SinglePragmaMapDispatcher::StatementMap::iterator it =
+                    single_dispatcher.statement.post.find(pragma_name);
+
+                if (it != single_dispatcher.statement.post.end())
+                {
+                    it->second.signal(n);
                 }
             }
 
             virtual void visit_pre(const Nodecl::PragmaCustomDeclaration & n)
             {
-                if (n.get_text() == _pragma_handled)
-                {
-                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
-                    PragmaMapDispatcher::DeclarationMap::iterator it = _map_dispatcher.declaration.pre.find(pragma_name);
+                std::string pragma_handled = n.get_text();
+                std::string pragma_name = get_pragma_name(n.get_pragma_line());
 
-                    if (it != _map_dispatcher.declaration.pre.end())
-                    {
-                        it->second.signal(n);
-                    }
+                SinglePragmaMapDispatcher &single_dispatcher = _map_dispatcher[pragma_handled];
+                SinglePragmaMapDispatcher::DeclarationMap::iterator it =
+                    single_dispatcher.declaration.pre.find(pragma_name);
+
+                if (it != single_dispatcher.declaration.pre.end())
+                {
+                    it->second.signal(n);
                 }
             }
 
             virtual void visit_post(const Nodecl::PragmaCustomDeclaration & n)
             {
-                if (n.get_text() == _pragma_handled)
-                {
-                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
-                    PragmaMapDispatcher::DeclarationMap::iterator it = _map_dispatcher.declaration.post.find(pragma_name);
+                std::string pragma_handled = n.get_text();
+                std::string pragma_name = get_pragma_name(n.get_pragma_line());
 
-                    if (it != _map_dispatcher.declaration.post.end())
-                    {
-                        it->second.signal(n);
-                    }
+                SinglePragmaMapDispatcher &single_dispatcher = _map_dispatcher[pragma_handled];
+                SinglePragmaMapDispatcher::DeclarationMap::iterator it =
+                    _map_dispatcher[pragma_handled].declaration.post.find(pragma_name);
+
+                if (it != single_dispatcher.declaration.post.end())
+                {
+                    it->second.signal(n);
                 }
             }
 
@@ -522,11 +533,10 @@ namespace TL
     class LIBTL_CLASS PragmaCustomCompilerPhase : public CompilerPhase
     {
         private:
-            std::string _pragma_handled;
             PragmaMapDispatcher _pragma_map_dispatcher;
             bool _ignore_template_functions;
         protected:
-            PragmaMapDispatcher& dispatcher();
+            SinglePragmaMapDispatcher& dispatcher(const std::string &pragma_handled);
 
             void set_ignore_template_functions(bool b) { _ignore_template_functions = b; }
             bool get_ignore_template_functions() const { return _ignore_template_functions; };
@@ -535,7 +545,7 @@ namespace TL
             /*!
              * \param pragma_handled The pragma prefix actually handled in this phase.
              */
-            PragmaCustomCompilerPhase(const std::string& pragma_handled);
+            PragmaCustomCompilerPhase();
 
             virtual void pre_run(DTO& data_flow);
 
@@ -552,7 +562,7 @@ namespace TL
             /*!
              * This is required for successful parsing of directives
              */
-            void register_directive(const std::string& name);
+            void register_directive(const std::string& pragma, const std::string& name);
             //! Function to register a construct
             /*!
              * This is required for successful parsing of construct
@@ -569,7 +579,7 @@ namespace TL
              * statement since blocks are expressed by compound-statements
              * which are statements (recursively) containing other statements
              */
-            void register_construct(const std::string& name, bool bound_to_statement = false);
+            void register_construct(const std::string& pragma, const std::string& name, bool bound_to_statement = false);
 
             //! Function to activate a flag in order to warning about all the unused clauses of a pragma
             /*!

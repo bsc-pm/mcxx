@@ -782,25 +782,6 @@ namespace {
             _node->add_used_address(n);
     }
 
-    void UsageVisitor::visit(const Nodecl::ValueInitialization& n)
-    {
-        Symbol s = n.get_symbol();
-        // Check whether the constructor is not implicit, because in that case,
-        // the code is not reachable and it cannot be assured that no other constructor
-        // is called from there and has some side effects.
-        if (s.is_defaulted())
-        {
-            WARNING_MESSAGE("Call to an implicit constructor. "
-                    "Code is not reachable because Mercurium does not generate the implicit constructor.",
-                    0);
-            return;
-        }
-        // Otherwise, look for the code of the called constructor and
-        // perform IPA normally
-        Nodecl::List l;
-        visit_function(n, l);
-    }
-
     void UsageVisitor::visit(const Nodecl::VectorAssignment& n)
     {
         visit_assignment(n.get_lhs(), n.get_rhs());

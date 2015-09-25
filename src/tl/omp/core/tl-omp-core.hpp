@@ -65,6 +65,7 @@ namespace TL
                 void parse_new_udr(const std::string& str);
 
                 void register_omp_constructs();
+                void register_oss_constructs();
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
@@ -200,8 +201,15 @@ namespace TL
                 void handle_map_clause(TL::PragmaCustomLine pragma_line,
                         DataEnvironment& data_environment);
 
+                enum DefaultMapValue
+                {
+                    DEFAULTMAP_NONE = 0,
+                    DEFAULTMAP_SCALAR = 1,
+                };
+
                 void compute_implicit_device_mappings(Nodecl::NodeclBase stmt,
-                        DataEnvironment& data_environment);
+                        DataEnvironment& data_environment,
+                        DefaultMapValue);
 
                 void common_parallel_handler(
                         TL::PragmaCustomStatement ctr,
@@ -270,6 +278,9 @@ namespace TL
 
                 // This variable is used to enable the experimental support of nonvoid function tasks
                 bool _enable_nonvoid_function_tasks;
+
+                // States if we have seen a declare target
+                bool _inside_declare_target;
             public:
                 Core();
 
@@ -314,6 +325,8 @@ namespace TL
                     return _untied_tasks_by_default;
                 }
         };
+
+        bool is_scalar_type(TL::Type t);
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct);

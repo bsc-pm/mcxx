@@ -2541,16 +2541,6 @@ namespace {
             }
         }
     }
-
-    // Utility method: for printing the constraints map if debugging is necessary
-    void print_var_to_constraint_map(VarToConstraintMap& constrs)
-    {
-        for (VarToConstraintMap::iterator it = constrs.begin(); it != constrs.end(); ++it)
-        {
-            std::cerr << "      " << it->first.prettyprint() << "  ::  " << it->second.get_symbol().get_name() << " -> "
-                      << it->second.get_value().prettyprint() << std::endl;
-        }
-    }
 }
 
     // This is a breadth-first search because for a given node we need all its parents 

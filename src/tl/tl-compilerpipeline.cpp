@@ -55,32 +55,36 @@ namespace TL
 
     CompiledFile CompilationProcess::add_file(
             const std::string& file_path,
-            const std::string& configuration_name)
+            const std::string& configuration_name,
+            int tag)
     {
         bool _dummy;
 
-        return add_file(file_path, configuration_name, _dummy);
+        return add_file(file_path, configuration_name, _dummy, tag);
     }
 
     CompiledFile CompilationProcess::add_file(
-            const std::string& file_path)
+            const std::string& file_path,
+            int tag)
     {
         bool _dummy;
-        return add_file(file_path, _dummy);
+        return add_file(file_path, _dummy, tag);
     }
 
     CompiledFile CompilationProcess::add_file(
             const std::string& file_path, 
-            bool &new_file)
+            bool &new_file,
+            int tag)
     {
         std::string configuration_name = CompilationConfiguration::get_current_configuration();
-        return add_file(file_path, configuration_name, new_file);
+        return add_file(file_path, configuration_name, new_file, tag);
     }
 
     CompiledFile CompilationProcess::add_file(
             const std::string& file_path, 
             const std::string& configuration_name, 
-            bool &new_file)
+            bool &new_file,
+            int tag)
     {
         new_file = false;
 
@@ -107,7 +111,7 @@ namespace TL
             }
 
             // FIXME: All this deserves refactoring
-            add_new_file_to_compilation_process(CURRENT_FILE_PROCESS, file_path.c_str(), NULL, chosen_configuration);
+            add_new_file_to_compilation_process(CURRENT_FILE_PROCESS, file_path.c_str(), NULL, chosen_configuration, tag);
 
             CompiledFile result(file_path);
 

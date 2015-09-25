@@ -55,7 +55,7 @@ namespace TL { namespace Nanox {
                 bool _flag;
                 Flag() : _flag(false) { }
                 void operator=(bool b) { _flag = b; }
-#ifdef HAVE_CXX11
+#if defined(HAVE_CXX11)
                 explicit
 #endif
                 operator bool() const

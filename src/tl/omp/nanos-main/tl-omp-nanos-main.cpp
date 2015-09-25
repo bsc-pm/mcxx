@@ -34,7 +34,7 @@ namespace TL {
     namespace Nanox {
 
         NanosMain::NanosMain()
-            : PragmaCustomCompilerPhase("nanos-main"),
+            : PragmaCustomCompilerPhase(),
             _nanos_main_enabled(false),
             _instrumentation_enabled(false)
         {

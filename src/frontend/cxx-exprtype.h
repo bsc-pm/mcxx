@@ -123,6 +123,26 @@ LIBMCXX_EXTERN char check_move_assignment_operator(scope_entry_t* entry,
         const locus_t* locus,
         scope_entry_t** constructor);
 
+LIBMCXX_EXTERN char check_assignment_expression_for_class_type(
+        type_t* lhs_type,
+        type_t* rhs_type,
+        const decl_context_t* decl_context,
+        const locus_t* locus,
+        scope_entry_t** function);
+
+LIBMCXX_EXTERN char check_construction_expression_for_class_type(
+        type_t* lhs_type,
+        type_t* seq_of_types,
+        const decl_context_t *decl_context,
+        const locus_t* locus,
+        scope_entry_t** function);
+
+LIBMCXX_EXTERN char check_copy_construction_expression_for_class_type(
+        type_t* lhs_type,
+        const decl_context_t* decl_context,
+        const locus_t* locus,
+        scope_entry_t** function);
+
 LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         scope_entry_list_t* result_from_lookup,
         scope_entry_list_t* builtin_list,
@@ -139,8 +159,9 @@ LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id,
         type_t** out_simple_type,
         gather_decl_spec_t *out_gather_info);
 
-LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(const decl_context_t* decl_context, 
-        const locus_t* locus, 
+LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(
+        const decl_context_t* decl_context,
+        const locus_t* locus,
         char mandatory);
 
 LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const char**, const locus_t* locus);
@@ -174,6 +195,7 @@ LIBMCXX_EXTERN void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         const decl_context_t* decl_context, 
         type_t* declared_type, 
         char is_explicit_type_cast,
+        char allow_excess_of_initializers,
         enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output);
 

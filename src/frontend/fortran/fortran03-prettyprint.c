@@ -1746,7 +1746,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
         AST parent = ASTParent(a);
         if (ASTKind(parent) == AST_LABELED_STATEMENT)
         {
-            parent = ASTSon1(parent);
+            // do nothing
         }
         else if (ASTKind(parent) == AST_IF_ELSE_STATEMENT)
         {

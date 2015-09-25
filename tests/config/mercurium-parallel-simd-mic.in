@@ -11,7 +11,7 @@ exit
 
 fi
 
-# if [ -n "@ICC@" -a -n "@NANOX_INCLUDES@" ];
+# if [ -n "@ICC@" -a "@NANOX_ENABLED@" = "yes" ];
 # then
 # cat <<EOF
 # 

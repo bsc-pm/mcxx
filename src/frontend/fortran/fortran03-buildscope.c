@@ -4396,9 +4396,18 @@ static void build_scope_allocate_stmt(AST a, const decl_context_t* decl_context,
                     || (!symbol_entity_specs_get_is_allocatable(entry)
                         && !is_pointer_type(no_ref(entry->type_information))))
             {
-                error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
-                        ast_location(a),
-                        entry->symbol_name);
+                if (entry != NULL)
+                {
+                    error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
+                            ast_location(a),
+                            entry->symbol_name);
+                }
+                else
+                {
+                    error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
+                            ast_location(a),
+                            codegen_to_str(nodecl_data_ref, decl_context));
+                }
                 error = 1;
                 continue;
             }
@@ -7783,16 +7792,10 @@ static void synthesize_procedure_type(scope_entry_t* entry,
         char do_pointer)
 {
     char was_ref = is_lvalue_reference_type(entry->type_information);
-    type_t* t = no_ref(entry->type_information);
-
-    if (is_pointer_type(t))
-    { 
-        t = pointer_type_get_pointee_type(t);
-    }
 
     if (interface == NULL)
     {
-        type_t* new_type = t;
+        type_t* new_type;
 
         if (return_type == NULL)
         {
@@ -8892,7 +8895,6 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         build_scope_delay_list_add(delayed_compute_character_length, data);
 
         DELETE(delayed_character_symbols);
-        num_delayed_character_symbols = 0;
         delayed_character_symbols = NULL;
     }
 }
@@ -9154,7 +9156,7 @@ static void build_scope_use_stmt(AST a, const decl_context_t* decl_context, node
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);
     symbol_entity_specs_add_related_symbols(used_modules, module_symbol);
 
-    nodecl_t nodecl_fortran_use = nodecl_null();
+    nodecl_t nodecl_fortran_use;
     nodecl_t nodecl_used_symbols = nodecl_null();
 
     if (!is_only)
@@ -9510,7 +9512,7 @@ static void build_scope_where_construct(AST a, const decl_context_t* decl_contex
         AST main_where_body = ASTSon0(where_construct_body);
         nodecl_t nodecl_body = nodecl_null();
 
-        nodecl_t nodecl_where_parts = nodecl_null();
+        nodecl_t nodecl_where_parts;
 
         if (main_where_body != NULL)
         {
@@ -10736,7 +10738,7 @@ static void resolve_external_calls_rec(nodecl_t node,
     }
 
     // We only fix up function calls, function references in actual arguments are not considered
-    nodecl_t called = nodecl_null();
+    nodecl_t called;
     if (nodecl_get_kind(node) == NODECL_FUNCTION_CALL
             && nodecl_get_kind((called = nodecl_get_child(node, 0))) == NODECL_SYMBOL)
     {

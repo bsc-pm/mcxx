@@ -128,6 +128,9 @@ LIBMCXX_EXTERN void ast_list_split_head_tail(AST list, AST *head, AST* tail);
 // States if this portion of the tree is properly linked
 LIBMCXX_EXTERN char ast_check(const_AST a);
 
+// Special checker for list trees (invoked also by ast_check above)
+LIBMCXX_EXTERN char ast_check_list_tree(const_AST a);
+
 static inline void ast_free(AST a);
 
 // Gives a copy of all the tree but extended data is the same as original trees

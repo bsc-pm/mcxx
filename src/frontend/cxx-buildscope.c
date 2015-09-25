@@ -2922,8 +2922,6 @@ void build_scope_decl_specifier_seq(AST a,
 
             // Manually add the int tree to make things easier
             ast_set_child(a, 1, ASTLeaf(AST_IMPLICIT_INT_TYPE, ast_get_locus(a), NULL));
-            type_spec = ASTSon1(a);
-
             *type_info = get_signed_int_type();
         }
     }
@@ -3110,6 +3108,18 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             {
                 warn_printf("%s: warning: ignoring alignment-specifier\n",
                         ast_location(a));
+
+                // Clear child to avoid check_tree to fail
+                AST child = ast_get_child(a, 0);
+                ast_free(child);
+
+                ast_set_child(a, 0, NULL);
+                break;
+            }
+        case AST_AMBIGUITY:
+            {
+                solve_ambiguous_decl_specifier(a, decl_context);
+                gather_decl_spec_information(a, gather_info, decl_context);
                 break;
             }
         default:
@@ -4507,7 +4517,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         }
 
         class_entry = entry;
-        class_type = class_entry->type_information;
 
         if (!class_gather_info.is_friend
                 && symbol_entity_specs_get_is_friend_declared(entry))
@@ -5235,6 +5244,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_enum->symbol_name = symbol_name;
             new_enum->decl_context = decl_context;
         }
+        ERROR_CONDITION(new_enum == NULL, "Invalid enumerator", 0);
+
         anonymous_enums++;
 
         new_enum->locus = ast_get_locus(a);
@@ -6246,113 +6257,27 @@ void check_nodecl_member_initializer_list(
     }
     DELETE(list);
 
-    // Now review the remaining objects not initialized yet
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(virtual_bases);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    // Now review the remaining objects not initialized yet unless this
+    // constructor was a delegating one
+    if (!is_delegating_constructor)
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-
-        if (entry->kind == SK_CLASS)
-            entry = class_symbol_get_canonical_symbol(entry);
-
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(virtual_bases);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(constructor, locus),
-                    /* called_name */ nodecl_null(),
-                    /* args */ nodecl_null(),
-                    nodecl_make_cxx_function_form_implicit(locus),
-                    symbol_entity_specs_get_class_type(constructor),
-                    decl_context,
-                    locus);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    nodecl_call_to_ctor,
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-        }
-    }
-    entry_list_iterator_free(it);
+            if (entry->kind == SK_CLASS)
+                entry = class_symbol_get_canonical_symbol(entry);
 
-    for (it = entry_list_iterator_begin(direct_base_classes);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry_list_contains(already_initialized, entry))
+                continue;
 
-        if (entry->kind == SK_CLASS)
-            entry = class_symbol_get_canonical_symbol(entry);
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
 
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
-        {
-            nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(constructor, locus),
-                    /* called_name */ nodecl_null(),
-                    /* args */ nodecl_null(),
-                    nodecl_make_cxx_function_form_implicit(locus),
-                    symbol_entity_specs_get_class_type(constructor),
-                    decl_context,
-                    locus);
-
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    nodecl_call_to_ctor,
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-        }
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(nonstatic_data_members);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        if (entry_list_contains(already_initialized, entry))
-            continue;
-
-        if (IS_CXX11_LANGUAGE
-                && !nodecl_is_null(entry->value))
-        {
-            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
-                    // FIXME: We may have to fix the 'this' symbol used in the value
-                    nodecl_shallow_copy(entry->value),
-                    entry,
-                    locus);
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
-            continue;
-        }
-
-        scope_entry_t* constructor = NULL;
-        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
-
-        if (valid)
-        {
-            type_t* t = entry->type_information;
-
-            if (is_array_type(t))
-                t = array_type_get_element_type(t);
-
-            if (is_pod_type(t))
-            {
-                // No initialization for POD-types
-            }
-            else if (is_class_type(t))
+            if (valid)
             {
                 nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, locus),
@@ -6369,13 +6294,103 @@ void check_nodecl_member_initializer_list(
                         locus);
                 *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
             }
-            else
+        }
+        entry_list_iterator_free(it);
+
+        for (it = entry_list_iterator_begin(direct_base_classes);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
+            if (entry->kind == SK_CLASS)
+                entry = class_symbol_get_canonical_symbol(entry);
+
+            if (entry_list_contains(already_initialized, entry))
+                continue;
+
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+            if (valid)
             {
-                internal_error("Code unreachable", 0);
+                nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                        nodecl_make_symbol(constructor, locus),
+                        /* called_name */ nodecl_null(),
+                        /* args */ nodecl_null(),
+                        nodecl_make_cxx_function_form_implicit(locus),
+                        symbol_entity_specs_get_class_type(constructor),
+                        decl_context,
+                        locus);
+
+                nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                        nodecl_call_to_ctor,
+                        entry,
+                        locus);
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
             }
         }
+        entry_list_iterator_free(it);
+
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry_list_contains(already_initialized, entry))
+                continue;
+
+            if (IS_CXX11_LANGUAGE
+                    && !nodecl_is_null(entry->value))
+            {
+                nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                        // FIXME: We may have to fix the 'this' symbol used in the value
+                        nodecl_shallow_copy(entry->value),
+                        entry,
+                        locus);
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+                continue;
+            }
+
+            scope_entry_t* constructor = NULL;
+            char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+            if (valid)
+            {
+                type_t* t = entry->type_information;
+
+                if (is_array_type(t))
+                    t = array_type_get_element_type(t);
+
+                if (is_pod_type(t))
+                {
+                    // No initialization for POD-types
+                }
+                else if (is_class_type(t))
+                {
+                    nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(constructor, locus),
+                            /* called_name */ nodecl_null(),
+                            /* args */ nodecl_null(),
+                            nodecl_make_cxx_function_form_implicit(locus),
+                            symbol_entity_specs_get_class_type(constructor),
+                            decl_context,
+                            locus);
+
+                    nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                            nodecl_call_to_ctor,
+                            entry,
+                            locus);
+                    *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+            }
+        }
+        entry_list_iterator_free(it);
     }
-    entry_list_iterator_free(it);
 }
 
 static void build_scope_ctor_initializer_dependent(
@@ -9392,7 +9407,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             internal_error("Code unreachable", 0);
     }
 
-    decl_context_t* inner_decl_context = decl_context_empty();
+    decl_context_t* inner_decl_context;
 
     if (class_id_expression != NULL)
     {
@@ -9568,9 +9583,10 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     || (symbol_entity_specs_get_alias_to(class_entry) != NULL
                         && symbol_entity_specs_get_alias_to(class_entry)->defined))
             {
-                error_printf("%s: class '%s' already defined in %s\n",
+                error_printf("%s: class '%s' already defined\n",
                         ast_location(class_id_expression),
-                        get_qualified_symbol_name(class_entry, class_entry->decl_context),
+                        get_qualified_symbol_name(class_entry, class_entry->decl_context));
+                info_printf("%s: info: location of previous definition\n",
                         locus_to_str(class_symbol_get_canonical_symbol(class_entry)->locus));
                 *type_info = get_error_type();
                 return;
@@ -9772,6 +9788,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             class_entry->symbol_name = symbol_name;
             class_entry->decl_context = decl_context;
         }
+        ERROR_CONDITION(class_entry == NULL, "Invalid symbol", 0);
+
         anonymous_classes++;
 
         class_entry->kind = SK_CLASS;
@@ -9782,7 +9800,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         symbol_entity_specs_set_is_unnamed(class_entry, 1);
 
-        class_type = class_entry->type_information;
         inner_decl_context = new_class_context(decl_context, class_entry);
         class_type_set_inner_context(class_type, inner_decl_context);
 
@@ -11498,6 +11515,13 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
     }
 }
 
+static char is_gnu_inline_attr_name(const char* str)
+{
+    return (strcmp(str, "gnu_inline") == 0)
+        || (strcmp(str, "__gnu_inline__") == 0);
+
+}
+
 static void update_function_specifiers(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
         type_t* declarator_type,
@@ -11505,6 +11529,26 @@ static void update_function_specifiers(scope_entry_t* entry,
 {
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
     symbol_entity_specs_set_is_user_declared(entry, 1);
+
+    // Previous declaration
+    char is_gnu_inline_previous = 0;
+    int i, num_gcc_attributes = symbol_entity_specs_get_num_gcc_attributes(entry);
+    for (i = 0; i < num_gcc_attributes && !is_gnu_inline_previous; i++)
+    {
+        gcc_attribute_t gcc_attr = symbol_entity_specs_get_gcc_attributes_num(entry, i);
+        is_gnu_inline_previous = is_gnu_inline_attr_name(gcc_attr.attribute_name);
+    }
+
+    // Current declaration
+    char is_gnu_inline_current = 0;
+    num_gcc_attributes = gather_info->num_gcc_attributes;
+    for (i = 0; i < num_gcc_attributes && !is_gnu_inline_current; i++)
+    {
+        gcc_attribute_t gcc_attr = gather_info->gcc_attributes[i];
+        is_gnu_inline_current = is_gnu_inline_attr_name(gcc_attr.attribute_name);
+    }
+
+    char is_gnu_inline = is_gnu_inline_current || is_gnu_inline_previous;
 
     C_LANGUAGE()
     {
@@ -11544,7 +11588,9 @@ static void update_function_specifiers(scope_entry_t* entry,
             //
             // Note that in general we do not force extern to functions, this is a
             // special case required by the subtle C99 semantics regarding inline
-            if (!symbol_entity_specs_get_is_extern(entry)
+
+            if (!is_gnu_inline
+                    && !symbol_entity_specs_get_is_extern(entry)
                     && !symbol_entity_specs_get_is_static(entry)
                     // This covers cases A and B shown above
                     && (symbol_entity_specs_get_is_inline(entry)
@@ -11566,9 +11612,42 @@ static void update_function_specifiers(scope_entry_t* entry,
             || gather_info->is_constexpr);
 
     // Merge extern attribute
-    symbol_entity_specs_set_is_extern(entry,
-            symbol_entity_specs_get_is_extern(entry)
-            || gather_info->is_extern);
+    if (!is_gnu_inline)
+    {
+        symbol_entity_specs_set_is_extern(entry,
+                (symbol_entity_specs_get_is_extern(entry)
+                 || gather_info->is_extern)
+                && !symbol_entity_specs_get_is_static(entry));
+    }
+    else
+    {
+        // extern void bar();
+        // __attribute__((gnu_inline)) void bar();
+        if ((symbol_entity_specs_get_is_extern(entry)
+                    && is_gnu_inline_current
+                    && !gather_info->is_extern)
+                // __attribute__((gnu_inline)) void bar();
+                // extern void bar();
+                || (is_gnu_inline_previous
+                    && !is_gnu_inline_current
+                    && gather_info->is_extern))
+        {
+            // Remove the extern, otherwise an extra extern will be emitted
+            // along with __attribute__((gnu_inline)) which causes a behaviour
+            // like that of the bare "inline" in C99
+            symbol_entity_specs_set_is_extern(entry, 0);
+        }
+        // extern __attribute__((gnu_inline)) void bar();
+        else if (gather_info->is_extern
+                && is_gnu_inline_current)
+        {
+            // Usual case as above
+            symbol_entity_specs_set_is_extern(entry,
+                    (symbol_entity_specs_get_is_extern(entry)
+                     || gather_info->is_extern)
+                    && !symbol_entity_specs_get_is_static(entry));
+        }
+    }
 
     // Remove the friend-declared attribute if we find the function but
     // this is not a friend declaration
@@ -13526,7 +13605,6 @@ static char find_function_declaration(AST declarator_id,
                     if ((function_type_get_ref_qualifier(function_type_being_declared_advanced_to_context) != REF_QUALIFIER_NONE)
                             != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
                     {
-                        function_matches = 0;
                         error_printf("%s: error: declaration cannot overload '%s'\n",
                                 ast_location(declarator_id),
                                 print_decl_type_str(considered_type,
@@ -14404,11 +14482,7 @@ static void build_scope_template_simple_declaration(AST a, const decl_context_t*
 
                 if (valid && is_class_type_or_array_thereof(entry->type_information))
                 {
-                    type_t* t = entry->type_information;
-                    if (is_array_type(t))
-                        t = array_type_get_element_type(t);
-                    t = get_unqualified_type(t);
-                    entry->value = nodecl_make_value_initialization(constructor, t, ast_get_locus(a));
+                    check_default_initialization_and_destruction_declarator(entry, decl_context, ast_get_locus(a));
                 }
             }
             else
@@ -15645,8 +15719,8 @@ char check_constexpr_constructor(scope_entry_t* entry,
         {
             warn_or_error_printf(emit_error,
                     "%s: %s: a constructor of a class with virtual base classes cannot be constexpr\n",
-                    emit_error ? "error" : "warning",
-                    locus_to_str(locus));
+                    locus_to_str(locus),
+                    emit_error ? "error" : "warning");
         }
         entry_list_free(virtual_base_classes);
         return 0;
@@ -15885,8 +15959,8 @@ char check_constexpr_constructor(scope_entry_t* entry,
                 warn_or_error_printf(
                         emit_error,
                         "%s: %s: constructor cannot be constexpr because entity '%s' is not initialized\n",
-                        emit_error ? "error" : "warning",
                         locus_to_str(locus),
+                        emit_error ? "error" : "warning",
                         get_qualified_symbol_name(all_members[i], all_members[i]->decl_context));
             }
             return 0;
@@ -15899,8 +15973,8 @@ char check_constexpr_constructor(scope_entry_t* entry,
                         emit_error,
                         "%s: %s: constructor cannot be constexpr because entity '%s' is not "
                         "initialized using a constexpr constructor\n",
-                        emit_error ? "error" : "warning",
                         locus_to_str(locus),
+                        emit_error ? "error" : "warning",
                         get_qualified_symbol_name(all_members[i], all_members[i]->decl_context));
             }
             return 0;
@@ -16204,9 +16278,10 @@ static scope_entry_t* build_scope_function_definition_declarator(
                     decl_context,
                     qualified_name);
         }
-        error_printf("%s: error: function '%s' already defined in '%s'\n",
+        error_printf("%s: error: function '%s' already defined\n",
                 ast_location(function_definition),
-                funct_name,
+                funct_name);
+        info_printf("%s: info: location of previous definition\n",
                 locus_to_str(entry->locus));
         return NULL;
     }
@@ -16581,14 +16656,14 @@ static void build_scope_function_definition_body(
         // The emission template is itself
         symbol_entity_specs_set_emission_template(entry, entry);
     }
-    else if (type_contains_auto(function_type_get_return_type(entry->type_information))
+    else if (type_is_derived_from_auto(function_type_get_return_type(entry->type_information))
             || is_decltype_auto_type(function_type_get_return_type(entry->type_information)))
     {
         scope_entry_t* result_var = symbol_entity_specs_get_result_var(entry);
         ERROR_CONDITION(result_var == NULL, "Missing symbol", 0);
 
         type_t* deduced_return_type = result_var->type_information;
-        if (type_contains_auto(deduced_return_type)
+        if (type_is_derived_from_auto(deduced_return_type)
                 || is_decltype_auto_type(deduced_return_type))
         {
             deduced_return_type = get_void_type();
@@ -19060,13 +19135,297 @@ char class_lookup_begin_or_end(const decl_context_t* decl_context,
     return result;
 }
 
-static void build_scope_nodecl_for_statement_range(
-        nodecl_t nodecl_loop_control,
+static void build_scope_nodecl_for_statement_range_nondependent(
+        scope_entry_t* iterator_symbol,
+        scope_entry_t* range_symbol,
+        nodecl_t nodecl_range_initializer,
         nodecl_t nodecl_statement,
-        const decl_context_t* decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context,
+        const decl_context_t* block_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    nodecl_t nodecl_initializer_tmp = nodecl_null();
+
+    // Craft begin_expr and end_expr
+    nodecl_t nodecl_begin_init = nodecl_null(),
+             nodecl_end_init = nodecl_null();
+
+    if (is_array_type(no_ref(range_symbol->type_information)))
+    {
+        nodecl_t nodecl_begin_symbol = nodecl_make_symbol(range_symbol, locus);
+        nodecl_set_type(nodecl_begin_symbol, lvalue_ref(range_symbol->type_information));
+
+        nodecl_begin_init = nodecl_make_cxx_equal_initializer(
+                nodecl_make_cxx_initializer(
+                    nodecl_begin_symbol,
+                    nodecl_get_type(nodecl_begin_symbol),
+                    locus),
+                nodecl_get_type(nodecl_begin_symbol),
+                locus);
+
+        nodecl_t nodecl_array_size = nodecl_shallow_copy(
+                array_type_get_array_size_expr(no_ref(range_symbol->type_information))
+                );
+
+        type_t* pointer_type =
+            get_pointer_type(
+                    array_type_get_element_type(no_ref(range_symbol->type_information))
+                    );
+
+        nodecl_end_init =
+            nodecl_make_cxx_equal_initializer(
+                    nodecl_make_cxx_initializer(
+                        nodecl_make_add(
+                            nodecl_make_conversion(
+                                nodecl_shallow_copy(nodecl_begin_symbol),
+                                pointer_type,
+                                locus),
+                            nodecl_array_size,
+                            pointer_type,
+                            locus),
+                        pointer_type,
+                        locus),
+                    pointer_type,
+                    locus);
+    }
+    else
+    {
+        if (is_class_type(no_ref(range_symbol->type_information))
+                && class_lookup_begin_or_end(
+                    decl_context,
+                    named_type_get_symbol(
+                        advance_over_typedefs(
+                            no_ref(range_symbol->type_information))),
+                    locus))
+        {
+            AST begin_init_tree = ASTMake2(AST_FUNCTION_CALL,
+                    ASTMake2(AST_CLASS_MEMBER_ACCESS,
+                        ASTLeaf(AST_SYMBOL, locus, UNIQUESTR_LITERAL(".__range")),
+                        ASTLeaf(AST_SYMBOL, locus, UNIQUESTR_LITERAL("begin")),
+                        locus,
+                        NULL),
+                    NULL,
+                    locus,
+                    NULL);
+
+            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
+                    ASTMake2(AST_CLASS_MEMBER_ACCESS,
+                        ASTLeaf(AST_SYMBOL, locus, UNIQUESTR_LITERAL(".__range")),
+                        ASTLeaf(AST_SYMBOL, locus, UNIQUESTR_LITERAL("end")),
+                        locus,
+                        NULL),
+                    NULL,
+                    locus,
+                    NULL);
+
+            check_expression(begin_init_tree, block_context, &nodecl_begin_init);
+            if (nodecl_is_err_expr(nodecl_begin_init))
+            {
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(locus)
+                        );
+                return;
+            }
+
+            check_expression(end_init_tree, block_context, &nodecl_end_init);
+            if (nodecl_is_err_expr(nodecl_end_init))
+            {
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(locus)
+                        );
+                return;
+            }
+        }
+        else
+        {
+            scope_entry_list_t* begin_lookup = NULL;
+            scope_entry_list_t* end_lookup = NULL;
+            if (is_class_type(no_ref(range_symbol->type_information)))
+            {
+                nodecl_t begin_name = nodecl_make_cxx_dep_name_simple(
+                        UNIQUESTR_LITERAL("begin"),
+                        locus);
+                nodecl_t end_name = nodecl_make_cxx_dep_name_simple(
+                        UNIQUESTR_LITERAL("end"),
+                        locus);
+
+                type_t* t  = no_ref(range_symbol->type_information);
+                begin_lookup = koenig_lookup(1, &t,
+                        block_context,
+                        begin_name,
+                        locus);
+                end_lookup = koenig_lookup(1, &t,
+                        block_context,
+                        end_name,
+                        locus);
+
+                nodecl_free(begin_name);
+                nodecl_free(end_name);
+            }
+
+            if (begin_lookup == NULL)
+            {
+                error_printf("%s: error: invalid type '%s' in range-based for-statement, no suitable 'begin' found\n",
+                        locus_to_str(locus),
+                        print_declarator(range_symbol->type_information));
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(locus)
+                        );
+                return;
+            }
+
+            if (end_lookup == NULL)
+            {
+                error_printf("%s: error: invalid type '%s' in range-based for-statement, no suitable 'end' found\n",
+                        locus_to_str(locus),
+                        print_declarator(range_symbol->type_information));
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(locus)
+                        );
+                return;
+            }
+
+            nodecl_t begin_set = nodecl_make_symbol(entry_list_head(begin_lookup), locus);
+            nodecl_set_type(begin_set, get_unresolved_overloaded_type(begin_lookup, NULL));
+
+            nodecl_t nodecl_range_sym = nodecl_make_symbol(range_symbol, locus);
+            nodecl_set_type(nodecl_range_sym, lvalue_ref(range_symbol->type_information));
+
+            check_nodecl_function_call(begin_set, 
+                    nodecl_make_list_1(nodecl_range_sym),
+                    decl_context,
+                    &nodecl_begin_init);
+
+            entry_list_free(begin_lookup);
+
+            if (nodecl_is_err_expr(nodecl_begin_init))
+            {
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(locus)
+                        );
+                return;
+            }
+
+            nodecl_t end_set = nodecl_make_symbol(entry_list_head(end_lookup), locus);
+            nodecl_set_type(end_set, get_unresolved_overloaded_type(end_lookup, NULL));
+
+            nodecl_range_sym = nodecl_make_symbol(range_symbol, locus);
+            nodecl_set_type(nodecl_range_sym, lvalue_ref(range_symbol->type_information));
+
+            check_nodecl_function_call(end_set, 
+                    nodecl_make_list_1(nodecl_range_sym),
+                    decl_context,
+                    &nodecl_end_init);
+
+            entry_list_free(end_lookup);
+
+            if (nodecl_is_err_expr(nodecl_end_init))
+            {
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(locus)
+                        );
+                return;
+            }
+        }
+
+        nodecl_begin_init = nodecl_make_cxx_equal_initializer(
+                nodecl_make_cxx_initializer(
+                    nodecl_begin_init,
+                    nodecl_get_type(nodecl_begin_init),
+                    locus),
+                nodecl_get_type(nodecl_begin_init),
+                locus);
+
+        nodecl_end_init = nodecl_make_cxx_equal_initializer(
+                nodecl_make_cxx_initializer(
+                    nodecl_end_init,
+                    nodecl_get_type(nodecl_end_init),
+                    locus),
+                nodecl_get_type(nodecl_end_init),
+                locus);
+    }
+
+    // Create __begin and __end
+    scope_entry_t* begin_symbol = new_symbol(block_context, block_context->current_scope, ".__begin");
+    begin_symbol->symbol_name = UNIQUESTR_LITERAL("__begin");
+    begin_symbol->kind = SK_VARIABLE;
+    begin_symbol->type_information = get_auto_type();
+    begin_symbol->locus = locus;
+
+    nodecl_initializer_tmp = nodecl_null();
+    check_nodecl_initialization(
+            nodecl_begin_init,
+            block_context,
+            begin_symbol,
+            begin_symbol->type_information,
+            &nodecl_initializer_tmp,
+            /* is_auto_type */ 1,
+            /* is_decltype_auto */ 0);
+
+    if (nodecl_is_err_expr(nodecl_initializer_tmp))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus)
+                );
+        return;
+    }
+
+    scope_entry_t* end_symbol = new_symbol(block_context, block_context->current_scope, ".__end");
+    end_symbol->symbol_name = UNIQUESTR_LITERAL("__end");
+    end_symbol->kind = SK_VARIABLE;
+    end_symbol->type_information = get_auto_type();
+    end_symbol->locus = locus;
+
+    nodecl_initializer_tmp = nodecl_null();
+    check_nodecl_initialization(nodecl_end_init,
+            block_context,
+            end_symbol,
+            end_symbol->type_information,
+            &nodecl_initializer_tmp,
+            /* is_auto_type */ 1,
+            /* is_decltype_auto */ 0);
+
+    if (nodecl_is_err_expr(nodecl_initializer_tmp))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus)
+                );
+        return;
+    }
+
+    AST initialize_iterator =
+        ASTMake1(AST_EQUAL_INITIALIZER,
+                ASTMake1(AST_DERREFERENCE,
+                    ASTLeaf(AST_SYMBOL, locus, UNIQUESTR_LITERAL(".__begin")),
+                    locus, NULL),
+                locus, NULL);
+
+    bool is_auto_type = type_is_derived_from_auto(iterator_symbol->type_information);
+    bool is_decltype_auto = is_decltype_auto_type(iterator_symbol->type_information);
+
+    nodecl_initializer_tmp = nodecl_null();
+    check_initialization(initialize_iterator,
+            block_context,
+            iterator_symbol,
+            iterator_symbol->type_information,
+            &nodecl_initializer_tmp,
+            is_auto_type,
+            is_decltype_auto);
+
+    if (nodecl_is_err_expr(nodecl_initializer_tmp))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus)
+                );
+        return;
+    }
+
+    nodecl_t nodecl_loop_control = nodecl_make_iterator_loop_control(
+            nodecl_make_symbol(iterator_symbol, locus),
+            nodecl_range_initializer,
+            locus);
+
     *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_for_statement(
@@ -19075,6 +19434,97 @@ static void build_scope_nodecl_for_statement_range(
                     /* loop_name */ nodecl_null(),
                     locus)
                 );
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_context(
+                *nodecl_output,
+                block_context,
+                locus
+                )
+            );
+}
+
+static void build_scope_nodecl_for_statement_range(
+        scope_entry_t* iterator_symbol,
+        nodecl_t nodecl_range_initializer,
+        nodecl_t nodecl_statement,
+        const decl_context_t* decl_context,
+        const decl_context_t* block_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    // The iterator type is dependent
+    if (is_dependent_type(iterator_symbol->type_information)
+            || nodecl_expr_is_type_dependent(nodecl_range_initializer))
+    {
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_cxx_for_ranged(
+                    nodecl_range_initializer,
+                    nodecl_statement,
+                    iterator_symbol,
+                    locus)
+                );
+        return;
+    }
+
+    // Create an inaccessible .__range
+    scope_entry_t* range_symbol = new_symbol(block_context, block_context->current_scope, ".__range");
+    // But rename it to __range for nice diagnostics
+    range_symbol->symbol_name = UNIQUESTR_LITERAL("__range");
+    range_symbol->kind = SK_VARIABLE;
+    range_symbol->type_information = get_rvalue_reference_type(get_auto_type());
+    range_symbol->locus = locus;
+
+    nodecl_t nodecl_orig_range_initializer = nodecl_range_initializer;
+    check_nodecl_initialization(
+            nodecl_shallow_copy(nodecl_orig_range_initializer),
+            block_context,
+            range_symbol,
+            range_symbol->type_information,
+            &nodecl_range_initializer,
+            /* is_auto_type */ 1,
+            /* is_decltype_auto */ 0);
+
+    if (nodecl_is_err_expr(nodecl_range_initializer))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus)
+                );
+        return;
+    }
+
+    // The initializer expression is dependent
+    // FIXME: can we deduce this fact earlier and not after computing a whole
+    // initialization for .__range?
+    if (is_dependent_type(range_symbol->type_information))
+    {
+        nodecl_free(nodecl_range_initializer);
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_cxx_for_ranged(
+                    nodecl_orig_range_initializer,
+                    nodecl_statement,
+                    iterator_symbol,
+                    locus)
+                );
+        return;
+    }
+    else
+    {
+        nodecl_free(nodecl_orig_range_initializer);
+        nodecl_orig_range_initializer = nodecl_null();
+    }
+
+    build_scope_nodecl_for_statement_range_nondependent(
+        iterator_symbol,
+        range_symbol,
+        nodecl_range_initializer,
+        nodecl_statement,
+        decl_context,
+        block_context,
+        locus,
+        nodecl_output);
 }
 
 static void build_scope_for_statement_range(AST a,
@@ -19127,7 +19577,6 @@ static void build_scope_for_statement_range(AST a,
         return;
     }
 
-
     scope_entry_t* iterator_symbol = build_scope_declarator_name(declarator,
             type_info, declarator_type,
             &gather_info, block_context);
@@ -19144,360 +19593,17 @@ static void build_scope_for_statement_range(AST a,
             /* preserve_top_level_parentheses */ gather_info.is_decltype_auto,
             &nodecl_range_initializer);
 
-    // The iterator type is dependent
-    if (is_dependent_type(iterator_symbol->type_information)
-            || nodecl_expr_is_type_dependent(nodecl_range_initializer))
-    {
-        nodecl_t nodecl_statement = nodecl_null();
-        build_scope_normalized_statement(statement, block_context, &nodecl_statement);
-
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_cxx_for_ranged(
-                    nodecl_range_initializer,
-                    nodecl_statement,
-                    iterator_symbol,
-                    ast_get_locus(a))
-                );
-        return;
-    }
-
-    // Create __range
-    scope_entry_t* range_symbol = new_symbol(block_context, block_context->current_scope, ".__range");
-    range_symbol->symbol_name = UNIQUESTR_LITERAL("__range");
-    range_symbol->kind = SK_VARIABLE;
-    range_symbol->type_information = get_rvalue_reference_type(get_auto_type());
-    range_symbol->locus = ast_get_locus(a);
-
-    check_nodecl_initialization(
-            nodecl_shallow_copy(nodecl_range_initializer),
-            block_context,
-            range_symbol,
-            range_symbol->type_information,
-            &nodecl_range_initializer,
-            /* is_auto_type */ 1,
-            /* is_decltype_auto */ 0);
-
-    if (nodecl_is_err_expr(nodecl_range_initializer))
-    {
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_err_statement(ast_get_locus(a))
-                );
-        return;
-    }
-
-    // The initializer expression is dependent
-    if (is_dependent_type(range_symbol->type_information))
-    {
-        nodecl_t nodecl_statement = nodecl_null();
-        build_scope_normalized_statement(statement, block_context, &nodecl_statement);
-
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_cxx_for_ranged(
-                    nodecl_range_initializer,
-                    nodecl_statement,
-                    iterator_symbol,
-                    ast_get_locus(a))
-                );
-
-        return;
-    }
-
-    nodecl_t nodecl_initializer_tmp = nodecl_null();
-
-    // Craft begin_expr and end_expr
-    nodecl_t nodecl_begin_init = nodecl_null(),
-             nodecl_end_init = nodecl_null();
-
-    if (is_array_type(no_ref(range_symbol->type_information)))
-    {
-        nodecl_t nodecl_begin_symbol = nodecl_make_symbol(range_symbol, ast_get_locus(a));
-        nodecl_set_type(nodecl_begin_symbol, lvalue_ref(range_symbol->type_information));
-
-        nodecl_begin_init = nodecl_make_cxx_equal_initializer(
-                nodecl_make_cxx_initializer(
-                    nodecl_begin_symbol,
-                    nodecl_get_type(nodecl_begin_symbol),
-                    ast_get_locus(a)),
-                nodecl_get_type(nodecl_begin_symbol),
-                ast_get_locus(a));
-
-        nodecl_t nodecl_array_size = nodecl_shallow_copy(
-                array_type_get_array_size_expr(no_ref(range_symbol->type_information))
-                );
-
-        type_t* pointer_type =
-            get_pointer_type(
-                    array_type_get_element_type(no_ref(range_symbol->type_information))
-                    );
-
-        nodecl_end_init =
-            nodecl_make_cxx_equal_initializer(
-                    nodecl_make_cxx_initializer(
-                        nodecl_make_add(
-                            nodecl_make_conversion(
-                                nodecl_shallow_copy(nodecl_begin_symbol),
-                                pointer_type,
-                                ast_get_locus(a)
-                                ),
-                            nodecl_array_size,
-                            pointer_type,
-                            ast_get_locus(a)),
-                        pointer_type,
-                        ast_get_locus(a)),
-                    pointer_type,
-                    ast_get_locus(a));
-    }
-    else
-    {
-        if (is_class_type(no_ref(range_symbol->type_information))
-                && class_lookup_begin_or_end(
-                    decl_context,
-                    named_type_get_symbol(
-                        advance_over_typedefs(
-                            no_ref(range_symbol->type_information))),
-                    ast_get_locus(a)))
-        {
-            AST begin_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTMake2(AST_CLASS_MEMBER_ACCESS,
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range")),
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("begin")),
-                        ast_get_locus(a),
-                        NULL),
-                    NULL,
-                    ast_get_locus(a),
-                    NULL);
-
-            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTMake2(AST_CLASS_MEMBER_ACCESS,
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range")),
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("end")),
-                        ast_get_locus(a),
-                        NULL),
-                    NULL,
-                    ast_get_locus(a),
-                    NULL);
-
-            check_expression(begin_init_tree, block_context, &nodecl_begin_init);
-            if (nodecl_is_err_expr(nodecl_begin_init))
-            {
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(ast_get_locus(a))
-                        );
-                return;
-            }
-
-            check_expression(end_init_tree, block_context, &nodecl_end_init);
-            if (nodecl_is_err_expr(nodecl_end_init))
-            {
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(ast_get_locus(a))
-                        );
-                return;
-            }
-        }
-        else
-        {
-            scope_entry_list_t* begin_lookup = NULL;
-            scope_entry_list_t* end_lookup = NULL;
-            if (is_class_type(no_ref(range_symbol->type_information)))
-            {
-                nodecl_t begin_name = nodecl_make_cxx_dep_name_simple(
-                        UNIQUESTR_LITERAL("begin"),
-                        ast_get_locus(a));
-                nodecl_t end_name = nodecl_make_cxx_dep_name_simple(
-                        UNIQUESTR_LITERAL("end"),
-                        ast_get_locus(a));
-
-                type_t* t  = no_ref(range_symbol->type_information);
-                begin_lookup = koenig_lookup(1, &t,
-                        block_context,
-                        begin_name,
-                        ast_get_locus(a));
-                end_lookup = koenig_lookup(1, &t,
-                        block_context,
-                        end_name,
-                        ast_get_locus(a));
-
-                nodecl_free(begin_name);
-                nodecl_free(end_name);
-            }
-
-            if (begin_lookup == NULL)
-            {
-                error_printf("%s: error: invalid type '%s' in range-based for-statement, no suitable 'begin' found\n",
-                        ast_location(a),
-                        print_declarator(range_symbol->type_information));
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(ast_get_locus(a))
-                        );
-                return;
-            }
-
-            if (end_lookup == NULL)
-            {
-                error_printf("%s: error: invalid type '%s' in range-based for-statement, no suitable 'end' found\n",
-                        ast_location(a),
-                        print_declarator(range_symbol->type_information));
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(ast_get_locus(a))
-                        );
-                return;
-            }
-
-            nodecl_t begin_set = nodecl_make_symbol(entry_list_head(begin_lookup), ast_get_locus(a));
-            nodecl_set_type(begin_set, get_unresolved_overloaded_type(begin_lookup, NULL));
-
-            nodecl_t nodecl_range_sym = nodecl_make_symbol(range_symbol, ast_get_locus(a));
-            nodecl_set_type(nodecl_range_sym, lvalue_ref(range_symbol->type_information));
-
-            check_nodecl_function_call(begin_set, 
-                    nodecl_make_list_1(nodecl_range_sym),
-                    decl_context,
-                    &nodecl_begin_init);
-
-            entry_list_free(begin_lookup);
-
-            if (nodecl_is_err_expr(nodecl_begin_init))
-            {
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(ast_get_locus(a))
-                        );
-                return;
-            }
-
-            nodecl_t end_set = nodecl_make_symbol(entry_list_head(end_lookup), ast_get_locus(a));
-            nodecl_set_type(end_set, get_unresolved_overloaded_type(end_lookup, NULL));
-
-            nodecl_range_sym = nodecl_make_symbol(range_symbol, ast_get_locus(a));
-            nodecl_set_type(nodecl_range_sym, lvalue_ref(range_symbol->type_information));
-
-            check_nodecl_function_call(end_set, 
-                    nodecl_make_list_1(nodecl_range_sym),
-                    decl_context,
-                    &nodecl_end_init);
-
-            entry_list_free(end_lookup);
-
-            if (nodecl_is_err_expr(nodecl_end_init))
-            {
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(ast_get_locus(a))
-                        );
-                return;
-            }
-        }
-
-        nodecl_begin_init = nodecl_make_cxx_equal_initializer(
-                nodecl_make_cxx_initializer(
-                    nodecl_begin_init,
-                    nodecl_get_type(nodecl_begin_init),
-                    ast_get_locus(a)),
-                nodecl_get_type(nodecl_begin_init),
-                ast_get_locus(a));
-
-        nodecl_end_init = nodecl_make_cxx_equal_initializer(
-                nodecl_make_cxx_initializer(
-                    nodecl_end_init,
-                    nodecl_get_type(nodecl_end_init),
-                    ast_get_locus(a)),
-                nodecl_get_type(nodecl_end_init),
-                ast_get_locus(a));
-    }
-
-    // Create __begin and __end
-    scope_entry_t* begin_symbol = new_symbol(block_context, block_context->current_scope, ".__begin");
-    begin_symbol->symbol_name = UNIQUESTR_LITERAL("__begin");
-    begin_symbol->kind = SK_VARIABLE;
-    begin_symbol->type_information = get_auto_type();
-    begin_symbol->locus = ast_get_locus(a);
-
-    nodecl_initializer_tmp = nodecl_null();
-    check_nodecl_initialization(
-            nodecl_begin_init,
-            block_context,
-            begin_symbol,
-            begin_symbol->type_information,
-            &nodecl_initializer_tmp,
-            /* is_auto_type */ 1,
-            /* is_decltype_auto */ 0);
-
-    if (nodecl_is_err_expr(nodecl_initializer_tmp))
-    {
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_err_statement(ast_get_locus(a))
-                );
-        return;
-    }
-
-    scope_entry_t* end_symbol = new_symbol(block_context, block_context->current_scope, ".__end");
-    end_symbol->symbol_name = UNIQUESTR_LITERAL("__end");
-    end_symbol->kind = SK_VARIABLE;
-    end_symbol->type_information = get_auto_type();
-    end_symbol->locus = ast_get_locus(a);
-
-    nodecl_initializer_tmp = nodecl_null();
-    check_nodecl_initialization(nodecl_end_init,
-            block_context,
-            end_symbol,
-            end_symbol->type_information,
-            &nodecl_initializer_tmp,
-            /* is_auto_type */ 1,
-            /* is_decltype_auto */ 0);
-
-    if (nodecl_is_err_expr(nodecl_initializer_tmp))
-    {
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_err_statement(ast_get_locus(a))
-                );
-        return;
-    }
-
-    AST initialize_iterator =
-        ASTMake1(AST_EQUAL_INITIALIZER,
-                ASTMake1(AST_DERREFERENCE,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__begin")),
-                    ast_get_locus(a), NULL),
-                ast_get_locus(a), NULL);
-
-    nodecl_initializer_tmp = nodecl_null();
-    check_initialization(initialize_iterator,
-            block_context,
-            iterator_symbol,
-            iterator_symbol->type_information,
-            &nodecl_initializer_tmp,
-            gather_info.is_auto_type,
-            gather_info.is_decltype_auto);
-
-    if (nodecl_is_err_expr(nodecl_initializer_tmp))
-    {
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_err_statement(ast_get_locus(a))
-                );
-        return;
-    }
-
-    nodecl_t nodecl_loop_control = nodecl_make_iterator_loop_control(
-            nodecl_make_symbol(iterator_symbol, ast_get_locus(a)),
-            nodecl_range_initializer,
-            ast_get_locus(a));
-
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
     build_scope_nodecl_for_statement_range(
-            nodecl_loop_control,
+            iterator_symbol,
+            nodecl_range_initializer,
             nodecl_statement,
+            decl_context,
             block_context,
             ast_get_locus(a),
             nodecl_output);
-
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_context(
-                *nodecl_output,
-                block_context,
-                ast_get_locus(a)
-                )
-            );
 }
 
 static void build_scope_for_statement(AST a,
@@ -19842,7 +19948,7 @@ static void build_scope_nodecl_return_statement(
         }
 
         if (is_decltype_auto_type(return_type)
-                || type_contains_auto(return_type))
+                || type_is_derived_from_auto(return_type))
         {
             char verify_deduction = 1;
             type_t* deduced_type = NULL;
@@ -19880,7 +19986,7 @@ static void build_scope_nodecl_return_statement(
                     return;
                 }
 
-                if (type_contains_auto(result_var->type_information))
+                if (type_is_derived_from_auto(result_var->type_information))
                 {
                     result_var->type_information = deduced_type;
                     verify_deduction = 0;
@@ -19913,7 +20019,8 @@ static void build_scope_nodecl_return_statement(
                     nodecl_return_expression,
                     decl_context,
                     return_type,
-                    /* disallow_narrowing */ 0,
+                    /* is_explicit_type_cast */ 0,
+                    /* allow_excess_of_initializers */ 0,
                     IK_COPY_INITIALIZATION,
                     &nodecl_return_expression);
         }
@@ -19939,7 +20046,7 @@ static void build_scope_nodecl_return_statement(
     else
     {
         // Case for 'return;'
-        if (type_contains_auto(return_type)
+        if (type_is_derived_from_auto(return_type)
                 || is_decltype_auto_type(return_type))
         {
         }
@@ -21659,7 +21766,8 @@ static scope_entry_t* instantiate_declaration_common(
         nodecl_instantiate_stmt_visitor_t* v,
         scope_entry_t* orig_entry,
         const locus_t* locus,
-        char is_definition)
+        char is_definition,
+        char check_initializer)
 {
     scope_entry_t* new_entry = instantiation_symbol_do_map(v->instantiation_symbol_map, orig_entry);
     if (new_entry == NULL)
@@ -21684,61 +21792,67 @@ static scope_entry_t* instantiate_declaration_common(
                             /* pack */ -1);
                     // Warning: this is a common source of issues
                     symbol_entity_specs_copy_from(new_entry, orig_entry);
-                    nodecl_t value = instantiate_expression(orig_entry->value,
-                            v->new_decl_context,
-                            v->instantiation_symbol_map,
-                            /* pack_index */ -1);
 
-                    nodecl_t nodecl_init = nodecl_null();
-
-                    if (!nodecl_is_null(value))
+                    if (check_initializer)
                     {
-                        if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
-                                || nodecl_get_kind(value) == NODECL_CXX_BRACED_INITIALIZER
-                                || nodecl_get_kind(value) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
+                        nodecl_t value = instantiate_expression(orig_entry->value,
+                                v->new_decl_context,
+                                v->instantiation_symbol_map,
+                                /* pack_index */ -1);
+
+                        nodecl_t nodecl_init = nodecl_null();
+                        if (!nodecl_is_null(value))
                         {
-                            check_nodecl_initialization(
-                                    value,
-                                    v->new_decl_context,
-                                    new_entry,
-                                    get_unqualified_type(new_entry->type_information),
-                                    &nodecl_init,
-                                    type_contains_auto(new_entry->type_information)
-                                        || is_decltype_auto_type(new_entry->type_information),
-                                    is_decltype_auto_type(new_entry->type_information));
-
-                            type_t* initializer_type = nodecl_get_type(nodecl_init);
-                            ERROR_CONDITION(initializer_type == NULL, "Missing type", 0);
-
-                            if (is_array_type(new_entry->type_information)
-                                    && nodecl_is_null(array_type_get_array_size_expr(new_entry->type_information)))
+                            if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
+                                    || nodecl_get_kind(value) == NODECL_CXX_BRACED_INITIALIZER
+                                    || nodecl_get_kind(value) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
                             {
-                                ERROR_CONDITION (is_dependent_type(initializer_type), "Invalid type", 0);
+                                check_nodecl_initialization(
+                                        value,
+                                        v->new_decl_context,
+                                        new_entry,
+                                        get_unqualified_type(new_entry->type_information),
+                                        &nodecl_init,
+                                        type_is_derived_from_auto(new_entry->type_information)
+                                        || is_decltype_auto_type(new_entry->type_information),
+                                        is_decltype_auto_type(new_entry->type_information));
 
-                                cv_qualifier_t cv_qualif = get_cv_qualifier(new_entry->type_information);
-                                new_entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                                type_t* initializer_type = nodecl_get_type(nodecl_init);
+                                ERROR_CONDITION(initializer_type == NULL, "Missing type", 0);
+
+                                if (is_array_type(new_entry->type_information)
+                                        && nodecl_is_null(array_type_get_array_size_expr(new_entry->type_information)))
+                                {
+                                    ERROR_CONDITION (is_dependent_type(initializer_type), "Invalid type", 0);
+
+                                    cv_qualifier_t cv_qualif = get_cv_qualifier(new_entry->type_information);
+                                    new_entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                                }
                             }
+                            else
+                            {
+                                check_nodecl_expr_initializer(value,
+                                        v->new_decl_context,
+                                        get_unqualified_type(new_entry->type_information),
+                                        /* disallow_narrowing */ 0,
+                                        IK_DIRECT_INITIALIZATION,
+                                        &nodecl_init);
+                            }
+
+                            new_entry->value = nodecl_init;
                         }
-                        else if (nodecl_get_kind(value) == NODECL_VALUE_INITIALIZATION)
+                        else
                         {
                             check_default_initialization_and_destruction_declarator(
                                     new_entry,
                                     v->new_decl_context,
                                     locus);
-                            nodecl_init = new_entry->value;
-                        }
-                        else
-                        {
-                            check_nodecl_expr_initializer(value,
-                                    v->new_decl_context,
-                                    get_unqualified_type(new_entry->type_information),
-                                    /* disallow_narrowing */ 0,
-                                    IK_DIRECT_INITIALIZATION,
-                                    &nodecl_init);
                         }
                     }
-
-                    new_entry->value = nodecl_init;
+                    else
+                    {
+                        new_entry->value = nodecl_null();
+                    }
 
                     break;
                 }
@@ -21770,7 +21884,13 @@ static void instantiate_cxx_def_or_decl(
         nodecl_t (*fun)(nodecl_t, scope_entry_t*, const locus_t*),
         char is_definition)
 {
-    scope_entry_t* new_entry = instantiate_declaration_common(v, nodecl_get_symbol(node), nodecl_get_locus(node), is_definition);
+    scope_entry_t* new_entry =
+        instantiate_declaration_common(
+                v,
+                nodecl_get_symbol(node),
+                nodecl_get_locus(node),
+                is_definition,
+                /* check_initializer */ 1);
 
     nodecl_t orig_nodecl_context = nodecl_get_child(node, 0);
     nodecl_t new_nodecl_context = nodecl_null();
@@ -21806,7 +21926,12 @@ static nodecl_t instantiate_object_init_node(
         nodecl_instantiate_stmt_visitor_t* v,
         nodecl_t node)
 {
-    scope_entry_t* new_entry = instantiate_declaration_common(v, nodecl_get_symbol(node), nodecl_get_locus(node), /* is_definition */ 1);
+    scope_entry_t* new_entry = instantiate_declaration_common(
+            v,
+            nodecl_get_symbol(node),
+            nodecl_get_locus(node),
+            /* is_definition */ 1,
+            /* check_initializer */ 1);
 
     return nodecl_make_object_init(new_entry, nodecl_get_locus(node));
 }
@@ -21876,6 +22001,46 @@ static void instantiate_cxx_using_decl(nodecl_instantiate_stmt_visitor_t* v, nod
     introduce_using_entity_nodecl_name(used_expression, v->new_decl_context,
             /* current_access */ AS_UNKNOWN,
             /* is_typename */ 0,
+            &v->nodecl_result);
+}
+
+static void instantiate_cxx_for_ranged(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    scope_entry_t* iterator_symbol = nodecl_get_symbol(node);
+    nodecl_t nodecl_range_initializer = nodecl_get_child(node, 0);
+    nodecl_t nodecl_statement = nodecl_get_child(node, 1);
+
+    const decl_context_t *current_decl_context = v->new_decl_context;
+    const decl_context_t *block_context = new_block_context(current_decl_context);
+
+    nodecl_t new_nodecl_range_initializer
+        = instantiate_expression(
+                nodecl_range_initializer,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* pack_index */ 1);
+    nodecl_t new_nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+    // Temporarily move inside the block context
+    v->new_decl_context = block_context;
+
+    scope_entry_t* new_iterator_symbol = instantiate_declaration_common(
+            v,
+            iterator_symbol,
+            iterator_symbol->locus,
+            /* is_definition */ 1,
+            /* check_initializer */ 0);
+
+    v->new_decl_context = current_decl_context;
+    // Go back to the enclosing context
+
+    build_scope_nodecl_for_statement_range(
+            new_iterator_symbol,
+            new_nodecl_range_initializer,
+            new_nodecl_statement,
+            current_decl_context,
+            block_context,
+            nodecl_get_locus(node),
             &v->nodecl_result);
 }
 
@@ -21978,7 +22143,7 @@ static nodecl_t instantiate_loop_init(nodecl_instantiate_stmt_visitor_t* v, node
     {
         // We can expect object-inits here, the name of the tree is misleading
         nodecl_t expr = expr_list[i];
-        nodecl_t new_expr = nodecl_null();
+        nodecl_t new_expr;
 
         if (nodecl_get_kind(expr) == NODECL_OBJECT_INIT)
         {
@@ -22033,7 +22198,58 @@ static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, node
     }
     else if (nodecl_get_kind(nodecl_loop_control) == NODECL_ITERATOR_LOOP_CONTROL)
     {
-        internal_error("range-based for not yet supported", 0);
+        // Here we are instantiating a non-dependent ranged loop
+        scope_entry_t* iterator_symbol = nodecl_get_symbol(nodecl_get_child(nodecl_loop_control, 0));
+
+        scope_entry_t* new_iterator_symbol = new_symbol(v->new_decl_context,
+                v->new_decl_context->current_scope,
+                iterator_symbol->symbol_name);
+        new_iterator_symbol->kind = SK_VARIABLE;
+        new_iterator_symbol->type_information = iterator_symbol->type_information;
+        symbol_entity_specs_copy_from(new_iterator_symbol, iterator_symbol);
+
+        nodecl_t nodecl_range_initializer = nodecl_get_child(nodecl_loop_control, 1);
+        nodecl_t new_nodecl_range_initializer = instantiate_expression(
+                nodecl_range_initializer,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* pack_index */ -1);
+
+        nodecl_t new_nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+        scope_entry_list_t* entry_list = query_in_scope_str(
+                nodecl_retrieve_context(node),
+                UNIQUESTR_LITERAL(".__range"),
+                NULL
+                );
+        ERROR_CONDITION(entry_list == NULL, "Range symbol not found", 0);
+        scope_entry_t* range_symbol = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        // Create inaccessible .__range symbol
+        scope_entry_t* new_range_symbol = new_symbol(v->new_decl_context,
+                v->new_decl_context->current_scope,
+                ".__range");
+        // Rename it to __range for nice diagnostics
+        new_range_symbol->symbol_name = UNIQUESTR_LITERAL("__range");
+        new_range_symbol->kind = SK_VARIABLE;
+        new_range_symbol->type_information = range_symbol->type_information;
+        symbol_entity_specs_copy_from(new_range_symbol, range_symbol);
+
+        // FIXME: this should be done better
+        decl_context_t* enclosing_decl_context = decl_context_clone(v->new_decl_context);
+        enclosing_decl_context->current_scope =
+            enclosing_decl_context->current_scope->contained_in;
+
+        build_scope_nodecl_for_statement_range_nondependent(
+                new_iterator_symbol,
+                new_range_symbol,
+                new_nodecl_range_initializer,
+                new_nodecl_statement,
+                enclosing_decl_context,
+                v->new_decl_context,
+                nodecl_get_locus(node),
+                &v->nodecl_result);
     }
     else
     {
@@ -22280,7 +22496,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_continue_statement = instantiate_stmt_visitor_fun(instantiate_continue_statement); // --
     NODECL_VISITOR(v)->visit_goto_statement = instantiate_stmt_visitor_fun(instantiate_goto_statement); // --
 
-    // NODECL_VISITOR(v)->visit_cxx_for_ranged = instantiate_stmt_visitor_fun(instantiate_cxx_for_ranged);
+    NODECL_VISITOR(v)->visit_cxx_for_ranged = instantiate_stmt_visitor_fun(instantiate_cxx_for_ranged);
 
     NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context); // --
 

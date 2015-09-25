@@ -283,7 +283,7 @@ namespace TL
                         delete phase;
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "COMPILERPHASES: Phase '%s' unloaded\n", phase->get_phase_name().c_str());
+                            fprintf(stderr, "COMPILERPHASES: Phase unloaded\n");
                         }
                     }
                 }

@@ -36,6 +36,7 @@
 #include "cxx-typeenviron.h"
 #include "cxx-typeutils.h"
 #include "fortran03-typeenviron.h"
+#include "fortran03-mangling.h"
 #include "mem.h"
 
 static void new_option_list(option_list_t* list);
@@ -44,7 +45,9 @@ static void add_to_option_list(option_list_t* list, p_compilation_configuration_
 static p_compilation_configuration_line process_option_line(
         flag_expr_t* flag_expr,
         profile_option_name_t* name, 
-        const char* option_value);
+        const char* option_value,
+        const char* filename,
+        int line);
 
 struct flag_expr_tag
 {
@@ -54,6 +57,8 @@ struct flag_expr_tag
 };
 
 static flag_expr_t* flag_name(const char* name);
+static flag_expr_t* flag_true(void);
+static flag_expr_t* flag_false(void);
 static flag_expr_t* flag_is_defined(const char* name);
 static flag_expr_t* flag_not(flag_expr_t* op);
 static flag_expr_t* flag_and(flag_expr_t* op1, flag_expr_t* op2);
@@ -87,6 +92,8 @@ static void register_implicit_names(flag_expr_t* flag_expr);
 %token<str> '&'
 %token<str> '|'
 %token<str> CONFIGFILE_NAME "identifier"
+%token<str> CONFIGFILE_FLAG_TRUE ":true:"
+%token<str> CONFIGFILE_FLAG_FALSE ":false:"
 %token<str> CONFIGFILE_OPTION_VALUE "option-value"
 %token<str> EOL "end-of-line"
 
@@ -155,6 +162,7 @@ profile: profile_header profile_body
 
     new_configuration->type_environment = default_environment;
     new_configuration->fortran_array_descriptor = default_fortran_array_descriptor;
+    new_configuration->fortran_name_mangling = default_fortran_name_mangling;
     new_configuration->print_vector_type = print_gnu_vector_type;
 
     if (get_compilation_configuration($1.profile_name) != NULL)
@@ -219,7 +227,7 @@ option_line_seq : option_line_seq option_line
 // We need a lexical tie in since we allow free text after the '=' 
 option_line : flag_spec option_name '=' option_value EOL
 {
-    $$ = process_option_line($1, &$2, $4);
+    $$ = process_option_line($1, &$2, $4, @2.filename, @2.first_line);
 }
 // Degenerated cases. Do nothing with them
 | flag_spec EOL
@@ -318,6 +326,14 @@ flag_atom : CONFIGFILE_NAME
 {
     $$ = $2;
 }
+| CONFIGFILE_FLAG_TRUE
+{
+    $$ = flag_true();
+}
+| CONFIGFILE_FLAG_FALSE
+{
+    $$ = flag_false();
+}
 ;
 
 %%
@@ -364,6 +380,24 @@ static void register_implicit_names(flag_expr_t* flag_expr)
 static flag_expr_t* new_flag(void)
 {
     flag_expr_t* result = NEW0(flag_expr_t);
+    return result;
+}
+
+static flag_expr_t* flag_true(void)
+{
+    flag_expr_t* result = new_flag();
+
+    result->kind = FLAG_OP_TRUE;
+
+    return result;
+}
+
+static flag_expr_t* flag_false(void)
+{
+    flag_expr_t* result = new_flag();
+
+    result->kind = FLAG_OP_FALSE;
+
     return result;
 }
 
@@ -421,19 +455,18 @@ static flag_expr_t* flag_or(flag_expr_t* op1, flag_expr_t* op2)
 
 static p_compilation_configuration_line process_option_line(
         flag_expr_t* flag_expr,
-        profile_option_name_t* name, 
-        const char* option_value)
+        profile_option_name_t* name,
+        const char* option_value,
+        const char* filename,
+        int line)
 {
     p_compilation_configuration_line result;
-
-    // fprintf(stderr, "--> PROCESSING OPTION LINE -> '%s' = '%s'\n", 
-    //         name->option_name, option_value);
 
     char* option_value_tmp = xstrdup(option_value);
     {
         // Trim the option value
         char *p = &option_value_tmp[strlen(option_value_tmp) - 1];
-        while (p >= option_value_tmp 
+        while (p >= option_value_tmp
                 && (*p == ' ' || *p == '\t'))
         {
             *p = '\0';
@@ -450,6 +483,12 @@ static p_compilation_configuration_line process_option_line(
     DELETE(option_value_tmp);
 
     result->flag_expr = flag_expr;
+    result->filename = filename;
+    result->line = line;
+
+#if 0
+    fprintf(stderr, "LINE: |%s| at %s:%d\n", result->name, result->filename, result->line);
+#endif
 
     register_implicit_names(flag_expr);
 
@@ -499,6 +538,14 @@ char flag_expr_eval(flag_expr_t* flag_expr)
         case FLAG_OP_AND:
             {
                 return flag_expr_eval(flag_expr->op[0]) && flag_expr_eval(flag_expr->op[1]);
+            }
+        case FLAG_OP_TRUE:
+            {
+                return 1;
+            }
+        case FLAG_OP_FALSE:
+            {
+                return 0;
             }
         default:
             {

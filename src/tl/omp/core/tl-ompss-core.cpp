@@ -325,9 +325,6 @@ namespace TL { namespace OpenMP {
 
                 return TL::OmpSs::FunctionTaskDependency(expr, _direction);
             }
-#if !defined(HAVE_CXX11)
-            typedef TL::OmpSs::FunctionTaskDependency result_type;
-#endif
     };
 
     struct FunctionCopyItemGenerator
@@ -347,10 +344,6 @@ namespace TL { namespace OpenMP {
 
                 return TL::OmpSs::CopyItem(data_ref, _copy_direction);
             }
-
-#if !defined(HAVE_CXX11)
-            typedef TL::OmpSs::CopyItem result_type;
-#endif
     };
 
 
@@ -521,36 +514,36 @@ namespace TL { namespace OpenMP {
 
         dependence_list_check(input_arguments, DEP_DIR_IN, function_sym);
         dependence_list.append(input_arguments
-                .map(FunctionTaskDependencyGenerator(DEP_DIR_IN))
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_IN))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         dependence_list_check(input_value_arguments, DEP_OMPSS_DIR_IN_VALUE, function_sym);
         dependence_list.append(input_value_arguments
-                .map(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_VALUE)));
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_VALUE)));
 
         dependence_list_check(input_private_arguments, DEP_OMPSS_DIR_IN_PRIVATE, function_sym);
         dependence_list.append(input_private_arguments
-                .map(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_PRIVATE))
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_PRIVATE))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         dependence_list_check(output_arguments, DEP_DIR_OUT, function_sym);
         dependence_list.append(output_arguments
-                .map(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         dependence_list_check(inout_arguments, DEP_DIR_INOUT, function_sym);
         dependence_list.append(inout_arguments
-                .map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         dependence_list_check(concurrent_arguments, DEP_OMPSS_CONCURRENT, function_sym);
         dependence_list.append(concurrent_arguments
-                .map(FunctionTaskDependencyGenerator(DEP_OMPSS_CONCURRENT))
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_CONCURRENT))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         dependence_list_check(commutative_arguments, DEP_OMPSS_COMMUTATIVE, function_sym);
         dependence_list.append(commutative_arguments
-                .map(FunctionTaskDependencyGenerator(DEP_OMPSS_COMMUTATIVE))
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_COMMUTATIVE))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         // Target-style clauses
@@ -593,15 +586,18 @@ namespace TL { namespace OpenMP {
                 target_ctx_copy_inout.append(commutative_arguments);
             }
 
-            ObjectList<TL::OmpSs::CopyItem> copy_in = target_ctx_copy_in.map(
+            ObjectList<TL::OmpSs::CopyItem> copy_in =
+                target_ctx_copy_in.map<TL::OmpSs::CopyItem>(
                     FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_IN));
             target_info.append_to_copy_in(copy_in);
 
-            ObjectList<TL::OmpSs::CopyItem> copy_out = target_ctx_copy_out.map(
+            ObjectList<TL::OmpSs::CopyItem> copy_out =
+                target_ctx_copy_out.map<TL::OmpSs::CopyItem>(
                     FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_OUT));
             target_info.append_to_copy_out(copy_out);
 
-            ObjectList<TL::OmpSs::CopyItem> copy_inout = target_ctx_copy_inout.map(
+            ObjectList<TL::OmpSs::CopyItem> copy_inout =
+                target_ctx_copy_inout.map<TL::OmpSs::CopyItem>(
                     FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_INOUT));
             target_info.append_to_copy_inout(copy_inout);
 
@@ -787,18 +783,25 @@ namespace TL { namespace OpenMP {
             // Create an implicit target for this one
             _target_context.push(OmpSs::TargetContext());
             _target_context.top().is_implicit = true;
-
-            ompss_common_target_handler_pre(pragma_line,
-                    _target_context.top(),
-                    scope,
-                    /* is_pragma_task */ true);
         }
+
+        ompss_common_target_handler_pre(pragma_line,
+                _target_context.top(),
+                scope,
+                /* is_pragma_task */ true);
 
         // Target info applies after
         ompss_get_target_info(pragma_line, data_environment);
 
         get_data_implicit_attributes_task(construct, data_environment, default_data_attr, there_is_default_clause);
         get_data_extra_symbols(data_environment, extra_symbols);
+
+        // The target context has been fully consumed by this inline task,
+        // this prevents from it leaking to nested tasks (see ticket #2500)
+        //
+        // Recall that std::stack does not have a clear operation so we assign
+        // to it a new std::stack
+        _target_context = std::stack<TL::OmpSs::TargetContext>();
     }
 
     TL::OmpSs::RealTimeInfo Core::task_real_time_handler_pre(TL::PragmaCustomLine construct)

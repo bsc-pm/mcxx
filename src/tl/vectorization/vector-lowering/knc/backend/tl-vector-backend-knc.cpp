@@ -2282,11 +2282,18 @@ namespace Vectorization
 
                 walk(arguments);
 
-                // args << mask_args;
-                for (Nodecl::List::const_iterator it = arguments.begin();
+                args << mask_args;
+                int num = 0;
+                Nodecl::List::const_iterator it = arguments.begin();
+                for (;
                         it != arguments.end();
-                        it++)
+                        it++, num++)
                 {
+                    // Skip the first two when there is mask
+                    if (!mask.is_null()
+                            && (num < 2))
+                        continue;
+
                     args.append_with_separator(as_expression(*it), ", ");
                 }
 

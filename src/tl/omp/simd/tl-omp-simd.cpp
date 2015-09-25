@@ -42,7 +42,7 @@ namespace TL {
     namespace OpenMP {
 
         Simd::Simd()
-            : PragmaCustomCompilerPhase("omp-simd"),
+            : PragmaCustomCompilerPhase(),
             _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false),
             _avx2_enabled(false), _knc_enabled(false), _knl_enabled(false),
             _spml_enabled(false), _only_adjacent_accesses_enabled(false), _overlap_in_place(false)

@@ -45,9 +45,19 @@ void multifile_init_dir(void);
 char multifile_object_has_extended_info(const char* filename);
 void multifile_extract_extended_info(const char* filename);
 
-void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num_multifile_profiles);
+typedef
+struct multifile_extracted_profile_tag
+{
+    const char* name;
+    int tag;
+} multifile_extracted_profile_t;
 
-void multifile_get_profile_file_list(const char* profile_name,
+void multifile_get_extracted_profiles(
+        multifile_extracted_profile_t** multifile_extracted_profile,
+        int *num_multifile_profiles);
+
+void multifile_get_profile_file_list(
+        const multifile_extracted_profile_t* multifile_extracted_profile,
         const char*** multifile_file_list,
         int *num_multifile_files);
 

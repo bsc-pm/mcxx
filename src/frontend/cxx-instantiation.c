@@ -282,13 +282,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         return;
                 }
 
-                if (is_named_class_type(new_member->type_information))
-                {
-                    type_t* t = advance_over_typedefs(new_member->type_information);
+                // if (is_named_class_type(new_member->type_information))
+                // {
+                //     type_t* t = advance_over_typedefs(new_member->type_information);
 
-                    scope_entry_t* class_entry = named_type_get_symbol(t);
-                    class_type_complete_if_needed(class_entry, context_of_being_instantiated, locus);
-                }
+                //     scope_entry_t* class_entry = named_type_get_symbol(t);
+                //     class_type_complete_if_needed(class_entry, context_of_being_instantiated, locus);
+                // }
 
                 if (symbol_entity_specs_get_is_bitfield(new_member))
                 {
@@ -845,17 +845,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     symbol_entity_specs_set_function_code(new_member, nodecl_null());
                     // Do not share these
                     symbol_entity_specs_free_related_symbols(new_member);
-
-                    if (!nodecl_is_null(symbol_entity_specs_get_noexception(new_member)))
-                    {
-                        // FIXME - We should use the parameter context
-                        symbol_entity_specs_set_noexception(new_member,
-                            instantiate_expression_non_executable(
-                                    symbol_entity_specs_get_noexception(new_member),
-                                    new_member->decl_context,
-                                    instantiation_symbol_map,
-                                    /* pack_index */ -1));
-                    }
                 }
                 else
                 {
@@ -884,7 +873,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     type_t* primary_type = template_type_get_primary_type(new_member->type_information);
                     new_member = named_type_get_symbol(primary_type);
 
-                    new_member->defined = primary_template_sym->defined;
+                    new_member->defined = 0;
                     symbol_entity_specs_set_function_code(new_member, nodecl_null());
                     symbol_entity_specs_set_is_instantiable(new_member, 1);
                     symbol_entity_specs_set_emission_template(new_member, primary_template_sym);
@@ -2362,7 +2351,7 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
                     templated_context->template_parameters = sym->decl_context->template_parameters;
 
                     nodecl_t parent = nodecl_get_parent(list[i]);
-                    nodecl_t new_decl = nodecl_null();
+                    nodecl_t new_decl;
 
                     if (symbol_entity_specs_get_is_constexpr(sym)
                             && !nodecl_is_null(symbol_entity_specs_get_function_code(sym)))
@@ -2499,10 +2488,6 @@ static char instantiate_true_template_function(scope_entry_t* entry, const locus
     // The primary specialization is a named type, even if the named type is a function!
     type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
-
-    // Cannot be instantiated
-    if (!primary_specialization_function->defined)
-        return 0;
 
     scope_entry_t* emission_template =
         symbol_entity_specs_get_emission_template(primary_specialization_function);
@@ -2769,6 +2754,8 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
         {
             symbol_entity_specs_set_is_defined_inside_class_specifier(entry, 0);
         }
+
+        entry->defined = 1;
     }
 
     diagnostic_context_pop_and_commit();

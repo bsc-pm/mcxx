@@ -82,12 +82,12 @@ static inline AST ast_get_parent(const_AST a)
 
 static inline unsigned int ast_get_line(const_AST a)
 {
-    return locus_get_line(a->locus);
+    return locus_get_line(ast_get_locus(a));
 }
 
 static inline unsigned int ast_get_column(const_AST a)
 {
-    return locus_get_column(a->locus);
+    return locus_get_column(ast_get_locus(a));
 }
 
 static inline const char* ast_get_text(const_AST a)
@@ -356,7 +356,7 @@ static inline AST ast_list_concat(AST before, AST after)
 
 static inline const char* ast_location(const_AST a)
 {
-    return locus_to_str(a->locus);
+    return locus_to_str(ast_get_locus(a));
 }
 
 static inline int ast_get_num_ambiguities(const_AST a)
@@ -544,7 +544,7 @@ static inline void ast_set_locus(AST a, const locus_t* locus)
 
 static inline const char *ast_get_filename(const_AST a)
 {
-    return locus_get_filename(a->locus);
+    return locus_get_filename(ast_get_locus(a));
 }
 
 static inline int ast_node_size(void)

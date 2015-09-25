@@ -737,6 +737,8 @@ src_frontend_fortran_libmf03_la_SOURCES = \
                      src/frontend/fortran/fortran03-modules-bits.h \
                      src/frontend/fortran/fortran03-modules.c \
                      src/frontend/fortran/fortran03-codegen.h \
+                     src/frontend/fortran/fortran03-mangling.h \
+                     src/frontend/fortran/fortran03-mangling.c \
                      src/frontend/fortran/libmf03-common.h \
                      $(END)
 
@@ -772,6 +774,7 @@ src_frontend_fortran_libmf03_la_CFLAGS = \
 				    -I$(top_builddir)/src/frontend/fortran \
 				    -I$(top_srcdir)/src/driver \
 				    -I$(top_srcdir)/src/driver/fortran \
+				    -I$(top_builddir)/src/driver \
                     $(FORTRAN_FLEX_FLAGS) \
                     -fexceptions \
 					-std=gnu99 \
@@ -814,6 +817,7 @@ ADDITIONAL_GRAMMARS_FORTRAN_ONLY =
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-subparse.y
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-omp.y
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-ompss.y
+ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-extensions.y
 
 EXTRA_DIST += $(ADDITIONAL_GRAMMARS_FORTRAN_ONLY)
 
@@ -2299,6 +2303,40 @@ src_tl_omp_lint_libtlomp_lint_la_SOURCES = \
    $(END)
 endif
 
+##########################################################################
+# src/tl/ompss/nanos6
+##########################################################################
+
+if BUILD_NANOS6
+
+phases_LTLIBRARIES += src/tl/ompss/nanos6/libtlnanos6-lowering.la
+
+src_tl_ompss_nanos6_libtlnanos6_lowering_la_CFLAGS = $(phases_cflags) \
+                                                        -I $(top_srcdir)/src/tl/omp/common \
+                                                        -I@NANOS6_INCLUDES@
+src_tl_ompss_nanos6_libtlnanos6_lowering_la_CXXFLAGS = $(phases_cxxflags) \
+                                                        -I $(top_srcdir)/src/tl/omp/common \
+                                                        -I@NANOS6_INCLUDES@
+
+src_tl_ompss_nanos6_libtlnanos6_lowering_la_LIBADD = $(phases_libadd)
+
+src_tl_ompss_nanos6_libtlnanos6_lowering_la_LDFLAGS = $(phases_ldflags)
+
+src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
+								 src/tl/ompss/nanos6/tl-nanos6.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-lower.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-lower.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-task.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-taskcall.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-task-properties.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-task-properties.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-fortran-load-api.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-critical.cpp \
+								 $(END)
+
+endif
 
 ##########################################################################
 # src/tl/analysis/checker
@@ -2773,6 +2811,7 @@ src_driver_plaincxx_SOURCES = \
   src/driver/cxx-fileextensions.c \
   src/driver/cxx-debugflags.c \
   src/driver/cxx-driver.c \
+  src/driver/cxx-driver-build-info.h \
   src/driver/cxx-driver-decls.h \
   src/driver/cxx-driver.h \
   src/driver/cxx-driver-utils.c \
@@ -3107,9 +3146,9 @@ config_edit = \
      -e "s|@CUDA_INCLUDES[@]|$(CUDA_INCLUDES)|g" \
      -e "s|@CUDA_LIBS[@]|$(CUDA_LIBS)|g" \
      -e "s|@CUDA_RPATH[@]|$(CUDA_RPATH)|g" \
-     -e 's|@DISABLE_CUDA[@]|$(DISABLE_CUDA)|g' \
-     -e 's|@DISABLE_OPENCL[@]|$(DISABLE_OPENCL)|g' \
-     -e 's|@DISABLE_MPI[@]|$(DISABLE_MPI)|g' \
+     -e 's|@ENABLE_CUDA[@]|$(ENABLE_CUDA)|g' \
+     -e 's|@ENABLE_OPENCL[@]|$(ENABLE_OPENCL)|g' \
+     -e 's|@ENABLE_MPI[@]|$(ENABLE_MPI)|g' \
      -e 's|@MPIFORT[@]|$(MPIFORT)|g' \
      -e 's|@MPICXX[@]|$(MPICXX)|g' \
      -e 's|@MPICC[@]|$(MPICC)|g' \
@@ -3133,14 +3172,18 @@ config_edit = \
      -e 's|@MPICC[@]|$(MPICC)|g' \
      -e 's|@MPICXX[@]|$(MPICXX)|g' \
      -e 's|@MIC_LIBS[@]|$(MIC_LIBS)|g' \
-     -e 's|@DISABLEMPI_ICC[@]|$(DISABLEMPI_ICC)|g' \
-     -e 's|@DISABLEMPI_GCC[@]|$(DISABLEMPI_GCC)|g' \
+     -e 's|@ENABLEMPI_ICC[@]|$(ENABLEMPI_ICC)|g' \
+     -e 's|@ENABLEMPI_GCC[@]|$(ENABLEMPI_GCC)|g' \
      -e 's|@INTEL_OMP_LIB[@]|$(INTEL_OMP_LIB)|g' \
      -e 's|@INTEL_OMP_INCLUDE[@]|$(INTEL_OMP_INCLUDE)|g' \
      -e 's|@MIC_TOOLS[@]|$(MIC_TOOLS)|g' \
      -e 's|@CORRECTNESS_LOG_DIR[@]|$(CORRECTNESS_LOG_DIR)|g' \
      -e 's|@DLB_LIB[@]|$(DLB_LIB)|g' \
      -e 's|@DLB_INCLUDE[@]|$(DLB_INCLUDE)|g' \
+     -e 's|@NANOX_GATE[@]|$(NANOX_GATE)|g' \
+     -e 's|@NANOS6_GATE[@]|$(NANOS6_GATE)|g' \
+     -e 's|@NANOS6_INCLUDES[@]|$(NANOS6_INCLUDES)|g' \
+     -e 's|@NANOS6_LIB[@]|$(NANOS6_LIB)|g' \
     $(END)
 
 # Cross compiler profile names
@@ -3228,17 +3271,67 @@ DEBIAN_EXTRA=\
               scripts/debian/control \
               $(END)
 
-LATEST_GXX=g++-4.9
-LATEST_GXX_FLAGS=-fabi-version=6 \
-				 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 -mavx \
-				 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd -msha \
-				 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 \
-				 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt \
-				 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mrdseed \
-				 $(END)
+LATEST_GXX=g++-5.1
 
-scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp
-	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir) -o scripts/generate_builtins_ia32.bin $(srcdir)/scripts/builtins_ia32.cpp
+LATEST_GXX_FLAGS =
+LATEST_GXX_FLAGS += -fabi-version=6
+LATEST_GXX_FLAGS += -m3dnow
+LATEST_GXX_FLAGS += -mabm
+LATEST_GXX_FLAGS += -maes
+LATEST_GXX_FLAGS += -mavx
+LATEST_GXX_FLAGS += -mavx2
+LATEST_GXX_FLAGS += -mavx512bw
+LATEST_GXX_FLAGS += -mavx512cd
+LATEST_GXX_FLAGS += -mavx512dq
+LATEST_GXX_FLAGS += -mavx512er
+LATEST_GXX_FLAGS += -mavx512f
+LATEST_GXX_FLAGS += -mavx512ifma
+LATEST_GXX_FLAGS += -mavx512pf
+LATEST_GXX_FLAGS += -mavx512vbmi
+LATEST_GXX_FLAGS += -mavx512vl
+LATEST_GXX_FLAGS += -mbmi
+LATEST_GXX_FLAGS += -mbmi2
+LATEST_GXX_FLAGS += -mclflushopt
+LATEST_GXX_FLAGS += -mclwb
+LATEST_GXX_FLAGS += -mf16c
+LATEST_GXX_FLAGS += -mfma
+LATEST_GXX_FLAGS += -mfma4
+LATEST_GXX_FLAGS += -mfsgsbase
+LATEST_GXX_FLAGS += -mfxsr
+LATEST_GXX_FLAGS += -mlwp
+LATEST_GXX_FLAGS += -mlzcnt
+LATEST_GXX_FLAGS += -mmmx
+LATEST_GXX_FLAGS += -mmpx
+LATEST_GXX_FLAGS += -mmwaitx
+LATEST_GXX_FLAGS += -mno-fma4
+LATEST_GXX_FLAGS += -mpclmul
+LATEST_GXX_FLAGS += -mpcommit
+LATEST_GXX_FLAGS += -mpopcnt
+LATEST_GXX_FLAGS += -mprefetchwt1
+LATEST_GXX_FLAGS += -mrdrnd
+LATEST_GXX_FLAGS += -mrdseed
+LATEST_GXX_FLAGS += -mrtm
+LATEST_GXX_FLAGS += -msha
+LATEST_GXX_FLAGS += -msse
+LATEST_GXX_FLAGS += -msse2
+LATEST_GXX_FLAGS += -msse3
+LATEST_GXX_FLAGS += -msse4
+LATEST_GXX_FLAGS += -msse4.1
+LATEST_GXX_FLAGS += -msse4.2
+LATEST_GXX_FLAGS += -msse4a
+LATEST_GXX_FLAGS += -mssse3
+LATEST_GXX_FLAGS += -mtbm
+LATEST_GXX_FLAGS += -mxop
+LATEST_GXX_FLAGS += -mxsave
+LATEST_GXX_FLAGS += -mxsavec
+LATEST_GXX_FLAGS += -mxsaveopt
+LATEST_GXX_FLAGS += -mxsaves
+
+scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp Makefile
+	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir)\
+		-o scripts/generate_builtins_ia32.bin \
+		$(srcdir)/scripts/builtins_ia32.cpp \
+		-Wl,-rpath,$$(dirname $$($(LATEST_GXX) -print-file-name=libstdc++.so))
 
 # These files are only regenerated manually
 .PHONY: generate_builtins_ia32

@@ -5593,7 +5593,7 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
         return NULL;
 
     // t1 shall be of constant size
-    nodecl_t arr_shape_size = nodecl_null();
+    nodecl_t arr_shape_size;
 
     if (array_type_has_region(t1))
         arr_shape_size = array_type_get_region_size_expr(t1);

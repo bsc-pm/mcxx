@@ -443,11 +443,11 @@ namespace Analysis {
 //      Ret visit(const Nodecl::TopLevel& n); // This method is not implemented because PCFGVisitor must visit
                                                 // sections of code creating a unique PCFG.
                                                 // Use AnalysisSingleton methods instead.
+
         Ret visit(const Nodecl::TryBlock& n);
         Ret visit(const Nodecl::Type& n);
         Ret visit(const Nodecl::Typeid& n);
         Ret visit(const Nodecl::UnknownPragma& n);
-        Ret visit(const Nodecl::ValueInitialization& n);
         Ret visit(const Nodecl::VectorAdd& n);
         Ret visit(const Nodecl::VectorAlignRight& n);
         Ret visit(const Nodecl::VectorArithmeticShr& n);

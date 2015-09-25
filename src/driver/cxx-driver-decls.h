@@ -220,6 +220,12 @@ typedef struct parameter_flags_tag
     parameter_flag_value_t value;
 } parameter_flags_t;
 
+typedef struct subgoal_tag
+{
+    const char* linked_subgoal_filename;
+    struct compilation_configuration_tag* configuration;
+} subgoal_t;
+
 typedef struct compilation_process_tag
 {
     // Result of the execution
@@ -234,6 +240,13 @@ typedef struct compilation_process_tag
     // List of translation units
     struct compilation_file_process_tag** translation_units;
     int num_translation_units;
+
+    // Meaningful only if we are going to link
+    const char *linked_output_filename;
+
+    // Used for sublinking
+    int num_subgoals;
+    subgoal_t *subgoals;
 
     // For further use. They can be modified as we need
     int argc;
@@ -281,6 +294,11 @@ typedef struct compilation_configuration_line
     const char *value;
 
     flag_expr_t* flag_expr;
+
+    // location
+    const char *filename;
+    int line;
+
 } compilation_configuration_line_t;
 
 #if 0
@@ -363,7 +381,8 @@ typedef struct compilation_configuration_tag
     char do_not_link;
     char generate_assembler;
     char enable_openmp;
-	char force_language;
+    char force_language;
+    char handoff_to_native;
 
     // -Werror
     char warnings_as_errors;
@@ -372,9 +391,6 @@ typedef struct compilation_configuration_tag
 
     // Source language information
     source_language_t source_language;
-
-    // Output filename
-    const char* linked_output_filename;
 
     // Toolchain information
     const char* preprocessor_name;
@@ -502,6 +518,9 @@ typedef struct compilation_configuration_tag
     // Fortran array descriptor (compiler dependent)
     struct fortran_array_descriptor_t* fortran_array_descriptor;
 
+    // Fortran mangling (compiler dependent)
+    struct fortran_name_mangling_t* fortran_name_mangling;
+
     // Flags affecting some bits of the language
     code_shape_t code_shape;
 
@@ -549,6 +568,9 @@ typedef struct compilation_configuration_tag
     // Enable IBM XL compatibility
     char xl_compatibility;
 
+    // Enable IFORT compatibility
+    char ifort_compatibility;
+
     // Emit line markers in the output files
     char line_markers;
 } compilation_configuration_t;
@@ -563,6 +585,7 @@ typedef struct compilation_file_process_tag
 {
     translation_unit_t *translation_unit;
     compilation_configuration_t *compilation_configuration;
+    int tag; // zero by default
 
     char already_compiled;
 

@@ -71,7 +71,10 @@ location_t current_location = { NULL, NULL, 1, 1};
 
 [\n] { BEGIN(INITIAL); }
 
-[^\n]* { /* Ignore comment */ }
+[^\n]* {
+    current_location.line++;
+    /* Ignore comment */
+}
 
 }
 
@@ -112,6 +115,16 @@ location_t current_location = { NULL, NULL, 1, 1};
 [-_+.[:alpha:]][-_+.[:alnum:]]* {
     handle_token(yytext);
     return CONFIGFILE_NAME;
+}
+
+":true:" {
+    handle_token(yytext);
+    return CONFIGFILE_FLAG_TRUE;
+}
+
+":false:" {
+    handle_token(yytext);
+    return CONFIGFILE_FLAG_FALSE;
 }
 
 }
@@ -227,6 +240,13 @@ static void handle_token(const char * text)
     configfilelloc.first_column = current_location.column;
     configfilelloc.last_column = configfilelloc.first_column + strlen(text);
     current_location.column = configfilelloc.last_column;
+
+#if 0
+    fprintf(stderr, "TOKEN: |%s| at %s:%d\n",
+            configfilelval.str,
+            configfilelloc.filename,
+            configfilelloc.first_line);
+#endif
 }
 
 extern int configfiledebug;
@@ -255,6 +275,8 @@ int open_configuration_file_for_scan(const char* scanned_filename)
     struct yy_buffer_state* scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
 
 	yy_switch_to_buffer(scanning_buffer);
+
+    BEGIN(INITIAL);
 
     return 1;
 }

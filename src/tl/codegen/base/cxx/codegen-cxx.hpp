@@ -241,7 +241,6 @@ namespace Codegen
 
             Ret visit(const Nodecl::CxxForRanged& node);
 
-            Ret visit(const Nodecl::ValueInitialization &);
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::VlaWildcard &);
 
@@ -525,7 +524,8 @@ namespace Codegen
             static bool nodecl_calls_to_constructor_indirectly(Nodecl::NodeclBase);
             static bool nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBase);
             static Nodecl::List nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase initializer);
-            static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node);
+            static bool nodecl_calls_to_constructor_default_init(Nodecl::NodeclBase node);
+            static bool nodecl_calls_to_constructor_default_init_braced(Nodecl::NodeclBase node);
 
             static std::string unmangle_symbol_name(TL::Symbol);
 

@@ -372,10 +372,10 @@ match_array_subscripts_end:
             Nodecl::NodeclBase (DependenceNode::*get_dependences)() const)
     {
         ObjectList<NBase> deps = list.find_all<DependenceNode>()
-                .map(get_dependences)                // ObjectList<NBase>
-                .map(&NBase::as<Nodecl::List>)       // ObjectList<Nodecl::List>
-                .map(&Nodecl::List::to_object_list)  // ObjectList<ObjectList<NBase> >
-                .reduction(append_two_lists<NBase>); // ObjectList<NBase>
+                .template map<NBase>(get_dependences)                            // ObjectList<NBase>
+                .template map<Nodecl::List>(&NBase::as<Nodecl::List>)            // ObjectList<Nodecl::List>
+                .template map<ObjectList<NBase> >(&Nodecl::List::to_object_list) // ObjectList<ObjectList<NBase> >
+                .reduction(append_two_lists<NBase>);             // ObjectList<NBase>
 
         return deps;
     }

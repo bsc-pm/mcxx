@@ -147,6 +147,9 @@ DEF_PRIMITIVE_TYPE(BT_UINTMAX, get_unsigned_int_type())
 // FIXME  using type environment information
 // DEF_PRIMITIVE_TYPE(BT_WORD, get_signed_int_type())
 DEF_PRIMITIVE_TYPE(BT_FLOAT, get_float_type())
+#ifdef HAVE_QUADMATH_H
+DEF_PRIMITIVE_TYPE(BT_FLOAT128, get_float128_type())
+#endif
 DEF_PRIMITIVE_TYPE(BT_DOUBLE, get_double_type())
 DEF_PRIMITIVE_TYPE(BT_LONGDOUBLE, get_long_double_type())
 DEF_PRIMITIVE_TYPE(BT_COMPLEX_FLOAT, get_complex_type(get_float_type()))
@@ -637,6 +640,9 @@ DEF_FUNCTION_TYPE_0 (BT_FN_INT, BT_INT)
 DEF_FUNCTION_TYPE_0 (BT_FN_UINT, BT_UINT)
 DEF_FUNCTION_TYPE_0 (BT_FN_FLOAT, BT_FLOAT)
 DEF_FUNCTION_TYPE_0 (BT_FN_DOUBLE, BT_DOUBLE)
+#ifdef HAVE_QUADMATH_H
+DEF_FUNCTION_TYPE_0 (BT_FN_FLOAT128, BT_FLOAT128)
+#endif
 /* For "long double" we use LONGDOUBLE (not LONG_DOUBLE) to
    distinguish it from two types in sequence, "long" followed by
    "double".  */
@@ -1489,6 +1495,10 @@ SIMPLIFY_BUILTIN_FUN0(huge_valf, float);
 SIMPLIFY_BUILTIN_FUN0(huge_val, double);
 SIMPLIFY_BUILTIN_FUN0(huge_vall, long_double);
 
+#ifdef HAVE_QUADMATH_H
+SIMPLIFY_BUILTIN_FUN0(huge_valq, float128);
+#endif
+
 SIMPLIFY_BUILTIN_FUN2(hypotf, float, float, float);
 SIMPLIFY_BUILTIN_FUN2(hypot, double, double, double);
 SIMPLIFY_BUILTIN_FUN2(hypotl, long_double, long_double, long_double);
@@ -2073,6 +2083,9 @@ DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMAL_R, "gammal_r", BT_FN_LONGDOUBLE_LONGDOUB
 DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VAL, "huge_val", BT_FN_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_huge_val)
 DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALF, "huge_valf", BT_FN_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_huge_valf)
 DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALL, "huge_vall", BT_FN_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_huge_vall)
+#ifdef HAVE_QUADMATH_H
+DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALL, "huge_valq", BT_FN_FLOAT128, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_huge_valq)
+#endif
 DEF_C99_BUILTIN        (BUILT_IN_HYPOT, "hypot", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_hypot)
 DEF_C99_BUILTIN        (BUILT_IN_HYPOTF, "hypotf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_hypotf)
 DEF_C99_BUILTIN        (BUILT_IN_HYPOTL, "hypotl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_hypotl)

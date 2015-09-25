@@ -34,6 +34,8 @@
 #include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
 
+#include "fortran03-typeutils.h"
+
 #include <algorithm>
 
 namespace TL { namespace OpenMP {
@@ -46,18 +48,20 @@ namespace TL { namespace OpenMP {
     Core::reduction_map_info_t Core::reduction_map_info;
 
     Core::Core()
-        : PragmaCustomCompilerPhase("omp"),
+        : PragmaCustomCompilerPhase(),
         _discard_unused_data_sharings(false),
         _allow_shared_without_copies(false),
         _allow_array_reductions(true),
         _ompss_mode(false),
-        _copy_deps_by_default(true)
+        _copy_deps_by_default(true),
+        _inside_declare_target(false)
     {
         set_phase_name("OpenMP Core Analysis");
         set_phase_description("This phase is required for any other phase implementing OpenMP. "
                 "It performs the common analysis part required by OpenMP");
 
         register_omp_constructs();
+        register_oss_constructs();
     }
 
     void Core::pre_run(TL::DTO& dto)
@@ -129,6 +133,13 @@ namespace TL { namespace OpenMP {
 
         PragmaCustomCompilerPhase::run(dto);
 
+        if (_inside_declare_target)
+        {
+            error_printf("%s: error: missing '#pragma omp end declare target'\n",
+                    translation_unit.get_locus_str().c_str());
+            _inside_declare_target = false;
+        }
+
         _function_task_set->emit_module_info();
     }
 
@@ -140,9 +151,9 @@ namespace TL { namespace OpenMP {
     void Core::register_omp_constructs()
     {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
-        if (_pred) register_directive(_directive); 
+        if (_pred) register_directive("omp", _directive); 
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
-        if (_pred) register_construct(_directive, _noend); 
+        if (_pred) register_construct("omp", _directive, _noend); 
 
         // Register pragmas
         if (!_constructs_already_registered)
@@ -163,16 +174,16 @@ namespace TL { namespace OpenMP {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
         if (_pred) { \
             std::string directive_name = remove_separators_of_directive(_directive); \
-            dispatcher().directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
         }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
         if (_pred) { \
             std::string directive_name = remove_separators_of_directive(_directive); \
-            dispatcher().declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
-            dispatcher().statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
         }
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
@@ -183,6 +194,32 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
+    }
+
+    void Core::register_oss_constructs()
+    {
+        register_directive("oss", "taskwait");
+        register_construct("oss", "task");
+        register_construct("oss", "critical");
+
+        // OSS constructs
+        dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Core::taskwait_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Core::taskwait_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").declaration.pre["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::task_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").declaration.post["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["critical"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["critical"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_post, this, std::placeholders::_1));
     }
 
     void Core::phase_cleanup(DTO& data_flow)
@@ -410,7 +447,7 @@ namespace TL { namespace OpenMP {
 
         bool operator()(DataReference t) const
         {
-            return !_ref_list.contains(t, &DataReference::get_base_symbol);
+            return !_ref_list.contains<TL::Symbol>(t, &DataReference::get_base_symbol);
         }
     };
 
@@ -423,7 +460,7 @@ namespace TL { namespace OpenMP {
                 it != firstprivate.end();
                 it++)
         {
-            if (lastprivate.contains(*it, std::function<TL::Symbol(DataReference)>(&DataReference::get_base_symbol)))
+            if (lastprivate.contains<TL::Symbol>(*it, std::function<TL::Symbol(DataReference)>(&DataReference::get_base_symbol)))
             {
                 result.append(*it);
             }
@@ -900,7 +937,7 @@ namespace TL { namespace OpenMP {
 
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         ObjectList<Symbol> already_nagged;
 
@@ -1398,7 +1435,7 @@ namespace TL { namespace OpenMP {
 
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         if (!_ompss_mode)
         {
@@ -2508,6 +2545,22 @@ namespace TL { namespace OpenMP {
 
             return stmt;
         }
+
+    bool is_scalar_type(TL::Type t)
+    {
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            return ::is_scalar_type(t.get_internal_type());
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            return ::fortran_is_scalar_type(t.no_ref().get_internal_type());
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
 
     void openmp_core_run_next_time(DTO& dto)
     {

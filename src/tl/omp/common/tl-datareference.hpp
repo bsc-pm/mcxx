@@ -83,9 +83,6 @@ namespace TL
             bool is_assumed_size_array() const;
 
             //! Returns the warning log
-            /*!
-              This is the same message as is_valid(std::string&) stores in its first parameter
-              */
             std::string get_error_log() const;
 
             //! Gets the base symbol
@@ -102,9 +99,6 @@ namespace TL
             /*!
               This function returns a type which represents the data covered
               by the data reference.
-
-              \note The type returned may not be fully valid if it contains arrays
-              as this function uses Type::get_array_to(const std::string&)
              */
             Type get_data_type() const;
 

@@ -39,6 +39,7 @@
 
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
+#include "cxx-driver-build-info.h"
 #include "cxx-macros.h"
 #include "cxx-parameters.h"
 #include "cxx-embed.h"

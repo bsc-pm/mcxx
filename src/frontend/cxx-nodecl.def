@@ -42,7 +42,6 @@ top-level : function-code
           | pragma-directive
           | compatibility
           | cxx-decl
-          | simd-func-construct
 
 name : NODECL_SYMBOL() symbol type-opt const-value-opt
 type : NODECL_TYPE() type
@@ -89,7 +88,6 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | pragma-statement
           | c-cxx-only-statements
           | fortran-only-statements
-          | parallel-statements
           | compatibility
           | NODECL_ERR_STATEMENT()
           | assert-construct
@@ -314,7 +312,6 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
-                  | NODECL_VALUE_INITIALIZATION() symbol type
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
@@ -405,6 +402,8 @@ function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
     | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
+    | NODECL_CXX_FUNCTION_FORM_DEFAULT_INIT()
+    | NODECL_CXX_FUNCTION_FORM_DEFAULT_INIT_BRACED()
 
 type-or-expr : type
              | expression
@@ -494,11 +493,22 @@ text : NODECL_TEXT() text
 intel-expressions : NODECL_INTEL_ASSUME_ALIGNED([pointer] expression, [alignment] expression) type const-value-opt
                   | NODECL_INTEL_ASSUME([assumed] expression) type const-value-opt
 
+# extension used for multidependences/multicopies and other places where we
+# want a range expression
+expression : NODECL_MULTI_EXPRESSION([range]multi-expr-range-expression, [base]expression) symbol type const-value-opt
+
+multi-expr-range-expression : range-expression
+                            | range-discrete
+
+range-discrete : NODECL_RANGE_DISCRETE([discrete_seq]expression-seq-opt)
+
 ##############################
 # OpenMP                     #
 ##############################
-
 # Note that we use OPEN_M_P as we want nice names (OpenMP instead of Openmp) in the C++ part
+
+top-level : device-constructs-top-level
+statement-but-object-init: parallel-statements
 
 parallel-statements : parallel-execution
                     | synchronization
@@ -644,13 +654,13 @@ device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environmen
                   | NODECL_OPEN_M_P*TEAMS([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
                   | NODECL_OPEN_M_P*DISTRIBUTE([environment]omp-exec-environment-seq-opt, [loop]statement)
 
-
-# extension used for multidependences/multicopies
-expression : NODECL_MULTI_REFERENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
+device-constructs-top-level : NODECL_OPEN_M_P*DECLARE_TARGET([declarations]name-seq)
 
 ##############################
 # OpenMP SIMD                #
 ##############################
+top-level : simd-func-construct
+
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct

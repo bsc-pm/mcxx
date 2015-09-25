@@ -84,8 +84,9 @@ OMP_CONSTRUCT("simd|parallel", simd_parallel, true)
 // OMP_CONSTRUCT("target", target, true)
 OMP_CONSTRUCT("target|data", target_data, true)
 OMP_DIRECTIVE("target|update", target_update, true)
-// -- Not possible to implement yet
-// OMP_CONSTRUCT("declare|target", declare_target, true)
+// declare target is split in two and handled later
+OMP_DIRECTIVE("declare|target", declare_target, true)
+OMP_DIRECTIVE("end|declare|target", end_declare_target, true)
 OMP_CONSTRUCT("teams", teams, true)
 OMP_CONSTRUCT_NOEND("distribute", distribute, true)
 // -- Not implemented

@@ -1,0 +1,10 @@
+#ifndef CXX_DRIVER_INFO_BUILD_H
+#define CXX_DRIVER_INFO_BUILD_H
+
+// Include this file only in .c files where needed
+// to avoid triggering uneeded recompilations
+
+#define MCXX_BUILD_VERSION @MCXX_BUILD_VERSION@
+#define MCXX_CONFIGURE_ARGS @MCXX_CONFIGURE_ARGS@
+
+#endif

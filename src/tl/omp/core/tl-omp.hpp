@@ -444,7 +444,7 @@ namespace OpenMP
                 virtual void init(DTO& data_flow);
 
                 OpenMPPhase()
-                    : PragmaCustomCompilerPhase("omp"),
+                    : PragmaCustomCompilerPhase(),
                     _disable_clause_warnings(false)
                 {
                 }

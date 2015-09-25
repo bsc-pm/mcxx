@@ -113,28 +113,28 @@ namespace TL
         }
 
         Interface::Interface()
-            : PragmaCustomCompilerPhase("nanos")
+            : PragmaCustomCompilerPhase()
         {
             set_phase_name("Nanos Runtime Source-Compiler Versioning Interface");
             set_phase_description("This phase enables support for '#pragma nanos', the interface for versioning runtime and compiler for Nanos");
 
             if (!_already_registered)
             {
-                register_directive("interface");
-                register_directive("instrument|declare");
-                register_directive("instrument|emit");
+                register_directive("nanos", "interface");
+                register_directive("nanos", "instrument|declare");
+                register_directive("nanos", "instrument|emit");
 
                 _already_registered = true;
             }
 
-            dispatcher().directive.pre["interface"].connect(std::bind(&Interface::interface_preorder, this, std::placeholders::_1));
-            dispatcher().directive.post["interface"].connect(std::bind(&Interface::interface_postorder, this, std::placeholders::_1));
+            dispatcher("nanos").directive.pre["interface"].connect(std::bind(&Interface::interface_preorder, this, std::placeholders::_1));
+            dispatcher("nanos").directive.post["interface"].connect(std::bind(&Interface::interface_postorder, this, std::placeholders::_1));
 
-            dispatcher().directive.pre["instrument|declare"].connect(std::bind(&Interface::instrument_declare_pre, this, std::placeholders::_1));
-            dispatcher().directive.post["instrument|declare"].connect(std::bind(&Interface::instrument_declare_post, this, std::placeholders::_1));
+            dispatcher("nanos").directive.pre["instrument|declare"].connect(std::bind(&Interface::instrument_declare_pre, this, std::placeholders::_1));
+            dispatcher("nanos").directive.post["instrument|declare"].connect(std::bind(&Interface::instrument_declare_post, this, std::placeholders::_1));
 
-            dispatcher().directive.pre["instrument|emit"].connect(std::bind(&Interface::instrument_emit_pre, this, std::placeholders::_1));
-            dispatcher().directive.post["instrument|emit"].connect(std::bind(&Interface::instrument_emit_post, this, std::placeholders::_1));
+            dispatcher("nanos").directive.pre["instrument|emit"].connect(std::bind(&Interface::instrument_emit_pre, this, std::placeholders::_1));
+            dispatcher("nanos").directive.post["instrument|emit"].connect(std::bind(&Interface::instrument_emit_post, this, std::placeholders::_1));
         }
 
         void Interface::run(TL::DTO& dto)

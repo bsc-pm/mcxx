@@ -755,6 +755,7 @@ static char check_type_specifier_aux(AST type_id, const decl_context_t* decl_con
             {
                 nodecl_t nodecl_dummy = nodecl_null();
                 char result = check_expression_non_executable(ASTSon0(type_id), decl_context, &nodecl_dummy);
+                nodecl_free(nodecl_dummy);
                 return result;
             }
         case AST_GCC_TYPEOF :
@@ -1231,6 +1232,7 @@ static char check_expression_statement(AST a, const decl_context_t* decl_context
 
     nodecl_t nodecl_expr = nodecl_null();
     char result = check_expression(expression, decl_context, &nodecl_expr);
+    nodecl_free(nodecl_expr);
 
     return result;
 }
@@ -1580,6 +1582,7 @@ static char check_init_declarator(AST init_declarator,
                 {
                     nodecl_t nodecl_dummy = nodecl_null();
                     result = check_expression(initializer, initializer_context, &nodecl_dummy);
+                    nodecl_free(nodecl_dummy);
                     break;
                 }
             case AST_PARENTHESIZED_INITIALIZER:
@@ -1611,6 +1614,7 @@ static char check_declarator_rec(AST declarator, const decl_context_t* decl_cont
                 {
                     nodecl_t nodecl_dummy = nodecl_null();
                     char result = check_expression(ASTSon1(declarator), decl_context, &nodecl_dummy);
+                    nodecl_free(nodecl_dummy);
 
                     if (!result)
                     {
@@ -1805,6 +1809,7 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
         {
             nodecl_t nodecl_dummy = nodecl_null();
             check_expression(default_arg, decl_context, &nodecl_dummy);
+            nodecl_free(nodecl_dummy);
         }
     }
 
@@ -1947,6 +1952,7 @@ static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init
                 {
                     current = 1;
                 }
+                nodecl_free(nodecl_dummy);
             }
             break;
         default :
@@ -1987,6 +1993,7 @@ static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifi
     {
         nodecl_t nodecl_dummy = nodecl_null();
         current_typeof = check_expression_non_executable(typeof_argument, decl_context, &nodecl_dummy);
+        nodecl_free(nodecl_dummy);
     }
     else
     {
@@ -2467,4 +2474,75 @@ void solve_ambiguous_parameter_clause(AST parameter_clause, const decl_context_t
             solve_ambiguous_parameter_clause_check_interpretation,
             NULL,
             NULL);
+}
+
+static char solve_ambiguous_decl_specifier_check_intepretation(
+        AST decl_specifier,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        int position UNUSED_PARAMETER,
+        void *info UNUSED_PARAMETER)
+{
+    if (ASTKind(decl_specifier) == AST_ALIGNAS_TYPE)
+    {
+        AST type_id = ASTSon0(decl_specifier);
+        return check_type_id_tree(type_id, decl_context);
+    }
+    else if (ASTKind(decl_specifier) == AST_ALIGNAS)
+    {
+        AST expr = ASTSon0(decl_specifier);
+        nodecl_t nodecl_dummy = nodecl_null();
+        char result = check_expression_non_executable_must_be_constant(expr, decl_context, &nodecl_dummy);
+        nodecl_free(nodecl_dummy);
+        return result;
+    }
+    else
+    {
+        internal_error("Invalid node %s", ast_print_node_type(ASTKind(decl_specifier)));
+    }
+
+}
+
+void solve_ambiguous_decl_specifier(AST decl_spec, const decl_context_t* decl_context)
+{
+    /* Ambiguity at this level only involves alignas(X) where X can be an expression or a type-id */
+    solve_ambiguity_generic(
+            decl_spec,
+            decl_context, NULL,
+            solve_ambiguous_decl_specifier_check_intepretation,
+            NULL,
+            NULL);
+}
+
+AST find_ambiguity(AST a)
+{
+    if (a == NULL)
+    {
+        return NULL;
+    }
+    else if (ASTKind(a) == AST_AMBIGUITY)
+    {
+        return a;
+    }
+    else if (ASTKind(a) == AST_NODE_LIST)
+    {
+        AST iter;
+        for_each_element(a, iter)
+        {
+            AST result = find_ambiguity(ASTSon1(iter));
+            if (result != NULL)
+                return result;
+        }
+    }
+    else
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            AST result = find_ambiguity(ast_get_child(a, i));
+            if (result != NULL)
+                return result;
+        }
+    }
+
+    return NULL;
 }

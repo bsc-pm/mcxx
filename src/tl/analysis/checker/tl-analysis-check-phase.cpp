@@ -865,20 +865,20 @@ namespace {
 
 
     AnalysisCheckPhase::AnalysisCheckPhase()
-        : PragmaCustomCompilerPhase("analysis_check"), _correctness_log_path("")
+        : PragmaCustomCompilerPhase(), _correctness_log_path("")
     {
         set_phase_name("Phase checking the correctness of different analysis");
         set_phase_description("This phase checks first the robustness of a PCFG and then "\
                                 " the correctness of different analysis based on user defined pragmas.");
 
         // Register constructs
-        register_construct("assert");
-        register_construct("assert_decl");
+        register_construct("analysis_check", "assert");
+        register_construct("analysis_check", "assert_decl");
 
-        dispatcher().statement.pre["assert"].connect(std::bind(&AnalysisCheckPhase::assert_handler_pre, this, std::placeholders::_1));
-        dispatcher().statement.post["assert"].connect(std::bind(&AnalysisCheckPhase::assert_handler_post, this, std::placeholders::_1));
-        dispatcher().declaration.pre["assert_decl"].connect(std::bind(&AnalysisCheckPhase::assert_decl_handler_pre, this, std::placeholders::_1));
-        dispatcher().declaration.post["assert_decl"].connect(std::bind(&AnalysisCheckPhase::assert_decl_handler_post, this, std::placeholders::_1));
+        dispatcher("analysis_check").statement.pre["assert"].connect(std::bind(&AnalysisCheckPhase::assert_handler_pre, this, std::placeholders::_1));
+        dispatcher("analysis_check").statement.post["assert"].connect(std::bind(&AnalysisCheckPhase::assert_handler_post, this, std::placeholders::_1));
+        dispatcher("analysis_check").declaration.pre["assert_decl"].connect(std::bind(&AnalysisCheckPhase::assert_decl_handler_pre, this, std::placeholders::_1));
+        dispatcher("analysis_check").declaration.post["assert_decl"].connect(std::bind(&AnalysisCheckPhase::assert_decl_handler_post, this, std::placeholders::_1));
         
         // Register parameters
         register_parameter("correctness_log_dir",

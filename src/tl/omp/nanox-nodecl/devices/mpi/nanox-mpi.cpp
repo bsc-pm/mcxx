@@ -343,7 +343,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             case OutlineDataItem::SHARING_SHARED:   
             case OutlineDataItem::SHARING_CAPTURE:   
                 //If it's firstprivate (sharing capture), copy input and change address to the global/private var
-                if ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope()){
+                if ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope()){
                    std::string symbol_name=(*it)->get_symbol().get_name();
                    if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE && !(*it)->get_symbol().get_type().is_const()){
                         //Copy value of the captured to the global (aka initialize the global)
@@ -363,7 +363,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                             //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
                             //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
                             if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
                                 TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
                                         info._original_statements.retrieve_context());
 
@@ -372,7 +372,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         } else {
 
                             if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_in_module() ||(*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
                                 std::string symbol_name=(*it)->get_symbol().get_name();
                                 TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
                                             info._original_statements.retrieve_context());
@@ -387,7 +387,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
 
                     //Copy and swap addresses
                     if (!(*it)->get_symbol().get_type().is_const() && !(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                            ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
+                            ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
 
                         if (!(*it)->get_copies().empty())
@@ -485,7 +485,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
                         bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
 
-                        if (((*it)->get_symbol().is_from_module() && is_allocatable)
+                        if ((((*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module()) && is_allocatable)
                                 || is_pointer)
                         {
                             cleanup_code
