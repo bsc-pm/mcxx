@@ -12306,6 +12306,11 @@ static void check_nodecl_function_call_cxx(
         {
             nodecl_t nodecl_tmp = nodecl_null();
             cxx_compute_name_from_entry_list(nodecl_called, candidates, decl_context, NULL, &nodecl_tmp);
+            if (nodecl_is_err_expr(nodecl_tmp))
+            {
+                *nodecl_output = nodecl_tmp;
+                return;
+            }
             nodecl_called = nodecl_tmp;
         }
     }

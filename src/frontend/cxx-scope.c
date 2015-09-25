@@ -3989,19 +3989,19 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         if (is_void_type(element_type))
         {
-            error_printf("%s: error: attempt to create an array to void\n",
+            error_printf("%s: error: attempt to create an array of void\n",
                     locus_to_str(locus));
             return NULL;
         }
         else if (is_any_reference_type(element_type))
         {
-            error_printf("%s: error: attempt to create an array to reference type\n",
+            error_printf("%s: error: attempt to create an array of reference type\n",
                     locus_to_str(locus));
             return NULL;
         }
         else if (is_function_type(element_type))
         {
-            error_printf("%s: error: attempt to create an array to function type\n",
+            error_printf("%s: error: attempt to create an array of function type\n",
                     locus_to_str(locus));
             return NULL;
         }
@@ -4021,7 +4021,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
             if (nodecl_is_constant(array_size)
                     && const_value_is_zero(
-                        const_value_gt(
+                        const_value_gte(
                             nodecl_get_constant(array_size),
                             const_value_get_zero(/*bytes*/ 4, /* sign*/ 1))))
             {

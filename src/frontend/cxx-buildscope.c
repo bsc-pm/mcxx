@@ -10301,6 +10301,14 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
             {
                 if (ASTSon0(pointer_tree) == NULL)
                 {
+                    if (!is_dependent_type(pointee_type)
+                            && is_any_reference_type(pointee_type))
+                    {
+                        error_printf("%s: error: attempt to create a pointer to reference\n",
+                                ast_location(pointer_tree));
+                        *declarator_type = get_error_type();
+                        return;
+                    }
                     *declarator_type = get_pointer_type(pointee_type);
                 }
                 else
@@ -10532,9 +10540,37 @@ static void set_array_type(type_t** declarator_type,
 
     if (is_void_type(element_type))
     {
-        error_printf("%s: error: invalid array of void type '%s'\n",
-                locus_to_str(locus),
-                print_type_str(element_type, decl_context));
+        error_printf("%s: error: attempt to create an array of void type\n",
+                locus_to_str(locus));
+        *declarator_type = get_error_type();
+        return;
+    }
+    else if (!is_dependent_type(element_type))
+    {
+        if (is_any_reference_type(element_type))
+        {
+            error_printf("%s: error: attempt to create an array of reference type\n",
+                    locus_to_str(locus));
+            *declarator_type = get_error_type();
+            return;
+        }
+        else if (is_function_type(element_type))
+        {
+            error_printf("%s: error: attempt to create an array of function type\n",
+                    locus_to_str(locus));
+            *declarator_type = get_error_type();
+            return;
+        }
+    }
+
+    if (nodecl_is_constant(nodecl_expr)
+            && const_value_is_zero(
+                const_value_gte(
+                    nodecl_get_constant(nodecl_expr),
+                    const_value_get_zero(/*bytes*/ 4, /* sign*/ 1))))
+    {
+        error_printf("%s: error: attempt to create an array of negative size\n",
+                locus_to_str(locus));
         *declarator_type = get_error_type();
         return;
     }

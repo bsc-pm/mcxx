@@ -2565,15 +2565,19 @@ static overload_entry_list_t* compute_viable_functions(
         const locus_t* locus)
 {
     overload_entry_list_t *result = NULL;
-    candidate_t *it = candidate_functions;
 
-    while (it != NULL)
+    for (candidate_t* it = candidate_functions;
+            it != NULL;
+            it = it->next)
     {
         scope_entry_t* orig_candidate = it->entry;
         int num_arguments = it->num_args;
         type_t** argument_types = it->args;
 
         scope_entry_t* candidate = entry_advance_aliases(orig_candidate);
+
+        if (is_error_type(candidate->type_information))
+            continue;
 
         ERROR_CONDITION(!is_function_type(candidate->type_information),
                 "This is not a function", 0);
@@ -2723,8 +2727,6 @@ static overload_entry_list_t* compute_viable_functions(
                 DELETE(ics_arguments);
             }
         }
-
-        it = it->next;
     }
 
     return result;
@@ -4111,6 +4113,9 @@ candidate_t* candidate_set_add(candidate_t* candidate_set,
         int num_args,
         type_t** args)
 {
+    if (is_error_type(entry_advance_aliases(entry)->type_information))
+        return candidate_set;
+
     candidate_t* result = NEW0(candidate_t);
 
     result->next = candidate_set;
