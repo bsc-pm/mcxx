@@ -29,6 +29,7 @@
 #ifndef TL_ANALYSIS_CHECK_PHASE_HPP
 #define TL_ANALYSIS_CHECK_PHASE_HPP
 
+#include "tl-analysis-base.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-pragmasupport.hpp"
@@ -40,7 +41,12 @@ namespace Analysis {
     class LIBTL_CLASS AnalysisCheckPhase : public PragmaCustomCompilerPhase
     {
     private:
+        WhichAnalysis _analysis_mask;
         std::string _correctness_log_path;
+
+        void check_pragma_clauses(
+            PragmaCustomLine pragma_line, const locus_t* loc,
+            Nodecl::List& environment);
 
     public:
         //! Constructor of this phase

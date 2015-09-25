@@ -25,7 +25,6 @@
 --------------------------------------------------------------------*/
 
 #include "tl-analysis-check-phase.hpp"
-#include "tl-analysis-base.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
 #include "tl-omp-lint.hpp"
@@ -672,200 +671,12 @@ namespace {
             }
         }
     }
-
-    void check_pragma_clauses(PragmaCustomLine pragma_line, const locus_t* loc, Nodecl::List& environment)
-    {
-        // Use-Def analysis clauses
-        // #pragma analysis_check assert upper_exposed(expr-list)
-        if (pragma_line.get_clause("upper_exposed").is_defined())
-        {
-            PragmaCustomClause upper_exposed_clause = pragma_line.get_clause("upper_exposed");
-
-            environment.append(
-                Nodecl::Analysis::UpperExposed::make(
-                    Nodecl::List::make(upper_exposed_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("defined").is_defined())
-        {
-            PragmaCustomClause defined_clause = pragma_line.get_clause("defined");
-
-            environment.append(
-                Nodecl::Analysis::Defined::make(
-                    Nodecl::List::make(defined_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("undefined").is_defined())
-        {
-            PragmaCustomClause undefined_clause = pragma_line.get_clause("undefined");
-
-            environment.append(
-                Nodecl::Analysis::Undefined::make(
-                    Nodecl::List::make(undefined_clause.get_arguments_as_expressions()), loc));
-        }
-
-        // Liveness analysis clauses
-        // #pragma analysis_check assert live_in(expr-list)
-        if (pragma_line.get_clause("live_in").is_defined())
-        {
-            PragmaCustomClause live_in_clause = pragma_line.get_clause("live_in");
-
-            environment.append(
-                Nodecl::Analysis::LiveIn::make(
-                    Nodecl::List::make(live_in_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("live_out").is_defined())
-        {
-            PragmaCustomClause live_out_clause = pragma_line.get_clause("live_out");
-
-            environment.append(
-                Nodecl::Analysis::LiveOut::make(
-                    Nodecl::List::make(live_out_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("dead").is_defined())
-        {
-            PragmaCustomClause dead_clause = pragma_line.get_clause("dead");
-
-            environment.append(
-                Nodecl::Analysis::Dead::make(
-                    Nodecl::List::make(dead_clause.get_arguments_as_expressions()), loc));
-        }
-
-        // Reaching definition analysis clauses
-        // #pragma analysis_check assert reaching_definition_in(<expr:expr-list>-list)
-        if (pragma_line.get_clause("reaching_definition_in").is_defined())
-        {
-            PragmaCustomClause reach_defs_in_clause = pragma_line.get_clause("reaching_definition_in");
-            Nodecl::List reach_defs_in =
-                extract_reaching_definitions_map_from_clause(reach_defs_in_clause,
-                                                              pragma_line.retrieve_context());
-
-            environment.append(Nodecl::Analysis::ReachingDefinitionIn::make(reach_defs_in, loc));
-        }
-        if (pragma_line.get_clause("reaching_definition_out").is_defined())
-        {
-            PragmaCustomClause reach_defs_out_clause = pragma_line.get_clause("reaching_definition_out");
-
-            Nodecl::List reach_defs_out =
-                extract_reaching_definitions_map_from_clause(reach_defs_out_clause,
-                                                              pragma_line.retrieve_context());
-
-            environment.append(Nodecl::Analysis::ReachingDefinitionOut::make(reach_defs_out, loc));
-        }
-
-        // Induction variables analysis clauses
-        if (pragma_line.get_clause("induction_var").is_defined())
-        {
-            PragmaCustomClause induction_vars_clause = pragma_line.get_clause("induction_var");
-
-            Nodecl::List induction_vars =
-                extract_induction_variable_info_from_clause(induction_vars_clause,
-                                                             pragma_line.retrieve_context());
-
-            environment.append(Nodecl::Analysis::InductionVariable::make(induction_vars, loc));
-        }
-
-        // Auto-scope analysis clauses
-        if (pragma_line.get_clause("auto_sc_firstprivate").is_defined())
-        {
-            PragmaCustomClause auto_sc_fp_vars_clause = pragma_line.get_clause("auto_sc_firstprivate");
-
-            environment.append(
-                Nodecl::Analysis::AutoScope::Firstprivate::make(
-                    Nodecl::List::make(auto_sc_fp_vars_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("auto_sc_private").is_defined())
-        {
-            PragmaCustomClause auto_sc_p_vars_clause = pragma_line.get_clause("auto_sc_private");
-
-            environment.append(
-                Nodecl::Analysis::AutoScope::Private::make(
-                    Nodecl::List::make(auto_sc_p_vars_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("auto_sc_shared").is_defined())
-        {
-            PragmaCustomClause auto_sc_s_vars_clause = pragma_line.get_clause("auto_sc_shared");
-
-            environment.append(
-                Nodecl::Analysis::AutoScope::Shared::make(
-                    Nodecl::List::make(auto_sc_s_vars_clause.get_arguments_as_expressions()), loc));
-        }
-        
-        // Correctness clauses
-        if (pragma_line.get_clause("correctness_auto_storage").is_defined())
-        {
-            PragmaCustomClause correctness_auto_storage_clause = pragma_line.get_clause("correctness_auto_storage");
-            environment.append(
-                Nodecl::Analysis::Correctness::AutoStorage::make(
-                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_dead").is_defined())
-        {
-            PragmaCustomClause correctness_dead_clause = pragma_line.get_clause("correctness_dead");
-            environment.append(
-                Nodecl::Analysis::Correctness::Dead::make(
-                    Nodecl::List::make(correctness_dead_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_auto_storage").is_defined())
-        {
-            PragmaCustomClause correctness_auto_storage_clause = pragma_line.get_clause("correctness_auto_storage");
-            environment.append(
-                Nodecl::Analysis::Correctness::AutoStorage::make(
-                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_incoherent_fp").is_defined())
-        {
-            PragmaCustomClause correctness_incoherent_fp_clause = pragma_line.get_clause("correctness_incoherent_fp");
-            environment.append(
-                Nodecl::Analysis::Correctness::IncoherentFp::make(
-                    Nodecl::List::make(correctness_incoherent_fp_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_incoherent_p").is_defined())
-        {
-            PragmaCustomClause correctness_incoherent_p_clause = pragma_line.get_clause("correctness_incoherent_p");
-            environment.append(
-                Nodecl::Analysis::Correctness::IncoherentP::make(
-                    Nodecl::List::make(correctness_incoherent_p_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_incoherent_in").is_defined())
-        {
-            PragmaCustomClause correctness_incoherent_in_clause = pragma_line.get_clause("correctness_incoherent_in");
-            environment.append(
-                Nodecl::Analysis::Correctness::IncoherentIn::make(
-                    Nodecl::List::make(correctness_incoherent_in_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_incoherent_in_pointed").is_defined())
-        {
-            PragmaCustomClause correctness_incoherent_in_pointed_clause = pragma_line.get_clause("correctness_incoherent_in_pointed");
-            environment.append(
-                Nodecl::Analysis::Correctness::IncoherentInPointed::make(
-                    Nodecl::List::make(correctness_incoherent_in_pointed_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_incoherent_out").is_defined())
-        {
-            PragmaCustomClause correctness_incoherent_out_clause = pragma_line.get_clause("correctness_incoherent_out");
-            environment.append(
-                Nodecl::Analysis::Correctness::IncoherentOut::make(
-                    Nodecl::List::make(correctness_incoherent_out_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_incoherent_out_pointed").is_defined())
-        {
-            PragmaCustomClause correctness_incoherent_out_pointed_clause = pragma_line.get_clause("correctness_incoherent_out_pointed");
-            environment.append(
-                Nodecl::Analysis::Correctness::IncoherentOutPointed::make(
-                    Nodecl::List::make(correctness_incoherent_out_pointed_clause.get_arguments_as_expressions()), loc));
-        }
-        if (pragma_line.get_clause("correctness_race").is_defined())
-        {
-            PragmaCustomClause correctness_race_clause = pragma_line.get_clause("correctness_race");
-            environment.append(
-                Nodecl::Analysis::Correctness::Race::make(
-                    Nodecl::List::make(correctness_race_clause.get_arguments_as_expressions()), loc));
-        }
-    }
 }
 
 
+
     AnalysisCheckPhase::AnalysisCheckPhase()
-        : PragmaCustomCompilerPhase(), _correctness_log_path("")
+        : PragmaCustomCompilerPhase(), _analysis_mask(WhichAnalysis::Analysis_tag::NONE), _correctness_log_path("")
     {
         set_phase_name("Phase checking the correctness of different analysis");
         set_phase_description("This phase checks first the robustness of a PCFG and then "\
@@ -879,7 +690,7 @@ namespace {
         dispatcher("analysis_check").statement.post["assert"].connect(std::bind(&AnalysisCheckPhase::assert_handler_post, this, std::placeholders::_1));
         dispatcher("analysis_check").declaration.pre["assert_decl"].connect(std::bind(&AnalysisCheckPhase::assert_decl_handler_pre, this, std::placeholders::_1));
         dispatcher("analysis_check").declaration.post["assert_decl"].connect(std::bind(&AnalysisCheckPhase::assert_decl_handler_post, this, std::placeholders::_1));
-        
+
         // Register parameters
         register_parameter("correctness_log_dir",
                            "Sets the path where correctness logs will be stored, in addition to showing them in the standard output",
@@ -890,6 +701,241 @@ namespace {
                            "Enables OmpSs semantics instead of OpenMP semantics",
                            _ompss_mode_str,
                            "0").connect(std::bind(&AnalysisCheckPhase::set_ompss_mode, this, std::placeholders::_1));
+    }
+
+    void AnalysisCheckPhase::check_pragma_clauses(
+        PragmaCustomLine pragma_line, const locus_t* loc,
+        Nodecl::List& environment)
+    {
+        // Use-Def analysis clauses
+        // #pragma analysis_check assert upper_exposed(expr-list)
+        if (pragma_line.get_clause("upper_exposed").is_defined())
+        {
+            PragmaCustomClause upper_exposed_clause = pragma_line.get_clause("upper_exposed");
+
+            environment.append(
+                Nodecl::Analysis::UpperExposed::make(
+                    Nodecl::List::make(upper_exposed_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::USAGE_ANALYSIS;
+        }
+        if (pragma_line.get_clause("defined").is_defined())
+        {
+            PragmaCustomClause defined_clause = pragma_line.get_clause("defined");
+
+            environment.append(
+                Nodecl::Analysis::Defined::make(
+                    Nodecl::List::make(defined_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::USAGE_ANALYSIS;
+        }
+        if (pragma_line.get_clause("undefined").is_defined())
+        {
+            PragmaCustomClause undefined_clause = pragma_line.get_clause("undefined");
+
+            environment.append(
+                Nodecl::Analysis::Undefined::make(
+                    Nodecl::List::make(undefined_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::USAGE_ANALYSIS;
+        }
+
+        // Liveness analysis clauses
+        // #pragma analysis_check assert live_in(expr-list)
+        if (pragma_line.get_clause("live_in").is_defined())
+        {
+            PragmaCustomClause live_in_clause = pragma_line.get_clause("live_in");
+
+            environment.append(
+                Nodecl::Analysis::LiveIn::make(
+                    Nodecl::List::make(live_in_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::LIVENESS_ANALYSIS;
+        }
+        if (pragma_line.get_clause("live_out").is_defined())
+        {
+            PragmaCustomClause live_out_clause = pragma_line.get_clause("live_out");
+
+            environment.append(
+                Nodecl::Analysis::LiveOut::make(
+                    Nodecl::List::make(live_out_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::LIVENESS_ANALYSIS;
+        }
+        if (pragma_line.get_clause("dead").is_defined())
+        {
+            PragmaCustomClause dead_clause = pragma_line.get_clause("dead");
+
+            environment.append(
+                Nodecl::Analysis::Dead::make(
+                    Nodecl::List::make(dead_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::LIVENESS_ANALYSIS;
+        }
+
+        // Reaching definition analysis clauses
+        // #pragma analysis_check assert reaching_definition_in(<expr:expr-list>-list)
+        if (pragma_line.get_clause("reaching_definition_in").is_defined())
+        {
+            PragmaCustomClause reach_defs_in_clause = pragma_line.get_clause("reaching_definition_in");
+            Nodecl::List reach_defs_in =
+                extract_reaching_definitions_map_from_clause(reach_defs_in_clause,
+                                                              pragma_line.retrieve_context());
+
+            environment.append(Nodecl::Analysis::ReachingDefinitionIn::make(reach_defs_in, loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::REACHING_DEFS_ANALYSIS;
+        }
+        if (pragma_line.get_clause("reaching_definition_out").is_defined())
+        {
+            PragmaCustomClause reach_defs_out_clause = pragma_line.get_clause("reaching_definition_out");
+
+            Nodecl::List reach_defs_out =
+                extract_reaching_definitions_map_from_clause(reach_defs_out_clause,
+                                                              pragma_line.retrieve_context());
+
+            environment.append(Nodecl::Analysis::ReachingDefinitionOut::make(reach_defs_out, loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::REACHING_DEFS_ANALYSIS;
+        }
+
+        // Induction variables analysis clauses
+        if (pragma_line.get_clause("induction_var").is_defined())
+        {
+            PragmaCustomClause induction_vars_clause = pragma_line.get_clause("induction_var");
+
+            Nodecl::List induction_vars =
+                extract_induction_variable_info_from_clause(induction_vars_clause,
+                                                             pragma_line.retrieve_context());
+
+            environment.append(Nodecl::Analysis::InductionVariable::make(induction_vars, loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::INDUCTION_VARS_ANALYSIS;
+        }
+
+        // Auto-scope analysis clauses
+        if (pragma_line.get_clause("auto_sc_firstprivate").is_defined())
+        {
+            PragmaCustomClause auto_sc_fp_vars_clause = pragma_line.get_clause("auto_sc_firstprivate");
+
+            environment.append(
+                Nodecl::Analysis::AutoScope::Firstprivate::make(
+                    Nodecl::List::make(auto_sc_fp_vars_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::AUTO_SCOPING;
+        }
+        if (pragma_line.get_clause("auto_sc_private").is_defined())
+        {
+            PragmaCustomClause auto_sc_p_vars_clause = pragma_line.get_clause("auto_sc_private");
+
+            environment.append(
+                Nodecl::Analysis::AutoScope::Private::make(
+                    Nodecl::List::make(auto_sc_p_vars_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::AUTO_SCOPING;
+        }
+        if (pragma_line.get_clause("auto_sc_shared").is_defined())
+        {
+            PragmaCustomClause auto_sc_s_vars_clause = pragma_line.get_clause("auto_sc_shared");
+
+            environment.append(
+                Nodecl::Analysis::AutoScope::Shared::make(
+                    Nodecl::List::make(auto_sc_s_vars_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::AUTO_SCOPING;
+        }
+        
+        // Correctness clauses
+        if (pragma_line.get_clause("correctness_auto_storage").is_defined())
+        {
+            PragmaCustomClause correctness_auto_storage_clause = pragma_line.get_clause("correctness_auto_storage");
+            environment.append(
+                Nodecl::Analysis::Correctness::AutoStorage::make(
+                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_dead").is_defined())
+        {
+            PragmaCustomClause correctness_dead_clause = pragma_line.get_clause("correctness_dead");
+            environment.append(
+                Nodecl::Analysis::Correctness::Dead::make(
+                    Nodecl::List::make(correctness_dead_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_auto_storage").is_defined())
+        {
+            PragmaCustomClause correctness_auto_storage_clause = pragma_line.get_clause("correctness_auto_storage");
+            environment.append(
+                Nodecl::Analysis::Correctness::AutoStorage::make(
+                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_incoherent_fp").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_fp_clause = pragma_line.get_clause("correctness_incoherent_fp");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentFp::make(
+                    Nodecl::List::make(correctness_incoherent_fp_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_incoherent_p").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_p_clause = pragma_line.get_clause("correctness_incoherent_p");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentP::make(
+                    Nodecl::List::make(correctness_incoherent_p_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_incoherent_in").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_in_clause = pragma_line.get_clause("correctness_incoherent_in");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentIn::make(
+                    Nodecl::List::make(correctness_incoherent_in_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_incoherent_in_pointed").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_in_pointed_clause = pragma_line.get_clause("correctness_incoherent_in_pointed");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentInPointed::make(
+                    Nodecl::List::make(correctness_incoherent_in_pointed_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_incoherent_out").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_out_clause = pragma_line.get_clause("correctness_incoherent_out");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentOut::make(
+                    Nodecl::List::make(correctness_incoherent_out_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_incoherent_out_pointed").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_out_pointed_clause = pragma_line.get_clause("correctness_incoherent_out_pointed");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentOutPointed::make(
+                    Nodecl::List::make(correctness_incoherent_out_pointed_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
+        if (pragma_line.get_clause("correctness_race").is_defined())
+        {
+            PragmaCustomClause correctness_race_clause = pragma_line.get_clause("correctness_race");
+            environment.append(
+                Nodecl::Analysis::Correctness::Race::make(
+                    Nodecl::List::make(correctness_race_clause.get_arguments_as_expressions()), loc));
+
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+        }
     }
 
     void AnalysisCheckPhase::assert_handler_pre(TL::PragmaCustomStatement directive)
@@ -935,12 +981,40 @@ namespace {
 
         // 1.- Execute analyses
         // 1.1.- Compute all data-flow analysis
-        // FIXME We should launch the analyses depending on the clauses in the assert directives
         AnalysisBase analysis(_ompss_mode_enabled);
-        analysis.all_analyses(ast, /*propagate_graph_nodes*/ true);
+        analysis.parallel_control_flow_graph(ast);    // At least, we compute the PCFG
+        if (_analysis_mask._which_analysis & WhichAnalysis::RANGE_ANALYSIS)
+        {
+            analysis.range_analysis(ast);
+        }
+        if (_analysis_mask._which_analysis & WhichAnalysis::AUTO_SCOPING)
+        {
+            analysis.liveness(ast, /*propagate_graph_nodes*/ true);
+            analysis.auto_scoping(ast);
+        }
+        if (_analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS)
+        {
+            analysis.reaching_definitions(ast, /*propagate_graph_nodes*/ true);
+        }
+        if (_analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS)
+        {
+            analysis.induction_variables(ast, /*propagate_graph_nodes*/ true);
+        }
+        if (_analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS)
+        {
+            analysis.liveness(ast, /*propagate_graph_nodes*/ true);
+        }
+        if (_analysis_mask._which_analysis & WhichAnalysis::USAGE_ANALYSIS)
+        {
+            analysis.use_def(ast, /*propagate_graph_nodes*/ true);
+        }
         // 1.2.- Execute correctness phase, which can also be checked
-        // FIXME We should only execute this is there are assert clauses checking this information
-        TL::OpenMP::launch_correctness(analysis, _correctness_log_path);
+        if (_analysis_mask._which_analysis & WhichAnalysis::CORRECTNESS)
+        {
+            analysis.liveness(ast, /*propagate_graph_nodes*/ true);
+            analysis.tune_task_synchronizations(ast);
+            TL::OpenMP::launch_correctness(analysis, _correctness_log_path);
+        }
         
         // 2.- Perform checks
         const ObjectList<ExtensibleGraph*> pcfgs = analysis.get_pcfgs();

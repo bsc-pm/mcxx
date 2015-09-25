@@ -47,6 +47,36 @@
 namespace TL {
 namespace Analysis {
 
+    // ********************************************************************************************* //
+    // ********************** Class to define which analysis are to be done ************************ //
+
+    struct WhichAnalysis
+    {
+        // Macros defining the analysis to be computed
+        enum Analysis_tag
+        {
+            PCFG_ANALYSIS           = 1u << 1,
+            USAGE_ANALYSIS          = 1u << 2,
+            LIVENESS_ANALYSIS       = 1u << 3,
+            REACHING_DEFS_ANALYSIS  = 1u << 4,
+            INDUCTION_VARS_ANALYSIS = 1u << 5,
+            CONSTANTS_ANALYSIS      = 1u << 6,
+            AUTO_SCOPING            = 1u << 7,
+            RANGE_ANALYSIS          = 1u << 8,
+            CORRECTNESS             = 1u << 9,
+            NONE                    = 0u
+        } _which_analysis;
+
+        WhichAnalysis(Analysis_tag a);
+        WhichAnalysis(int a);
+        WhichAnalysis operator|(WhichAnalysis a);
+    };
+
+    // ******************** END class to define which analysis are to be done ********************** //
+    // ********************************************************************************************* //
+
+
+
     // ************************************************************************************ //
     // *************** Class containing all analysis related to a given AST *************** //
 
