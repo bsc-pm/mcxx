@@ -426,6 +426,46 @@ static char solve_list_initialization_of_class_type_(
         scope_entry_list_t** candidates,
         char *is_ambiguous);
 
+// Create a dummy initializer that preserves braced initializers
+static nodecl_t build_dummy_initializer_for_braced_initialization(
+        type_t* orig,
+        const locus_t* locus)
+{
+    nodecl_t nodecl_type_list = nodecl_null();
+    int num_types = braced_list_type_get_num_types(orig);
+
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        type_t* t = braced_list_type_get_type_num(orig, i);
+        nodecl_t nodecl_current;
+
+        if (is_braced_list_type(t))
+        {
+            nodecl_current =
+                build_dummy_initializer_for_braced_initialization(t, locus);
+        }
+        else
+        {
+            nodecl_current = nodecl_make_cxx_initializer(
+                    nodecl_make_dummy(
+                        braced_list_type_get_type_num(orig, i),
+                        locus),
+                    braced_list_type_get_type_num(orig, i),
+                    locus);
+        }
+
+        nodecl_type_list = nodecl_append_to_list(
+                nodecl_type_list,
+                nodecl_current);
+    }
+
+    return nodecl_make_cxx_braced_initializer(
+            nodecl_type_list,
+            orig,
+            locus);
+}
+
 static void compute_ics_braced_list(type_t* orig, type_t* dest, const decl_context_t* decl_context, 
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
@@ -560,25 +600,10 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, const decl_conte
             && is_aggregate_type(dest))
     {
         // Aggregate initialization is so complex that we will use the cxx-exprtype code
-        // rather than poorly mimicking it here
-        nodecl_t nodecl_type_list = nodecl_null();
-
-        int i;
-        for (i = 0; i < num_types; i++)
-        {
-            nodecl_type_list = nodecl_append_to_list(
-                    nodecl_type_list,
-                    nodecl_make_cxx_initializer(
-                        nodecl_make_dummy(
-                            braced_list_type_get_type_num(orig, i),
-                            locus),
-                        braced_list_type_get_type_num(orig, i),
-                        locus));
-        }
-        nodecl_t braced_initializer = nodecl_make_cxx_braced_initializer(
-                nodecl_type_list,
-                orig,
-                locus);
+        // rather than poorly mimicking it here. First we build a fake expression
+        // that represents the initializer
+        nodecl_t braced_initializer =
+            build_dummy_initializer_for_braced_initialization(orig, locus);
 
         nodecl_t nodecl_result = nodecl_null();
 
@@ -588,6 +613,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, const decl_conte
                 decl_context,
                 dest,
                 /* is_explicit_type_cast */ 0,
+                /* allow_excess_of_initializers */ 0,
                 IK_COPY_INITIALIZATION,
                 &nodecl_result);
         diagnostic_context_pop_and_discard();
@@ -2539,15 +2565,19 @@ static overload_entry_list_t* compute_viable_functions(
         const locus_t* locus)
 {
     overload_entry_list_t *result = NULL;
-    candidate_t *it = candidate_functions;
 
-    while (it != NULL)
+    for (candidate_t* it = candidate_functions;
+            it != NULL;
+            it = it->next)
     {
         scope_entry_t* orig_candidate = it->entry;
         int num_arguments = it->num_args;
         type_t** argument_types = it->args;
 
         scope_entry_t* candidate = entry_advance_aliases(orig_candidate);
+
+        if (is_error_type(candidate->type_information))
+            continue;
 
         ERROR_CONDITION(!is_function_type(candidate->type_information),
                 "This is not a function", 0);
@@ -2697,8 +2727,6 @@ static overload_entry_list_t* compute_viable_functions(
                 DELETE(ics_arguments);
             }
         }
-
-        it = it->next;
     }
 
     return result;
@@ -4085,6 +4113,9 @@ candidate_t* candidate_set_add(candidate_t* candidate_set,
         int num_args,
         type_t** args)
 {
+    if (is_error_type(entry_advance_aliases(entry)->type_information))
+        return candidate_set;
+
     candidate_t* result = NEW0(candidate_t);
 
     result->next = candidate_set;

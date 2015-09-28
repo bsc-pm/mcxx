@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ -z "@NANOX_INCLUDES@" -o "@opencl_valid@" = no ];
+if [ "@NANOX_ENABLED@" = "no" -o "@opencl_valid@" = no ];
 then
 
 cat <<EOF
@@ -13,14 +13,19 @@ fi
 
 source @abs_builddir@/mercurium-libraries
 
+
+NANOX_GATE=""
+if [ "@NANOS6_ENABLED@" = "yes" ];
+then
+    NANOX_GATE="--nanox"
+fi
+
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmcc --config-dir=@abs_top_builddir@/config --verbose"
-MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmfc --config-dir=@abs_top_builddir@/config --verbose"
-MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmcxx --config-dir=@abs_top_builddir@/config --verbose"
+MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmcc --config-dir=@abs_top_builddir@/config --verbose ${NANOX_GATE}"
+MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmfc --config-dir=@abs_top_builddir@/config --verbose ${NANOX_GATE}"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmcxx --config-dir=@abs_top_builddir@/config --verbose ${NANOX_GATE}"
 EOF
 
-if [ ! -z "@NANOX_INCLUDES@" ];
-then
 
 cat <<EOF
 test_CC_ompss="\${MCC} --variable=disable_opencl_file_check:1"
@@ -31,8 +36,6 @@ test_CFLAGS_ompss="--ompss"
 test_FFLAGS_ompss="--ompss"
 test_CXXFLAGS_ompss="--ompss"
 EOF
-
-fi
 
 cat <<EOF
 test_nolink=yes

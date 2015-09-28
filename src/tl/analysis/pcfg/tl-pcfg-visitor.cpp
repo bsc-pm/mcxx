@@ -1947,10 +1947,6 @@ next_it:    ;
                                                                     t, n.get_locus( ) );
                                 it_init = Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
                             }
-                            else if (init_expr.is<Nodecl::ValueInitialization>())
-                            {   // struct A a; -> the default constructor is called here
-                                it_init = n;
-                            }
                             else
                             {   // struct B b = { 3 };
                                 // FIXME We should be recovering the field that is being modified and creating an assignment
@@ -1961,20 +1957,6 @@ next_it:    ;
                             Node* it_init_node = new Node( _utils->_nid, __Normal, _utils->_outer_nodes.top( ), it_init );
                             _pcfg->connect_nodes( _utils->_last_nodes, it_init_node );
                             _utils->_last_nodes = ObjectList<Node*>( 1, it_init_node );
-
-                            // Some declaration may contain an assertion: to check the default constructors
-                            Symbol called_sym = n.get_symbol();
-                            if (init_expr.is<Nodecl::ValueInitialization>()
-                                    && analysis_asserted_decls.find(called_sym) != analysis_asserted_decls.end())
-                            {
-                                // Walk the clauses of the assertion to add its information in the PCFG
-                                _utils->_assert_nodes.push(it_init_node);
-                                PCFGPragmaInfo current_pragma;
-                                _utils->_pragma_nodes.push(current_pragma);
-                                walk(analysis_asserted_decls[called_sym]);
-                                _utils->_assert_nodes.pop();
-                                _utils->_pragma_nodes.pop();
-                            }
                         }
                     }
                     // FIXME If we fix the case of an unnamed member initialization, then we can delete this node
@@ -3177,12 +3159,6 @@ next_it:    ;
             WARNING_MESSAGE( "Ignoring unknown pragma '%s' during PCFG construction",
                              n.get_text( ).c_str( ) );
         return ObjectList<Node*>( );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ValueInitialization& n )
-    {   // No node to be created here since it is a call to the default constructor
-        Node* basic_node = new Node( _utils->_nid, __Normal, _utils->_outer_nodes.top( ), n );
-        return ObjectList<Node*>( 1, basic_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorAdd& n )

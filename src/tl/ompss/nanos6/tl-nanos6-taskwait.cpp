@@ -27,6 +27,7 @@
 
 #include "tl-nanos6-lower.hpp"
 #include "tl-source.hpp"
+#include "cxx-cexpr.h"
 
 namespace TL { namespace Nanos6 {
 
@@ -38,11 +39,17 @@ namespace TL { namespace Nanos6 {
                 || !nanos_taskwait_sym.is_function(),
                 "Invalid symbol", 0);
 
+        const char* locus = locus_to_str(node.get_locus());
+
         Nodecl::NodeclBase taskwait_tree =
             Nodecl::ExpressionStatement::make(
                     Nodecl::FunctionCall::make(
                         nanos_taskwait_sym.make_nodecl(/* set_ref_type */ true, node.get_locus()),
-                        /* args */ Nodecl::NodeclBase::null(),
+                        /* args */ Nodecl::List::make(
+                            const_value_to_nodecl(
+                                const_value_make_string_null_ended(
+                                    locus,
+                                    strlen(locus)))),
                         /* alternate-name */ Nodecl::NodeclBase::null(),
                         /* function-form */ Nodecl::NodeclBase::null(),
                         TL::Type::get_void_type(),

@@ -114,7 +114,8 @@ namespace TL { namespace Nanos6 {
             // For inline related_function is the enclosing task,
             // for function tasks, it is the function task itself
             TL::Symbol related_function;
-            const locus_t* locus_of_task;
+            const locus_t* locus_of_task_creation;
+            const locus_t* locus_of_task_declaration;
 
             TaskProperties(LoweringPhase* lowering_phase)
                 : phase(lowering_phase), is_tied(true), is_function_task(false) { }
@@ -129,6 +130,7 @@ namespace TL { namespace Nanos6 {
             void create_task_info(
                     /* out */
                     TL::Symbol &task_info,
+                    TL::Symbol &task_invocation_info,
                     Nodecl::NodeclBase& local_init);
 
             void create_environment_structure(

@@ -100,6 +100,8 @@ namespace TL { namespace Nanos6 {
             }
         }
 
+        const char* locus = locus_to_str(node.get_locus());
+
         Nodecl::List critical_tree;
         critical_tree.append(
                 Nodecl::ExpressionStatement::make(
@@ -109,7 +111,12 @@ namespace TL { namespace Nanos6 {
                             Nodecl::Reference::make(
                                 lock_sym.make_nodecl(/* set_ref */ true),
                                 lock_sym.get_type().get_pointer_to(),
-                                node.get_locus())),
+                                node.get_locus()),
+                            const_value_to_nodecl(
+                                const_value_make_string_null_ended(
+                                    locus,
+                                    strlen(locus)))
+                            ),
                         /* alternate-name */ Nodecl::NodeclBase::null(),
                         /* function-form */ Nodecl::NodeclBase::null(),
                         TL::Type::get_void_type(),

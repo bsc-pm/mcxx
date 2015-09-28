@@ -48,11 +48,12 @@ namespace TL { namespace Nanos6 {
                 data_env_struct,
                 args_size);
 
-        TL::Symbol task_info;
+        TL::Symbol task_info, task_invocation_info;
         Nodecl::NodeclBase local_init_task_info;
         task_properties.create_task_info(
                 /* out */
                 task_info,
+                task_invocation_info,
                 local_init_task_info);
 
         TL::Scope sc = node.retrieve_context();
@@ -151,6 +152,14 @@ namespace TL { namespace Nanos6 {
                         task_ptr.get_type().get_pointer_to(),
                         node.get_locus());
 
+            Nodecl::NodeclBase task_invocation_info_ptr =
+                Nodecl::Reference::make(
+                        task_invocation_info.make_nodecl(
+                            /* set_ref_type */ true,
+                            node.get_locus()),
+                        task_invocation_info.get_type().get_pointer_to(),
+                        node.get_locus());
+
             Nodecl::NodeclBase call_to_nanos_create_task =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::FunctionCall::make(
@@ -158,6 +167,7 @@ namespace TL { namespace Nanos6 {
                                 node.get_locus()),
                             Nodecl::List::make(
                                 task_info_ptr,
+                                task_invocation_info_ptr,
                                 args_size,
                                 /* out */
                                 args_ptr_out,

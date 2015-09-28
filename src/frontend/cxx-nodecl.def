@@ -312,7 +312,6 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
-                  | NODECL_VALUE_INITIALIZATION() symbol type
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
@@ -403,6 +402,8 @@ function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
     | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
+    | NODECL_CXX_FUNCTION_FORM_DEFAULT_INIT()
+    | NODECL_CXX_FUNCTION_FORM_DEFAULT_INIT_BRACED()
 
 type-or-expr : type
              | expression

@@ -127,6 +127,12 @@ namespace TL { namespace OpenMP {
                 _enable_nonvoid_function_tasks,
                 "0").connect(std::bind(&Base::set_enable_nonvoid_function_tasks, this, std::placeholders::_1));
 
+        register_omp();
+        register_ompss();
+    }
+
+    void Base::register_omp()
+    {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -148,7 +154,10 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
+    }
 
+    void Base::register_ompss()
+    {
         // OSS constructs
         dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Base::taskwait_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Base::taskwait_handler_post, this, std::placeholders::_1));
@@ -162,6 +171,11 @@ namespace TL { namespace OpenMP {
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["task"].connect(
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["critical"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["critical"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_post, this, std::placeholders::_1));
     }
 
     void Base::pre_run(TL::DTO& dto)
@@ -817,41 +831,7 @@ namespace TL { namespace OpenMP {
                 );
 
         // Label task (this is used only for instrumentation)
-        PragmaCustomClause label_clause = pragma_line.get_clause("label");
-        {
-            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
-            if (label_clause.is_defined()
-                    && str_list.size() == 1)
-            {
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "Label of this task is '" << str_list[0] << "'\n";
-                    ;
-                }
-                execution_environment.append(
-                        Nodecl::OmpSs::TaskLabel::make(
-                            str_list[0],
-                            directive.get_locus()));
-            }
-            else
-            {
-                if (label_clause.is_defined())
-                {
-                    warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
-                            directive.get_locus_str().c_str());
-                }
-
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "This task does not have any label\n";
-                    ;
-                }
-            }
-        }
+        handle_label_clause(directive, execution_environment);
 
         PragmaCustomClause if_clause = pragma_line.get_clause("if");
         {
@@ -897,35 +877,7 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        PragmaCustomClause final_clause = pragma_line.get_clause("final");
-        {
-            ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(directive);
-            if (final_clause.is_defined()
-                    && expr_list.size() == 1)
-            {
-                execution_environment.append(Nodecl::OpenMP::Final::make(expr_list[0].shallow_copy()));
-
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "When this task is executed it will be final "
-                        "if the expression '" << expr_list[0].prettyprint() << "' holds\n"
-                        // << OpenMP::Report::indent
-                        // << OpenMP::Report::indent
-                        // << "A final task does not create any deferred task when it is executed\n"
-                        ;
-                }
-            }
-            else
-            {
-                if (final_clause.is_defined())
-                {
-                    error_printf("%s: error: ignoring invalid 'final' clause\n",
-                            directive.get_locus_str().c_str());
-                }
-            }
-        }
+        handle_final_clause(directive, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -980,40 +932,7 @@ namespace TL { namespace OpenMP {
         Nodecl::List execution_environment = this->make_execution_environment(ds,
                 pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
 
-        PragmaCustomClause label_clause = pragma_line.get_clause("label");
-        {
-            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
-            if (label_clause.is_defined()
-                    && str_list.size() == 1)
-            {
-                execution_environment.append(
-                        Nodecl::OmpSs::TaskLabel::make(
-                            str_list[0],
-                            directive.get_locus()));
-
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "Parallel construct labeled '" << str_list[0] << "'\n";
-                }
-            }
-            else
-            {
-                if (label_clause.is_defined())
-                {
-                    warn_printf("%s: warning: ignoring invalid 'label' clause in 'parallel' construct\n",
-                            directive.get_locus_str().c_str());
-                }
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "This parallel construct does not have any label\n";
-                }
-            }
-        }
-
+        handle_label_clause(directive, execution_environment);
 
         Nodecl::NodeclBase num_threads;
         PragmaCustomClause clause = pragma_line.get_clause("num_threads");
@@ -1348,41 +1267,10 @@ namespace TL { namespace OpenMP {
         Nodecl::List execution_environment = this->make_execution_environment(
                 ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
 
-        PragmaCustomClause label_clause = pragma_line.get_clause("label");
-        {
-            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
-            if (label_clause.is_defined()
-                    && str_list.size() == 1)
-            {
-                execution_environment.append(
-                        Nodecl::OmpSs::TaskLabel::make(
-                            str_list[0],
-                            directive.get_locus()));
+        handle_label_clause(directive, execution_environment);
 
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "Label of this loop '" << str_list[0] << "'\n";
-                        ;
-                }
-            }
-            else
-            {
-                if (label_clause.is_defined())
-                {
-                    warn_printf("%s: warning: ignoring invalid 'label' clause in loop construct\n",
-                            directive.get_locus_str().c_str());
-                }
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "This loop does not have any label\n";
-                        ;
-                }
-            }
-        }
+        if (this->in_ompss_mode())
+            handle_final_clause(directive, execution_environment);
 
         if (pragma_line.get_clause("schedule").is_defined())
         {
@@ -1646,41 +1534,7 @@ namespace TL { namespace OpenMP {
         Nodecl::List execution_environment = this->make_execution_environment(
                 ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
 
-        PragmaCustomClause label_clause = pragma_line.get_clause("label");
-        {
-            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
-            if (label_clause.is_defined()
-                    && str_list.size() == 1)
-            {
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "Label of this task is '" << str_list[0] << "'\n";
-                    ;
-                }
-                execution_environment.append(
-                        Nodecl::OmpSs::TaskLabel::make(
-                            str_list[0],
-                            directive.get_locus()));
-            }
-            else
-            {
-                if (label_clause.is_defined())
-                {
-                    warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
-                            directive.get_locus_str().c_str());
-                }
-
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "This task does not have any label\n";
-                    ;
-                }
-            }
-        }
+        handle_label_clause(directive, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -3869,6 +3723,78 @@ namespace TL { namespace OpenMP {
                 block_extent_var);
 
         w.walk(execution_environment);
+    }
+
+    void Base::handle_final_clause(
+            const TL::PragmaCustomStatement& directive,
+            Nodecl::List& execution_environment)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomClause final_clause = pragma_line.get_clause("final");
+        ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(directive);
+        if (final_clause.is_defined()
+                && expr_list.size() == 1)
+        {
+            execution_environment.append(Nodecl::OpenMP::Final::make(expr_list[0].shallow_copy()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "When this task is executed it will be final "
+                    "if the expression '" << expr_list[0].prettyprint() << "' holds\n"
+                    // << OpenMP::Report::indent
+                    // << OpenMP::Report::indent
+                    // << "A final task does not create any deferred task when it is executed\n"
+                    ;
+            }
+        }
+        else
+        {
+            if (final_clause.is_defined())
+            {
+                error_printf("%s: error: ignoring invalid 'final' clause\n",
+                        directive.get_locus_str().c_str());
+            }
+        }
+    }
+
+    void Base::handle_label_clause(
+            const TL::PragmaCustomStatement& directive,
+            Nodecl::List& execution_environment)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomClause label_clause = pragma_line.get_clause("label");
+        TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+        if (label_clause.is_defined()
+                && str_list.size() == 1)
+        {
+            execution_environment.append(
+                    Nodecl::OmpSs::TaskLabel::make(
+                        str_list[0],
+                        directive.get_locus()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "Parallel construct labeled '" << str_list[0] << "'\n";
+            }
+        }
+        else
+        {
+            if (label_clause.is_defined())
+            {
+                warn_printf("%s: warning: ignoring invalid 'label' clause in 'parallel' construct\n",
+                        directive.get_locus_str().c_str());
+            }
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "This parallel construct does not have any label\n";
+            }
+        }
     }
 
 } }

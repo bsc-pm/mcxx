@@ -295,7 +295,9 @@ char multifile_object_has_extended_info(const char* filename)
 }
 
 
-void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num_multifile_profiles)
+void multifile_get_extracted_profiles(
+        multifile_extracted_profile_t** multifile_extracted_profile,
+        int *num_multifile_profiles)
 {
     // Profiles are stored in get_multifile_dir()/<directory>, each directory being a profile
     DIR* multifile_dir = opendir(get_multifile_dir());
@@ -327,8 +329,41 @@ void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num
                 if (S_ISDIR(buf.st_mode)
                         && dir_entry->d_name[0] != '.')
                 {
-                    const char* profile_name = uniquestr(dir_entry->d_name);
-                    P_LIST_ADD(*multifile_profiles, *num_multifile_profiles, profile_name);
+                    multifile_extracted_profile_t new_extracted_profile;
+                    memset(&new_extracted_profile, 0, sizeof(new_extracted_profile));
+
+                    if (strncmp(dir_entry->d_name, "tag.", strlen("tag.")) == 0)
+                    {
+                        // Now extract the tag number and then the profile name
+                        const char* p = dir_entry->d_name + strlen("tag.");
+                        int tag = 0;
+                        while (*p >= '0'
+                                && *p <= '9')
+                        {
+                            tag += 10*tag + (*p - '0');
+                            p++;
+                        }
+                        // We only create tagged directories for nonzero tags
+                        ERROR_CONDITION (tag == 0,
+                                "Invalid tag extracted from multifile directory '%s'\n",
+                                dir_entry->d_name);
+
+                        // We expect a dot here
+                        ERROR_CONDITION(*p != '.',
+                                "Malformed multifile directory '%s'\n",
+                                dir_entry->d_name);
+                        p++;
+
+                        new_extracted_profile.name = uniquestr(p);
+                        new_extracted_profile.tag = tag;
+                    }
+                    else
+                    {
+                        new_extracted_profile.name = uniquestr(dir_entry->d_name);
+                    }
+                    P_LIST_ADD(*multifile_extracted_profile,
+                            *num_multifile_profiles,
+                            new_extracted_profile);
                 }
             }
 
@@ -339,13 +374,30 @@ void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num
     }
 }
 
-void multifile_get_profile_file_list(const char* profile_name,
+void multifile_get_profile_file_list(
+        const multifile_extracted_profile_t* multifile_extracted_profile,
         const char*** multifile_file_list,
         int *num_multifile_files)
 {
     char profile_dir[1024];
 
-    snprintf(profile_dir, 1023, "%s%s%s", get_multifile_dir(), DIR_SEPARATOR, profile_name);
+    if (multifile_extracted_profile->tag == 0)
+    {
+        snprintf(profile_dir, 1023,
+                "%s%s%s",
+                get_multifile_dir(),
+                DIR_SEPARATOR,
+                multifile_extracted_profile->name);
+    }
+    else
+    {
+        snprintf(profile_dir, 1023,
+                "%s%stag.%d.%s",
+                get_multifile_dir(),
+                DIR_SEPARATOR,
+                multifile_extracted_profile->tag,
+                multifile_extracted_profile->name);
+    }
     profile_dir[1023] = '\0';
 
     DIR* multifile_dir = opendir(profile_dir);
@@ -415,11 +467,24 @@ void multifile_embed_bfd_single(void** data, compilation_file_process_t* seconda
     translation_unit_t* current_secondary = secondary_compilation_file->translation_unit;
     compilation_configuration_t* secondary_configuration = secondary_compilation_file->compilation_configuration;
 
+    int tag = secondary_compilation_file->tag;
+
     char dir_path[1024];
-    snprintf(dir_path, 1023, "%s%s%s", 
-            embed_data->temp_dir->name, 
-            DIR_SEPARATOR, 
-            secondary_configuration->configuration_name);
+    if (tag == 0)
+    {
+        snprintf(dir_path, 1023, "%s%s%s",
+                embed_data->temp_dir->name,
+                DIR_SEPARATOR,
+                secondary_configuration->configuration_name);
+    }
+    else
+    {
+        snprintf(dir_path, 1023, "%s%stag.%d.%s",
+                embed_data->temp_dir->name,
+                DIR_SEPARATOR,
+                tag,
+                secondary_configuration->configuration_name);
+    }
     dir_path[1023] = '\0';
 
     struct stat buf;

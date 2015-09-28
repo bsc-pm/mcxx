@@ -28,45 +28,24 @@
 
 /*
 <testinfo>
-test_generator="config/mercurium run"
+test_generator=config/mercurium-cxx11
+test_CXXFLAGS="--instantiate"
 </testinfo>
 */
+struct A { };
 
-extern "C"
+template <typename T>
+void f(void)
 {
-    // This is the mangling of B<int>::a
-    // just to ensure B<int>::a has been emitted
-    extern int _ZN1BIiE1aE;
+    T a;
 
-    extern void abort(void);
+    [&]() {
+        auto &x = a;
+    };
+
 }
 
-template <typename T>
-struct A;
-
-template <typename T>
-struct A<T*>
+void g()
 {
-    typedef T type;
-};
-
-template <typename T>
-struct B
-{
-    static typename A<T*>::type a;
-};
-
-template <typename T>
-typename A<T*>::type B<T>::a;
-
-template A<int*>::type B<int>::a;
-
-
-int main(int argc, char **argv)
-{
-    _ZN1BIiE1aE = 3;
-    if (B<int>::a != 3)
-        abort();
-
-    return 0;
+    f<A>();
 }

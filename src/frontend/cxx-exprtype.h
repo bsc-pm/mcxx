@@ -195,6 +195,7 @@ LIBMCXX_EXTERN void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         const decl_context_t* decl_context, 
         type_t* declared_type, 
         char is_explicit_type_cast,
+        char allow_excess_of_initializers,
         enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output);
 

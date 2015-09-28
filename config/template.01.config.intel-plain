@@ -17,7 +17,7 @@ options = --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --e
 
 [plainifort]
 language = Fortran
-options = --do-not-wrap-modules --fortran-array-descriptor=ifort
+options = --ifort-compat --do-not-wrap-modules --fortran-array-descriptor=ifort
 fortran_preprocessor_name = @IFORT@
 fortran_preprocessor_options = -P
 compiler_name = @IFORT@

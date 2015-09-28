@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ -z "@NANOX_INCLUDES@" -o "@cuda_valid@" = no ];
+if [ "@NANOX_ENABLED@" = "no" -o "@cuda_valid@" = no ];
 then
 
 cat <<EOF
@@ -18,19 +18,20 @@ MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/test
 MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mnvcxx --config-dir=@abs_top_builddir@/config --verbose"
 EOF
 
-if [ ! -z "@NANOX_INCLUDES@" ];
+NANOX_GATE=""
+if [ "@NANOS6_ENABLED@" = "yes" ];
 then
+    NANOX_GATE="--nanox"
+fi
 
 # compile_versions="\${compile_versions} nanox_cuda"
 cat <<EOF
 test_CC_cuda_omp="\${MCC}"
 test_CXX_cuda_omp="\${MCXX}"
 
-test_CFLAGS_cuda_omp="--ompss --cuda"
-test_CXXFLAGS_cuda_omp="--ompss --cuda"
+test_CFLAGS_cuda_omp="--ompss --cuda ${NANOX_GATE}"
+test_CXXFLAGS_cuda_omp="--ompss --cuda ${NANOX_GATE}"
 EOF
-
-fi
 
 cat <<EOF
 test_nolink=yes

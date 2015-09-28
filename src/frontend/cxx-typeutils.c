@@ -874,6 +874,7 @@ extern inline type_t* get_signed_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
         _type->info->valid_size = 1;
@@ -891,6 +892,7 @@ extern inline type_t* get_signed_short_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->type->is_short = 1;
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_short;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_short;
@@ -909,6 +911,7 @@ extern inline type_t* get_signed_long_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->type->is_long = 1;
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_long;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_long;
@@ -927,6 +930,7 @@ extern inline type_t* get_signed_long_long_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->type->is_long = 2;
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_long_long;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_long_long;
@@ -1045,6 +1049,7 @@ extern inline type_t* get_signed_int128_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->type->is_signed = 1;
         _type->info->size = 16;
         _type->type->is_long = 3;
         _type->info->alignment = 16;
@@ -5046,7 +5051,7 @@ static nodecl_t compute_whole_size_given_bounds(
             || nodecl_is_null(upper_bound))
         return nodecl_null();
 
-    nodecl_t whole_size = nodecl_null();
+    nodecl_t whole_size;
     if (nodecl_is_constant(lower_bound)
             && nodecl_is_constant(upper_bound))
     {
@@ -8728,9 +8733,7 @@ extern inline char is_signed_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
-            // The next one is silly but I wanted to express that
-            // is_signed flag is of little utility in 'int'
-            && (t->type->is_signed || !t->type->is_signed) 
+            && t->type->is_signed
             && !t->type->is_unsigned
             && !t->type->is_long
             && !t->type->is_short);
@@ -8758,6 +8761,7 @@ extern inline char is_signed_short_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && t->type->is_signed
             && !t->type->is_unsigned
             && !t->type->is_long
             && t->type->is_short);
@@ -8771,6 +8775,7 @@ extern inline char is_unsigned_short_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && !t->type->is_signed
             && t->type->is_unsigned
             && !t->type->is_long
             && t->type->is_short);
@@ -8784,6 +8789,7 @@ extern inline char is_signed_long_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && t->type->is_signed
             && !t->type->is_unsigned
             && (t->type->is_long == 1)
             && !t->type->is_short);
@@ -8797,6 +8803,7 @@ extern inline char is_unsigned_long_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && !t->type->is_signed
             && t->type->is_unsigned
             && (t->type->is_long == 1)
             && !t->type->is_short);
@@ -8810,6 +8817,7 @@ extern inline char is_signed_long_long_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && t->type->is_signed
             && !t->type->is_unsigned
             && (t->type->is_long == 2)
             && !t->type->is_short);
@@ -8823,6 +8831,7 @@ extern inline char is_unsigned_long_long_int_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && !t->type->is_signed
             && t->type->is_unsigned
             && (t->type->is_long == 2)
             && !t->type->is_short);
@@ -8836,6 +8845,7 @@ extern inline char is_signed_int128_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && t->type->is_signed
             && !t->type->is_unsigned
             && (t->type->is_long == 3)
             && !t->type->is_short);
@@ -8849,6 +8859,7 @@ extern inline char is_unsigned_int128_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_INT
+            && !t->type->is_signed
             && t->type->is_unsigned
             && (t->type->is_long == 3)
             && !t->type->is_short);
@@ -8860,7 +8871,7 @@ extern inline char is_signed_byte_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_BYTE
-            && t->type->is_signed 
+            && t->type->is_signed
             && !t->type->is_unsigned
             && !t->type->is_long
             && !t->type->is_short);
@@ -8872,21 +8883,30 @@ extern inline char is_unsigned_byte_type(type_t *t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_BYTE
+            && !t->type->is_signed
             && t->type->is_unsigned
-            && !t->type->is_signed 
             && !t->type->is_long
             && !t->type->is_short);
 }
 
-extern inline char is_character_type(type_t* t)
-{
-    return is_signed_char_type(t) || is_unsigned_char_type(t);
-}
-
 extern inline char is_char_type(type_t* t)
 {
-    // FIXME: Make a flag to choose signed or unsigned chars
-    return is_signed_char_type(t);
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_CHAR
+            && !t->type->is_signed
+            && !t->type->is_unsigned);
+}
+
+extern inline char is_character_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_CHAR);
 }
 
 extern inline char is_char16_t_type(type_t* t)
@@ -8930,6 +8950,7 @@ extern inline char is_signed_char_type(type_t* t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_CHAR
+            && t->type->is_signed
             && !t->type->is_unsigned);
 }
 
@@ -8940,6 +8961,7 @@ extern inline char is_unsigned_char_type(type_t* t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && t->type->builtin_type == BT_CHAR
+            && !t->type->is_signed
             && t->type->is_unsigned);
 }
 
@@ -10268,8 +10290,10 @@ static const char* get_simple_type_name_string_internal_impl(const decl_context_
                 {
                     result = strappend(result, "unsigned ");
                 }
-                else if (simple_type->is_signed)
+                else if (simple_type->is_signed
+                        && (simple_type->builtin_type != BT_INT))
                 {
+                    // We emit this only for char
                     result = strappend(result, "signed ");
                 }
 
@@ -15988,7 +16012,7 @@ extern inline char is_auto_type(type_t* t)
         && t->kind == TK_AUTO;
 }
 
-extern inline char type_contains_auto(type_t* t)
+extern inline char type_is_derived_from_auto(type_t* t)
 {
     if (is_auto_type(t))
     {
@@ -15996,25 +16020,25 @@ extern inline char type_contains_auto(type_t* t)
     }
     else if (is_pointer_type(t))
     {
-        return type_contains_auto(pointer_type_get_pointee_type(t));
+        return type_is_derived_from_auto(pointer_type_get_pointee_type(t));
     }
     else if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
     {
-        return type_contains_auto(reference_type_get_referenced_type(t));
+        return type_is_derived_from_auto(reference_type_get_referenced_type(t));
     }
     else if (is_array_type(t))
     {
-        return type_contains_auto(array_type_get_element_type(t));
+        return type_is_derived_from_auto(array_type_get_element_type(t));
     }
     else if (is_function_type(t))
     {
-        return type_contains_auto(function_type_get_return_type(t));
+        return type_is_derived_from_auto(function_type_get_return_type(t));
 
     }
     else if (is_vector_type(t))
     {
-        return type_contains_auto(vector_type_get_element_type(t));
+        return type_is_derived_from_auto(vector_type_get_element_type(t));
     }
     else
     {

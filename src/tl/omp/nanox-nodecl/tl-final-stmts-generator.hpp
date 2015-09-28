@@ -38,22 +38,21 @@ namespace TL { namespace Nanox {
     class FinalStmtsGenerator : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-
+            bool _ompss_mode;
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
-
             Nodecl::Utils::SimpleSymbolMap _function_translation_map;
 
         public:
-            FinalStmtsGenerator();
+            FinalStmtsGenerator(bool ompss_mode);
 
             void visit(const Nodecl::OpenMP::Task& task);
             void visit(const Nodecl::OmpSs::TaskCall& task_call);
             void visit(const Nodecl::OmpSs::TaskExpression& task_expr);
+            void visit(const Nodecl::OpenMP::For& for_construct);
 
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_final_stmts();
 
         private:
-
             Nodecl::NodeclBase generate_final_stmts(Nodecl::NodeclBase original_stmts);
     };
 
