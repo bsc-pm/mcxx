@@ -1237,13 +1237,12 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorLoad& node) 
         { 
-            TL::ObjectList<Nodecl::NodeclBase> flags = 
-                node.get_flags().as<Nodecl::List>().to_object_list();
+            Nodecl::List flags = node.get_flags().as<Nodecl::List>();
 
-            bool aligned =
-                Nodecl::Utils::list_contains_nodecl_by_structure(
-                    flags, Nodecl::AlignedFlag());
+            bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
+                is_null();
 
+            std::cout << aligned << "!!\n";
             if (aligned)
                 visit_aligned_vector_load(node);
             else
@@ -1344,12 +1343,10 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorStore& node) 
         {
-            TL::ObjectList<Nodecl::NodeclBase> flags = 
-                node.get_flags().as<Nodecl::List>().to_object_list();
+            Nodecl::List flags = node.get_flags().as<Nodecl::List>();
 
-            bool aligned = 
-                Nodecl::Utils::list_contains_nodecl_by_structure(
-                    flags, Nodecl::AlignedFlag());
+            bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
+                is_null();
 
             if (aligned)
                 visit_aligned_vector_store(node);
