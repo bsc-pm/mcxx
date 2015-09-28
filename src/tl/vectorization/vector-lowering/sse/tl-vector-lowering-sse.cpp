@@ -1242,7 +1242,6 @@ namespace TL
             bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
                 is_null();
 
-            std::cout << aligned << "!!\n";
             if (aligned)
                 visit_aligned_vector_load(node);
             else
