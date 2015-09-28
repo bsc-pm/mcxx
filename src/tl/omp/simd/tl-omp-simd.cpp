@@ -627,7 +627,7 @@ namespace TL {
                         loop_environment,
                         epilog_iterations,
                         only_epilog,
-                        true /*parallel loop*/);
+                        false /*parallel loop*/);
 
                 // Remove Simd node from epilog
                 simd_node_epilog.replace(simd_node_epilog.get_statement());

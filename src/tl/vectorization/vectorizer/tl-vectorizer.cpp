@@ -336,8 +336,8 @@ namespace Vectorization
             bool is_parallel_loop)
     {
         // Clean up vector epilog
-        if (environment._support_masking)
-        {
+        //if (environment._support_masking)
+        //{
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "Clean-up vector epilog\n");
@@ -351,7 +351,7 @@ namespace Vectorization
             // Applying strenth reduction
             TL::Optimizations::canonicalize_and_fold(
                     net_epilog, _fast_math_enabled);
-        }
+        //}
     }
 
     bool Vectorizer::is_supported_reduction(bool is_builtin,
