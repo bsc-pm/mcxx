@@ -44,7 +44,6 @@ namespace {
 
     // ************************************************************************************** //
     // *** Variables and methods to simulate SSA during the Constraint Graph construction *** //
-    static unsigned int sym_id = 0;
     std::string fake_sym = "__return_sym";
 
     Scope ssa_scope;
@@ -2312,13 +2311,71 @@ namespace {
             futures(scc);
         }
 
-        // Apply the narrow operation
-        for (std::vector<SCC*>::iterator it = cycle_scc.begin(); it != cycle_scc.end(); ++it)
+        // Apply the narrow operation and re-evaluate trivial nodes, for they may have changedZ
+        visited.clear();
+        for (std::vector<SCC*>::const_iterator it = root_sccs.begin(); it != root_sccs.end(); ++it)
+            next_scc.push(*it);
+        while (!next_scc.empty())
         {
-            SCC* scc = *it;
-            if (RANGES_DEBUG)
-                std::cerr << "  SCC " << scc->get_id() << "  ->  NARROW" << std::endl;
-            narrow(scc);
+            // 1.- Get the next SCC to be solved
+            SCC* scc = next_scc.front();
+            next_scc.pop();
+
+            // 2.- Base case: the SCC has already been solved
+            if (visited.find(scc) != visited.end())
+                continue;
+
+            // 2.- Check whether this SCC is ready to be solved:
+            //     All its entries, but those coming from back edges, must have been already solved
+            const std::list<CGNode*>& roots = scc->get_roots();
+            std::set<CGEdge*> entries;
+            for (std::list<CGNode*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
+            {
+                entries.insert((*it)->get_entries().begin(), (*it)->get_entries().end());
+            }
+            bool is_ready = true;
+            for (std::set<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
+            {
+                CGNode* parent = (*it)->get_source();
+                SCC* parent_scc = _node_to_scc_map[parent];
+                if (scc != parent_scc                           // This parent belongs to a different component
+                        && visited.find(parent_scc) == visited.end())  // That other component has not been solved yet
+                {
+                    is_ready = false;
+                    break;
+                }
+            }
+            if (!is_ready)
+            {
+                next_scc.push(scc);
+                continue;
+            }
+
+            // Solve the current SCC
+            if (scc->is_trivial())
+            {   // Evaluate the only node within the SCC, if necessary (operation nodes are not evaluated)
+                CGNode* n = scc->get_nodes()[0];
+                if (n->get_type() == __Sym || n->get_type() == __Const)
+                {
+                    if (RANGES_DEBUG)
+                        std::cerr << "  SCC " << scc->get_id() << "  ->  TRIVIAL" << std::endl;
+                    evaluate_cgnode(n);
+                }
+            }
+            else
+            {   // Cycle widening operation
+                if (RANGES_DEBUG)
+                    std::cerr << "  SCC " << scc->get_id() << "  ->  NARROW" << std::endl;
+                narrow(scc);
+            }
+            visited.insert(scc);
+
+            // Prepare next iterations, if there are
+            // We will add more than one child here when a single node generates more than one constraint
+            const ObjectList<SCC*>& scc_exits = scc->get_scc_exits();
+            for (ObjectList<SCC*>::const_iterator it = scc_exits.begin();
+                 it != scc_exits.end(); ++it)
+                next_scc.push(*it);
         }
     }
 

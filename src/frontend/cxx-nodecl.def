@@ -750,7 +750,7 @@ expression : constraint_expression
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
 
-induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression-seq, [upper] expression-seq, [stride] expression)
+induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([variable] expression, [lower] expression-seq, [upper] expression-seq, [stride] expression)
 
 analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq-opt)
                           | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq-opt)
@@ -764,6 +764,7 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq-opt)
                           | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq-opt)
                           | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq-opt)
+                          | NODECL_ANALYSIS*RANGE([range_variables] induction_var_expression-seq-opt)
                           | NODECL_ANALYSIS*CORRECTNESS*AUTO_STORAGE([correctness_vars] expression-seq-opt)
                           | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_vars] expression-seq-opt)
                           | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_FP([correctness_vars] expression-seq-opt)

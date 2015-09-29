@@ -102,8 +102,9 @@ namespace {
         return result;
     }
 
-    Nodecl::List extract_induction_variable_info_from_clause(const PragmaCustomClause& c, ReferenceScope sc)
-    {   // Each token will have the form: "iv : lb : ub : stride "
+    Nodecl::List extract_induction_variable_info_from_clause(
+            const PragmaCustomClause& c, ReferenceScope sc)
+    {   // Each token will have the form: "v : lb : ub : stride "
         Nodecl::List result;
 
         ObjectList<std::string> args = c.get_tokenized_arguments(ExpressionTokenizerTrim(';'));
@@ -123,12 +124,12 @@ namespace {
             colon_pos = token.find(':', colon_pos) + 1;
             std::string stride = token.substr(colon_pos, token.find(':', colon_pos)-colon_pos);
 
-            NBase iv_nodecl = get_nodecl_from_string(iv, sc);
+            NBase v_nodecl = get_nodecl_from_string(iv, sc);
             Nodecl::List lb_nodecl = get_nodecl_list_from_string(lb, sc);
             Nodecl::List ub_nodecl = get_nodecl_list_from_string(ub, sc);
             NBase stride_nodecl = get_nodecl_from_string(stride, sc);
 
-            result.append(Nodecl::Analysis::InductionVarExpr::make(iv_nodecl, lb_nodecl, ub_nodecl, stride_nodecl));
+            result.append(Nodecl::Analysis::InductionVarExpr::make(v_nodecl, lb_nodecl, ub_nodecl, stride_nodecl));
         }
 
         return result;
@@ -169,7 +170,7 @@ namespace {
         size_t analysis_set_size = analysis_set.size();
         if (assert_set_size != analysis_set_size)
         {
-            internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+            internal_error("%s: Assertion '%s(%s)' does not fulfill \n"
                            "because analysis %s for node %d has computed set (%s).\n",
                            locus_str.c_str(),
                            clause_name.c_str(),
@@ -297,181 +298,196 @@ namespace {
     
     void check_assertions_rec(Node* current)
     {
-        if (!current->is_visited())
+        if (current->is_visited())
+            return;
+
+        current->set_visited(true);
+
+        // Treat current node
+        std::string locus_str = "";
+        if (current->is_graph_node())
+            locus_str = current->get_graph_related_ast().get_locus_str();
+        else
         {
-            current->set_visited(true);
+            ObjectList<NBase> stmts = current->get_statements();
+            if (!stmts.empty())
+                locus_str = stmts[0].get_locus_str();
+        }
 
-            // Treat current node
-            std::string locus_str = "";
-            if (current->is_graph_node())
-                locus_str = current->get_graph_related_ast().get_locus_str();
-            else
+        // Check UseDef analysis
+        if (current->has_usage_assertion())
+        {
+            if (VERBOSE)
+                printf("   Check node %d usage assertion.\n", current->get_id());
+            const NodeclSet& assert_ue = current->get_assert_ue_vars();
+            const NodeclSet& assert_killed = current->get_assert_killed_vars();
+            const NodeclSet& assert_undef = current->get_assert_undefined_behaviour_vars();
+            if (current->is_context_node())
             {
-                ObjectList<NBase> stmts = current->get_statements();
-                if (!stmts.empty())
-                    locus_str = stmts[0].get_locus_str();
-            }
-
-            // Check UseDef analysis
-            if (current->has_usage_assertion())
-            {
-                if (VERBOSE)
-                    printf("   Check node %d usage assertion.\n", current->get_id());
-                const NodeclSet& assert_ue = current->get_assert_ue_vars();
-                const NodeclSet& assert_killed = current->get_assert_killed_vars();
-                const NodeclSet& assert_undef = current->get_assert_undefined_behaviour_vars();
-                if (current->is_context_node())
+                // Consider the case:
+                //      #pragma analysis_check assert
+                //      #pragma omp task
+                // -> Context
+                //       |_____ Entry
+                //       |______Task Creation
+                //       |______Exit
+                // Although it could also contain any other nodes inside the context
+                Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                if (first_inner_node->is_omp_task_creation_node())
                 {
-                    // Consider the case:
-                    //      #pragma analysis_check assert
-                    //      #pragma omp task
-                    // -> Context
-                    //       |_____ Entry
-                    //       |______Task Creation
-                    //       |______Exit
-                    // Although it could also contain any other nodes inside the context
-                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
-                    if (first_inner_node->is_omp_task_creation_node())
+                    current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                }
+            }
+            const NodeclSet& ue = current->get_ue_vars();
+            const NodeclSet& killed = current->get_killed_vars();
+            const NodeclSet& undef = current->get_undefined_behaviour_vars();
+
+            if (current->has_upper_exposed_assertion())
+                compare_assert_set_with_analysis_set(assert_ue, ue, locus_str, current->get_id(), "upper_exposed", "Upper Exposed");
+            if (current->has_defined_assertion())
+                compare_assert_set_with_analysis_set(assert_killed, killed, locus_str, current->get_id(), "defined", "Killed");
+            if (current->has_undefined_assertion())
+                compare_assert_set_with_analysis_set(assert_undef, undef, locus_str, current->get_id(), "undefined", "Undefined Behavior");
+        }
+
+        // Check Liveness analysis
+        if (current->has_liveness_assertion())
+        {
+            if (VERBOSE)
+                printf("   Check node %d liveness assertion.\n", current->get_id());
+            const NodeclSet& assert_live_in = current->get_assert_live_in_vars();
+            const NodeclSet& assert_live_out = current->get_assert_live_out_vars();
+            const NodeclSet& assert_dead = current->get_assert_dead_vars();
+            if (current->is_context_node())
+            {
+                // Consider the case:
+                //      #pragma analysis_check assert
+                //      #pragma omp task
+                // -> Context
+                //       |_____ Entry
+                //       |______Task Creation
+                //       |______Exit
+                // Although it could also contain any other nodes inside the context
+                Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                if (first_inner_node->is_omp_task_creation_node())
+                {
+                    current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                }
+            }
+            const NodeclSet& live_in = current->get_live_in_vars();
+            const NodeclSet& live_out = current->get_live_out_vars();
+
+            if (current->has_live_in_assertion())
+                compare_assert_set_with_analysis_set(assert_live_in, live_in, locus_str, current->get_id(), "live_in", "Live In");
+            if (current->has_live_out_assertion())
+                compare_assert_set_with_analysis_set(assert_live_out, live_out, locus_str, current->get_id(), "live_out", "Live Out");
+            // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
+            if (current->has_dead_assertion())
+            {
+                for (NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
+                {
+                    if (Utils::nodecl_set_contains_nodecl(*it, live_in))
                     {
-                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                        internal_error("%s: Assertion 'dead(%s)' does not fulfill.\n"\
+                                        "Expression '%s' is not Dead at the Entry point of node %d\n",
+                                        locus_str.c_str(), Utils::prettyprint_nodecl_set(assert_dead, /*dot*/ false).c_str(),
+                                        it->prettyprint().c_str(), current->get_id());
                     }
                 }
-                const NodeclSet& ue = current->get_ue_vars();
-                const NodeclSet& killed = current->get_killed_vars();
-                const NodeclSet& undef = current->get_undefined_behaviour_vars();
-
-                if (current->has_upper_exposed_assertion())
-                    compare_assert_set_with_analysis_set(assert_ue, ue, locus_str, current->get_id(), "upper_exposed", "Upper Exposed");
-                if (current->has_defined_assertion())
-                    compare_assert_set_with_analysis_set(assert_killed, killed, locus_str, current->get_id(), "defined", "Killed");
-                if (current->has_undefined_assertion())
-                    compare_assert_set_with_analysis_set(assert_undef, undef, locus_str, current->get_id(), "undefined", "Undefined Behavior");
             }
+        }
 
-            // Check Liveness analysis
-            if (current->has_liveness_assertion())
+        // Check Reaching Definitions analysis
+        if (current->has_reach_defs_assertion())
+        {
+            if (VERBOSE)
+                printf("   Check node %d reaching definitions assertion.\n", current->get_id());
+            const NodeclMap& assert_reach_defs_in = current->get_assert_reaching_definitions_in();
+            const NodeclMap& assert_reach_defs_out = current->get_assert_reaching_definitions_out();
+            if (current->is_context_node())
             {
-                if (VERBOSE)
-                    printf("   Check node %d liveness assertion.\n", current->get_id());
-                const NodeclSet& assert_live_in = current->get_assert_live_in_vars();
-                const NodeclSet& assert_live_out = current->get_assert_live_out_vars();
-                const NodeclSet& assert_dead = current->get_assert_dead_vars();
-                if (current->is_context_node())
+                // Consider the case:
+                //      #pragma analysis_check assert
+                //      #pragma omp task
+                // -> Context
+                //       |_____ Entry
+                //       |______Task Creation
+                //       |______Exit
+                // Although it could also contain any other nodes inside the context
+                Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                if (first_inner_node->is_omp_task_creation_node())
                 {
-                    // Consider the case:
-                    //      #pragma analysis_check assert
-                    //      #pragma omp task
-                    // -> Context
-                    //       |_____ Entry
-                    //       |______Task Creation
-                    //       |______Exit
-                    // Although it could also contain any other nodes inside the context
-                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
-                    if (first_inner_node->is_omp_task_creation_node())
-                    {
-                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
-                    }
+                    current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
                 }
-                const NodeclSet& live_in = current->get_live_in_vars();
-                const NodeclSet& live_out = current->get_live_out_vars();
+            }
+            const NodeclMap& reach_defs_in = current->get_reaching_definitions_in();
+            const NodeclMap& reach_defs_out = current->get_reaching_definitions_out();
 
-                if (current->has_live_in_assertion())
-                    compare_assert_set_with_analysis_set(assert_live_in, live_in, locus_str, current->get_id(), "live_in", "Live In");
-                if (current->has_live_out_assertion())
-                    compare_assert_set_with_analysis_set(assert_live_out, live_out, locus_str, current->get_id(), "live_out", "Live Out");
-                // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
-                if (current->has_dead_assertion())
+            if (current->has_reach_defs_in_assertion())
+                compare_assert_map_with_analysis_map(assert_reach_defs_in, reach_defs_in, locus_str, current->get_id(),
+                                                        "reaching_definition_in", "Input Reaching Definitions");
+            if (current->has_reach_defs_out_assertion())
+                compare_assert_map_with_analysis_map(assert_reach_defs_out, reach_defs_out, locus_str, current->get_id(),
+                                                        "reaching_definition_out", "Output Reaching Definitions");
+        }
+
+        // Induction Variables
+        if (current->has_induction_vars_assertion())
+        {
+            if (VERBOSE)
+                printf("   Check node %d induction variables assertion.\n", current->get_id());
+            Utils::InductionVarList assert_induction_vars = current->get_assert_induction_vars();
+            // 'current' is the context created by the checking pragma -> get the inner loop node
+            Node* inner_loop = current->get_graph_entry_node()->get_children()[0];
+            if (!inner_loop->is_loop_node())
+            {   // We may be in the "init" of a ForStatement
+                inner_loop = inner_loop->get_children()[0];
+            }
+            if (inner_loop->is_loop_node())
+            {
+                Utils::InductionVarList induction_vars = inner_loop->get_induction_variables();
+                if (assert_induction_vars.size() != induction_vars.size())
                 {
-                    for (NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
+                    internal_error("%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                    "because Induction Variables Analysis for node %d has computed set \n%s.\n",
+                                    locus_str.c_str(),
+                                    prettyprint_induction_vars(assert_induction_vars, /*to_dot*/false).c_str(),
+                                    inner_loop->get_id(),
+                                    prettyprint_induction_vars(induction_vars, /*to_dot*/false).c_str());
+                }
+
+                for (Utils::InductionVarList::iterator it = assert_induction_vars.begin();
+                        it != assert_induction_vars.end(); ++it)
+                {
+                    Utils::InductionVar* iv = *it;
+                    NBase iv_nodecl = iv->get_variable();
+                    bool found = false;
+                    for (Utils::InductionVarList::iterator it2 = induction_vars.begin();
+                            it2 != induction_vars.end() && !found; ++it2)
                     {
-                        if (Utils::nodecl_set_contains_nodecl(*it, live_in))
+                        if (Nodecl::Utils::structurally_equal_nodecls(
+                                (*it2)->get_variable(), iv_nodecl, /*skip_conversions*/true))
                         {
-                            internal_error("%s: Assertion 'dead(%s)' does not fulfill.\n"\
-                                           "Expression '%s' is not Dead at the Entry point of node %d\n",
-                                           locus_str.c_str(), Utils::prettyprint_nodecl_set(assert_dead, /*dot*/ false).c_str(),
-                                           it->prettyprint().c_str(), current->get_id());
-                        }
-                    }
-                }
-            }
+                            found = true;
 
-            // Check Reaching Definitions analysis
-            if (current->has_reach_defs_assertion())
-            {
-                if (VERBOSE)
-                    printf("   Check node %d reaching definitions assertion.\n", current->get_id());
-                const NodeclMap& assert_reach_defs_in = current->get_assert_reaching_definitions_in();
-                const NodeclMap& assert_reach_defs_out = current->get_assert_reaching_definitions_out();
-                if (current->is_context_node())
-                {
-                    // Consider the case:
-                    //      #pragma analysis_check assert
-                    //      #pragma omp task
-                    // -> Context
-                    //       |_____ Entry
-                    //       |______Task Creation
-                    //       |______Exit
-                    // Although it could also contain any other nodes inside the context
-                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
-                    if (first_inner_node->is_omp_task_creation_node())
-                    {
-                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
-                    }
-                }
-                const NodeclMap& reach_defs_in = current->get_reaching_definitions_in();
-                const NodeclMap& reach_defs_out = current->get_reaching_definitions_out();
-
-                if (current->has_reach_defs_in_assertion())
-                    compare_assert_map_with_analysis_map(assert_reach_defs_in, reach_defs_in, locus_str, current->get_id(),
-                                                         "reaching_definition_in", "Input Reaching Definitions");
-                if (current->has_reach_defs_out_assertion())
-                    compare_assert_map_with_analysis_map(assert_reach_defs_out, reach_defs_out, locus_str, current->get_id(),
-                                                         "reaching_definition_out", "Output Reaching Definitions");
-            }
-
-            // Induction Variables
-            if (current->has_induction_vars_assertion())
-            {
-                if (VERBOSE)
-                    printf("   Check node %d induction variables assertion.\n", current->get_id());
-                Utils::InductionVarList assert_induction_vars = current->get_assert_induction_vars();
-                // 'current' is the context created by the checking pragma -> get the inner loop node
-                Node* inner_loop = current->get_graph_entry_node()->get_children()[0];
-                if (!inner_loop->is_loop_node())
-                {   // We may be in the "init" of a ForStatement
-                    inner_loop = inner_loop->get_children()[0];
-                }
-                if (inner_loop->is_loop_node())
-                {
-                    Utils::InductionVarList induction_vars = inner_loop->get_induction_variables();
-                    if (assert_induction_vars.size() != induction_vars.size())
-                    {
-                        internal_error("%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                       "because Induction Variables Analysis for node %d has computed set \n%s.\n",
-                                       locus_str.c_str(),
-                                       prettyprint_induction_vars(assert_induction_vars, /*to_dot*/false).c_str(),
-                                       inner_loop->get_id(),
-                                       prettyprint_induction_vars(induction_vars, /*to_dot*/false).c_str());
-                    }
-
-                    for (Utils::InductionVarList::iterator it = assert_induction_vars.begin();
-                         it != assert_induction_vars.end(); ++it)
-                    {
-                        Utils::InductionVar* iv = *it;
-                        NBase iv_nodecl = iv->get_variable();
-                        bool found = false;
-                        for (Utils::InductionVarList::iterator it2 = induction_vars.begin();
-                             it2 != induction_vars.end() && !found; ++it2)
-                        {
-                            if (Nodecl::Utils::structurally_equal_nodecls(
-                                    (*it2)->get_variable(), iv_nodecl, /*skip_conversions*/true))
+                            // Compare LBs
+                            const NodeclSet& lb_a = iv->get_lb();
+                            const NodeclSet& lb = (*it2)->get_lb();
+                            ERROR_CONDITION(lb_a.size() != lb.size(),
+                                            "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                            "Lower Bounds computed for induction variable '%s' "
+                                            "in node %d are '%s', but lower bounds indicated in the assertion are '%s'.\n",
+                                            locus_str.c_str(),
+                                            Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                            iv_nodecl.prettyprint().c_str(),
+                                            inner_loop->get_id(),
+                                            Utils::prettyprint_iv_boundary_list((*it2)->get_lb()).c_str(),
+                                            Utils::prettyprint_iv_boundary_list(iv->get_lb()).c_str());
+                            NodeclSet::const_iterator it_lb_a = lb_a.begin();
+                            NodeclSet::const_iterator it_lb = lb.begin();
+                            for ( ; it_lb_a != lb_a.end(); ++it_lb_a, ++it_lb)
                             {
-                                found = true;
-
-                                // Compare LBs
-                                const NodeclSet& lb_a = iv->get_lb();
-                                const NodeclSet& lb = (*it2)->get_lb();
-                                ERROR_CONDITION(lb_a.size() != lb.size(),
+                                ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_lb_a, *it_lb, /*skip_conversions*/true),
                                                 "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
                                                 "Lower Bounds computed for induction variable '%s' "
                                                 "in node %d are '%s', but lower bounds indicated in the assertion are '%s'.\n",
@@ -481,26 +497,26 @@ namespace {
                                                 inner_loop->get_id(),
                                                 Utils::prettyprint_iv_boundary_list((*it2)->get_lb()).c_str(),
                                                 Utils::prettyprint_iv_boundary_list(iv->get_lb()).c_str());
-                                NodeclSet::const_iterator it_lb_a = lb_a.begin();
-                                NodeclSet::const_iterator it_lb = lb.begin();
-                                for ( ; it_lb_a != lb_a.end(); ++it_lb_a, ++it_lb)
-                                {
-                                    ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_lb_a, *it_lb, /*skip_conversions*/true),
-                                                    "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                                    "Lower Bounds computed for induction variable '%s' "
-                                                    "in node %d are '%s', but lower bounds indicated in the assertion are '%s'.\n",
-                                                    locus_str.c_str(),
-                                                    Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
-                                                    iv_nodecl.prettyprint().c_str(),
-                                                    inner_loop->get_id(),
-                                                    Utils::prettyprint_iv_boundary_list((*it2)->get_lb()).c_str(),
-                                                    Utils::prettyprint_iv_boundary_list(iv->get_lb()).c_str());
-                                }
+                            }
 
-                                // Compare UBs
-                                const NodeclSet& ub_a = iv->get_ub();
-                                const NodeclSet& ub = (*it2)->get_ub();
-                                ERROR_CONDITION(ub_a.size() != ub.size(),
+                            // Compare UBs
+                            const NodeclSet& ub_a = iv->get_ub();
+                            const NodeclSet& ub = (*it2)->get_ub();
+                            ERROR_CONDITION(ub_a.size() != ub.size(),
+                                            "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                            "Upper Bounds computed for induction variable '%s' "
+                                            "in node %d are '%s', but the upper bounds indicated in the assertion are '%s'.\n",
+                                            locus_str.c_str(),
+                                            Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                            iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
+                                            Utils::prettyprint_iv_boundary_list((*it2)->get_ub()).c_str(),
+                                            Utils::prettyprint_iv_boundary_list(iv->get_ub()).c_str());
+                            NodeclSet::const_iterator it_ub_a = ub_a.begin();
+                            NodeclSet::const_iterator it_ub = ub.begin();
+                            for (; it_ub_a != ub_a.end(); ++it_ub_a, ++it_ub)
+                            {
+
+                                ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_ub_a, *it_ub, /*skip_conversions*/true),
                                                 "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
                                                 "Upper Bounds computed for induction variable '%s' "
                                                 "in node %d are '%s', but the upper bounds indicated in the assertion are '%s'.\n",
@@ -509,166 +525,197 @@ namespace {
                                                 iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
                                                 Utils::prettyprint_iv_boundary_list((*it2)->get_ub()).c_str(),
                                                 Utils::prettyprint_iv_boundary_list(iv->get_ub()).c_str());
-                                NodeclSet::const_iterator it_ub_a = ub_a.begin();
-                                NodeclSet::const_iterator it_ub = ub.begin();
-                                for (; it_ub_a != ub_a.end(); ++it_ub_a, ++it_ub)
-                                {
-
-                                    ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_ub_a, *it_ub, /*skip_conversions*/true),
-                                                    "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                                    "Upper Bounds computed for induction variable '%s' "
-                                                    "in node %d are '%s', but the upper bounds indicated in the assertion are '%s'.\n",
-                                                    locus_str.c_str(),
-                                                    Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
-                                                    iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
-                                                    Utils::prettyprint_iv_boundary_list((*it2)->get_ub()).c_str(),
-                                                    Utils::prettyprint_iv_boundary_list(iv->get_ub()).c_str());
-                                }
-
-                                // Compare Strides
-                                ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls((*it2)->get_increment(), iv->get_increment(), /*skip_conversions*/true),
-                                                "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                                "Stride computed for induction variable '%s' "
-                                                "in node %d is '%s', but the stride indicated in the assertion is '%s'.\n",
-                                                locus_str.c_str(),
-                                                Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
-                                                iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
-                                                (*it2)->get_increment().prettyprint().c_str(),
-                                                iv->get_increment().prettyprint().c_str());
                             }
+
+                            // Compare Strides
+                            ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls((*it2)->get_increment(), iv->get_increment(), /*skip_conversions*/true),
+                                            "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                            "Stride computed for induction variable '%s' "
+                                            "in node %d is '%s', but the stride indicated in the assertion is '%s'.\n",
+                                            locus_str.c_str(),
+                                            Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                            iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
+                                            (*it2)->get_increment().prettyprint().c_str(),
+                                            iv->get_increment().prettyprint().c_str());
                         }
-                        ERROR_CONDITION(!found,
-                                        "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                        "Induction variable '%s' not found in the induction variables list of node %d\n",
-                                        locus_str.c_str(), Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
-                                        iv_nodecl.prettyprint().c_str(), inner_loop->get_id());
                     }
+                    ERROR_CONDITION(!found,
+                                    "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                    "Induction variable '%s' not found in the induction variables list of node %d\n",
+                                    locus_str.c_str(), Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                    iv_nodecl.prettyprint().c_str(), inner_loop->get_id());
                 }
-                else
+            }
+            else
+            {
+                if (!assert_induction_vars.empty())
                 {
-                    if (!assert_induction_vars.empty())
-                    {
-                        WARNING_MESSAGE("%s: warning: #pragma analysis_check assert induction_variables is only used "
-                                        "when associated with a loop structure. Ignoring it when associated with any other statement.",
-                                        locus_str.c_str());
-                    }
+                    WARNING_MESSAGE("%s: warning: #pragma analysis_check assert induction_variables is only used "
+                                    "when associated with a loop structure. Ignoring it when associated with any other statement.",
+                                    locus_str.c_str());
                 }
             }
+        }
 
-            // Auto-scoping
-            if (current->has_autoscope_assertion())
+        // Auto-scoping
+        if (current->has_autoscope_assertion())
+        {
+            if (VERBOSE)
+                printf("   Check node %d auto-scope assertion.\n", current->get_id());
+            // Context
+            //    |_____ Entry
+            //    |______Task Creation
+            //    |______Exit
+            ERROR_CONDITION(!current->is_context_node(),
+                            "Correctness assertion pragmas are expected to be associated with a Context node. '%s' found instead.\n",
+                            (current->is_graph_node() ? current->get_graph_type_as_string() : current->get_type_as_string()).c_str());
+            Node* task_creation = current->get_graph_entry_node()->get_children()[0];
+            ERROR_CONDITION(!task_creation->is_omp_task_creation_node(),
+                            "Correctness assertion pragmas' Context is expected to contain just a TaskCreation node. '%s' found instead.\n",
+                            (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
+            Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
+
+            const NodeclSet& assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
+            const NodeclSet& assert_autosc_private = current->get_assert_auto_sc_private_vars();
+            const NodeclSet& assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
+            const NodeclSet& autosc_firstprivate = task->get_sc_firstprivate_vars();
+            const NodeclSet& autosc_private = task->get_sc_private_vars();
+            const NodeclSet& autosc_shared = task->get_sc_shared_vars();
+
+            if (current->has_autoscope_fp_assertion())
+                compare_assert_set_with_analysis_set(assert_autosc_firstprivate, autosc_firstprivate,
+                                                        locus_str, task->get_id(), "auto_sc_firstprivate", "AutoScope Firstprivate");
+            if (current->has_autoscope_p_assertion())
+                compare_assert_set_with_analysis_set(assert_autosc_private, autosc_private,
+                                                        locus_str, task->get_id(), "auto_sc_private", "AutoScope Private");
+            if (current->has_autoscope_s_assertion())
+                compare_assert_set_with_analysis_set(assert_autosc_shared, autosc_shared,
+                                                        locus_str, task->get_id(), "auto_sc_shared", "AutoScope Shared");
+        }
+
+        // Ranges
+        if (current->has_range_assertion())
+        {
+            if (VERBOSE)
+                printf("   Check node %d range assertion.\n", current->get_id());
+            const Utils::InductionVarList& assert_ranges = current->get_assert_ranges();
+            // 'current' is the context created by the checking pragma -> get the inner node
+            Node* inner_node =
+                    current->is_graph_node() ? current->get_graph_entry_node()->get_children()[0] : current;
+            const RangeValuesMap& ranges = inner_node->get_ranges();
+            // Compare the two sets
+            for (Utils::InductionVarList::const_iterator it = assert_ranges.begin();
+                 it != assert_ranges.end(); ++it)
             {
-                if (VERBOSE)
-                    printf("   Check node %d auto-scope assertion.\n", current->get_id());
-                // Context
-                //    |_____ Entry
-                //    |______Task Creation
-                //    |______Exit
-                ERROR_CONDITION(!current->is_context_node(),
-                                "Correctness assertion pragmas are expected to be associated with a Context node. '%s' found instead.\n",
-                                (current->is_graph_node() ? current->get_graph_type_as_string() : current->get_type_as_string()).c_str());
-                Node* task_creation = current->get_graph_entry_node()->get_children()[0];
-                ERROR_CONDITION(!task_creation->is_omp_task_creation_node(),
-                                "Correctness assertion pragmas' Context is expected to contain just a TaskCreation node. '%s' found instead.\n",
-                                (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
-                Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
+                Utils::InductionVar* c_it = *it;
+                const Nodecl::NodeclBase& v = c_it->get_variable();
+                RangeValuesMap::const_iterator r_it = ranges.find(v);
+                ERROR_CONDITION(r_it == ranges.end(),
+                                "%s: Assertion '%s(%s)' does not fulfill.\n"
+                                "No range found for variable '%s' in node '%d'.\n",
+                                locus_str.c_str(), "range",
+                                Utils::prettyprint_induction_vars(assert_ranges, /*to_dot*/ false).c_str(),
+                                v.prettyprint().c_str(), inner_node->get_id());
 
-                const NodeclSet& assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
-                const NodeclSet& assert_autosc_private = current->get_assert_auto_sc_private_vars();
-                const NodeclSet& assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
-                const NodeclSet& autosc_firstprivate = task->get_sc_firstprivate_vars();
-                const NodeclSet& autosc_private = task->get_sc_private_vars();
-                const NodeclSet& autosc_shared = task->get_sc_shared_vars();
+                const Nodecl::Range& range = r_it->second.as<Nodecl::Range>();
 
-                if (current->has_autoscope_fp_assertion())
-                    compare_assert_set_with_analysis_set(assert_autosc_firstprivate, autosc_firstprivate,
-                                                         locus_str, task->get_id(), "auto_sc_firstprivate", "AutoScope Firstprivate");
-                if (current->has_autoscope_p_assertion())
-                    compare_assert_set_with_analysis_set(assert_autosc_private, autosc_private,
-                                                         locus_str, task->get_id(), "auto_sc_private", "AutoScope Private");
-                if (current->has_autoscope_s_assertion())
-                    compare_assert_set_with_analysis_set(assert_autosc_shared, autosc_shared,
-                                                         locus_str, task->get_id(), "auto_sc_shared", "AutoScope Shared");
+                std::cerr << "    ---> " << v.prettyprint() << " = " << range.prettyprint() << std::endl;
+                const Nodecl::NodeclBase& lb = *(c_it->get_lb().begin());
+                ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(lb, range.get_lower(), /*skip_conversions*/true),
+                                "%s: Assertion '%s(%s)' does not fulfill.\n"
+                                "Lower bounds of variable '%s' do not match ('%s' = '%s').\n",
+                                locus_str.c_str(), "range",
+                                Utils::prettyprint_induction_vars(assert_ranges, /*to_dot*/ false).c_str(),
+                                v.prettyprint().c_str(),
+                                lb.prettyprint().c_str(), range.get_lower().prettyprint().c_str());
 
+                const Nodecl::NodeclBase& ub = *(c_it->get_ub().begin());
+                ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(ub, range.get_upper(), /*skip_conversions*/true),
+                                "%s: Assertion '%s(%s)' does not fulfill.\n"
+                                "Upper bounds of variable '%s' do not match ('%s' = '%s').\n",
+                                locus_str.c_str(), "range",
+                                Utils::prettyprint_induction_vars(assert_ranges, /*to_dot*/ false).c_str(),
+                                v.prettyprint().c_str(),
+                                ub.prettyprint().c_str(), range.get_upper().prettyprint().c_str());
             }
+        }
 
-            // Correctness
-            if (current->has_correctness_assertion())
-            {
-                if (VERBOSE)
-                    printf("   Check node %d correctness assertion.\n", current->get_id());
-                // Context
-                //    |_____ Entry
-                //    |______Task Creation
-                //    |______Exit
-                ERROR_CONDITION(!current->is_context_node(),
-                                "Correctness assertion pragmas are expected to be associated with a Context node. '%s' found instead.\n",
-                                (current->is_graph_node() ? current->get_graph_type_as_string() : current->get_type_as_string()).c_str());
-                Node* task_creation = current->get_graph_entry_node()->get_children()[0];
-                ERROR_CONDITION(!task_creation->is_omp_task_creation_node(),
-                                "Correctness assertion pragmas' Context is expected to contain just a TaskCreation node. '%s' found instead.\n",
-                                (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
-                Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
+        // Correctness
+        if (current->has_correctness_assertion())
+        {
+            if (VERBOSE)
+                printf("   Check node %d correctness assertion.\n", current->get_id());
+            // Context
+            //    |_____ Entry
+            //    |______Task Creation
+            //    |______Exit
+            ERROR_CONDITION(!current->is_context_node(),
+                            "Correctness assertion pragmas are expected to be associated with a Context node. '%s' found instead.\n",
+                            (current->is_graph_node() ? current->get_graph_type_as_string() : current->get_type_as_string()).c_str());
+            Node* task_creation = current->get_graph_entry_node()->get_children()[0];
+            ERROR_CONDITION(!task_creation->is_omp_task_creation_node(),
+                            "Correctness assertion pragmas' Context is expected to contain just a TaskCreation node. '%s' found instead.\n",
+                            (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
+            Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
 
-                const Nodecl::List& assert_correctness_auto_storage = current->get_assert_correctness_auto_storage_vars();
-                const Nodecl::List& assert_correctness_dead = current->get_assert_correctness_dead_vars();
-                const Nodecl::List& assert_correctness_incoherent_fp = current->get_assert_correctness_incoherent_fp_vars();
-                const Nodecl::List& assert_correctness_incoherent_p = current->get_assert_correctness_incoherent_p_vars();
-                const Nodecl::List& assert_correctness_incoherent_in = current->get_assert_correctness_incoherent_in_vars();
-                const Nodecl::List& assert_correctness_incoherent_in_pointed = current->get_assert_correctness_incoherent_in_pointed_vars();
-                const Nodecl::List& assert_correctness_incoherent_out = current->get_assert_correctness_incoherent_out_vars();
-                const Nodecl::List& assert_correctness_incoherent_out_pointed = current->get_assert_correctness_incoherent_out_pointed_vars();
-                const Nodecl::List& assert_correctness_race = current->get_assert_correctness_race_vars();
-                const Nodecl::List& correctness_auto_storage = task->get_correctness_auto_storage_vars();
-                const Nodecl::List& correctness_dead = task->get_correctness_dead_vars();
-                const Nodecl::List& correctness_incoherent_fp = task->get_correctness_incoherent_fp_vars();
-                const Nodecl::List& correctness_incoherent_p = task->get_correctness_incoherent_p_vars();
-                const Nodecl::List& correctness_incoherent_in = task->get_correctness_incoherent_in_vars();
-                const Nodecl::List& correctness_incoherent_in_pointed = task->get_correctness_incoherent_in_pointed_vars();
-                const Nodecl::List& correctness_incoherent_out = task->get_correctness_incoherent_out_vars();
-                const Nodecl::List& correctness_incoherent_out_pointed = task->get_correctness_incoherent_out_pointed_vars();
-                const Nodecl::List& correctness_race = task->get_true_correctness_race_vars();
-                if (current->has_correctness_auto_storage_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
-                                                           locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
-                if (current->has_correctness_dead_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,
-                                                           locus_str, task->get_id(), "correctness_dead", "Correctness Dead");
-                if (current->has_correctness_incoherent_fp_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_fp, correctness_incoherent_fp,
-                                                           locus_str, task->get_id(), "correctness_incoherent_firstprivate", "Correctness Incoherent Firstprivate Data-Sharing");
-                if (current->has_correctness_incoherent_p_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_p, correctness_incoherent_p,
-                                                           locus_str, task->get_id(), "correctness_incoherent_private", "Correctness Incoherent Private Data-Sharing");
-                if (current->has_correctness_incoherent_in_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_in, correctness_incoherent_in,
-                                                           locus_str, task->get_id(), "correctness_incoherent_in", "Correctness Incoherent In Dependency");
-                if (current->has_correctness_incoherent_in_pointed_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_in_pointed, correctness_incoherent_in_pointed,
-                                                           locus_str, task->get_id(), "correctness_incoherent_in_pointed", "Correctness Incoherent In Pointed Dependency");
-                if (current->has_correctness_incoherent_out_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_out, correctness_incoherent_out,
-                                                           locus_str, task->get_id(), "correctness_incoherent_out", "Correctness Incoherent Out Dependency");
-                if (current->has_correctness_incoherent_out_pointed_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_out_pointed, correctness_incoherent_out_pointed,
-                                                           locus_str, task->get_id(), "correctness_incoherent_out_pointed", "Correctness Incoherent Out Pointed Dependency");
-                if (current->has_correctness_race_assertion())
-                    compare_assert_list_with_analysis_list(assert_correctness_race, correctness_race,
-                                                           locus_str, task->get_id(), "correctness_race", "Correctness Race Condition");
-            }
-            
-            // Recursively visit inner nodes
-            if (current->is_graph_node())
-            {
-                check_assertions_rec(current->get_graph_entry_node());
-            }
+            const Nodecl::List& assert_correctness_auto_storage = current->get_assert_correctness_auto_storage_vars();
+            const Nodecl::List& assert_correctness_dead = current->get_assert_correctness_dead_vars();
+            const Nodecl::List& assert_correctness_incoherent_fp = current->get_assert_correctness_incoherent_fp_vars();
+            const Nodecl::List& assert_correctness_incoherent_p = current->get_assert_correctness_incoherent_p_vars();
+            const Nodecl::List& assert_correctness_incoherent_in = current->get_assert_correctness_incoherent_in_vars();
+            const Nodecl::List& assert_correctness_incoherent_in_pointed = current->get_assert_correctness_incoherent_in_pointed_vars();
+            const Nodecl::List& assert_correctness_incoherent_out = current->get_assert_correctness_incoherent_out_vars();
+            const Nodecl::List& assert_correctness_incoherent_out_pointed = current->get_assert_correctness_incoherent_out_pointed_vars();
+            const Nodecl::List& assert_correctness_race = current->get_assert_correctness_race_vars();
+            const Nodecl::List& correctness_auto_storage = task->get_correctness_auto_storage_vars();
+            const Nodecl::List& correctness_dead = task->get_correctness_dead_vars();
+            const Nodecl::List& correctness_incoherent_fp = task->get_correctness_incoherent_fp_vars();
+            const Nodecl::List& correctness_incoherent_p = task->get_correctness_incoherent_p_vars();
+            const Nodecl::List& correctness_incoherent_in = task->get_correctness_incoherent_in_vars();
+            const Nodecl::List& correctness_incoherent_in_pointed = task->get_correctness_incoherent_in_pointed_vars();
+            const Nodecl::List& correctness_incoherent_out = task->get_correctness_incoherent_out_vars();
+            const Nodecl::List& correctness_incoherent_out_pointed = task->get_correctness_incoherent_out_pointed_vars();
+            const Nodecl::List& correctness_race = task->get_true_correctness_race_vars();
+            if (current->has_correctness_auto_storage_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
+                                                        locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
+            if (current->has_correctness_dead_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,
+                                                        locus_str, task->get_id(), "correctness_dead", "Correctness Dead");
+            if (current->has_correctness_incoherent_fp_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_fp, correctness_incoherent_fp,
+                                                        locus_str, task->get_id(), "correctness_incoherent_firstprivate", "Correctness Incoherent Firstprivate Data-Sharing");
+            if (current->has_correctness_incoherent_p_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_p, correctness_incoherent_p,
+                                                        locus_str, task->get_id(), "correctness_incoherent_private", "Correctness Incoherent Private Data-Sharing");
+            if (current->has_correctness_incoherent_in_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in, correctness_incoherent_in,
+                                                        locus_str, task->get_id(), "correctness_incoherent_in", "Correctness Incoherent In Dependency");
+            if (current->has_correctness_incoherent_in_pointed_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in_pointed, correctness_incoherent_in_pointed,
+                                                        locus_str, task->get_id(), "correctness_incoherent_in_pointed", "Correctness Incoherent In Pointed Dependency");
+            if (current->has_correctness_incoherent_out_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out, correctness_incoherent_out,
+                                                        locus_str, task->get_id(), "correctness_incoherent_out", "Correctness Incoherent Out Dependency");
+            if (current->has_correctness_incoherent_out_pointed_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out_pointed, correctness_incoherent_out_pointed,
+                                                        locus_str, task->get_id(), "correctness_incoherent_out_pointed", "Correctness Incoherent Out Pointed Dependency");
+            if (current->has_correctness_race_assertion())
+                compare_assert_list_with_analysis_list(assert_correctness_race, correctness_race,
+                                                        locus_str, task->get_id(), "correctness_race", "Correctness Race Condition");
+        }
 
-            // Recursively visit current children
-            const ObjectList<Node*>& children = current->get_children();
-            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-            {
-                check_assertions_rec(*it);
-            }
+        // Recursively visit inner nodes
+        if (current->is_graph_node())
+        {
+            check_assertions_rec(current->get_graph_entry_node());
+        }
+
+        // Recursively visit current children
+        const ObjectList<Node*>& children = current->get_children();
+        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        {
+            check_assertions_rec(*it);
         }
     }
 }
@@ -806,7 +853,7 @@ namespace {
 
             Nodecl::List induction_vars =
                 extract_induction_variable_info_from_clause(induction_vars_clause,
-                                                             pragma_line.retrieve_context());
+                                                         pragma_line.retrieve_context());
 
             environment.append(Nodecl::Analysis::InductionVariable::make(induction_vars, loc));
 
@@ -844,7 +891,20 @@ namespace {
 
             _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::AUTO_SCOPING;
         }
-        
+
+        // Range clauses
+        if (pragma_line.get_clause("range").is_defined())
+        {
+            PragmaCustomClause range_clause = pragma_line.get_clause("range");
+
+            Nodecl::List range_vars =
+                extract_induction_variable_info_from_clause(range_clause,
+                                                         pragma_line.retrieve_context());
+
+            environment.append(Nodecl::Analysis::Range::make(range_vars, loc));
+            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::RANGE_ANALYSIS;
+        }
+
         // Correctness clauses
         if (pragma_line.get_clause("correctness_auto_storage").is_defined())
         {

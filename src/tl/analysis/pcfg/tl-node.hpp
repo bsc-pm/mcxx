@@ -285,6 +285,7 @@ namespace Analysis {
             bool has_autoscope_fp_assertion() const;
             bool has_autoscope_p_assertion() const;
             bool has_autoscope_s_assertion() const;
+            bool has_range_assertion() const;
             bool has_correctness_assertion() const;
             bool has_correctness_auto_storage_assertion() const;
             bool has_correctness_incoherent_fp_assertion() const;
@@ -956,6 +957,14 @@ namespace Analysis {
 
             NodeclSet get_assert_auto_sc_shared_vars();
             void add_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s);
+
+            // *** Ranges *** //
+            /*!
+             * @return InductionVarList is a type containing the tuple <var, lb, up, stride>
+             * which fits with the structure of a variable and its range
+             */
+            Utils::InductionVarList get_assert_ranges();
+            void add_assert_ranges(const Nodecl::List& new_assert_ranges);
 
             // *** Correctness *** //
             Nodecl::List get_assert_correctness_auto_storage_vars();

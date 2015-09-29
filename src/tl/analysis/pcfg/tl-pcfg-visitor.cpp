@@ -768,6 +768,12 @@ next_it:    ;
         return ObjectList<Node*>();
     }
 
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::Analysis::Range& n)
+    {
+        _utils->_assert_nodes.top()->add_assert_ranges(n.get_range_variables().as<Nodecl::List>());
+        return ObjectList<Node*>();
+    }
+
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::Analysis::ReachingDefinitionIn& n)
     {
         _utils->_assert_nodes.top()->add_assert_reaching_definitions_in(n.get_reaching_definitions_in().as<Nodecl::List>());

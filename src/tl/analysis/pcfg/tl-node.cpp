@@ -564,6 +564,11 @@ namespace Analysis {
         return has_key(_ASSERT_AUTOSC_SHARED);
     }
 
+    bool Node::has_range_assertion() const
+    {
+        return has_key(_ASSERT_RANGE);
+    }
+
     bool Node::has_correctness_assertion() const
     {
         return (has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS) ||
@@ -2350,7 +2355,7 @@ namespace Analysis {
             it != new_assert_induction_vars.end(); ++it)
         {
             Nodecl::Analysis::InductionVarExpr iv = it->as<Nodecl::Analysis::InductionVarExpr>();
-            Utils::InductionVar* iv_data = new Utils::InductionVar(NBase(iv.get_induction_variable()));
+            Utils::InductionVar* iv_data = new Utils::InductionVar(NBase(iv.get_variable()));
             Nodecl::List lower = iv.get_lower().as<Nodecl::List>();
             Nodecl::List upper = iv.get_upper().as<Nodecl::List>();
             iv_data->set_lb(NodeclSet(lower.begin(), lower.end()));
@@ -2392,6 +2397,29 @@ namespace Analysis {
     {
         add_vars_to_container(NodeclSet(new_assert_auto_sc_s.begin(), new_assert_auto_sc_s.end()), 
                               _ASSERT_AUTOSC_SHARED);
+    }
+
+    Utils::InductionVarList Node::get_assert_ranges()
+    {
+        return get_vars<Utils::InductionVarList>(_ASSERT_RANGE);
+    }
+
+    void Node::add_assert_ranges(const Nodecl::List& new_assert_ranges)
+    {
+        Utils::InductionVarList assert_ranges = get_assert_ranges();
+        for (Nodecl::List::const_iterator it = new_assert_ranges.begin();
+             it != new_assert_ranges.end(); ++it)
+        {
+            Nodecl::Analysis::InductionVarExpr v = it->as<Nodecl::Analysis::InductionVarExpr>();
+            Utils::InductionVar* v_data = new Utils::InductionVar(NBase(v.get_variable()));
+            Nodecl::List lower = v.get_lower().as<Nodecl::List>();
+            Nodecl::List upper = v.get_upper().as<Nodecl::List>();
+            v_data->set_lb(NodeclSet(lower.begin(), lower.end()));
+            v_data->set_ub(NodeclSet(upper.begin(), upper.end()));
+            v_data->set_increment(v.get_stride());
+            assert_ranges.insert(v_data);
+        }
+        set_data(_ASSERT_RANGE, assert_ranges);
     }
 
     Nodecl::List Node::get_assert_correctness_auto_storage_vars()

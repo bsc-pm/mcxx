@@ -656,6 +656,11 @@ namespace Analysis {
         */
         _ASSERT_AUTOSC_SHARED,
 
+        /*! \def _ASSERT_RANGE
+         * Set of variables associated with their corresponding ranges
+         */
+        _ASSERT_RANGE,
+
         /*! \def _ASSERT_CORRECTNESS_AUTO_STORAGE_VARS
         * Set of variables with automatic storage which are used in a task that is not synchronized before the variables are deallocated
         */

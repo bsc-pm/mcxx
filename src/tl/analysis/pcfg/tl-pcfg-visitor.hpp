@@ -260,6 +260,7 @@ namespace Analysis {
         Ret visit(const Nodecl::Analysis::InductionVariable& n);
         Ret visit(const Nodecl::Analysis::LiveIn& n);
         Ret visit(const Nodecl::Analysis::LiveOut& n);
+        Ret visit(const Nodecl::Analysis::Range& n);
         Ret visit(const Nodecl::Analysis::ReachingDefinitionIn& n);
         Ret visit(const Nodecl::Analysis::ReachingDefinitionOut& n);
         Ret visit(const Nodecl::Analysis::UpperExposed& n);
