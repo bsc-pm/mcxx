@@ -13540,6 +13540,8 @@ static void implement_nongeneric_lambda_expression(
 
         symbol_entity_specs_set_function_code(constructor,
                 constructor_function_code);
+        push_extra_declaration_symbol(constructor);
+
         class_type_add_member(lambda_class->type_information, constructor, /* is_definition */ 1);
 
         // emit a conversion from the class to the pointer type of the function
@@ -13768,6 +13770,7 @@ static void implement_nongeneric_lambda_expression(
 
         symbol_entity_specs_set_function_code(constructor,
                 constructor_function_code);
+        push_extra_declaration_symbol(constructor);
 
         class_type_add_member(lambda_class->type_information, constructor, /* is_definition */ 1);
     }
@@ -13853,6 +13856,7 @@ static void implement_nongeneric_lambda_expression(
                 nodecl_null(),
                 operator_call,
                 locus));
+    push_extra_declaration_symbol(operator_call);
 
     class_type_add_member(lambda_class->type_information, operator_call,
             /* is_definition */ 1);
@@ -13971,6 +13975,8 @@ static void implement_nongeneric_lambda_expression(
                     nodecl_null(),
                     ancillary,
                     locus));
+        push_extra_declaration_symbol(ancillary);
+
         symbol_entity_specs_set_is_inline(ancillary, 1);
         symbol_entity_specs_set_is_defined_inside_class_specifier(ancillary, 1);
 
@@ -14009,6 +14015,8 @@ static void implement_nongeneric_lambda_expression(
                     nodecl_null(),
                     conversion,
                     locus));
+        push_extra_declaration_symbol(conversion);
+
         symbol_entity_specs_set_is_inline(conversion, 1);
         symbol_entity_specs_set_is_defined_inside_class_specifier(conversion, 1);
     }
@@ -14191,6 +14199,8 @@ static void implement_generic_lambda_expression(
 
         symbol_entity_specs_set_function_code(constructor,
                 constructor_function_code);
+        push_extra_declaration_symbol(constructor);
+
         class_type_add_member(lambda_class->type_information, constructor, /* is_definition */ 1);
 
         // emit a conversion from the class to the pointer type of the function
@@ -14457,6 +14467,7 @@ static void implement_generic_lambda_expression(
 
         symbol_entity_specs_set_function_code(constructor,
                 constructor_function_code);
+        push_extra_declaration_symbol(constructor);
 
         class_type_add_member(lambda_class->type_information, constructor, /* is_definition */ 1);
     }
@@ -14557,6 +14568,7 @@ static void implement_generic_lambda_expression(
                 nodecl_null(),
                 operator_call,
                 locus));
+    push_extra_declaration_symbol(operator_call);
 
     class_type_add_member(lambda_class->type_information, operator_call,
             /* is_definition */ 1);
@@ -14678,6 +14690,8 @@ static void implement_generic_lambda_expression(
                     nodecl_null(),
                     ancillary,
                     locus));
+        push_extra_declaration_symbol(ancillary);
+
         symbol_entity_specs_set_is_inline(ancillary, 1);
         symbol_entity_specs_set_is_defined_inside_class_specifier(ancillary, 1);
 
@@ -14718,6 +14732,8 @@ static void implement_generic_lambda_expression(
                     nodecl_null(),
                     conversion,
                     locus));
+        push_extra_declaration_symbol(conversion);
+
         symbol_entity_specs_set_is_inline(conversion, 1);
         symbol_entity_specs_set_is_defined_inside_class_specifier(conversion, 1);
     }

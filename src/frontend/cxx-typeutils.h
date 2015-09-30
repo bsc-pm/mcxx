@@ -846,7 +846,9 @@ LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig,
         const decl_context_t* new_decl_context,
         symbol_map_t* symbol_map);
 
-LIBMCXX_EXTERN type_t* type_deep_copy_compute_maps(type_t* orig,
+LIBMCXX_EXTERN type_t* type_deep_copy_compute_maps(
+        type_t* orig_type,
+        scope_entry_t* dest,
         const decl_context_t* new_decl_context,
         symbol_map_t* symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,

@@ -48,6 +48,8 @@
 #include "cxx-typededuc.h"
 #include "cxx-diagnostic.h"
 
+#include "cxx-symbol-deep-copy.h"
+
 #include "fortran03-scope.h"
 
 #include "dhash_ptr.h"
@@ -15330,24 +15332,90 @@ extern inline const char* type_to_source(type_t* t)
     return c;
 }
 
-extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
+static inline type_t* type_deep_copy_class(
+        type_t* orig,
+        scope_entry_t* dest,
         const decl_context_t* new_decl_context, 
-        symbol_map_t* symbol_map,
-        nodecl_deep_copy_map_t* nodecl_deep_copy_map,
-        symbol_deep_copy_map_t* symbol_deep_copy_map)
+        symbol_map_t* symbol_map)
 {
-    // Note that this function does not copy class types
+    // Note, at this point symbol members are already mapped, here we are just
+    // adding them to the class type as members
+    ERROR_CONDITION(dest == NULL, "Invalid symbol", 0);
 
+    dest->type_information = get_new_class_type(
+            new_decl_context,
+            class_type_get_class_kind(orig));
+
+    // Duplicate all members
+    scope_entry_list_t* entry_list = class_type_get_members(orig);
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* member = entry_list_iterator_current(it);
+        scope_entry_t* new_member = symbol_map->map(symbol_map, member);
+
+        ERROR_CONDITION(member == new_member, "Member '%s' not mapped\n",
+                get_qualified_symbol_name(member, member->decl_context));
+
+        class_type_add_member(dest->type_information, new_member, /* is_definition */ 1);
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(entry_list);
+
+    // Map bases
+    int num_bases = class_type_get_num_bases(orig);
+    int i;
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual, is_dependent, is_expansion;
+        access_specifier_t access_specifier;
+
+        scope_entry_t* current_base = class_type_get_base_num(orig, i,
+                &is_virtual,
+                &is_dependent,
+                &is_expansion,
+                &access_specifier);
+
+        scope_entry_t* mapped_base = symbol_map->map(symbol_map, current_base);
+
+        class_type_add_base_class(
+                dest->type_information,
+                mapped_base,
+                is_virtual,
+                is_dependent,
+                is_expansion,
+                access_specifier);
+    }
+
+    class_type_set_is_abstract(dest->type_information, class_type_is_abstract(orig));
+    class_type_set_is_lambda(dest->type_information, class_type_is_lambda(orig));
+    class_type_set_is_packed(dest->type_information, class_type_is_packed(orig));
+
+    set_is_complete_type(dest->type_information, is_complete_type(orig));
+
+    return dest->type_information;
+}
+
+extern inline type_t* type_deep_copy_compute_maps(
+    type_t* orig,
+    scope_entry_t* dest,
+    const decl_context_t* new_decl_context,
+    symbol_map_t* symbol_map,
+    nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+    symbol_deep_copy_map_t* symbol_deep_copy_map)
+{
     if (orig == NULL)
         return NULL;
 
     type_t* result = orig;
 
-    if (is_named_type(orig)
-            && (is_named_class_type(orig) || is_named_enumerated_type(orig)))
+    if (is_named_type(orig))
     {
         scope_entry_t* symbol = named_type_get_symbol(orig);
         symbol = symbol_map->map(symbol_map, symbol);
+
         if (is_indirect_type(orig))
         {
             if (is_mutable_indirect_type(orig))
@@ -15365,18 +15433,24 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_pointer_type(orig))
     {
         type_t* pointee = pointer_type_get_pointee_type(orig);
-        pointee = type_deep_copy_compute_maps(pointee, new_decl_context, symbol_map,
+        pointee = type_deep_copy_compute_maps(pointee,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
         result = get_pointer_type(pointee);
     }
     else if (is_pointer_to_member_type(orig))
     {
         type_t* pointee = pointer_type_get_pointee_type(orig);
-        pointee = type_deep_copy_compute_maps(pointee, new_decl_context, symbol_map,
+        pointee = type_deep_copy_compute_maps(pointee,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         type_t* class_type = pointer_to_member_type_get_class_type(orig);
-        class_type = type_deep_copy_compute_maps(class_type, new_decl_context, symbol_map,
+        class_type = type_deep_copy_compute_maps(class_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_pointer_to_member_type(pointee, class_type);
@@ -15384,7 +15458,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_rebindable_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+        ref_type = type_deep_copy_compute_maps(ref_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_rebindable_reference_type(ref_type);
@@ -15392,7 +15468,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_lvalue_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+        ref_type = type_deep_copy_compute_maps(ref_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_lvalue_reference_type(ref_type);
@@ -15400,7 +15478,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_rvalue_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+        ref_type = type_deep_copy_compute_maps(ref_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_rvalue_reference_type(ref_type);
@@ -15408,7 +15488,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_array_type(orig))
     {
         type_t* element_type = array_type_get_element_type(orig);
-        element_type = type_deep_copy_compute_maps(element_type, new_decl_context, symbol_map,
+        element_type = type_deep_copy_compute_maps(element_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         if (array_type_is_string_literal(orig))
@@ -15498,7 +15580,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_function_type(orig))
     {
         type_t* return_type = function_type_get_return_type(orig);
-        return_type = type_deep_copy_compute_maps(return_type, new_decl_context, symbol_map,
+        return_type = type_deep_copy_compute_maps(return_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         if (function_type_get_lacking_prototype(orig))
@@ -15524,6 +15608,7 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
             for (i = 0; i < P; i++)
             {
                 param_info[i].type_info = type_deep_copy_compute_maps(function_type_get_parameter_type_num(orig, i),
+                        /* dest */ NULL,
                         new_decl_context, symbol_map,
                         nodecl_deep_copy_map,
                         symbol_deep_copy_map);
@@ -15535,12 +15620,22 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_vector_type(orig))
     {
         type_t * element_type = vector_type_get_element_type(orig);
-        element_type = type_deep_copy_compute_maps(element_type, new_decl_context, symbol_map,
+        element_type = type_deep_copy_compute_maps(element_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_vector_type(
                 element_type,
                 vector_type_get_vector_size(orig));
+    }
+    else if (is_class_type(orig))
+    {
+        result = type_deep_copy_class(
+                orig,
+                dest,
+                new_decl_context,
+                symbol_map);
     }
 
     // GCC attributes
@@ -15580,6 +15675,7 @@ extern inline type_t* type_deep_copy(type_t* orig,
 {
     return type_deep_copy_compute_maps(
             orig,
+            /* dest */ NULL,
             new_decl_context,
             symbol_map,
             /* nodecl_deep_copy_map_t */ NULL,

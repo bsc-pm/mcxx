@@ -2013,8 +2013,8 @@ static nodecl_t flush_extra_declared_symbols(const locus_t* loc)
                         loc));
         }
         else if (IS_CXX_LANGUAGE
-                && (is_class_type(extra_decl_symbol->type_information)
-                    || is_enum_type(extra_decl_symbol->type_information)))
+                && (extra_decl_symbol->kind == SK_CLASS
+                    || extra_decl_symbol->kind == SK_ENUM))
         {
             // This happens in this case (C can handle this automatically but not C++)
             //
@@ -2027,9 +2027,23 @@ static nodecl_t flush_extra_declared_symbols(const locus_t* loc)
                         extra_decl_symbol,
                         loc));
         }
+        else if (extra_decl_symbol->kind == SK_FUNCTION)
+        {
+            nodecl_t function_code = symbol_entity_specs_get_function_code(extra_decl_symbol);
+            if (!nodecl_is_null(function_code))
+            {
+                ERROR_CONDITION(!nodecl_is_null(nodecl_get_parent(function_code)),
+                        "This function code seems rooted elsewhere", 0);
+                result = nodecl_append_to_list(
+                        result,
+                        function_code);
+            }
+        }
         else
         {
-            internal_error("Unhandled extra declared symbol '%s'", extra_decl_symbol->symbol_name);
+            internal_error("Unhandled extra declared symbol '%s' %s",
+                    extra_decl_symbol->symbol_name,
+                    symbol_kind_name(extra_decl_symbol));
         }
 
         extra_decl_symbol = pop_extra_declaration_symbol();
