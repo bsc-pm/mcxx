@@ -310,8 +310,6 @@
 "                           source codes without reusing intermediate\n" \
 "                           filenames\n" \
 "  --Xcompiler OPTION       Equivalent to --Wn,OPTION\n" \
-"  --native                 Convenience flag to handoff all the\n" \
-"                           compilation process to the native compiler.\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -414,7 +412,6 @@ typedef enum
     OPTION_LIST_FORTRAN_NAME_MANGLINGS,
     OPTION_LIST_VECTOR_FLAVORS,
     OPTION_MODULE_OUT_PATTERN,
-    OPTION_NATIVE,
     OPTION_NATIVE_COMPILER_NAME,
     OPTION_NO_OPENMP,
     OPTION_NO_WHOLE_FILE,
@@ -525,7 +522,6 @@ struct command_line_long_options command_line_long_options[] =
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
     {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
-    {"native", CLP_NO_ARGUMENT, OPTION_NATIVE },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1671,11 +1667,6 @@ int parse_arguments(int argc, const char* argv[],
                                 &CURRENT_CONFIGURATION->native_compiler_options,
                                 parameter,
                                 1);
-                        break;
-                    }
-                case OPTION_NATIVE:
-                    {
-                        CURRENT_CONFIGURATION->handoff_to_native = 1;
                         break;
                     }
                 default:
@@ -3012,12 +3003,11 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         if (!CURRENT_CONFIGURATION->force_language
                 && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
-                && !file_not_processed
-                && !CURRENT_CONFIGURATION->handoff_to_native)
+                && !file_not_processed)
         {
             fprintf(stderr, "%s: %s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
                     compilation_process.exec_basename,
-                    compilation_process.exec_basename,
+                    compilation_process.exec_basename, 
                     source_language_names[CURRENT_CONFIGURATION->source_language],
                     translation_unit->input_filename,
                     source_language_names[current_extension->source_language]);
@@ -3045,11 +3035,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         char preprocessed = 0;
 #endif
         // If the file is not preprocessed or we've ben told to preprocess it
-        if (!CURRENT_CONFIGURATION->handoff_to_native
-                && (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
-                            || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
-                        && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
-                    && !CURRENT_CONFIGURATION->pass_through))
+        if (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
+                    || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
+                    && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
+                && !CURRENT_CONFIGURATION->pass_through)
         {
 #ifndef FORTRAN_NEW_SCANNER
             preprocessed = 1;
@@ -3090,14 +3079,13 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         char is_fixed_form  = (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
-                // We prescan from fixed to free if
+                // We prescan from fixed to free if 
                 //  - the file is fixed form OR we are forced to be fixed for (--fixed)
                 //  - AND we were NOT told to be DELETE form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
-                && !CURRENT_CONFIGURATION->pass_through
-                && !CURRENT_CONFIGURATION->handoff_to_native);
+                && !CURRENT_CONFIGURATION->pass_through);
 
 #ifndef FORTRAN_NEW_SCANNER
         if (is_fixed_form)
@@ -3129,8 +3117,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
             if (!CURRENT_CONFIGURATION->pass_through
-                    && !file_not_processed
-                    && !CURRENT_CONFIGURATION->handoff_to_native)
+                    && !file_not_processed)
             {
                 // * Do this before open for scan since we might to internally parse some sources
                 mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
@@ -3241,7 +3228,6 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             // * Codegen
             const char* prettyprinted_filename = NULL;
             if (!file_not_processed
-                    && !CURRENT_CONFIGURATION->handoff_to_native
                     && !CURRENT_CONFIGURATION->debug_options.do_not_codegen)
             {
                 prettyprinted_filename
@@ -3296,8 +3282,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_COMPILE))
             {
                 // * Native compilation
-                if (!file_not_processed
-                        && !CURRENT_CONFIGURATION->handoff_to_native)
+                if (!file_not_processed)
                 {
                     native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
                 }
