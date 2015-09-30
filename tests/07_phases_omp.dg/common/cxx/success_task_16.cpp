@@ -11,7 +11,7 @@ test_generator="config/mercurium-omp c++11"
 int main(int, char **)
 {
     std::vector<int> v(200);
-    std::generate(v.begin(), v.end(), std::rand)
+    std::generate(v.begin(), v.end(), std::rand);
 
     #pragma omp task shared(v)
     {
