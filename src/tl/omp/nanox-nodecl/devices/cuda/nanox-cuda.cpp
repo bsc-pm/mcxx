@@ -309,7 +309,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            running_error("%s: error: nested functions are not supported\n",
+            fatal_error("%s: error: nested functions are not supported\n",
                     original_statements.get_locus_str().c_str());
     }
 
@@ -852,7 +852,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         FILE* ancillary_file = fopen(new_filename.c_str(), "w");
         if (ancillary_file == NULL)
         {
-            running_error("%s: error: cannot open file '%s'. %s\n",
+            fatal_error("%s: error: cannot open file '%s'. %s\n",
                     original_filename.c_str(),
                     new_filename.c_str(),
                     strerror(errno));
@@ -904,7 +904,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         FILE* ancillary_file = fopen(new_filename.c_str(), "w");
         if (ancillary_file == NULL)
         {
-            running_error("%s: error: cannot open file '%s'. %s\n",
+            fatal_error("%s: error: cannot open file '%s'. %s\n",
                     original_filename.c_str(),
                     new_filename.c_str(),
                     strerror(errno));

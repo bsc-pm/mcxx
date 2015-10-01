@@ -108,7 +108,7 @@ namespace TL
                     if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
                     {
                         // Ideas to improve this are welcome :)
-                        running_error("Phase '%s' pre_run did not end successfully. Ending compilation", 
+                        fatal_error("Phase '%s' pre_run did not end successfully. Ending compilation", 
                                 phase->get_phase_name().c_str());
                     }
 
@@ -181,7 +181,7 @@ namespace TL
                     if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
                     {
                         // Ideas to improve this are welcome :)
-                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation",
+                        fatal_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation",
                                 phase->get_phase_name().c_str());
                     }
 
@@ -193,7 +193,7 @@ namespace TL
 
                     if (there_were_errors)
                     {
-                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation",
+                        fatal_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation",
                                 phase->get_phase_name().c_str());
                     }
 
@@ -658,7 +658,7 @@ extern "C"
 
         if (new_phase == NULL)
         {
-            running_error("Codegen phase '%s' could not be loaded. Aborting\n", data);
+            fatal_error("Codegen phase '%s' could not be loaded. Aborting\n", data);
         }
 
         config->codegen_phase = new_phase;

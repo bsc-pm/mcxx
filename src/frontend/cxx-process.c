@@ -183,26 +183,20 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 #endif
 }
 
-void running_error(const char* message, ...)
+void fatal_vprintf(const char* message, va_list ap)
 {
-    va_list ap;
-
     char* sanitized_message = xstrdup(message);
 
     // Remove annoying \n at the end. This will make this function
     // interchangeable with fprintf(stderr, 
-    int length = strlen(sanitized_message);
-
-    length--;
-    while (length > 0 && sanitized_message[length] == '\n')
+    int last = strlen(sanitized_message) - 1;
+    while (last > 0 && sanitized_message[last] == '\n')
     {
-        sanitized_message[length] = '\0';
-        length--;
+        sanitized_message[last] = '\0';
+        last--;
     }
     
-    va_start(ap, message);
     vfprintf(stderr, sanitized_message, ap);
-    va_end(ap);
     fprintf(stderr, "\n");
 
     if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
@@ -217,10 +211,18 @@ void running_error(const char* message, ...)
     if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
         raise(SIGABRT);
 
-
     DELETE(sanitized_message);
 
     exit(EXIT_FAILURE);
+}
+
+void fatal_error(const char* message, ...)
+{
+    va_list ap;
+
+    va_start(ap, message);
+    fatal_vprintf(message, ap);
+    va_end(ap);
 }
 
 // Useful for debugging sessions

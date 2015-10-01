@@ -737,7 +737,7 @@ static void driver_initialization(int argc, const char* argv[])
     if (alternate_stack.ss_sp == 0
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
-        running_error("Setting alternate signal stack failed (%s)\n",
+        fatal_error("Setting alternate signal stack failed (%s)\n",
                 strerror(errno));
     }
 #endif
@@ -764,7 +764,7 @@ static void driver_initialization(int argc, const char* argv[])
     
     if (result != 0)
     {
-        running_error("Signal programming failed with '%s'\n", strerror(errno));
+        fatal_error("Signal programming failed with '%s'\n", strerror(errno));
     }
 #endif
 
@@ -2475,7 +2475,7 @@ static void parse_subcommand_arguments(const char* arguments)
         {
             if ((q - profile_name) > MAX_PROFILE_NAME)
             {
-                running_error("Profile name too long in option '--W%s'\n", arguments);
+                fatal_error("Profile name too long in option '--W%s'\n", arguments);
             }
 
             *q = *p;
@@ -3074,7 +3074,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (parsed_filename == NULL)
             {
-                running_error("Preprocess failed for file '%s'", translation_unit->input_filename);
+                fatal_error("Preprocess failed for file '%s'", translation_unit->input_filename);
             }
         }
 
@@ -3106,7 +3106,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (parsed_filename == NULL)
             {
-                running_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
+                fatal_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
                         translation_unit->input_filename);
             }
 
@@ -3139,7 +3139,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3147,7 +3147,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3155,7 +3155,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename, is_fixed_form) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3408,7 +3408,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
     if (parse_result != 0)
     {
-        running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
+        fatal_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
     }
 
     // Store the parsed tree as the unique child of AST_TRANSLATION_UNIT
@@ -3636,7 +3636,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
     if (prettyprint_file == NULL)
     {
-        running_error("Cannot create output file '%s' (%s)", output_filename,
+        fatal_error("Cannot create output file '%s' (%s)", output_filename,
                 strerror(errno));
     }
 
@@ -3659,7 +3659,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
             if (raw_prettyprint_file == NULL)
             {
-                running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+                fatal_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             run_codegen_phase(raw_prettyprint_file, translation_unit, output_filename);
             fclose(raw_prettyprint_file);
@@ -3667,7 +3667,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
             if (raw_prettyprint_file == NULL)
             {
-                running_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+                fatal_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->output_column_width);
             fclose(raw_prettyprint_file);
@@ -4277,7 +4277,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         {
             driver_fortran_restore_mercurium_modules();
         }
-        running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
+        fatal_error("Native compilation failed for file '%s'", translation_unit->input_filename);
     }
     timing_end(&timing_compilation);
 
@@ -4301,7 +4301,7 @@ static void native_compilation(translation_unit_t* translation_unit,
 
         if (execute_program(CURRENT_CONFIGURATION->native_compiler_name, native_compilation_args) != 0)
         {
-            running_error("Binary check failed because native compiler failed on the original input source file '%s'\n",
+            fatal_error("Binary check failed because native compiler failed on the original input source file '%s'\n",
                     translation_unit->input_filename);
         }
 
@@ -4329,7 +4329,7 @@ static void native_compilation(translation_unit_t* translation_unit,
             fprintf(stderr, "Stripping '%s'\n", strip_args[1]);
             if (execute_program("strip", strip_args) != 0)
             {
-                running_error("Stripping failed on '%s'\n", strip_args[1]);
+                fatal_error("Stripping failed on '%s'\n", strip_args[1]);
             }
         }
 
@@ -4337,7 +4337,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* cmp_args[] = { output_object_filename, new_obj_file->name, NULL };
         if (execute_program("cmp", cmp_args) != 0)
         {
-            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
+            fatal_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
         }
         else
         {
@@ -4415,7 +4415,7 @@ static void embed_files(void)
 
             if (target_options == NULL)
             {
-                running_error("During embedding, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+                fatal_error("During embedding, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
                         secondary_configuration->configuration_name,
                         CURRENT_CONFIGURATION->configuration_name);
             }
@@ -4574,7 +4574,7 @@ static void link_files(const char** file_list, int num_files,
     timing_start(&timing_link);
     if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
     {
-        running_error("Link failed");
+        fatal_error("Link failed");
     }
     timing_end(&timing_link);
 
@@ -4628,7 +4628,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (execute_program("ppu-spuembed", args) != 0)
                 {
-                    running_error("Error when embedding SPU executable");
+                    fatal_error("Error when embedding SPU executable");
                 }
 
                 remove(compilation_process.linked_output_filename);
@@ -4643,7 +4643,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (temp_file_fd == NULL)
                 {
-                    running_error("Cannot create temporal assembler file '%s': %s\n",
+                    fatal_error("Cannot create temporal assembler file '%s': %s\n",
                             temp_file_as->name,
                             strerror(errno));
                 }
@@ -4677,7 +4677,7 @@ static void do_combining(target_options_map_t* target_map,
                 if (execute_program(CURRENT_CONFIGURATION->native_compiler_name,
                             args) != 0)
                 {
-                    running_error("Error when complining embedding assembler");
+                    fatal_error("Error when complining embedding assembler");
                 }
 
                 remove(compilation_process.linked_output_filename);
@@ -4722,7 +4722,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 
         if (configuration == NULL)
         {
-            running_error("Multifile needs a profile '%s' not defined in the configuration\n",
+            fatal_error("Multifile needs a profile '%s' not defined in the configuration\n",
                     multifile_profiles[i].name);
         }
 
@@ -4730,7 +4730,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 
         if (target_map == NULL)
         {
-            running_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+            fatal_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
                     configuration->configuration_name,
                     target_configuration->configuration_name);
         }

@@ -1930,7 +1930,7 @@ namespace TL { namespace OpenMP {
                         else
                         {
                             printf("%s\n", comma_it->c_str());
-                            running_error("Neither 'relaxed' nor 'evict'");
+                            fatal_error("Neither 'relaxed' nor 'evict'");
                         }
                     }
                 }
@@ -2010,7 +2010,7 @@ namespace TL { namespace OpenMP {
                     }
                     else
                     {
-                        running_error("Missing 'min_group_loads' parameter in 'overlap' clause");
+                        fatal_error("Missing 'min_group_loads' parameter in 'overlap' clause");
                     } 
 
                     // Max group registers
@@ -2029,7 +2029,7 @@ namespace TL { namespace OpenMP {
                     }
                     else
                     {
-                        running_error("Missing 'max_group_registers' parameter in 'overlap' clause");
+                        fatal_error("Missing 'max_group_registers' parameter in 'overlap' clause");
                     } 
 
                     // Max groups
@@ -2048,7 +2048,7 @@ namespace TL { namespace OpenMP {
                     }
                     else
                     {
-                        running_error("Missing 'max_groups' parameter in 'overlap' clause");
+                        fatal_error("Missing 'max_groups' parameter in 'overlap' clause");
                     } 
                 }
 

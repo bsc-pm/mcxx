@@ -976,7 +976,7 @@ static nodecl_t simplify_real(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
         }
         else
         {
-            running_error("Invalid floating type");
+            fatal_error("Invalid floating type");
         }
     }
 
@@ -1049,7 +1049,7 @@ static nodecl_t simplify_cmplx(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
         }
         else
         {
-            running_error("Invalid floating type");
+            fatal_error("Invalid floating type");
         }
     }
 

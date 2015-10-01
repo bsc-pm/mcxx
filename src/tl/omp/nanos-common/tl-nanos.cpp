@@ -259,7 +259,7 @@ namespace TL
                 {
                     std::stringstream ss;
                     ss << Version::_interfaces[family_clause.get_tokenized_arguments(ExpressionTokenizer())[0]];
-                    running_error("error: Nanos family %s previously defined with version %s\n",
+                    fatal_error("error: Nanos family %s previously defined with version %s\n",
                                   family_clause.get_tokenized_arguments(ExpressionTokenizer())[0].c_str(), 
                                   ss.str().c_str());
                 }
@@ -271,7 +271,7 @@ namespace TL
             }
             else
             {
-                running_error("error: Both, family and version must be provided by the runtime.\n");
+                fatal_error("error: Both, family and version must be provided by the runtime.\n");
             }
         }
 

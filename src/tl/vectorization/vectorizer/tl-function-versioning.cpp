@@ -169,7 +169,7 @@ namespace TL
             if (best_version == _versions.end())
             {
                 return NULL;
-                //running_error("Error: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'",
+                //fatal_error("Error: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'",
                 //    func_name.c_str(), device.c_str(),
                 //    target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
                 //    vector_length, masked);

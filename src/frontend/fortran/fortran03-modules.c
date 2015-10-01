@@ -413,7 +413,7 @@ static void load_storage(sqlite3** handle, const char* filename)
 
     if (result != SQLITE_OK)
     {
-        running_error("Error while opening module database '%s' (%s)\n", filename, sqlite3_errmsg(*handle));
+        fatal_error("Error while opening module database '%s' (%s)\n", filename, sqlite3_errmsg(*handle));
     }
 
     _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
@@ -468,7 +468,7 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     if (minfo.version != CURRENT_MODULE_VERSION)
     {
-        running_error("Module file '%s' is not compatible with this version of Mercurium (got version %d but expected version %d)\n",
+        fatal_error("Module file '%s' is not compatible with this version of Mercurium (got version %d but expected version %d)\n",
                 filename, minfo.version, CURRENT_MODULE_VERSION);
     }
 
@@ -524,7 +524,7 @@ static void create_storage(sqlite3** handle, scope_entry_t* module)
     {
         if (remove(filename) != 0)
         {
-            running_error("Error while removing old module '%s' (%s)\n", filename, strerror(errno));
+            fatal_error("Error while removing old module '%s' (%s)\n", filename, strerror(errno));
         }
     }
 
@@ -543,7 +543,7 @@ static int run_select_query(sqlite3* handle, const char* query,
     int result = sqlite3_exec(handle, query, fun, data, errmsg);
     if (result != SQLITE_OK)
     {
-        running_error("Error during query: %s\nQuery was: %s\n", *errmsg, query);
+        fatal_error("Error during query: %s\nQuery was: %s\n", *errmsg, query);
     }
     DEBUG_CODE()
     {
@@ -883,7 +883,7 @@ static void get_module_info(sqlite3* handle, module_info_t* minfo)
     char* errmsg = NULL;
     if (run_select_query(handle, module_info_query, get_module_info_, minfo, &errmsg) != SQLITE_OK)
     {
-        running_error("Error during query: %s\nQuery was: %s\n", errmsg, module_info_query);
+        fatal_error("Error during query: %s\nQuery was: %s\n", errmsg, module_info_query);
     }
 }
 
@@ -1797,7 +1797,7 @@ static void get_extended_attribute(sqlite3* handle, sqlite3_uint64 oid, const ch
     const char * errmsg = NULL;
     if (run_select_query_prepared(handle, _get_extended_attr_stmt, get_extra_info_fun, extra_info, &errmsg) != SQLITE_OK)
     {
-        running_error("Error while running query: %s\n", errmsg);
+        fatal_error("Error while running query: %s\n", errmsg);
     }
 }
 
@@ -2363,7 +2363,7 @@ static scope_t* load_scope(sqlite3* handle, sqlite3_uint64 oid)
 
     if (run_select_query_prepared(handle, _select_scope_stmt, get_scope_, &info, &errmsg) != SQLITE_OK)
     {
-        running_error("Error while running query: %s\n", errmsg);
+        fatal_error("Error while running query: %s\n", errmsg);
     }
 
     return info.scope;
@@ -2402,7 +2402,7 @@ static sqlite3_uint64 get_current_scope_oid_of_decl_context_oid(sqlite3* handle,
                 get_current_scope_oid_of_decl_context_oid_,
                 &result_oid, &errmsg) != SQLITE_OK)
     {
-        running_error("Error while running query: %s\n", errmsg);
+        fatal_error("Error while running query: %s\n", errmsg);
     }
 
     return result_oid;
@@ -2454,7 +2454,7 @@ static const decl_context_t* load_decl_context(sqlite3* handle, sqlite3_uint64 d
     sqlite3_bind_int64(_select_decl_context_stmt, 1, decl_context_oid);
     if (run_select_query_prepared(handle, _select_decl_context_stmt, get_decl_context_, &decl_context_info, &errmsg) != SQLITE_OK)
     {
-        running_error("Error while running query: %s\n", errmsg);
+        fatal_error("Error while running query: %s\n", errmsg);
     }
 
     return decl_context_info.decl_context;
@@ -2552,7 +2552,7 @@ static AST load_ast(sqlite3* handle, sqlite3_uint64 oid)
     sqlite3_bind_int64(_select_ast_stmt, 1, oid);
     if (run_select_query_prepared(handle, _select_ast_stmt, get_ast, &query_handle, &errmsg) != SQLITE_OK)
     {
-        running_error("Error while running query: %s\n", errmsg);
+        fatal_error("Error while running query: %s\n", errmsg);
     }
 
     return query_handle.a;
@@ -2827,7 +2827,7 @@ static type_t* load_type(sqlite3* handle, sqlite3_uint64 oid)
     sqlite3_bind_int64(_select_type_stmt, 1, oid);
     if (run_select_query_prepared(handle, _select_type_stmt, get_type, &type_handle, &errmsg) != SQLITE_OK)
     {
-        running_error("Error while running query: %s\n", errmsg);
+        fatal_error("Error while running query: %s\n", errmsg);
     }
 
     return type_handle.type;
@@ -3110,7 +3110,7 @@ static void dispose_storage(sqlite3* handle)
 
     if (sqlite3_close(handle) != SQLITE_OK)
     {
-        running_error("Error while closing database (%s)\n", sqlite3_errmsg(handle));
+        fatal_error("Error while closing database (%s)\n", sqlite3_errmsg(handle));
     }
 }
 
@@ -3218,7 +3218,7 @@ static int get_module_extra_name(void *data,
     uint64_t num_items = 0;
     if (run_select_query(p->handle, count_query, count_module_extra_name, &num_items, &errmsg) != SQLITE_OK)
     {
-        running_error("Error during query: %s\n", errmsg);
+        fatal_error("Error during query: %s\n", errmsg);
     }
     sqlite3_free(count_query);
 
@@ -3240,7 +3240,7 @@ static int get_module_extra_name(void *data,
 
     if (run_select_query(p->handle, query, get_module_extra_data, &extra_data, &errmsg) != SQLITE_OK)
     {
-        running_error("Error during query: %s\n", errmsg);
+        fatal_error("Error during query: %s\n", errmsg);
     }
 
     sqlite3_free(query);
@@ -3267,7 +3267,7 @@ static void load_extra_data_from_module(sqlite3* handle, scope_entry_t* module)
     char* errmsg = NULL;
     if (run_select_query(handle, "SELECT oid, name FROM module_extra_name", get_module_extra_name, &module_extra_name, &errmsg) != SQLITE_OK)
     {
-        running_error("Error during query: %s\n", errmsg);
+        fatal_error("Error during query: %s\n", errmsg);
     }
 }
 

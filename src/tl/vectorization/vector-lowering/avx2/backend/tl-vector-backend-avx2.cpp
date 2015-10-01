@@ -134,7 +134,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("AVX2 Lowering: casting from %s to %s is not supported",
+            fatal_error("AVX2 Lowering: casting from %s to %s is not supported",
                     print_type_str(type_from.get_internal_type(), CURRENT_COMPILED_FILE->global_decl_context),
                     print_type_str(type_to.get_internal_type(), CURRENT_COMPILED_FILE->global_decl_context));
         }
@@ -174,7 +174,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("AVX2 Lowering: undef intrinsic not supported");
+            fatal_error("AVX2 Lowering: undef intrinsic not supported");
         }
 
         return result.str();
@@ -1157,7 +1157,7 @@ namespace Vectorization
 
     void AVX2VectorLowering::visit(const Nodecl::VectorLogicalOr& node)
     {
-        running_error("AVX2 Lowering %s: 'logical or' operation (i.e., operator '||') is not "\
+        fatal_error("AVX2 Lowering %s: 'logical or' operation (i.e., operator '||') is not "\
                 "supported in AVX2. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
                 locus_to_str(node.get_locus()));
     }
@@ -1562,7 +1562,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("AVX2 Lowering: Node %s at %s has an unsupported type.",
+            fatal_error("AVX2 Lowering: Node %s at %s has an unsupported type.",
                     ast_print_node_type(node.get_kind()),
                     locus_to_str(node.get_locus()));
         }
@@ -2247,7 +2247,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("AVX2 Lowering: Node %s at %s has an unsupported type.",
+            fatal_error("AVX2 Lowering: Node %s at %s has an unsupported type.",
                     ast_print_node_type(node.get_kind()),
                     locus_to_str(node.get_locus()));
         }

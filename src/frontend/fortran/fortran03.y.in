@@ -3228,7 +3228,7 @@ nonlabel_do_stmt : labeldef name_colon_opt TOKEN_DO loop_control eos
 }
 | labeldef name_colon_opt TOKEN_DO concurrent_loop_control eos
 {
-    running_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
+    fatal_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
 }
 | labeldef name_colon_opt TOKEN_DO eos
 {
@@ -3246,7 +3246,7 @@ label_do_stmt : labeldef name_colon_opt TOKEN_DO label loop_control eos
 }
 | labeldef name_colon_opt TOKEN_DO label concurrent_loop_control eos
 {
-    running_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
+    fatal_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
 }
 | labeldef name_colon_opt TOKEN_DO label eos
 {
@@ -3263,7 +3263,7 @@ label_do_shared_stmt : labeldef name_colon_opt TOKEN_DO do_shared_label loop_con
 }
 | labeldef name_colon_opt TOKEN_DO do_shared_label concurrent_loop_control eos
 {
-    running_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
+    fatal_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
 }
 | labeldef name_colon_opt TOKEN_DO do_shared_label eos
 {

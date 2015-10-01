@@ -218,7 +218,7 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename,
     int fd = open(scanned_filename, O_RDONLY);
     if (fd < 0)
     {
-        running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+        fatal_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
     }
 
     // Get size of file because we need it for the mmap
@@ -226,13 +226,13 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename,
     int status = fstat (fd, &s);
     if (status < 0)
     {
-        running_error("error: cannot get status of file '%s' (%s)", scanned_filename, strerror(errno));
+        fatal_error("error: cannot get status of file '%s' (%s)", scanned_filename, strerror(errno));
     }
 
     const char *mmapped_addr = mmap(0, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (mmapped_addr == MAP_FAILED)
     {
-        running_error("error: cannot map file '%s' in memory (%s)", scanned_filename, strerror(errno));
+        fatal_error("error: cannot map file '%s' in memory (%s)", scanned_filename, strerror(errno));
     }
 
     lexer_state.form = !is_fixed_form ? LEXER_TEXTUAL_FREE_FORM : LEXER_TEXTUAL_FIXED_FORM;
@@ -347,12 +347,12 @@ static inline void close_current_file(void)
         int res = munmap((void*)lexer_state.current_file->buffer, lexer_state.current_file->buffer_size);
         if (res < 0)
         {
-            running_error("error: unmaping of file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
+            fatal_error("error: unmaping of file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
         }
         res = close(lexer_state.current_file->fd);
         if (res < 0)
         {
-            running_error("error: closing file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
+            fatal_error("error: closing file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
         }
         lexer_state.current_file->fd = -1;
     }
@@ -2408,7 +2408,7 @@ static char is_include_line(void)
 
     if (include_filename == NULL)
     {
-        running_error("%s:%d:%d: error: included file '%s' not found\n",
+        fatal_error("%s:%d:%d: error: included file '%s' not found\n",
                 loc.filename,
                 loc.line,
                 loc.column,
@@ -2419,7 +2419,7 @@ static char is_include_line(void)
     int fd = open(include_filename, O_RDONLY);
     if (fd < 0)
     {
-        running_error("%s:%d:%d: error: cannot open included file '%s' (%s)\n",
+        fatal_error("%s:%d:%d: error: cannot open included file '%s' (%s)\n",
                 loc.filename,
                 loc.line,
                 loc.column,
@@ -2432,7 +2432,7 @@ static char is_include_line(void)
     int status = fstat (fd, &s);
     if (status < 0)
     {
-        running_error("%s:%d:%d: error: cannot get status of included file '%s' (%s)\n",
+        fatal_error("%s:%d:%d: error: cannot get status of included file '%s' (%s)\n",
                 loc.filename,
                 loc.line,
                 loc.column,
@@ -2442,7 +2442,7 @@ static char is_include_line(void)
     const char *mmapped_addr = mmap(0, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (mmapped_addr == MAP_FAILED)
     {
-        running_error("%s:%d:%d: error: cannot map included file '%s' in memory (%s)",
+        fatal_error("%s:%d:%d: error: cannot map included file '%s' in memory (%s)",
                 loc.filename,
                 loc.line,
                 loc.column,
@@ -2453,7 +2453,7 @@ static char is_include_line(void)
     lexer_state.include_stack_size++;
     if (lexer_state.include_stack_size == MAX_INCLUDE_DEPTH)
     {
-        running_error("%s:%d:%d: error: too many nested included files",
+        fatal_error("%s:%d:%d: error: too many nested included files",
                 loc.filename,
                 loc.line,
                 loc.column);
@@ -4905,7 +4905,7 @@ extern int new_mf03lex(void)
                                         }
                                         else
                                         {
-                                            running_error("%s:%d:%d: error: invalid directive '!$%s END %s'\n", 
+                                            fatal_error("%s:%d:%d: error: invalid directive '!$%s END %s'\n", 
                                                     loc.filename,
                                                     loc.line,
                                                     loc.column,
@@ -4949,7 +4949,7 @@ extern int new_mf03lex(void)
                                                 char* top = lexer_state.pragma_constructs_stack[lexer_state.num_pragma_constructs-1];
                                                 if (strcmp(top, longest_match) != 0)
                                                 {
-                                                    running_error("%s:%d:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
+                                                    fatal_error("%s:%d:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
                                                             loc.filename,
                                                             loc.line,
                                                             loc.column,
@@ -4967,7 +4967,7 @@ extern int new_mf03lex(void)
                                             }
                                             else
                                             {
-                                                running_error("%s:%d:%d: error: bad nesting for '!$%s %s'\n",
+                                                fatal_error("%s:%d:%d: error: bad nesting for '!$%s %s'\n",
                                                         loc.filename,
                                                         loc.line,
                                                         loc.column,
@@ -4979,7 +4979,7 @@ extern int new_mf03lex(void)
                                     }
                                 case PDK_NONE :
                                     {
-                                        running_error("%s:%d:%d: error: unknown directive '!$%s %s'",
+                                        fatal_error("%s:%d:%d: error: unknown directive '!$%s %s'",
                                                 loc.filename,
                                                 loc.line,
                                                 loc.column,

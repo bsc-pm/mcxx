@@ -203,15 +203,15 @@ namespace TL {
 
                 if (_avx2_enabled && _knc_enabled)
                 {
-                    running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
+                    fatal_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
                 }
                 else if (_knl_enabled && _knc_enabled)
                 {
-                    running_error("SIMD: KNL and KNC SIMD instruction sets enabled at the same time");
+                    fatal_error("SIMD: KNL and KNC SIMD instruction sets enabled at the same time");
                 }
                 else if (_avx2_enabled && _knl_enabled)
                 {
-                    running_error("SIMD: AVX2 and KNL SIMD instruction sets enabled at the same time");
+                    fatal_error("SIMD: AVX2 and KNL SIMD instruction sets enabled at the same time");
                 }
 
 
@@ -301,7 +301,7 @@ namespace TL {
                     break;
 
                 default:
-                    running_error("SIMD: Unsupported SIMD ISA: %d",
+                    fatal_error("SIMD: Unsupported SIMD ISA: %d",
                             simd_isa);
 
             }
@@ -572,7 +572,7 @@ namespace TL {
                     }
                     else
                     {
-                        running_error("SIMD: reduction '%s:%s' is not supported",
+                        fatal_error("SIMD: reduction '%s:%s' is not supported",
                                 reduction_name.c_str(), scalar_tl_symbol.get_name().c_str());
                     }
                 }
@@ -877,7 +877,7 @@ namespace TL {
                     }
                     else
                     {
-                        running_error("SIMD: reduction '%s:%s' (%s) is not supported",
+                        fatal_error("SIMD: reduction '%s:%s' (%s) is not supported",
                                 reduction_name.c_str(), scalar_tl_symbol.get_name().c_str(),
                                 reduction_type.get_simple_declaration(
                                     simd_enclosing_node.retrieve_context(), "").c_str());
@@ -1043,12 +1043,12 @@ namespace TL {
 
             if((!omp_mask.is_null()) && (!omp_nomask.is_null()))
             {
-                running_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
+                fatal_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
             }
 
             if((!omp_mask.is_null()) && (!_support_masking))
             {
-                running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
+                fatal_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             }
 
            // Mask Version
@@ -1080,12 +1080,12 @@ namespace TL {
 
             if((!omp_mask.is_null()) && (!omp_nomask.is_null()))
             {
-                running_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
+                fatal_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
             }
 
             if((!omp_mask.is_null()) && (!_support_masking))
             {
-                running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
+                fatal_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             }
 
            // Mask Version
@@ -1655,7 +1655,7 @@ namespace TL {
                     }
                     else
                     {
-                        running_error("SIMD: reduction '%s:%s' (%s) is not supported",
+                        fatal_error("SIMD: reduction '%s:%s' (%s) is not supported",
                                 reduction_name.c_str(), scalar_tl_symbol.get_name().c_str(),
                                 reduction_type.get_simple_declaration(
                                     parallel_statements.retrieve_context(), "").c_str());
@@ -1702,7 +1702,7 @@ namespace TL {
                     if(!aligned_expressions_map.insert(std::pair<TL::Symbol, int>(
                                     it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detected\n");
+                        fatal_error("SIMD: multiple instances of the same variable in the 'aligned' clause detected\n");
                     }
                 }
             }
@@ -1734,7 +1734,7 @@ namespace TL {
                     if(!linear_symbols_map.insert(std::pair<TL::Symbol, int>(
                                     it2->as<Nodecl::Symbol>().get_symbol(), step)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable "\
+                        fatal_error("SIMD: multiple instances of the same variable "\
                                 "in the 'linear' clause detected\n");
                     }
                 }
@@ -1797,7 +1797,7 @@ namespace TL {
                     if(!nontemporal_expressions.insert(std::make_pair(
                                     it2->as<Nodecl::Symbol>().get_symbol(), nontemporal_flags)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
+                        fatal_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
                     }
                 }
             }
@@ -1887,7 +1887,7 @@ namespace TL {
                                     it2->as<Nodecl::Symbol>().get_symbol(),
                                     overlap_params)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable in the 'overlap' clause detected\n");
+                        fatal_error("SIMD: multiple instances of the same variable in the 'overlap' clause detected\n");
                     }
                 }
             }

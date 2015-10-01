@@ -151,7 +151,7 @@ namespace Vectorization
                 }
                 else
                 {
-                    running_error("%s: error: cannot vectorize '%s' of type '%s'\n",
+                    fatal_error("%s: error: cannot vectorize '%s' of type '%s'\n",
                             n.get_locus_str().c_str(),
                             n.prettyprint().c_str(),
                             tl_sym_type.get_declaration(tl_sym.get_scope(), "").c_str());

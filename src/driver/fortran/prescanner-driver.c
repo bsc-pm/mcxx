@@ -156,7 +156,7 @@ static void tool_initialization(int argc, const char* argv[])
     if (alternate_stack.ss_sp == 0
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
-        running_error("Setting alternate signal stack failed (%s)\n",
+        fatal_error("Setting alternate signal stack failed (%s)\n",
                 strerror(errno));
     }
 
@@ -179,7 +179,7 @@ static void tool_initialization(int argc, const char* argv[])
     
     if (result != 0)
     {
-        running_error("Signal programming failed with '%s'\n", strerror(errno));
+        fatal_error("Signal programming failed with '%s'\n", strerror(errno));
     }
 #endif
 

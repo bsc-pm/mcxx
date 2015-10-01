@@ -679,7 +679,7 @@ type {
             }
         case PDK_NONE :
             {
-                running_error("%s:%d:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
+                fatal_error("%s:%d:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
                         scanning_now.current_filename, 
                         line_number,
                         column_number,
@@ -2085,7 +2085,7 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 
 	if (file == NULL)
 	{
-		running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+		fatal_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
 	}
 
 	memset(&scanning_now, 0, sizeof(scanning_now));

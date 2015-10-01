@@ -294,7 +294,7 @@ static void fortran_check_expression_impl_(AST expression, const decl_context_t*
     if (handler == NULL 
             || handler->handler == NULL)
     {
-        running_error("%s: sorry: unhandled expression %s\n", 
+        fatal_error("%s: sorry: unhandled expression %s\n", 
                 ast_location(expression), 
                 ast_print_node_type(ASTKind(expression)));
     }
@@ -2278,12 +2278,12 @@ static void check_floating_literal(AST expr, const decl_context_t* decl_context,
        else
 #endif
        {
-           running_error("%s: error: literals of KIND=%d not supported\n", ast_location(expr), kind);
+           fatal_error("%s: error: literals of KIND=%d not supported\n", ast_location(expr), kind);
        }
    }
    else
    {
-       running_error("Code unreachable, invalid floating literal");
+       fatal_error("Code unreachable, invalid floating literal");
    }
 
    *nodecl_output = nodecl_make_floating_literal(t, value, ast_get_locus(expr));

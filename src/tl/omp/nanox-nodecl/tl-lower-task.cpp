@@ -3143,7 +3143,7 @@ void LoweringVisitor::fill_dependences_internal(
 
     if (!Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
-        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n",
+        fatal_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n",
                 ctr.get_locus_str().c_str());
     }
 

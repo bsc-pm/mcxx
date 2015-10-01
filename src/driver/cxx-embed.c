@@ -71,14 +71,14 @@ char embed_to_file(const char* dest_filename, int num_embed_files,
                 // Create the directory if it does not exist
                 if (mkdir(dir_path, 0700) != 0)
                 {
-                    running_error("When creating multifile archive, cannot create directory '%s': %s\n",
+                    fatal_error("When creating multifile archive, cannot create directory '%s': %s\n",
                             dir_path,
                             strerror(errno));
                 }
             }
             else
             {
-                running_error("Stat failed on '%s': %s\n",
+                fatal_error("Stat failed on '%s': %s\n",
                         dir_path,
                         strerror(errno));
             }
@@ -87,7 +87,7 @@ char embed_to_file(const char* dest_filename, int num_embed_files,
         {
             if (!S_ISDIR(buf.st_mode))
             {
-                running_error("When creating multifile archive, path '%s' is not a directory\n",
+                fatal_error("When creating multifile archive, path '%s' is not a directory\n",
                         dir_path);
             }
         }
@@ -102,7 +102,7 @@ char embed_to_file(const char* dest_filename, int num_embed_files,
 
         if (move_file(current_embed_file->filename, dest_path) != 0)
         {
-            running_error("When creating multifile archive, file '%s' could not be moved to '%s'\n",
+            fatal_error("When creating multifile archive, file '%s' could not be moved to '%s'\n",
                     current_embed_file->filename,
                     dest_path);
         }
@@ -120,7 +120,7 @@ char embed_to_file(const char* dest_filename, int num_embed_files,
 
         if (execute_program("tar", tar_args) != 0)
         {
-            running_error("When creating multifile archive, 'tar' failed\n");
+            fatal_error("When creating multifile archive, 'tar' failed\n");
         }
 
         // Now we have tar that we are going to embed into the .o file
@@ -147,7 +147,7 @@ char embed_to_file(const char* dest_filename, int num_embed_files,
 
         if (execute_program(CURRENT_CONFIGURATION->target_objcopy, objcopy_args) != 0)
         {
-            running_error("When creating multifile archive, 'objcopy' failed\n");
+            fatal_error("When creating multifile archive, 'objcopy' failed\n");
         }
 
         if (CURRENT_CONFIGURATION->verbose)

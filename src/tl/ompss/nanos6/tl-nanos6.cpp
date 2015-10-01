@@ -83,7 +83,7 @@ namespace TL { namespace Nanos6 {
         FILE* ancillary_file = fopen(new_filename.c_str(), "w");
         if (ancillary_file == NULL)
         {
-            running_error("%s: error: cannot open file '%s'. %s\n",
+            fatal_error("%s: error: cannot open file '%s'. %s\n",
                     original_filename.c_str(),
                     new_filename.c_str(),
                     strerror(errno));

@@ -113,7 +113,7 @@ namespace TL
                     }
                     else
                     {
-                        running_error("%s: error: cannot vectorize parameter '%s' of type '%s'\n",
+                        fatal_error("%s: error: cannot vectorize parameter '%s' of type '%s'\n",
                                 function_code.get_locus_str().c_str(),
                                 it->get_name().c_str(),
                                 tl_sym_type.get_declaration(it->get_scope(), "").c_str());

@@ -6193,7 +6193,7 @@ OPERATOR_TABLE
 
         if (bitfield_size != 1)
         {
-            running_error("%s: error: codegen of loads in bitfields larger than one bit is not implemented", 
+            fatal_error("%s: error: codegen of loads in bitfields larger than one bit is not implemented", 
                     node.get_locus_str().c_str());
         }
 
@@ -6216,7 +6216,7 @@ OPERATOR_TABLE
 
         if (!lhs.is<Nodecl::ClassMemberAccess>())
         {
-            running_error("%s: error: bitfield not accessed through a field-name", 
+            fatal_error("%s: error: bitfield not accessed through a field-name", 
                     node.get_locus_str().c_str());
         }
 
@@ -6238,7 +6238,7 @@ OPERATOR_TABLE
 
         if (bitfield_size != 1)
         {
-            running_error("%s: error: codegen of stores in bitfields larger than one bit is not implemented", 
+            fatal_error("%s: error: codegen of stores in bitfields larger than one bit is not implemented", 
                     node.get_locus_str().c_str());
         }
 
@@ -6258,7 +6258,7 @@ OPERATOR_TABLE
         }
         else
         {
-            running_error("%s: error: non constants stores of bitfields is not implemented", 
+            fatal_error("%s: error: non constants stores of bitfields is not implemented", 
                     node.get_locus_str().c_str());
         }
     }

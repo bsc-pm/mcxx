@@ -55,7 +55,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("VectorizerLoopInfo: Neither a for nor a while");
+            fatal_error("VectorizerLoopInfo: Neither a for nor a while");
         }
     }
 

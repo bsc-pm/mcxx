@@ -1143,7 +1143,7 @@ namespace Vectorization
                     }
                     else
                     {
-                        running_error("Vectorizer: This linear update is not supported yet"\
+                        fatal_error("Vectorizer: This linear update is not supported yet"\
                                 "(%s).", n.prettyprint().c_str());
                     }
 
@@ -1193,7 +1193,7 @@ namespace Vectorization
                             << std::endl;
                     }
 
-                    running_error("Vectorizer: Extract operation is not "\
+                    fatal_error("Vectorizer: Extract operation is not "\
                             "supported yet (%s).", lhs.prettyprint().c_str());
 
                 }
@@ -1208,7 +1208,7 @@ namespace Vectorization
                    {
                    std::cerr << "Nested IV dependent store: " << lhs.prettyprint()
                    << std::endl;
-                   running_error("Vectorizer: Extract operation is not "\
+                   fatal_error("Vectorizer: Extract operation is not "\
                    "supported yet (%s).", lhs.prettyprint().c_str());
                    }
                  */
@@ -1323,7 +1323,7 @@ namespace Vectorization
                     }
                     else
                     {
-                        running_error("Vectorizer: ClassMemberAccess type is not "\
+                        fatal_error("Vectorizer: ClassMemberAccess type is not "\
                                 "supported yet: '%s'", n.prettyprint().c_str());
                     }
                 }
@@ -1343,7 +1343,7 @@ namespace Vectorization
                 }
                 else
                 {
-                    running_error("Vectorizer: ClassMemberAccess type is not "\
+                    fatal_error("Vectorizer: ClassMemberAccess type is not "\
                             "supported yet: '%s'", n.prettyprint().c_str());
                 }
             }
@@ -1836,7 +1836,7 @@ namespace Vectorization
                 }
                 else
                 {
-                    running_error("Vectorizer: %s found as vector function "\
+                    fatal_error("Vectorizer: %s found as vector function "\
                             "version in function versioning.",
                             ast_print_node_type(best_version.get_kind()));
                 }
@@ -2044,7 +2044,7 @@ namespace Vectorization
                else
                {
                    //TODO: If you are from outside of the loop -> Vector local copy.
-                   running_error("Vectorizer: Loop is not vectorizable. '%s' "\
+                   fatal_error("Vectorizer: Loop is not vectorizable. '%s' "\
                            "is not IV, Invariant, Reduction or LastPrivate.",
                            n.get_symbol().get_name().c_str());
                }
@@ -2136,7 +2136,7 @@ namespace Vectorization
             }
             else
             {
-                running_error("Vectorizer: ClassMemberAccess type is not "\
+                fatal_error("Vectorizer: ClassMemberAccess type is not "\
                         "supported yet: '%s'", n.prettyprint().c_str());
             }
         }
@@ -2159,7 +2159,7 @@ namespace Vectorization
                 }
                 else
                 {
-                    running_error("Vectorizer: ClassMemberAccess type is not "\
+                    fatal_error("Vectorizer: ClassMemberAccess type is not "\
                             "supported yet: '%s'", n.prettyprint().c_str());
                 }
             }
@@ -2170,7 +2170,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("Vectorizer: ClassMemberAccess type is not "\
+            fatal_error("Vectorizer: ClassMemberAccess type is not "\
                     "supported yet: '%s'", n.prettyprint().c_str());
         }
     }
@@ -2471,12 +2471,12 @@ namespace Vectorization
                     _environment._analysis_simd_scope, ind_var_increment,
                     ind_var_increment))
         {
-            running_error("Vectorizer: Linear step is not constant but uniform: %s. Not supported",
+            fatal_error("Vectorizer: Linear step is not constant but uniform: %s. Not supported",
                     ind_var_increment.prettyprint().c_str());
         }
         else
         {
-            running_error("Vectorizer: Linear step is not constant: %s.",
+            fatal_error("Vectorizer: Linear step is not constant: %s.",
                     ind_var_increment.prettyprint().c_str());
         }
     }

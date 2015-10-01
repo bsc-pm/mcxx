@@ -225,7 +225,7 @@ namespace TL
     {
         if (!IS_FORTRAN_LANGUAGE)
         {
-            running_error("This function cannot be called if we are not in Fortran");
+            fatal_error("This function cannot be called if we are not in Fortran");
         }
 
         Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());

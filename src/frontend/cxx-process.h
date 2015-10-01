@@ -55,7 +55,8 @@ LIBMCXXPROCESS_EXTERN translation_unit_t* add_new_file_to_compilation_process(
         compilation_configuration_t* configuration,
         int tag);
 
-LIBMCXXPROCESS_EXTERN void running_error(const char* message, ...) NORETURN CHECK_PRINTF(1, 2);
+LIBMCXXPROCESS_EXTERN void fatal_error(const char* message, ...) NORETURN CHECK_PRINTF(1, 2);
+LIBMCXXPROCESS_EXTERN void fatal_vprintf(const char* message, va_list ap) NORETURN;
 
 #define BUG_URL "\nPlease report a bug at " \
                 "http://pm.bsc.es/projects/mcxx/newticket " \
@@ -69,7 +70,11 @@ LIBMCXXPROCESS_EXTERN void running_error(const char* message, ...) NORETURN CHEC
     exit(EXIT_FAILURE); \
 }
 
-LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, unsigned int line, const char* function_name, ...);
+LIBMCXXPROCESS_EXTERN void debug_message(
+        const char* message,
+        const char* kind,
+        const char* source_file, unsigned int line,
+        const char* function_name, ...);
 
 #define WARNING_MESSAGE(message, ...) \
 { \

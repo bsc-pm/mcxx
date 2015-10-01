@@ -124,7 +124,7 @@ namespace Vectorization
 
     void VectorizerVisitorLoopInit::visit(const Nodecl::ObjectInit& node)
     {
-        running_error("Vectorizer (%s): Declaration of new variables is not supported yet "\
+        fatal_error("Vectorizer (%s): Declaration of new variables is not supported yet "\
                 "in LoopControl. Please, declare them outside of the loop.",
                 node.get_locus_str().c_str());
     }
@@ -221,7 +221,7 @@ namespace Vectorization
             }
             else
             {
-                running_error("Vectorizer (%s): Induction variable cannot be found in LoopCondition.",
+                fatal_error("Vectorizer (%s): Induction variable cannot be found in LoopCondition.",
                         node.get_locus_str().c_str());
             }
 
@@ -267,7 +267,7 @@ namespace Vectorization
             }
             else
             {
-                running_error("Vectorizer (%s): Induction variable cannot be found in LoopCondition.",
+                fatal_error("Vectorizer (%s): Induction variable cannot be found in LoopCondition.",
                         node.get_locus_str().c_str());
             }
 
@@ -289,12 +289,12 @@ namespace Vectorization
         }
         else if (lhs_const_flag && rhs_const_flag)
         {
-            running_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
+            fatal_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
                     "condition. BOTH expressions are CONSTANT.", locus_to_str(node.get_locus()));
         }
         else
         {
-            running_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
+            fatal_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
                     "condition. BOTH expressions are NOT CONSTANT.", locus_to_str(node.get_locus()));
         }
     }
@@ -769,7 +769,7 @@ namespace Vectorization
 
         if(!tl_for_statement.is_omp_valid_loop())
         {
-            running_error("Epilog loop is not an OpenMP valid loop");
+            fatal_error("Epilog loop is not an OpenMP valid loop");
         }
 
         // i = (upper_bound) - ((upper_bound) % UnrollFactor) + (lower_bound)

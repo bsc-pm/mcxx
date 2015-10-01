@@ -964,7 +964,7 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            running_error("Code unreachable");
+            fatal_error("Code unreachable");
         }
 
         t = get_canonical_type_for_reduction(t);

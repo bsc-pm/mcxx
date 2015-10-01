@@ -623,7 +623,7 @@ static void wrong_init_kind(const char* typename, int kind_size, type_t* (*kind_
         uniquestr_sprintf(&valid_values_message, ". Valid values are %s", valid_set);
     }
 
-    running_error("Error: KIND %d is not valid for type %s%s\n", kind_size,
+    fatal_error("Error: KIND %d is not valid for type %s%s\n", kind_size,
             typename, valid_values_message);
 }
 
