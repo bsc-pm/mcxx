@@ -446,16 +446,18 @@ namespace Vectorization
                             }
                             else
                             {
-                                error_printf("%s: error: argument '%s' bound to a reference of type '%s' but there is no vector function for it\n",
-                                        it_arg->get_locus_str().c_str(),
+                                error_printf_at(
+                                        it_arg->get_locus(),
+                                        "argument '%s' bound to a reference of type '%s' but there is no vector function for it\n",
                                         it_arg->prettyprint().c_str(),
                                         it_param->get_declaration(it_arg->retrieve_context(), "").c_str());
                             }
                         }
                         else
                         {
-                            error_printf("%s: error: argument '%s' bound to a reference of type '%s' is too complex\n",
-                                    it_arg->get_locus_str().c_str(),
+                            error_printf_at(
+                                    it_arg->get_locus(),
+                                    "argument '%s' bound to a reference of type '%s' is too complex\n",
                                     it_arg->prettyprint().c_str(),
                                     it_param->get_declaration(it_arg->retrieve_context(), "").c_str());
                         }

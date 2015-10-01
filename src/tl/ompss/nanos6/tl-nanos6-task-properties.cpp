@@ -609,8 +609,9 @@ namespace TL { namespace Nanos6 {
             {
                 if (type_of_field.no_ref().is_array())
                 {
-                    error_printf("%s: error: capturing the value of the runtime-sized array '%s' is not supported\n",
-                            locus_to_str(locus_of_task_creation),
+                    error_printf_at(
+                            locus_of_task_creation,
+                            "capturing the value of the runtime-sized array '%s' is not supported\n",
                             it->get_qualified_name().c_str());
                 }
                 type_of_field = TL::Type::get_void_type().get_pointer_to();
@@ -1720,8 +1721,8 @@ namespace TL { namespace Nanos6 {
 
             if (!is_standard_layout_type(it->get_type().no_ref().get_internal_type()))
             {
-                error_printf("%s: error: capture of symbol '%s' with non-standard layout type is not supported\n",
-                        locus_to_str(locus_of_task_creation),
+                error_printf_at(locus_of_task_creation,
+                        "capture of symbol '%s' with non-standard layout type is not supported\n",
                         it->get_qualified_name().c_str());
             }
             else if (!it->get_type().no_ref().is_array())

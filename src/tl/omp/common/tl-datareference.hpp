@@ -33,6 +33,8 @@
 #include "tl-source.hpp"
 #include "tl-type.hpp"
 #include "tl-modules.hpp"
+#include "cxx-diagnostic.h"
+
 #include <sstream>
 
 namespace TL
@@ -60,7 +62,7 @@ namespace TL
     class DataReference : public Nodecl::NodeclBase
     {
         public:
-            DataReference() : _is_valid(false) { }
+            DataReference() : _is_valid(false), _diagnostic_context(NULL) { }
 
             //! Constructors of a DataReference
             /*! 
@@ -81,9 +83,6 @@ namespace TL
              This is only relevant for Fortran
              */
             bool is_assumed_size_array() const;
-
-            //! Returns the warning log
-            std::string get_error_log() const;
 
             //! Gets the base symbol
             /*!
@@ -137,6 +136,8 @@ namespace TL
 
             friend struct DataReferenceVisitor;
 
+            void commit_diagnostic();
+
             ~DataReference();
 
             void module_write(ModuleWriter& mw);
@@ -151,7 +152,7 @@ namespace TL
             TL::ObjectList<MultiRefIterator> _iterators;
 
             // Error log
-            std::string _error_log;
+            diagnostic_context_t* _diagnostic_context;
 
             Nodecl::NodeclBase _base_address;
 

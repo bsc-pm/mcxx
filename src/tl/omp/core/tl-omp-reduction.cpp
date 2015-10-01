@@ -106,8 +106,8 @@ namespace TL { namespace OpenMP {
 
             if (split_colon == current_argument.end())
             {
-                error_printf("%s: error: reduction clause does not have a valid operator. Skipping",
-                        construct.get_locus_str().c_str());
+                error_printf_at(construct.get_locus(),
+                        "reduction clause does not have a valid operator. Skipping\n");
                 return;
             }
 
@@ -157,8 +157,8 @@ namespace TL { namespace OpenMP {
                 }
                 else
                 {
-                    error_printf("%s: error: variable '%s' in reduction clause is not valid. Skipping\n",
-                            construct.get_locus_str().c_str(),
+                    error_printf_at(construct.get_locus(),
+                            "variable '%s' in reduction clause is not valid. Skipping\n",
                             var_tree.prettyprint().c_str());
                     continue;
                 }
@@ -166,9 +166,9 @@ namespace TL { namespace OpenMP {
                 if (_discard_unused_data_sharings
                         && !symbols_in_construct.contains(var_sym))
                 {
-                    warn_printf("%s: warning: skipping reduction variable '%s' "
+                    warn_printf_at(construct.get_locus(),
+                            "skipping reduction variable '%s' "
                             "since it does not appear in the construct\n",
-                            construct.get_locus_str().c_str(),
                             var_sym.get_qualified_name().c_str());
                     continue;
                 }
@@ -182,8 +182,8 @@ namespace TL { namespace OpenMP {
                 {
                     if (var_type.is_array())
                     {
-                        error_printf("%s: error: reduced variable '%s' cannot have array type. Skipping\n",
-                                construct.get_locus_str().c_str(),
+                        error_printf_at(construct.get_locus(),
+                                "reduced variable '%s' cannot have array type. Skipping\n",
                                 var_tree.prettyprint().c_str());
                         continue;
                     }
@@ -193,8 +193,9 @@ namespace TL { namespace OpenMP {
 
                 if (var_sym.is_dependent_entity())
                 {
-                    warn_printf("%s: warning: symbol '%s' is type-dependent. Skipping\n",
-                            construct.get_locus_str().c_str(),
+                    warn_printf_at(
+                            construct.get_locus(),
+                            "symbol '%s' is type-dependent. Skipping\n",
                             var_sym.get_qualified_name().c_str());
                     continue;
                 }
@@ -224,8 +225,8 @@ namespace TL { namespace OpenMP {
                     }
                     else if (red_set.size() > 1)
                     {
-                        error_printf("%s: error: ambiguous reduction '%s' for reduced variable '%s' of type '%s'\n",
-                                construct.get_locus_str().c_str(),
+                        error_printf_at(construct.get_locus(),
+                                "ambiguous reduction '%s' for reduced variable '%s' of type '%s'\n",
                                 reductor_name.c_str(),
                                 var_sym.get_qualified_name().c_str(),
                                 var_type.get_declaration(var_sym.get_scope(), "").c_str());
@@ -233,8 +234,9 @@ namespace TL { namespace OpenMP {
                                 it2 != red_set.end();
                                 it2++)
                         {
-                            info_printf("%s: info: candidate reduction for type '%s'\n",
-                                    (*it2)->get_locus_str().c_str(),
+                            info_printf_at(
+                                    (*it2)->get_locus(),
+                                    "candidate reduction for type '%s'\n",
                                     (*it2)->get_type().get_declaration(var_sym.get_scope(), "").c_str());
                         }
                     }
@@ -267,14 +269,13 @@ namespace TL { namespace OpenMP {
                     ReductionSymbol red_sym(var_sym, var_type, reduction);
                     sym_list.append(red_sym);
 
-                    info_printf("%s: note: reduction of variable '%s' of type '%s' solved to '%s'\n",
-                            construct.get_locus_str().c_str(),
+                    info_printf_at(
+                            construct.get_locus(),
+                            "reduction of variable '%s' of type '%s' solved to '%s'\n",
                             var_sym.get_name().c_str(),
                             type_name,
                             reductor_name.c_str());
-                    info_printf("%s: info: reduction declared in '%s'\n",
-                            construct.get_locus_str().c_str(),
-                            reduction->get_locus_str().c_str());
+                    info_printf_at(reduction->get_locus(), "reduction declared here\n");
                 }
                 else
                 {
@@ -288,8 +289,9 @@ namespace TL { namespace OpenMP {
                         type_name = uniquestr(var_type.get_declaration(var_sym.get_scope(), "").c_str());
                     }
 
-                    error_printf("%s: error: no suitable reduction '%s' was found for reduced variable '%s' of type '%s'\n",
-                            construct.get_locus_str().c_str(),
+                    error_printf_at(
+                            construct.get_locus(),
+                            "no suitable reduction '%s' was found for reduced variable '%s' of type '%s'\n",
                             reductor_name.c_str(),
                             var_sym.get_qualified_name().c_str(),
                             type_name);
@@ -321,7 +323,7 @@ namespace TL { namespace OpenMP {
             AST init_declarator = a;
             AST declarator = ASTSon0(init_declarator);
             AST initializer = ASTSon1(init_declarator);
-            
+
             AST declarator_id_expr = ASTSon0(declarator);
             AST id_expr = ASTSon0(declarator_id_expr);
 
@@ -329,8 +331,8 @@ namespace TL { namespace OpenMP {
 
             if (entry_list == NULL)
             {
-                error_printf("%s: error: unknown '%s' in initializer clause\n",
-                        ast_location(id_expr),
+                error_printf_at(ast_get_locus(id_expr),
+                        "unknown '%s' in initializer clause\n",
                         prettyprint_in_buffer(id_expr));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
@@ -340,8 +342,8 @@ namespace TL { namespace OpenMP {
             if (strcmp(entry->symbol_name, "omp_priv") != 0
                     || entry->kind != SK_VARIABLE)
             {
-                error_printf("%s: error: invalid '%s' in initializer clause\n",
-                        ast_location(id_expr),
+                error_printf_at(ast_get_locus(id_expr),
+                        "invalid '%s' in initializer clause\n",
                         get_qualified_symbol_name(entry, decl_context));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
@@ -472,8 +474,8 @@ namespace TL { namespace OpenMP {
                     internal_error("Code unreachable", 0);
                 }
 
-                error_printf("%s: error: reduction '%s' cannot be declared for type '%s' in the current scope\n",
-                        ast_location(tree),
+                error_printf_at(ast_get_locus(tree),
+                        "reduction '%s' cannot be declared for type '%s' in the current scope\n",
                         reduction_name.c_str(),
                         type_name);
                 continue;
@@ -516,8 +518,9 @@ namespace TL { namespace OpenMP {
 
                 if (!Core::_silent_declare_reduction)
                 {
-                    info_printf("%s: info: declared reduction '%s' for type '%s'\n", 
-                            ast_location(tree),
+                    info_printf_at(
+                            ast_get_locus(tree),
+                            "declared reduction '%s' for type '%s'\n", 
                             reduction_name.c_str(),
                             print_type_str(reduction_type, decl_context));
                 }
@@ -549,9 +552,9 @@ namespace TL { namespace OpenMP {
                         if (nodecl_get_kind(lhs) != NODECL_SYMBOL
                                 || strcmp(nodecl_get_symbol(lhs)->symbol_name, "omp_priv") != 0)
                         {
-                            error_printf("%s: error: invalid syntax in initializer clause. "
-                                    "It must start with 'omp_priv ='\n",
-                                    nodecl_locus_to_str(nodecl_initializer_expr));
+                            error_printf_at(nodecl_get_locus(nodecl_initializer_expr),
+                                    "invalid syntax in initializer clause. "
+                                    "It must start with 'omp_priv ='\n");
                         }
                         nodecl_t rhs = nodecl_get_child(nodecl_initializer_expr, 1);
                         nodecl_initializer_expr = rhs;
@@ -582,8 +585,9 @@ namespace TL { namespace OpenMP {
 
                 if (!Core::_silent_declare_reduction)
                 {
-                    info_printf("%s: info: declared reduction '%s' for type '%s'\n", 
-                            ast_location(tree),
+                    info_printf_at(
+                            ast_get_locus(tree),
+                            "declared reduction '%s' for type '%s'\n",
                             reduction_name.c_str(),
                             fortran_print_type_str(reduction_type));
                 }
@@ -636,13 +640,13 @@ namespace TL { namespace OpenMP {
             if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
             {
-                error_printf("%s: error: invalid syntax for #pragma omp declare reduction. Skipping\n",
-                        directive.get_locus_str().c_str());
+                error_printf_at(directive.get_locus(),
+                        "invalid syntax for #pragma omp declare reduction. Skipping\n");
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
-                error_printf("%s: error: invalid syntax for !$omp declare reduction. Skipping\n",
-                        directive.get_locus_str().c_str());
+                error_printf_at(directive.get_locus(),
+                        "invalid syntax for !$omp declare reduction. Skipping\n");
             }
             else
             {

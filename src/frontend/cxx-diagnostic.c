@@ -412,29 +412,51 @@ int diagnostics_get_warn_count(void)
 // Generic interface
 //
 
-void error_printf(const char* format, ...)
+void error_printf_at(const locus_t* locus, const char* format, ...)
 {
     va_list va;
     va_start(va, format);
     const char* message = NULL;
     uniquestr_vsprintf(&message, format, va);
     va_end(va);
+
+    if (locus != NULL)
+    {
+        uniquestr_sprintf(&message, "%s: error: %s",
+                locus_to_str(locus),
+                message);
+    }
+    else
+    {
+        uniquestr_sprintf(&message, "error: %s", message);
+    }
 
     (current_diagnostic_context->diagnose)(current_diagnostic_context, DS_ERROR, message);
 }
 
-void warn_printf(const char* format, ...)
+void warn_printf_at(const locus_t* locus, const char* format, ...)
 {
     va_list va;
     va_start(va, format);
     const char* message = NULL;
     uniquestr_vsprintf(&message, format, va);
     va_end(va);
+
+    if (locus != NULL)
+    {
+        uniquestr_sprintf(&message, "%s: warning: %s",
+                locus_to_str(locus),
+                message);
+    }
+    else
+    {
+        uniquestr_sprintf(&message, "warning: %s", message);
+    }
 
     (current_diagnostic_context->diagnose)(current_diagnostic_context, DS_WARNING, message);
 }
 
-void info_printf(const char* format, ...)
+void info_printf_at(const locus_t* locus, const char* format, ...)
 {
     va_list va;
     va_start(va, format);
@@ -442,10 +464,21 @@ void info_printf(const char* format, ...)
     uniquestr_vsprintf(&message, format, va);
     va_end(va);
 
+    if (locus != NULL)
+    {
+        uniquestr_sprintf(&message, "%s: info: %s",
+                locus_to_str(locus),
+                message);
+    }
+    else
+    {
+        uniquestr_sprintf(&message, "info: %s", message);
+    }
+
     (current_diagnostic_context->diagnose)(current_diagnostic_context, DS_INFO, message);
 }
 
-void warn_or_error_printf(char emit_error, const char* format, ...)
+void warn_or_error_printf_at(const locus_t* locus, char emit_error, const char* format, ...)
 {
     va_list va;
     va_start(va, format);
@@ -456,6 +489,24 @@ void warn_or_error_printf(char emit_error, const char* format, ...)
     diagnostic_severity_t severity = DS_WARNING;
     if (emit_error)
         severity = DS_ERROR;
+
+    const char* kind_message = "warning";
+    if (emit_error)
+        kind_message = "error";
+
+    if (locus != NULL)
+    {
+        uniquestr_sprintf(&message, "%s: %s: %s",
+                locus_to_str(locus),
+                kind_message,
+                message);
+    }
+    else
+    {
+        uniquestr_sprintf(&message, "%s: %s",
+                kind_message,
+                message);
+    }
 
     (current_diagnostic_context->diagnose)(current_diagnostic_context, severity, message);
 }

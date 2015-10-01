@@ -28,6 +28,7 @@
 #define CXX_DIAGNOSTIC_H
 
 #include "cxx-macros.h"
+#include "cxx-locus.h"
 
 MCXX_BEGIN_DECLS
 
@@ -38,11 +39,10 @@ void diagnostics_reset(void);
 int diagnostics_get_error_count(void);
 int diagnostics_get_warn_count(void);
 
-void error_printf(const char* format, ...) CHECK_PRINTF(1,2);
-void warn_printf(const char* format, ...)  CHECK_PRINTF(1,2);
-void info_printf(const char* format, ...)  CHECK_PRINTF(1,2);
-
-void warn_or_error_printf(char emit_error, const char* format, ...)  CHECK_PRINTF(2,3);
+void error_printf_at(const locus_t*, const char* format, ...) CHECK_PRINTF(2,3);
+void warn_printf_at(const locus_t*, const char* format, ...)  CHECK_PRINTF(2,3);
+void info_printf_at(const locus_t*, const char* format, ...)  CHECK_PRINTF(2,3);
+void warn_or_error_printf_at(const locus_t*, char emit_error, const char* format, ...)  CHECK_PRINTF(3,4);
 
 // Change diagnosting context
 

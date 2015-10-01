@@ -135,8 +135,8 @@ namespace TL { namespace OpenMP {
 
         if (_inside_declare_target)
         {
-            error_printf("%s: error: missing '#pragma omp end declare target'\n",
-                    translation_unit.get_locus_str().c_str());
+            error_printf_at(translation_unit.get_locus(),
+                    "missing '#pragma omp end declare target'\n");
             _inside_declare_target = false;
         }
 
@@ -277,17 +277,20 @@ namespace TL { namespace OpenMP {
 
                 if (!data_ref.is_valid())
                 {
-                    std::cerr << data_ref.get_error_log();
-                    std::cerr << data_ref.get_locus_str() << ": warning: '" << data_ref.prettyprint()
-                        << "' is not a valid name for data sharing" << std::endl;
+                    data_ref.commit_diagnostic();
+                    warn_printf_at(data_ref.get_locus(),
+                            "'%s' is not a valid name for data sharing\n",
+                            data_ref.prettyprint().c_str());
                 }
                 else
                 {
                     if (!data_ref.is<Nodecl::Symbol>()
                             && !it_is_a_special_case_of_data_sharing(data_ref))
                     {
-                        error_printf("%s: error: '%s' is not a valid name for data sharing\n",
-                                data_ref.get_locus_str().c_str(), data_ref.prettyprint().c_str());
+                        error_printf_at(
+                                data_ref.get_locus(),
+                                "'%s' is not a valid name for data sharing\n",
+                                data_ref.prettyprint().c_str());
                         continue;
                     }
 
@@ -295,32 +298,41 @@ namespace TL { namespace OpenMP {
                     if (_discard_unused_data_sharings
                             && !symbols_in_construct.contains(base_sym))
                     {
-                        std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                            << "' since it does not appear in the construct" << std::endl;
+                        warn_printf_at(
+                                data_ref.get_locus(),
+                                "ignoring '%s' since it does not appear in the construct\n",
+                                data_ref.prettyprint().c_str());
                         continue;
                     }
 
                     if (base_sym.is_member()
                             && !base_sym.is_static())
                     {
-                        std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                            << "' since nonstatic data members cannot appear in data-sharing clauses" << std::endl;
+                        warn_printf_at(
+                                data_ref.get_locus(),
+                                "ignoring '%s' since nonstatic data members cannot appear in data-sharing clauses\n",
+                                data_ref.prettyprint().c_str());
                         continue;
                     }
 
                     if (base_sym.is_cray_pointee())
                     {
-                        std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                            << "' since a cray pointee cannot appear in data-sharing clauses" << std::endl;
+                        warn_printf_at(
+                                data_ref.get_locus(),
+                                "ignoring '%s' since a cray pointee cannot appear in data-sharing clauses\n",
+                                data_ref.prettyprint().c_str());
                         continue;
                     }
 
                     if (base_sym.is_thread()
                             || base_sym.is_thread_local())
                     {
-                        std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                            << "' since " << (base_sym.is_thread() ? "__thread" : "thread_local")
-                            <<  " variables cannot appear in data-sharing clauses" << std::endl;
+
+                        warn_printf_at(
+                                data_ref.get_locus(),
+                                "ignoring '%s' since '%s' variables cannot appear in data-sharing clauses\n",
+                                data_ref.prettyprint().c_str(),
+                                (base_sym.is_thread() ? "__thread" : "thread_local"));
                         continue;
                     }
 
@@ -359,8 +371,8 @@ namespace TL { namespace OpenMP {
                 if (previous_datasharing.kind == DSK_PREDETERMINED_INDUCTION_VAR
                         && ((_data_attrib & DS_PRIVATE) != DS_PRIVATE))
                 {
-                    error_printf("%s: error: data sharing of induction variable '%s' cannot be shared\n",
-                            _ref_tree.get_locus_str().c_str(),
+                    error_printf_at(_ref_tree.get_locus(),
+                            "data sharing of induction variable '%s' cannot be shared\n",
                             data_ref.prettyprint().c_str());
                     return;
                 }
@@ -368,8 +380,9 @@ namespace TL { namespace OpenMP {
                 if (previous_datasharing.kind == DSK_PREDETERMINED_INDUCTION_VAR
                         && ((_data_attrib & DS_FIRSTPRIVATE) == DS_FIRSTPRIVATE))
                 {
-                    error_printf("%s: error: data sharing of induction variable '%s' cannot be firstprivate\n",
-                            _ref_tree.get_locus_str().c_str(),
+                    error_printf_at(
+                            _ref_tree.get_locus(),
+                            "data sharing of induction variable '%s' cannot be firstprivate\n",
                             data_ref.prettyprint().c_str());
                     return;
                 }
@@ -377,17 +390,19 @@ namespace TL { namespace OpenMP {
                 if ((previous_datasharing.attr == DS_SHARED)
                         && (_data_attrib & DS_PRIVATE))
                 {
-                    std::cerr << _ref_tree.get_locus_str() << ": warning: data sharing of '" 
-                        << data_ref.prettyprint() 
-                        << "' was shared but now it is being overriden as private" 
-                        << std::endl;
+                    warn_printf_at(
+                            _ref_tree.get_locus(),
+                            "data sharing of '%s' was shared but now it is being overriden as private\n",
+                            data_ref.prettyprint().c_str());
                 }
 
                 if (IS_CXX_LANGUAGE
                         && sym.get_name() == "this"
                         && (_data_attrib & DS_PRIVATE))
                 {
-                    std::cerr << _ref_tree.get_locus_str() << ": warning: 'this' will be shared" << std::endl;
+                    warn_printf_at(
+                            _ref_tree.get_locus(),
+                            "'this' will be shared\n");
                     return;
                 }
 
@@ -395,8 +410,10 @@ namespace TL { namespace OpenMP {
                         && (_data_attrib & DS_PRIVATE)
                         && data_ref.is_assumed_size_array())
                 {
-                    std::cerr << _ref_tree.get_locus_str()
-                        << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized" << std::endl;
+                    warn_printf_at(
+                            _ref_tree.get_locus(),
+                            "assumed-size array '%s' cannot be privatized\n",
+                            sym.get_name().c_str());
                     return;
                 }
 
@@ -556,7 +573,7 @@ namespace TL { namespace OpenMP {
             ObjectList<std::string> args = default_clause.get_tokenized_arguments();
 
             if(!allow_default_auto && args[0] == std::string("auto"))
-                error_printf("directives other than tasks do not allow the clause default(auto)");
+                error_printf_at(construct.get_locus(), "directives other than tasks do not allow the clause default(auto)\n");
 
             struct pairs_t
             {
@@ -587,10 +604,11 @@ namespace TL { namespace OpenMP {
                 }
             }
 
-            std::cerr << default_clause.get_locus_str()
-                << ": warning: data sharing '" << args[0] << "' is not valid in 'default' clause" << std::endl;
-            std::cerr << default_clause.get_locus_str()
-                << ": warning: assuming 'shared'" << std::endl;
+            warn_printf_at(default_clause.get_locus(),
+                    "data sharing '%s' is not valid in 'default' clause\n",
+                    args[0].c_str());
+            warn_printf_at(default_clause.get_locus(),
+                    "assuming 'shared'\n");
 
             return DS_SHARED;
         }
@@ -1007,10 +1025,9 @@ namespace TL { namespace OpenMP {
                 {
                     if (!already_nagged.contains(sym))
                     {
-                        std::cerr << it->get_locus_str()
-                            << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope())
-                            << "' does not have data sharing and 'default(none)' was specified. Assuming shared "
-                            << std::endl;
+                        warn_printf_at(it->get_locus(),
+                                "symbol '%s' does not have data sharing and 'default(none)' was specified. Assuming shared\n",
+                                sym.get_qualified_name(sym.get_scope()).c_str());
 
                         // Maybe we do not want to assume always shared?
                         data_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
@@ -1524,10 +1541,9 @@ namespace TL { namespace OpenMP {
 
                 if (default_data_attr == DS_NONE)
                 {
-                    std::cerr << it->get_locus_str() 
-                        << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope()) 
-                        << "' does not have data sharing and 'default(none)' was specified. Assuming firstprivate "
-                        << std::endl;
+                    warn_printf_at(it->get_locus(),
+                            "symbol '%s' does not have data sharing and 'default(none)' was specified. Assuming firstprivate.\n",
+                            sym.get_qualified_name(sym.get_scope()).c_str());
 
                     implicit_data_attr = DS_FIRSTPRIVATE;
                     reason =
@@ -1619,8 +1635,9 @@ namespace TL { namespace OpenMP {
                     && !sym.get_type().no_ref().array_requires_descriptor()
                     && sym.get_type().no_ref().array_get_size().is_null())
             {
-                std::cerr << it->get_locus_str()
-                    << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized. Assuming shared" << std::endl;
+                warn_printf_at(it->get_locus(),
+                        "assumed-size array '%s' cannot be privatized. Assuming shared\n",
+                        sym.get_name().c_str());
                 data_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                         "this is an assumed size array that was attempted to be privatized");
             }
@@ -1972,11 +1989,9 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase& expr(*it);
             if (!expr.has_symbol())
             {
-                std::cerr << expr.get_locus_str()
-                    << ": warning: '"
-                    << expr.prettyprint()
-                    << "' cannot be used in this clause, skipping"
-                    << std::endl;
+                warn_printf_at(expr.get_locus(),
+                        "invalid expression '%s', skipping\n",
+                        expr.prettyprint().c_str());
             }
             else
             {
@@ -1990,23 +2005,18 @@ namespace TL { namespace OpenMP {
                     if (sym.is_member()
                             && !sym.is_static())
                     {
-                        std::cerr << expr.get_locus_str()
-                            << ": warning: '"
-                            << expr.prettyprint()
-                            << "' is a nonstatic-member, skipping"
-                            << std::endl;
+                        warn_printf_at(expr.get_locus(),
+                                "nonstatic data-member '%s' cannot be threadprivate, skipping\n",
+                                sym.get_qualified_name().c_str());
                         continue;
                     }
                 }
                 else
                 {
-                    std::cerr << expr.get_locus_str()
-                        << ": warning: '"
-                        << expr.prettyprint()
-                        << "' is not a variable"
-                        << (IS_FORTRAN_LANGUAGE ? " nor a COMMON name" : "")
-                        <<", skipping"
-                        << std::endl;
+                    warn_printf_at(expr.get_locus(),
+                            "entity '%s' is not a variable%s, skipping\n",
+                            sym.get_qualified_name().c_str(),
+                            (IS_FORTRAN_LANGUAGE ? " nor a COMMON name" : ""));
                     continue;
                 }
 
@@ -2076,8 +2086,7 @@ namespace TL { namespace OpenMP {
     {
         if (!this->in_ompss_mode())
         {
-            warn_printf("%s: warning: this form '#pragma omp target' is ignored in OpenMP mode\n",
-                    ctr.get_locus_str().c_str());
+            warn_printf_at(ctr.get_locus(), "this form '#pragma omp target' is ignored in OpenMP mode\n");
         }
         else
         {
@@ -2263,13 +2272,13 @@ namespace TL { namespace OpenMP {
         // but we may encounter them in invalid input
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            error_printf("%s: error: stray '#pragma omp section' not enclosed in a '#pragma omp sections' or '#pragma omp parallel sections'\n",
-                    directive.get_locus_str().c_str());
+            error_printf_at(directive.get_locus(),
+                    "stray '#pragma omp section' not enclosed in a '#pragma omp sections' or '#pragma omp parallel sections'\n");
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            error_printf("%s: error: stray '!$OMP SECTION' not enclosed in a '!$OMP SECTIONS' or a '!$OMP PARALLEL SECTIONS'\n",
-                    directive.get_locus_str().c_str());
+            error_printf_at(directive.get_locus(),
+                    "stray '!$OMP SECTION' not enclosed in a '!$OMP SECTIONS' or a '!$OMP PARALLEL SECTIONS'\n");
         }
         else
         {
@@ -2382,8 +2391,7 @@ namespace TL { namespace OpenMP {
                                 && !stack_of_labels.contains(name))
                         {
                             // We are doing a CYCLE of a loop not currently nested
-                            error_printf("%s: error: invalid 'CYCLE' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
-                                    n.get_locus_str().c_str());
+                            error_printf_at(n.get_locus(), "invalid 'CYCLE' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n");
                         }
                     }
                 }
@@ -2395,16 +2403,14 @@ namespace TL { namespace OpenMP {
                 {
                     if (nest_of_break == 0)
                     {
-                        error_printf("%s: error: invalid 'break' inside '#pragma omp for' or '#pragma omp parallel for'\n",
-                                n.get_locus_str().c_str());
+                        error_printf_at(n.get_locus(), "invalid 'break' inside '#pragma omp for' or '#pragma omp parallel for'\n");
                     }
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     if (n.get_construct_name().is_null() && nest_of_break == 0)
                     {
-                        error_printf("%s: error: invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
-                                n.get_locus_str().c_str());
+                        error_printf_at(n.get_locus(), "invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n");
                     }
                     else if (!n.get_construct_name().is_null())
                     {
@@ -2413,8 +2419,7 @@ namespace TL { namespace OpenMP {
                                 || !stack_of_labels.contains(name))
                         {
                             // We are doing an EXIT of the whole loop or a loop not nested
-                            error_printf("%s: error: invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
-                                    n.get_locus_str().c_str());
+                            error_printf_at(n.get_locus(), "invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n");
                         }
                     }
                 }
@@ -2446,8 +2451,7 @@ namespace TL { namespace OpenMP {
 
 #define INVALID_STATEMENT_HANDLER(_name) \
     void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
-        error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                ctr.get_locus_str().c_str(), \
+        error_printf_at(ctr.get_locus(), "invalid '#pragma %s %s'\n",  \
                 ctr.get_text().c_str(), \
                 ctr.get_pragma_line().get_text().c_str()); \
     } \
@@ -2455,8 +2459,7 @@ namespace TL { namespace OpenMP {
 
 #define INVALID_DECLARATION_HANDLER(_name) \
     void Core::_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
-        error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                ctr.get_locus_str().c_str(), \
+        error_printf_at(ctr.get_locus(), "invalid '#pragma %s %s'\n",  \
                 ctr.get_text().c_str(), \
                 ctr.get_pragma_line().get_text().c_str()); \
     } \
@@ -2510,7 +2513,7 @@ namespace TL { namespace OpenMP {
 
 #define UNIMPLEMENTED_HANDLER_STATEMENT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
-            error_printf("%s: error: OpenMP construct not implemented\n", ctr.get_locus_str().c_str());\
+            error_printf_at(ctr.get_locus(), "OpenMP construct not implemented\n");\
         } \
         void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
 

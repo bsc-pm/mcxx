@@ -1176,7 +1176,8 @@ extern inline type_t* get_float128_type(void)
 {
     if (CURRENT_CONFIGURATION->type_environment->float128_info == NULL)
     {
-        warn_printf("warning: the current typing environment (%s) does not define a __float128 type but "
+        warn_printf_at(NULL,
+                "warning: the current typing environment (%s) does not define a __float128 type but "
                 "Mercurium was compiled with __float128 support\n",
                 CURRENT_CONFIGURATION->type_environment->environ_name);
         CURRENT_CONFIGURATION->type_environment->float128_info = &binary_float_128;

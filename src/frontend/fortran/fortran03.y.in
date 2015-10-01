@@ -2631,16 +2631,14 @@ add_operand : add_operand_strict
     AST parenthesized = ASTMake1(AST_PARENTHESIZED_EXPRESSION, $3, ast_get_locus($3), NULL);
 
     $$ = ASTMake2(AST_MUL, $1, parenthesized, ast_get_locus($1), NULL);
-    warn_printf("%s: warning: unary operator following a multiplication operator should be enclosed in parentheses\n", 
-        locus_to_str(ast_get_locus($3)));
+    warn_printf_at(ast_get_locus($3), "unary operator following a multiplication operator should be enclosed in parentheses\n");
 }
 | add_operand '/' unary_add_operand
 {
     AST parenthesized = ASTMake1(AST_PARENTHESIZED_EXPRESSION, $3, ast_get_locus($3), NULL);
 
     $$ = ASTMake2(AST_DIV, $1, parenthesized, ast_get_locus($1), NULL);
-    warn_printf("%s: warning: unary operator following a division operator should be enclosed in parentheses\n", 
-        locus_to_str(ast_get_locus($3)));
+    warn_printf_at(ast_get_locus($3), "unary operator following a division operator should be enclosed in parentheses\n");
 }
 ;
 unary_add_operand : '+' add_operand
@@ -3986,18 +3984,17 @@ invalid_comma_io_opt : /* empty */
 }
 | ','
 {
-    warn_printf(
-#ifdef FORTRAN_NEW_SCANNER
-        "%s:%d:%d: "
-#else
-        "%s:%d: "
-#endif
-        "warning: extra comma between control-spec-list and item-list\n",
+    warn_printf_at(
+        make_locus(
             @1.first_filename,
             @1.first_line
 #ifdef FORTRAN_NEW_SCANNER
             , @1.first_column
+#else
+            , 0
 #endif
+        ),
+        "extra comma between control-spec-list and item-list\n"
         );
 }
 ;

@@ -211,8 +211,9 @@ namespace TL { namespace OpenMP {
             std::string report_filename = current.get_filename() + "." +
                     std::string(in_ompss_mode() ? "ompss.report" : "openmp.report");
 
-            info_printf("%s: creating %s report in '%s'\n",
-                    current.get_filename().c_str(),
+            info_printf_at(
+                    ::make_locus(current.get_filename().c_str(), 0, 0),
+                    "creating %s report in '%s'\n",
                     in_ompss_mode() ? "OmpSs" : "OpenMP",
                     report_filename.c_str());
 
@@ -278,8 +279,7 @@ namespace TL { namespace OpenMP {
 
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
-            error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                    ctr.get_locus_str().c_str(), \
+            error_printf_at(ctr.get_locus(), "invalid '#pragma %s %s'\n",  \
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
@@ -287,8 +287,7 @@ namespace TL { namespace OpenMP {
 
 #define INVALID_DECLARATION_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
-            error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                    ctr.get_locus_str().c_str(), \
+            error_printf_at(ctr.get_locus(), "invalid '#pragma %s %s'\n",  \
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
@@ -686,8 +685,8 @@ namespace TL { namespace OpenMP {
         {
             if (!this->in_ompss_mode())
             {
-                error_printf("%s: error: a 'taskwait' construct with a 'on' clause is valid only in OmpSs\n",
-                        directive.get_locus_str().c_str());
+                error_printf_at(directive.get_locus(),
+                        "a 'taskwait' construct with a 'on' clause is valid only in OmpSs\n");
             }
 
             directive.replace(
@@ -807,8 +806,7 @@ namespace TL { namespace OpenMP {
             {
                 if (priority.is_defined())
                 {
-                    warn_printf("%s: warning: ignoring invalid 'priority' clause in 'task' construct\n",
-                            directive.get_locus_str().c_str());
+                    warn_printf_at(directive.get_locus(), "ignoring invalid 'priority' clause in 'task' construct\n");
                 }
                 if (emit_omp_report())
                 {
@@ -861,8 +859,7 @@ namespace TL { namespace OpenMP {
             {
                 if (if_clause.is_defined())
                 {
-                    error_printf("%s: error: ignoring invalid 'if' clause\n",
-                            directive.get_locus_str().c_str());
+                    error_printf_at(directive.get_locus(), "ignoring invalid 'if' clause\n");
                 }
 
                 // if (emit_omp_report())
@@ -911,8 +908,8 @@ namespace TL { namespace OpenMP {
         }
         if (this->in_ompss_mode())
         {
-            warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
-                    locus_to_str(directive.get_locus()));
+            warn_printf_at(directive.get_locus(),
+                    "explicit parallel regions do not have any effect in OmpSs\n");
             // Ignore parallel
             directive.replace(directive.get_statements());
 
@@ -953,8 +950,7 @@ namespace TL { namespace OpenMP {
             {
                 if (clause.is_defined())
                 {
-                    error_printf("%s: error: ignoring invalid 'num_threads' clause\n",
-                            directive.get_locus_str().c_str());
+                    error_printf_at(directive.get_locus(), "ignoring invalid 'num_threads' clause\n");
                 }
             }
         }
@@ -996,8 +992,7 @@ namespace TL { namespace OpenMP {
             {
                 if (if_clause.is_defined())
                 {
-                    error_printf("%s: error: ignoring invalid 'if' clause\n",
-                            directive.get_locus_str().c_str());
+                    error_printf_at(directive.get_locus(), "ignoring invalid 'if' clause\n");
                 }
                 if (emit_omp_report())
                 {
@@ -1480,8 +1475,7 @@ namespace TL { namespace OpenMP {
         OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
-        warn_printf("%s: warning: 'taskloop' construct is EXPERIMENTAL\n",
-                pragma_line.get_locus_str().c_str());
+        warn_printf_at(pragma_line.get_locus(), "'taskloop' construct is EXPERIMENTAL\n");
 
         PragmaCustomClause grainsize = pragma_line.get_clause("grainsize");
         PragmaCustomClause numtasks = pragma_line.get_clause("numtasks");
@@ -1491,13 +1485,11 @@ namespace TL { namespace OpenMP {
         {
             if (grainsize.is_defined())
             {
-                error_printf("%s: error: cannot define 'grainsize' and 'numtasks' clauses at the same time\n",
-                        pragma_line.get_locus_str().c_str());
+                error_printf_at(pragma_line.get_locus(), "cannot define 'grainsize' and 'numtasks' clauses at the same time\n");
             }
             else
             {
-                error_printf("%s: error: missing a 'grainsize' or a 'numtasks' clauses\n",
-                        pragma_line.get_locus_str().c_str());
+                error_printf_at(pragma_line.get_locus(), "missing a 'grainsize' or a 'numtasks' clauses\n");
             }
         }
         else
@@ -1511,14 +1503,12 @@ namespace TL { namespace OpenMP {
                     num_blocks = grainsize.get_arguments_as_expressions()[0];
                     if (num_args != 1)
                     {
-                        error_printf("%s: error: too many expressions in 'grainsize' clause\n",
-                                pragma_line.get_locus_str().c_str());
+                        error_printf_at(pragma_line.get_locus(), "too many expressions in 'grainsize' clause\n");
                     }
                 }
                 else
                 {
-                    error_printf("%s: error: missing expression in 'grainsize' clause\n",
-                            pragma_line.get_locus_str().c_str());
+                    error_printf_at(pragma_line.get_locus(), "missing expression in 'grainsize' clause\n");
                 }
             }
             else // numtasks.is_defined()
@@ -1587,8 +1577,8 @@ namespace TL { namespace OpenMP {
         if (this->in_ompss_mode())
         {
             // In OmpSs this is like a simple DO
-            warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
-                    locus_to_str(directive.get_locus()));
+            warn_printf_at(directive.get_locus(),
+                    "explicit parallel regions do not have any effect in OmpSs\n");
             if (emit_omp_report())
             {
                 *_omp_report_file
@@ -1626,8 +1616,7 @@ namespace TL { namespace OpenMP {
             }
             else if (clause.is_defined())
             {
-                error_printf("%s: error: ignoring invalid 'num_threads' wrong clause\n",
-                        directive.get_locus_str().c_str());
+                error_printf_at(directive.get_locus(), "ignoring invalid 'num_threads' wrong clause\n");
             }
         }
 
@@ -1662,8 +1651,8 @@ namespace TL { namespace OpenMP {
             ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
             if (expr_list.size() != 1)
             {
-                running_error("%s: error: clause 'if' requires just one argument\n",
-                        directive.get_locus_str().c_str());
+                error_printf_at(directive.get_locus(),
+                        "clause 'if' requires just one argument\n");
             }
             execution_environment.append(Nodecl::OpenMP::If::make(expr_list[0].shallow_copy()));
         }
@@ -2168,14 +2157,13 @@ namespace TL { namespace OpenMP {
             stmt.replace(Nodecl::List::make(omp_simd_node));
         }
 #else
-    warn_printf("%s: warning: ignoring '#pragma omp simd'\n", stmt.get_locus_str().c_str());
+    warn_printf_at(stmt.get_locus(), "ignoring '#pragma omp simd'\n");
 #endif
     }
 
     void Base::simd_fortran_handler_pre(TL::PragmaCustomStatement stmt) { }
     void Base::simd_fortran_handler_post(TL::PragmaCustomStatement stmt) {
-        warn_printf("%s: warning: ignoring '!$OMP SIMD'\n",
-                stmt.get_locus_str().c_str());
+        warn_printf_at(stmt.get_locus(), "ignoring '!$OMP SIMD'\n");
     }
 
     void Base::simd_fortran_handler_pre(TL::PragmaCustomDeclaration stmt) { }
@@ -2199,8 +2187,7 @@ namespace TL { namespace OpenMP {
             // This is a primary template
             if (!CURRENT_CONFIGURATION->explicit_instantiation)
             {
-                error_printf("%s: error: cannot use '#pragma omp simd' on template functions when they are not instantiated\n",
-                        locus_to_str(locus));
+                error_printf_at(locus, "cannot use '#pragma omp simd' on template functions when they are not instantiated\n");
             }
             else
             {
@@ -2221,8 +2208,7 @@ namespace TL { namespace OpenMP {
                     Nodecl::FunctionCode function_code_spec =
                         current_specialization.get_function_code().as<Nodecl::FunctionCode>();
 
-                    info_printf("%s: info: extending '#pragma omp declare simd' to function instantiation '%s'\n",
-                        locus_to_str(locus),
+                    info_printf_at(locus, "extending '#pragma omp declare simd' to function instantiation '%s'\n",
                         current_specialization.get_qualified_name().c_str());
 
                     Nodecl::NodeclBase context_of_parameters_spec = function_code_spec.get_statements();
@@ -2303,7 +2289,7 @@ namespace TL { namespace OpenMP {
             Nodecl::Utils::remove_from_enclosing_list(decl);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp declare simd\n", decl.get_locus_str().c_str());
+    warn_printf_at(decl.get_locus(), "ignoring #pragma omp declare simd\n");
 #endif
     }
 
@@ -2375,7 +2361,7 @@ namespace TL { namespace OpenMP {
             stmt.replace(omp_simd_for_node);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd for\n", stmt.get_locus_str().c_str());
+    warn_printf_at(stmt.get_locus(), "ignoring #pragma omp simd for\n");
 #endif
     }
 
@@ -2388,7 +2374,7 @@ namespace TL { namespace OpenMP {
         // FIXME - What is supposed to happen here?
         // It is still not supported
 #else
-    warn_printf("%s: warning: ignoring #pragma omp parallel simd for\n", stmt.get_locus_str().c_str());
+    warn_printf_at(stmt.get_locus(), "ignoring #pragma omp parallel simd for\n");
 #endif
     }
 
@@ -2422,7 +2408,7 @@ namespace TL { namespace OpenMP {
             stmt.replace(omp_simd_parallel_node);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd parallel\n", stmt.get_locus_str().c_str());
+    warn_printf_at(stmt.get_locus(), "ignoring #pragma omp simd parallel\n");
 #endif
     }
 
@@ -2476,8 +2462,7 @@ namespace TL { namespace OpenMP {
         }
         if (this->in_ompss_mode())
         {
-            warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
-                    locus_to_str(directive.get_locus()));
+            warn_printf_at(directive.get_locus(), "explicit parallel regions do not have any effect in OmpSs\n");
             if (emit_omp_report())
             {
                 *_omp_report_file
@@ -2513,8 +2498,7 @@ namespace TL { namespace OpenMP {
             }
             else if (clause.is_defined())
             {
-                error_printf("%s: error: ignoring invalid 'num_threads' wrong clause\n",
-                        directive.get_locus_str().c_str());
+                error_printf_at(directive.get_locus(), "ignoring invalid 'num_threads' wrong clause\n");
             }
         }
 
@@ -2564,8 +2548,8 @@ namespace TL { namespace OpenMP {
             {
                 if (if_clause.is_defined())
                 {
-                    running_error("%s: error: clause 'if' requires just one argument\n",
-                            directive.get_locus_str().c_str());
+                    error_printf_at(directive.get_locus(),
+                            "clause 'if' requires just one argument\n");
                 }
                 // if (emit_omp_report())
                 // {
@@ -2624,8 +2608,7 @@ namespace TL { namespace OpenMP {
         if (this->in_ompss_mode())
         {
             // In OmpSs this is like a simple for
-            warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
-                    locus_to_str(directive.get_locus()));
+            warn_printf_at(directive.get_locus(), "explicit parallel regions do not have any effect in OmpSs\n");
             if (emit_omp_report())
             {
                 *_omp_report_file
@@ -2671,8 +2654,7 @@ namespace TL { namespace OpenMP {
             {
                 if (clause.is_defined())
                 {
-                    error_printf("%s: error: ignoring invalid 'num_threads' clause\n",
-                            directive.get_locus_str().c_str());
+                    error_printf_at(directive.get_locus(), "ignoring invalid 'num_threads' clause\n");
                 }
             }
         }
@@ -2713,8 +2695,7 @@ namespace TL { namespace OpenMP {
             {
                 if (if_clause.is_defined())
                 {
-                    error_printf("%s: error: ignoring invalid 'if' clause\n",
-                            directive.get_locus_str().c_str());
+                    error_printf_at(directive.get_locus(), "ignoring invalid 'if' clause\n");
                 }
                 // if (emit_omp_report())
                 // {
@@ -2798,8 +2779,7 @@ namespace TL { namespace OpenMP {
 
                 if (IS_FORTRAN_LANGUAGE)
                 {
-                    error_printf("%s: error: !$OMP THREADPRIVATE is not supported in Fortran\n",
-                            directive.get_locus_str().c_str());
+                    error_printf_at(directive.get_locus(), "!$OMP THREADPRIVATE is not supported in Fortran\n");
                 }
             }
         }
@@ -2825,16 +2805,15 @@ namespace TL { namespace OpenMP {
 
         if (!parameter.is_defined())
         {
-            error_printf("%s: error: missing parameter clause in '#pragma omp register'\n",
-                    directive.get_locus_str().c_str());
+            error_printf_at(directive.get_locus(),
+                    "missing parameter clause in '#pragma omp register'\n");
             return;
         }
 
         ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
         if (expr_list.empty())
         {
-            warn_printf("%s: warning: ignoring empty '#pragma omp register\n", 
-                    directive.get_locus_str().c_str());
+            warn_printf_at(directive.get_locus(), "ignoring empty '#pragma omp register\n");
             return;
         }
 
@@ -2852,9 +2831,10 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                error_printf("%s: error: object specification '%s' in '#pragma omp register' "
+                error_printf_at(
+                        directive.get_locus(),
+                        "object specification '%s' in '#pragma omp register' "
                         "must be a variable-name or a shaping of a variable-name\n",
-                        directive.get_locus_str().c_str(),
                         it->prettyprint().c_str());
             }
         }
@@ -3753,8 +3733,7 @@ namespace TL { namespace OpenMP {
         {
             if (final_clause.is_defined())
             {
-                error_printf("%s: error: ignoring invalid 'final' clause\n",
-                        directive.get_locus_str().c_str());
+                error_printf_at(directive.get_locus(), "ignoring invalid 'final' clause\n");
             }
         }
     }
@@ -3785,8 +3764,7 @@ namespace TL { namespace OpenMP {
         {
             if (label_clause.is_defined())
             {
-                warn_printf("%s: warning: ignoring invalid 'label' clause in 'parallel' construct\n",
-                        directive.get_locus_str().c_str());
+                warn_printf_at(directive.get_locus(), "ignoring invalid 'label' clause in 'parallel' construct\n");
             }
             if (emit_omp_report())
             {

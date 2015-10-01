@@ -183,6 +183,11 @@ namespace TL { namespace OpenMP {
                 _locus = locus;
             }
 
+            const locus_t* get_locus() const
+            {
+                return _locus;
+            }
+
             std::string get_locus_str() const
             {
                 return ::locus_to_str(_locus);

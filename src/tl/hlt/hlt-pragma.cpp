@@ -109,8 +109,8 @@ void HLTPragmaPhase::do_loop_unroll(TL::PragmaCustomStatement construct)
     }
 
     loop_unroll.unroll();
-    info_printf("%s: info: loop unrolled by a factor %d\n",
-            construct.get_locus_str().c_str(), unroll_factor);
+    info_printf_at(construct.get_locus(), "loop unrolled by a factor %d\n",
+            unroll_factor);
 
     Nodecl::NodeclBase transformed_code = loop_unroll.get_whole_transformation();
     construct.replace(transformed_code);
@@ -123,7 +123,7 @@ void HLTPragmaPhase::do_loop_normalize(TL::PragmaCustomStatement construct)
     loop_normalize.set_loop(loop);
 
     loop_normalize.normalize();
-    info_printf("%s: info: loop normalized\n", construct.get_locus_str().c_str());
+    info_printf_at(construct.get_locus(), "loop normalized\n");
 
     Nodecl::NodeclBase transformed_code = loop_normalize.get_whole_transformation();
     construct.replace(transformed_code);

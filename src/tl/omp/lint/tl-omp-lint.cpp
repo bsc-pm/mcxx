@@ -128,34 +128,31 @@ namespace {
     
     void get_message_common_info(
             TL::Analysis::Node* task, 
-            std::string& task_locus, 
             std::string& task_label, 
             std::string& tabulation)
     {
-        // Get task locus
-        task_locus = task->get_graph_related_ast().get_locus_str();
         // Get task label, if it has
         TL::Analysis::PCFGPragmaInfo pragma_info(task->get_pragma_node_info());
         if(pragma_info.has_clause(NODECL_OMP_SS_TASK_LABEL))
             task_label = "::" + pragma_info.get_clause(NODECL_OMP_SS_TASK_LABEL).as<Nodecl::OmpSs::TaskLabel>().get_text();
         // Compute tabulation
-        tabulation = std::string((task_locus + task_label + ": omp-warning: ").size(), ' ');
+        tabulation = std::string(task_label.size(), ' ');
     }
     
     std::string get_auto_storage_message(bool use_plural, TL::Analysis::Node* task)
     {
-        std::string task_locus, task_label, tabulation;
-        get_message_common_info(task, task_locus, task_label, tabulation);
+        std::string task_label, tabulation;
+        get_message_common_info(task, task_label, tabulation);
         // Build the message
         if(use_plural)
         {
-            return task_locus + task_label + ": omp-warning: Local variables '%s' are shared, "
+            return task_label + "local variables '%s' are shared, "
                    "but their lifetime may have ended when the task is executed.\n" +
                    tabulation + "Consider privatizing them or synchronizing the task before the local data is deallocated.\n";
         }
         else
         {
-            return task_locus + task_label + ": omp-warning: Local variable '%s' is shared, "
+            return task_label + "local variable '%s' is shared, "
                    "but its lifetime may have ended when the task is executed.\n" +
                    tabulation + "Consider privatizing the variable or synchronizing the task before the local data is deallocated.\n";
         }
@@ -163,35 +160,35 @@ namespace {
     
     std::string get_race_message(bool use_plural, TL::Analysis::Node* task)
     {
-        std::string task_locus, task_label, tabulation;
-        get_message_common_info(task, task_locus, task_label, tabulation);
+        std::string task_label, tabulation;
+        get_message_common_info(task, task_label, tabulation);
         // Build the message
         if(use_plural)
         {
-            return task_locus + task_label + ": omp-warning: Variables '%s' are in a race condition due to a concurrent usage.\n" + 
+            return task_label + "variables '%s' are in a race condition due to a concurrent usage.\n" + 
                    tabulation + "Consider synchronizing all concurrent accesses or privatizing the variables.\n";
         }
         else
         {
-            return task_locus + task_label + ": omp-warning: Variable '%s' is in a race condition due to a concurrent usage.\n" + 
+            return task_label + "variable '%s' is in a race condition due to a concurrent usage.\n" + 
                    tabulation + "Consider synchronizing all concurrent accesses or privatizing the variable.\n";
         }
     }
     
     std::string get_dead_vars_message(bool use_plural, std::string data_sharing_atr, TL::Analysis::Node* task)
     {
-        std::string task_locus, task_label, tabulation;
-        get_message_common_info(task, task_locus, task_label, tabulation);
+        std::string task_label, tabulation;
+        get_message_common_info(task, task_label, tabulation);
         // Build the message
         if(use_plural)
         {
-            return task_locus + task_label + ": omp-warning: Variables '%s' are " + data_sharing_atr + ", " +
+            return task_label + "variables '%s' are " + data_sharing_atr + ", " +
                    "therefore, updates on these variables will not be visible after the task.\n" +
                    tabulation + "Consider defining them as shared.\n";
         }
         else
         {
-            return task_locus + task_label + ": omp-warning: Variable '%s' is " + data_sharing_atr + ", " +
+            return task_label + "variable '%s' is " + data_sharing_atr + ", " +
                    "therefore, updates on this variable will not be visible after the task.\n" +
                    tabulation + "Consider defining it as shared.\n";
         }
@@ -199,35 +196,35 @@ namespace {
     
     std::string get_unused_scope_message(bool use_plural, TL::Analysis::Node* task)
     {
-        std::string task_locus, task_label, tabulation;
-        get_message_common_info(task, task_locus, task_label, tabulation);
+        std::string task_label, tabulation;
+        get_message_common_info(task, task_label, tabulation);
         // Build the message
         if(use_plural)
         {
-            return task_locus + task_label + ": omp-warning: Variables '%s' are not used within the task but they have been scoped.\n" +
+            return task_label + "variables '%s' are not used within the task but they have been scoped.\n" +
                    tabulation + "This may slow down your application. Consider removing the data-sharing attributes.\n";
         }
         else
         {
-            return task_locus + task_label + ": omp-warning: Variable '%s' is not used within the task but it has been scoped.\n" +
+            return task_label + "variable '%s' is not used within the task but it has been scoped.\n" +
                    tabulation + "This may slow down your application. Consider removing the data-sharing attribute.\n";
         }
     }
     
     std::string get_incoherent_private_message(bool use_plural, TL::Analysis::Node* task)
     {
-        std::string task_locus, task_label, tabulation;
-        get_message_common_info(task, task_locus, task_label, tabulation);
+        std::string task_label, tabulation;
+        get_message_common_info(task, task_label, tabulation);
         // Build the message
         if(use_plural)
         {
-            return task_locus + task_label + ": omp-warning: Variables '%s' are private in the task, " +
+            return task_label + "variables '%s' are private in the task, " +
                    "but their input value would have been used in a serial execution.\n" +
                    tabulation + "Consider defining them as firstprivate instead, to capture the initial value.\n";
         }
         else
         {
-            return task_locus + task_label + ": omp-warning: Variable '%s' is private in the task, " +
+            return task_label + "variable '%s' is private in the task, " +
                    "but its input value would have been used in a serial execution.\n" +
                    tabulation + "Consider defining it as firstprivate instead, to capture the initial value.\n";
         }
@@ -235,18 +232,18 @@ namespace {
     
     std::string get_incoherent_firstprivate_message(bool use_plural, TL::Analysis::Node* task)
     {
-        std::string task_locus, task_label, tabulation;
-        get_message_common_info(task, task_locus, task_label, tabulation);
+        std::string task_label, tabulation;
+        get_message_common_info(task, task_label, tabulation);
         // Build the message
         if(use_plural)
         {
-            return task_locus + task_label + ": omp-warning: Variables '%s' are firstprivate in the task, " +
+            return task_label + "variables '%s' are firstprivate in the task, " +
                    "but their input value is never read.\n" +
                    tabulation + "Consider defining them as private instead.\n";
         }
         else
         {
-            return task_locus + task_label + ": omp-warning: Variable '%s' is firstprivate in the task, " +
+            return task_label + "variable '%s' is firstprivate in the task, " +
                    "but its input value is never read.\n" +
                    tabulation + "Consider defining it as private instead\n";
         }
@@ -257,21 +254,21 @@ namespace {
             bool pointed_obj_used, 
             TL::Analysis::Node* task)
     {
-        std::string task_locus, task_label, tabulation;
-        get_message_common_info(task, task_locus, task_label, tabulation);
+        std::string task_label, tabulation;
+        get_message_common_info(task, task_label, tabulation);
         // Build the message
         if(pointed_obj_used)
         {
             if(use_plural)
             {
-                return task_locus + task_label + ": omp-warning: Variables '%s' are IN dependences, " +
+                return task_label + "variables '%s' are IN dependences, " +
                     "but their input values are not read in the task.\n" +
                     tabulation + "Instead, the object pointed by these variables is read.\n" +
                     tabulation + "Consider defining the dependencies on the pointed objects.\n";
             }
             else
             {
-                return task_locus + task_label + ": omp-warning: Variable '%s' is an IN dependency, " +
+                return task_label + "variable '%s' is an IN dependency, " +
                     "but its input value is not read in the task.\n" +
                     tabulation + "Instead, the object pointed by this variable is read\n" +
                     tabulation + "Consider defining the dependency on the pointed object.\n";
@@ -281,13 +278,13 @@ namespace {
         {
             if(use_plural)
             {
-                return task_locus + task_label + ": omp-warning: Variables '%s' are IN dependences, " +
+                return task_label + "variables '%s' are IN dependences, " +
                     "but their input values are not read in the task.\n" +
                     tabulation + "Consider removing these dependencies.\n";
             }
             else
             {
-                return task_locus + task_label + ": omp-warning: Variable '%s' is an IN dependency, " +
+                return task_label + "variable '%s' is an IN dependency, " +
                     "but its input value is not read in the task.\n" +
                     tabulation + "Consider removing this dependency.\n";
             }
@@ -300,21 +297,21 @@ namespace {
             bool pointed_obj_used, 
             TL::Analysis::Node* task)
     {
-        std::string task_locus, task_label, tabulation;
-        get_message_common_info(task, task_locus, task_label, tabulation);
+        std::string task_label, tabulation;
+        get_message_common_info(task, task_label, tabulation);
         // Build the message
         if(pointed_obj_used)
         {
             if(use_plural)
             {
-                return task_locus + task_label + ": omp-warning: Variables '%s' are OUT dependences, " +
+                return task_label + "variables '%s' are OUT dependences, " +
                     "but they are not written in the task.\n" +
                     tabulation + "Instead, the object pointed by these variables is written.\n" +
                     tabulation + "Consider defining the dependencies on the pointed objects.\n";
             }
             else
             {
-                return task_locus + task_label + ": omp-warning: Variable '%s' is an OUT dependency, " +
+                return task_label + "variable '%s' is an OUT dependency, " +
                     "but it is not written in the task.\n" +
                     tabulation + "Instead, the object pointed by this variable is written\n" +
                     tabulation + "Consider defining the dependency on the pointed object.\n";
@@ -324,13 +321,13 @@ namespace {
         {
             if(use_plural)
             {
-                return task_locus + task_label + ": omp-warning: Variables '%s' are OUT dependences, " +
+                return task_label + "variables '%s' are OUT dependences, " +
                     "but they are not written in the task.\n" +
                     tabulation + "Consider removing this dependency.\n";
             }
             else
             {
-                return task_locus + task_label + ": omp-warning: Variable '%s' is an OUT dependency, " +
+                return task_label + "variable '%s' is an OUT dependency, " +
                     "but it is not written in the task.\n" +
                     tabulation + "Consider removing this dependency.\n";
             }
@@ -1506,7 +1503,7 @@ skip_current_var: ;
         if (!unnecessarily_scoped_vars.empty())
         {
             unnecessarily_scoped_vars = unnecessarily_scoped_vars.substr(0, unnecessarily_scoped_vars.size()-2);
-            warn_printf (get_unused_scope_message(n_unnecessarily_scoped_vars>1, task).c_str(),
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_unused_scope_message(n_unnecessarily_scoped_vars>1, task).c_str(),
                          unnecessarily_scoped_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __Unused, unnecessarily_scoped_vars);
         }
@@ -1519,7 +1516,7 @@ skip_current_var: ;
         if (!firstprivate_dead_vars.empty())
         {
             firstprivate_dead_vars = firstprivate_dead_vars.substr(0, firstprivate_dead_vars.size()-2);
-            warn_printf (get_dead_vars_message(/*use_plural*/ (n_fp_dead_vars>1), "firstprivate", task).c_str(), 
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_dead_vars_message(/*use_plural*/ (n_fp_dead_vars>1), "firstprivate", task).c_str(), 
                          firstprivate_dead_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __FP_Dead, firstprivate_dead_vars);
         }
@@ -1528,7 +1525,7 @@ skip_current_var: ;
         if (!private_dead_vars.empty())
         {
             private_dead_vars = private_dead_vars.substr(0, private_dead_vars.size()-2);
-            warn_printf (get_dead_vars_message(/*use_plural*/ (n_p_dead_vars>1), "private", task).c_str(), 
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_dead_vars_message(/*use_plural*/ (n_p_dead_vars>1), "private", task).c_str(), 
                          private_dead_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __P_Dead, private_dead_vars);
         }
@@ -1540,7 +1537,7 @@ skip_current_var: ;
         if (!incoherent_private_vars.empty())
         {
             incoherent_private_vars = incoherent_private_vars.substr(0, incoherent_private_vars.size()-2);
-            warn_printf (get_incoherent_private_message(n_incoherent_private_vars>1, task).c_str(),
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_incoherent_private_message(n_incoherent_private_vars>1, task).c_str(),
                          incoherent_private_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __P_Incoherent, incoherent_private_vars);
         }
@@ -1554,7 +1551,7 @@ skip_current_var: ;
         if (!incoherent_firstprivate_vars.empty())
         {
             incoherent_firstprivate_vars = incoherent_firstprivate_vars.substr(0, incoherent_firstprivate_vars.size()-2);
-            warn_printf (get_incoherent_firstprivate_message(n_incoherent_firstprivate_vars>1, task).c_str(),
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_incoherent_firstprivate_message(n_incoherent_firstprivate_vars>1, task).c_str(),
                          incoherent_firstprivate_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __FP_Incoherent, incoherent_firstprivate_vars);
         }
@@ -1643,14 +1640,14 @@ skip_current_var: ;
         if (!incoherent_depin_vars.empty())
         {
             incoherent_depin_vars = incoherent_depin_vars.substr(0, incoherent_depin_vars.size()-2);
-            warn_printf (get_incoherent_in_deps_message(/*use_plural*/ (n_incoherent_depin_vars>1), /*pointed_obj_used*/ false, task).c_str(), 
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_incoherent_in_deps_message(/*use_plural*/ (n_incoherent_depin_vars>1), /*pointed_obj_used*/ false, task).c_str(), 
                          incoherent_depin_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __IN_Incoherent, incoherent_depin_vars);
         }
         if (!incoherent_depin_pointed_vars.empty())
         {
             incoherent_depin_pointed_vars = incoherent_depin_pointed_vars.substr(0, incoherent_depin_pointed_vars.size()-2);
-            warn_printf (get_incoherent_in_deps_message(/*use_plural*/ (n_incoherent_depin_pointed_vars>1), /*pointed_obj_used*/ true, task).c_str(), 
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_incoherent_in_deps_message(/*use_plural*/ (n_incoherent_depin_pointed_vars>1), /*pointed_obj_used*/ true, task).c_str(), 
                          incoherent_depin_pointed_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __IN_Pointed_Incoherent, incoherent_depin_pointed_vars);
         }
@@ -1715,14 +1712,14 @@ skip_current_var: ;
         if (!incoherent_depout_vars.empty())
         {
             incoherent_depout_vars = incoherent_depout_vars.substr(0, incoherent_depout_vars.size()-2);
-            warn_printf (get_incoherent_out_deps_message(/*use_plural*/ (n_incoherent_depout_vars>1), /*pointed_obj_used*/ false, task).c_str(), 
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_incoherent_out_deps_message(/*use_plural*/ (n_incoherent_depout_vars>1), /*pointed_obj_used*/ false, task).c_str(), 
                          incoherent_depout_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __OUT_Incoherent, incoherent_depout_vars);
         }
         if (!incoherent_depout_pointed_vars.empty())
         {
             incoherent_depout_pointed_vars = incoherent_depout_pointed_vars.substr(0, incoherent_depout_pointed_vars.size()-2);
-            warn_printf (get_incoherent_out_deps_message(/*use_plural*/ (n_incoherent_depout_pointed_vars>1), /*pointed_obj_used*/ true, task).c_str(), 
+            warn_printf_at (task->get_graph_related_ast().get_locus(), get_incoherent_out_deps_message(/*use_plural*/ (n_incoherent_depout_pointed_vars>1), /*pointed_obj_used*/ true, task).c_str(), 
                          incoherent_depout_pointed_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __OUT_Pointed_Incoherent, incoherent_depout_pointed_vars);
         }
@@ -1818,7 +1815,7 @@ skip_current_var: ;
                     for(Nodecl::List::iterator itv = local_vars.begin(); itv != local_vars.end(); ++itv)
                         task->add_correctness_auto_storage_var(*itv);
                     std::string local_vars_str = get_nodecl_list_str(local_vars);
-                    warn_printf (get_auto_storage_message(/*use_plural*/ local_vars.size()>1, task).c_str(), 
+                    warn_printf_at (task->get_graph_related_ast().get_locus(), get_auto_storage_message(/*use_plural*/ local_vars.size()>1, task).c_str(), 
                                  local_vars_str.c_str());
                     print_warn_to_file(task_nodecl, __SharedAutoStorage, local_vars_str);
                 }
@@ -1835,7 +1832,7 @@ skip_current_var: ;
                 if (task_may_cause_race_condition(graph, task, treated_scopes, race_vars).is_true())
                 {
                     std::string race_vars_str = get_nodecl_map_str(race_vars);
-                    warn_printf (get_race_message(/*use_plural*/ race_vars.size()>1, task).c_str(),
+                    warn_printf_at (task->get_graph_related_ast().get_locus(), get_race_message(/*use_plural*/ race_vars.size()>1, task).c_str(),
                                  race_vars_str.c_str());
                     print_warn_to_file(task_nodecl, __Race, race_vars_str);
                 }

@@ -88,11 +88,11 @@ static void gather_ms_declspec_item(AST a,
         }
         else if (num_items == 2)
         {
-            warn_printf("%s: warning: ignoring unsupported form of __declspec(align) specifier\n", ast_location(a));
+            warn_printf_at(ast_get_locus(a), "ignoring unsupported form of __declspec(align) specifier\n");
         }
         else
         {
-            warn_printf("%s: warning: ignoring malformed __declspec(align) specifier\n", ast_location(a));
+            warn_printf_at(ast_get_locus(a), "ignoring malformed __declspec(align) specifier\n");
         }
     }
     else if (strcmp(declspec_name, "intrin_type") == 0)
@@ -108,7 +108,7 @@ static void gather_ms_declspec_item(AST a,
     }
     else
     {
-        warn_printf("%s: warning: ignoring unhandled __declspec(%s)\n", ast_location(a), declspec_name);
+        warn_printf_at(ast_get_locus(a), "ignoring unhandled __declspec(%s)\n", declspec_name);
     }
 }
 

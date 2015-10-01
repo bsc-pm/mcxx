@@ -530,10 +530,11 @@ type {
 
 		if (!found)
 		{
-			warn_printf("%s:%d:%d: warning: unknown '#pragma %s'\n", 
+			warn_printf_at(make_locus(
 					scanning_now.current_filename,
 					scanning_now.line_number,
-					scanning_now.column_number,
+					scanning_now.column_number),
+                    "unknown '#pragma %s'\n", 
 					yytext);
 			BEGIN(unknown_pragma);
 			// Ignore this prefix as an unknown pragma
@@ -829,10 +830,11 @@ type {
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        warn_printf("%s:%d:%d: warning: unended custom clause. Skipping.\n",
+        warn_printf_at(make_locus(
                 scanning_now.current_filename,
                 scanning_now.line_number,
-                scanning_now.column_number);
+                scanning_now.column_number),
+                "unended custom clause. Skipping.\n");
     }
     // Head back to initial state and finish this pragma
     BEGIN(INITIAL);
@@ -1078,10 +1080,12 @@ type {
     {
         if (extern_c_block)
         {
-            warn_printf("%s:%d:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+            warn_printf(
+                    make_locus(
                     scanning_now.current_filename,
                     scanning_now.line_number,
-                    scanning_now.column_number);
+                    scanning_now.column_number),
+                    "preprocessor line marking an implicit 'extern C' block. This is not fully supported\n");
         }
     }
 #endif
@@ -1937,18 +1941,22 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        error_printf("%s:%d:%d: error: invalid character '%c' (%#x)\n", 
-				scanning_now.current_filename,
-                scanning_now.line_number,
-                scanning_now.column_number,
+        error_printf_at(
+                make_locus(
+                    scanning_now.current_filename,
+                    scanning_now.line_number,
+                    scanning_now.column_number),
+                "invalid character '%c' (%#x)\n",
                 *yytext, *yytext);
     }
     else
     {
-        error_printf("%s:%d:%d: error: invalid character %#x\n", 
-				scanning_now.current_filename,
-                scanning_now.line_number,
-                scanning_now.column_number,
+        error_printf_at(
+                make_locus(
+                    scanning_now.current_filename,
+                    scanning_now.line_number,
+                    scanning_now.column_number),
+                "invalid character %#x\n", 
                 *yytext);
     }
     update_location();
@@ -2173,7 +2181,7 @@ void register_new_directive(compilation_configuration_t* configuration,
             {
                 if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
                 {
-                    warn_printf("Warning, directive or construct "
+                    warn_printf_at(NULL, "Warning, directive or construct "
                             "'%s' already registered for pragma '%s'"
                             ", ignoring additional registrations\n",
                             directive, prefix);

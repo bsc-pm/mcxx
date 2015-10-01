@@ -19,8 +19,7 @@ gcc_extra_bits_init_declarator : unknown_pragma attribute_specifier_seq
     }
     else
     {
-        warn_printf("%s: warning: ignoring '#pragma %s' after the declarator\n",
-                 ast_location($1),
+        warn_printf_at(ast_get_locus($1), "ignoring '#pragma %s' after the declarator\n",
                  ast_get_text($1));
         $$ = $2;
     }
@@ -33,8 +32,7 @@ gcc_extra_bits_init_declarator : unknown_pragma attribute_specifier_seq
     }
     else
     {
-        warn_printf("%s: warning: ignoring '#pragma %s' after the declarator\n",
-                 ast_location($1),
+        warn_printf_at(ast_get_locus($1), "ignoring '#pragma %s' after the declarator\n",
                  ast_get_text($1));
         $$ = NULL;
     }

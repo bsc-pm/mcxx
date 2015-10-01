@@ -392,6 +392,11 @@ namespace TL
         return _pragma_line.get_locus_str();
     }
 
+    const locus_t* PragmaCustomClause::get_locus() const
+    {
+        return _pragma_line.get_locus();
+    }
+
     ObjectList<Nodecl::NodeclBase> PragmaCustomClause::get_arguments_as_expressions(const ClauseTokenizer& tokenizer) const
     {
         return this->get_arguments_as_expressions(_pragma_line.retrieve_context(), tokenizer);
@@ -416,8 +421,8 @@ namespace TL
             }
             if (deprecated_names.contains(clause.get_text()))
             {
-                warn_printf("%s: warning: clause '%s' is deprecated. Instead use '%s'\n",
-                        clause.get_locus_str().c_str(),
+                warn_printf_at(clause.get_locus(),
+                        "clause '%s' is deprecated. Instead use '%s'\n",
                         clause.get_text().c_str(),
                         aliased_names[0].c_str());
             }
@@ -515,8 +520,8 @@ namespace TL
         PragmaCustomParameter param = this->get_parameter_no_mark_used();
         if (param.is_marked_as_unused())
         {
-            warn_printf("%s: warning: ignoring parameter '%s' of this pragma\n",
-                    param.get_locus_str().c_str(),
+            warn_printf_at(param.get_locus(),
+                    "ignoring parameter '%s' of this pragma\n",
                     param.get_raw_arguments().c_str());
         }
 
@@ -529,8 +534,8 @@ namespace TL
 
             if (current_clause.is_marked_as_unused())
             {
-                warn_printf("%s: warning: ignoring clause '%s'\n",
-                        it->get_locus_str().c_str(),
+                warn_printf_at(it->get_locus(),
+                        "ignoring clause '%s'\n",
                         current_clause.get_text().c_str());
             }
         }

@@ -34,8 +34,9 @@ void LoweringVisitor::visit(const Nodecl::OmpSs::Register& construct)
 {
     if (!Nanos::Version::interface_is_at_least("copies_api", 1004))
     {
-        error_printf("%s: error: '#pragma omp register' requires a newer Nanos++ library with 'copies_api' >= 1004\n",
-                construct.get_locus_str().c_str());
+        error_printf_at(
+                construct.get_locus(),
+                "'#pragma omp register' requires a newer Nanos++ library with 'copies_api' >= 1004\n");
         return;
     }
 

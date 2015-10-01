@@ -801,8 +801,8 @@ namespace TL { namespace Nanox {
                         // FIXME - We should check this earlier. In OpenMP::Core
                         if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
                         {
-                            error_printf("%s: error: symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
-                                    sym.get_locus_str().c_str(),
+                            error_printf_at(sym.get_locus(),
+                                    "symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
                                     sym.get_name().c_str());
                         }
                     }
@@ -1146,8 +1146,8 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-                    error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n",
-                            it->get_locus_str().c_str(),
+                    error_printf_at(it->get_locus(),
+                            "entity '%s' with unresolved 'auto' data sharing\n",
                             sym.get_name().c_str());
                 }
                 if (!l.empty())

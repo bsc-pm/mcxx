@@ -156,11 +156,9 @@ namespace TL { namespace OpenMP {
             DataReference expr(*it);
             if (!expr.is_valid())
             {
-                warn_printf("%s",
-                        expr.get_error_log().c_str());
-
-                warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
-                        expr.get_locus_str().c_str(),
+                expr.commit_diagnostic();
+                warn_printf_at(expr.get_locus(),
+                        "invalid dependency expression '%s', skipping\n",
                         expr.prettyprint().c_str());
 
                 continue;
@@ -195,20 +193,20 @@ namespace TL { namespace OpenMP {
                         // the current expression (i.e. a symbol) into a class member access
                         || (sym.is_variable() && sym.is_member() && !sym.is_static()))
                 {
-                    warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
-                            expr.get_locus_str().c_str(),
+                    warn_printf_at(expr.get_locus(),
+                            "invalid dependency expression '%s', skipping\n",
                             expr.prettyprint().c_str());
 
-                    info_printf("%s: info: dependences over non-static data members are not allowed in OpenMP\n",
-                            expr.get_locus_str().c_str());
+                    info_printf_at(expr.get_locus(),
+                            "dependences over non-static data members are not allowed in OpenMP\n");
 
                     continue;
                 }
                 // We cannot define a dependence over 'this' in OpenMP
                 else if (sym.get_name() == "this")
                 {
-                    warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
-                            expr.get_locus_str().c_str(),
+                    warn_printf_at(expr.get_locus(),
+                            "invalid dependency expression '%s', skipping\n",
                             expr.prettyprint().c_str());
 
                     continue;
@@ -407,8 +405,8 @@ namespace TL { namespace OpenMP {
             {
                 if (dep_set == NULL)
                 {
-                    error_printf("%s: error: skipping item '%s' in 'depend' clause because it lacks dependence-type\n",
-                            locus_to_str(locus),
+                    error_printf_at(locus,
+                            "skipping item '%s' in 'depend' clause because it lacks dependence-type\n",
                             current_dep_expr.c_str());
                     continue;
                 }

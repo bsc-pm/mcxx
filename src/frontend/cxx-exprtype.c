@@ -997,8 +997,7 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
         case AST_UPC_ELEMSIZEOF :
         case AST_UPC_LOCALSIZEOF :
             {
-                error_printf("%s: sorry: UPC constructs not supported yet\n",
-                        ast_location(expression));
+                error_printf_at(ast_get_locus(expression), "sorry: UPC constructs not supported yet\n");
                 break;
             }
             /* UPC has upc_{local,block,elem}sizeof that are identical to the normal one */
@@ -1006,8 +1005,7 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
         case AST_UPC_ELEMSIZEOF_TYPEID :
         case AST_UPC_LOCALSIZEOF_TYPEID :
             {
-                error_printf("%s: sorry: UPC constructs not supported yet\n",
-                        ast_location(expression));
+                error_printf_at(ast_get_locus(expression), "sorry: UPC constructs not supported yet\n");
                 break;
             }
         case AST_DERREFERENCE :
@@ -1561,8 +1559,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
 
     if (result == NULL)
     {
-        error_printf("%s: error: there is not any appropiate integer type for constant '%s', assuming 'unsigned long long'\n",
-                ast_location(expr),
+        error_printf_at(ast_get_locus(expr), "there is not any appropiate integer type for constant '%s', assuming 'unsigned long long'\n",
                 ASTText(expr));
         result = get_unsigned_long_long_int_type();
     }
@@ -1620,8 +1617,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         if (IS_CXX03_LANGUAGE)
         {
-            warn_printf("%s: warning: char16_t literals are a C++11 feature\n",
-                    ast_location(expr));
+            warn_printf_at(ast_get_locus(expr), "char16_t literals are a C++11 feature\n");
         }
         result = get_char16_t_type();
         literal++;
@@ -1630,8 +1626,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     {
         if (IS_CXX03_LANGUAGE)
         {
-            warn_printf("%s: warning: char32_t literals are a C++11 feature\n",
-                    ast_location(expr));
+            warn_printf_at(ast_get_locus(expr), "char32_t literals are a C++11 feature\n");
         }
         result = get_char32_t_type();
         literal++;
@@ -1687,8 +1682,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                       ast_location(expr),
+                               error_printf_at(ast_get_locus(expr), "%s does not seem a valid character literal\n",
                                        prettyprint_in_buffer(expr));
                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                return;
@@ -1713,8 +1707,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                       ast_location(expr),
+                               error_printf_at(ast_get_locus(expr), "%s does not seem a valid character literal\n",
                                        prettyprint_in_buffer(expr));
                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                return;
@@ -1741,8 +1734,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                                {
                                    char ill_literal[11];
                                    strncpy(ill_literal, &literal[1], /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                   error_printf("%s: error: invalid universal literal character name '%s'\n",
-                                           ast_location(expr),
+                                   error_printf_at(ast_get_locus(expr), "invalid universal literal character name '%s'\n",
                                            ill_literal);
                                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                    return;
@@ -1772,8 +1764,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            break;
                        }
             default: {
-                         error_printf("%s: error: %s does not seem a valid escape character\n", 
-                                 ast_location(expr),
+                         error_printf_at(ast_get_locus(expr), "%s does not seem a valid escape character\n",
                                  prettyprint_in_buffer(expr));
                          *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                          return;
@@ -1795,15 +1786,15 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     do { \
         if (value == 0 && errno == ERANGE) \
         { \
-            warn_printf("%s: warning: value '%s' underflows '%s'\n", \
-                    ast_location(expr), text, typename); \
+            warn_printf_at(ast_get_locus(expr), "value '%s' underflows '%s'\n", \
+                    text, typename); \
             value = 0.0; \
             generate_text_node = 1; \
         } \
         else if (isinf(value)) \
         { \
-            warn_printf("%s: warning: value '%s' overflows '%s'\n", \
-                    ast_location(expr), text, typename); \
+            warn_printf_at(ast_get_locus(expr), "value '%s' overflows '%s'\n", \
+                    text, typename); \
             value = huge; \
             generate_text_node = 1; \
         } \
@@ -1813,15 +1804,15 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     do { \
         if (value == 0 && errno == ERANGE) \
         { \
-            warn_printf("%s: warning: value '%s' underflows '%s'\n", \
-                    ast_location(expr), text, typename); \
+            warn_printf_at(ast_get_locus(expr), "value '%s' underflows '%s'\n", \
+                    text, typename); \
             value = 0.0; \
             generate_text_node = 1; \
         } \
         else if (isinf_fun(value)) \
         { \
-            warn_printf("%s: warning: value '%s' overflows '%s'\n", \
-                    ast_location(expr), text, typename); \
+            warn_printf_at(ast_get_locus(expr), "value '%s' overflows '%s'\n", \
+                     text, typename); \
             value = huge; \
             generate_text_node = 1; \
         } \
@@ -1894,7 +1885,7 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
         }
 #else
         {
-            error_printf("%s: error: __float128 literals not supported\n", ast_location(expr));
+            error_printf_at(ast_get_locus(expr), "__float128 literals not supported\n");
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
         }
@@ -2055,8 +2046,7 @@ static void compute_length_of_literal_string(
             // This is a raw_string, do not interpret escape sequences
             CXX03_LANGUAGE()
             {
-                warn_printf("%s: warning: raw-string-literals are a C++11 feature\n", 
-                        locus_to_str(locus));
+                warn_printf_at(locus, "raw-string-literals are a C++11 feature\n");
             }
             is_raw_string = 1;
             literal++;
@@ -2189,8 +2179,7 @@ static void compute_length_of_literal_string(
                                        {
                                            char ill_literal[11];
                                            strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                           error_printf("%s: error: invalid universal literal name '%s'\n", 
-                                                   locus_to_str(locus),
+                                           error_printf_at(locus, "invalid universal literal name '%s'\n",
                                                    ill_literal);
                                            *num_codepoints = -1;
                                            DELETE(*codepoints);
@@ -2229,8 +2218,7 @@ static void compute_length_of_literal_string(
                                    char c[3];
 
                                    strncpy(c, beginning_of_escape, 3);
-                                   error_printf("%s: error: invalid escape sequence '%s'\n",
-                                           locus_to_str(locus), c);
+                                   error_printf_at(locus, "invalid escape sequence '%s'\n", c);
                                    *num_codepoints = -1;
                                    DELETE(*codepoints);
                                    return;
@@ -2294,8 +2282,7 @@ char* interpret_schar(const char* schar, const locus_t* locus)
     }
     else
     {
-        error_printf("%s: error: invalid non-narrow char string literal\n",
-                locus_to_str(locus));
+        error_printf_at(locus, "invalid non-narrow char string literal\n");
         return NULL;
     }
 }
@@ -2394,8 +2381,7 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
                 }
                 else if (errno == EINVAL || errno == EILSEQ)
                 {
-                    error_printf("%s: error: discarding invalid UTF-16 literal\n",
-                            ast_location(expr));
+                    error_printf_at(ast_get_locus(expr), "discarding invalid UTF-16 literal\n");
                     *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                     DELETE(output_buffer);
                 }
@@ -2541,8 +2527,7 @@ static void resolve_symbol_this_nodecl(const decl_context_t* decl_context,
 
     if (this_symbol == NULL)
     {
-        error_printf("%s: error: 'this' cannot be used in this context\n",
-                locus_to_str(locus));
+        error_printf_at(locus, "'this' cannot be used in this context\n");
         *nodecl_output = nodecl_make_err_expr(locus);
     }
     else
@@ -2559,8 +2544,7 @@ static void resolve_symbol_this_nodecl(const decl_context_t* decl_context,
             if (decl_context->current_scope->kind == BLOCK_SCOPE
                     && !symbol_entity_specs_get_is_constexpr(decl_context->current_scope->related_entry))
             {
-                error_printf("%s: error: 'this' referenced inside a non-constexpr member function or constructor\n",
-                        locus_to_str(locus));
+                error_printf_at(locus, "'this' referenced inside a non-constexpr member function or constructor\n");
             }
         }
     }
@@ -3069,8 +3053,7 @@ static char filter_only_nonmembers(scope_entry_t* e, void* p UNUSED_PARAMETER)
 
 static void error_message_delete_call(const decl_context_t* decl_context, scope_entry_t* entry, const locus_t* locus)
 {
-    error_printf("%s: error: call to deleted function '%s'\n",
-            locus_to_str(locus),
+    error_printf_at(locus, "call to deleted function '%s'\n",
             print_decl_type_str(entry->type_information, decl_context,
                 get_qualified_symbol_name(entry, decl_context)));
 }
@@ -3576,8 +3559,7 @@ static char is_valid_reference_to_nonstatic_member_function(nodecl_t n, const de
 
     if (!result)
     {
-        error_printf("%s: error: invalid reference to nonstatic member function '%s'\n",
-                nodecl_locus_to_str(n),
+        error_printf_at(nodecl_get_locus(n), "invalid reference to nonstatic member function '%s'\n",
                 codegen_to_str(n, decl_context));
     }
 
@@ -3979,8 +3961,7 @@ void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, const decl_cont
             && nodecl_is_constant(*rhs)
             && value_not_valid_for_divisor(nodecl_get_constant(*rhs)))
     {
-        warn_printf("%s: warning: division by zero\n",
-                nodecl_locus_to_str(*rhs));
+        warn_printf_at(nodecl_get_locus(*rhs), "division by zero\n");
         // Disable constant evaluation
         const_value_div_safe = NULL;
     }
@@ -6532,8 +6513,7 @@ static void parse_lhs_lower_than(AST op,
             && contains_wrongly_associated_template_name(op, decl_context))
     {
         // This is something like a + p->f<3>(4) being parsed as a + (p->f<3)>4
-        error_printf("%s: error: left-hand side of operator < is a template-name\n",
-                ast_location(op));
+        error_printf_at(ast_get_locus(op), "left-hand side of operator < is a template-name\n");
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(op));
     }
 }
@@ -6553,8 +6533,7 @@ static void parse_reference(AST op,
 
             if (nodecl_is_err_expr(op_name))
             {
-                error_printf("%s: error: invalid qualified name '%s'\n",
-                        ast_location(op), prettyprint_in_buffer(op));
+                error_printf_at(ast_get_locus(op), "invalid qualified name '%s'\n", prettyprint_in_buffer(op));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(op));
                 return;
             }
@@ -6565,8 +6544,7 @@ static void parse_reference(AST op,
 
             if (entry_list == NULL)
             {
-                error_printf("%s: error: invalid qualified name '%s'\n",
-                        ast_location(op), prettyprint_in_buffer(op));
+                error_printf_at(ast_get_locus(op), "invalid qualified name '%s'\n", prettyprint_in_buffer(op));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(op));
                 return;
             }
@@ -6616,8 +6594,7 @@ static void compute_operator_reference_type(nodecl_t* op,
 
         if (entry_list == NULL)
         {
-            error_printf("%s: error: name '%s' not found in scope\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "name '%s' not found in scope\n",
                     codegen_to_str(*op, decl_context));
 
             *nodecl_output = nodecl_make_err_expr(locus);
@@ -7052,8 +7029,7 @@ static void check_unary_expression_(node_t node_kind,
         {
             t_op = no_ref(t_op);
         }
-        error_printf("%s: error: unary %s cannot be applied to operand '%s' (of type '%s')\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "unary %s cannot be applied to operand '%s' (of type '%s')\n",
                 get_operation_function_name(node_kind), 
                 codegen_to_str(*op, decl_context), print_type_str(t_op, decl_context));
 
@@ -7083,8 +7059,7 @@ static void check_binary_expression_(node_t node_kind,
             lhs_type = no_ref(lhs_type);
             rhs_type = no_ref(rhs_type);
         }
-        error_printf("%s: error: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
                 get_operation_function_name(node_kind),
                 codegen_to_str(*nodecl_lhs, decl_context), print_type_str(lhs_type, decl_context),
                 codegen_to_str(*nodecl_rhs, decl_context), print_type_str(rhs_type, decl_context));
@@ -7155,8 +7130,7 @@ static void check_throw_expression_nodecl(nodecl_t nodecl_thrown, const locus_t*
     if (!nodecl_expr_is_value_dependent(nodecl_thrown)
             && check_expr_flags.must_be_constant)
     {
-        error_printf("%s: error: throw-expression in constant-expression\n",
-                locus_to_str(locus));
+        error_printf_at(locus, "throw-expression in constant-expression\n");
     }
     *nodecl_output = nodecl_make_throw(nodecl_thrown, get_throw_expr_type(), locus);
 }
@@ -7228,8 +7202,7 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
     }
     else
     {
-        error_printf("%s: error: name '%s' not valid in expression\n",
-                locus_to_str(locus), entry->symbol_name);
+        error_printf_at(locus, "name '%s' not valid in expression\n", entry->symbol_name);
         *nodecl_output = nodecl_make_err_expr(locus);
     }
 
@@ -7246,8 +7219,7 @@ static void compute_symbol_type(AST expr, const decl_context_t* decl_context, no
 
         if (result == NULL)
         {
-            error_printf("%s: error: symbol '%s' not found in current scope\n",
-                    ast_location(expr), ASTText(expr));
+            error_printf_at(ast_get_locus(expr), "symbol '%s' not found in current scope\n", ASTText(expr));
 
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
@@ -7346,8 +7318,7 @@ static void cxx_compute_name_from_entry_list(
 
     if (entry_list == NULL)
     {
-        error_printf("%s: error: symbol '%s' not found in current scope\n",
-                nodecl_locus_to_str(nodecl_name), codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
+        error_printf_at(nodecl_get_locus(nodecl_name), "symbol '%s' not found in current scope\n", codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;
     }
@@ -7373,8 +7344,7 @@ static void cxx_compute_name_from_entry_list(
                 && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER
                 && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
     {
-        error_printf("%s: error: %s '%s' is not valid in this context\n",
-                nodecl_locus_to_str(nodecl_name),
+        error_printf_at(nodecl_get_locus(nodecl_name), "%s '%s' is not valid in this context\n",
                 symbol_kind_descriptive_name(entry->kind),
                 codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
@@ -7500,8 +7470,7 @@ static void cxx_compute_name_from_entry_list(
             else
             {
                 // Invalid access to a nonstatic member from a "this" lacking context
-                error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
-                        nodecl_locus_to_str(nodecl_name),
+                error_printf_at(nodecl_get_locus(nodecl_name), "cannot access to nonstatic data member '%s'\n",
                         get_qualified_symbol_name(entry, entry->decl_context));
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                 return;
@@ -7551,9 +7520,9 @@ static void cxx_compute_name_from_entry_list(
                                     /* || (check_expr_flags.must_be_constant == MUST_BE_NONTYPE_TEMPLATE_PARAMETER
                                         && !is_array_type(entry->type_information)) */)
                             {
-                                error_printf("%s: error: const variable '%s' is not integral or "
+                                error_printf_at(nodecl_get_locus(nodecl_name),
+                                        "const variable '%s' is not integral or "
                                         "enumeration type in constant expression\n",
-                                        nodecl_locus_to_str(nodecl_name),
                                         get_qualified_symbol_name(entry, entry->decl_context));
                                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                                 return;
@@ -7566,8 +7535,7 @@ static void cxx_compute_name_from_entry_list(
                     }
                     else if (check_expr_flags.must_be_constant)
                     {
-                        error_printf("%s: error: variable '%s' has not been initialized with a constant expression\n",
-                                nodecl_locus_to_str(nodecl_name),
+                        error_printf_at(nodecl_get_locus(nodecl_name), "variable '%s' has not been initialized with a constant expression\n",
                                 get_qualified_symbol_name(entry, entry->decl_context));
                         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                         return;
@@ -7577,8 +7545,7 @@ static void cxx_compute_name_from_entry_list(
                 {
                     if (is_volatile_qualified_type(no_ref(entry->type_information)))
                     {
-                        error_printf("%s: error: volatile variable '%s' in constant-expression\n",
-                                nodecl_locus_to_str(nodecl_name),
+                        error_printf_at(nodecl_get_locus(nodecl_name), "volatile variable '%s' in constant-expression\n",
                                 get_qualified_symbol_name(entry, entry->decl_context));
                         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                         return;
@@ -7587,16 +7554,14 @@ static void cxx_compute_name_from_entry_list(
                     {
                         if (IS_CXX11_LANGUAGE)
                         {
-                            error_printf("%s: error: variable '%s' is not const nor constexpr in constant-expression\n",
-                                    nodecl_locus_to_str(nodecl_name),
+                            error_printf_at(nodecl_get_locus(nodecl_name), "variable '%s' is not const nor constexpr in constant-expression\n",
                                     get_qualified_symbol_name(entry, entry->decl_context));
                             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                             return;
                         }
                         else
                         {
-                            error_printf("%s: error: variable '%s' is not const in constant-expression\n",
-                                    nodecl_locus_to_str(nodecl_name),
+                            error_printf_at(nodecl_get_locus(nodecl_name), "variable '%s' is not const in constant-expression\n",
                                     get_qualified_symbol_name(entry, entry->decl_context));
                             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                             return;
@@ -7606,8 +7571,7 @@ static void cxx_compute_name_from_entry_list(
             }
             else if (check_expr_flags.must_be_constant)
             {
-                error_printf("%s: error: variable '%s' is not allowed in constant-expression\n",
-                        nodecl_locus_to_str(nodecl_name),
+                error_printf_at(nodecl_get_locus(nodecl_name), "variable '%s' is not allowed in constant-expression\n",
                         get_qualified_symbol_name(entry, entry->decl_context));
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                 return;
@@ -7656,8 +7620,7 @@ static void cxx_compute_name_from_entry_list(
 
             if (named_type->kind != SK_FUNCTION)
             {
-                error_printf("%s: error: invalid template class-name '%s' in expression\n", 
-                        nodecl_locus_to_str(nodecl_name),
+                error_printf_at(nodecl_get_locus(nodecl_name), "invalid template class-name '%s' in expression\n",
                         codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                 return;
@@ -7701,8 +7664,7 @@ static void cxx_compute_name_from_entry_list(
     {
         if (!get_is_inside_pack_expansion())
         {
-            error_printf("%s: error: function parameter pack '%s' does not appear inside a pack expansion\n",
-                    nodecl_locus_to_str(nodecl_name),
+            error_printf_at(nodecl_get_locus(nodecl_name), "function parameter pack '%s' does not appear inside a pack expansion\n",
                     entry->symbol_name);
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
             return;
@@ -7855,8 +7817,7 @@ static void check_mcc_debug_array_subscript(AST a,
 
     if (nodecl_get_kind(*nodecl_output) != NODECL_ARRAY_SUBSCRIPT)
     {
-        error_printf("%s: error: @array-subscript-check@ requires an array subscript as the first operand\n",
-                ast_location(a));
+        error_printf_at(ast_get_locus(a), "@array-subscript-check@ requires an array subscript as the first operand\n");
         return;
     }
     nodecl_t nodecl_subscript_list = nodecl_get_child(*nodecl_output, 1);
@@ -7864,8 +7825,7 @@ static void check_mcc_debug_array_subscript(AST a,
     if (!nodecl_is_constant(nodecl_length_expr)
             && !const_value_is_integer(nodecl_get_constant(nodecl_length_expr)))
     {
-        error_printf("%s: error: @array-subscript-check@ requires a constant expression of integer kind as the second argument\n",
-                ast_location(a));
+        error_printf_at(ast_get_locus(a), "@array-subscript-check@ requires a constant expression of integer kind as the second argument\n");
         return;
     }
     int expected_length = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_length_expr));
@@ -7873,9 +7833,9 @@ static void check_mcc_debug_array_subscript(AST a,
 
     if (expected_length != real_length)
     {
-        error_printf("%s: error: array-subscript-check failure, "
+        error_printf_at(ast_get_locus(a),
+                "array-subscript-check failure, "
                 "expected length is '%d' but the subscript list is of length '%d'\n",
-                ast_location(a),
                 expected_length,
                 real_length);
     }
@@ -7892,8 +7852,7 @@ static void check_mcc_debug_constant_value_check(AST a,
 
     if (!nodecl_is_constant(*nodecl_output))
     {
-        error_printf("%s: error: const-value-check failure, expression '%s' is not constant expression\n",
-                ast_location(a),
+        error_printf_at(ast_get_locus(a), "const-value-check failure, expression '%s' is not constant expression\n",
                 codegen_to_str(*nodecl_output, decl_context));
     }
 }
@@ -8010,8 +7969,7 @@ static void check_nodecl_array_subscript_expression_c(
 
     if (check_expr_flags.must_be_constant)
     {
-        error_printf("%s: error: array subscript in a constant expression\n",
-                nodecl_locus_to_str(nodecl_subscripted));
+        error_printf_at(nodecl_get_locus(nodecl_subscripted), "array subscript in a constant expression\n");
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
@@ -8041,8 +7999,8 @@ static void check_nodecl_array_subscript_expression_c(
         if (!is_integral_type(no_ref(subscript_type)) &&
                 !is_unscoped_enum_type(no_ref(subscript_type)))
         {
-            error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
-                    locus_to_str(nodecl_get_locus(nodecl_subscript)),
+            error_printf_at(nodecl_get_locus(nodecl_subscript),
+                    "subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
                     codegen_to_str(nodecl_subscript, decl_context),
                     print_type_str(no_ref(subscript_type), decl_context),
                     print_type_str(get_ptrdiff_t_type(), decl_context));
@@ -8146,9 +8104,10 @@ static void check_nodecl_array_subscript_expression_c(
     }
     else
     {
-        error_printf("%s: error: expression '%s[%s]' is invalid since '%s' has type '%s' which is "
+        error_printf_at(
+                nodecl_get_locus(nodecl_subscripted),
+                "expression '%s[%s]' is invalid since '%s' has type '%s' which is "
                 "neither an array-type, pointer-type or vector-type\n",
-                nodecl_locus_to_str(nodecl_subscripted),
                 codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
                 codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
                 codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
@@ -8405,14 +8364,12 @@ static void check_nodecl_array_subscript_expression_cxx(
         {
             if (IS_CXX11_LANGUAGE)
             {
-                error_printf("%s: error: array subscript of non-constexpr array '%s' in a constant expression\n",
-                        nodecl_locus_to_str(nodecl_subscripted),
+                error_printf_at(nodecl_get_locus(nodecl_subscripted), "array subscript of non-constexpr array '%s' in a constant expression\n",
                         codegen_to_str(nodecl_subscripted, decl_context));
             }
             else
             {
-                error_printf("%s: error: array subscript in a constant expression\n",
-                        nodecl_locus_to_str(nodecl_subscripted));
+                error_printf_at(nodecl_get_locus(nodecl_subscripted), "array subscript in a constant expression\n");
             }
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
@@ -8483,8 +8440,7 @@ static void check_nodecl_array_subscript_expression_cxx(
     else
     {
 
-        error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
-                nodecl_locus_to_str(nodecl_subscripted),
+        error_printf_at(nodecl_get_locus(nodecl_subscripted), "in '%s[%s]' no matching operator[] for types '%s'\n",
                 codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
                 codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
                 print_type_str(subscripted_type, decl_context));
@@ -8541,7 +8497,7 @@ static void check_unqualified_conversion_function_id(AST expression, const decl_
 
     if (decl_context->class_scope == NULL)
     {
-        error_printf("%s: error: a class-scope is required to name a conversion function\n", ast_location(expression));
+        error_printf_at(ast_get_locus(expression), "a class-scope is required to name a conversion function\n");
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
         return;
     }
@@ -8580,8 +8536,7 @@ static void check_unqualified_conversion_function_id(AST expression, const decl_
 
     if (entry_list == NULL)
     {
-        error_printf("%s: error: 'operator %s' not found in the current scope\n",
-                ast_location(expression),
+        error_printf_at(ast_get_locus(expression), "'operator %s' not found in the current scope\n",
                 print_type_str(conversion_type, decl_context));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
         return;
@@ -9432,9 +9387,10 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
                 third_type = no_ref(third_type);
             }
 
-            error_printf("%s: error: ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
+            error_printf_at(
+                    nodecl_get_locus(first_op),
+                    "ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
                     "second operand '%s' (of type '%s') and third operand '%s' (of type '%s')\n",
-                    nodecl_locus_to_str(first_op),
                     codegen_to_str(first_op, nodecl_retrieve_context(first_op)), print_type_str(first_type, decl_context),
                     codegen_to_str(second_op, nodecl_retrieve_context(second_op)), print_type_str(second_type, decl_context),
                     codegen_to_str(third_op, nodecl_retrieve_context(third_op)), print_type_str(third_type, decl_context));
@@ -9560,8 +9516,7 @@ static void check_new_expression_impl(
 {
     if (check_expr_flags.must_be_constant)
     {
-        error_printf("%s: error: new-expression in constant-expression\n",
-                locus_to_str(locus));
+        error_printf_at(locus, "new-expression in constant-expression\n");
     }
 
     char is_new_array = is_array_type(new_type);
@@ -9665,8 +9620,7 @@ static void check_new_expression_impl(
 
     if (operator_new_list == NULL)
     {
-        error_printf("%s: error: no suitable '%s' has been found in the scope\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "no suitable '%s' has been found in the scope\n",
                 prettyprint_in_buffer(called_operation_new_tree));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_placement_list);
@@ -9728,14 +9682,13 @@ static void check_new_expression_impl(
         argument_call = strappend(argument_call, ")");
 
         const char* message = NULL;
-        uniquestr_sprintf(&message, "%s: error: no suitable '%s' found for new-expression\n",
-                locus_to_str(locus),
+        uniquestr_sprintf(&message, "no suitable '%s' found for new-expression\n",
                 argument_call);
 
         diagnostic_candidates(operator_new_list, &message, locus);
         entry_list_free(operator_new_list);
 
-        error_printf("%s", message);
+        error_printf_at(locus, "%s", message);
 
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_placement_list);
@@ -9946,8 +9899,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
 {
     if (check_expr_flags.must_be_constant)
     {
-        error_printf("%s: error: delete-expression in constant-expression\n",
-                locus_to_str(locus));
+        error_printf_at(locus, "delete-expression in constant-expression\n");
     }
 
     // FIXME - We are not calling the deallocation function
@@ -9992,19 +9944,16 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
                 if (entry_list_size(pointer_conversions) > 1)
                 {
                     conversion_fun_to_pointer = NULL;
-                    error_printf("%s: error: more than one conversion to pointer for type '%s' in delete%s expression\n",
-                            locus_to_str(locus),
+                    error_printf_at(locus, "more than one conversion to pointer for type '%s' in delete%s expression\n",
                             print_type_str(deleted_type, decl_context),
                             is_array_delete ? "[]" : "");
-                    info_printf("%s: info: candidates are:\n",
-                            locus_to_str(locus));
+                    info_printf_at(locus, "candidates are:\n");
                     for (it = entry_list_iterator_begin(pointer_conversions);
                             !entry_list_iterator_end(it);
                             entry_list_iterator_next(it))
                     {
                         scope_entry_t* current_conv = entry_list_iterator_current(it);
-                        info_printf("%s: info:     %s\n",
-                                locus_to_str(current_conv->locus),
+                        info_printf_at(current_conv->locus, "%s\n",
                                 print_decl_type_str(current_conv->type_information,
                                     decl_context,
                                     get_qualified_symbol_name(current_conv, decl_context)));
@@ -10063,8 +10012,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
 
             if (!ok)
             {
-                error_printf("%s: error: invalid type '%s' in delete%s expression\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "invalid type '%s' in delete%s expression\n",
                         print_type_str(deleted_type, decl_context),
                         is_array_delete ? "[]" : "");
                 *nodecl_output = nodecl_make_err_expr(locus);
@@ -10086,8 +10034,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
 
         if (!is_complete_type(full_type))
         {
-            error_printf("%s: error: invalid incomplete type '%s' in delete%s expression\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "invalid incomplete type '%s' in delete%s expression\n",
                     print_type_str(full_type, decl_context),
                     is_array_delete ? "[]" : "");
             *nodecl_output = nodecl_make_err_expr(locus);
@@ -10293,13 +10240,11 @@ static const_value_t* cxx_nodecl_make_value_conversion(
         // Emit a warning for some common cases
         if (scs.conv[1] == SCI_INTEGRAL_TO_POINTER_CONVERSION)
         {
-            warn_printf("%s: warning: conversion from integer type to pointer type\n",
-                    locus_to_str(locus));
+            warn_printf_at(locus, "conversion from integer type to pointer type\n");
         }
         else if (scs.conv[2] == SCI_POINTER_TO_INTEGRAL_CONVERSION)
         {
-            warn_printf("%s: warning: conversion from pointer type to integer\n",
-                    locus_to_str(locus));
+            warn_printf_at(locus, "conversion from pointer type to integer\n");
         }
     }
 
@@ -10954,8 +10899,7 @@ static void check_nodecl_cast_expr(
 #define CONVERSION_ERROR \
     do { \
       const char* message = NULL; \
-      uniquestr_sprintf(&message, "%s: error: expression '%s' of type '%s' cannot be converted to '%s' using a %s\n", \
-              locus_to_str(locus), \
+      uniquestr_sprintf(&message, "expression '%s' of type '%s' cannot be converted to '%s' using a %s\n", \
               codegen_to_str(nodecl_casted_expr, decl_context), \
               print_type_str(nodecl_get_type(nodecl_casted_expr), decl_context), \
               print_type_str(declarator_type, decl_context), \
@@ -10964,7 +10908,7 @@ static void check_nodecl_cast_expr(
       { \
           diagnostic_candidates(unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)), &message, locus); \
       } \
-      error_printf("%s", message); \
+      error_printf_at(locus, "%s", message); \
       *nodecl_output = nodecl_make_err_expr(locus); \
       nodecl_free(nodecl_casted_expr); \
       return; \
@@ -11042,8 +10986,7 @@ static void check_nodecl_cast_expr(
                 dest_type = no_ref(dest_type);
             }
             const char* message = NULL;
-            uniquestr_sprintf(&message, "%s: error: invalid cast of expression '%s' of type '%s' to type '%s'\n",
-                    locus_to_str(locus),
+            uniquestr_sprintf(&message, "invalid cast of expression '%s' of type '%s' to type '%s'\n",
                     codegen_to_str(nodecl_casted_expr, decl_context),
                     print_type_str(orig_type, decl_context),
                     print_type_str(dest_type, decl_context));
@@ -11054,7 +10997,7 @@ static void check_nodecl_cast_expr(
                         &message,
                         locus);
             }
-            error_printf("%s", message);
+            error_printf_at(locus, "%s", message);
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_casted_expr);
 
@@ -11080,8 +11023,7 @@ static void check_nodecl_cast_expr(
     {
         if (check_expr_flags.must_be_constant)
         {
-            error_printf("%s: error: dynamic_cast in constant expression\n",
-                    locus_to_str(locus));
+            error_printf_at(locus, "dynamic_cast in constant expression\n");
         }
         if (!conversion_is_valid_dynamic_cast(
                     &nodecl_casted_expr,
@@ -11100,8 +11042,7 @@ static void check_nodecl_cast_expr(
     {
         if (check_expr_flags.must_be_constant)
         {
-            error_printf("%s: error: reinterpret_cast in constant expression\n",
-                    locus_to_str(locus));
+            error_printf_at(locus, "reinterpret_cast in constant expression\n");
         }
         if (!conversion_is_valid_reinterpret_cast(
                     &nodecl_casted_expr,
@@ -11332,8 +11273,7 @@ static void check_explicit_typename_type_conversion(AST expr, const decl_context
 
     if (entry_list == NULL)
     {
-        error_printf("%s: error: 'typename %s' not found in the current scope\n",
-                ast_location(id_expression),
+        error_printf_at(ast_get_locus(id_expression), "'typename %s' not found in the current scope\n",
                 prettyprint_in_buffer(id_expression));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
@@ -11348,8 +11288,7 @@ static void check_explicit_typename_type_conversion(AST expr, const decl_context
             && entry->kind != SK_DEPENDENT_ENTITY
             && entry->kind != SK_TEMPLATE_TYPE_PARAMETER)
     {
-        error_printf("%s: error: '%s' does not name a type\n",
-                ast_location(expr),
+        error_printf_at(ast_get_locus(expr), "'%s' does not name a type\n",
                 prettyprint_in_buffer(id_expression));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
@@ -11677,9 +11616,10 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
         }
         if (!found_a_conversion)
         {
-            error_printf("%s: error: argument %d of type '%s' cannot be "
+            error_printf_at(
+                    nodecl_get_locus(*arg),
+                    "argument %d of type '%s' cannot be "
                     "converted to type '%s' of parameter\n",
-                    nodecl_locus_to_str(*arg),
                     num_parameter + 1,
                     print_type_str(no_ref(arg_type), p->decl_context),
                     print_type_str(param_type, p->decl_context));
@@ -11697,9 +11637,9 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
 
     if (nodecl_is_err_expr(*arg))
     {
-        error_printf("%s: error: argument %d of type '%s' cannot be "
+        error_printf_at(nodecl_get_locus(*arg),
+                "argument %d of type '%s' cannot be "
                 "converted to type '%s' of parameter\n",
-                nodecl_locus_to_str(*arg),
                 num_parameter + 1,
                 print_type_str(arg_type, p->decl_context),
                 print_type_str(param_type, p->decl_context));
@@ -11779,8 +11719,7 @@ static type_t* compute_default_argument_conversion_for_ellipsis(type_t* arg_type
         {
             if (emit_diagnostic)
             {
-                warn_printf("%s: warning: passing of non-POD class '%s' to an ellipsis parameter\n",
-                        locus_to_str(locus),
+                warn_printf_at(locus, "passing of non-POD class '%s' to an ellipsis parameter\n",
                         print_type_str(no_ref(result_type), decl_context));
             }
         }
@@ -11794,8 +11733,7 @@ static type_t* compute_default_argument_conversion_for_ellipsis(type_t* arg_type
     {
         if (emit_diagnostic)
         {
-            error_printf("%s: error: no suitable default argument promotion exists when passing argument of type '%s'\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "no suitable default argument promotion exists when passing argument of type '%s'\n",
                     print_type_str(no_ref(result_type), decl_context));
         }
         result_type = get_error_type();
@@ -11830,8 +11768,7 @@ static char check_argument_types_of_call(
         {
             if (num_explicit_arguments != function_type_get_num_parameters(function_type))
             {
-                error_printf("%s: error: call to '%s' expects %d arguments but %d passed\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "call to '%s' expects %d arguments but %d passed\n",
                         codegen_to_str(nodecl_called, data->decl_context),
                         function_type_get_num_parameters(function_type),
                         num_explicit_arguments);
@@ -11851,8 +11788,7 @@ static char check_argument_types_of_call(
 
             if (num_explicit_arguments < min_arguments)
             {
-                error_printf("%s: error: call to '%s' expects at least %d parameters but only %d passed\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "call to '%s' expects at least %d parameters but only %d passed\n",
                         codegen_to_str(nodecl_called, data->decl_context),
                         min_arguments,
                         num_explicit_arguments);
@@ -12120,8 +12056,7 @@ static void handle_computed_function_type(
 
     if (specific_name == NULL)
     {
-        error_printf("%s: error: invalid call to generic function '%s'\n", 
-                locus_to_str(locus),
+        error_printf_at(locus, "invalid call to generic function '%s'\n",
                 generic_name->symbol_name);
         *nodecl_called = nodecl_make_err_expr(locus);
         *called_type = get_error_type();
@@ -12163,8 +12098,7 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
     if (!is_function_type(called_type)
             && !is_pointer_to_function_type(called_type))
     {
-        error_printf("%s: expression '%s' cannot be called\n", 
-                nodecl_locus_to_str(nodecl_called),
+        error_printf_at(nodecl_get_locus(nodecl_called), "expression '%s' cannot be called\n",
                 codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_called);
@@ -12294,8 +12228,8 @@ static void check_nodecl_function_call_cxx(
         if (candidates == NULL
                 && !any_arg_is_type_dependent)
         {
-            error_printf("%s: error: called name '%s' not found in the current scope\n",
-                    locus_to_str(nodecl_get_locus(nodecl_called)),
+            error_printf_at(nodecl_get_locus(nodecl_called),
+                    "called name '%s' not found in the current scope\n",
                     codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_called));
             nodecl_free(nodecl_called);
@@ -12479,8 +12413,7 @@ static void check_nodecl_function_call_cxx(
                 && !is_pointer_to_function_type(no_ref(called_type)))
         {
             // This cannot be called at all
-            error_printf("%s: error: expression '%s' cannot be called\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "expression '%s' cannot be called\n",
                     codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_called);
@@ -12894,8 +12827,7 @@ static void check_nodecl_function_call_cxx(
         // Make sure we got an object
         if (nodecl_is_null(nodecl_implicit_argument))
         {
-            error_printf("%s: error: cannot call '%s' without an object\n", 
-                    locus_to_str(locus),
+            error_printf_at(locus, "cannot call '%s' without an object\n",
                     print_decl_type_str(overloaded_call->type_information,
                         decl_context,
                         get_qualified_symbol_name(overloaded_call, decl_context)));
@@ -13101,8 +13033,7 @@ static void check_function_call(AST expr, const decl_context_t* decl_context, no
 
                 entry->type_information = nonproto_type;
 
-                warn_printf("%s: warning: implicit declaration of function '%s' in call\n",
-                        ast_location(advanced_called_expression),
+                warn_printf_at(ast_get_locus(advanced_called_expression), "implicit declaration of function '%s' in call\n",
                         entry->symbol_name);
             }
             else
@@ -13405,8 +13336,7 @@ static void compute_implicit_captures(nodecl_t node,
             capture_info_t capture_info = { entry, nodecl_null() };
             if (lambda_capture_default == LAMBDA_CAPTURE_NONE)
             {
-                error_printf("%s: error: symbol '%s' has not been captured\n",
-                        nodecl_locus_to_str(node),
+                error_printf_at(nodecl_get_locus(node), "symbol '%s' has not been captured\n",
                         entry->symbol_name);
                 *ok = 0;
             }
@@ -14793,8 +14723,7 @@ static void implement_lambda_expression(
         }
         else if (is_decltype_auto_type(param_type))
         {
-            error_printf("%s: error: 'decltype(auto)' is not allowed in the parameters of a lambda expression\n",
-                    locus_to_str(locus));
+            error_printf_at(locus, "'decltype(auto)' is not allowed in the parameters of a lambda expression\n");
             *nodecl_output = nodecl_make_err_expr( locus);
             return;
         }
@@ -14814,8 +14743,7 @@ static void implement_lambda_expression(
     {
         if (!IS_CXX14_LANGUAGE)
         {
-            warn_printf("%s: warning: generic lambdas are a C++14 feature\n",
-                    locus_to_str(locus));
+            warn_printf_at(locus, "generic lambdas are a C++14 feature\n");
         }
         implement_generic_lambda_expression(
                 decl_context,
@@ -14859,14 +14787,12 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
 {
     CXX03_LANGUAGE()
     {
-        warn_printf("%s: warning: lambda-expressions are only valid in C++11\n",
-                ast_location(expression));
+        warn_printf_at(ast_get_locus(expression), "lambda-expressions are only valid in C++11\n");
     }
 
     if (check_expr_flags.must_be_constant)
     {
-        error_printf("%s: error: lambda expression in constant-expression",
-                ast_location(expression));
+        error_printf_at(ast_get_locus(expression), "lambda expression in constant-expression");
     }
 
     AST lambda_capture = ASTSon0(expression);
@@ -14928,8 +14854,7 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
                             scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(capture), NULL);
                             if (entry_list == NULL)
                             {
-                                error_printf("%s: error: captured entity '%s' not found in current scope\n",
-                                        ast_location(capture),
+                                error_printf_at(ast_get_locus(capture), "captured entity '%s' not found in current scope\n",
                                         ASTText(capture));
                                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
                                 return;
@@ -14946,8 +14871,7 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
                                             )
                                         && (!is_pack || entry->kind != SK_VARIABLE_PACK))
                                 {
-                                    error_printf("%s: error: cannot capture entity '%s'\n",
-                                            ast_location(capture),
+                                    error_printf_at(ast_get_locus(capture), "cannot capture entity '%s'\n",
                                             ASTText(capture));
                                     *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
                                     return;
@@ -14960,8 +14884,7 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
                                 {
                                     if (!IS_CXX14_LANGUAGE)
                                     {
-                                        warn_printf("%s: warning: capture with initializer is a C++14 feature\n",
-                                                ast_location(capture));
+                                        warn_printf_at(ast_get_locus(capture), "capture with initializer is a C++14 feature\n");
                                     }
                                     compute_nodecl_initialization(
                                             ASTSon0(capture),
@@ -14979,8 +14902,7 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
                                 if (symbol_is_in_capture(num_capture_copy, capture_copy_info, entry)
                                         || symbol_is_in_capture(num_capture_ref, capture_ref_info, entry))
                                 {
-                                    error_printf("%s: error: entity '%s' captured more than once\n",
-                                            ast_location(capture),
+                                    error_printf_at(ast_get_locus(capture), "entity '%s' captured more than once\n",
                                             ASTText(capture));
                                 }
                                 else
@@ -15005,8 +14927,7 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
                             scope_entry_list_t* entry_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
                             if (entry_list == NULL)
                             {
-                                error_printf("%s: error: captured entity 'this' not found in current scope\n",
-                                        ast_location(capture));
+                                error_printf_at(ast_get_locus(capture), "captured entity 'this' not found in current scope\n");
                                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
                                 return;
                             }
@@ -15021,8 +14942,7 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
                                         || symbol_is_in_capture(num_capture_ref, capture_ref_info, entry)
                                         || lambda_capture_default == LAMBDA_CAPTURE_COPY)
                                 {
-                                    error_printf("%s: error: entity 'this' captured more than once\n",
-                                            ast_location(capture));
+                                    error_printf_at(ast_get_locus(capture), "entity 'this' captured more than once\n");
                                 }
                                 else
                                 {
@@ -15284,8 +15204,7 @@ static void check_generic_selection(AST expression,
                 {
                     if (!nodecl_is_null(nodecl_default_case))
                     {
-                        error_printf("%s: error: more than one default case in generic selection\n",
-                                ast_location(generic_association));
+                        error_printf_at(ast_get_locus(generic_association), "more than one default case in generic selection\n");
                     }
 
                     check_expression_impl_(ASTSon0(generic_association), decl_context, &nodecl_default_case);
@@ -15328,8 +15247,7 @@ static void check_generic_selection(AST expression,
                     {
                         if (!nodecl_is_null(nodecl_chosen_case))
                         {
-                            error_printf("%s: error: more than one case matches the generic selection\n",
-                                ast_location(generic_association));
+                            error_printf_at(ast_get_locus(generic_association), "more than one case matches the generic selection\n");
                         }
 
                         nodecl_chosen_case = nodecl_current_case;
@@ -15356,8 +15274,7 @@ static void check_generic_selection(AST expression,
         }
         else
         {
-            error_printf("%s: error: no matching case in generic selection for selection expression of type '%s'\n",
-                    ast_location(expression),
+            error_printf_at(ast_get_locus(expression), "no matching case in generic selection for selection expression of type '%s'\n",
                     print_type_str(selection_type, decl_context));
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
             return;
@@ -15455,8 +15372,7 @@ static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
 {
     if (!there_are_template_packs(pack))
     {
-        error_printf("%s: error: pack expansion does not reference any parameter pack\n", 
-                locus_to_str(locus));
+        error_printf_at(locus, "pack expansion does not reference any parameter pack\n");
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(pack);
         return;
@@ -16029,8 +15945,7 @@ static void check_nodecl_member_access(
         }
         else
         {
-            error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
-                    nodecl_locus_to_str(nodecl_accessed),
+            error_printf_at(nodecl_get_locus(nodecl_accessed), "'->%s' cannot be applied to '%s' (of type '%s')\n",
                     codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
                     codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
                     print_type_str(no_ref(accessed_type), decl_context));
@@ -16065,8 +15980,7 @@ static void check_nodecl_member_access(
 
         if (operator_arrow_list == NULL)
         {
-            error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
-                    nodecl_locus_to_str(nodecl_accessed),
+            error_printf_at(nodecl_get_locus(nodecl_accessed), "'->%s' cannot be applied to '%s' (of type '%s')\n",
                     codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
                     codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
                     print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
@@ -16133,8 +16047,7 @@ static void check_nodecl_member_access(
 
         if (!is_pointer_to_class_type(no_ref(return_type)))
         {
-            error_printf("%s: error: '%s' returns '%s' that is not a pointer to a class type (or reference thereof)\n",
-                    nodecl_locus_to_str(nodecl_accessed),
+            error_printf_at(nodecl_get_locus(nodecl_accessed), "'%s' returns '%s' that is not a pointer to a class type (or reference thereof)\n",
                     get_qualified_symbol_name(selected_operator_arrow, decl_context),
                     print_type_str(
                         return_type,
@@ -16172,8 +16085,7 @@ static void check_nodecl_member_access(
     {
         if (check_expr_flags.must_be_constant)
         {
-            error_printf("%s: error: pseudo-destructor call in constant-expression\n",
-                    locus_to_str(locus));
+            error_printf_at(locus, "pseudo-destructor call in constant-expression\n");
         }
         *nodecl_output = nodecl_make_pseudo_destructor_name(
                 nodecl_accessed_out,
@@ -16183,8 +16095,7 @@ static void check_nodecl_member_access(
     }
     else if (!is_class_type(no_ref(accessed_type)))
     {
-        error_printf("%s: error: '%s%s' cannot be applied to '%s' (of type '%s')\n",
-                nodecl_locus_to_str(nodecl_accessed),
+        error_printf_at(nodecl_get_locus(nodecl_accessed), "'%s%s' cannot be applied to '%s' (of type '%s')\n",
                 operator_arrow ? "->" : ".",
                 codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
                 codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
@@ -16211,8 +16122,7 @@ static void check_nodecl_member_access(
 
     if (entry_list == NULL)
     {
-        error_printf("%s: error: '%s' is not a member/field of type '%s'\n",
-                nodecl_locus_to_str(nodecl_member),
+        error_printf_at(nodecl_get_locus(nodecl_member), "'%s' is not a member/field of type '%s'\n",
                 codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
                 print_type_str(no_ref(accessed_type), decl_context));
         *nodecl_output = nodecl_make_err_expr(locus);
@@ -16241,8 +16151,7 @@ static void check_nodecl_member_access(
 
         if (check_expr_flags.must_be_constant)
         {
-            error_printf("%s: error: class member access in a constant expression\n",
-                    nodecl_locus_to_str(nodecl_field));
+            error_printf_at(nodecl_get_locus(nodecl_field), "class member access in a constant expression\n");
         }
         else
         {
@@ -16278,14 +16187,12 @@ static void check_nodecl_member_access(
             {
                 if (IS_CXX11_LANGUAGE)
                 {
-                    error_printf("%s: error: class member access of non-constexpr variable '%s' in a constant expression\n",
-                            nodecl_locus_to_str(nodecl_accessed_out),
+                    error_printf_at(nodecl_get_locus(nodecl_accessed_out), "class member access of non-constexpr variable '%s' in a constant expression\n",
                             codegen_to_str(nodecl_accessed_out, decl_context));
                 }
                 else
                 {
-                    error_printf("%s: error: class member access in a constant expression\n",
-                            nodecl_locus_to_str(nodecl_accessed_out));
+                    error_printf_at(nodecl_get_locus(nodecl_accessed_out), "class member access in a constant expression\n");
                 }
             }
             else
@@ -16863,8 +16770,7 @@ static void check_nodecl_postoperator(AST operator,
             // Should be an lvalue
             if (!is_lvalue_reference_type(operated_type))
             {
-                error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
-                        nodecl_locus_to_str(postoperated_expr),
+                error_printf_at(nodecl_get_locus(postoperated_expr), "operand '%s' of %s is not an lvalue\n",
                         codegen_to_str(postoperated_expr, decl_context),
                         is_decrement ? "postdecrement" : "postincrement");
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
@@ -16873,8 +16779,7 @@ static void check_nodecl_postoperator(AST operator,
             }
             if (is_const_qualified_type(no_ref(operated_type)))
             {
-                error_printf("%s: error: operand '%s' of %s is read-only\n",
-                        nodecl_locus_to_str(postoperated_expr),
+                error_printf_at(nodecl_get_locus(postoperated_expr), "operand '%s' of %s is read-only\n",
                         codegen_to_str(postoperated_expr, decl_context),
                         is_decrement ? "postdecrement" : "postincrement");
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
@@ -16891,8 +16796,7 @@ static void check_nodecl_postoperator(AST operator,
         }
         else
         {
-            error_printf("%s: error: type '%s' is not valid for %s operator\n",
-                    nodecl_locus_to_str(postoperated_expr),
+            error_printf_at(nodecl_get_locus(postoperated_expr), "type '%s' is not valid for %s operator\n",
                     print_type_str(no_ref(operated_type), decl_context),
                     is_decrement ? "postdecrement" : "postincrement");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
@@ -16987,8 +16891,7 @@ static void check_nodecl_preoperator(AST operator,
         // Should be an lvalue
         if (!is_lvalue_reference_type(operated_type))
         {
-            error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
-                    nodecl_locus_to_str(preoperated_expr),
+            error_printf_at(nodecl_get_locus(preoperated_expr), "operand '%s' of %s is not an lvalue\n",
                     codegen_to_str(preoperated_expr, decl_context),
                     is_decrement ? "predecrement" : "preincrement");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
@@ -16998,8 +16901,7 @@ static void check_nodecl_preoperator(AST operator,
 
         if (is_const_qualified_type(no_ref(operated_type)))
         {
-            error_printf("%s: error: operand '%s' of %s is read-only\n",
-                    nodecl_locus_to_str(preoperated_expr),
+            error_printf_at(nodecl_get_locus(preoperated_expr), "operand '%s' of %s is read-only\n",
                     codegen_to_str(preoperated_expr, decl_context),
                     is_decrement ? "predecrement" : "preincrement");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
@@ -17016,8 +16918,7 @@ static void check_nodecl_preoperator(AST operator,
     {
         C_LANGUAGE()
         {
-            error_printf("%s: error: type '%s' is not valid for %s operator\n",
-                    nodecl_locus_to_str(preoperated_expr),
+            error_printf_at(nodecl_get_locus(preoperated_expr), "type '%s' is not valid for %s operator\n",
                     print_type_str(no_ref(operated_type), decl_context),
                     is_decrement ? "predecrement" : "preincrement");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
@@ -17223,10 +17124,8 @@ static scope_entry_t* get_typeid_symbol(const decl_context_t* decl_context, cons
             if (entry_list != NULL)
                 entry_list_free(entry_list);
 
-            error_printf("%s: error: namespace 'std' not found when looking up 'std::type_info'. \n"
-                    "%s: info: maybe you need '#include <typeinfo>'\n",
-                    locus_to_str(locus),
-                    locus_to_str(locus));
+            error_printf_at(locus, "namespace 'std' not found when looking up 'std::type_info'\n");
+            info_printf_at(locus, "maybe you need '#include <typeinfo>'\n");
             return NULL;
         }
 
@@ -17241,10 +17140,12 @@ static scope_entry_t* get_typeid_symbol(const decl_context_t* decl_context, cons
             if (entry_list != NULL)
                 entry_list_free(entry_list);
 
-            error_printf("%s: error: namespace 'std' not found when looking up 'std::type_info'. \n"
-                    "%s: info: maybe you need '#include <typeinfo>'\n",
-                    locus_to_str(locus),
-                    locus_to_str(locus));
+            error_printf_at(
+                    locus,
+                    "namespace 'std' not found when looking up 'std::type_info'\n");
+            info_printf_at(
+                    locus,
+                    "maybe you need '#include <typeinfo>'\n");
             return NULL;
         }
 
@@ -17275,10 +17176,12 @@ scope_entry_t* get_std_initializer_list_template(const decl_context_t* decl_cont
         if (!mandatory)
             return NULL;
 
-        error_printf("%s: error: namespace 'std' not found when looking up 'std::initializer_list'\n"
-                "%s: info: maybe you need '#include <initializer_list>'\n",
-                locus_to_str(locus),
-                locus_to_str(locus));
+        error_printf_at(
+                locus,
+                "namespace 'std' not found when looking up 'std::initializer_list'\n");
+        info_printf_at(
+                locus,
+                "maybe you need '#include <initializer_list>'\n");
         return NULL;
     }
 
@@ -17295,10 +17198,12 @@ scope_entry_t* get_std_initializer_list_template(const decl_context_t* decl_cont
         if (!mandatory)
             return NULL;
 
-        error_printf("%s: error: template-name 'initializer_list' not found when looking up 'std::initializer_list'\n"
-                "%s: info: maybe you need '#include <initializer_list>'\n",
-                locus_to_str(locus),
-                locus_to_str(locus));
+        error_printf_at(
+                locus,
+                "template-name 'initializer_list' not found when looking up 'std::initializer_list'\n");
+        info_printf_at(
+                locus,
+                "maybe you need '#include <initializer_list>'\n");
         return NULL;
     }
 
@@ -17468,7 +17373,7 @@ static char update_stack_to_designator(type_t* declared_type,
             nodecl_t expr = nodecl_get_child(current_designator, 0);
             if (!nodecl_is_constant(expr))
             {
-                error_printf("%s: error: index designator [%s] is not constant\n", nodecl_locus_to_str(expr),
+                error_printf_at(nodecl_get_locus(expr), "index designator [%s] is not constant\n",
                         codegen_to_str(expr, nodecl_retrieve_context(expr)));
             }
             else
@@ -17480,8 +17385,7 @@ static char update_stack_to_designator(type_t* declared_type,
                     const_value_t* size = nodecl_get_constant(array_type_get_array_size_expr(type_to_be_initialized));
                     if (const_value_is_zero(const_value_lt(designator_index, size)))
                     {
-                        warn_printf("%s: warning: index designator [%s] is out of bounds of elements of type %s\n",
-                                nodecl_locus_to_str(expr),
+                        warn_printf_at(nodecl_get_locus(expr), "index designator [%s] is out of bounds of elements of type %s\n",
                                 codegen_to_str(expr, nodecl_retrieve_context(expr)),
                                 print_type_str(type_to_be_initialized, nodecl_retrieve_context(expr)));
                     }
@@ -17605,8 +17509,7 @@ static char update_stack_to_designator(type_t* declared_type,
 
             if (!found)
             {
-                error_printf("%s: error: designator '.%s' does not name a field of type '%s'\n",
-                        nodecl_locus_to_str(current_designator),
+                error_printf_at(nodecl_get_locus(current_designator), "designator '.%s' does not name a field of type '%s'\n",
                         field_name,
                         print_type_str(type_stack[*type_stack_idx].type, nodecl_retrieve_context(current_designator)));
                 return 0;
@@ -17614,8 +17517,7 @@ static char update_stack_to_designator(type_t* declared_type,
         }
         else
         {
-            error_printf("%s: error: invalid designator for type '%s'\n",
-                    nodecl_locus_to_str(current_designator),
+            error_printf_at(nodecl_get_locus(current_designator), "invalid designator for type '%s'\n",
                     print_type_str(type_stack[*type_stack_idx].type, nodecl_retrieve_context(current_designator)));
             return 0;
         }
@@ -18004,8 +17906,7 @@ char check_narrowing_conversion(nodecl_t orig_expr,
                 dest_type,
                 nodecl_get_constant(orig_expr)))
     {
-        error_printf("%s: error: narrowing conversion from '%s' to '%s' is not allowed\n",
-                nodecl_locus_to_str(orig_expr),
+        error_printf_at(nodecl_get_locus(orig_expr), "narrowing conversion from '%s' to '%s' is not allowed\n",
                 print_type_str(source_type, decl_context),
                 print_type_str(dest_type, decl_context));
 
@@ -18264,8 +18165,7 @@ void check_nodecl_braced_initializer(
         if (initialization_kind & IK_COPY_INITIALIZATION
                 && symbol_entity_specs_get_is_explicit(constructor))
         {
-            error_printf("%s: error: list copy-initialization would use an explicit default constructor\n",
-                    nodecl_locus_to_str(braced_initializer));
+            error_printf_at(nodecl_get_locus(braced_initializer), "list copy-initialization would use an explicit default constructor\n");
             *nodecl_output = nodecl_make_err_expr(
                     locus);
             return;
@@ -18381,15 +18281,13 @@ void check_nodecl_braced_initializer(
                     {
                         if (nodecl_is_null(array_type_get_array_size_expr(declared_type)))
                         {
-                            error_printf("%s: error: initialization not allowed for arrays of undefined size\n",
-                                    nodecl_locus_to_str(braced_initializer));
+                            error_printf_at(nodecl_get_locus(braced_initializer), "initialization not allowed for arrays of undefined size\n");
                             *nodecl_output = nodecl_make_err_expr(locus);
                             return;
                         }
                         if (!nodecl_is_constant(array_type_get_array_size_expr(declared_type)))
                         {
-                            error_printf("%s: error: initialization not allowed for variable-length arrays\n",
-                                    nodecl_locus_to_str(braced_initializer));
+                            error_printf_at(nodecl_get_locus(braced_initializer), "initialization not allowed for variable-length arrays\n");
                             *nodecl_output = nodecl_make_err_expr(locus);
                             return;
                         }
@@ -18469,8 +18367,7 @@ void check_nodecl_braced_initializer(
                     {
                         if (!allow_excess_of_initializers)
                         {
-                            warn_printf("%s: error: too many initializers for type '%s'\n",
-                                    nodecl_locus_to_str(nodecl_initializer_clause),
+                            warn_printf_at(nodecl_get_locus(nodecl_initializer_clause), "too many initializers for type '%s'\n",
                                     print_type_str(type_stack[type_stack_idx].type, decl_context));
 
                             // Free the stack
@@ -18488,8 +18385,7 @@ void check_nodecl_braced_initializer(
                             return;
                         }
 
-                        warn_printf("%s: warning: too many initializers for type '%s', ignoring\n",
-                                nodecl_locus_to_str(nodecl_initializer_clause),
+                        warn_printf_at(nodecl_get_locus(nodecl_initializer_clause), "too many initializers for type '%s', ignoring\n",
                                 print_type_str(type_stack[type_stack_idx].type, decl_context));
                         // We are at the top level object of this braced initializer, give up
                         too_many_initializers = 1;
@@ -18573,8 +18469,7 @@ void check_nodecl_braced_initializer(
                             // A class can be braced initialized in C++
                             && !(IS_CXX11_LANGUAGE && is_class_type(type_to_be_initialized)))
                     {
-                        warn_printf("%s: warning: redundant brace initializer for type '%s'\n",
-                                nodecl_locus_to_str(nodecl_initializer_clause),
+                        warn_printf_at(nodecl_get_locus(nodecl_initializer_clause), "redundant brace initializer for type '%s'\n",
                                 print_type_str(type_to_be_initialized, decl_context));
                     }
 
@@ -18831,8 +18726,7 @@ void check_nodecl_braced_initializer(
                             {
                                 if (type_stack_idx > 0)
                                 {
-                                    warn_printf("%s: warning: initialization of flexible array member without braces\n",
-                                            nodecl_locus_to_str(nodecl_initializer_clause));
+                                    warn_printf_at(nodecl_get_locus(nodecl_initializer_clause), "initialization of flexible array member without braces\n");
                                 }
                                 type_stack[type_stack_idx].num_items = -1;
                             }
@@ -18979,8 +18873,7 @@ void check_nodecl_braced_initializer(
         }
         else
         {
-            error_printf("%s: error: cannot call internal constructor of '%s' for braced-initializer\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "cannot call internal constructor of '%s' for braced-initializer\n",
                     print_type_str(declared_type, decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
         }
@@ -19018,21 +18911,19 @@ void check_nodecl_braced_initializer(
 
         if (!ok)
         {
-            error_printf("%s: error: invalid initializer for type '%s'\n",
-                    nodecl_locus_to_str(braced_initializer),
+            error_printf_at(nodecl_get_locus(braced_initializer), "invalid initializer for type '%s'\n",
                     print_type_str(declared_type, decl_context));
 
             if (entry_list_size(candidates) != 0)
             {
                 const char* message = NULL;
                 uniquestr_sprintf(&message,
-                        "%s: error: no suitable conversion for list-initialization of type '%s' "
+                        "no suitable conversion for list-initialization of type '%s' "
                         "using an expression of type '%s'\n",
-                        locus_to_str(nodecl_get_locus(braced_initializer)),
                         print_type_str(declared_type, decl_context),
                         print_type_str(nodecl_get_type(braced_initializer), decl_context));
                 diagnostic_candidates(candidates, &message, nodecl_get_locus(braced_initializer));
-                error_printf("%s", message);
+                error_printf_at(locus, "%s", message);
             }
             entry_list_free(candidates);
             DELETE(nodecl_list);
@@ -19193,16 +19084,14 @@ void check_nodecl_braced_initializer(
             {
                 CXX_LANGUAGE()
                 {
-                    error_printf("%s: error: brace initialization with more than one element for type '%s'\n",
-                            nodecl_locus_to_str(braced_initializer),
+                    error_printf_at(nodecl_get_locus(braced_initializer), "brace initialization with more than one element for type '%s'\n",
                             print_type_str(declared_type, decl_context));
                     *nodecl_output = nodecl_make_err_expr(locus);
                     return;
                 }
                 C_LANGUAGE()
                 {
-                    warn_printf("%s: warning: brace initializer with more than one element initializing type '%s'\n",
-                            nodecl_locus_to_str(braced_initializer),
+                    warn_printf_at(nodecl_get_locus(braced_initializer), "brace initializer with more than one element initializing type '%s'\n",
                             print_type_str(declared_type, decl_context));
                 }
             }
@@ -19296,8 +19185,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                 {
                     if (!is_class_type(*designated_type))
                     {
-                        error_printf("%s: in designated initializer '%s', field designator not valid for type '%s'\n",
-                                nodecl_locus_to_str(nodecl_current_designator),
+                        error_printf_at(nodecl_get_locus(nodecl_current_designator), "in designated initializer '%s', field designator not valid for type '%s'\n",
                                 codegen_to_str(nodecl_current_designator, nodecl_retrieve_context(nodecl_current_designator)),
                                 print_type_str(*designated_type, decl_context));
                         ok = 0;
@@ -19343,8 +19231,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                 {
                     if (!is_array_type(*designated_type))
                     {
-                        error_printf("%s: in designated initializer '%s', subscript designator not valid for type '%s'\n",
-                                nodecl_locus_to_str(nodecl_current_designator),
+                        error_printf_at(nodecl_get_locus(nodecl_current_designator), "in designated initializer '%s', subscript designator not valid for type '%s'\n",
                                 codegen_to_str(nodecl_current_designator, nodecl_retrieve_context(nodecl_current_designator)),
                                 print_type_str(*designated_type, decl_context));
                         ok = 0;
@@ -19497,12 +19384,11 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
                 const char* message = NULL;
                 uniquestr_sprintf(&message,
-                        "%s: error: no suitable constructor in initialization '%s%s'\n",
-                        locus_to_str(locus),
+                        "no suitable constructor in initialization '%s%s'\n",
                         print_type_str(declared_type, decl_context),
                         argument_types);
                 diagnostic_candidates(candidates, &message, locus);
-                error_printf("%s", message);
+                error_printf_at(locus, "%s", message);
             }
 
             entry_list_free(candidates);
@@ -19596,8 +19482,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
     {
         if (nodecl_list_length(nodecl_list) > 1)
         {
-            error_printf("%s: error: too many initializers when initializing '%s' type\n", 
-                    nodecl_locus_to_str(direct_initializer),
+            error_printf_at(nodecl_get_locus(direct_initializer), "too many initializers when initializing '%s' type\n",
                     print_type_str(declared_type, decl_context));
 
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
@@ -19795,8 +19680,7 @@ static void check_nodecl_pointer_to_pointer_member(
     {
         if (!is_pointer_to_class_type(no_ref(lhs_type)))
         {
-            error_printf("%s: error: '%s' does not have pointer to class type\n",
-                    nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
+            error_printf_at(nodecl_get_locus(nodecl_lhs), "'%s' does not have pointer to class type\n", codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_lhs);
             nodecl_free(nodecl_rhs);
@@ -19805,8 +19689,7 @@ static void check_nodecl_pointer_to_pointer_member(
 
         if (!is_pointer_to_member_type(no_ref(rhs_type)))
         {
-            error_printf("%s: error: '%s' is does not have pointer to member type\n",
-                    nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
+            error_printf_at(nodecl_get_locus(nodecl_rhs), "'%s' is does not have pointer to member type\n", codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_lhs);
             nodecl_free(nodecl_rhs);
@@ -19827,8 +19710,7 @@ static void check_nodecl_pointer_to_pointer_member(
                     get_actual_class_type(pointed_lhs_type),
                     locus))
         {
-            error_printf("%s: error: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "pointer to member of type '%s' is not compatible with an object of type '%s'\n",
                     print_type_str(no_ref(rhs_type), decl_context), 
                     print_type_str(no_ref(pointed_lhs_type), decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
@@ -19974,8 +19856,7 @@ static void check_nodecl_pointer_to_member(
 
     if (!is_class_type(no_ref(lhs_type)))
     {
-        error_printf("%s: error: '%s' does not have class type\n",
-                nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
+        error_printf_at(nodecl_get_locus(nodecl_lhs), "'%s' does not have class type\n", codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_lhs);
         nodecl_free(nodecl_rhs);
@@ -19983,8 +19864,7 @@ static void check_nodecl_pointer_to_member(
     }
     if (!is_pointer_to_member_type(no_ref(rhs_type)))
     {
-        error_printf("%s: error: '%s' is not a pointer to member\n",
-                nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
+        error_printf_at(nodecl_get_locus(nodecl_rhs), "'%s' is not a pointer to member\n", codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_lhs);
         nodecl_free(nodecl_rhs);
@@ -20001,8 +19881,7 @@ static void check_nodecl_pointer_to_member(
                 get_actual_class_type(no_ref(lhs_type)),
                 locus))
     {
-        error_printf("%s: error: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "pointer to member of type '%s' is not compatible with an object of type '%s'\n",
                 print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(lhs_type), decl_context));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_lhs);
@@ -20451,8 +20330,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
         if (!can_be_initialized)
         {
-            error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
-                    nodecl_locus_to_str(nodecl_expr),
+            error_printf_at(nodecl_get_locus(nodecl_expr), "initializer '%s' has type '%s' not convertible to '%s'\n",
                     codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
                     print_decl_type_str(initializer_expr_type, decl_context, ""),
                     print_decl_type_str(declared_type, decl_context, ""));
@@ -20491,8 +20369,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
         if (!can_be_initialized)
         {
-            error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
-                    nodecl_locus_to_str(nodecl_expr),
+            error_printf_at(nodecl_get_locus(nodecl_expr), "initializer '%s' has type '%s' not convertible to '%s'\n",
                     codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
                     print_decl_type_str(initializer_expr_type, decl_context, ""),
                     print_decl_type_str(declared_type, decl_context, ""));
@@ -20501,13 +20378,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             {
                 const char* message = NULL;
                 uniquestr_sprintf(&message,
-                        "%s: error: no suitable conversion for initialization of type '%s' "
+                        "no suitable conversion for initialization of type '%s' "
                         "using an expression of type '%s'\n",
-                        locus_to_str(nodecl_get_locus(nodecl_expr)),
                         print_type_str(declared_type_no_cv, decl_context),
                         print_type_str(initializer_expr_type, decl_context));
                 diagnostic_candidates(candidates, &message, nodecl_get_locus(nodecl_expr));
-                error_printf("%s", message);
+                error_printf_at(nodecl_get_locus(nodecl_expr), "%s", message);
             }
             entry_list_free(candidates);
 
@@ -20620,13 +20496,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             {
                 const char* message = NULL;
                 uniquestr_sprintf(&message,
-                        "%s: error: no suitable constructor for initialization of type '%s' "
+                        "no suitable constructor for initialization of type '%s' "
                         "using an expression of type '%s'\n",
-                        locus_to_str(nodecl_get_locus(nodecl_expr)),
                         print_type_str(declared_type_no_cv, decl_context),
                         print_type_str(initializer_expr_type, decl_context));
                 diagnostic_candidates(candidates, &message, nodecl_get_locus(nodecl_expr));
-                error_printf("%s", message);
+                error_printf_at(nodecl_get_locus(nodecl_expr), "%s", message);
             }
             entry_list_free(candidates);
 
@@ -20723,9 +20598,10 @@ type_t* deduce_auto_initializer(
         nodecl_t nodecl_list = nodecl_get_child(nodecl_expression_used_for_deduction, 0);
         if (nodecl_list_length(nodecl_list) != 1)
         {
-            error_printf("%s: error: 'auto' deduction with a parenthesized "
-                    "initializer is only possible with one element inside the parentheses\n",
-                    nodecl_locus_to_str(nodecl_expression_used_for_deduction));
+            error_printf_at(
+                    nodecl_get_locus(nodecl_expression_used_for_deduction),
+                    "'auto' deduction with a parenthesized "
+                    "initializer is only possible with one element inside the parentheses\n");
             return get_error_type();
         }
         nodecl_expression_used_for_deduction = nodecl_list_head(nodecl_list);
@@ -20772,8 +20648,7 @@ type_t* deduce_auto_initializer(
     }
     else
     {
-        error_printf("%s: error: failure when deducing type of '%s' from '%s'\n",
-                nodecl_locus_to_str(nodecl_initializer),
+        error_printf_at(nodecl_get_locus(nodecl_initializer), "failure when deducing type of '%s' from '%s'\n",
                 print_type_str(type_to_deduce, decl_context),
                 codegen_to_str(nodecl_initializer, decl_context));
         return get_error_type();
@@ -20795,9 +20670,10 @@ type_t* deduce_decltype_auto_initializer(
         nodecl_t nodecl_list = nodecl_get_child(nodecl_expression_used_for_deduction, 0);
         if (nodecl_list_length(nodecl_list) != 1)
         {
-            error_printf("%s: error: 'decltype(auto)' deduction with a parenthesized "
-                    "initializer is only possible with one element inside the parentheses\n",
-                    nodecl_locus_to_str(nodecl_expression_used_for_deduction));
+            error_printf_at(
+                    nodecl_get_locus(nodecl_expression_used_for_deduction),
+                    "'decltype(auto)' deduction with a parenthesized "
+                    "initializer is only possible with one element inside the parentheses\n");
             return get_error_type();
             // *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
             // nodecl_free(nodecl_initializer);
@@ -20807,8 +20683,7 @@ type_t* deduce_decltype_auto_initializer(
     }
     else if (nodecl_get_kind(nodecl_initializer) == NODECL_CXX_BRACED_INITIALIZER)
     {
-        error_printf("%s: error: cannot deduce 'decltype(auto)' using a braced initializer\n",
-                nodecl_locus_to_str(nodecl_expression_used_for_deduction));
+        error_printf_at(nodecl_get_locus(nodecl_expression_used_for_deduction), "cannot deduce 'decltype(auto)' using a braced initializer\n");
         return get_error_type();
     }
     else if (nodecl_get_kind(nodecl_initializer) == NODECL_CXX_EQUAL_INITIALIZER)
@@ -20834,8 +20709,7 @@ type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context
 {
     if (nodecl_is_err_expr(nodecl_expr))
     {
-        error_printf("%s: error: failure when computing type of decltype(%s)\n",
-                nodecl_locus_to_str(nodecl_expr),
+        error_printf_at(nodecl_get_locus(nodecl_expr), "failure when computing type of decltype(%s)\n",
                 codegen_to_str(nodecl_expr, decl_context));
         return get_error_type();
     }
@@ -20868,8 +20742,7 @@ type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context
 
     if (is_unresolved_overloaded_type(computed_type))
     {
-        error_printf("%s: error: decltype(%s) yields an unresolved overload type\n",
-                nodecl_locus_to_str(nodecl_expr),
+        error_printf_at(nodecl_get_locus(nodecl_expr), "decltype(%s) yields an unresolved overload type\n",
                 codegen_to_str(nodecl_expr, decl_context));
         return get_error_type();
     }
@@ -20944,8 +20817,7 @@ void check_nodecl_initialization(
     {
         if (initializer_self_references(nodecl_initializer, initialized_entry))
         {
-            error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",
-                    nodecl_locus_to_str(nodecl_initializer));
+            error_printf_at(nodecl_get_locus(nodecl_initializer), "an auto declaration initializer cannot reference the initialized name\n");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
             nodecl_free(nodecl_initializer);
             return;
@@ -21582,8 +21454,7 @@ static void check_sizeof_type(type_t* t,
 
         if (is_incomplete_type(t))
         {
-            error_printf("%s: error: sizeof of incomplete type '%s'\n", 
-                    locus_to_str(locus),
+            error_printf_at(locus, "sizeof of incomplete type '%s'\n",
                     print_type_str(t, decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_expr);
@@ -21700,8 +21571,7 @@ static void check_symbol_sizeof_pack(scope_entry_t* entry,
     }
     else
     {
-        error_printf("%s: error: name '%s' is not a template or parameter pack\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "name '%s' is not a template or parameter pack\n",
                 entry->symbol_name);
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
@@ -21737,8 +21607,7 @@ static void check_sizeof_pack(AST expr, const decl_context_t* decl_context, node
 
     if (result_list == NULL)
     {
-        error_printf("%s: error: symbol '%s' not found in the current scope\n",
-                nodecl_locus_to_str(nodecl_name),
+        error_printf_at(nodecl_get_locus(nodecl_name), "symbol '%s' not found in the current scope\n",
                 codegen_to_str(nodecl_name, decl_context));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;
@@ -21789,8 +21658,7 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
 
     if (!is_complete_type(accessed_type))
     {
-        error_printf("%s: error: invalid use of incomplete type '%s'\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "invalid use of incomplete type '%s'\n",
                 print_type_str(accessed_type, decl_context));
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
@@ -21949,8 +21817,7 @@ static void check_gcc_builtin_types_compatible_p(AST expression, const decl_cont
     }
     else
     {
-        error_printf("%s: error: __builtin_types_compatible_p is not implemented for dependent expressions\n",
-                ast_location(expression));
+        error_printf_at(ast_get_locus(expression), "__builtin_types_compatible_p is not implemented for dependent expressions\n");
     }
 }
 
@@ -21960,8 +21827,7 @@ static void check_gcc_label_addr(AST expression,
 {
     if (decl_context->current_scope->kind != BLOCK_SCOPE)
     {
-        error_printf("%s: error: not inside any function, so getting the address of a label is not possible\n",
-                ast_location(expression));
+        error_printf_at(ast_get_locus(expression), "not inside any function, so getting the address of a label is not possible\n");
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
         return;
     }
@@ -21993,8 +21859,7 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
         type_t* t = no_ref(nodecl_get_type(nodecl_expr));
         if (!is_complex_type(t))
         {
-            error_printf("%s: error: operand of '%s' is not a complex type\n",
-                    nodecl_locus_to_str(nodecl_expr),
+            error_printf_at(nodecl_get_locus(nodecl_expr), "operand of '%s' is not a complex type\n",
                     is_real ? "__real__" : "__imag__");
 
             *nodecl_output = nodecl_make_err_expr(locus);
@@ -22092,8 +21957,7 @@ static void check_gcc_alignof_type(type_t* t,
 
     if (is_incomplete_type(t))
     {
-        error_printf("%s: error: alignof of incomplete type '%s'\n", 
-                locus_to_str(locus),
+        error_printf_at(locus, "alignof of incomplete type '%s'\n",
                 print_type_str(t, decl_context));
 
         *nodecl_output = nodecl_make_err_expr(locus);
@@ -22376,8 +22240,7 @@ static nodecl_t promote_node_to_ptrdiff_t(nodecl_t n, const decl_context_t* decl
     if (!is_integral_type(get_unqualified_type(
                     no_ref(nodecl_get_type(n)))))
     {
-        error_printf("%s: error: expression '%s' must be of integral type\n",
-                nodecl_locus_to_str(n),
+        error_printf_at(nodecl_get_locus(n), "expression '%s' must be of integral type\n",
                 codegen_to_str(n, decl_context));
         return nodecl_make_err_expr(nodecl_get_locus(n));
     }
@@ -22530,15 +22393,13 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     {
         if (i > 0)
         {
-            error_printf("%s: error: pointer types only allow one-level array sections\n",
-                    nodecl_locus_to_str(nodecl_postfix));
+            error_printf_at(nodecl_get_locus(nodecl_postfix), "pointer types only allow one-level array sections\n");
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
         if (is_void_pointer_type(indexed_type))
         {
-            warn_printf("%s: warning: postfix expression '%s' of array section is 'void*', assuming 'char*' instead\n",
-                    nodecl_locus_to_str(nodecl_postfix),
+            warn_printf_at(nodecl_get_locus(nodecl_postfix), "postfix expression '%s' of array section is 'void*', assuming 'char*' instead\n",
                     codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)));
             indexed_type = get_pointer_type(get_char_type());
         }
@@ -22562,8 +22423,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     }
     else
     {
-        error_printf("%s: warning: array section is invalid since '%s' has type '%s'\n",
-                nodecl_locus_to_str(nodecl_postfix),
+        error_printf_at(nodecl_get_locus(nodecl_postfix), "array section is invalid since '%s' has type '%s'\n",
                 codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)),
                 print_type_str(indexed_type, decl_context));
         *nodecl_output = nodecl_make_err_expr(locus);
@@ -22696,8 +22556,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
                     get_ptrdiff_t_type(),
                     locus))
         {
-            error_printf("%s: error: shaping expression '%s' cannot be converted to '%s'\n",
-                    nodecl_locus_to_str(current_expr),
+            error_printf_at(nodecl_get_locus(current_expr), "shaping expression '%s' cannot be converted to '%s'\n",
                     codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)),
                     print_type_str(get_ptrdiff_t_type(), decl_context));
             DELETE(list);
@@ -22717,8 +22576,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
 
     if (!is_pointer_type(no_ref(shaped_expr_type)))
     {
-        error_printf("%s: error: shaped expression '%s' does not have pointer type\n",
-                nodecl_locus_to_str(nodecl_shaped_expr),
+        error_printf_at(nodecl_get_locus(nodecl_shaped_expr), "shaped expression '%s' does not have pointer type\n",
                 codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
         DELETE(list);
         *nodecl_output = nodecl_make_err_expr(locus);
@@ -22727,8 +22585,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
 
     if (is_void_pointer_type(no_ref(shaped_expr_type)))
     {
-        warn_printf("%s: warning: shaped expression '%s' has type 'void*', assuming 'char*' instead\n",
-                nodecl_locus_to_str(nodecl_shaped_expr),
+        warn_printf_at(nodecl_get_locus(nodecl_shaped_expr), "shaped expression '%s' has type 'void*', assuming 'char*' instead\n",
                 codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
         shaped_expr_type = get_pointer_type(get_char_type());
     }
@@ -22793,8 +22650,7 @@ static void check_shaping_expression(AST expression,
                 || ASTKind(shaped_expr) == AST_ARRAY_SECTION
                 || ASTKind(shaped_expr) == AST_ARRAY_SECTION_SIZE))
     {
-        warn_printf("%s: warning: syntax '%s%s' is equivalent to '%s(%s)'\n",
-                ast_location(expression),
+        warn_printf_at(ast_get_locus(expression), "syntax '%s%s' is equivalent to '%s(%s)'\n",
                 prettyprint_shape(shape_list),
                 prettyprint_in_buffer(shaped_expr),
                 prettyprint_shape(shape_list),
@@ -22839,8 +22695,7 @@ static void check_shaping_expression(AST expression,
             subscript_item = ASTSon0(subscript_item);
         }
 
-        info_printf("%s: info: did you actually mean '(%s%s)%s'?\n",
-                ast_location(expression),
+        info_printf_at(ast_get_locus(expression), "did you actually mean '(%s%s)%s'?\n",
                 prettyprint_shape(shape_list),
                 prettyprint_in_buffer(subscripted_item),
                 array_subscript);
@@ -22936,8 +22791,7 @@ char check_default_initialization_of_type(
             && !is_rebindable_reference_type(t))
     {
         // References cannot be default initialized
-        error_printf("%s: error: reference type '%s' cannot be default initialized\n",
-                locus_to_str(locus), print_type_str(t, decl_context));
+        error_printf_at(locus, "reference type '%s' cannot be default initialized\n", print_type_str(t, decl_context));
         return 0;
     }
 
@@ -22963,8 +22817,7 @@ char check_default_initialization_of_type(
         {
             if (entry_list_size(candidates) != 0)
             {
-                error_printf("%s: error: no default constructor for class type '%s'\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "no default constructor for class type '%s'\n",
                         print_type_str(t, decl_context));
             }
             entry_list_free(candidates);
@@ -23010,8 +22863,7 @@ char check_default_initialization(scope_entry_t* entry,
 
     if (!c)
     {
-        error_printf("%s: error: cannot default initialize entity '%s'\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "cannot default initialize entity '%s'\n",
                 get_qualified_symbol_name(entry, decl_context));
     }
 
@@ -23072,8 +22924,7 @@ char check_copy_constructor(scope_entry_t* entry,
         {
             if (entry_list_size(candidates) != 0)
             {
-                error_printf("%s: error: no copy constructor for type '%s'\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "no copy constructor for type '%s'\n",
                         print_type_str(t, decl_context));
             }
             entry_list_free(candidates);
@@ -23454,8 +23305,8 @@ static void error_message_overload_failed(candidate_t* candidates,
     argument_types = strappend(argument_types, ")");
 
     const char* message = NULL;
-    uniquestr_sprintf(&message, "%s: error: failed overload call to '%s%s'\n",
-            locus_to_str(locus), name, argument_types);
+    uniquestr_sprintf(&message, "failed overload call to '%s%s'\n",
+            name, argument_types);
 
     char there_are_nonstatic_members = 0;
 
@@ -23500,7 +23351,7 @@ static void error_message_overload_failed(candidate_t* candidates,
         message = strappend(message, c);
     }
 
-    error_printf("%s", message);
+    error_printf_at(locus, "%s", message);
 }
 
 static nodecl_t cxx_nodecl_make_conversion_internal(nodecl_t expr,
@@ -23667,8 +23518,8 @@ constexpr_function_get_constants_of_arguments(
 #define ERROR_MESSAGE_THIS \
         if (check_expr_flags.must_be_constant) \
         { \
-            error_printf("%s: error: during call to constexpr member function '%s', implicit argument is not constant\n", \
-                    nodecl_locus_to_str(list_of_arguments[current_argument]), \
+            error_printf_at(nodecl_get_locus(list_of_arguments[current_argument]), \
+                    "during call to constexpr member function '%s', implicit argument is not constant\n", \
                     print_decl_type_str(entry->type_information, entry->decl_context, \
                         get_qualified_symbol_name(entry, entry->decl_context))); \
         }
@@ -23676,8 +23527,9 @@ constexpr_function_get_constants_of_arguments(
 #define ERROR_MESSAGE_REGULAR_ARGUMENT \
         if (check_expr_flags.must_be_constant) \
         { \
-            error_printf("%s: error: during call to constexpr %s '%s', argument '%s' in position %d is not constant\n", \
-                    nodecl_locus_to_str(list_of_arguments[current_argument]), \
+            error_printf_at( \
+                    nodecl_get_locus(list_of_arguments[current_argument]), \
+                    "during call to constexpr %s '%s', argument '%s' in position %d is not constant\n", \
                     symbol_entity_specs_get_is_constructor(entry) ? "constructor" : "function", \
                     print_decl_type_str(entry->type_information, entry->decl_context, \
                         get_qualified_symbol_name(entry, entry->decl_context)), \
@@ -23926,8 +23778,7 @@ static const_value_t* evaluate_constexpr_constructor(
             }
             if (check_expr_flags.must_be_constant)
             {
-                error_printf("%s: error: constructor '%s' has become non-constexpr after instantiation\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "constructor '%s' has become non-constexpr after instantiation\n",
                         print_decl_type_str(entry->type_information, entry->decl_context,
                             get_qualified_symbol_name(entry, entry->decl_context)));
             }
@@ -23943,8 +23794,7 @@ static const_value_t* evaluate_constexpr_constructor(
         }
         if (check_expr_flags.must_be_constant)
         {
-            error_printf("%s: error: call to undefined constexpr constructor '%s' in constant-expression\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "call to undefined constexpr constructor '%s' in constant-expression\n",
                     print_decl_type_str(entry->type_information, entry->decl_context,
                         get_qualified_symbol_name(entry, entry->decl_context)));
         }
@@ -24076,9 +23926,10 @@ static const_value_t* evaluate_constexpr_constructor(
             }
             if (check_expr_flags.must_be_constant)
             {
-                error_printf("%s: error: during call to constexpr constructor '%s' in constant-expression, data-member '%s' "
+                error_printf_at(
+                        locus,
+                        "during call to constexpr constructor '%s' in constant-expression, data-member '%s' "
                         "is not constant\n",
-                        locus_to_str(locus),
                         print_decl_type_str(entry->type_information, entry->decl_context,
                             get_qualified_symbol_name(entry, entry->decl_context)),
                         get_qualified_symbol_name(current_member, current_member->decl_context));
@@ -24156,9 +24007,10 @@ static const_value_t* evaluate_constexpr_constructor(
 
                 if (check_expr_flags.must_be_constant)
                 {
-                    error_printf("%s: error: during call to constexpr constructor '%s' in constant-expression, data-member '%s' "
+                    error_printf_at(
+                            locus,
+                            "during call to constexpr constructor '%s' in constant-expression, data-member '%s' "
                             "cannot be default initialized as a constant value\n",
-                            locus_to_str(locus),
                             print_decl_type_str(entry->type_information, entry->decl_context,
                                 get_qualified_symbol_name(entry, entry->decl_context)),
                             get_qualified_symbol_name(current_member, current_member->decl_context));
@@ -24210,8 +24062,7 @@ static const_value_t* evaluate_constexpr_regular_function_call(
             }
             if (check_expr_flags.must_be_constant)
             {
-                error_printf("%s: error: function '%s' has become non-constexpr after instantiation in constant-expression\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "function '%s' has become non-constexpr after instantiation in constant-expression\n",
                         print_decl_type_str(entry->type_information, entry->decl_context,
                             get_qualified_symbol_name(entry, entry->decl_context)));
             }
@@ -24227,8 +24078,7 @@ static const_value_t* evaluate_constexpr_regular_function_call(
         }
         if (check_expr_flags.must_be_constant)
         {
-            error_printf("%s: error: call to undefined constexpr function '%s' in constant-expression\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "call to undefined constexpr function '%s' in constant-expression\n",
                     print_decl_type_str(entry->type_information, entry->decl_context,
                         get_qualified_symbol_name(entry, entry->decl_context)));
         }
@@ -24281,8 +24131,7 @@ static const_value_t* evaluate_constexpr_regular_function_call(
         }
         if (check_expr_flags.must_be_constant)
         {
-            error_printf("%s: error: call to constexpr function '%s' in constant-expression did not yield a constant value",
-                    locus_to_str(locus),
+            error_printf_at(locus, "call to constexpr function '%s' in constant-expression did not yield a constant value\n",
                     print_decl_type_str(entry->type_information, entry->decl_context,
                         get_qualified_symbol_name(entry, entry->decl_context)));
         }
@@ -26096,8 +25945,7 @@ nodecl_t cxx_nodecl_make_function_call(
                     }
                     else if (check_expr_flags.must_be_constant)
                     {
-                        error_printf("%s: error: cannot call non-constexpr '%s' in constant expression\n",
-                                locus_to_str(locus),
+                        error_printf_at(locus, "cannot call non-constexpr '%s' in constant expression\n",
                                 print_decl_type_str(called_symbol->type_information, called_symbol->decl_context,
                                     get_qualified_symbol_name(called_symbol, called_symbol->decl_context)));
                     }
@@ -26520,8 +26368,7 @@ char check_nodecl_nontype_template_argument_expression(
 
     if (!valid)
     {
-            error_printf("%s: error: invalid template argument '%s' for a nontype template parameter\n",
-                    nodecl_locus_to_str(nodecl_expr),
+            error_printf_at(nodecl_get_locus(nodecl_expr), "invalid template argument '%s' for a nontype template parameter\n",
                     codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)));
 
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
@@ -26532,8 +26379,7 @@ char check_nodecl_nontype_template_argument_expression(
     if (should_be_a_constant_expression
             && !nodecl_is_constant(nodecl_expr))
     {
-        error_printf("%s: error: nontype template argument '%s' is not constant\n",
-                nodecl_locus_to_str(nodecl_expr),
+        error_printf_at(nodecl_get_locus(nodecl_expr), "nontype template argument '%s' is not constant\n",
                 codegen_to_str(nodecl_expr, decl_context));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
         nodecl_free(nodecl_expr);
@@ -29065,11 +28911,9 @@ static void check_multiexpression(AST expr, const decl_context_t* decl_context, 
                     && entry->decl_context->current_scope->kind == BLOCK_SCOPE
                     && entry->decl_context->current_scope->related_entry == decl_context->current_scope->related_entry)
             {
-                warn_printf("%s: warning: iterator name '%s' in multidependence shadows expr previous variable\n",
-                        ast_location(identifier),
+                warn_printf_at(ast_get_locus(identifier), "iterator name '%s' in multidependence shadows expr previous variable\n",
                         iterator_name);
-                info_printf("%s: info: declaration of the shadowed variable\n",
-                        locus_to_str(entry->locus));
+                info_printf_at(entry->locus, "declaration of the shadowed variable\n");
             }
         }
     }

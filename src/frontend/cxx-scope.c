@@ -973,8 +973,9 @@ char compute_type_of_dependent_conversion_type_id(
     // If not found, error
     if (is_error_type(t))
     {
-        error_printf("%s: error: type-id %s of conversion-id not found\n",
-                nodecl_locus_to_str(nodecl_name),
+        error_printf_at(
+                nodecl_get_locus(nodecl_name),
+                "type-id %s of conversion-id not found\n",
                 prettyprint_in_buffer(type_id));
         return 0;
     }
@@ -1719,8 +1720,7 @@ static void error_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus
     }
     entry_list_iterator_free(it);
 
-    error_printf("%s: error: lookup failed due to ambiguous reference '%s'\n", 
-            locus_to_str(locus), entry_list_head(entry_list)->symbol_name);
+    error_printf_at(locus, "lookup failed due to ambiguous reference '%s'\n", entry_list_head(entry_list)->symbol_name);
 }
 
 
@@ -2353,8 +2353,7 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
     if (!nodecl_is_constant(nodecl)
             && !nodecl_expr_is_value_dependent(nodecl))
     {
-        error_printf("%s: error: expression '%s' is not constant\n",
-                nodecl_locus_to_str(nodecl),
+        error_printf_at(nodecl_get_locus(nodecl), "expression '%s' is not constant\n",
                 codegen_to_str(nodecl, decl_context));
     }
 
@@ -2624,8 +2623,7 @@ static type_t* update_dependent_typename(
 
     if (entry_list == NULL)
     {
-        error_printf("%s: error: type '%s' does not refer to an existing entity\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "type '%s' does not refer to an existing entity\n",
                 print_type_str(orig_dependent_type, decl_context));
         return NULL;
     }
@@ -2667,8 +2665,7 @@ static type_t* update_dependent_typename(
             fprintf(stderr, "SCOPE: After updating dependent typename the obtained symbol has kind '%s' which is not a valid type\n",
                     symbol_kind_name(member));
         }
-        error_printf("%s: error: type '%s' does not refer to a valid typename\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "type '%s' does not refer to a valid typename\n",
                 print_type_str(orig_dependent_type, decl_context));
         return NULL;
     }
@@ -3732,8 +3729,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         if (is_any_reference_type(updated_pointee))
         {
-            error_printf("%s: error: attempt to create a pointer to reference\n",
-                    locus_to_str(locus));
+            error_printf_at(locus, "attempt to create a pointer to reference\n");
             return NULL;
         }
 
@@ -3823,8 +3819,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
             if (is_void_type(param_orig_type))
             {
-                error_printf("%s: error: attempt to create a function type with a void parameter type\n",
-                        locus_to_str(locus));
+                error_printf_at(locus, "attempt to create a function type with a void parameter type\n");
                 return NULL;
             }
 
@@ -3863,8 +3858,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
                         if (is_void_type(param_orig_type))
                         {
-                            error_printf("%s: error: attempt to create a function type with a void parameter type\n",
-                                    locus_to_str(locus));
+                            error_printf_at(locus, "attempt to create a function type with a void parameter type\n");
                             return NULL;
                         }
 
@@ -3989,20 +3983,17 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         if (is_void_type(element_type))
         {
-            error_printf("%s: error: attempt to create an array of void\n",
-                    locus_to_str(locus));
+            error_printf_at(locus, "attempt to create an array of void\n");
             return NULL;
         }
         else if (is_any_reference_type(element_type))
         {
-            error_printf("%s: error: attempt to create an array of reference type\n",
-                    locus_to_str(locus));
+            error_printf_at(locus, "attempt to create an array of reference type\n");
             return NULL;
         }
         else if (is_function_type(element_type))
         {
-            error_printf("%s: error: attempt to create an array of function type\n",
-                    locus_to_str(locus));
+            error_printf_at(locus, "attempt to create an array of function type\n");
             return NULL;
         }
 
@@ -4025,8 +4016,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                             nodecl_get_constant(array_size),
                             const_value_get_zero(/*bytes*/ 4, /* sign*/ 1))))
             {
-                error_printf("%s: error: attempt to create an array of negative size\n",
-                        locus_to_str(locus));
+                error_printf_at(locus, "attempt to create an array of negative size\n");
                 return NULL;
             }
 
@@ -4131,8 +4121,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 fprintf(stderr, "SCOPE: Dependent type '%s' is not a named type\n",
                         print_declarator(fixed_type));
             }
-            error_printf("%s: error: '%s' in '%s' is not a valid typename\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "'%s' in '%s' is not a valid typename\n",
                     dependent_entry->symbol_name,
                     print_type_str(orig_type, decl_context));
 
@@ -4146,8 +4135,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 fprintf(stderr, "SCOPE: Dependent type '%s' is an enumerator\n", 
                         print_declarator(fixed_type));
             }
-            error_printf("%s: error: '%s' in '%s' has become an enumerator name\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "'%s' in '%s' has become an enumerator name\n",
                     dependent_entry->symbol_name,
                     print_type_str(orig_type, decl_context));
             return NULL;
@@ -4258,8 +4246,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else
         {
-            error_printf("%s: error: __underlying_type(%s) is not a class or enum\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "__underlying_type(%s) is not a class or enum\n",
                     print_type_str(updated_underlying_type, decl_context));
             return NULL;
         }
@@ -4365,8 +4352,7 @@ static type_t* update_gcc_type_attributes(type_t* orig_type, type_t* result,
             else if (!nodecl_expr_is_value_dependent(aligned_attribute)
                     && !nodecl_is_constant(aligned_attribute))
             {
-                error_printf("%s: error: 'aligned' attribute of type '%s' after instantiation is not constant\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "'aligned' attribute of type '%s' after instantiation is not constant\n",
                         print_type_str(orig_type, context_of_being_instantiated));
                 result = NULL;
             }
@@ -4578,8 +4564,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 {
                     set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
                     DELETE(t_argument);
-                    error_printf("%s: error: invalid template-argument number %d\n",
-                            ast_location(template_parameter),
+                    error_printf_at(ast_get_locus(template_parameter), "invalid template-argument number %d\n",
                             position);
                     return NULL;
                 }
@@ -4592,8 +4577,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 {
                     set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
                     DELETE(t_argument);
-                    error_printf("%s: error: invalid template-argument number %d\n",
-                            ast_location(template_parameter),
+                    error_printf_at(ast_get_locus(template_parameter), "invalid template-argument number %d\n",
                             position);
                     return NULL;
                 }
@@ -4617,8 +4601,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                     {
                         set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
                         DELETE(t_argument);
-                        error_printf("%s: error: invalid template-argument number %d\n",
-                                ast_location(template_parameter),
+                        error_printf_at(ast_get_locus(template_parameter), "invalid template-argument number %d\n",
                                 position);
                         return NULL;
                     }
@@ -4960,8 +4943,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     primary_template_parameters->num_parameters);
         }
 
-        error_printf("%s: error: too many template-arguments for template class\n",
-                locus_to_str(locus));
+        error_printf_at(locus, "too many template-arguments for template class\n");
 
         free_template_parameter_list(result);
         return NULL;
@@ -5011,8 +4993,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         fprintf(stderr, "SCOPE: Template argument %d is missing", i);
                     }
 
-                    error_printf("%s: error: template argument number %d is missing and there is no default template argument for it\n",
-                            locus_to_str(locus), i);
+                    error_printf_at(locus, "template argument number %d is missing and there is no default template argument for it\n", i);
 
                     free_template_parameter_list(result);
                     return NULL;
@@ -5071,9 +5052,11 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     fprintf(stderr, "SCOPE: Template parameter kind and template argument kind do not match\n");
                 }
 
-                error_printf("%s: error: kind of template argument number %d does not match "
+                error_printf_at(
+                        locus,
+                        "kind of template argument number %d does not match "
                         "that of the corresponding template parameter\n",
-                        locus_to_str(locus), i + 1);
+                        i + 1);
 
                 free_template_parameter_list(result);
                 return NULL;
@@ -5123,9 +5106,10 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 if (!ok)
                 {
                     type_t* arg_type = nodecl_get_type(result->arguments[i]->value);
-                    error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
+                    error_printf_at(
+                            locus,
+                            "type '%s' of template argument %d cannot be converted to "
                             "type '%s' of the corresponding template parameter\n",
-                            locus_to_str(locus),
                             print_type_str(arg_type, template_name_context),
                             i + 1,
                             print_type_str(dest_type, template_name_context));
@@ -5171,10 +5155,10 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         fprintf(stderr, "SCOPE: Template parameter pack kind and template argument kind do not match\n");
                     }
 
-                    error_printf("%s: error: kind of template argument number %d does not match "
+                    error_printf_at(locus,
+                            "kind of template argument number %d does not match "
                             "that of the corresponding template parameter pack\n",
-                            locus_to_str(locus), i + 1);
-
+                            i + 1);
 
                     free_template_parameter_list(result);
                     return NULL;
@@ -5214,9 +5198,9 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                         "but there are too many elements (this is element %d)\n",
                                         print_declarator(parameter_type), index_of_type);
                             }
-                            error_printf("%s: error: too many template arguments for"
-                                    " the template parameter pack\n",
-                                    locus_to_str(locus));
+                            error_printf_at(locus,
+                                    "too many template arguments for"
+                                    " the template parameter pack\n");
 
                             free_template_parameter_list(result);
                             return NULL;
@@ -5243,9 +5227,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
                             if (!ok)
                             {
-                                error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
+                                error_printf_at(locus, "type '%s' of template argument %d cannot be converted to "
                                         "type '%s' of the corresponding template parameter\n",
-                                        locus_to_str(locus),
                                         print_type_str(arg_type, template_name_context),
                                         i + 1,
                                         print_type_str(parameter_type, template_name_context));
@@ -6676,8 +6659,7 @@ scope_entry_list_t* query_nodecl_template_id(
         if (template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
                 && !get_is_inside_pack_expansion())
         {
-            error_printf("%s: error: template template parameter pack '%s' not inside a pack expansion\n",
-                    nodecl_locus_to_str(nodecl_name),
+            error_printf_at(nodecl_get_locus(nodecl_name), "template template parameter pack '%s' not inside a pack expansion\n",
                     template_symbol->symbol_name);
             return NULL;
         }
@@ -6853,8 +6835,7 @@ scope_entry_list_t* query_nodecl_template_id(
 
         if (!is_template_specialized_type(get_actual_class_type(symbol_entity_specs_get_class_type(destructor_symbol))))
         {
-            error_printf("%s: error: designated class in destructor-id is not a template-type\n",
-                    nodecl_locus_to_str(nodecl_name));
+            error_printf_at(nodecl_get_locus(nodecl_name), "designated class in destructor-id is not a template-type\n");
             return NULL;
         }
 
@@ -6886,8 +6867,7 @@ scope_entry_list_t* query_nodecl_template_id(
 
         if (!equivalent_types(specialized_type, symbol_entity_specs_get_class_type(destructor_symbol)))
         {
-            error_printf("%s: error: template destructor-id '%s' is not a valid destructor designation for class '%s'\n",
-                    nodecl_locus_to_str(nodecl_name),
+            error_printf_at(nodecl_get_locus(nodecl_name), "template destructor-id '%s' is not a valid destructor designation for class '%s'\n",
                     codegen_to_str(nodecl_name, decl_context),
                     print_type_str(symbol_entity_specs_get_class_type(destructor_symbol),
                         decl_context)
@@ -6918,8 +6898,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
     // We need a class scope around that we will check first
     if (decl_context->class_scope == NULL)
     {
-        error_printf("%s: error: conversion-id requires an enclosing class scope\n", 
-                nodecl_locus_to_str(nodecl_name));
+        error_printf_at(nodecl_get_locus(nodecl_name), "conversion-id requires an enclosing class scope\n");
         return NULL;
     }
 
@@ -6981,9 +6960,10 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         {
             if (!equivalent_types(t, type_looked_up_in_enclosing))
             {
-                error_printf("%s: error: type of conversion found in class scope (%s) and the type in "
+                error_printf_at(
+                        nodecl_get_locus(nodecl_name),
+                        "type of conversion found in class scope (%s) and the type in "
                         "scope of the id-expression (%s) should match\n",
-                        nodecl_locus_to_str(nodecl_name),
                         print_type_str(type_looked_up_in_class, class_context),
                         print_type_str(type_looked_up_in_enclosing, top_level_decl_context)
                         );
@@ -6994,16 +6974,14 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         // If still not found, error
         if (is_error_type(t))
         {
-            error_printf("%s: error: type-id %s of conversion-id not found\n",
-                    nodecl_locus_to_str(nodecl_name),
+            error_printf_at(nodecl_get_locus(nodecl_name), "type-id %s of conversion-id not found\n",
                     prettyprint_in_buffer(type_id));
             return NULL;
         }
 
         if (class_context->class_scope == NULL)
         {
-            error_printf("%s: error: 'operator %s' requires a class scope\n", 
-                    nodecl_locus_to_str(nodecl_name),
+            error_printf_at(nodecl_get_locus(nodecl_name), "'operator %s' requires a class scope\n",
                     prettyprint_in_buffer(type_id));
             return NULL;
         }
@@ -7134,8 +7112,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         {
             // We only allow enums to be the previous symbol of the last component
             // of the nested name specifier.
-            error_printf("%s: error: invalid nested-name-specifier\n",
-                    nodecl_locus_to_str(current_name));
+            error_printf_at(nodecl_get_locus(current_name), "invalid nested-name-specifier\n");
         }
         else
         {
@@ -7197,14 +7174,12 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 {
                     CXX03_LANGUAGE()
                     {
-                        error_printf("%s: typedef name '%s' is not a namespace or class\n", 
-                                nodecl_locus_to_str(current_name),
+                        error_printf_at(nodecl_get_locus(current_name), "typedef name '%s' is not a namespace or class\n",
                                 codegen_to_str(current_name, decl_context));
                     }
                     CXX11_LANGUAGE()
                     {
-                        error_printf("%s: typedef name '%s' is not a namespace, class or enum\n", 
-                                nodecl_locus_to_str(current_name),
+                        error_printf_at(nodecl_get_locus(current_name), "typedef name '%s' is not a namespace, class or enum\n",
                                 codegen_to_str(current_name, decl_context));
                     }
                     return NULL;
@@ -7288,8 +7263,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 || current_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
                 || current_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
         {
-            error_printf("%s: error: template-name '%s' used without template arguments\n", 
-                    nodecl_locus_to_str(current_name),
+            error_printf_at(nodecl_get_locus(current_name), "template-name '%s' used without template arguments\n",
                     nodecl_get_text(current_name));
             return NULL;
         }
@@ -7297,14 +7271,12 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         {
             CXX03_LANGUAGE()
             {
-                error_printf("%s: error: name '%s' is not a namespace or class\n", 
-                        nodecl_locus_to_str(current_name),
+                error_printf_at(nodecl_get_locus(current_name), "name '%s' is not a namespace or class\n",
                         codegen_to_str(current_name, decl_context));
             }
             CXX11_LANGUAGE()
             {
-                error_printf("%s: error: name '%s' is not a namespace, class or enum\n", 
-                        nodecl_locus_to_str(current_name),
+                error_printf_at(nodecl_get_locus(current_name), "name '%s' is not a namespace, class or enum\n",
                         codegen_to_str(current_name, decl_context));
             }
             return NULL;
@@ -7345,8 +7317,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_CONVERSION)
         {
-            error_printf("%s: error: conversion-id is not valid in a non-class scope\n",
-                    nodecl_locus_to_str(last_name));
+            error_printf_at(nodecl_get_locus(last_name), "conversion-id is not valid in a non-class scope\n");
             return NULL;
         }
         else
@@ -7399,8 +7370,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         else
         {
             // Anything else is ill-formed
-            error_printf("%s: error: invalid name in nested-name specifier\n",
-                    nodecl_locus_to_str(last_name));
+            error_printf_at(nodecl_get_locus(last_name), "invalid name in nested-name specifier\n");
             return NULL;
         }
     }
@@ -7772,8 +7742,7 @@ static char check_symbol_is_base_or_member(
 
     if (class_symbol->kind != SK_CLASS)
     {
-        error_printf("%s: error: '%s' must be a class\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "'%s' must be a class\n",
                 class_symbol->symbol_name);
         return 0;
     }
@@ -7789,8 +7758,7 @@ static char check_symbol_is_base_or_member(
 
         if (checked_symbol->kind != SK_CLASS)
         {
-            error_printf("%s: error: '%s' must be a class\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "'%s' must be a class\n",
                     checked_symbol->symbol_name);
             return 0;
         }
@@ -7799,8 +7767,7 @@ static char check_symbol_is_base_or_member(
                     class_symbol->type_information,
                     locus))
         {
-            error_printf("%s: error: '%s' is not a base of '%s'\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "'%s' is not a base of '%s'\n",
                     get_qualified_symbol_name(checked_symbol, checked_symbol->decl_context),
                     get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             return 0;
@@ -7809,8 +7776,7 @@ static char check_symbol_is_base_or_member(
                     checked_symbol->type_information,
                     class_symbol->type_information))
         {
-            error_printf("%s: error: '%s' is an ambiguous base of '%s'\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "'%s' is an ambiguous base of '%s'\n",
                     get_qualified_symbol_name(checked_symbol, checked_symbol->decl_context),
                     get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             return 0;
@@ -7827,8 +7793,7 @@ static char check_symbol_is_base_or_member(
                     get_user_defined_type(class_symbol),
                     locus)))
     {
-        error_printf("%s: error: '%s' is not a member of '%s'\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "'%s' is not a member of '%s'\n",
                 get_qualified_symbol_name(current_symbol, current_symbol->decl_context),
                 get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
         return 0;
@@ -8380,8 +8345,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                 }
                 else if (!is_class_type(new_class_type))
                 {
-                    error_printf("%s: error: '%s' does not name a class type\n",
-                            locus_to_str(locus),
+                    error_printf_at(locus, "'%s' does not name a class type\n",
                             print_type_str(dependent_entity->type_information, dependent_entity->decl_context));
                     return NULL;
                 }

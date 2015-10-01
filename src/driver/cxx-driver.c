@@ -3497,7 +3497,8 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
 
     if (CURRENT_CONFIGURATION->warnings_as_errors)
     {
-        info_printf("%s: info: treating warnings as errors\n", translation_unit->input_filename);
+        info_printf_at(make_locus(translation_unit->input_filename, 0, 0),
+                "treating warnings as errors\n");
         there_were_errors = there_were_errors || (diagnostics_get_warn_count() != 0);
     }
 

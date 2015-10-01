@@ -1596,9 +1596,9 @@ void LoweringVisitor::fill_arguments(
                         DataReference data_ref((*it)->get_base_address_expression());
                         if (!data_ref.is_valid())
                         {
-                            warn_printf(
-                                "%s: warning: an argument is not a valid data-reference, compilation is likely to fail\n",
-                                (*it)->get_base_address_expression().get_locus_str().c_str());
+                            warn_printf_at(
+                                (*it)->get_base_address_expression().get_locus(),
+                                "an argument is not a valid data-reference, compilation is likely to fail\n");
                         }
 
                         // This is a pointer reference
@@ -2833,11 +2833,14 @@ void LoweringVisitor::handle_dependency_item(
         Source& current_dep_num,
         Source& result_src)
 {
-    ERROR_CONDITION(!dep_expr.is_valid(),
-            "%s: Invalid dependency detected '%s'. Reason: %s\n",
+    if (!dep_expr.is_valid())
+    {
+        dep_expr.commit_diagnostic();
+        internal_error(
+            "%s: Invalid dependency detected '%s'",
             dep_expr.get_locus_str().c_str(),
-            dep_expr.prettyprint().c_str(),
-            dep_expr.get_error_log().c_str());
+            dep_expr.prettyprint().c_str());
+    }
 
     Source dependency_offset,
            dependency_flags,

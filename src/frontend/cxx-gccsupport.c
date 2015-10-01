@@ -188,8 +188,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
-            error_printf("%s: error: attribute 'vector_size' only allows one argument\n",
-                    ast_location(expression_list));
+            error_printf_at(ast_get_locus(expression_list), "attribute 'vector_size' only allows one argument\n");
             return;
         }
 
@@ -224,8 +223,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (expression_list != NULL)
         {
-            error_printf("%s: error: attribute 'generic_vector' does not allow arguments\n",
-                    ast_location(expression_list));
+            error_printf_at(ast_get_locus(expression_list), "attribute 'generic_vector' does not allow arguments\n");
             return;
         }
 
@@ -268,8 +266,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
 
         if (ASTSon0(expression_list) != NULL)
         {
-            error_printf("%s: error: attribute 'aligned' only allows one argument\n",
-                    ast_location(expression_list));
+            error_printf_at(ast_get_locus(expression_list), "attribute 'aligned' only allows one argument\n");
             do_not_keep_attribute = 1;
         }
         else
@@ -286,8 +283,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
                 if (!nodecl_expr_is_value_dependent(nodecl_expression_list)
                         && !nodecl_is_constant(nodecl_expression_list))
                 {
-                    error_printf("%s: error: attribute 'aligned' is not constant\n",
-                            ast_location(expression_list));
+                    error_printf_at(ast_get_locus(expression_list), "attribute 'aligned' is not constant\n");
                     do_not_keep_attribute = 1;
                 }
                 else
@@ -304,8 +300,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
-            error_printf("%s: error: attribute 'mode' only allows one argument\n",
-                    ast_location(expression_list));
+            error_printf_at(ast_get_locus(expression_list), "attribute 'mode' only allows one argument\n");
             return;
         }
 
@@ -705,8 +700,7 @@ void apply_gcc_attribute_to_type(AST a,
         {
             if (ASTSon0(expr_list) != NULL)
             {
-                error_printf("%s: error: attribute 'aligned' only allows one argument\n",
-                        ast_location(expr_list));
+                error_printf_at(ast_get_locus(expr_list), "attribute 'aligned' only allows one argument\n");
             }
 
             AST expr = ASTSon1(expr_list);
@@ -720,8 +714,7 @@ void apply_gcc_attribute_to_type(AST a,
             if (!nodecl_expr_is_value_dependent(nodecl_expr)
                     && !nodecl_is_constant(nodecl_expr))
             {
-                error_printf("%s: error: attribute 'aligned' is not constant\n",
-                        ast_location(expr_list));
+                error_printf_at(ast_get_locus(expr_list), "attribute 'aligned' is not constant\n");
             }
 
             gcc_attr.expression_list = nodecl_make_list_1(nodecl_expr);

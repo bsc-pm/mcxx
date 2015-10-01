@@ -640,8 +640,8 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase stmt(*it);
             if (!stmt.is<Nodecl::ExpressionStatement>())
             {
-                error_printf("%s: error: 'atomic' directive requires an expression statement\n",
-                        stmt.get_locus_str().c_str());
+                error_printf_at(stmt.get_locus(),
+                        "'atomic' directive requires an expression statement\n");
             }
             else
             {
@@ -652,8 +652,7 @@ namespace TL { namespace Nanox {
                 bool using_nanos_api = false;
                 if (!allowed_expressions_critical(expr, using_builtin, using_nanos_api))
                 {
-                    warn_printf("%s: warning: 'atomic' expression cannot be implemented efficiently\n",
-                            expr.get_locus_str().c_str());
+                    warn_printf_at(expr.get_locus(), "'atomic' expression cannot be implemented efficiently\n");
                     std::string lock_name = "nanos_default_critical_lock";
                     atomic_tree = emit_critical_region(lock_name, construct, statements);
                 }
@@ -662,20 +661,17 @@ namespace TL { namespace Nanox {
                     if (using_nanos_api)
                     {
                         atomic_tree = nanos_api_call(expr);
-                        info_printf("%s: info: 'atomic' directive implemented using Nanos++ API calls\n",
-                                expr.get_locus_str().c_str());
+                        info_printf_at(expr.get_locus(), "'atomic' directive implemented using Nanos++ API calls\n");
                     }
                     else if (using_builtin)
                     {
                         atomic_tree = builtin_atomic_int_op(expr);
-                        info_printf("%s: info: 'atomic' directive implemented using GCC atomic builtins\n",
-                                expr.get_locus_str().c_str());
+                        info_printf_at(expr.get_locus(), "'atomic' directive implemented using GCC atomic builtins\n");
                     }
                     else
                     {
                         atomic_tree = compare_and_exchange(expr);
-                        info_printf("%s: info: 'atomic' directive implemented using GCC compare and exchange\n",
-                                expr.get_locus_str().c_str());
+                        info_printf_at(expr.get_locus(), "'atomic' directive implemented using GCC compare and exchange\n");
                     }
                 }
 

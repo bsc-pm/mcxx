@@ -347,8 +347,7 @@ static void check_untyped_symbols(const decl_context_t* decl_context)
             continue;
         }
 
-        error_printf("%s: error: symbol '%s' has no IMPLICIT type\n",
-                locus_to_str(entry->locus),
+        error_printf_at(entry->locus, "symbol '%s' has no IMPLICIT type\n",
                 entry->symbol_name);
     }
 
@@ -436,21 +435,18 @@ static void check_not_fully_defined_symbols(const decl_context_t* decl_context)
 
         if (entry->kind == SK_COMMON)
         {
-            error_printf("%s: error: COMMON '%s' does not exist\n",
-                    locus_to_str(entry->locus),
+            error_printf_at(entry->locus, "COMMON '%s' does not exist\n",
                     entry->symbol_name + strlen(".common."));
         }
         else if (entry->kind == SK_FUNCTION
                 && symbol_entity_specs_get_is_module_procedure(entry))
         {
-            error_printf("%s: error: MODULE PROCEDURE '%s' does not exist\n",
-                    locus_to_str(entry->locus),
+            error_printf_at(entry->locus, "MODULE PROCEDURE '%s' does not exist\n",
                     entry->symbol_name);
         }
         else if (entry->kind == SK_CLASS)
         {
-            error_printf("%s: error: derived type name 'TYPE(%s)' has not been defined\n",
-                    locus_to_str(entry->locus),
+            error_printf_at(entry->locus, "derived type name 'TYPE(%s)' has not been defined\n",
                     entry->symbol_name);
         }
         else
@@ -558,8 +554,7 @@ static void check_intent_declared_symbols(const decl_context_t* decl_context)
         if (!symbol_is_parameter_of_function(entry,
                     decl_context->current_scope->related_entry))
         {
-            error_printf("%s: error: entity '%s' is not a dummy argument\n",
-                    locus_to_str(entry->locus),
+            error_printf_at(entry->locus, "entity '%s' is not a dummy argument\n",
                     entry->symbol_name);
         }
         else
@@ -1613,8 +1608,7 @@ static nodecl_t check_bind_c(AST bind_c_spec,
         else if (!nodecl_is_constant(nodecl_bind_name)
                 || !fortran_is_character_type(no_ref(nodecl_get_type(nodecl_bind_name))))
         {
-            error_printf("%s: error: NAME of BIND(C) must be a constant character expression\n",
-                    ast_location(bind_name_expr));
+            error_printf_at(ast_get_locus(bind_name_expr), "NAME of BIND(C) must be a constant character expression\n");
             return nodecl_null();
         }
     }
@@ -1642,8 +1636,7 @@ static nodecl_t check_bind_opencl(AST bind_c_spec,
         else if (!nodecl_is_constant(nodecl_bind_name)
                 || !fortran_is_character_type(no_ref(nodecl_get_type(nodecl_bind_name))))
         {
-            error_printf("%s: error: NAME of BIND(OPENCL) must be a constant character expression\n",
-                    ast_location(bind_name_expr));
+            error_printf_at(ast_get_locus(bind_name_expr), "NAME of BIND(OPENCL) must be a constant character expression\n");
             return nodecl_null();
         }
     }
@@ -1663,8 +1656,7 @@ static nodecl_t check_bind_opencl(AST bind_c_spec,
         else if (!nodecl_is_constant(nodecl_bind_file)
                 || !fortran_is_character_type(no_ref(nodecl_get_type(nodecl_bind_file))))
         {
-            error_printf("%s: error: FILE of BIND(OPENCL) must be a constant character expression\n",
-                    ast_location(bind_file_expr));
+            error_printf_at(ast_get_locus(bind_file_expr), "FILE of BIND(OPENCL) must be a constant character expression\n");
             return nodecl_null();
         }
     }
@@ -1687,8 +1679,7 @@ static void check_bind_spec(scope_entry_t* entry, AST bind_spec, const decl_cont
     }
     else
     {
-        error_printf("%s: error: ignoring unsupported BIND specifier\n",
-                ast_location(bind_spec));
+        error_printf_at(ast_get_locus(bind_spec), "ignoring unsupported BIND specifier\n");
     }
 }
 
@@ -1736,8 +1727,7 @@ static scope_entry_t* new_procedure_symbol(
                         && !(entry->kind == SK_UNDEFINED
                             && symbol_entity_specs_get_in_module(entry) != NULL)))
             {
-                error_printf("%s: error: redeclaration of entity '%s'\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "redeclaration of entity '%s'\n",
                         ASTText(name));
                 return NULL;
             }
@@ -1795,8 +1785,7 @@ static scope_entry_t* new_procedure_symbol(
             {
                 if (!is_function)
                 {
-                    error_printf("%s: error: declaration type-specifier is only valid for FUNCTION statement\n",
-                            ast_location(prefix_spec));
+                    error_printf_at(ast_get_locus(prefix_spec), "declaration type-specifier is only valid for FUNCTION statement\n");
                 }
                 else
                 {
@@ -1834,8 +1823,7 @@ static scope_entry_t* new_procedure_symbol(
         if (symbol_entity_specs_get_is_elemental(entry)
                 && symbol_entity_specs_get_is_recursive(entry))
         {
-            error_printf("%s: error: RECURSIVE and ELEMENTAL cannot be specified at the same time\n",
-                    ast_location(prefix));
+            error_printf_at(ast_get_locus(prefix), "RECURSIVE and ELEMENTAL cannot be specified at the same time\n");
         }
     }
 
@@ -1854,8 +1842,7 @@ static scope_entry_t* new_procedure_symbol(
             {
                 if (is_function)
                 {
-                    error_printf("%s: error: alternate return is not allowed in a FUNCTION specification\n",
-                            ast_location(dummy_arg_name));
+                    error_printf_at(ast_get_locus(dummy_arg_name), "alternate return is not allowed in a FUNCTION specification\n");
                     continue;
                 }
 
@@ -1911,8 +1898,7 @@ static scope_entry_t* new_procedure_symbol(
     {
         if (!is_function)
         {
-            error_printf("%s: error: RESULT is only valid for FUNCTION statement\n",
-                    ast_location(result));
+            error_printf_at(ast_get_locus(result), "RESULT is only valid for FUNCTION statement\n");
         }
         else
         {
@@ -1934,8 +1920,7 @@ static scope_entry_t* new_procedure_symbol(
 
             if (strcasecmp(ASTText(result), entry->symbol_name) == 0)
             {
-                error_printf("%s: error: RESULT name is the same as the FUNCTION name\n",
-                        ast_location(result));
+                error_printf_at(ast_get_locus(result), "RESULT name is the same as the FUNCTION name\n");
             }
             else
             {
@@ -2026,8 +2011,7 @@ static scope_entry_t* new_entry_symbol(const decl_context_t* decl_context,
 
     if (symbol_entity_specs_get_is_nested_function(principal_procedure))
     {
-         error_printf("%s: error: internal subprograms cannot have an alternate ENTRY\n",
-                 ast_location(name));
+         error_printf_at(ast_get_locus(name), "internal subprograms cannot have an alternate ENTRY\n");
          return NULL;
     }
 
@@ -2046,8 +2030,7 @@ static scope_entry_t* new_entry_symbol(const decl_context_t* decl_context,
                     && !(existing_name->kind == SK_UNDEFINED
                         && symbol_entity_specs_get_in_module(existing_name) != NULL)))
         {
-            error_printf("%s: error: redeclaration of entity '%s'\n", 
-                    ast_location(name), 
+            error_printf_at(ast_get_locus(name), "redeclaration of entity '%s'\n", 
                     ASTText(name));
             return NULL;
         }
@@ -2118,8 +2101,7 @@ static scope_entry_t* new_entry_symbol(const decl_context_t* decl_context,
             {
                 if (is_function)
                 {
-                    error_printf("%s: error: alternate return is not allowed in a FUNCTION specification\n",
-                            ast_location(dummy_arg_name));
+                    error_printf_at(ast_get_locus(dummy_arg_name), "alternate return is not allowed in a FUNCTION specification\n");
                     continue;
                 }
 
@@ -2179,8 +2161,7 @@ static scope_entry_t* new_entry_symbol(const decl_context_t* decl_context,
     {
         if (!is_function)
         {
-            error_printf("%s: error: RESULT is not valid in an ENTRY of a SUBROUTINE\n",
-                    ast_location(result));
+            error_printf_at(ast_get_locus(result), "RESULT is not valid in an ENTRY of a SUBROUTINE\n");
         }
         else
         {
@@ -2206,8 +2187,7 @@ static scope_entry_t* new_entry_symbol(const decl_context_t* decl_context,
 
             if (strcasecmp(entry->symbol_name, result_sym->symbol_name) == 0)
             {
-                error_printf("%s: error: RESULT name is the same as ENTRY name\n", 
-                        ast_location(result));
+                error_printf_at(ast_get_locus(result), "RESULT name is the same as ENTRY name\n");
             }
             else
             {
@@ -2319,8 +2299,7 @@ static void build_scope_program_unit_body_declarations(
 
             if (!allowed_statement(stmt, decl_context))
             {
-                error_printf("%s: warning: this statement cannot be used in this context\n",
-                        ast_location(stmt));
+                error_printf_at(ast_get_locus(stmt), "this statement cannot be used in this context\n");
                 continue;
             }
 
@@ -2367,8 +2346,7 @@ static void build_scope_program_unit_body_executable(
 
             if (!allowed_statement(stmt, decl_context))
             {
-                error_printf("%s: warning: this statement cannot be used in this context\n",
-                        ast_location(stmt));
+                error_printf_at(ast_get_locus(stmt), "this statement cannot be used in this context\n");
                 continue;
             }
             
@@ -3063,8 +3041,7 @@ static int compute_kind_specifier(AST kind_expr, const decl_context_t* decl_cont
     else
     {
         int result = default_kind();
-        warn_printf("%s: could not compute KIND specifier, assuming %d\n",
-                ast_location(kind_expr), result);
+        warn_printf_at(ast_get_locus(kind_expr), "could not compute KIND specifier, assuming %d\n", result);
         return result;
     }
 }
@@ -3079,7 +3056,7 @@ static type_t* choose_type_from_kind_function(nodecl_t expr,
 
     if (result == NULL)
     {
-        error_printf("%s: error: %s(KIND=%d) not supported\n", nodecl_locus_to_str(expr), type_name, kind_size);
+        error_printf_at(nodecl_get_locus(expr), "%s(KIND=%d) not supported\n", type_name, kind_size);
 
         result = kind_function(default_kind_size);
         // Desperate attempt
@@ -3305,8 +3282,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                 result = get_derived_type_name(ASTSon0(a), decl_context);
                 if (result == NULL)
                 {
-                    error_printf("%s: error: invalid type-specifier '%s'\n",
-                            ast_location(a),
+                    error_printf_at(ast_get_locus(a), "invalid type-specifier '%s'\n",
                             fortran_prettyprint_in_buffer(a));
                     result = get_error_type();
                 }
@@ -3322,15 +3298,13 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_PIXEL_TYPE:
             {
-                error_printf("%s: sorry: PIXEL type-specifier not implemented\n",
-                        ast_location(a));
+                error_printf_at(ast_get_locus(a), "sorry: PIXEL type-specifier not implemented\n");
                 result = get_error_type();
                 break;
             }
         case AST_CLASS_NAME:
             {
-                error_printf("%s: sorry: CLASS type-specifier not implemented\n",
-                        ast_location(a));
+                error_printf_at(ast_get_locus(a), "sorry: CLASS type-specifier not implemented\n");
                 result = get_error_type();
                 break;
             }
@@ -3745,8 +3719,7 @@ static type_t* eval_array_spec(type_t* basic_type,
             if (!nodecl_is_err_expr(lower_bound)
                     && !is_integer_type(no_ref(nodecl_get_type(lower_bound))))
             {
-                error_printf("%s: error: expression '%s' must be of integer type\n",
-                        nodecl_locus_to_str(lower_bound),
+                error_printf_at(nodecl_get_locus(lower_bound), "expression '%s' must be of integer type\n",
                         codegen_to_str(lower_bound, nodecl_retrieve_context(lower_bound)));
             }
             else if (nodecl_is_err_expr(lower_bound))
@@ -3765,8 +3738,7 @@ static type_t* eval_array_spec(type_t* basic_type,
             if (!nodecl_is_err_expr(upper_bound)
                     && !is_integer_type(no_ref(nodecl_get_type(upper_bound))))
             {
-                error_printf("%s: error: expression '%s' must be of integer type\n",
-                        nodecl_locus_to_str(upper_bound),
+                error_printf_at(nodecl_get_locus(upper_bound), "expression '%s' must be of integer type\n",
                         codegen_to_str(upper_bound, nodecl_retrieve_context(upper_bound)));
             }
             else if (nodecl_is_err_expr(upper_bound))
@@ -3862,8 +3834,7 @@ static type_t* eval_array_spec(type_t* basic_type,
         {
             if (nodecl_output == NULL)
             {
-                error_printf("%s: error: dimension specifier '%s' must be constant in this context\n",
-                        nodecl_locus_to_str(lower_bound),
+                error_printf_at(nodecl_get_locus(lower_bound), "dimension specifier '%s' must be constant in this context\n",
                         codegen_to_str(lower_bound, nodecl_retrieve_context(lower_bound)));
             }
             else
@@ -3904,8 +3875,7 @@ static type_t* eval_array_spec(type_t* basic_type,
         {
             if (nodecl_output == NULL)
             {
-                error_printf("%s: error: dimension specifier '%s' must be constant in this context\n",
-                        nodecl_locus_to_str(upper_bound),
+                error_printf_at(nodecl_get_locus(upper_bound), "dimension specifier '%s' must be constant in this context\n",
                         codegen_to_str(upper_bound, nodecl_retrieve_context(upper_bound)));
             }
             else
@@ -4158,8 +4128,7 @@ static void check_array_type_is_valid_for_allocatable(type_t* t,
 {
     if (!array_type_is_deferred_shape(t))
     {
-        error_printf("%s: error: ALLOCATABLE entity '%s' does not have a deferred shape DIMENSION attribute\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "ALLOCATABLE entity '%s' does not have a deferred shape DIMENSION attribute\n",
                 entry->symbol_name);
     }
 }
@@ -4171,8 +4140,7 @@ static void check_array_type_is_valid_for_pointer(type_t* t,
     if (!array_type_is_deferred_shape(
                 pointer_type_get_pointee_type(t)))
     {
-        error_printf("%s: error: POINTER entity '%s' does not have a deferred shape DIMENSION attribute\n",
-                locus_to_str(locus),
+        error_printf_at(locus, "POINTER entity '%s' does not have a deferred shape DIMENSION attribute\n",
                 entry->symbol_name);
     }
 }
@@ -4207,8 +4175,7 @@ static void build_scope_access_stmt(AST a, const decl_context_t* decl_context, n
                 scope_entry_t* sym = entry_list_iterator_current(entry_it);
                 if (symbol_entity_specs_get_access(sym) != AS_UNKNOWN)
                 {
-                    error_printf("%s: access specifier already given for entity '%s'\n",
-                            ast_location(access_id),
+                    error_printf_at(ast_get_locus(access_id), "access specifier already given for entity '%s'\n",
                             sym->symbol_name);
                 }
                 else
@@ -4238,15 +4205,13 @@ static void build_scope_access_stmt(AST a, const decl_context_t* decl_context, n
         if (current_sym == NULL
                 || current_sym->kind != SK_MODULE)
         {
-            error_printf("%s: error: wrong usage of access-statement\n",
-                    ast_location(a));
+            error_printf_at(ast_get_locus(a), "wrong usage of access-statement\n");
         }
         else
         {
             if (symbol_entity_specs_get_access(current_sym) != AS_UNKNOWN)
             {
-                error_printf("%s: error: module '%s' already given a default access\n", 
-                        ast_location(a),
+                error_printf_at(ast_get_locus(a), "module '%s' already given a default access\n",
                         current_sym->symbol_name);
             }
             if (attr_spec.is_public)
@@ -4297,23 +4262,20 @@ static void build_scope_allocatable_stmt(AST a, const decl_context_t* decl_conte
 
         if (entry->kind != SK_VARIABLE)
         {
-            error_printf("%s: error: invalid entity '%s' in ALLOCATABLE clause\n", 
-                    ast_location(name), 
+            error_printf_at(ast_get_locus(name), "invalid entity '%s' in ALLOCATABLE clause\n", 
                     ASTText(name));
             continue;
         }
 
         if (is_pointer_type(entry->type_information))
         {
-            error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
-                    ast_location(name));
+            error_printf_at(ast_get_locus(name), "attribute POINTER conflicts with ALLOCATABLE\n");
             continue;
         }
 
         if (symbol_entity_specs_get_is_allocatable(entry))
         {
-            error_printf("%s: error: attribute ALLOCATABLE was already set for entity '%s'\n",
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "attribute ALLOCATABLE was already set for entity '%s'\n",
                     ASTText(name));
             continue;
         }
@@ -4324,8 +4286,7 @@ static void build_scope_allocatable_stmt(AST a, const decl_context_t* decl_conte
             if (fortran_is_array_type(no_ref(entry->type_information))
                     || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
             {
-                error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
-                        ast_location(a),
+                error_printf_at(ast_get_locus(a), "entity '%s' has already a DIMENSION attribute\n",
                         entry->symbol_name);
                 continue;
             }
@@ -4398,14 +4359,12 @@ static void build_scope_allocate_stmt(AST a, const decl_context_t* decl_context,
             {
                 if (entry != NULL)
                 {
-                    error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
-                            ast_location(a),
+                    error_printf_at(ast_get_locus(a), "entity '%s' does not have ALLOCATABLE or POINTER attribute\n",
                             entry->symbol_name);
                 }
                 else
                 {
-                    error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
-                            ast_location(a),
+                    error_printf_at(ast_get_locus(a), "entity '%s' does not have ALLOCATABLE or POINTER attribute\n",
                             codegen_to_str(nodecl_data_ref, decl_context));
                 }
                 error = 1;
@@ -4593,7 +4552,7 @@ static void build_scope_bind_stmt(AST a,
 
     if (ASTKind(language_binding_spec) != AST_BIND_C_SPEC)
     {
-        error_printf("%s: error: unsupported BIND statement\n", ast_location(a));
+        error_printf_at(ast_get_locus(a), "unsupported BIND statement\n");
         return;
     }
 
@@ -4618,8 +4577,7 @@ static void build_scope_bind_stmt(AST a,
 
         if (entry == NULL)
         {
-            error_printf("%s: error: unknown entity '%s' in BIND statement\n",
-                    ast_location(bind_entity),
+            error_printf_at(ast_get_locus(bind_entity), "unknown entity '%s' in BIND statement\n",
                     fortran_prettyprint_in_buffer(bind_entity));
             continue;
         }
@@ -4851,8 +4809,7 @@ static void build_scope_common_stmt(AST a,
             
             if (symbol_entity_specs_get_is_in_common(sym))
             {
-                error_printf("%s: error: entity '%s' is already in a COMMON\n", 
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' is already in a COMMON\n",
                         sym->symbol_name);
                 continue;
             }
@@ -4872,8 +4829,7 @@ static void build_scope_common_stmt(AST a,
                 if (fortran_is_array_type(no_ref(sym->type_information))
                         || fortran_is_pointer_to_array_type(no_ref(sym->type_information)))
                 {
-                    error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
-                            ast_location(a),
+                    error_printf_at(ast_get_locus(a), "entity '%s' has already a DIMENSION attribute\n",
                             sym->symbol_name);
                     continue;
                 }
@@ -4939,7 +4895,7 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, const decl_co
     scope_entry_t* label_var = fortran_get_variable_with_locus(decl_context, label_name, ASTText(label_name));
     if (label_var == NULL)
     {
-        error_printf("%s: error: symbol '%s' is unknown\n", ast_location(label_name), ASTText(label_name));
+        error_printf_at(ast_get_locus(label_name), "symbol '%s' is unknown\n", ASTText(label_name));
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_err_statement(ast_get_locus(a))
                 );
@@ -4989,7 +4945,7 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, const decl_con
 
     if (label_var == NULL)
     {
-        error_printf("%s: error: symbol '%s' is unknown\n", ast_location(label_name), ASTText(label_name));
+        error_printf_at(ast_get_locus(label_name), "symbol '%s' is unknown\n", ASTText(label_name));
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_err_statement(ast_get_locus(a))
                 );
@@ -5035,8 +4991,7 @@ scope_entry_t* fortran_query_label_str_(const char* label,
         {
             if (new_label->defined)
             {
-                error_printf("%s: error: label %s has already been defined in %s\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "label %s has already been defined in %s\n",
                         new_label->symbol_name,
                         locus_to_str(new_label->locus));
             }
@@ -5095,8 +5050,7 @@ scope_entry_t* fortran_query_construct_name_str(
         if (new_label->kind != SK_LABEL
                 && new_label->kind != SK_UNDEFINED)
         {
-            error_printf("%s: error: name '%s' cannot be used as a construct name\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "name '%s' cannot be used as a construct name\n",
                     new_label->symbol_name);
             return NULL;
         }
@@ -5105,8 +5059,7 @@ scope_entry_t* fortran_query_construct_name_str(
         {
             if (new_label->defined)
             {
-                error_printf("%s: error: construct name %s has already been defined in %s\n",
-                        locus_to_str(locus),
+                error_printf_at(locus, "construct name %s has already been defined in %s\n",
                         new_label->symbol_name,
                         locus_to_str(new_label->locus));
             }
@@ -5179,7 +5132,7 @@ static nodecl_t get_construct_name(AST construct_name, const decl_context_t* dec
 
         if (construct_name_sym == NULL)
         {
-            error_printf("%s: error: construct name '%s' not defined\n", ast_location(construct_name), ASTText(construct_name));
+            error_printf_at(ast_get_locus(construct_name), "construct name '%s' not defined\n", ASTText(construct_name));
             return nodecl_null();
         }
         else
@@ -5234,7 +5187,7 @@ static void generic_implied_do_handler(AST a, const decl_context_t* decl_context
 
     if (do_variable == NULL)
     {
-        error_printf("%s: error: unknown symbol '%s' in io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
+        error_printf_at(ast_get_locus(io_do_variable), "unknown symbol '%s' in io-implied-do\n", ASTText(io_do_variable));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(io_do_variable));
         return;
     }
@@ -5246,7 +5199,7 @@ static void generic_implied_do_handler(AST a, const decl_context_t* decl_context
     }
     else if (do_variable->kind != SK_VARIABLE)
     {
-        error_printf("%s: error: invalid name '%s' for io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
+        error_printf_at(ast_get_locus(io_do_variable), "invalid name '%s' for io-implied-do\n", ASTText(io_do_variable));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(io_do_variable));
         return;
     }
@@ -5326,8 +5279,7 @@ static void build_scope_data_stmt_do(AST a, const decl_context_t* decl_context,
 
                 if (!nodecl_is_constant(nodecl_repeat))
                 {
-                    error_printf("%s: error: data-stmt-repeat '%s' is not a constant expression\n",
-                            nodecl_locus_to_str(nodecl_repeat),
+                    error_printf_at(nodecl_get_locus(nodecl_repeat), "data-stmt-repeat '%s' is not a constant expression\n",
                             codegen_to_str(nodecl_repeat, nodecl_retrieve_context(nodecl_repeat)));
                 }
 
@@ -5336,8 +5288,7 @@ static void build_scope_data_stmt_do(AST a, const decl_context_t* decl_context,
 
                 if (!nodecl_is_constant(nodecl_value))
                 {
-                    error_printf("%s: error: data-stmt-value '%s' is not a constant expression\n",
-                            nodecl_locus_to_str(nodecl_value),
+                    error_printf_at(nodecl_get_locus(nodecl_value), "data-stmt-value '%s' is not a constant expression\n",
                             codegen_to_str(nodecl_value, nodecl_retrieve_context(nodecl_value)));
                 }
 
@@ -5349,7 +5300,7 @@ static void build_scope_data_stmt_do(AST a, const decl_context_t* decl_context,
                         (const_value_lt(nodecl_get_constant(nodecl_repeat), 
                                         const_value_get_zero(fortran_get_default_integer_type_kind(), 1))))
                 {
-                    error_printf("%s: error: data-stmt-repeat is negative\n", nodecl_locus_to_str(nodecl_repeat));
+                    error_printf_at(nodecl_get_locus(nodecl_repeat), "data-stmt-repeat is negative\n");
                     continue;
                 }
 
@@ -5368,8 +5319,7 @@ static void build_scope_data_stmt_do(AST a, const decl_context_t* decl_context,
 
                 if (!nodecl_is_constant(nodecl_value))
                 {
-                    error_printf("%s: error: data-stmt-value '%s' is not a constant expression\n",
-                            nodecl_locus_to_str(nodecl_value),
+                    error_printf_at(nodecl_get_locus(nodecl_value), "data-stmt-value '%s' is not a constant expression\n",
                             codegen_to_str(nodecl_value, nodecl_retrieve_context(nodecl_value)));
                     continue;
                 }
@@ -5442,8 +5392,7 @@ static void build_scope_deallocate_stmt(AST a,
                     || (!symbol_entity_specs_get_is_allocatable(entry)
                         && !is_pointer_type(no_ref(entry->type_information))))
             {
-                error_printf("%s: error: only ALLOCATABLE or POINTER can be used in a DEALLOCATE statement\n", 
-                        ast_location(a));
+                error_printf_at(ast_get_locus(a), "only ALLOCATABLE or POINTER can be used in a DEALLOCATE statement\n");
                 error = 1;
                 continue;
             }
@@ -5569,8 +5518,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
         {
             if (class_name->decl_context->current_scope != class_name->decl_context->global_scope)
             {
-                error_printf("%s: error: name '%s' is not a type name\n", 
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "name '%s' is not a type name\n",
                         ASTText(name));
                 // Give up
                 return;
@@ -5587,8 +5535,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
             if (decl_context->current_scope == class_name->decl_context->current_scope
                     || symbol_entity_specs_get_from_module(class_name) != NULL)
             {
-                error_printf("%s: error: derived type 'TYPE(%s)' already defined\n", 
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "derived type 'TYPE(%s)' already defined\n",
                         ASTText(name));
                 // Give up
                 return;
@@ -5657,8 +5604,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
             {
                 if (is_sequence)
                 {
-                    error_printf("%s: error: SEQUENCE statement specified twice\n", 
-                            ast_location(private_or_sequence));
+                    error_printf_at(ast_get_locus(private_or_sequence), "SEQUENCE statement specified twice\n");
                 }
                 is_sequence = 1;
             }
@@ -5666,8 +5612,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
             {
                 if (fields_are_private)
                 {
-                    error_printf("%s: error: PRIVATE statement specified twice\n", 
-                            ast_location(private_or_sequence));
+                    error_printf_at(ast_get_locus(private_or_sequence), "PRIVATE statement specified twice\n");
                 }
                 // This can only be a private_stmt, no need to check it here
                 fields_are_private = 1;
@@ -5764,7 +5709,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                 {
                     if (current_attr_spec.is_codimension)
                     {
-                        error_printf("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+                        error_printf_at(ast_get_locus(declaration), "CODIMENSION attribute specified twice\n");
                     }
                     else
                     {
@@ -5777,7 +5722,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                 {
                     if (!fortran_is_character_type(no_ref(entry->type_information)))
                     {
-                        error_printf("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+                        error_printf_at(ast_get_locus(declaration), "char-length specified but type is not CHARACTER\n");
                     }
 
                     if (ASTKind(char_length) != AST_SYMBOL
@@ -5806,12 +5751,12 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                 // Stop the madness here
                 if (current_attr_spec.is_codimension)
                 {
-                    error_printf("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+                    error_printf_at(ast_get_locus(declaration), "sorry: coarrays are not supported\n");
                 }
 
                 if (current_attr_spec.is_asynchronous)
                 {
-                    error_printf("%s: sorry: ASYNCHRONOUS attribute not supported\n", ast_location(declaration));
+                    error_printf_at(ast_get_locus(declaration), "sorry: ASYNCHRONOUS attribute not supported\n");
                 }
 
                 if (current_attr_spec.is_dimension 
@@ -5829,8 +5774,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                 {
                     if (is_pointer_type(entry->type_information))
                     {
-                        error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
-                                ast_location(declaration));
+                        error_printf_at(ast_get_locus(declaration), "attribute POINTER conflicts with ALLOCATABLE\n");
                     }
                     else
                     {
@@ -5859,8 +5803,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                 {
                     if (symbol_entity_specs_get_is_allocatable(entry))
                     {
-                        error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
-                                ast_location(declaration));
+                        error_printf_at(ast_get_locus(declaration), "attribute ALLOCATABLE conflicts with POINTER\n");
                     }
                     else
                     {
@@ -5883,9 +5826,9 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                     if (!array_is_assumed_shape(entry, decl_context)
                             && !fortran_is_pointer_to_array_type(entry->type_information))
                     {
-                        error_printf("%s: error: CONTIGUOUS attribute is only valid for pointers to arrays "
-                                "or assumed-shape arrays\n",
-                                ast_location(name));
+                        error_printf_at(ast_get_locus(name),
+                                "CONTIGUOUS attribute is only valid for pointers to arrays "
+                                "or assumed-shape arrays\n");
                     }
                     symbol_entity_specs_set_is_contiguous(entry, 1);
                 }
@@ -5905,13 +5848,11 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                     }
                     else if (current_attr_spec.is_pointer)
                     {
-                        error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
-                                ast_location(initialization));
+                        error_printf_at(ast_get_locus(initialization), "a POINTER must be initialized using pointer initialization\n");
                     }
                     else if (ASTKind(initialization) == AST_POINTER_INITIALIZATION)
                     {
-                        error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
-                                ast_location(initialization));
+                        error_printf_at(ast_get_locus(initialization), "no POINTER attribute, required for pointer initialization\n");
                     }
                     else
                     {
@@ -5960,8 +5901,7 @@ static void build_scope_dimension_stmt(AST a, const decl_context_t* decl_context
         if (fortran_is_array_type(no_ref(entry->type_information))
                 || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
         {
-            error_printf("%s: error: entity '%s' already has a DIMENSION attribute\n",
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "entity '%s' already has a DIMENSION attribute\n",
                     ASTText(name));
             continue;
         }
@@ -6059,8 +5999,7 @@ static void build_scope_do_construct(AST a, const decl_context_t* decl_context, 
             if (ind_var != NULL
                     && !is_integer_type(no_ref(ind_var->type_information)))
             {
-                warn_printf("%s: warning: loop variable '%s' should be of integer type\n",
-                        ast_location(a),
+                warn_printf_at(ast_get_locus(a), "loop variable '%s' should be of integer type\n",
                         codegen_to_str(nodecl_var, nodecl_retrieve_context(nodecl_var)));
             }
         }
@@ -6191,8 +6130,7 @@ static void build_scope_entry_stmt(AST a, const decl_context_t* decl_context, no
         }
         else if (related_sym->kind == SK_PROGRAM) 
         {
-            error_printf("%s: error: entry statement '%s' cannot appear within a program\n",
-                    ast_location(a),
+            error_printf_at(ast_get_locus(a), "entry statement '%s' cannot appear within a program\n",
                     ASTText(name));
             // Keep it for the second invocation
             nodecl_set_symbol(_nodecl_wrap(a), error_entry);
@@ -6340,16 +6278,14 @@ static void build_scope_external_stmt(AST a, const decl_context_t* decl_context,
             // We have seen an INTRINSIC statement before for the same symbol
             if (symbol_entity_specs_get_is_builtin(entry))
             {
-                error_printf("%s: error: entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
                         entry->symbol_name);
                 continue;
             }
             // We have seen an EXTERNAL statement before for the same symbol
             else if (symbol_entity_specs_get_is_extern(entry))
             {
-                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' already has EXTERNAL attribute\n",
                         entry->symbol_name);
                 continue;
             }
@@ -6360,16 +6296,14 @@ static void build_scope_external_stmt(AST a, const decl_context_t* decl_context,
             {
                 if (is_function_type(no_ref(entry->type_information)))
                 {
-                    error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
-                            ast_location(name),
+                    error_printf_at(ast_get_locus(name), "entity '%s' already has EXTERNAL attribute\n",
                             entry->symbol_name);
                     continue;
                 }
             }
             else
             {
-                error_printf("%s: error: entity '%s' cannot have EXTERNAL attribute\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' cannot have EXTERNAL attribute\n",
                         entry->symbol_name);
                 continue;
             }
@@ -6642,13 +6576,11 @@ static void build_scope_implicit_stmt(AST a, const decl_context_t* decl_context,
         {
             if (is_implicit_none(decl_context))
             {
-                error_printf("%s: error: IMPLICIT NONE specified twice\n",
-                        ast_location(a));
+                error_printf_at(ast_get_locus(a), "IMPLICIT NONE specified twice\n");
             }
             else 
             {
-                error_printf("%s: error: IMPLICIT NONE after IMPLICIT\n",
-                        ast_location(a));
+                error_printf_at(ast_get_locus(a), "IMPLICIT NONE after IMPLICIT\n");
             }
         }
         set_implicit_none(decl_context);
@@ -6658,8 +6590,7 @@ static void build_scope_implicit_stmt(AST a, const decl_context_t* decl_context,
         if (implicit_has_been_set(decl_context)
                 && is_implicit_none(decl_context))
         {
-            error_printf("%s: error: IMPLICIT after IMPLICIT NONE\n",
-                    ast_location(a));
+            error_printf_at(ast_get_locus(a), "IMPLICIT after IMPLICIT NONE\n");
         }
 
         AST it;
@@ -6678,8 +6609,7 @@ static void build_scope_implicit_stmt(AST a, const decl_context_t* decl_context,
 
             if (basic_type == NULL)
             {
-                error_printf("%s: error: invalid type specifier '%s' in IMPLICIT statement\n",
-                        ast_location(declaration_type_spec),
+                error_printf_at(ast_get_locus(declaration_type_spec), "invalid type specifier '%s' in IMPLICIT statement\n",
                         fortran_prettyprint_in_buffer(declaration_type_spec));
                 continue;
             }
@@ -6709,8 +6639,7 @@ static void build_scope_implicit_stmt(AST a, const decl_context_t* decl_context,
                                 || !(('a' <= tolower(letter1_str[0]))
                                     && (tolower(letter1_str[0]) <= 'z')))))
                 {
-                    error_printf("%s: error: invalid IMPLICIT letter specifier '%s'\n", 
-                            ast_location(letter_spec),
+                    error_printf_at(ast_get_locus(letter_spec), "invalid IMPLICIT letter specifier '%s'\n",
                             fortran_prettyprint_in_buffer(letter_spec));
                     valid = 0;
                 }
@@ -6734,8 +6663,7 @@ static void build_scope_import_stmt(AST a,
 {
     if (!inside_interface(a))
     {
-        error_printf("%s: error: IMPORT statement is only valid inside an INTERFACE block\n",
-                ast_location(a));
+        error_printf_at(ast_get_locus(a), "IMPORT statement is only valid inside an INTERFACE block\n");
         return;
     }
 
@@ -6759,8 +6687,7 @@ static void build_scope_import_stmt(AST a,
                     ast_get_locus(name));
             if (entry == NULL)
             {
-                error_printf("%s: error: name '%s' in IMPORT statement not found in host associated scope\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "name '%s' in IMPORT statement not found in host associated scope\n",
                         ASTText(name));
                 continue;
             }
@@ -6790,8 +6717,7 @@ static void build_scope_intent_stmt(AST a, const decl_context_t* decl_context,
 
         if (symbol_entity_specs_get_intent_kind(entry) != INTENT_INVALID)
         {
-            error_printf("%s: error: entity '%s' already has an INTENT attribute\n",
-                    ast_location(dummy_arg),
+            error_printf_at(ast_get_locus(dummy_arg), "entity '%s' already has an INTENT attribute\n",
                     fortran_prettyprint_in_buffer(dummy_arg));
             continue;
         }
@@ -6877,8 +6803,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 {
                     if (!is_generic_name_of_this_module)
                     {
-                        error_printf("%s: error: name '%s' is not a MODULE PROCEDURE\n",
-                                ast_location(procedure_name),
+                        error_printf_at(ast_get_locus(procedure_name), "name '%s' is not a MODULE PROCEDURE\n",
                                 prettyprint_in_buffer(procedure_name));
                         break;
                     }
@@ -6950,8 +6875,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
 
                 if (entry == NULL)
                 {
-                    error_printf("%s: error: name '%s' is not a MODULE PROCEDURE\n", 
-                            ast_location(procedure_name),
+                    error_printf_at(ast_get_locus(procedure_name), "name '%s' is not a MODULE PROCEDURE\n",
                             prettyprint_in_buffer(procedure_name));
                 }
                 else
@@ -7018,8 +6942,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
             if (entry_list_size(entry_list) > 1)
             {
                 entry_list_free(entry_list);
-                error_printf("%s: error: a directive cannot appear before a MODULE PROCEDURE with more than one declaration\n", 
-                        ast_location(interface_specification));
+                error_printf_at(ast_get_locus(interface_specification), "a directive cannot appear before a MODULE PROCEDURE with more than one declaration\n");
                 return NULL;
             }
 
@@ -7118,8 +7041,7 @@ static void build_scope_interface_block(AST a,
                 }
                 else // otherwise
                 {
-                    error_printf("%s: error: redefining symbol '%s'\n",
-                            ast_location(generic_spec),
+                    error_printf_at(ast_get_locus(generic_spec), "redefining symbol '%s'\n",
                             name);
                     entry_list_iterator_free(it);
                     return;
@@ -7225,16 +7147,14 @@ static void build_scope_intrinsic_stmt(AST a,
                 // We have seen an INTRINSIC statement before for the same symbol 
                 if (symbol_entity_specs_get_is_builtin(entry))
                 {
-                    error_printf("%s: error: entity '%s' already has INTRINSIC attribute\n",
-                            ast_location(name),
+                    error_printf_at(ast_get_locus(name), "entity '%s' already has INTRINSIC attribute\n",
                             entry->symbol_name);
                     continue;
                 }
                 // We have seen an EXTERNAL statement before for the same symbol
                 else
                 {
-                    error_printf("%s: error: entity '%s' already has EXTERNAL attribute and EXTERNAL attribute conflicts with EXTERNAL attribute\n",
-                            ast_location(name),
+                    error_printf_at(ast_get_locus(name), "entity '%s' already has EXTERNAL attribute and EXTERNAL attribute conflicts with EXTERNAL attribute\n",
                             entry->symbol_name);
 
                     continue;
@@ -7245,8 +7165,7 @@ static void build_scope_intrinsic_stmt(AST a,
             {
                 if (entry_intrinsic == NULL || !symbol_entity_specs_get_is_builtin(entry_intrinsic))
                 {
-                    error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
-                            ast_location(name),
+                    error_printf_at(ast_get_locus(name), "name '%s' is not known as an intrinsic\n",
                             ASTText(name));
                     continue;
                 }
@@ -7260,8 +7179,7 @@ static void build_scope_intrinsic_stmt(AST a,
             if (entry_intrinsic == NULL 
                     || !symbol_entity_specs_get_is_builtin(entry_intrinsic))
             {
-                error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "name '%s' is not known as an intrinsic\n",
                         ASTText(name));
                 continue;
             }
@@ -7302,8 +7220,7 @@ static void build_scope_namelist_stmt(AST a, const decl_context_t* decl_context,
                 && new_namelist->kind != SK_UNDEFINED
                 && new_namelist->kind != SK_NAMELIST)
         {
-            error_printf("%s: error: name '%s' cannot be used as a namelist\n", 
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "name '%s' cannot be used as a namelist\n",
                     ASTText(name));
             // This will cause an ambiguity later
             new_namelist = NULL;
@@ -7371,8 +7288,7 @@ static void build_scope_nullify_stmt(AST a, const decl_context_t* decl_context, 
         if (sym == NULL ||
                 !is_pointer_type(no_ref(sym->type_information)))
         {
-            error_printf("%s: error: '%s' does not designate a POINTER\n",
-                    ast_location(a),
+            error_printf_at(ast_get_locus(a), "'%s' does not designate a POINTER\n",
                     fortran_prettyprint_in_buffer(pointer_object));
             error = 1;
             continue;
@@ -7418,8 +7334,7 @@ static void build_scope_optional_stmt(AST a, const decl_context_t* decl_context,
 
         if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
         {
-            error_printf("%s: error: entity '%s' is not a dummy argument\n",
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "entity '%s' is not a dummy argument\n",
                     ASTText(name));
             continue;
         }
@@ -7445,29 +7360,25 @@ static void build_scope_parameter_stmt(AST a, const decl_context_t* decl_context
 
         if (is_void_type(no_ref(entry->type_information)))
         {
-            error_printf("%s: error: unknown entity '%s' in PARAMETER statement\n",
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "unknown entity '%s' in PARAMETER statement\n",
                     ASTText(name));
             continue;
         }
         if (symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
         {
-            error_printf("%s: error: PARAMETER attribute is not valid for dummy arguments\n", 
-                    ast_location(a));
+            error_printf_at(ast_get_locus(a), "PARAMETER attribute is not valid for dummy arguments\n");
             continue;
         }
 
         if (is_const_qualified_type(no_ref(entry->type_information)))
         {
-            error_printf("%s: error: PARAMETER attribute already specified\n",
-                    ast_location(a));
+            error_printf_at(ast_get_locus(a), "PARAMETER attribute already specified\n");
             continue;
         }
 
         if (is_pointer_type(no_ref(entry->type_information)))
         {
-            error_printf("%s: error: PARAMETER attribute is not compatible with POINTER attribute\n",
-                    ast_location(a));
+            error_printf_at(ast_get_locus(a), "PARAMETER attribute is not compatible with POINTER attribute\n");
             continue;
         }
 
@@ -7553,15 +7464,13 @@ static void build_scope_cray_pointer_stmt(AST a, const decl_context_t* decl_cont
         {
             if (!is_integer_type(pointer_entry->type_information))
             {
-                error_printf("%s: error: a Cray pointer must have integer type\n", 
-                        ast_location(pointer_name));
+                error_printf_at(ast_get_locus(pointer_name), "a Cray pointer must have integer type\n");
                 continue;
             }
         }
         else
         {
-            error_printf("%s: error: invalid entity '%s' for Cray pointer\n",
-                    ast_location(pointer_name),
+            error_printf_at(ast_get_locus(pointer_name), "invalid entity '%s' for Cray pointer\n",
                     ASTText(pointer_name));
             continue;
         }
@@ -7580,8 +7489,7 @@ static void build_scope_cray_pointer_stmt(AST a, const decl_context_t* decl_cont
 
         if (symbol_entity_specs_get_is_cray_pointee(pointee_entry))
         {
-            error_printf("%s: error: entity '%s' is already a pointee of Cray pointer '%s'\n",
-                    ast_location(pointee_name),
+            error_printf_at(ast_get_locus(pointee_name), "entity '%s' is already a pointee of Cray pointer '%s'\n",
                     pointee_entry->symbol_name,
                     symbol_entity_specs_get_cray_pointer(pointee_entry)->symbol_name);
             continue;
@@ -7591,8 +7499,7 @@ static void build_scope_cray_pointer_stmt(AST a, const decl_context_t* decl_cont
             if (fortran_is_array_type(no_ref(pointee_entry->type_information))
                     || fortran_is_pointer_to_array_type(no_ref(pointee_entry->type_information)))
             {
-                error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
-                        ast_location(pointee_name),
+                error_printf_at(ast_get_locus(pointee_name), "entity '%s' has already a DIMENSION attribute\n",
                         pointee_entry->symbol_name);
                 continue;
             }
@@ -7637,23 +7544,20 @@ static void build_scope_pointer_stmt(AST a, const decl_context_t* decl_context,
         char was_ref = is_lvalue_reference_type(entry->type_information);
         if (is_pointer_type(no_ref(entry->type_information)))
         {
-            error_printf("%s: error: entity '%s' has already the POINTER attribute\n",
-                    ast_location(pointer_decl),
+            error_printf_at(ast_get_locus(pointer_decl), "entity '%s' has already the POINTER attribute\n",
                     entry->symbol_name);
             continue;
         }
 
         if (symbol_entity_specs_get_is_allocatable(entry))
         {
-            error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
-                    ast_location(name));
+            error_printf_at(ast_get_locus(name), "attribute ALLOCATABLE conflicts with POINTER\n");
             continue;
         }
 
         if (is_const_qualified_type(no_ref(entry->type_information)))
         {
-            error_printf("%s: error: POINTER attribute is not compatible with PARAMETER attribute\n", 
-                    ast_location(pointer_decl));
+            error_printf_at(ast_get_locus(pointer_decl), "POINTER attribute is not compatible with PARAMETER attribute\n");
             continue;
         }
 
@@ -7662,8 +7566,7 @@ static void build_scope_pointer_stmt(AST a, const decl_context_t* decl_context,
             if (fortran_is_array_type(no_ref(entry->type_information))
                     || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
             {
-                error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
-                        ast_location(pointer_decl),
+                error_printf_at(ast_get_locus(pointer_decl), "entity '%s' has already a DIMENSION attribute\n",
                         entry->symbol_name);
                 continue;
             }
@@ -7851,8 +7754,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             if (interface == NULL
                     || interface->kind != SK_FUNCTION)
             {
-                error_printf("%s: error: '%s' is not an interface name\n",
-                        ast_location(proc_interface),
+                error_printf_at(ast_get_locus(proc_interface), "'%s' is not an interface name\n",
                         interface->symbol_name);
                 interface = NULL;
             }
@@ -7869,8 +7771,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
 
                 if (function_type_get_lacking_prototype(function_type))
                 {
-                    error_printf("%s: error: '%s' does not have an explicit interface\n",
-                            ast_location(proc_interface),
+                    error_printf_at(ast_get_locus(proc_interface), "'%s' does not have an explicit interface\n",
                             interface->symbol_name);
 
                     interface = NULL;
@@ -7906,8 +7807,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
 
         if (symbol_entity_specs_get_is_builtin(entry))
         {
-            error_printf("%s: error: entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
                     entry->symbol_name);
             continue;
         }
@@ -7927,13 +7827,11 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
         {
             if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
-                error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
-                        ast_location(name));
+                error_printf_at(ast_get_locus(name), "OPTIONAL attribute is only for dummy arguments\n");
             }
             if (symbol_entity_specs_get_is_optional(entry))
             {
-                error_printf("%s: error: OPTIONAL attribute already specified for symbol '%s'\n", 
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "OPTIONAL attribute already specified for symbol '%s'\n",
                         entry->symbol_name);
             }
             symbol_entity_specs_set_is_optional(entry, 1);
@@ -7959,22 +7857,19 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             }
             else if (entry->kind == SK_FUNCTION)
             {
-                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' already has EXTERNAL attribute\n",
                         entry->symbol_name);
             }
             else if (entry->kind == SK_VARIABLE
                     && symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry)
                     && is_function_type(no_ref(entry->type_information)))
             {
-                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' already has EXTERNAL attribute\n",
                         entry->symbol_name);
             }
             else
             {
-                error_printf("%s: error: entity '%s' cannot appear in a PROCEDURE statement\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' cannot appear in a PROCEDURE statement\n",
                         entry->symbol_name);
             }
         }
@@ -8000,8 +7895,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
         {
             if (!is_pointer_type(entry->type_information))
             {
-                error_printf("%s: error: only procedure pointers can be initialized in a procedure declaration statement\n",
-                        ast_location(name));
+                error_printf_at(ast_get_locus(name), "only procedure pointers can be initialized in a procedure declaration statement\n");
             }
             internal_error("Not yet implemented", 0);
         }
@@ -8036,7 +7930,7 @@ static void build_scope_return_stmt(AST a, const decl_context_t* decl_context, n
     if (decl_context->current_scope->related_entry == NULL
             || decl_context->current_scope->related_entry->kind != SK_FUNCTION)
     {
-        error_printf("%s: error: RETURN statement not valid in this context\n", ast_location(a));
+        error_printf_at(ast_get_locus(a), "RETURN statement not valid in this context\n");
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_err_statement(ast_get_locus(a))
                 );
@@ -8058,8 +7952,7 @@ static void build_scope_return_stmt(AST a, const decl_context_t* decl_context, n
 
         if (!is_void_type(function_type_get_return_type(current_function->type_information)))
         {
-            error_printf("%s: error: RETURN with alternate return is only valid in a SUBROUTINE program unit\n", 
-                    ast_location(a));
+            error_printf_at(ast_get_locus(a), "RETURN with alternate return is only valid in a SUBROUTINE program unit\n");
             *nodecl_output = nodecl_make_list_1(
                     nodecl_make_err_statement(ast_get_locus(a))
                     );
@@ -8097,8 +7990,7 @@ static void build_scope_save_stmt(AST a, const decl_context_t* decl_context, nod
 
     if (symbol_entity_specs_get_is_saved_program_unit(program_unit))
     {
-        error_printf("%s: error: SAVE statement specified more than once\n",
-                ast_location(a));
+        error_printf_at(ast_get_locus(a), "SAVE statement specified more than once\n");
     }
 
     if (saved_entity_list == NULL)
@@ -8171,8 +8063,7 @@ static void build_scope_stmt_function_stmt(AST a, const decl_context_t* decl_con
 
             if (!fortran_is_scalar_type(no_ref(dummy_arg->type_information)))
             {
-                error_printf("%s: error: dummy argument '%s' of statement function statement is not a scalar\n",
-                        ast_location(dummy_arg_item),
+                error_printf_at(ast_get_locus(dummy_arg_item), "dummy argument '%s' of statement function statement is not a scalar\n",
                         fortran_prettyprint_in_buffer(dummy_arg_item));
                 return;
             }
@@ -8304,8 +8195,7 @@ static void build_scope_target_stmt(AST a, const decl_context_t* decl_context, n
                 if (fortran_is_array_type(no_ref(entry->type_information))
                         || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
                 {
-                    error_printf("%s: error: DIMENSION attribute specified twice for entity '%s'\n", 
-                            ast_location(a),
+                    error_printf_at(ast_get_locus(a), "DIMENSION attribute specified twice for entity '%s'\n",
                             entry->symbol_name);
                     continue;
                 }
@@ -8331,8 +8221,7 @@ static void build_scope_target_stmt(AST a, const decl_context_t* decl_context, n
 
         if (symbol_entity_specs_get_is_target(entry))
         {
-            error_printf("%s: error: entity '%s' already has TARGET attribute\n", 
-                    ast_location(target_decl),
+            error_printf_at(ast_get_locus(target_decl), "entity '%s' already has TARGET attribute\n",
                     entry->symbol_name);
             continue;
         }
@@ -8406,16 +8295,14 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
 
         if (!symbol_entity_specs_get_is_implicit_basic_type(entry))
         {
-            error_printf("%s: error: entity '%s' already has a basic type\n",
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "entity '%s' already has a basic type\n",
                     entry->symbol_name);
             continue;
         }
 
         if (entry->defined)
         {
-            error_printf("%s: error: redeclaration of entity '%s', first declared at '%s'\n",
-                    ast_location(declaration),
+            error_printf_at(ast_get_locus(declaration), "redeclaration of entity '%s', first declared at '%s'\n",
                     entry->symbol_name,
                     locus_to_str(entry->locus));
             continue;
@@ -8483,7 +8370,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         {
             if (current_attr_spec.is_codimension)
             {
-                error_printf("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+                error_printf_at(ast_get_locus(declaration), "CODIMENSION attribute specified twice\n");
                 continue;
             }
             current_attr_spec.is_codimension = 1;
@@ -8498,7 +8385,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
 
             if (!fortran_is_character_type(rank0))
             {
-                error_printf("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+                error_printf_at(ast_get_locus(declaration), "char-length specified but type is not CHARACTER\n");
                 continue;
             }
 
@@ -8537,12 +8424,12 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         // Stop the madness here
         if (current_attr_spec.is_codimension)
         {
-            error_printf("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+            error_printf_at(ast_get_locus(declaration), "sorry: coarrays are not supported\n");
         }
 
         if (current_attr_spec.is_asynchronous)
         {
-            error_printf("%s: sorry: ASYNCHRONOUS attribute not supported\n", ast_location(declaration));
+            error_printf_at(ast_get_locus(declaration), "sorry: ASYNCHRONOUS attribute not supported\n");
         }
 
         if (current_attr_spec.is_dimension
@@ -8584,8 +8471,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         {
             if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
-                error_printf("%s: error: VALUE attribute is only for dummy arguments\n",
-                        ast_location(declaration));
+                error_printf_at(ast_get_locus(declaration), "VALUE attribute is only for dummy arguments\n");
                 continue;
             }
             else
@@ -8593,8 +8479,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
                 char was_ref = is_lvalue_reference_type(entry->type_information);
                 if (!was_ref)
                 {
-                    error_printf("%s: error: VALUE attribute already set\n",
-                            ast_location(declaration));
+                    error_printf_at(ast_get_locus(declaration), "VALUE attribute already set\n");
                 }
                 else
                 {
@@ -8617,8 +8502,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         {
             if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
-                error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
-                        ast_location(declaration));
+                error_printf_at(ast_get_locus(declaration), "OPTIONAL attribute is only for dummy arguments\n");
                 continue;
             }
             symbol_entity_specs_set_is_optional(entry, 1);
@@ -8628,8 +8512,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         {
             if (is_pointer_type(entry->type_information))
             {
-                error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
-                        ast_location(name));
+                error_printf_at(ast_get_locus(name), "attribute POINTER conflicts with ALLOCATABLE\n");
                 continue;
             }
             symbol_entity_specs_set_is_allocatable(entry, 1);
@@ -8652,8 +8535,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
             if (intrinsic_name == NULL
                     || !symbol_entity_specs_get_is_builtin(intrinsic_name))
             {
-                error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "name '%s' is not known as an intrinsic\n",
                         ASTText(name));
             }
             else
@@ -8670,8 +8552,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         {
             if (is_function_type(no_ref(entry->type_information)))
             {
-                error_printf("%s: error: entity '%s' already has the EXTERNAL attribute\n", 
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' already has the EXTERNAL attribute\n",
                         entry->symbol_name);
             }
 
@@ -8704,14 +8585,12 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
             if (current_attr_spec.is_pointer
                     && is_pointer_type(no_ref(entry->type_information)))
             {
-                error_printf("%s: error: entity '%s' already has the POINTER attribute\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name), "entity '%s' already has the POINTER attribute\n",
                         entry->symbol_name);
             }
             else if (symbol_entity_specs_get_is_allocatable(entry))
             {
-                error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
-                        ast_location(name));
+                error_printf_at(ast_get_locus(name), "attribute ALLOCATABLE conflicts with POINTER\n");
             }
             else
             {
@@ -8747,9 +8626,9 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
             if (!array_is_assumed_shape(entry, decl_context)
                     && !fortran_is_pointer_to_array_type(entry->type_information))
             {
-                error_printf("%s: error: CONTIGUOUS attribute is only valid for pointers to arrays "
-                        "or assumed-shape arrays\n",
-                        ast_location(name));
+                error_printf_at(ast_get_locus(name),
+                        "CONTIGUOUS attribute is only valid for pointers to arrays "
+                        "or assumed-shape arrays\n");
             }
             symbol_entity_specs_set_is_contiguous(entry, 1);
         }
@@ -8772,14 +8651,12 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
             }
             else if (is_pointer_type(no_ref(entry->type_information)))
             {
-                error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
-                        ast_location(initialization));
+                error_printf_at(ast_get_locus(initialization), "a POINTER must be initialized using pointer initialization\n");
                 nodecl_init = nodecl_make_err_expr(ast_get_locus(initialization));
             }
             else if (ASTKind(initialization) == AST_POINTER_INITIALIZATION)
             {
-                error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
-                        ast_location(initialization));
+                error_printf_at(ast_get_locus(initialization), "no POINTER attribute, required for pointer initialization\n");
                 nodecl_init = nodecl_make_err_expr(ast_get_locus(initialization));
             }
             else
@@ -8827,14 +8704,13 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         if (is_pointer_type(no_ref(entry->type_information))
                 && current_attr_spec.is_constant)
         {
-            error_printf("%s: error: PARAMETER attribute is not compatible with POINTER attribute\n",
-                    ast_location(declaration));
+            error_printf_at(ast_get_locus(declaration), "PARAMETER attribute is not compatible with POINTER attribute\n");
         }
 
         if (current_attr_spec.is_constant
                 && initialization == NULL)
         {
-            error_printf("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
+            error_printf_at(ast_get_locus(declaration), "PARAMETER is missing an initializer\n");
         }
 
         if (current_attr_spec.is_public
@@ -8842,8 +8718,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         {
             if (symbol_entity_specs_get_access(entry) != AS_UNKNOWN)
             {
-                error_printf("%s: access specifier already given for entity '%s'\n",
-                        ast_location(declaration),
+                error_printf_at(ast_get_locus(declaration), "access specifier already given for entity '%s'\n",
                         entry->symbol_name);
             }
             if (current_attr_spec.is_public)
@@ -8874,7 +8749,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
             }
             else
             {
-                error_printf("%s: internal access specifier <is-variable> was passed but the name "
+                internal_error("%s: internal access specifier <is-variable> was passed but the name "
                         "'%s' was not an undefined nor a variable name\n",
                          ast_location(declaration),
                          entry->symbol_name);
@@ -9091,7 +8966,7 @@ scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_int
         {
             if (must_be_intrinsic_module)
             {
-                error_printf("%s: error: module '%s' is not an INTRINSIC module\n", locus_to_str(locus), module_name_str);
+                error_printf_at(locus, "module '%s' is not an INTRINSIC module\n", module_name_str);
             }
             else
             {
@@ -9108,7 +8983,7 @@ scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_int
     if (must_be_intrinsic_module
             && !symbol_entity_specs_get_is_builtin(module_symbol))
     {
-        error_printf("%s: error: loaded module '%s' is not an INTRINSIC module\n", locus_to_str(locus), module_name_str);
+        error_printf_at(locus, "loaded module '%s' is not an INTRINSIC module\n", module_name_str);
     }
 
     return module_symbol;
@@ -9368,8 +9243,7 @@ static void build_scope_value_stmt(AST a, const decl_context_t* decl_context, no
 
         if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
         {
-            error_printf("%s: error: entity '%s' is not a dummy argument\n",
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "entity '%s' is not a dummy argument\n",
                     entry->symbol_name);
             continue;
         }
@@ -9385,8 +9259,7 @@ static void build_scope_value_stmt(AST a, const decl_context_t* decl_context, no
         }
         else
         {
-            error_printf("%s: error: entity '%s' already had VALUE attribute\n",
-                    ast_location(name),
+            error_printf_at(ast_get_locus(name), "entity '%s' already had VALUE attribute\n",
                     entry->symbol_name);
         }
     }
@@ -9427,8 +9300,7 @@ static void build_scope_volatile_stmt(AST a, const decl_context_t* decl_context,
             }
             else
             {
-                error_printf("%s: error: entity '%s' already has VOLATILE attribute\n",
-                        ast_location(a), entry->symbol_name);
+                error_printf_at(ast_get_locus(a), "entity '%s' already has VOLATILE attribute\n", entry->symbol_name);
                 continue;
             }
         }
@@ -9604,8 +9476,7 @@ static void build_scope_while_stmt(AST a, const decl_context_t* decl_context, no
 
     if (!is_bool_type(no_ref(nodecl_get_type(nodecl_expr))))
     {
-        error_printf("%s: error: condition of DO WHILE loop is not a logical expression\n",
-                ast_location(expr));
+        error_printf_at(ast_get_locus(expr), "condition of DO WHILE loop is not a logical expression\n");
     }
 
     nodecl_t nodecl_statement = nodecl_null();
@@ -9836,8 +9707,7 @@ static char opt_common_int_expr(AST value, const decl_context_t* decl_context, c
     char ok = check_opt_common_int_expr(nodecl_value);
     if (!ok)
     {
-        error_printf("%s: error: specifier %s requires a character expression\n",
-                ast_location(value),
+        error_printf_at(ast_get_locus(value), "specifier %s requires a character expression\n",
                 opt_name);
         return 0;
     }
@@ -9850,8 +9720,7 @@ static char opt_common_character_expr(AST value, const decl_context_t* decl_cont
     if (!fortran_is_character_type(no_ref(nodecl_get_type(*nodecl_value)))
             && !fortran_is_pointer_to_character_type(no_ref(nodecl_get_type(*nodecl_value))))
     {
-        error_printf("%s: error: specifier %s requires a character expression\n",
-                ast_location(value),
+        error_printf_at(ast_get_locus(value), "specifier %s requires a character expression\n",
                 opt_name);
         return 0;
     }
@@ -9871,8 +9740,7 @@ static char opt_common_int_variable(AST value, const decl_context_t* decl_contex
     char ok = is_lvalue_reference_type(t) && check_opt_common_int_expr(nodecl_value);
     if (!ok)
     {
-        error_printf("%s: error: specifier %s requires an integer variable\n",
-                ast_location(value),
+        error_printf_at(ast_get_locus(value), "specifier %s requires an integer variable\n",
                 opt_name);
         return 0;
     }
@@ -9890,8 +9758,7 @@ static char opt_common_logical_variable(AST value, const decl_context_t* decl_co
                         && is_bool_type(pointer_type_get_pointee_type(no_ref(t)))));
     if (!ok)
     {
-        error_printf("%s: error: specifier %s requires a logical variable\n",
-                ast_location(value),
+        error_printf_at(ast_get_locus(value), "specifier %s requires a logical variable\n",
                 opt_name);
         return 0;
     }
@@ -9924,8 +9791,7 @@ static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, co
     if (fortran_data_ref_get_symbol(nodecl_value) == NULL
             || !is_bool_type(no_ref(fortran_data_ref_get_symbol(nodecl_value)->type_information)))
     {
-        error_printf("%s: error: specifier 'ACQUIRED LOCK' requires a logical variable\n",
-                ast_location(value));
+        error_printf_at(ast_get_locus(value), "specifier 'ACQUIRED LOCK' requires a logical variable\n");
     }
     *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ACQUIRED LOCK", ast_get_locus(opt_value));
 }
@@ -10101,8 +9967,7 @@ static void opt_fmt_value(AST value, const decl_context_t* decl_context, nodecl_
 
         if (!valid)
         {
-            error_printf("%s: error: specifier FMT requires a character expression, a label of a FORMAT statement or an ASSIGNED variable\n",
-                    ast_location(value));
+            error_printf_at(ast_get_locus(value), "specifier FMT requires a character expression, a label of a FORMAT statement or an ASSIGNED variable\n");
         }
         *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "FMT", ast_get_locus(value));
     }
@@ -10217,8 +10082,7 @@ static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, const d
     if (entry == NULL
             || entry->kind != SK_NAMELIST)
     {
-        error_printf("%s: error: entity '%s' in NML specifier is not a namelist\n",
-                ast_location(value),
+        error_printf_at(ast_get_locus(value), "entity '%s' in NML specifier is not a namelist\n",
                 ASTText(value));
     }
     *nodecl_output = nodecl_make_fortran_io_spec(
@@ -10394,8 +10258,7 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, const 
                         && fortran_is_character_type_or_pointer_to(
                             fortran_get_rank0_type(no_ref(t))))))
         {
-            error_printf("%s: error: specifier UNIT requires a character variable or a scalar integer expression\n",
-                    ast_location(value));
+            error_printf_at(ast_get_locus(value), "specifier UNIT requires a character variable or a scalar integer expression\n");
         }
         *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "UNIT", ast_get_locus(opt_value));
     }
@@ -10570,8 +10433,7 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, cons
     }
     else
     {
-        error_printf("%s: error: invalid io-control-spec '%s'\n", 
-                ast_location(opt_value_ambig),
+        error_printf_at(ast_get_locus(opt_value_ambig), "invalid io-control-spec '%s'\n",
                 fortran_prettyprint_in_buffer(opt_value_ambig));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(opt_value_ambig));
     }

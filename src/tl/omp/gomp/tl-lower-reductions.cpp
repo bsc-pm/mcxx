@@ -185,8 +185,8 @@ namespace TL
         {
             if (reduction_items.size() != 1)
             {
-                error_printf("%s: error: SIMD reductions are implemented only for one variable at a time\n",
-                        location.get_locus_str().c_str());
+                error_printf_at(location.get_locus(),
+                        "SIMD reductions are implemented only for one variable at a time\n");
                 return TL::Symbol();
             }
 
