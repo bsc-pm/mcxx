@@ -233,8 +233,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function()) {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            fatal_error("%s: error: nested functions are not supported\n",
-                original_statements.get_locus_str().c_str());        
+            fatal_printf_at(original_statements.get_locus(), "nested functions are not supported\n");
     }
 
     Source unpacked_arguments, fortran_allocatable_translation, cleanup_code;

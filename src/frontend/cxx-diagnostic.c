@@ -510,3 +510,47 @@ void warn_or_error_printf_at(const locus_t* locus, char emit_error, const char* 
 
     (current_diagnostic_context->diagnose)(current_diagnostic_context, severity, message);
 }
+
+void fatal_printf_at(const locus_t* locus, const char* format, ...)
+{
+    va_list va;
+    va_start(va, format);
+    const char* message = NULL;
+    uniquestr_vsprintf(&message, format, va);
+    va_end(va);
+
+    if (locus != NULL)
+    {
+        uniquestr_sprintf(&message, "%s: fatal: %s",
+                locus_to_str(locus),
+                message);
+    }
+    else
+    {
+        uniquestr_sprintf(&message, "fatal: %s", message);
+    }
+
+    fatal_error(message);
+}
+
+void sorry_printf_at(const locus_t* locus, const char* format, ...)
+{
+    va_list va;
+    va_start(va, format);
+    const char* message = NULL;
+    uniquestr_vsprintf(&message, format, va);
+    va_end(va);
+
+    if (locus != NULL)
+    {
+        uniquestr_sprintf(&message, "%s: sorry: %s",
+                locus_to_str(locus),
+                message);
+    }
+    else
+    {
+        uniquestr_sprintf(&message, "sorry: %s", message);
+    }
+
+    fatal_error(message);
+}

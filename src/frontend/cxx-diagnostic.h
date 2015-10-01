@@ -43,6 +43,8 @@ void error_printf_at(const locus_t*, const char* format, ...) CHECK_PRINTF(2,3);
 void warn_printf_at(const locus_t*, const char* format, ...)  CHECK_PRINTF(2,3);
 void info_printf_at(const locus_t*, const char* format, ...)  CHECK_PRINTF(2,3);
 void warn_or_error_printf_at(const locus_t*, char emit_error, const char* format, ...)  CHECK_PRINTF(3,4);
+void fatal_printf_at(const locus_t*, const char* format, ...) NORETURN CHECK_PRINTF(2, 3);
+void sorry_printf_at(const locus_t*, const char* format, ...) NORETURN CHECK_PRINTF(2, 3);
 
 // Change diagnosting context
 

@@ -2408,10 +2408,12 @@ static char is_include_line(void)
 
     if (include_filename == NULL)
     {
-        fatal_error("%s:%d:%d: error: included file '%s' not found\n",
-                loc.filename,
-                loc.line,
-                loc.column,
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "included file '%s' not found\n",
                 include_filename_buf.buf);
     }
     DELETE(include_filename_buf.buf);
@@ -2419,10 +2421,12 @@ static char is_include_line(void)
     int fd = open(include_filename, O_RDONLY);
     if (fd < 0)
     {
-        fatal_error("%s:%d:%d: error: cannot open included file '%s' (%s)\n",
-                loc.filename,
-                loc.line,
-                loc.column,
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "cannot open included file '%s' (%s)\n",
                 include_filename,
                 strerror(errno));
     }
@@ -2432,20 +2436,24 @@ static char is_include_line(void)
     int status = fstat (fd, &s);
     if (status < 0)
     {
-        fatal_error("%s:%d:%d: error: cannot get status of included file '%s' (%s)\n",
-                loc.filename,
-                loc.line,
-                loc.column,
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "cannot get status of included file '%s' (%s)\n",
                 include_filename, strerror(errno));
     }
 
     const char *mmapped_addr = mmap(0, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (mmapped_addr == MAP_FAILED)
     {
-        fatal_error("%s:%d:%d: error: cannot map included file '%s' in memory (%s)",
-                loc.filename,
-                loc.line,
-                loc.column,
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "cannot map included file '%s' in memory (%s)",
                 include_filename,
                 strerror(errno));
     }
@@ -2453,10 +2461,12 @@ static char is_include_line(void)
     lexer_state.include_stack_size++;
     if (lexer_state.include_stack_size == MAX_INCLUDE_DEPTH)
     {
-        fatal_error("%s:%d:%d: error: too many nested included files",
-                loc.filename,
-                loc.line,
-                loc.column);
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "too many nested included files");
     }
 
     lexer_state.current_file = &lexer_state.include_stack[lexer_state.include_stack_size];
@@ -4905,10 +4915,12 @@ extern int new_mf03lex(void)
                                         }
                                         else
                                         {
-                                            fatal_error("%s:%d:%d: error: invalid directive '!$%s END %s'\n", 
-                                                    loc.filename,
-                                                    loc.line,
-                                                    loc.column,
+                                            fatal_printf_at(
+                                                    make_locus(
+                                                        loc.filename,
+                                                        loc.line,
+                                                        loc.column),
+                                                    "invalid directive '!$%s END %s'\n",
                                                     strtoupper(lexer_state.sentinel),
                                                     strtoupper(relevant_directive));
                                         }
@@ -4949,10 +4961,12 @@ extern int new_mf03lex(void)
                                                 char* top = lexer_state.pragma_constructs_stack[lexer_state.num_pragma_constructs-1];
                                                 if (strcmp(top, longest_match) != 0)
                                                 {
-                                                    fatal_error("%s:%d:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
-                                                            loc.filename,
-                                                            loc.line,
-                                                            loc.column,
+                                                    fatal_printf_at(
+                                                            make_locus(
+                                                                loc.filename,
+                                                                loc.line,
+                                                                loc.column),
+                                                            "invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
                                                             strtoupper(lexer_state.sentinel), 
                                                             strtoupper(relevant_directive),
                                                             strtoupper(lexer_state.sentinel), 
@@ -4967,10 +4981,12 @@ extern int new_mf03lex(void)
                                             }
                                             else
                                             {
-                                                fatal_error("%s:%d:%d: error: bad nesting for '!$%s %s'\n",
-                                                        loc.filename,
-                                                        loc.line,
-                                                        loc.column,
+                                                fatal_printf_at(
+                                                        make_locus(
+                                                            loc.filename,
+                                                            loc.line,
+                                                            loc.column),
+                                                        "bad nesting for '!$%s %s'\n",
                                                         strtoupper(lexer_state.sentinel), 
                                                         strtoupper(relevant_directive));
                                             }
@@ -4979,10 +4995,12 @@ extern int new_mf03lex(void)
                                     }
                                 case PDK_NONE :
                                     {
-                                        fatal_error("%s:%d:%d: error: unknown directive '!$%s %s'",
-                                                loc.filename,
-                                                loc.line,
-                                                loc.column,
+                                        fatal_printf_at(
+                                                make_locus(
+                                                    loc.filename,
+                                                    loc.line,
+                                                    loc.column),
+                                                "unknown directive '!$%s %s'",
                                                 strtoupper(lexer_state.sentinel),
                                                 strtoupper(str.buf));
                                         break;

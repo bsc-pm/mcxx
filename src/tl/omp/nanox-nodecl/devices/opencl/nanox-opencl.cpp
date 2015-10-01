@@ -433,13 +433,11 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            fatal_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus_str().c_str());
+            fatal_printf_at(original_statements.get_locus(), "nested functions are not supported\n");
 
 
         if (IS_FORTRAN_LANGUAGE)
-            fatal_error("%s: error: internal subprograms are not supported\n",
-                    original_statements.get_locus_str().c_str());
+            fatal_printf_at(original_statements.get_locus(), "internal subprograms are not supported\n");
     }
 
 
@@ -559,8 +557,8 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
         if (ocl_files == 0)
         {
-            fatal_error("%s: error: no OpenCL file specified for kernel '%s'\n",
-                    original_statements.get_locus_str().c_str(),
+            fatal_printf_at(original_statements.get_locus(),
+                    "no OpenCL file specified for kernel '%s'\n",
                     called_task.get_name().c_str());
         }
     }

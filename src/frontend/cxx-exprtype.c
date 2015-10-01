@@ -1337,8 +1337,7 @@ static const char* process_integer_literal(const char* literal,
 
             CXX03_LANGUAGE()
             {
-                fprintf(stderr, "%s: warning: binary-integer-literals are a C++11 feature\n",
-                        locus_to_str(locus));
+                warn_printf_at(locus, "binary-integer-literals are a C++11 feature\n");
             }
         }
     }
@@ -1360,10 +1359,12 @@ static const char* process_integer_literal(const char* literal,
         }
         else
         {
-            CXX03_LANGUAGE()
+            if ((IS_CXX03_LANGUAGE
+                    || IS_CXX11_LANGUAGE)
+                    && !IS_CXX14_LANGUAGE)
             {
-                fprintf(stderr, "%s: warning: quotes interspersed in integer-literal digits are a C++14 feature\n",
-                        locus_to_str(locus));
+                warn_printf_at(locus,
+                        "quotes interspersed in integer-literal digits are a C++14 feature\n");
             }
         }
     }

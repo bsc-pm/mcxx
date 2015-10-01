@@ -1375,8 +1375,8 @@ static void build_scope_module_program_unit(AST program_unit,
         }
         else
         {
-            fatal_error("%s: error: invalid module nature. Only INTRINSIC is allowed\n", 
-                    ast_location(module_nature));
+            error_printf_at(ast_get_locus(module_nature),
+                    "invalid module nature. Only INTRINSIC is allowed\n");
         }
     }
 
@@ -1808,8 +1808,8 @@ static scope_entry_t* new_procedure_symbol(
             else if ((strcasecmp(prefix_spec_str, "impure") == 0)
                     || (strcasecmp(prefix_spec_str, "module") == 0))
             {
-                fatal_error("%s: error: unsupported specifier for procedures '%s'\n",
-                        ast_location(prefix_spec),
+                error_printf_at(ast_get_locus(prefix_spec),
+                        "unsupported specifier for procedures '%s'\n",
                         fortran_prettyprint_in_buffer(prefix_spec));
             }
             else
@@ -2946,10 +2946,11 @@ void fortran_build_scope_statement(AST statement, const decl_context_t* decl_con
             sizeof(build_scope_statement_function) / sizeof(build_scope_statement_function[0]),
             sizeof(build_scope_statement_function[0]),
             build_scope_statement_function_compare);
-    if (handler == NULL 
+    if (handler == NULL
             || handler->handler == NULL)
     {
-        fatal_error("%s: sorry: unhandled statement %s\n", ast_location(statement), ast_print_node_type(ASTKind(statement)));
+        fatal_printf_at(ast_get_locus(statement),
+                "unhandled statement %s\n", ast_print_node_type(ASTKind(statement)));
     }
     else
     {
@@ -2999,8 +3000,8 @@ const char* get_name_of_generic_spec(AST generic_spec)
             }
         case AST_IO_SPEC:
             {
-                fatal_error("%s: sorry: io-specifiers for generic-specifiers not supported\n",
-                        locus_to_str(ast_get_locus(generic_spec)));
+                sorry_printf_at(ast_get_locus(generic_spec),
+                        "io-specifiers for generic-specifiers not supported\n");
             }
         default:
             {
@@ -3130,7 +3131,7 @@ static type_t* get_derived_type_name(AST a, const decl_context_t* decl_context)
     AST name = ASTSon0(a);
     if (ASTSon1(a) != NULL)
     {
-        fatal_error("%s: sorry: unsupported generic type-names", ast_location(ASTSon1(a)));
+        sorry_printf_at(ast_get_locus(ASTSon1(a)), "unsupported generic type-names");
     }
 
     type_t* result = NULL;
@@ -4326,8 +4327,8 @@ static void build_scope_allocate_stmt(AST a, const decl_context_t* decl_context,
 
     if (type_spec != NULL)
     {
-        fatal_error("%s: sorry: type-specifier not supported in ALLOCATE statement\n",
-                ast_location(a));
+        sorry_printf_at(ast_get_locus(type_spec),
+                "type-specifier not supported in ALLOCATE statement\n");
     }
 
     nodecl_t nodecl_allocate_list = nodecl_null();
@@ -4342,8 +4343,8 @@ static void build_scope_allocate_stmt(AST a, const decl_context_t* decl_context,
         // This one is here only for coarrays
         if (ASTKind(allocate_object) == AST_DIMENSION_DECL)
         {
-            fatal_error("%s: sorry: coarrays not supported\n", 
-                    ast_location(allocate_object));
+            sorry_printf_at(ast_get_locus(allocate_object),
+                    "coarrays not supported\n");
         }
 
         AST data_ref = allocate_object;
@@ -4394,16 +4395,12 @@ static void build_scope_allocate_stmt(AST a, const decl_context_t* decl_context,
 
 static void unsupported_statement(AST a, const char* name)
 {
-    fatal_error("%s: sorry: %s statement not supported\n", 
-            ast_location(a),
-            name);
+    sorry_printf_at(ast_get_locus(a), "%s statement not supported\n", name);
 }
 
 static void unsupported_construct(AST a, const char* name)
 {
-    fatal_error("%s: sorry: %s construct not supported\n", 
-            ast_location(a),
-            name);
+    sorry_printf_at(ast_get_locus(a), "%s construct not supported\n", name);
 }
 
 static void build_scope_allstop_stmt(AST a, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5360,8 +5357,8 @@ static void build_scope_data_stmt(AST a, const decl_context_t* decl_context, nod
     build_scope_delay_list_add(delayed_compute_data_stmt, data);
 }
 
-static void build_scope_deallocate_stmt(AST a, 
-        const decl_context_t* decl_context, 
+static void build_scope_deallocate_stmt(AST a,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     AST allocate_object_list = ASTSon0(a);
@@ -5377,8 +5374,8 @@ static void build_scope_deallocate_stmt(AST a,
 
         if (ASTKind(allocate_object) == AST_DIMENSION_DECL)
         {
-            fatal_error("%s: sorry: coarrays not supported\n", 
-                    ast_location(allocate_object));
+            sorry_printf_at(ast_get_locus(allocate_object),
+                    "coarrays not supported\n");
         }
 
         AST data_ref = allocate_object;
@@ -5455,8 +5452,8 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
 
     if (type_param_name_list != NULL)
     {
-        fatal_error("%s: sorry: derived types with type-parameters are not supported\n",
-                ast_location(a));
+        sorry_printf_at(ast_get_locus(type_param_name_list),
+                "derived types with type-parameters are not supported\n");
     }
 
     nodecl_t bind_c_name = nodecl_null();
@@ -5474,8 +5471,9 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
             {
                 case AST_ABSTRACT:
                     {
-                        fatal_error("%s: error: ABSTRACT derived types are not supported\n", 
-                                ast_location(type_attr_spec));
+                        sorry_printf_at(
+                                ast_get_locus(type_attr_spec),
+                                "ABSTRACT derived types are not supported\n");
                         break;
                     }
                 case AST_ATTR_SPEC:
@@ -5588,8 +5586,8 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
 
     if (type_param_def_stmt_seq != NULL)
     {
-        fatal_error("%s: sorry: type-parameter definitions are not supported\n",
-                ast_location(type_param_def_stmt_seq));
+        sorry_printf_at(ast_get_locus(type_param_def_stmt_seq),
+                "type-parameter definitions are not supported\n");
     }
 
     char is_sequence = 0;
@@ -5628,8 +5626,9 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
 
     if (type_bound_procedure_part != NULL)
     {
-        fatal_error("%s: sorry: type-bound procedures are not supported\n",
-                ast_location(type_bound_procedure_part));
+        sorry_printf_at(
+                ast_get_locus(type_bound_procedure_part),
+                "type-bound procedures are not supported\n");
     }
 
     const decl_context_t* inner_decl_context = new_class_context(class_name->decl_context, class_name);
@@ -5643,8 +5642,8 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
 
             if (ASTKind(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
             {
-                fatal_error("%s: sorry: unsupported procedure components in derived type definition\n",
-                        ast_location(component_def_stmt));
+                sorry_printf_at(ast_get_locus(component_def_stmt),
+                        "unsupported procedure components in derived type definition\n");
             }
             ERROR_CONDITION(ASTKind(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
                     "Invalid tree", 0);
@@ -6373,8 +6372,8 @@ static void build_scope_forall_header(AST a, const decl_context_t* decl_context,
     AST type_spec = ASTSon0(a);
     if (type_spec != NULL)
     {
-        fatal_error("%s: sorry: type-specifier not supported in FORALL header\n",
-                ast_location(a));
+        sorry_printf_at(ast_get_locus(a),
+                "type-specifier not supported in FORALL header\n");
     }
 
     AST forall_triplet_list = ASTSon1(a);
@@ -7816,8 +7815,8 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
         {
             if (symbol_entity_specs_get_is_static(entry))
             {
-                fatal_error("%s: error: SAVE attribute already specified for symbol '%s'\n", 
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name),
+                        "SAVE attribute already specified for symbol '%s'\n", 
                         entry->symbol_name);
             }
             symbol_entity_specs_set_is_static(entry, 1);
@@ -7878,16 +7877,18 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             if (attr_spec.is_pointer
                     && is_pointer_type(no_ref(entry->type_information)))
             {
-                fatal_error("%s: error: POINTER attribute already specified for symbol '%s'\n",
-                        ast_location(name),
+                error_printf_at(ast_get_locus(name),
+                        "POINTER attribute already specified for symbol '%s'\n",
                         entry->symbol_name);
             }
+            else
+            {
+                entry->kind = SK_VARIABLE;
+                remove_unknown_kind_symbol(decl_context, entry);
 
-            entry->kind = SK_VARIABLE;
-            remove_unknown_kind_symbol(decl_context, entry);
-
-            synthesize_procedure_type(entry, interface, return_type, decl_context,
-                    /* do_pointer */ 1);
+                synthesize_procedure_type(entry, interface, return_type, decl_context,
+                        /* do_pointer */ 1);
+            }
         }
 
 
@@ -8187,7 +8188,7 @@ static void build_scope_target_stmt(AST a, const decl_context_t* decl_context, n
 
             if (coarray_spec != NULL)
             {
-                fatal_error("%s: sorry: coarrays are not supported\n", ast_location(name));
+                sorry_printf_at(ast_get_locus(name), "coarrays are not supported\n");
             }
 
             if (array_spec != NULL)
@@ -8312,8 +8313,7 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
         {
             if (entry->kind != SK_UNDEFINED)
             {
-                fatal_error("%s: error: TYPEDEF would overwrite a non undefined entity\n", 
-                        ast_location(declaration));
+                fatal_printf_at(ast_get_locus(declaration), "TYPEDEF would overwrite a non undefined entity\n");
             }
             entry->kind = SK_TYPEDEF;
             remove_unknown_kind_symbol(decl_context, entry);
@@ -8970,8 +8970,7 @@ scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_int
             }
             else
             {
-                fatal_error("%s: error: cannot load module '%s'\n",
-                        locus_to_str(locus), module_name_str);
+                fatal_printf_at(locus, "cannot load module '%s'\n", module_name_str);
             }
         }
 
@@ -9055,8 +9054,8 @@ static void build_scope_use_stmt(AST a, const decl_context_t* decl_context, node
 
                 if (syms_in_module == NULL)
                 {
-                    fatal_error("%s: error: symbol '%s' not found in module '%s'\n", 
-                            ast_location(sym_in_module_name),
+                    fatal_printf_at(ast_get_locus(sym_in_module_name),
+                            "symbol '%s' not found in module '%s'\n",
                             prettyprint_in_buffer(sym_in_module_name),
                             module_symbol->symbol_name);
                 }
@@ -9147,8 +9146,8 @@ static void build_scope_use_stmt(AST a, const decl_context_t* decl_context, node
 
                         if (syms_in_module == NULL)
                         {
-                            fatal_error("%s: error: symbol '%s' not found in module '%s'\n", 
-                                    ast_location(sym_in_module_name),
+                            fatal_printf_at(ast_get_locus(sym_in_module_name),
+                                    "symbol '%s' not found in module '%s'\n",
                                     prettyprint_in_buffer(sym_in_module_name),
                                     module_symbol->symbol_name);
                         }
@@ -9186,8 +9185,9 @@ static void build_scope_use_stmt(AST a, const decl_context_t* decl_context, node
 
                         if (syms_in_module == NULL)
                         {
-                            fatal_error("%s: error: symbol '%s' not found in module '%s'\n", 
-                                    ast_location(sym_in_module_name),
+                            fatal_printf_at(
+                                    ast_get_locus(sym_in_module_name),
+                                    "symbol '%s' not found in module '%s'\n", 
                                     prettyprint_in_buffer(sym_in_module_name),
                                     module_symbol->symbol_name);
                         }

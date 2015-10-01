@@ -679,10 +679,12 @@ type {
             }
         case PDK_NONE :
             {
-                fatal_error("%s:%d:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
-                        scanning_now.current_filename, 
-                        line_number,
-                        column_number,
+                fatal_printf_at(
+                        make_locus(
+                            scanning_now.current_filename,
+                            line_number,
+                            column_number),
+                        "unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
                         yytext,
                         current_pragma_prefix);
             }

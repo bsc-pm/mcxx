@@ -1152,7 +1152,7 @@ namespace TL { namespace Nanox {
                 }
                 if (!l.empty())
                 {
-                    fatal_error("%s: error: unresolved auto data sharings\n", shared.get_locus_str().c_str());
+                    fatal_printf_at(shared.get_locus(), "unresolved auto data sharings\n");
                 }
             }
 

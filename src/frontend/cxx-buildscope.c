@@ -16046,8 +16046,8 @@ static scope_entry_t* build_scope_function_definition_declarator(
 
     if (is_error_type(declarator_type))
     {
-        fprintf(stderr, "%s: error: discarding function definition due to errors in the declarator\n",
-                ast_location(function_header));
+        error_printf_at(ast_get_locus(function_header),
+                "discarding function definition due to errors in the declarator\n");
         return NULL;
     }
 

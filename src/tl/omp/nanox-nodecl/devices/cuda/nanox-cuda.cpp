@@ -309,8 +309,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            fatal_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus_str().c_str());
+            fatal_printf_at(original_statements.get_locus(), "nested functions are not supported\n");
     }
 
     // Update the kernel configurations of every cuda function call of the current task

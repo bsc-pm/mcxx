@@ -1093,8 +1093,8 @@ namespace TL { namespace OpenMP {
                     || !first.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().is<Nodecl::CompoundStatement>())
             {
                 std::cerr << ast_print_node_type(nodecl_get_kind(l[0].get_internal_nodecl())) << std::endl;
-                fatal_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
-                        construct.get_locus_str().c_str(),
+                fatal_printf_at(construct.get_locus(),
+                        "'#pragma omp %s' must be followed by a compound statement\n",
                         pragma_name.c_str());
             }
             else
@@ -1110,8 +1110,8 @@ namespace TL { namespace OpenMP {
 
             if (l.empty())
             {
-                fatal_error("%s: error: '#pragma omp %s' cannot have an empty compound statement\n",
-                        construct.get_locus_str().c_str(),
+                fatal_printf_at(construct.get_locus(),
+                        "'#pragma omp %s' cannot have an empty compound statement\n",
                         pragma_name.c_str());
             }
 
@@ -1164,11 +1164,11 @@ namespace TL { namespace OpenMP {
                 {
                     if (next_must_be_omp_section)
                     {
-                        fatal_error("%s: error: expecting a '#pragma omp section'\n", it->get_locus_str().c_str());
+                        fatal_printf_at(it->get_locus(), "expecting a '#pragma omp section'\n");
                     }
                     else
                     {
-                        fatal_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus_str().c_str());
+                        fatal_printf_at(it->get_locus(), "a '#pragma omp section' cannot appear here\n");
                     }
                 }
                 else if (next_must_be_omp_section)
@@ -1176,7 +1176,7 @@ namespace TL { namespace OpenMP {
                     // Is it the last statement a #pragma omp section?
                     if ((it+1) == l.end())
                     {
-                        fatal_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus_str().c_str());
+                        fatal_printf_at(it->get_locus(), "a '#pragma omp section' cannot appear here\n");
                     }
                     current_pragma = *it;
                 }
@@ -1198,8 +1198,8 @@ namespace TL { namespace OpenMP {
             // In fortran we do not allow two consecutive sections
             if (l.empty())
             {
-                fatal_error("%s: error: '!$OMP %s' cannot have an empty block\n",
-                        construct.get_locus_str().c_str(),
+                fatal_printf_at(construct.get_locus(),
+                        "'!$OMP %s' cannot have an empty block\n",
                         strtoupper(pragma_name.c_str()));
             }
 
@@ -1249,13 +1249,13 @@ namespace TL { namespace OpenMP {
                 bool current_is_section = PragmaUtils::is_pragma_construct("omp", "section", *it);
                 bool current_is_the_last = ((it + 1) == l.end());
 
-                if (current_is_section 
+                if (current_is_section
                         && (previous_was_section
                             // Or it is the last
                             || current_is_the_last))
                 {
-                    fatal_error("%s: error: misplaced '!$OMP SECTION'\n", 
-                            it->get_locus_str().c_str());
+                    fatal_printf_at(it->get_locus(),
+                            "misplaced '!$OMP SECTION'\n");
                 }
 
                 if (!current_is_section)
@@ -1305,13 +1305,13 @@ namespace TL { namespace OpenMP {
         {
             if (IS_FORTRAN_LANGUAGE)
             {
-                fatal_error("%s: error: a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'",
-                        statement.get_locus_str().c_str());
+                fatal_printf_at(statement.get_locus(),
+                        "a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'");
             }
             else
             {
-                fatal_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
-                        statement.get_locus_str().c_str());
+                fatal_printf_at(statement.get_locus(),
+                        "a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'");
             }
         }
 
@@ -1337,10 +1337,9 @@ namespace TL { namespace OpenMP {
                         && sym_data_sharing.attr != DS_LASTPRIVATE
                         && sym_data_sharing.attr != DS_NONE)
                 {
-                    fatal_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
-                            statement.get_locus_str().c_str(),
-                            sym.get_name().c_str()
-                            );
+                    fatal_printf_at(statement.get_locus(),
+                            "induction variable '%s' has predetermined private data-sharing\n",
+                            sym.get_name().c_str());
                 }
 
                 data_environment.set_data_sharing(sym, DS_PRIVATE, DSK_PREDETERMINED_INDUCTION_VAR,
@@ -1353,14 +1352,13 @@ namespace TL { namespace OpenMP {
         {
             if (IS_FORTRAN_LANGUAGE)
             {
-                fatal_error("%s: error: DO-statement in !$OMP DO directive is not valid",
-                        statement.get_locus_str().c_str());
+                fatal_printf_at(statement.get_locus(), "DO-statement in !$OMP DO directive is not valid");
             }
             else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                fatal_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for'"
-                        " is not in OpenMP canonical form",
-                        statement.get_locus_str().c_str());
+                fatal_printf_at(statement.get_locus(),
+                        "for-statement in '#pragma omp for' or '#pragma omp parallel for'"
+                        " is not in OpenMP canonical form");
             }
             else
             {
@@ -1377,18 +1375,8 @@ namespace TL { namespace OpenMP {
     {
         if (!statement.is<Nodecl::WhileStatement>())
         {
-            /*
-               if (IS_FORTRAN_LANGUAGE)
-               {
-               fatal_error("%s: error: a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'",
-               statement.get_locus_str().c_str());
-               }
-               else
-               */
-            {
-                fatal_error("%s: error: a while-statement is required for '#pragma omp simd'",
-                        statement.get_locus_str().c_str());
-            }
+            fatal_printf_at(statement.get_locus(),
+                    "a while-statement is required for '#pragma omp simd'");
         }
     }
 
@@ -2145,10 +2133,10 @@ namespace TL { namespace OpenMP {
             {
                 loop_handler_pre(construct, stmt, &Core::common_while_handler);
             }
-            else 
+            else
             {
-                fatal_error("%s: error: '#pragma omp simd' must be followed by a for or while statement\n",
-                        construct.get_locus_str().c_str());
+                fatal_printf_at(construct.get_locus(),
+                        "'#pragma omp simd' must be followed by a for or while statement\n");
             }
         }
         else if (IS_FORTRAN_LANGUAGE)

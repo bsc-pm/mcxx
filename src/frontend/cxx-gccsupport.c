@@ -208,14 +208,14 @@ void gather_one_gcc_attribute(const char* attribute_name,
             }
             else
             {
-                fprintf(stderr, "%s: warning: ignoring attribute 'vector_size' since the expression is not constant\n",
-                        ast_location(expression_list));
+                warn_printf_at(ast_get_locus(expression_list),
+                        "ignoring attribute 'vector_size' since the expression is not constant\n");
             }
         }
         else
         {
-            fprintf(stderr, "%s: warning: ignoring attribute 'vector_size' since the expression is not valid\n",
-                    ast_location(expression_list));
+            warn_printf_at(ast_get_locus(expression_list),
+                    "ignoring attribute 'vector_size' since the expression is not valid\n");
         }
     }
     else if (strcmp(attribute_name, "generic_vector") == 0)
@@ -408,8 +408,8 @@ void gather_one_gcc_attribute(const char* attribute_name,
             }
             else
             {
-                fprintf(stderr, "%s: warning: attribute 'mode' is deprecated better use 'vector_size'\n", 
-                        ast_location(expression_list));
+                warn_printf_at(ast_get_locus(expression_list),
+                        "attribute 'mode' is deprecated better use 'vector_size'\n");
 
                 // Skip first character
                 char *number_of_elements_str = xstrdup(&size_mode[1]);
@@ -528,8 +528,8 @@ void gather_one_gcc_attribute(const char* attribute_name,
 
         if (ignored)
         {
-            fprintf(stderr, "%s: warning: ignoring attribute 'mode'\n",
-                    ast_location(expression_list));
+            warn_printf_at(ast_get_locus(expression_list),
+                    "ignoring attribute 'mode'\n");
         }
     }
     else if (strcmp(attribute_name, "__strong__") == 0)

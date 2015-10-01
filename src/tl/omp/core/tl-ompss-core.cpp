@@ -630,10 +630,12 @@ namespace TL { namespace OpenMP {
             ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(parsing_scope);
             if (expr_list.size() != 1)
             {
-                fatal_error("%s: error: clause 'if' requires just one argument\n",
-                        construct.get_locus_str().c_str());
+                error_printf_at(construct.get_locus(), "clause 'if' requires just one argument\n");
             }
-            task_info.set_if_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
+            else
+            {
+                task_info.set_if_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
+            }
         }
 
         // Support final clause
@@ -643,10 +645,12 @@ namespace TL { namespace OpenMP {
             ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(parsing_scope);
             if (expr_list.size() != 1)
             {
-                fatal_error("%s: error: clause 'final' requires just one argument\n",
-                        construct.get_locus_str().c_str());
+                error_printf_at(construct.get_locus(), "clause 'final' requires just one argument\n");
             }
-            task_info.set_final_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
+            else
+            {
+                task_info.set_final_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
+            }
         }
 
         // Support priority clause
@@ -656,10 +660,12 @@ namespace TL { namespace OpenMP {
             ObjectList<Nodecl::NodeclBase> expr_list = priority_clause.get_arguments_as_expressions(parsing_scope);
             if (expr_list.size() != 1)
             {
-                fatal_error("%s: error: clause 'if' requires just one argument\n",
-                        construct.get_locus_str().c_str());
+                error_printf_at(construct.get_locus(), "clause 'priority' requires just one argument\n");
             }
-            task_info.set_priority_clause_expression(update_clauses(expr_list, function_sym)[0]);
+            else
+            {
+                task_info.set_priority_clause_expression(update_clauses(expr_list, function_sym)[0]);
+            }
         }
 
         PragmaCustomClause tied_clause = pragma_line.get_clause("tied");
