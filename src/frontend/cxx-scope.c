@@ -1704,9 +1704,9 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
 
 static void error_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus)
 {
-    fprintf(stderr, "%s: error: ambiguity in reference to '%s'\n", locus_to_str(locus),
-            entry_list_head(entry_list)->symbol_name);
-    fprintf(stderr, "%s: info: candidates are\n", locus_to_str(locus));
+    const char* candidates;
+
+    uniquestr_sprintf(&candidates, "%s: info: candidates are\n", locus_to_str(locus));
 
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(entry_list);
@@ -1714,15 +1714,18 @@ static void error_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        fprintf(stderr, "%s: info:    %s\n", 
+
+        const char *single_candidate;
+        uniquestr_sprintf(&single_candidate, "%s: info:    %s\n", 
                 locus_to_str(entry->locus),
                 get_qualified_symbol_name(entry, entry->decl_context));
+
+        candidates = strappend(candidates, single_candidate);
     }
     entry_list_iterator_free(it);
 
-    error_printf_at(locus, "lookup failed due to ambiguous reference '%s'\n", entry_list_head(entry_list)->symbol_name);
+    error_printf_at(locus, "ambiguity in reference to '%s'\n%s", entry_list_head(entry_list)->symbol_name, candidates);
 }
-
 
 static char check_for_naming_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus)
 {
