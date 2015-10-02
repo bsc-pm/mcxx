@@ -9689,15 +9689,32 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
         {
             exception_spec += " noexcept(";
 
-            std::stringstream ss;
             State new_state(state);
             new_state._do_not_emit_this = true;
 
-            push_scope(symbol.get_scope());
-            this->codegen(symbol.function_noexcept(), new_state, &ss);
-            pop_scope();
+            if (CURRENT_CONFIGURATION->line_markers)
+            {
+                std::stringbuf strbuf;
+                CodegenStreambuf<char> codegen_streambuf(&strbuf, this);
+                std::ostream out(&codegen_streambuf);
 
-            exception_spec += ss.str();
+                push_scope(symbol.get_scope());
+                this->set_last_is_newline(false); // we are right after noexcept
+                this->codegen(symbol.function_noexcept(), new_state, &out);
+                pop_scope();
+
+                exception_spec += strbuf.str();
+            }
+            else
+            {
+                std::stringstream ss;
+
+                push_scope(symbol.get_scope());
+                this->codegen(symbol.function_noexcept(), new_state, &ss);
+                pop_scope();
+
+                exception_spec += ss.str();
+            }
             exception_spec += ")";
         }
         else if (!symbol.function_throws_any_exception())
