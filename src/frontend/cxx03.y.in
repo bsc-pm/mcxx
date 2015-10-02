@@ -6728,5 +6728,5 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
                     mcxxlloc.first_filename,
                     mcxxlloc.first_line,
                     mcxxlloc.first_column),
-        "%s", c);
+        "%s\n", c);
 }
