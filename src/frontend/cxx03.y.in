@@ -247,10 +247,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // KLUDGE: Note that since names can't be repeated we surround this one with spaces
 // The error message may be a bit weird, as if it was bad formatted
 %token<token_atrib> AB1 "'>>' "
-// AB2 is '>' when it is just before '='
-// KLUDGE: Note that since names can't be repeated we surround this one with one space before
-// The error message may be a bit weird, as if it was bad formatted
-%token<token_atrib> AB2 "'>=' "
 /* End of different tokens in C++2003 and C++2011 */
 %token<token_atrib> '>'
 %token<token_atrib> '?'
@@ -6656,26 +6652,14 @@ right_token : AB1 '>'
 }
 ;
 
-right_assign_token : AB1 AB2 '='
+right_assign_token : RIGHT_ASSIGN
 {
-    // C++2011
-    $$.token_text = UNIQUESTR_LITERAL(">>=");
-}
-| RIGHT_ASSIGN
-{
-    // C++2003
     $$ = $1;
 }
 ;
 
-greater_equal_token : AB2 '='
+greater_equal_token : GREATER_OR_EQUAL
 {
-    // C++2011
-    $$.token_text = UNIQUESTR_LITERAL(">=");
-}
-| GREATER_OR_EQUAL
-{
-    // C++2003
     $$ = $1;
 }
 ;
@@ -6686,11 +6670,6 @@ right_bracket_token : '>'
     $$.token_text = $1.token_text;
 }
 | AB1
-{
-    // C++2011
-    $$.token_text = $1.token_text;
-}
-| AB2
 {
     // C++2011
     $$.token_text = $1.token_text;

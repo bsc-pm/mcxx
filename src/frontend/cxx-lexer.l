@@ -1840,10 +1840,7 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 ">>"        { parse_token_text(); update_location(); return RIGHT; }
  /*!endif*/
 "<="        { parse_token_text(); update_location(); return LESS_OR_EQUAL; }
- /* There is no '>=' token in C++11 but AB2 followed by '=', see below */
- /*!if C99*/
 ">="        { parse_token_text(); update_location(); return GREATER_OR_EQUAL; }
- /*!endif*/
 "=="        { parse_token_text(); update_location(); return EQUAL; }
 "!="        { parse_token_text(); update_location(); return NOT_EQUAL; }
 "^"         { parse_token_text(); update_location(); return '^'; }
@@ -1857,10 +1854,7 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 "+="        { parse_token_text(); update_location(); return ADD_ASSIGN; }
 "-="        { parse_token_text(); update_location(); return SUB_ASSIGN; }
 "<<="       { parse_token_text(); update_location(); return LEFT_ASSIGN; }
- /* There is no '>>=' in C++11 but AB1 followed by 'AB2' and '=', see below */
- /*!if C99*/
 ">>="       { parse_token_text(); update_location(); return RIGHT_ASSIGN; }
- /*!endif*/
 "&="        { parse_token_text(); update_location(); return AND_ASSIGN; }
 "^="        { parse_token_text(); update_location(); return XOR_ASSIGN; }
 "|="        { parse_token_text(); update_location(); return OR_ASSIGN; }
@@ -1890,42 +1884,23 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
               }
               REJECT;
             }
->>          {
-              if (IS_CXX03_LANGUAGE)
-              {
-                parse_token_text();
-                update_location();
-                return RIGHT;
-              }
-              REJECT;
-            }
->>=         {
-              if (IS_CXX03_LANGUAGE)
-              {
-                parse_token_text();
-                update_location();
-                return RIGHT_ASSIGN;
-              }
-              REJECT;
-            }
->=          {
-              if (IS_CXX03_LANGUAGE)
-              {
-                  parse_token_text();
-                  update_location();
-                  return GREATER_OR_EQUAL;
-              }
-              REJECT;
-            }
- /* In C++2011 these three tokens behave different */
->/>         { parse_token_text(); update_location(); return AB1; }
->/=         { parse_token_text(); update_location(); return AB2; }
->/[^>=]     { parse_token_text(); update_location(); return '>'; }
- /* Pathological case (EOF and such) */
+>>=         { parse_token_text(); update_location(); return RIGHT_ASSIGN; }
+ /* In C++2011 >> is decomposed first into AB1 '>' */
+>/>[^=]     { if (!IS_CXX11_LANGUAGE)
+              { REJECT; }
+              else
+              { parse_token_text(); update_location(); return AB1; } }
+ /* Pathological case for EOF */
+>/>         { if (!IS_CXX11_LANGUAGE)
+              { REJECT; }
+              else
+              { parse_token_text(); update_location(); return AB1; } }
+>>          { parse_token_text(); update_location(); return RIGHT; }
+>=          { parse_token_text(); update_location(); return GREATER_OR_EQUAL; }
 >           { parse_token_text(); update_location(); return '>'; }
  /*!endif*/
  /*!if C99*/
-">"         { parse_token_text(); update_location(); return '>'; } 
+">"         { parse_token_text(); update_location(); return '>'; }
  /*!endif*/
 "&"         { parse_token_text(); update_location(); return '&'; }
 "*"         { parse_token_text(); update_location(); return '*'; }
