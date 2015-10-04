@@ -74,6 +74,7 @@ namespace Utils {
     CONSTRAINT_KIND(Mod)                \
     CONSTRAINT_KIND(ModTrue)            \
     CONSTRAINT_KIND(ModFalse)           \
+    CONSTRAINT_KIND(NonLocalSym)        \
     CONSTRAINT_KIND(Parameter)          \
     CONSTRAINT_KIND(Propagated)         \
     CONSTRAINT_KIND(Replace)            \

@@ -105,16 +105,30 @@ namespace {
             // 1. Build a symbol for the new constraint based on the name of the original variable
             std::stringstream ss; ss << get_next_id(n);
             Symbol s(Utils::get_nodecl_base(n).get_symbol());
-            std::string subscripts_str;
-            const Nodecl::List& subscripts = n.get_subscripts().as<Nodecl::List>();
-            for (Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
+//          const Nodecl::List& subscripts = n.get_subscripts().as<Nodecl::List>();
+//          for (Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
+//          {
+//              if (_input_constraints->find(*it) != _input_constraints->end())
+//                 subscripts_str += (*_input_constraints)[*it].get_symbol().get_name();
+//              else    // The subscript is a global variable
+//                 subscripts_str += it->prettyprint();
+//              subscripts_str += "_";
+//          }
+            // We need a better way to represent array accesses
+            // Since the subscripts might be vary complicated, we use the locus
+            // But this approach must be thought deeply...
+            std::string subscripts_str = n.get_locus_str();
+                // Replace ':' with '_' to split the line and column
+            std::string line_col = subscripts_str.substr(subscripts_str.find(":"));
+            std::replace(line_col.begin(), line_col.end(), ':', '_');
+                // Remove the path and the extension of the file
+            std::size_t slash = subscripts_str.find_last_of("/");
+            if (slash != std::string::npos)
             {
-                if (_input_constraints->find(*it) != _input_constraints->end())
-                    subscripts_str += (*_input_constraints)[*it].get_symbol().get_name();
-                else    // The subscript is a global variable
-                    subscripts_str += it->prettyprint();
-                subscripts_str += "_";
+                std::size_t dot = subscripts_str.find_last_of(".");
+                subscripts_str = subscripts_str.substr(slash+1,dot-slash-1);
             }
+            subscripts_str += line_col;
             std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
             Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
             Type t = s.get_type();
@@ -306,6 +320,52 @@ namespace {
         }
     }
 
+    void ConstraintBuilder::compute_non_local_symbols_constraints(
+        const ObjectList<Nodecl::Symbol>& non_local_syms)
+    {
+        for (ObjectList<Nodecl::Symbol>::const_iterator it = non_local_syms.begin();
+             it != non_local_syms.end(); ++it)
+        {
+            Nodecl::Symbol occ = *it;
+
+            Symbol s = occ.get_symbol();
+            if (s.is_function())    // Called functions do not require initial constraint
+                continue;
+
+            Type t = s.get_type();
+            if (t.is_array() || t.is_pointer())     // We do not process the values of pointers so far
+                continue;
+
+            // Build a symbol for the new constraint based on the name of the original variable
+            std::stringstream ss; ss << get_next_id(occ);
+            std::string ssa_name = s.get_name() + "_" + ss.str();
+            Symbol ssa_sym(s.get_scope().new_symbol(ssa_name));
+            ssa_sym.set_type(t);
+            ssa_to_original_var[ssa_sym] = occ;
+
+            // Get the value for the constraint
+            NBase val;
+
+            if (occ.is_constant())
+            {
+                const NBase& const_val = const_value_to_nodecl(occ.get_constant());
+                val = Nodecl::Range::make(const_val.shallow_copy(),
+                                          const_val.shallow_copy(),
+                                          const_value_to_nodecl(zero), t);
+            }
+            else
+            {
+                val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                          plus_inf.shallow_copy(),
+                                          const_value_to_nodecl(zero), t);
+            }
+
+            // Build the constraint and insert it in the constraints map
+            Utils::Constraint c = build_constraint(ssa_sym, val, Utils::ConstraintKind::__NonLocalSym);
+            _output_constraints[occ] = c;
+        }
+    }
+
     void ConstraintBuilder::set_false_constraint_to_inf(const NBase& n)
     {
         if (n.is<Nodecl::Equal>()
@@ -485,7 +545,10 @@ namespace {
 
         // 4.1.- Replace, if necessary, all memory accesses
         //       by the corresponding SSA symbols arriving to the current node
-        if (!val.is_constant())
+        //       The enums are constant values, but they are not replaced in our
+        //       S2S compiler, so we still have to treat them as a variable here
+        if (!val.is_constant()
+                || _input_constraints.find(val) != _input_constraints.end())
         {
             ConstraintReplacement cr(&_input_constraints, _constraints, _ordered_constraints);
             cr.walk(val);
@@ -2438,16 +2501,19 @@ namespace {
         // 1.- Create constraint [-∞, +∞] for each parameter
         compute_parameters_constraints(pcfg_constraints);
 
-        // 2.- Compute constraints for the function statements
+        // 2.- Create constraints for all constants (macros, static variables, etc.)
+        compute_non_local_symbols_constraints(pcfg_constraints);
+
+        // 3.- Compute constraints for the function statements
         Node* entry = _pcfg->get_graph()->get_graph_entry_node();
         std::queue<Node*> worklist; worklist.push(entry);
         std::set<Node*> treated;
         compute_constraints_rec(worklist, treated, pcfg_constraints);
 
-        // 3.- Remove the constraints that are never used
+        // 4.- Remove the constraints that are never used
 //         remove_unnecessary_constraints(pcfg_constraints);
 
-        // 4.- Print in std out the constraints, if requested
+        // 5.- Print in std out the constraints, if requested
         if (RANGES_DEBUG)
             print_constraints();
     }
@@ -2471,6 +2537,20 @@ namespace {
                 /*unnecessary for parameters*/pcfg_constraints[entry],
                 &_constraints, &_ordered_constraints);
         cbv.compute_parameters_constraints(params);
+        pcfg_constraints[entry] = cbv.get_output_constraints();
+    }
+
+    void RangeAnalysis::compute_non_local_symbols_constraints(
+        /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints)
+    {
+        const NBase& ast = _pcfg->get_graph()->get_graph_related_ast();
+        const ObjectList<Nodecl::Symbol>& non_local_syms =
+                Nodecl::Utils::get_nonlocal_symbols_first_occurrence(ast);
+        Node* entry = _pcfg->get_graph()->get_graph_entry_node();
+        ConstraintBuilder cbv(
+            /*unnecessary for parameters*/pcfg_constraints[entry],
+            &_constraints, &_ordered_constraints);
+        cbv.compute_non_local_symbols_constraints(non_local_syms);
         pcfg_constraints[entry] = cbv.get_output_constraints();
     }
 

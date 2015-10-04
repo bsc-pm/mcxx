@@ -111,6 +111,8 @@ namespace Analysis {
         Utils::Constraint build_constraint(const Symbol& s,
                 const NBase& val, Utils::ConstraintKind c_kind);
         void compute_parameters_constraints(const ObjectList<Symbol>& params);
+        void compute_non_local_symbols_constraints(
+            const ObjectList<Nodecl::Symbol>& non_local_syms);
         void set_false_constraint_to_inf(const NBase& n);
 
         // *** Getters and setters *** //
@@ -239,6 +241,11 @@ namespace Analysis {
         //! \param[out] constr_map Map where constraints are stored for each PCFG node
         void compute_parameters_constraints(
                 /*inout*/ std::map<Node*, VarToConstraintMap>& constr_map);
+
+        //! Method computing constraints for all non local symbols of a function
+        //! \param[out] constr_map Map where constraints are stored for each PCFG node
+        void compute_non_local_symbols_constraints(
+            /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints);
 
         //! Method computing the constraints of the whole #pcfg
         //! It performs breadth first search over the #pcfg without back edges
