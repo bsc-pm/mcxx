@@ -122,6 +122,8 @@ c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handle
     | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
 # This one should only appear inside a NODECL_TRY_BLOCK
     | NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
+# C++2011: dependent static asserts
+    | NODECL_CXX_STATIC_ASSERT([predicate]expression, [message]expression-opt)
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value

@@ -14636,6 +14636,9 @@ extern inline char class_type_is_pod(type_t* t)
 
 static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
 {
+    if (is_error_type(t))
+        return 0;
+
     if (is_scalar_type(t))
         return 1;
 

@@ -4780,6 +4780,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiationDecl& node)
     codegen_explicit_instantiation(sym, declarator_name, context, /* is_extern */ true);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxStaticAssert& node)
+{
+    emit_line_marker(node);
+    indent();
+    *file << "static_assert(";
+    walk(node.get_predicate());
+    if (!node.get_message().is_null())
+    {
+        *file << ", ";
+        walk(node.get_message());
+    }
+    *file << ");\n";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::Verbatim& node)
 {
     *(file) << node.get_text();
@@ -6278,6 +6292,29 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                             &CxxBase::declare_symbol_always,
                             &CxxBase::define_symbol_always);
                 }
+            }
+            else if (member.is_member_static_assert())
+            {
+                if (previous_was_just_member_declarator_name)
+                {
+                    previous_was_just_member_declarator_name = false;
+                    (*file) << ";\n";
+                }
+
+                Nodecl::CxxStaticAssert cxx_static_assert = member.get_value().as<Nodecl::CxxStaticAssert>();
+                push_scope(member.get_scope());
+
+                indent();
+                *file << "static_assert(";
+                walk(cxx_static_assert.get_predicate());
+                if (!cxx_static_assert.get_message().is_null())
+                {
+                    *file << ", ";
+                    walk(cxx_static_assert.get_message());
+                }
+                *file << ");\n";
+
+                pop_scope();
             }
             else
             {

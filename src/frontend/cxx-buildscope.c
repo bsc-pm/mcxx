@@ -270,7 +270,7 @@ static void build_scope_member_template_simple_declaration(const decl_context_t*
         char is_explicit_specialization,
         nodecl_t* nodecl_output);
 
-static void build_scope_static_assert(AST a, const decl_context_t* decl_context);
+static void build_scope_static_assert(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_single_assert);
 
 static void build_scope_simple_alias_declaration(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 static void build_scope_member_alias_declaration(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output,
@@ -995,7 +995,14 @@ void build_scope_declaration(AST a, const decl_context_t* decl_context,
             }
         case AST_STATIC_ASSERT:
             {
-                build_scope_static_assert(a, decl_context);
+                nodecl_t nodecl_single_assert = nodecl_null();
+                build_scope_static_assert(a, decl_context, &nodecl_single_assert);
+
+                if (!nodecl_is_null(nodecl_single_assert)
+                        && nodecl_get_kind(nodecl_single_assert) == NODECL_CXX_STATIC_ASSERT)
+                {
+                    *nodecl_output = nodecl_make_list_1(nodecl_single_assert);
+                }
                 break;
             }
         case AST_ALIAS_DECLARATION:
@@ -1761,38 +1768,72 @@ static void build_scope_member_declaration_qualified(AST a, const decl_context_t
     introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access, /* is_typename */ 0, nodecl_output);
 }
 
-static void build_scope_static_assert(AST a, const decl_context_t* decl_context)
+void build_scope_nodecl_static_assert(nodecl_t nodecl_predicate,
+        nodecl_t nodecl_message,
+        const decl_context_t* decl_context,
+        nodecl_t *nodecl_single_assert)
+{
+    if (!nodecl_expr_is_value_dependent(nodecl_predicate))
+    {
+        if (!nodecl_is_constant(nodecl_predicate))
+        {
+            error_printf_at(nodecl_get_locus(nodecl_predicate), "static assertion expression is not constant\n");
+        }
+        else
+        {
+            const_value_t * val = nodecl_get_constant(nodecl_predicate);
+
+            if (const_value_is_zero(val))
+            {
+                if (!nodecl_is_null(nodecl_message))
+                    error_printf_at(nodecl_get_locus(nodecl_predicate), "static assertion failed: %s\n",
+                            codegen_to_str(nodecl_message, decl_context));
+                else
+                    error_printf_at(nodecl_get_locus(nodecl_predicate), "static assertion failed\n");
+
+                *nodecl_single_assert = nodecl_make_err_statement(nodecl_get_locus(nodecl_predicate));
+            }
+        }
+
+        *nodecl_single_assert = nodecl_null();
+    }
+    else
+    {
+        *nodecl_single_assert = 
+            nodecl_make_cxx_static_assert(
+                    nodecl_predicate,
+                    nodecl_message,
+                    nodecl_get_locus(nodecl_predicate));
+    }
+}
+
+static void build_scope_static_assert(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_single_assert)
 {
     AST constant_expr = ASTSon0(a);
     AST message = ASTSon1(a);
 
-    nodecl_t nodecl_expr = nodecl_null();
-    if (!check_expression_must_be_constant(constant_expr, decl_context, &nodecl_expr))
+    if (message == NULL)
+    {
+        if (!IS_CXX14_LANGUAGE)
+        {
+            warn_printf_at(ast_get_locus(a), "static_assert without message is a C++14 feature\n");
+        }
+    }
+
+    nodecl_t nodecl_predicate = nodecl_null();
+    nodecl_t nodecl_message = nodecl_null();
+    if (!check_expression_must_be_constant(constant_expr, decl_context, &nodecl_predicate)
+            || (message != NULL 
+                && !check_expression(message, decl_context, &nodecl_message)))
     {
         error_printf_at(ast_get_locus(a), "static assertion expression is invalid\n");
+        *nodecl_single_assert = nodecl_make_err_statement(ast_get_locus(a));
+        return;
     }
 
-    if (!nodecl_expr_is_value_dependent(nodecl_expr))
-    {
-        if (!nodecl_is_constant(nodecl_expr))
-        {
-            error_printf_at(ast_get_locus(a), "static assertion expression is not constant\n");
-        }
-        else
-        {
-            const_value_t * val = nodecl_get_constant(nodecl_expr);
-
-            if (const_value_is_zero(val))
-            {
-                error_printf_at(ast_get_locus(a), "static assertion failed: %s\n",
-                        prettyprint_in_buffer(message));
-            }
-        }
-    }
-
-    // FIXME - static_assert is not properly implemented for classes where they
-    // should be signed in as if they were members
+    build_scope_nodecl_static_assert(nodecl_predicate, nodecl_message, decl_context, nodecl_single_assert);
 }
+
 
 static void build_scope_common_template_alias_declaration(AST a,
         const decl_context_t* decl_context,
@@ -15543,6 +15584,10 @@ static void check_constexpr_function_statement_list(nodecl_t statement_list,
         {
             (*num_seen_other_statements)++;
         }
+        else if (kind == NODECL_CXX_STATIC_ASSERT)
+        {
+            // do not count these
+        }
         else
         {
             internal_error("Code unreachable: %s\n", ast_print_node_type(kind));
@@ -16651,7 +16696,21 @@ static void build_scope_member_declaration(const decl_context_t* inner_decl_cont
             }
         case AST_STATIC_ASSERT:
             {
-                build_scope_static_assert(a, inner_decl_context);
+                nodecl_t nodecl_single_assert = nodecl_null();
+                build_scope_static_assert(a, inner_decl_context, &nodecl_single_assert);
+
+                if (!nodecl_is_null(nodecl_single_assert)
+                        && nodecl_get_kind(nodecl_single_assert) == NODECL_CXX_STATIC_ASSERT)
+                {
+                    scope_entry_t* member_static_assert = new_symbol(
+                            inner_decl_context,
+                            inner_decl_context->current_scope,
+                            ".static_assert");
+                    member_static_assert->kind = SK_MEMBER_STATIC_ASSERT;
+                    member_static_assert->value = nodecl_single_assert;
+                    symbol_entity_specs_set_access(member_static_assert, current_access);
+                    class_type_add_member(get_actual_class_type(class_info), member_static_assert, /* is_definition */ 1);
+                }
                 break;
             }
         case AST_ALIAS_DECLARATION:
@@ -21847,6 +21906,27 @@ static void instantiate_cxx_for_ranged(nodecl_instantiate_stmt_visitor_t* v, nod
             &v->nodecl_result);
 }
 
+static void instantiate_cxx_static_assert(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_predicate = nodecl_get_child(node, 0);
+    nodecl_t nodecl_message = nodecl_get_child(node, 1);
+
+    nodecl_t new_nodecl_predicate
+        = instantiate_expression(
+                nodecl_predicate,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* pack_index */ 1);
+
+    nodecl_t nodecl_single_assert = nodecl_null();
+    build_scope_nodecl_static_assert(new_nodecl_predicate, nodecl_message, v->new_decl_context, &nodecl_single_assert);
+
+    ERROR_CONDITION(!nodecl_is_null(nodecl_single_assert)
+            && !nodecl_is_err_stmt(nodecl_single_assert), "Invalid node", 0);
+
+    v->nodecl_result = nodecl_null();
+}
+
 static void instantiate_do_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_stmt = nodecl_get_child(node, 0);
@@ -22300,6 +22380,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_goto_statement = instantiate_stmt_visitor_fun(instantiate_goto_statement); // --
 
     NODECL_VISITOR(v)->visit_cxx_for_ranged = instantiate_stmt_visitor_fun(instantiate_cxx_for_ranged);
+    NODECL_VISITOR(v)->visit_cxx_static_assert = instantiate_stmt_visitor_fun(instantiate_cxx_static_assert);
 
     NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context); // --
 

@@ -955,6 +955,31 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         member_of_template->locus);
                 break;
             }
+        case SK_MEMBER_STATIC_ASSERT:
+            {
+                nodecl_t nodecl_cxx_static_assert = member_of_template->value;
+                ERROR_CONDITION(nodecl_get_kind(nodecl_cxx_static_assert) != NODECL_CXX_STATIC_ASSERT, "Invalid node", 0);
+
+                nodecl_t nodecl_predicate = nodecl_get_child(nodecl_cxx_static_assert, 0);
+                nodecl_t nodecl_message = nodecl_get_child(nodecl_cxx_static_assert, 0);
+
+                nodecl_predicate = instantiate_expression(
+                        nodecl_predicate,
+                        context_of_being_instantiated,
+                        instantiation_symbol_map,
+                        /* pack_index */ -1);
+
+                nodecl_t nodecl_static_assert = nodecl_null();
+                build_scope_nodecl_static_assert(
+                        nodecl_predicate,
+                        nodecl_message,
+                        context_of_being_instantiated,
+                        &nodecl_static_assert);
+                ERROR_CONDITION(!nodecl_is_null(nodecl_static_assert)
+                        && !nodecl_is_err_expr(nodecl_static_assert), "Invalid node", 0);
+
+                break;
+            }
         default:
             {
                 internal_error("Unexpected member kind=%s\n", symbol_kind_name(member_of_template));

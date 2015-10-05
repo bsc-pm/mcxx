@@ -1272,6 +1272,10 @@ static_assert_declaration : STATIC_ASSERT '(' constant_expression ',' string_lit
 {
     $$ = ASTMake2(AST_STATIC_ASSERT, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
+| STATIC_ASSERT '(' constant_expression ')' ';'
+{
+    $$ = ASTMake2(AST_STATIC_ASSERT, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+}
 ;
 
 namespace_alias_definition : NAMESPACE identifier_token '=' id_expression ';'

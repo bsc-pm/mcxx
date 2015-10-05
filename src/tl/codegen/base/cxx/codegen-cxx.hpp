@@ -241,6 +241,8 @@ namespace Codegen
 
             Ret visit(const Nodecl::CxxForRanged& node);
 
+            Ret visit(const Nodecl::CxxStaticAssert& node);
+
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::VlaWildcard &);
 
