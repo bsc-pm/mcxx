@@ -42,6 +42,7 @@ MCXX_BEGIN_DECLS
 typedef size_t _size_t;
 
 #include "cxx-type-fwd.h"
+#include "cxx-scope-fwd.h"
 
 /*
  * Typing environment
@@ -175,6 +176,9 @@ struct type_environment_tag
     _size_t sizeof_builtin_va_list;
     _size_t alignof_builtin_va_list;
     type_t* (*builtin_va_list_type)(void); // overrides __builtin_va_list if not NULL
+
+    // Target-specific GCC builtins
+    void (*gcc_target_specific_builtins)(const decl_context_t* global_context);
 };
 
 typedef struct type_environment_tag type_environment_t;

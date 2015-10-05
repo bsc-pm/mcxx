@@ -8,8 +8,55 @@
 #include <sstream>
 #include "builtins-common.hpp"
 
-#define END
+// --------------------------------------------
+// Specific generators for IA32
+// --------------------------------------------
 
+#define GENERATE_VECTOR(N, T) \
+template <>\
+struct generate_type<__attribute__((vector_size(N))) T>\
+{\
+    static const int size = N;\
+    typedef T element_type;\
+\
+    static std::string g() \
+    {\
+        std::stringstream ss;\
+\
+        ss << "get_vector_type(" << generate_type<element_type>::g() << ", " << N << ")";\
+\
+        return ss.str();\
+    }\
+};\
+
+#define GENERATE_MANY(T) \
+   GENERATE_VECTOR(8, T) \
+   GENERATE_VECTOR(16, T) \
+   GENERATE_VECTOR(32, T) \
+   GENERATE_VECTOR(64, T)
+
+
+GENERATE_MANY(int)
+GENERATE_MANY(signed char)
+GENERATE_MANY(char)
+GENERATE_MANY(short)
+GENERATE_MANY(long)
+GENERATE_MANY(long long)
+
+GENERATE_MANY(unsigned int)
+GENERATE_MANY(unsigned char)
+GENERATE_MANY(unsigned short)
+GENERATE_MANY(unsigned long)
+GENERATE_MANY(unsigned long long)
+
+GENERATE_MANY(float)
+GENERATE_MANY(double)
+
+// --------------------------------------------
+// End of specific generators for IA32
+// --------------------------------------------
+
+#define END
 
 #define VECTOR_INTRINSICS_LIST \
 VECTOR_INTRIN(__builtin_ia32_addcarryx_u32) \

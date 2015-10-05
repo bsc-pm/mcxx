@@ -1164,8 +1164,17 @@ extern inline type_t* get_long_double_type(void)
     return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->long_double_info);
 }
 
+// defined in cxx-typeenviron.c
+extern struct floating_type_info_tag binary_float_16;
+
 extern inline type_t* get_float16_type(void)
 {
+    // We do not want to register this type to the list of floating types
+    // because weird things happen in the FEs
+    if (CURRENT_CONFIGURATION->type_environment->float16_info == NULL)
+    {
+        CURRENT_CONFIGURATION->type_environment->float16_info = &binary_float_16;
+    }
     return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->float16_info);
 }
 
