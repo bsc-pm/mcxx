@@ -2953,6 +2953,100 @@ void build_scope_decl_specifier_seq(AST a,
     }
 }
 
+static void add_gcc_attribute_noreturn(
+        AST attr_item UNUSED_PARAMETER,
+        gather_decl_spec_t* gather_info,
+        const decl_context_t* decl_context UNUSED_PARAMETER)
+{
+    gcc_attribute_t gcc_attr = { "noreturn", nodecl_null() };
+
+    P_LIST_ADD(
+            gather_info->gcc_attributes,
+            gather_info->num_gcc_attributes,
+            gcc_attr);
+}
+
+static void add_gcc_attribute_deprecated(
+        AST attr_item UNUSED_PARAMETER,
+        gather_decl_spec_t* gather_info,
+        const decl_context_t* decl_context UNUSED_PARAMETER)
+{
+    // FIXME: deprecated (string-literal)
+    gcc_attribute_t gcc_attr = { "deprecated", nodecl_null() };
+
+    P_LIST_ADD(
+            gather_info->gcc_attributes,
+            gather_info->num_gcc_attributes,
+            gcc_attr);
+}
+
+static void gather_std_attribute_spec(AST attribute_spec,
+        gather_decl_spec_t* gather_info UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER)
+{
+    AST list = ASTSon0(attribute_spec);
+    if (list == NULL)
+        return;
+
+    struct {
+        const char* attr_name;
+        char just_once;
+        char seen;
+        void (*fun)(AST, gather_decl_spec_t*, const decl_context_t*);
+    } std_attributes[] =
+    {
+        // "name",              just-once,   0, fun
+        { "noreturn",           1,           0, add_gcc_attribute_noreturn },
+        { "gnu::noreturn",      1,           0, add_gcc_attribute_noreturn },
+        { "deprecated",         1,           0, add_gcc_attribute_deprecated },
+
+        // GCC does not implement this one
+        // { "carries_dependency", 1,           0, NULL, },
+    };
+
+    AST iter;
+    for_each_element(list, iter)
+    {
+        AST attr_item = ASTSon1(iter);
+
+        AST attr_token = ASTSon0(attr_item);
+        // AST attr_argument_clause = ASTSon1(attr_item);
+
+        // We only handle the standard ones at the moment
+        const char* attr_name = ast_get_text(attr_token);
+
+        int N = STATIC_ARRAY_LENGTH(std_attributes);
+        int i;
+        for (i = 0; i < N; i++)
+        {
+            if (strcmp(attr_name, std_attributes[i].attr_name) == 0)
+            {
+                if (std_attributes[i].seen
+                        && std_attributes[i].just_once)
+                {
+                    error_printf_at(ast_get_locus(attr_token),
+                            "attribute '%s' can appear at most once in an attribute-list\n",
+                            attr_name);
+                }
+                if (!std_attributes[i].seen
+                        && std_attributes[i].fun != NULL)
+                {
+                    // Run attribute specific handler
+                    (std_attributes[i].fun)(attr_item, gather_info, decl_context);
+                }
+                std_attributes[i].seen = 1;
+                break;
+            }
+        }
+
+        if (i >= N)
+        {
+            warn_printf_at(ast_get_locus(attr_token), "ignoring attribute '%s'\n",
+                    ast_get_text(attr_token));
+        }
+    }
+}
+
 
 /*
  * This function gathers everything that is in a decl_spec and fills gather_info
@@ -3123,10 +3217,8 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             gather_ms_declspec(a, gather_info, decl_context);
             break;
         case AST_ATTRIBUTE_SPECIFIER:
-            {
-                warn_printf_at(ast_get_locus(a), "ignoring attribute-specifier\n");
-                break;
-            }
+            gather_std_attribute_spec(a, gather_info, decl_context);
+            break;
         case AST_ALIGNAS_TYPE:
         case AST_ALIGNAS:
             {

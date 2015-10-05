@@ -126,3 +126,4 @@ nodecl|all|asm_specification|__asm specification of GCC
 nodecl|all|*function_code|Nodecl statement of a function
 typeof(pfortran_modules_data_set_t)|fortran|*module_extra_info|Extra info used by fortran modules shared between the FE and TL
 typeof(instantiation_symbol_map_t*)|all|*instantiation_symbol_map|Instantiation map for template classes and functions
+nodecl|all|*alignas_value|C++11 alignas attribute

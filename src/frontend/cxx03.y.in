@@ -609,6 +609,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> attribute_specifier_seq_opt
 %type<ast> attribute_specifier_seq_and_virt_specifier_seq
 %type<ast> attribute_specifier_seq_and_virt_specifier_seq_opt
+%type<ast> attributable_statement
 
 // These are C++11 only
 %type<ast> std_attribute_specifier
@@ -4025,12 +4026,45 @@ nondeclarating_statement : labeled_statement
 {
     $$ = $1;
 }
+/* C++2011 */
+| std_attribute_specifier_seq attributable_statement
+{
+    warn_printf_at(ast_get_locus($1),
+        "attributes at the beginning of statement are ignored\n");
+    $$ = $2;
+}
+;
+
+attributable_statement : expression_statement
+{
+    $$ = $1;
+}
+| compound_statement
+{
+    $$ = $1;
+}
+| selection_statement
+{
+    $$ = $1;
+}
+| iteration_statement
+{
+    $$ = $1;
+}
+| jump_statement
+{
+    $$ = $1;
+}
+| labeled_statement
+{
+    $$ = $1;
+}
 ;
 
 labeled_statement : identifier_token ':' statement
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-	
+
 	$$ = ASTMake2(AST_LABELED_STATEMENT, identifier, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CASE constant_expression ':' statement

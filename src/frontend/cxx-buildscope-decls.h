@@ -164,7 +164,7 @@ struct gather_decl_spec_tag {
         bool is_shared:1;
         bool is_constant:1;
     } cuda;
-    
+
     // OpenCL info
     struct
     {
