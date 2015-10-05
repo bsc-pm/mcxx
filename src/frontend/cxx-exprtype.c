@@ -2427,41 +2427,53 @@ static scope_entry_t* get_nullptr_symbol(const decl_context_t* decl_context)
 
     scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL(".nullptr"), NULL);
 
+    scope_entry_t* result = NULL;
     if (entry_list == NULL)
     {
         scope_entry_t* nullptr_sym = new_symbol(global_context, global_context->current_scope, ".nullptr");
 
         // Change the name of the symbol
         nullptr_sym->symbol_name = UNIQUESTR_LITERAL("nullptr");
-        nullptr_sym->kind = SK_VARIABLE;
+        nullptr_sym->kind = SK_NULLPTR;
         symbol_entity_specs_set_is_builtin(nullptr_sym, 1);
         nullptr_sym->type_information = get_nullptr_type();
 
-        return nullptr_sym;
+        result = nullptr_sym;
     }
     else
     {
-        scope_entry_t* result = entry_list_head(entry_list);
-        return result;
+        result = entry_list_head(entry_list);
+        entry_list_free(entry_list);
     }
+
+    return result;
 }
+
+static void cxx_compute_name_from_entry_list(
+        nodecl_t nodecl_name,
+        scope_entry_list_t* entry_list,
+        const decl_context_t* decl_context,
+        field_path_t* field_path,
+        nodecl_t* nodecl_output);
 
 static void pointer_literal_type(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     scope_entry_t* entry = get_nullptr_symbol(decl_context);
     ERROR_CONDITION(entry == NULL, "This should not happen, nullptr should always exist", 0);
 
-    *nodecl_output = nodecl_make_symbol(entry,
-            ast_get_locus(expr));
+    scope_entry_list_t* entry_list = entry_list_new(entry);
+    nodecl_t nodecl_nullptr_name =
+            nodecl_make_cxx_dep_name_simple("nullptr",ast_get_locus(expr));
 
-    // Note that this is not an lvalue
-    nodecl_set_type(*nodecl_output, entry->type_information);
+    cxx_compute_name_from_entry_list(
+            nodecl_nullptr_name,
+            entry_list,
+            decl_context,
+            /* field_path */ NULL,
+            nodecl_output);
 
-    // This is a constant
-    nodecl_set_constant(*nodecl_output,
-            const_value_get_zero(
-                type_get_size(get_pointer_type(get_void_type())),
-                /* sign */ 0));
+    nodecl_free(nodecl_nullptr_name);
+    entry_list_free(entry_list);
 }
 
 static char this_can_be_used(const decl_context_t* decl_context)
@@ -7343,7 +7355,8 @@ static void cxx_compute_name_from_entry_list(
                 && entry->kind != SK_FUNCTION
                 && entry->kind != SK_TEMPLATE // template functions
                 && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER
-                && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
+                && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                && entry->kind != SK_NULLPTR)
     {
         error_printf_at(nodecl_get_locus(nodecl_name), "%s '%s' is not valid in this context\n",
                 symbol_kind_descriptive_name(entry->kind),
@@ -7683,6 +7696,19 @@ static void cxx_compute_name_from_entry_list(
 
         // This is always value dependent
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+    }
+    else if (entry->kind == SK_NULLPTR)
+    {
+        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
+
+        // Note that this is not an lvalue
+        nodecl_set_type(*nodecl_output, entry->type_information);
+
+        // This is a constant
+        nodecl_set_constant(*nodecl_output,
+                const_value_get_zero(
+                    type_get_size(get_pointer_type(get_void_type())),
+                    /* sign */ 0));
     }
     else
     {
