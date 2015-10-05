@@ -19529,6 +19529,12 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             *nodecl_output = nodecl_make_structured_value(nodecl_null(),
                     /* structured-value-form */ nodecl_make_structured_value_parenthesized(locus),
                     declared_type, nodecl_get_locus(direct_initializer));
+            if (!is_void_type(declared_type))
+            {
+                nodecl_set_constant(
+                        *nodecl_output,
+                        get_zero_value_of_type(declared_type));
+            }
         }
     }
 }
