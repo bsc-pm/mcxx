@@ -1,7 +1,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-extensions
-test_CFLAGS="--enable-ms-builtins --enable-intel-vector-types"
+test_CFLAGS="--env=linux-x86_64 --enable-ms-builtins --enable-intel-vector-types"
 </testinfo>
 */
 
