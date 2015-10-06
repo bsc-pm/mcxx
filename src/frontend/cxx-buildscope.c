@@ -3222,13 +3222,29 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
         case AST_ALIGNAS_TYPE:
         case AST_ALIGNAS:
             {
-                warn_printf_at(ast_get_locus(a), "ignoring alignment-specifier\n");
+                // FIXME - Ellipsis
 
-                // Clear child to avoid check_tree to fail
-                AST child = ast_get_child(a, 0);
-                ast_free(child);
+                AST expr = ast_get_child(a, 0);
+                if (ASTKind(a) == AST_ALIGNAS_TYPE)
+                {
+                    // alignas(type-id) must be equivalent to alignas(alignof(type-id))
+                    expr = ASTMake1(AST_ALIGNOF_TYPE, ast_copy(expr), ast_get_locus(expr),  NULL);
+                }
 
-                ast_set_child(a, 0, NULL);
+                nodecl_t nodecl_alignas_expr = nodecl_null();
+                check_expression_non_executable(expr, decl_context, &nodecl_alignas_expr);
+
+                if (nodecl_is_err_expr(nodecl_alignas_expr))
+                    break;
+
+                gather_info->alignas_list = nodecl_append_to_list(
+                        gather_info->alignas_list,
+                        nodecl_alignas_expr);
+
+                if (ASTKind(a) == AST_ALIGNAS_TYPE)
+                {
+                    ast_free(expr);
+                }
                 break;
             }
         case AST_AMBIGUITY:

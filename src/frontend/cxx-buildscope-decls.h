@@ -182,6 +182,8 @@ struct gather_decl_spec_tag {
     int num_xl_pragmas;
     const char** xl_pragmas;
 
+    nodecl_t alignas_list;
+
 } gather_decl_spec_t;
 
 typedef
