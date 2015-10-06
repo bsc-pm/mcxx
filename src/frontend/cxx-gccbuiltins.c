@@ -3715,7 +3715,8 @@ static void gcc_builtins_neon(const decl_context_t* decl_context)
         sym->kind = SK_TYPEDEF;
         sym->type_information = (builtin_neon_types[i].fun)();
         sym->defined = 1;
-        symbol_entity_specs_set_is_user_declared(sym, 1);
+        sym->do_not_print = 1; \
+        symbol_entity_specs_set_is_builtin(sym, 1);
     }
 
 #define GENERATE_NEON_VECTOR_BUILTINS \
@@ -3748,6 +3749,7 @@ static void gcc_builtins_neon(const decl_context_t* decl_context)
         sym->kind = SK_TYPEDEF; \
         sym->type_information = get_vector_type_by_elements(elem_type, bits / (type_get_size(elem_type) * 8)); \
         sym->defined = 1; \
+        sym->do_not_print = 1; \
         symbol_entity_specs_set_is_user_declared(sym, 1); \
     }
     GENERATE_NEON_VECTOR_BUILTINS
@@ -3775,7 +3777,8 @@ static void gcc_builtins_neon(const decl_context_t* decl_context)
         sym->kind = SK_TYPEDEF;
         sym->type_information = get_vector_type_by_elements(get_double_type(), opaque_neon_builtin_types[i].num_elements);
         sym->defined = 1;
-        symbol_entity_specs_set_is_user_declared(sym, 1);
+        sym->do_not_print = 1; \
+        symbol_entity_specs_set_is_builtin(sym, 1);
     }
 
     {
@@ -3784,7 +3787,8 @@ static void gcc_builtins_neon(const decl_context_t* decl_context)
         sym->kind = SK_TYPEDEF;
         sym->type_information = get_signed_char_type();
         sym->defined = 1;
-        symbol_entity_specs_set_is_user_declared(sym, 1);
+        sym->do_not_print = 1; \
+        symbol_entity_specs_set_is_builtin(sym, 1);
     }
     {
         scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("__builtin_neon_poly16"));
@@ -3792,7 +3796,8 @@ static void gcc_builtins_neon(const decl_context_t* decl_context)
         sym->kind = SK_TYPEDEF;
         sym->type_information = get_signed_short_int_type();
         sym->defined = 1;
-        symbol_entity_specs_set_is_user_declared(sym, 1);
+        sym->do_not_print = 1; \
+        symbol_entity_specs_set_is_builtin(sym, 1);
     }
     {
         scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("__builtin_neon_poly64"));
@@ -3800,7 +3805,8 @@ static void gcc_builtins_neon(const decl_context_t* decl_context)
         sym->kind = SK_TYPEDEF;
         sym->type_information = get_UDI_mode();
         sym->defined = 1;
-        symbol_entity_specs_set_is_user_declared(sym, 1);
+        sym->do_not_print = 1; \
+        symbol_entity_specs_set_is_builtin(sym, 1);
     }
     {
         scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("__builtin_neon_poly128"));
@@ -3808,7 +3814,8 @@ static void gcc_builtins_neon(const decl_context_t* decl_context)
         sym->kind = SK_TYPEDEF;
         sym->type_information = get_vector_type_by_elements(get_UDI_mode(), 2);
         sym->defined = 1;
-        symbol_entity_specs_set_is_user_declared(sym, 1);
+        sym->do_not_print = 1; \
+        symbol_entity_specs_set_is_builtin(sym, 1);
     }
 
 #include "cxx-gccbuiltins-arm-neon.h"

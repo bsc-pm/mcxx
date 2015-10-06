@@ -32,6 +32,8 @@
 #include "tl-vector-backend-knl.hpp"
 #include "tl-vector-legalization-avx2.hpp"
 #include "tl-vector-backend-avx2.hpp"
+#include "tl-vector-legalization-neon.hpp"
+#include "tl-vector-backend-neon.hpp"
 #include "tl-vectorization-three-addresses.hpp"
 
 
@@ -39,8 +41,12 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorLoweringPhase::VectorLoweringPhase() : _knl_enabled(false), _knc_enabled(false), _avx2_enabled(false)
+        VectorLoweringPhase::VectorLoweringPhase() : _knl_enabled(false), _knc_enabled(false), _avx2_enabled(false), _neon_enabled(false)
         {
+            set_phase_name("Vector Lowering Phase");
+            set_phase_description("This phase lowers Vector IR to builtin calls. "
+                    "By default targets SSE but AVX, AVX2, KNC, KNL and NEON are implemented as well");
+
             register_parameter("knl_enabled",
                     "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
                     _knl_enabled_str,
@@ -56,6 +62,11 @@ namespace TL
                     _avx2_enabled_str,
                     "0").connect(std::bind(&VectorLoweringPhase::set_avx2, this, std::placeholders::_1));
 
+            register_parameter("neon_enabled",
+                    "If set to '1' enables compilation for NEON architecture, otherwise it is disabled",
+                    _neon_enabled_str,
+                    "0").connect(std::bind(&VectorLoweringPhase::set_neon, this, std::placeholders::_1));
+
             register_parameter("prefer_mask_gather_scatter",
                     "If set to '1' enables gather/scatter generation for unaligned load/stores with masks",
                     _prefer_mask_gather_scatter_str,
@@ -69,26 +80,22 @@ namespace TL
 
         void VectorLoweringPhase::set_knl(const std::string knl_enabled_str)
         {
-            if (knl_enabled_str == "1")
-            {
-                _knl_enabled = true;
-            }
+            parse_boolean_option("knl_enabled", knl_enabled_str, _knl_enabled, "Invalid value for knl_enabled");
         }
 
         void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
         {
-            if (knc_enabled_str == "1")
-            {
-                _knc_enabled = true;
-            }
+            parse_boolean_option("knc_enabled", knc_enabled_str, _knc_enabled, "Invalid value for knc_enabled");
         }
 
         void VectorLoweringPhase::set_avx2(const std::string avx2_enabled_str)
         {
-            if (avx2_enabled_str == "1")
-            {
-                _avx2_enabled = true;
-            }
+            parse_boolean_option("avx2_enabled", avx2_enabled_str, _avx2_enabled, "Invalid value for avx2_enabled");
+        }
+
+        void VectorLoweringPhase::set_neon(const std::string neon_enabled_str)
+        {
+            parse_boolean_option("neon_enabled", neon_enabled_str, _neon_enabled, "Invalid value for neon_enabled");
         }
 
         void VectorLoweringPhase::set_prefer_gather_scatter(
@@ -114,19 +121,33 @@ namespace TL
             Nodecl::NodeclBase translation_unit =
                 *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
-            if (_avx2_enabled && _knc_enabled)
+            struct backend_flag_t
             {
-                fatal_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
-            }
-            else if (_knc_enabled && _knl_enabled)
+                bool flag;
+                const char* name;
+            } backend_flag[] =
             {
-                fatal_error("SIMD: KNL and KNC SIMD instruction sets enabled at the same time");
-            }
-            else if (_avx2_enabled && _knl_enabled)
-            {
-                fatal_error("SIMD: AVX2 and KNL SIMD instruction sets enabled at the same time");
-            }
+                { _avx2_enabled, "AVX2" },
+                { _knc_enabled, "KNC" },
+                { _knl_enabled, "KNL" },
+                { _neon_enabled, "NEON" },
+            };
 
+            const int N = sizeof(backend_flag) / sizeof(*backend_flag);
+
+            for (int i = 0; i < N; i++)
+            {
+                for (int j = i + 1; j < N; j++)
+                {
+                    if ((backend_flag[i].flag)
+                            && (backend_flag[j].flag))
+                    {
+                        fatal_error("SIMD: requesting '%s' and '%s' SIMD instruction sets at the same time\n",
+                                backend_flag[i].name,
+                                backend_flag[j].name);
+                    }
+                }
+            }
 
             if(_avx2_enabled)
             {
@@ -144,7 +165,7 @@ namespace TL
                 KNCVectorLegalization knc_vector_legalization(
                         _prefer_gather_scatter, _prefer_mask_gather_scatter);
                 knc_vector_legalization.walk(translation_unit);
-                
+
                 VectorizationThreeAddresses three_addresses_visitor;
                 three_addresses_visitor.walk(translation_unit);
 
@@ -158,13 +179,23 @@ namespace TL
                 KNLVectorLegalization knl_vector_legalization(
                         _prefer_gather_scatter, _prefer_mask_gather_scatter);
                 knl_vector_legalization.walk(translation_unit);
-                
+
                 VectorizationThreeAddresses three_addresses_visitor;
                 three_addresses_visitor.walk(translation_unit);
 
                 // Lowering to intrinsics
                 KNLVectorBackend knl_vector_backend;
                 knl_vector_backend.walk(translation_unit);
+            }
+            else if (_neon_enabled)
+            {
+                // NEON legalization
+                NeonVectorLegalization neon_vector_legalization;
+                neon_vector_legalization.walk(translation_unit);
+
+                // Lower to NEON intrinsics
+                NeonVectorBackend neon_vector_backend;
+                neon_vector_backend.walk(translation_unit);
             }
             else
             {

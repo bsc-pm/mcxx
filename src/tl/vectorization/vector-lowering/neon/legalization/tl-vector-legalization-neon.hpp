@@ -24,44 +24,41 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZATION_COMMON_HPP
-#define TL_VECTORIZATION_COMMON_HPP
+#ifndef NEON_VECTOR_LEGALIZATION_HPP
+#define NEON_VECTOR_LEGALIZATION_HPP
 
-#include <list>
-#include <map>
+#include "tl-vectorization-analysis-interface.hpp"
 
-#include "tl-symbol.hpp"
-
-#define VECTORIZATION_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorization_verbose)
+#include "tl-nodecl-base.hpp"
+#include "tl-nodecl-visitor.hpp"
 
 namespace TL
 {
     namespace Vectorization
     {
-        typedef std::map<TL::Symbol, int> map_tlsym_int_t;
-        typedef std::map<Nodecl::NodeclBase, int> map_nodecl_int_t;
-        typedef std::pair<Nodecl::NodeclBase, int> pair_nodecl_int_t;
-        // To be replaced by std::tuple<int, int, int> in C++11
-        typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > map_tlsym_objlist_t;
-        typedef std::map<TL::Symbol, TL::ObjectList<int> > map_tlsym_objlist_int_t;
-        typedef TL::ObjectList<Nodecl::NodeclBase> objlist_nodecl_t;
-        typedef TL::ObjectList<Nodecl::Symbol> objlist_nodecl_symbol_t;
-        typedef TL::ObjectList<TL::Symbol> objlist_tlsym_t;
-        typedef TL::ObjectList<int> objlist_int_t;
+        class NeonVectorLegalization : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                VectorizationAnalysisInterface* _analysis;
 
-        typedef std::list<Nodecl::NodeclBase> stdlist_nodecl_t;
-        typedef std::list<TL::Scope> stdlist_scope_t;
+            public:
 
-        enum SIMDInstructionSet {
-            SSE4_2_ISA, // default
-            AVX_ISA,
-            AVX2_ISA,
-            KNC_ISA,
-            KNL_ISA,
-            NEON_ISA
+                NeonVectorLegalization();
+
+                virtual void visit(const Nodecl::FunctionCode& n);
+
+                virtual void visit(const Nodecl::ObjectInit& n);
+
+                virtual void visit(const Nodecl::VectorConversion& n);
+
+                virtual void visit(const Nodecl::VectorAssignment& n);
+                virtual void visit(const Nodecl::VectorLoad& n);
+                virtual void visit(const Nodecl::VectorStore& n);
+
+                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
+
     }
 }
 
-#endif //TL_VECTORIZATION_COMMON_HPP
-
+#endif // NEON_VECTOR_LEGALIZATION_HPP
