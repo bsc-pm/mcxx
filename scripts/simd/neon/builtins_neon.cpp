@@ -34,7 +34,8 @@ template <>
 struct generate_type<__builtin_neon_ti> // 2 double registers
 {
     static const int size = 2;
-    typedef double element_type;
+    typedef long long int element_type;
+
     static std::string g()
     {
         std::stringstream ss;
@@ -47,7 +48,7 @@ template <>
 struct generate_type<__builtin_neon_ei> // 3 double registers
 {
     static const int size = 3;
-    typedef double element_type;
+    typedef long long int element_type;
 
     static std::string g()
     {
@@ -61,7 +62,7 @@ template <>
 struct generate_type<__builtin_neon_oi> // 4 double registers
 {
     static const int size = 4;
-    typedef double element_type;
+    typedef long long int element_type;
 
     static std::string g()
     {
@@ -75,7 +76,7 @@ template <>
 struct generate_type<__builtin_neon_ci> // 6 double registers
 {
     static const int size = 6;
-    typedef double element_type;
+    typedef long long int element_type;
 
     static std::string g()
     {
@@ -89,7 +90,7 @@ template <>
 struct generate_type<__builtin_neon_xi> // 8 double registers
 {
     static const int size = 8;
-    typedef double element_type;
+    typedef long long int element_type;
 
     static std::string g()
     {

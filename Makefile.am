@@ -3402,6 +3402,27 @@ generate_builtins_neon: scripts/generate_builtins_neon.bin
 	qemu-arm ./scripts/generate_builtins_neon.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm-neon.h
 
 #####################################
+# ARM64 NEON builtins generator
+#####################################
+
+LATEST_GXX_NEON_ARM64=aarch64-linux-gnu-g++
+LATEST_GXX_NEON_ARM64_FLAGS =
+
+# These files are only regenerated manually
+.PHONY: generate_builtins_neon_arm64
+CLEANFILES += scripts/generate_builtins_neon_arm64.bin
+
+scripts/generate_builtins_neon_arm64.bin : $(srcdir)/scripts/simd/neon/builtins_neon_arm64.cpp Makefile
+	$(LATEST_GXX_NEON_ARM64) $(LATEST_GXX_NEON_ARM64_FLAGS) \
+		-static \
+		-I$(srcdir)/scripts/simd \
+		-o scripts/generate_builtins_neon_arm64.bin \
+		$(srcdir)/scripts/simd/neon/builtins_neon_arm64.cpp
+
+generate_builtins_neon_arm64: scripts/generate_builtins_neon_arm64.bin
+	qemu-aarch64 ./scripts/generate_builtins_neon_arm64.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm64-neon.h
+
+#####################################
 
 rpm: dist-gzip
 	@echo "Generating RPM structure"

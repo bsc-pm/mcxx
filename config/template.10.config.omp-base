@@ -63,6 +63,7 @@ linker_name = @GCC@
 {simd,neon} preprocessor_options = -mfpu=neon -include arm_neon.h
 {simd,neon} compiler_options = -mfpu=neon
 {simd,neon} linker_options = -mfpu=neon
+{neon} options = --vector-flavor=neon
 
 {@NANOX_GATE@,cluster} options = --variable=nanos_main_enabled:1
 

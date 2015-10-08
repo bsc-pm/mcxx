@@ -10147,12 +10147,57 @@ extern inline const char* print_opencl_vector_type(
     return c;
 }
 
+extern inline const char* print_neon_vector_type(
+        const decl_context_t* decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    int size = vector_type_get_vector_size(t);
+    int num_elements = vector_type_get_num_elements(t);
+    type_t* element_type = vector_type_get_element_type(t);
+
+    const char *c = NULL;
+    if (size == 8
+            || size == 16)
+    {
+        if (is_integral_type(element_type))
+        {
+            uniquestr_sprintf(&c, "%sint%dx%d_t",
+                    is_unsigned_integral_type(element_type) ? "u" : "",
+                    (int)type_get_size(element_type) * 8,
+                    num_elements);
+            return c;
+        }
+        else if (is_float_type(element_type))
+        {
+            uniquestr_sprintf(&c, "float32x%d_t", num_elements);
+            return c;
+        }
+        else if (is_double_type(element_type))
+        {
+            uniquestr_sprintf(&c, "float64x%d_t", num_elements);
+            return c;
+        }
+    }
+
+    const char* typename = get_simple_type_name_string_internal_impl(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+    uniquestr_sprintf(&c, "<<neon-vector-%s-%d>>",
+            typename,
+            vector_type_get_vector_size(t));
+    return c;
+}
+
 // Arrays 'vector_flavors' and 'print_vector_functions' are parallel arrays
 #define VECTOR_FLAVORS \
     VECTOR_FLAVOR(gnu, print_gnu_vector_type) \
     VECTOR_FLAVOR(intel, print_intel_sse_avx_vector_type) \
     VECTOR_FLAVOR(altivec, print_altivec_vector_type) \
-    VECTOR_FLAVOR(opencl, print_opencl_vector_type)
+    VECTOR_FLAVOR(opencl, print_opencl_vector_type) \
+    VECTOR_FLAVOR(neon, print_neon_vector_type)
 
 #define VECTOR_FLAVOR(name, _) #name,
 const char* vector_flavors[] = {
