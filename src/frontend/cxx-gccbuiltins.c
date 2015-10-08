@@ -3838,9 +3838,9 @@ static void gcc_builtins_neon_arm64(const decl_context_t* decl_context)
     } aliased_names[] =
     {
         {"__Poly8_t",    get_signed_char_type   },
-        {"__Poly16_t",   get_signed_char_type   },
-        {"__Poly64_t",   get_unsigned_char_type },
-        {"__Poly128_t",  get_unsigned_char_type },
+        {"__Poly16_t",   get_signed_short_int_type   },
+        {"__Poly64_t",   get_unsigned_long_int_type },
+        {"__Poly128_t",  get_unsigned_int128_type },
 #if 0
         {"__Poly16_t",   get_signed_short_int_type  },
         {"__Poly64_t",   get_unsigned_long_int_type },
