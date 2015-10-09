@@ -475,12 +475,41 @@ static char solve_ambiguous_member_declaration_check_interpretation(
             p);
 }
 
+static int solve_ambiguous_member_declaration_choose_interpretation(
+        AST current,
+        AST previous,
+        int current_idx  UNUSED_PARAMETER,
+        int previous_idx UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        void* info UNUSED_PARAMETER)
+{
+    if (ASTKind(current) == AST_MEMBER_DECLARATION
+            && ASTKind(previous) == AST_MEMBER_DECLARATION)
+    {
+        AST current_decl_spec = ASTSon0(current);
+        AST prev_decl_spec = ASTSon0(previous);
+
+        if (current_decl_spec == NULL
+                && prev_decl_spec != NULL)
+        {
+            return -1;
+        }
+        else if (current_decl_spec == NULL
+                && prev_decl_spec != NULL)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 void solve_ambiguous_member_declaration(AST a, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(a, decl_context,
             NULL,
             solve_ambiguous_member_declaration_check_interpretation,
-            NULL,
+            solve_ambiguous_member_declaration_choose_interpretation,
             NULL);
 }
 

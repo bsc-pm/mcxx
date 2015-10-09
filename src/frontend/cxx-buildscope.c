@@ -11570,6 +11570,11 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
     if (!is_named_type(declarator_type))
     {
         // We should mix here default argument info because the declarator has function-type form
+        if (symbol_entity_specs_get_num_parameters(function_symbol) == 0)
+        {
+            symbol_entity_specs_reserve_default_argument_info(function_symbol, gather_info->num_arguments_info);
+        }
+
         ERROR_CONDITION(gather_info->num_arguments_info != symbol_entity_specs_get_num_parameters(function_symbol),
                 "These two should be the same and they are %d != %d", 
                 gather_info->num_arguments_info, 
