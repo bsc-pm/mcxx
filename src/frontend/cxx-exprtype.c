@@ -19981,6 +19981,121 @@ static void compute_nodecl_equal_initializer(AST initializer,
     }
 }
 
+static void compute_nodecl_braced_initializer_list(AST initializer_list,
+        const decl_context_t* decl_context,
+        nodecl_t* nodecl_output)
+{
+    if (initializer_list == NULL)
+    {
+        *nodecl_output = nodecl_null();
+        return;
+    }
+
+    if (ASTKind(initializer_list) == AST_AMBIGUITY)
+    {
+        int i, valid_option = -1, N = ast_get_num_ambiguities(initializer_list);
+
+        diagnostic_context_t* ambig_diag[N + 1];
+        for (i = 0; i < N; i++)
+        {
+            nodecl_t nodecl_current = nodecl_null();
+
+            AST current_interpretation = ast_get_ambiguity(initializer_list, i);
+            ast_fix_parents_inside_intepretation(current_interpretation);
+
+            ambig_diag[i] = diagnostic_context_push_buffered();
+            compute_nodecl_braced_initializer_list(
+                    current_interpretation,
+                    decl_context,
+                    &nodecl_current);
+            diagnostic_context_pop();
+
+            if (!nodecl_is_err_expr(nodecl_current))
+            {
+                if (nodecl_is_null(*nodecl_output))
+                {
+                    *nodecl_output = nodecl_current;
+                    valid_option = i;
+                }
+                else
+                {
+                    internal_error("More than one ambiguity valid at %s\n", nodecl_locus_to_str(nodecl_current));
+                }
+            }
+            else
+            {
+                nodecl_free(nodecl_current);
+            }
+        }
+
+        if (valid_option < 0)
+        {
+            // Commit everything
+            diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+            for (i = 0; i < N; i++)
+            {
+                diagnostic_context_commit(ambig_diag[i]);
+            }
+            diagnostic_context_pop();
+            diagnostic_context_commit(combine_diagnostics);
+
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(initializer_list));
+            return;
+        }
+        else
+        {
+            // Commit the chosen interpretation and discard all others
+            for (i = 0; i < N; i++)
+            {
+                if (i == valid_option)
+                {
+                    diagnostic_context_commit(ambig_diag[i]);
+                }
+                else
+                {
+                    diagnostic_context_discard(ambig_diag[i]);
+                }
+            }
+
+            ast_replace_with_ambiguity(initializer_list, valid_option);
+        }
+    }
+    else
+    {
+        // Compute head (recursively)
+        nodecl_t nodecl_prev_list = nodecl_null();
+        compute_nodecl_braced_initializer_list(
+                ASTSon0(initializer_list),
+                decl_context,
+                &nodecl_prev_list);
+
+        if (!nodecl_is_null(nodecl_prev_list)
+                && nodecl_is_err_expr(nodecl_prev_list))
+        {
+            *nodecl_output = nodecl_prev_list;
+            return;
+        }
+
+        // Compute current
+        nodecl_t nodecl_current = nodecl_null();
+        compute_nodecl_initializer_clause(
+                ASTSon1(initializer_list),
+                decl_context,
+                /* preserve_top_level_parentheses */ 0,
+                &nodecl_current);
+
+        if (nodecl_is_err_expr(nodecl_current))
+        {
+            *nodecl_output = nodecl_current;
+            return;
+        }
+
+        *nodecl_output = nodecl_append_to_list(
+                nodecl_prev_list,
+                nodecl_current);
+    }
+}
+
 static void compute_nodecl_braced_initializer(AST initializer, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST initializer_list = ASTSon0(initializer);
@@ -20001,29 +20116,22 @@ static void compute_nodecl_braced_initializer(AST initializer, const decl_contex
             }
         }
 
-        AST it;
-        for_each_element(initializer_list, it)
+        compute_nodecl_braced_initializer_list(initializer_list,
+                decl_context,
+                nodecl_output);
+
+        if (nodecl_is_err_expr(*nodecl_output))
+            return;
+
+        int i, num_items = 0;
+        nodecl_t* list = nodecl_unpack_list(*nodecl_output, &num_items);
+        for (i = 0; i < num_items; i++)
         {
-            AST initializer_clause = ASTSon1(it);
-
-            nodecl_t nodecl_initializer_clause = nodecl_null();
-            compute_nodecl_initializer_clause(initializer_clause, decl_context,
-                    /* preserve_top_level_parentheses */ 0,
-                    &nodecl_initializer_clause);
-
-            if (nodecl_is_err_expr(nodecl_initializer_clause))
-            {
-                *nodecl_output = nodecl_initializer_clause;
-                return;
-            }
-
             any_is_type_dependent = any_is_type_dependent
-                || nodecl_expr_is_type_dependent(nodecl_initializer_clause);
-
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_initializer_clause);
-
-            P_LIST_ADD(types, num_types, nodecl_get_type(nodecl_initializer_clause));
+                || nodecl_expr_is_type_dependent(list[i]);
+            P_LIST_ADD(types, num_types, nodecl_get_type(list[i]));
         }
+        xfree(list);
     }
 
     if (nodecl_is_null(*nodecl_output)
