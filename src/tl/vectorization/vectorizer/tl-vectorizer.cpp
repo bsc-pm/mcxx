@@ -80,7 +80,7 @@ namespace Vectorization
         }            
         else
         {
-            running_error("Vectorizer::initialize_analysis: expected FunctionCode or SimdFunction");
+            fatal_error("Vectorizer::initialize_analysis: expected FunctionCode or SimdFunction");
         }
 
         if (_analysis_func != func)
@@ -336,8 +336,9 @@ namespace Vectorization
             bool is_parallel_loop)
     {
         // Clean up vector epilog
-        //if (environment._support_masking)
-        //{
+        if (environment._support_masking
+                || epilog_iterations == 1)
+        {
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "Clean-up vector epilog\n");
@@ -351,7 +352,7 @@ namespace Vectorization
             // Applying strenth reduction
             TL::Optimizations::canonicalize_and_fold(
                     net_epilog, _fast_math_enabled);
-        //}
+        }
     }
 
     bool Vectorizer::is_supported_reduction(bool is_builtin,

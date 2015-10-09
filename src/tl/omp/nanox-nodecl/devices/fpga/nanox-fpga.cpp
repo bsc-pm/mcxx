@@ -74,7 +74,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
-        running_error("Fortran for FPGA devices is not supported yet\n");
+        fatal_error("Fortran for FPGA devices is not supported yet\n");
 
     // Unpack DTO
     const std::string& device_outline_name = fpga_outline_name(info._outline_name);
@@ -88,8 +88,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            running_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus_str().c_str());
+            fatal_printf_at(original_statements.get_locus(), "nested functions are not supported\n");
     }
 
     // const TL::Scope & called_scope = called_task.get_scope();
@@ -458,7 +457,7 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
 
         if (! hls_file.is_open())
         {
-            running_error("%s: error: cannot open file '%s'. %s\n",
+            fatal_error("%s: error: cannot open file '%s'. %s\n",
                     original_filename.c_str(),
                     new_filename.c_str(),
                     strerror(errno));
@@ -478,7 +477,7 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
         FILE* ancillary_file = fopen(new_filename.c_str(), "w");
         if (ancillary_file == NULL)
         {
-            running_error("%s: error: cannot open file '%s'. %s\n",
+            fatal_error("%s: error: cannot open file '%s'. %s\n",
                     original_filename.c_str(),
                     new_filename.c_str(),
                     strerror(errno));
@@ -761,7 +760,7 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
     //Check that we are calling a function task (this checking may be performed earlyer in the code)
     if (!func_symbol.is_function())
     {
-        running_error("Only function-tasks are supperted at this moment");
+        fatal_error("Only function-tasks are supperted at this moment");
     }
     Scope fun_scope = func_symbol.get_scope();
 //    const ObjectList<Symbol> &param_list = func_symbol.get_function_parameters();

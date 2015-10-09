@@ -373,6 +373,7 @@ src_frontend_libgccbuiltins_la_CFLAGS=@NO_VAR_TRACKING_ASSIGNMENTS@ \
 src_frontend_libgccbuiltins_la_SOURCES = \
   src/frontend/cxx-gccbuiltins.h \
   src/frontend/cxx-gccbuiltins-ia32.h \
+  src/frontend/cxx-gccbuiltins-arm-neon.h \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
@@ -3260,7 +3261,9 @@ config_DATA = \
 EXTRA_DIST += \
 			scripts/bison-2.3-rofi-patch \
 			scripts/mcxx-rpm.spec \
-			scripts/builtins_ia32.cpp \
+			scripts/simd/x86/builtins_ia32.cpp \
+			scripts/simd/neon/builtins_neon.cpp \
+			scripts/simd/builtins-common.hpp \
 			$(DEBIAN_EXTRA)
 			$(END)
 
@@ -3271,66 +3274,70 @@ DEBIAN_EXTRA=\
               scripts/debian/control \
               $(END)
 
-LATEST_GXX=g++-5.1
+#####################################
+# x86 builtins generator
+#####################################
 
-LATEST_GXX_FLAGS =
-LATEST_GXX_FLAGS += -fabi-version=6
-LATEST_GXX_FLAGS += -m3dnow
-LATEST_GXX_FLAGS += -mabm
-LATEST_GXX_FLAGS += -maes
-LATEST_GXX_FLAGS += -mavx
-LATEST_GXX_FLAGS += -mavx2
-LATEST_GXX_FLAGS += -mavx512bw
-LATEST_GXX_FLAGS += -mavx512cd
-LATEST_GXX_FLAGS += -mavx512dq
-LATEST_GXX_FLAGS += -mavx512er
-LATEST_GXX_FLAGS += -mavx512f
-LATEST_GXX_FLAGS += -mavx512ifma
-LATEST_GXX_FLAGS += -mavx512pf
-LATEST_GXX_FLAGS += -mavx512vbmi
-LATEST_GXX_FLAGS += -mavx512vl
-LATEST_GXX_FLAGS += -mbmi
-LATEST_GXX_FLAGS += -mbmi2
-LATEST_GXX_FLAGS += -mclflushopt
-LATEST_GXX_FLAGS += -mclwb
-LATEST_GXX_FLAGS += -mf16c
-LATEST_GXX_FLAGS += -mfma
-LATEST_GXX_FLAGS += -mfma4
-LATEST_GXX_FLAGS += -mfsgsbase
-LATEST_GXX_FLAGS += -mfxsr
-LATEST_GXX_FLAGS += -mlwp
-LATEST_GXX_FLAGS += -mlzcnt
-LATEST_GXX_FLAGS += -mmmx
-LATEST_GXX_FLAGS += -mmpx
-LATEST_GXX_FLAGS += -mmwaitx
-LATEST_GXX_FLAGS += -mno-fma4
-LATEST_GXX_FLAGS += -mpclmul
-LATEST_GXX_FLAGS += -mpcommit
-LATEST_GXX_FLAGS += -mpopcnt
-LATEST_GXX_FLAGS += -mprefetchwt1
-LATEST_GXX_FLAGS += -mrdrnd
-LATEST_GXX_FLAGS += -mrdseed
-LATEST_GXX_FLAGS += -mrtm
-LATEST_GXX_FLAGS += -msha
-LATEST_GXX_FLAGS += -msse
-LATEST_GXX_FLAGS += -msse2
-LATEST_GXX_FLAGS += -msse3
-LATEST_GXX_FLAGS += -msse4
-LATEST_GXX_FLAGS += -msse4.1
-LATEST_GXX_FLAGS += -msse4.2
-LATEST_GXX_FLAGS += -msse4a
-LATEST_GXX_FLAGS += -mssse3
-LATEST_GXX_FLAGS += -mtbm
-LATEST_GXX_FLAGS += -mxop
-LATEST_GXX_FLAGS += -mxsave
-LATEST_GXX_FLAGS += -mxsavec
-LATEST_GXX_FLAGS += -mxsaveopt
-LATEST_GXX_FLAGS += -mxsaves
+LATEST_GXX_X86=g++-5.1
 
-scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp Makefile
-	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir)\
+LATEST_GXX_X86_FLAGS =
+LATEST_GXX_X86_FLAGS += -fabi-version=6
+LATEST_GXX_X86_FLAGS += -m3dnow
+LATEST_GXX_X86_FLAGS += -mabm
+LATEST_GXX_X86_FLAGS += -maes
+LATEST_GXX_X86_FLAGS += -mavx
+LATEST_GXX_X86_FLAGS += -mavx2
+LATEST_GXX_X86_FLAGS += -mavx512bw
+LATEST_GXX_X86_FLAGS += -mavx512cd
+LATEST_GXX_X86_FLAGS += -mavx512dq
+LATEST_GXX_X86_FLAGS += -mavx512er
+LATEST_GXX_X86_FLAGS += -mavx512f
+LATEST_GXX_X86_FLAGS += -mavx512ifma
+LATEST_GXX_X86_FLAGS += -mavx512pf
+LATEST_GXX_X86_FLAGS += -mavx512vbmi
+LATEST_GXX_X86_FLAGS += -mavx512vl
+LATEST_GXX_X86_FLAGS += -mbmi
+LATEST_GXX_X86_FLAGS += -mbmi2
+LATEST_GXX_X86_FLAGS += -mclflushopt
+LATEST_GXX_X86_FLAGS += -mclwb
+LATEST_GXX_X86_FLAGS += -mf16c
+LATEST_GXX_X86_FLAGS += -mfma
+LATEST_GXX_X86_FLAGS += -mfma4
+LATEST_GXX_X86_FLAGS += -mfsgsbase
+LATEST_GXX_X86_FLAGS += -mfxsr
+LATEST_GXX_X86_FLAGS += -mlwp
+LATEST_GXX_X86_FLAGS += -mlzcnt
+LATEST_GXX_X86_FLAGS += -mmmx
+LATEST_GXX_X86_FLAGS += -mmpx
+LATEST_GXX_X86_FLAGS += -mmwaitx
+LATEST_GXX_X86_FLAGS += -mno-fma4
+LATEST_GXX_X86_FLAGS += -mpclmul
+LATEST_GXX_X86_FLAGS += -mpcommit
+LATEST_GXX_X86_FLAGS += -mpopcnt
+LATEST_GXX_X86_FLAGS += -mprefetchwt1
+LATEST_GXX_X86_FLAGS += -mrdrnd
+LATEST_GXX_X86_FLAGS += -mrdseed
+LATEST_GXX_X86_FLAGS += -mrtm
+LATEST_GXX_X86_FLAGS += -msha
+LATEST_GXX_X86_FLAGS += -msse
+LATEST_GXX_X86_FLAGS += -msse2
+LATEST_GXX_X86_FLAGS += -msse3
+LATEST_GXX_X86_FLAGS += -msse4
+LATEST_GXX_X86_FLAGS += -msse4.1
+LATEST_GXX_X86_FLAGS += -msse4.2
+LATEST_GXX_X86_FLAGS += -msse4a
+LATEST_GXX_X86_FLAGS += -mssse3
+LATEST_GXX_X86_FLAGS += -mtbm
+LATEST_GXX_X86_FLAGS += -mxop
+LATEST_GXX_X86_FLAGS += -mxsave
+LATEST_GXX_X86_FLAGS += -mxsavec
+LATEST_GXX_X86_FLAGS += -mxsaveopt
+LATEST_GXX_X86_FLAGS += -mxsaves
+
+scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/simd/x86/builtins_ia32.cpp Makefile
+	$(LATEST_GXX_X86) $(LATEST_GXX_X86_FLAGS) -I$(srcdir)/scripts/simd \
 		-o scripts/generate_builtins_ia32.bin \
-		$(srcdir)/scripts/builtins_ia32.cpp \
+		$(srcdir)/scripts/simd/x86/builtins_ia32.cpp \
 		-Wl,-rpath,$$(dirname $$($(LATEST_GXX) -print-file-name=libstdc++.so))
 
 # These files are only regenerated manually
@@ -3338,6 +3345,30 @@ scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp Makefil
 CLEANFILES += scripts/generate_builtins_ia32.bin
 generate_builtins_ia32: scripts/generate_builtins_ia32.bin
 	./scripts/generate_builtins_ia32.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32.h
+
+#####################################
+# ARM NEON builtins generator
+#####################################
+
+LATEST_GXX_NEON=arm-linux-gnueabihf-g++
+LATEST_GXX_NEON_FLAGS =
+LATEST_GXX_NEON_FLAGS += -mfpu=neon
+
+# These files are only regenerated manually
+.PHONY: generate_builtins_neon
+CLEANFILES += scripts/generate_builtins_neon.bin
+
+scripts/generate_builtins_neon.bin : $(srcdir)/scripts/simd/neon/builtins_neon.cpp Makefile
+	$(LATEST_GXX_NEON) $(LATEST_GXX_NEON_FLAGS) \
+		-static \
+		-I$(srcdir)/scripts/simd \
+		-o scripts/generate_builtins_neon.bin \
+		$(srcdir)/scripts/simd/neon/builtins_neon.cpp
+
+generate_builtins_neon: scripts/generate_builtins_neon.bin
+	qemu-arm ./scripts/generate_builtins_neon.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm-neon.h
+
+#####################################
 
 rpm: dist-gzip
 	@echo "Generating RPM structure"

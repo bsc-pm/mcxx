@@ -108,7 +108,7 @@ void temporal_files_cleanup(void)
 
                 if (ret == -1)
                 {
-                    running_error("Execution of 'rm -fr' failed\n");
+                    fatal_error("Execution of 'rm -fr' failed\n");
                 }
             }
 
@@ -210,7 +210,7 @@ static temporal_file_t new_temporal_dir_unix(void)
 
     if (directory_name == NULL)
     {
-        running_error("Cannot create temporary directory in %s (Reason: %s)\n", dir, strerror(errno));
+        fatal_error("Cannot create temporary directory in %s (Reason: %s)\n", dir, strerror(errno));
         return NULL;
     }
 
@@ -250,7 +250,7 @@ static temporal_file_t new_temporal_file_unix(void)
 
     if (file_descriptor < 0) 
     {
-        running_error("Cannot create temporary file in %s (Reason: %s)\n", dir, strerror(errno));
+        fatal_error("Cannot create temporary file in %s (Reason: %s)\n", dir, strerror(errno));
         return NULL;
     }
     close(file_descriptor);
@@ -319,12 +319,12 @@ temporal_file_t new_temporal_file_extension(const char* extension)
 
     if (link(result->name, c) != 0)
     {
-        running_error("Cannot create temporal file '%s': %s\n", c, strerror(errno));
+        fatal_error("Cannot create temporal file '%s': %s\n", c, strerror(errno));
     }
 
     if (unlink(result->name) != 0)
     {
-        running_error("Unlink of '%s' failed: %s\n", result->name, strerror(errno));
+        fatal_error("Unlink of '%s' failed: %s\n", result->name, strerror(errno));
     }
     result->name = uniquestr(c);
 
@@ -400,7 +400,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
 
     if (spawned_process < 0)
     {
-        running_error("error: could not fork to execute subprocess '%s' (%s)", program_name, strerror(errno));
+        fatal_error("error: could not fork to execute subprocess '%s' (%s)", program_name, strerror(errno));
     }
     else if (spawned_process == 0) // I'm the spawned process
     {
@@ -410,7 +410,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
             FILE *new_stdout = fopen(stdout_f, "w");
             if (new_stdout == NULL)
             {
-                running_error("error: could not redirect standard output to '%s' (%s)",
+                fatal_error("error: could not redirect standard output to '%s' (%s)",
                         stdout_f,
                         strerror(errno));
             }
@@ -420,7 +420,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
             int new_fd = dup(fd);
             if (new_fd < 0)
             {
-                running_error("error: could not duplicate standard output");
+                fatal_error("error: could not duplicate standard output");
             }
         }
         if (stderr_f != NULL)
@@ -428,7 +428,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
             FILE *new_stderr = fopen(stderr_f, "w");
             if (new_stderr == NULL)
             {
-                running_error("error: could not redirect standard error to '%s' (%s)",
+                fatal_error("error: could not redirect standard error to '%s' (%s)",
                         stderr_f,
                         strerror(errno));
             }
@@ -438,7 +438,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
             int new_fd = dup(fd);
             if (new_fd < 0)
             {
-                running_error("error: could not duplicate standard error");
+                fatal_error("error: could not duplicate standard error");
             }
         }
 
@@ -447,7 +447,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
         execvp(program_name, (char**)execvp_arguments);
 
         // Execvp should not return
-        running_error("error: execution of subprocess '%s' failed (%s)", program_name, strerror(errno));
+        fatal_error("error: execution of subprocess '%s' failed (%s)", program_name, strerror(errno));
     }
     else // I'm the parent
     {
@@ -570,7 +570,7 @@ static int execute_program_flags_win32(const char* program_name, const char** ar
         FILE *new_stdout = fopen(stdout_f, "w");
         if (new_stdout == NULL)
         {
-            running_error("error: could not redirect standard output to '%s' (%s)",
+            fatal_error("error: could not redirect standard output to '%s' (%s)",
                     stdout_f,
                     strerror(errno));
         }
@@ -583,7 +583,7 @@ static int execute_program_flags_win32(const char* program_name, const char** ar
         FILE *new_stderr = fopen(stderr_f, "w");
         if (new_stderr == NULL)
         {
-            running_error("error: could not redirect standard error to '%s' (%s)",
+            fatal_error("error: could not redirect standard error to '%s' (%s)",
                     stderr_f,
                     strerror(errno));
         }
@@ -608,13 +608,13 @@ static int execute_program_flags_win32(const char* program_name, const char** ar
         &pi )           // Pointer to PROCESS_INFORMATION structure
     ) 
     {
-        running_error( "CreateProcess failed (%d).\n", GetLastError() );
+        fatal_error( "CreateProcess failed (%d).\n", GetLastError() );
     }
 
     // Wait until child process exits.
     if (WaitForSingleObject( pi.hProcess, INFINITE ))
     {
-        running_error("WaitForSingleObject failed\n", 0);
+        fatal_error("WaitForSingleObject failed\n", 0);
     }
 
     DWORD result = 0;
@@ -722,13 +722,13 @@ void run_gdb(void)
             int new_stdout = dup(fileno(output_dump));
             if (new_stdout < 0)
             {
-                running_error("error: could not duplicate standard output");
+                fatal_error("error: could not duplicate standard output");
             }
             close(2);
             int new_stderr = dup(fileno(output_dump));
             if (new_stderr < 0)
             {
-                running_error("error: could not duplicate standard error");
+                fatal_error("error: could not duplicate standard error");
             }
 
             char pid[16];
@@ -913,7 +913,7 @@ static const char* find_home_unix(const char* progname)
 
         if (!found)
         {
-            running_error("Could not find where '%s' is located\n", progname);
+            fatal_error("Could not find where '%s' is located\n", progname);
         }
     }
     else
@@ -922,7 +922,7 @@ static const char* find_home_unix(const char* progname)
 
         if (ret == NULL)
         {
-            running_error("relpath failed when solving '%s'\n", progname);
+            fatal_error("relpath failed when solving '%s'\n", progname);
         }
     }
 

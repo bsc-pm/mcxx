@@ -1033,6 +1033,14 @@ DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_ATOMIC_STORE_N, BT_FUN_ATOMIC_STO
 DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_OP_FETCH, BT_FUN_ATOMIC_BIN_OP)
 DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_FETCH_OP, BT_FUN_ATOMIC_BIN_OP)
 
+static scope_entry_t* solve_gcc_builtin_shuffle(scope_entry_t* overloaded_function,
+        type_t** types,
+        nodecl_t *arguments UNUSED_PARAMETER,
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER);
+
+DEF_PRIMITIVE_TYPE(BT_FN_BUILTIN_SHUFFLE, get_computed_function_type(solve_gcc_builtin_shuffle))
+
 DEF_FUNCTION_TYPE_2(BT_FN_BOOL_SIZE_CONST_VPTR, BT_BOOL, BT_SIZE, BT_PTR_VOID)
 
 // Old sync support
@@ -1989,6 +1997,96 @@ SIMPLIFY_GENERIC_FLOAT_TEST2(islessequal)
 SIMPLIFY_GENERIC_FLOAT_TEST2(islessgreater)
 SIMPLIFY_GENERIC_FLOAT_TEST2(isunordered)
 
+static scope_entry_t* solve_gcc_builtin_shuffle(scope_entry_t* overloaded_function,
+        type_t** types,
+        nodecl_t *arguments UNUSED_PARAMETER,
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* synthesized_function_type = NULL;
+    switch (num_arguments)
+    {
+        case 2:
+            {
+                type_t* t0 = no_ref(types[0]);
+                type_t* t1 = no_ref(types[1]);
+                if (!is_vector_type(no_ref(t0))
+                        || !is_vector_type(no_ref(t1))
+                        || !is_integral_type(vector_type_get_element_type(t1))
+                        || (vector_type_get_num_elements(t0) != vector_type_get_num_elements(t1)))
+                        return NULL;
+
+
+                parameter_info_t param_info[2];
+                memset(param_info, 0, sizeof(param_info));
+                param_info[0].type_info = t0;
+                param_info[1].type_info = t1;
+                synthesized_function_type = get_new_function_type(t0, param_info, 2, REF_QUALIFIER_NONE);
+            }
+            break;
+        case 3:
+            {
+                type_t* t0 = no_ref(types[0]);
+                type_t* t1 = no_ref(types[1]);
+                type_t* t2 = no_ref(types[2]);
+                if (!is_vector_type(no_ref(t0))
+                        || !is_vector_type(no_ref(t1))
+                        || !is_vector_type(no_ref(t2))
+                        || (vector_type_get_num_elements(t0) != vector_type_get_num_elements(t1))
+                        || (vector_type_get_num_elements(t0) != vector_type_get_num_elements(t2))
+                        || !is_integral_type(vector_type_get_element_type(t2)))
+                        return NULL;
+
+                parameter_info_t param_info[3];
+                memset(param_info, 0, sizeof(param_info));
+                param_info[0].type_info = t0;
+                param_info[1].type_info = t1;
+                param_info[2].type_info = t2;
+                synthesized_function_type = get_new_function_type(t0, param_info, 3, REF_QUALIFIER_NONE);
+            }
+            break;
+        default:
+            return NULL;
+    }
+    ERROR_CONDITION(synthesized_function_type == NULL, "Invalid synthesized function type", 0);
+
+    const char* builtin_name = strappend(".", overloaded_function->symbol_name);
+    scope_entry_list_t* entry_list = query_name_str(overloaded_function->decl_context,
+            builtin_name, NULL);
+
+    scope_entry_t* result = NULL;
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* existing_entry = entry_list_iterator_current(it);
+        if (equivalent_types(synthesized_function_type, existing_entry->type_information))
+        {
+            result = existing_entry;
+            break;
+        }
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(entry_list);
+
+    if (result == NULL)
+    {
+        result = new_symbol(overloaded_function->decl_context, 
+                overloaded_function->decl_context->current_scope,
+                builtin_name);
+        result->locus = overloaded_function->locus;
+        result->symbol_name = overloaded_function->symbol_name;
+        result->kind = SK_FUNCTION;
+
+        result->type_information = synthesized_function_type;
+
+        result->do_not_print = 1;
+        symbol_entity_specs_set_is_builtin(result, 1);
+    }
+
+    return result;
+}
 
 static void gcc_sign_in_builtins_0(const decl_context_t* global_context)
 {
@@ -3226,6 +3324,10 @@ DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_THREAD_FENCE,
 DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
 		  "__atomic_signal_fence",
 		  BT_FN_VOID_INT, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+
+
+DEF_GCC_BUILTIN        (BUILT_IN_SHUFFLE, "shuffle", BT_FN_BUILTIN_SHUFFLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+
 }
 
 static void sign_in_sse_builtins(const decl_context_t* global_context);
@@ -3234,8 +3336,11 @@ void gcc_sign_in_builtins(const decl_context_t* global_context)
 {
     gcc_sign_in_builtins_0(global_context);
 
-    // Intel SSE, SSE2, SSE3, SSE4, SSE4.1, AVX
-    sign_in_sse_builtins(global_context);
+    // Target specific builtins
+    if (CURRENT_CONFIGURATION->type_environment->gcc_target_specific_builtins != NULL)
+    {
+        (CURRENT_CONFIGURATION->type_environment->gcc_target_specific_builtins)(global_context);
+    }
 }
 
 static type_t* replace_generic_0_with_type(type_t* t, type_t* replacement)
@@ -3540,6 +3645,183 @@ static void sign_in_sse_builtins(const decl_context_t* decl_context)
 
     // Intel architecture gcc builtins
 #include "cxx-gccbuiltins-ia32.h"
+}
+
+extern void gcc_builtins_i386(const decl_context_t* global_context)
+{
+    sign_in_sse_builtins(global_context);
+}
+
+extern void gcc_builtins_x86_64(const decl_context_t* global_context)
+{
+    sign_in_sse_builtins(global_context);
+}
+
+static type_t* get_DI_mode(void)
+{
+    if (type_get_size(get_signed_long_int_type()) == 8)
+    {
+        return get_signed_long_int_type();
+    }
+    else
+    {
+        return get_signed_long_long_int_type();
+    }
+}
+
+static type_t* get_UDI_mode(void)
+{
+    if (type_get_size(get_unsigned_long_int_type()) == 8)
+    {
+        return get_unsigned_long_int_type();
+    }
+    else
+    {
+        return get_unsigned_long_long_int_type();
+    }
+}
+
+static void gcc_builtins_neon(const decl_context_t* decl_context)
+{
+    struct
+    {
+        const char *name;
+        type_t* (*fun)(void);
+    } builtin_neon_types[] =
+    {
+        { "qi", get_signed_char_type }, 
+        { "uqi", get_unsigned_char_type }, 
+
+        { "hi", get_signed_short_int_type }, 
+        { "uhi", get_unsigned_short_int_type }, 
+
+        { "si", get_signed_int_type }, 
+        { "usi", get_unsigned_int_type }, 
+
+        { "di", get_DI_mode }, 
+        { "udi", get_UDI_mode }, 
+
+        { "sf", get_float_type },
+        { "df", get_double_type },
+    };
+
+    int i, N;
+    for (i = 0, N = STATIC_ARRAY_LENGTH(builtin_neon_types); i < N; i++)
+    {
+        const char* str;
+        uniquestr_sprintf(&str, "__builtin_neon_%s", builtin_neon_types[i].name);
+        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, str);
+        sym->locus = make_locus("(builtin-simd-type)", 0, 0);
+        sym->kind = SK_TYPEDEF;
+        sym->type_information = (builtin_neon_types[i].fun)();
+        sym->defined = 1;
+        symbol_entity_specs_set_is_user_declared(sym, 1);
+    }
+
+#define GENERATE_NEON_VECTOR_BUILTINS \
+    GENERATE_NEON_VECTOR(128, float32_t, get_float_type()) \
+    GENERATE_NEON_VECTOR(128, int16_t, get_signed_short_int_type()) \
+    GENERATE_NEON_VECTOR(128, int32_t, get_signed_int_type()) \
+    GENERATE_NEON_VECTOR(128, int64_t, get_DI_mode()) \
+    GENERATE_NEON_VECTOR(128, int8_t, get_signed_char_type()) \
+    GENERATE_NEON_VECTOR(128, uint16_t, get_unsigned_short_int_type()) \
+    GENERATE_NEON_VECTOR(128, uint32_t, get_unsigned_int_type()) \
+    GENERATE_NEON_VECTOR(128, uint64_t, get_UDI_mode()) \
+    GENERATE_NEON_VECTOR(128, uint8_t,  get_unsigned_char_type()) \
+    GENERATE_NEON_VECTOR(64, float16_t, get_float16_type()) \
+    GENERATE_NEON_VECTOR(64, float32_t, get_float_type()) \
+    GENERATE_NEON_VECTOR(64, int16_t, get_signed_short_int_type()) \
+    GENERATE_NEON_VECTOR(64, int32_t, get_signed_int_type()) \
+    GENERATE_NEON_VECTOR(64, int8_t, get_signed_char_type()) \
+    GENERATE_NEON_VECTOR(64, uint16_t, get_unsigned_short_int_type()) \
+    GENERATE_NEON_VECTOR(64, uint32_t, get_unsigned_int_type()) \
+    GENERATE_NEON_VECTOR(64, uint8_t,  get_unsigned_char_type()) \
+    GENERATE_NEON_VECTOR(64, poly8_t, get_signed_char_type()) \
+    GENERATE_NEON_VECTOR(64, poly16_t, get_signed_short_int_type()) \
+    GENERATE_NEON_VECTOR(128, poly8_t, get_signed_char_type()) \
+    GENERATE_NEON_VECTOR(128, poly16_t, get_signed_short_int_type())
+
+#define GENERATE_NEON_VECTOR(bits, elem_typename, elem_type) \
+    { \
+        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("__simd" #bits "_" #elem_typename )); \
+        sym->locus = make_locus("(builtin-simd-type)", 0, 0); \
+        sym->kind = SK_TYPEDEF; \
+        sym->type_information = get_vector_type_by_elements(elem_type, bits / (type_get_size(elem_type) * 8)); \
+        sym->defined = 1; \
+        symbol_entity_specs_set_is_user_declared(sym, 1); \
+    }
+    GENERATE_NEON_VECTOR_BUILTINS
+#undef GENERATE_NEON_VECTOR
+
+    // Special ones
+    struct 
+    {
+        const char* name;
+        int num_elements;
+    } opaque_neon_builtin_types[] =
+    {
+        {"ti", 2},
+        {"ei", 3},
+        {"oi", 4},
+        {"ci", 6},
+        {"xi", 8},
+    };
+    for (i = 0, N = STATIC_ARRAY_LENGTH(opaque_neon_builtin_types); i < N; i++)
+    {
+        const char* c = NULL;
+        uniquestr_sprintf(&c, "__builtin_neon_%s", opaque_neon_builtin_types[i].name);
+        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, c);
+        sym->locus = make_locus("(builtin-simd-type)", 0, 0);
+        sym->kind = SK_TYPEDEF;
+        sym->type_information = get_vector_type_by_elements(get_double_type(), opaque_neon_builtin_types[i].num_elements);
+        sym->defined = 1;
+        symbol_entity_specs_set_is_user_declared(sym, 1);
+    }
+
+    {
+        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("__builtin_neon_poly8"));
+        sym->locus = make_locus("(builtin-simd-type)", 0, 0);
+        sym->kind = SK_TYPEDEF;
+        sym->type_information = get_signed_char_type();
+        sym->defined = 1;
+        symbol_entity_specs_set_is_user_declared(sym, 1);
+    }
+    {
+        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("__builtin_neon_poly16"));
+        sym->locus = make_locus("(builtin-simd-type)", 0, 0);
+        sym->kind = SK_TYPEDEF;
+        sym->type_information = get_signed_short_int_type();
+        sym->defined = 1;
+        symbol_entity_specs_set_is_user_declared(sym, 1);
+    }
+    {
+        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("__builtin_neon_poly64"));
+        sym->locus = make_locus("(builtin-simd-type)", 0, 0);
+        sym->kind = SK_TYPEDEF;
+        sym->type_information = get_UDI_mode();
+        sym->defined = 1;
+        symbol_entity_specs_set_is_user_declared(sym, 1);
+    }
+    {
+        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("__builtin_neon_poly128"));
+        sym->locus = make_locus("(builtin-simd-type)", 0, 0);
+        sym->kind = SK_TYPEDEF;
+        sym->type_information = get_vector_type_by_elements(get_UDI_mode(), 2);
+        sym->defined = 1;
+        symbol_entity_specs_set_is_user_declared(sym, 1);
+    }
+
+#include "cxx-gccbuiltins-arm-neon.h"
+}
+
+extern void gcc_builtins_arm(const decl_context_t* global_context)
+{
+    gcc_builtins_neon(global_context);
+}
+
+extern void gcc_builtins_arm64(const decl_context_t* global_context)
+{
+    gcc_builtins_neon(global_context);
 }
 
 void prepend_intel_vector_typedefs(nodecl_t* nodecl_output)

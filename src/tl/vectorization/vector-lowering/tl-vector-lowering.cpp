@@ -116,15 +116,15 @@ namespace TL
 
             if (_avx2_enabled && _knc_enabled)
             {
-                running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
+                fatal_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
             }
             else if (_knc_enabled && _knl_enabled)
             {
-                running_error("SIMD: KNL and KNC SIMD instruction sets enabled at the same time");
+                fatal_error("SIMD: KNL and KNC SIMD instruction sets enabled at the same time");
             }
             else if (_avx2_enabled && _knl_enabled)
             {
-                running_error("SIMD: AVX2 and KNL SIMD instruction sets enabled at the same time");
+                fatal_error("SIMD: AVX2 and KNL SIMD instruction sets enabled at the same time");
             }
 
 

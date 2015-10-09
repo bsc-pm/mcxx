@@ -229,6 +229,9 @@ namespace TL
             //! States that this symbol is the injected class name
             bool is_injected_class_name() const;
 
+            //! States that this symbol is a member static_assert
+            bool is_member_static_assert() const;
+
             //! States that this symbol is the PROGRAM program unit
             /*! \note This only applies to Fortran */
             bool is_fortran_main_program() const;

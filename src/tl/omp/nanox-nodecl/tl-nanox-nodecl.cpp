@@ -275,7 +275,7 @@ namespace TL { namespace Nanox {
             _ancillary_file = fopen(file_name.c_str(), "w");
             if (_ancillary_file == NULL)
             {
-                running_error("%s: error: cannot open file '%s'. %s\n", 
+                fatal_error("%s: error: cannot open file '%s'. %s\n", 
                         TL::CompilationProcess::get_current_file().get_filename().c_str(),
                         file_name.c_str(),
                         strerror(errno));

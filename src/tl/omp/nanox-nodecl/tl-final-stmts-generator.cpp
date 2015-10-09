@@ -27,6 +27,7 @@
 #include "tl-symbol-utils.hpp"
 #include "tl-final-stmts-generator.hpp"
 
+#include "cxx-cexpr.h"
 namespace TL { namespace Nanox {
 
     Nodecl::NodeclBase FinalStmtsGenerator::generate_final_stmts(Nodecl::NodeclBase stmts)
@@ -100,6 +101,13 @@ namespace TL { namespace Nanox {
                    return;
 
                 TL::Symbol called_sym = called.as<Nodecl::Symbol>().get_symbol();
+
+                if (called_sym.get_name() == "omp_in_final")
+                {
+                   ++_num_task_related_pragmas;
+                   return;
+                }
+
                 Nodecl::NodeclBase function_code = called_sym.get_function_code();
 
                 // If the called symbol has not been defined, skip it!
@@ -210,6 +218,24 @@ namespace TL { namespace Nanox {
                    return;
 
                 TL::Symbol called_sym = called.as<Nodecl::Symbol>().get_symbol();
+
+                if (called_sym.get_name() == "omp_in_final")
+                {
+                   nodecl_t true_expr;
+                   if (IS_FORTRAN_LANGUAGE)
+                   {
+                      true_expr = nodecl_make_boolean_literal(
+                            get_bool_type(),
+                            const_value_get_one(type_get_size(get_bool_type()), 0),
+                            function_call.get_locus());
+                   }
+                   else
+                      true_expr = const_value_to_nodecl(const_value_get_signed_int(1));
+
+                   function_call.replace(true_expr);
+                   return;
+                }
+
                 Nodecl::NodeclBase function_code = called_sym.get_function_code();
                 if (!function_code.is_null())
                 {

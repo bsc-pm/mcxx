@@ -36,6 +36,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-entrylist.h"
 #include "cxx-driver-utils.h"
+#include "cxx-diagnostic.h"
 #include "string_utils.h"
 #include <ctype.h>
 
@@ -6193,8 +6194,8 @@ OPERATOR_TABLE
 
         if (bitfield_size != 1)
         {
-            running_error("%s: error: codegen of loads in bitfields larger than one bit is not implemented", 
-                    node.get_locus_str().c_str());
+            fatal_printf_at(node.get_locus(),
+                    "codegen of loads in bitfields larger than one bit is not implemented");
         }
 
         *(file) << "IBITS(";
@@ -6216,8 +6217,7 @@ OPERATOR_TABLE
 
         if (!lhs.is<Nodecl::ClassMemberAccess>())
         {
-            running_error("%s: error: bitfield not accessed through a field-name", 
-                    node.get_locus_str().c_str());
+            fatal_printf_at(node.get_locus(), "bitfield not accessed through a field-name");
         }
 
         TL::Symbol symbol = lhs.as<Nodecl::ClassMemberAccess>().get_member().get_symbol();
@@ -6238,8 +6238,7 @@ OPERATOR_TABLE
 
         if (bitfield_size != 1)
         {
-            running_error("%s: error: codegen of stores in bitfields larger than one bit is not implemented", 
-                    node.get_locus_str().c_str());
+            fatal_printf_at(node.get_locus(), "codegen of stores in bitfields larger than one bit is not implemented");
         }
 
         if (rhs.is_constant())
@@ -6258,8 +6257,7 @@ OPERATOR_TABLE
         }
         else
         {
-            running_error("%s: error: non constants stores of bitfields is not implemented", 
-                    node.get_locus_str().c_str());
+            fatal_printf_at(node.get_locus(), "non constants stores of bitfields is not implemented");
         }
     }
 

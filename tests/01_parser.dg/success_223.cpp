@@ -4,7 +4,7 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-#if  defined(__GNUC__) && (__GNUC__ == 4) && (__GNUC_MINOR__ >= 6) && defined(__x86_64__)
+#if  defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)) && defined(__x86_64__)
 
 namespace std
 {

@@ -37,8 +37,9 @@ struct A { int x; };
 A f(int i)
 {
 #if defined(__GNUC__) \
-    && __GNUC__ >= 4 \
-    && __GNUC_MINOR__ >= 4
+    && __GNUC__ > 4 \
+    || ( __GNUC__ == 4 \
+        && __GNUC_MINOR__ >= 4)
 	return { i };
 #else
     A a = { i };

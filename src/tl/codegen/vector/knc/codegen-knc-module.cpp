@@ -68,7 +68,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -114,7 +114,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -176,7 +176,7 @@ namespace Codegen
        */ 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -222,7 +222,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -264,7 +264,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -306,7 +306,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -348,7 +348,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -378,7 +378,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -408,7 +408,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -438,7 +438,7 @@ namespace Codegen
         }
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -453,7 +453,7 @@ namespace Codegen
     void KNCModuleVisitor::visit(const Nodecl::VectorLogicalOr& node) 
     { 
 <<<<<<< HEAD:src/tl/codegen/vector/knc/codegen-knc-module.cpp
-        running_error("KNC Codegen %s: 'logical or' operation (i.e., operator '||') is not supported in KNC. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
+        fatal_error("KNC Codegen %s: 'logical or' operation (i.e., operator '||') is not supported in KNC. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
                 node.get_locus().c_str());
 =======
         fprintf(stderr, "Warning: Logical Or operation in '%s' is not "
@@ -505,7 +505,7 @@ namespace Codegen
         }
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -676,7 +676,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }      
@@ -720,7 +720,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus().c_str());
         }      
@@ -792,7 +792,7 @@ namespace Codegen
         }
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }
@@ -836,7 +836,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }
@@ -876,7 +876,7 @@ namespace Codegen
         } 
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus_str().c_str());
         }
@@ -916,7 +916,7 @@ namespace Codegen
         }
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus().c_str());
         }
@@ -936,7 +936,7 @@ namespace Codegen
         }
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus().c_str());
         }
@@ -999,7 +999,7 @@ namespace Codegen
         }
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported index type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported index type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus().c_str());
         }
@@ -1023,7 +1023,7 @@ namespace Codegen
         }
         else
         {
-            running_error("KNC Codegen: Node %s at %s has an unsupported source type.", 
+            fatal_error("KNC Codegen: Node %s at %s has an unsupported source type.", 
                     ast_print_node_type(node.get_kind()),
                     node.get_locus().c_str());
         }
@@ -1100,7 +1100,7 @@ namespace Codegen
             } 
             else
             {
-                running_error("KNC Codegen: Node %s at %s has an unsupported type.", 
+                fatal_error("KNC Codegen: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         node.get_locus_str().c_str());
             }
@@ -1113,7 +1113,7 @@ namespace Codegen
                 ast_print_node_type(n.get_kind()),
                 n.get_locus_str().c_str()); 
         /*
-           running_error("KNC Codegen: Unknown node %s at %s.",
+           fatal_error("KNC Codegen: Unknown node %s at %s.",
            ast_print_node_type(n.get_kind()),
            n.get_locus_str().c_str()); 
          */

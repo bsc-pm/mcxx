@@ -38,6 +38,12 @@ namespace TL
             DataReferenceVisitor(DataReference& data_ref)
                 : _data_ref(data_ref)
             {
+                _data_ref._diagnostic_context = diagnostic_context_push_buffered();
+            }
+
+            ~DataReferenceVisitor()
+            {
+                diagnostic_context_pop();
             }
 
         private:
@@ -46,8 +52,8 @@ namespace TL
             virtual void unhandled_node(const Nodecl::NodeclBase & tree) 
             { 
                 _data_ref._is_valid = false;
-                _data_ref._error_log = 
-                    tree.get_locus_str() + ": error: expression '" + tree.prettyprint() + "' not allowed in data-reference\n";
+                error_printf_at(tree.get_locus(), "expression '%s' not allowed in data-reference\n",
+                        tree.prettyprint().c_str());
             }
 
             // Symbol
@@ -247,6 +253,8 @@ namespace TL
                 {
                     // Anything else cannot be accepted here
                     _data_ref._is_valid = false;
+                    error_printf_at(array.get_locus(),
+                            "invalid array-subscript\n");
                     return;
                 }
             }
@@ -449,8 +457,9 @@ namespace TL
         _is_assumed_size(false),
         _base_symbol(NULL),
         _data_type(NULL),
-        _error_log("")
+        _diagnostic_context(NULL)
     {
+
         if (expr.is_null()
                 || expr.is<Nodecl::ErrExpr>()
                 || !expr.get_type().is_valid()
@@ -477,15 +486,6 @@ namespace TL
     bool DataReference::is_assumed_size_array() const
     {
         return _is_assumed_size;
-    }
-
-    //! Returns the warning log
-    /*!
-      This is the same message as is_valid(std::string&) stores in its first parameter
-      */
-    std::string DataReference::get_error_log() const
-    {
-        return _error_log;
     }
 
     //! Gets the base symbol
@@ -1217,6 +1217,19 @@ namespace TL
 
     DataReference::~DataReference()
     {
+        if (_diagnostic_context != NULL)
+        {
+            diagnostic_context_discard(_diagnostic_context);
+        }
+    }
+
+    void DataReference::commit_diagnostic()
+    {
+        if (_diagnostic_context != NULL)
+        {
+            diagnostic_context_commit(_diagnostic_context);
+            _diagnostic_context = NULL;
+        }
     }
 
     void DataReference::module_write(ModuleWriter& mw)
@@ -1227,7 +1240,9 @@ namespace TL
         mw.write(_base_symbol);
         mw.write(_data_type);
 
-        mw.write(_error_log);
+        // The old error_log, cannot remove it here for compatibility
+        std::string dummy_error_log;
+        mw.write(dummy_error_log);
 
         mw.write(_base_address);
     }
@@ -1240,7 +1255,9 @@ namespace TL
         mr.read(_base_symbol);
         mr.read(_data_type);
 
-        mr.read(_error_log);
+        // The old error_log, cannot remove it here for compatibility
+        std::string dummy_error_log;
+        mr.read(dummy_error_log);
 
         mr.read(_base_address);
     }

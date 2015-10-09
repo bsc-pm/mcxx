@@ -297,6 +297,11 @@ namespace TL
         return symbol_entity_specs_get_is_injected_class_name(this->_symbol);
     }
 
+    bool Symbol::is_member_static_assert() const
+    {
+        return (this->_symbol->kind == SK_MEMBER_STATIC_ASSERT);
+    }
+
     bool Symbol::is_fortran_main_program() const
     {
         return (this->_symbol->kind == SK_PROGRAM);

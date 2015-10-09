@@ -30,7 +30,7 @@
 <testinfo>
 test_generator=config/mercurium-extensions
 compile_versions="cxx03 cxx11"
-test_CXXFLAGS="--enable-ms-builtins --enable-intel-vector-types"
+test_CXXFLAGS="--env=linux-x86_64 --enable-ms-builtins --enable-intel-vector-types"
 test_CXXFLAGS_cxx11="-std=c++11 --pp=off"
 </testinfo>
 */

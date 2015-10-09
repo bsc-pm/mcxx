@@ -530,10 +530,11 @@ type {
 
 		if (!found)
 		{
-			warn_printf("%s:%d:%d: warning: unknown '#pragma %s'\n", 
+			warn_printf_at(make_locus(
 					scanning_now.current_filename,
 					scanning_now.line_number,
-					scanning_now.column_number,
+					scanning_now.column_number),
+                    "unknown '#pragma %s'\n", 
 					yytext);
 			BEGIN(unknown_pragma);
 			// Ignore this prefix as an unknown pragma
@@ -678,10 +679,12 @@ type {
             }
         case PDK_NONE :
             {
-                running_error("%s:%d:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
-                        scanning_now.current_filename, 
-                        line_number,
-                        column_number,
+                fatal_printf_at(
+                        make_locus(
+                            scanning_now.current_filename,
+                            line_number,
+                            column_number),
+                        "unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
                         yytext,
                         current_pragma_prefix);
             }
@@ -829,10 +832,11 @@ type {
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        warn_printf("%s:%d:%d: warning: unended custom clause. Skipping.\n",
+        warn_printf_at(make_locus(
                 scanning_now.current_filename,
                 scanning_now.line_number,
-                scanning_now.column_number);
+                scanning_now.column_number),
+                "unended custom clause. Skipping.\n");
     }
     // Head back to initial state and finish this pragma
     BEGIN(INITIAL);
@@ -1078,10 +1082,12 @@ type {
     {
         if (extern_c_block)
         {
-            warn_printf("%s:%d:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+            warn_printf(
+                    make_locus(
                     scanning_now.current_filename,
                     scanning_now.line_number,
-                    scanning_now.column_number);
+                    scanning_now.column_number),
+                    "preprocessor line marking an implicit 'extern C' block. This is not fully supported\n");
         }
     }
 #endif
@@ -1834,10 +1840,7 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 ">>"        { parse_token_text(); update_location(); return RIGHT; }
  /*!endif*/
 "<="        { parse_token_text(); update_location(); return LESS_OR_EQUAL; }
- /* There is no '>=' token in C++11 but AB2 followed by '=', see below */
- /*!if C99*/
 ">="        { parse_token_text(); update_location(); return GREATER_OR_EQUAL; }
- /*!endif*/
 "=="        { parse_token_text(); update_location(); return EQUAL; }
 "!="        { parse_token_text(); update_location(); return NOT_EQUAL; }
 "^"         { parse_token_text(); update_location(); return '^'; }
@@ -1851,10 +1854,7 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 "+="        { parse_token_text(); update_location(); return ADD_ASSIGN; }
 "-="        { parse_token_text(); update_location(); return SUB_ASSIGN; }
 "<<="       { parse_token_text(); update_location(); return LEFT_ASSIGN; }
- /* There is no '>>=' in C++11 but AB1 followed by 'AB2' and '=', see below */
- /*!if C99*/
 ">>="       { parse_token_text(); update_location(); return RIGHT_ASSIGN; }
- /*!endif*/
 "&="        { parse_token_text(); update_location(); return AND_ASSIGN; }
 "^="        { parse_token_text(); update_location(); return XOR_ASSIGN; }
 "|="        { parse_token_text(); update_location(); return OR_ASSIGN; }
@@ -1884,42 +1884,23 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
               }
               REJECT;
             }
->>          {
-              if (IS_CXX03_LANGUAGE)
-              {
-                parse_token_text();
-                update_location();
-                return RIGHT;
-              }
-              REJECT;
-            }
->>=         {
-              if (IS_CXX03_LANGUAGE)
-              {
-                parse_token_text();
-                update_location();
-                return RIGHT_ASSIGN;
-              }
-              REJECT;
-            }
->=          {
-              if (IS_CXX03_LANGUAGE)
-              {
-                  parse_token_text();
-                  update_location();
-                  return GREATER_OR_EQUAL;
-              }
-              REJECT;
-            }
- /* In C++2011 these three tokens behave different */
->/>         { parse_token_text(); update_location(); return AB1; }
->/=         { parse_token_text(); update_location(); return AB2; }
->/[^>=]     { parse_token_text(); update_location(); return '>'; }
- /* Pathological case (EOF and such) */
+>>=         { parse_token_text(); update_location(); return RIGHT_ASSIGN; }
+ /* In C++2011 >> is decomposed first into AB1 '>' */
+>/>[^=]     { if (!IS_CXX11_LANGUAGE)
+              { REJECT; }
+              else
+              { parse_token_text(); update_location(); return AB1; } }
+ /* Pathological case for EOF */
+>/>         { if (!IS_CXX11_LANGUAGE)
+              { REJECT; }
+              else
+              { parse_token_text(); update_location(); return AB1; } }
+>>          { parse_token_text(); update_location(); return RIGHT; }
+>=          { parse_token_text(); update_location(); return GREATER_OR_EQUAL; }
 >           { parse_token_text(); update_location(); return '>'; }
  /*!endif*/
  /*!if C99*/
-">"         { parse_token_text(); update_location(); return '>'; } 
+">"         { parse_token_text(); update_location(); return '>'; }
  /*!endif*/
 "&"         { parse_token_text(); update_location(); return '&'; }
 "*"         { parse_token_text(); update_location(); return '*'; }
@@ -1937,18 +1918,22 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        error_printf("%s:%d:%d: error: invalid character '%c' (%#x)\n", 
-				scanning_now.current_filename,
-                scanning_now.line_number,
-                scanning_now.column_number,
+        error_printf_at(
+                make_locus(
+                    scanning_now.current_filename,
+                    scanning_now.line_number,
+                    scanning_now.column_number),
+                "invalid character '%c' (%#x)\n",
                 *yytext, *yytext);
     }
     else
     {
-        error_printf("%s:%d:%d: error: invalid character %#x\n", 
-				scanning_now.current_filename,
-                scanning_now.line_number,
-                scanning_now.column_number,
+        error_printf_at(
+                make_locus(
+                    scanning_now.current_filename,
+                    scanning_now.line_number,
+                    scanning_now.column_number),
+                "invalid character %#x\n", 
                 *yytext);
     }
     update_location();
@@ -2077,7 +2062,7 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 
 	if (file == NULL)
 	{
-		running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+		fatal_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
 	}
 
 	memset(&scanning_now, 0, sizeof(scanning_now));
@@ -2173,7 +2158,7 @@ void register_new_directive(compilation_configuration_t* configuration,
             {
                 if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
                 {
-                    warn_printf("Warning, directive or construct "
+                    warn_printf_at(NULL, "Warning, directive or construct "
                             "'%s' already registered for pragma '%s'"
                             ", ignoring additional registrations\n",
                             directive, prefix);

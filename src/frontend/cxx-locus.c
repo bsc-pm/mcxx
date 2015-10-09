@@ -33,14 +33,22 @@
 // Heavily inspired in lib/char_hash.c contributed by Jan Hoogerbrugge
 
 typedef
-struct locus_link_tag
+struct locus_item_tag
 {
     unsigned int hash;
-    locus_t* locus;
-    struct locus_link_tag* next;
-} locus_link_t;
+    locus_t *locus;
+} locus_item_t;
 
-static locus_link_t *hash_table[49999];
+typedef
+struct locus_bucket_tag
+{
+    int num;
+    int capacity;
+    locus_item_t* items;
+} locus_bucket_t;
+
+
+static locus_bucket_t *hash_table[49999];
 
 static unsigned int hash_locus(const char *filename, unsigned int line, unsigned int col)
 {
@@ -56,6 +64,37 @@ static unsigned int hash_locus(const char *filename, unsigned int line, unsigned
     return hash;
 }
 
+enum { POOL_SIZE = 1024 };
+
+typedef
+struct pool_locus_tag
+{
+    int num;
+    locus_t* pool;
+    struct pool_locus_tag *prev;
+} pool_locus_t;
+
+static pool_locus_t *pool_locus;
+
+static locus_t* pool_locus_alloc(void)
+{
+    if (pool_locus == NULL
+            || pool_locus->num == POOL_SIZE)
+    {
+        pool_locus_t* new_pool = NEW(pool_locus_t);
+        new_pool->num = 0;
+        new_pool->pool = NEW_VEC(locus_t, POOL_SIZE);
+        new_pool->prev = pool_locus;
+
+        pool_locus = new_pool;
+    }
+
+    locus_t* result = &pool_locus->pool[pool_locus->num];
+    pool_locus->num++;
+
+    return result;
+}
+
 const locus_t* make_locus(const char* filename, unsigned int line, unsigned int col)
 {
     if (filename == NULL)
@@ -64,37 +103,48 @@ const locus_t* make_locus(const char* filename, unsigned int line, unsigned int 
     unsigned int hash = hash_locus(filename, line, col);
     unsigned int hash_index = hash % (sizeof(hash_table) / sizeof(hash_table[0]));
 
-
-    locus_link_t *p, *p_prev = 0, *new_link;
-
-    for (p = hash_table[hash_index]; p; p_prev = p, p = p->next)
+    if (hash_table[hash_index] == NULL)
     {
-        if (p->hash == hash
-                && strcmp(p->locus->filename, filename) == 0
-                && p->locus->line == line
-                && p->locus->col == col)
-        {
-            // Move to the head of the list to favour temporal locality
-            if (p != hash_table[hash_index])
-            {
-                p_prev->next = p->next;
-                p->next = hash_table[hash_index];
-                hash_table[hash_index] = p;
-            }
+        hash_table[hash_index] = NEW0(locus_bucket_t);
+    }
 
-            return p->locus;
+    locus_bucket_t* bucket = hash_table[hash_index];
+
+    int i, n = bucket->num;
+    locus_item_t *items = bucket->items;
+
+    for (i = 0; i < n; i++)
+    {
+        if (items[i].hash == hash
+                && strcmp(items[i].locus->filename, filename) == 0
+                && items[i].locus->line == line
+                && items[i].locus->col == col)
+        {
+            return items[i].locus;
         }
     }
 
-    new_link = NEW(locus_link_t);
-    new_link->locus = NEW(locus_t);
-    new_link->locus->filename = uniquestr(filename);
-    new_link->locus->line = line;
-    new_link->locus->col = col;
-    new_link->hash = hash; 
-    new_link->next = hash_table[hash_index];
-    hash_table[hash_index] = new_link; 
+    if (bucket->num == bucket->capacity)
+    {
+        if (bucket->capacity == 0)
+            bucket->capacity = 16;
+        else
+            bucket->capacity = 2*(bucket->capacity + 1);
 
-    return new_link->locus;
+        bucket->items =
+            xrealloc(bucket->items, bucket->capacity * sizeof(*(bucket->items)));
+
+        items = bucket->items;
+    }
+
+    items[n].hash = hash;
+    items[n].locus = pool_locus_alloc();
+    items[n].locus->filename = uniquestr(filename);
+    items[n].locus->line = line;
+    items[n].locus->col = col;
+
+    bucket->num++;
+
+    return items[n].locus;
 }
 

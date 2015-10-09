@@ -54,7 +54,7 @@ namespace TL { namespace OpenMP {
                 device_id_expr = const_value_to_nodecl(const_value_get_signed_int(0));
                 if (device.is_defined())
                 {
-                    error_printf("%s: error: empty 'device' clause\n", locus_to_str(locus));
+                    error_printf_at(locus, "empty 'device' clause\n");
                 }
             }
             else
@@ -62,16 +62,16 @@ namespace TL { namespace OpenMP {
                 device_id_expr = expr_list[0];
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expressions in 'device' clause\n",
-                            expr_list[1].get_locus_str().c_str());
+                    error_printf_at(expr_list[1].get_locus(),
+                            "too many expressions in 'device' clause\n");
                 }
             }
             ERROR_CONDITION(device_id_expr.is_null(), "Expecting a valid device id here", 0);
 
             if (!::is_integer_type(no_ref(device_id_expr.get_type().get_internal_type())))
             {
-                error_printf("%s: error: expression of 'device' must be an integer-expression\n",
-                        device_id_expr.get_locus_str().c_str());
+                error_printf_at(device_id_expr.get_locus(),
+                        "expression of 'device' must be an integer-expression\n");
             }
 
             return Nodecl::OpenMP::Device::make(device_id_expr, device_id_expr.get_locus());
@@ -94,15 +94,13 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase result;
             if (expr_list.empty())
             {
-                error_printf("%s: error: expecting expression in 'if' clause\n",
-                        locus_to_str(locus));
+                error_printf_at(locus, "expecting expression in 'if' clause\n");
             }
             else
             {
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expressions in 'if' clause\n",
-                            expr_list[1].get_locus_str().c_str());
+                    error_printf_at(expr_list[1].get_locus(), "too many expressions in 'if' clause\n");
                 }
                 result = Nodecl::OpenMP::If::make(
                         expr_list[0],
@@ -427,16 +425,14 @@ namespace TL { namespace OpenMP {
 
             if (expr_list.empty())
             {
-                error_printf("%s: error: empty 'num_teams' clause\n",
-                        pragma_line.get_locus_str().c_str());
+                error_printf_at(pragma_line.get_locus(), "empty 'num_teams' clause\n");
                 return Nodecl::NodeclBase::null();
             }
             else
             {
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expressions in 'num_teams' clause\n",
-                            pragma_line.get_locus_str().c_str());
+                    error_printf_at(pragma_line.get_locus(), "too many expressions in 'num_teams' clause\n");
                 }
                 return Nodecl::OpenMP::NumTeams::make(
                         expr_list[0],
@@ -455,16 +451,14 @@ namespace TL { namespace OpenMP {
 
             if (expr_list.empty())
             {
-                error_printf("%s: error: empty 'thread_limit' clause\n",
-                        pragma_line.get_locus_str().c_str());
+                error_printf_at(pragma_line.get_locus(), "empty 'thread_limit' clause\n");
                 return Nodecl::NodeclBase::null();
             }
             else
             {
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expressions in 'thread_limit' clause\n",
-                            pragma_line.get_locus_str().c_str());
+                    error_printf_at(pragma_line.get_locus(), "too many expressions in 'thread_limit' clause\n");
                 }
                 return Nodecl::OpenMP::ThreadLimit::make(
                         expr_list[0],
@@ -534,8 +528,7 @@ namespace TL { namespace OpenMP {
 
                 if (arguments.empty())
                 {
-                    error_printf("%s: error: empty 'dist_schedule'\n",
-                            pragma_line.get_locus_str().c_str());
+                    error_printf_at(pragma_line.get_locus(), "empty 'dist_schedule'\n");
                 }
                 else
                 {
@@ -544,8 +537,7 @@ namespace TL { namespace OpenMP {
 
                     if (schedule != "static")
                     {
-                        error_printf("%s: error: invalid schedule kind in 'dist_schedule', only 'static' is allowed\n",
-                            pragma_line.get_locus_str().c_str());
+                        error_printf_at(pragma_line.get_locus(), "invalid schedule kind in 'dist_schedule', only 'static' is allowed\n");
                     }
                     else if (arguments.size() >= 2)
                     {
@@ -553,8 +545,7 @@ namespace TL { namespace OpenMP {
 
                         if (arguments.size() > 2)
                         {
-                            error_printf("%s: error: too many arguments in 'dist_schedule' clause\n",
-                                    pragma_line.get_locus_str().c_str());
+                            error_printf_at(pragma_line.get_locus(), "too many arguments in 'dist_schedule' clause\n");
                         }
                     }
 
@@ -662,15 +653,13 @@ namespace TL { namespace OpenMP {
 
             if (current.is<Nodecl::ObjectInit>())
             {
-                info_printf("%s: note: target declaration of '%s'\n",
-                        current.get_locus_str().c_str(),
+                info_printf_at(current.get_locus(), "target declaration of '%s'\n",
                         current.get_symbol().get_qualified_name().c_str());
                 symbol_set.insert(current.get_symbol());
             }
             else if (current.is<Nodecl::FunctionCode>())
             {
-                info_printf("%s: note: target declaration of function '%s'\n",
-                        current.get_locus_str().c_str(),
+                info_printf_at(current.get_locus(), "target declaration of function '%s'\n",
                         current.get_symbol().get_qualified_name().c_str());
                 symbol_set.insert(current.get_symbol());
             }

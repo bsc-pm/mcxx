@@ -690,7 +690,7 @@ def print_deep_copy_entity_specs(lines):
       elif (_type == "nodecl"):
           print "symbol_entity_specs_set_%s(dest, nodecl_deep_copy_compute_maps(symbol_entity_specs_get_%s(source), decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map));" % (name, name)
       elif (_type == "type"):
-          print "symbol_entity_specs_set_%s(dest, type_deep_copy_compute_maps(symbol_entity_specs_get_%s(source), decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map));" % (name, name)
+          print "symbol_entity_specs_set_%s(dest, type_deep_copy_compute_maps(symbol_entity_specs_get_%s(source), /* symbol dest */ NULL, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map));" % (name, name)
       elif (_type == "symbol"):
           print "symbol_entity_specs_set_%s(dest, symbol_map->map(symbol_map, symbol_entity_specs_get_%s(source)));" % (name, name)
       elif (_type == "string"):
@@ -715,6 +715,7 @@ def print_deep_copy_entity_specs(lines):
           if type_name.startswith("typeof"):
               type_name = get_up_to_matching_paren(type_name[len("typeof"):]).split(",")[0].strip()
           print "{"
+          print "symbol_entity_specs_free_%s(dest);" % (list_name)
           print "int i, N = symbol_entity_specs_get_%s(source);" % (num_name)
           print "for (i = 0; i < N; i++)"
           print "{"
@@ -722,7 +723,7 @@ def print_deep_copy_entity_specs(lines):
               print "scope_entry_t* copied = symbol_map->map(symbol_map, symbol_entity_specs_get_%s_num(source, i));" % (list_name)
               print "symbol_entity_specs_add_%s(dest, copied);" % (list_name);
           elif type_name == "type":
-              print "type_t* copied = type_deep_copy_compute_maps(symbol_entity_specs_get_%s_num(source, i), decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (list_name)
+              print "type_t* copied = type_deep_copy_compute_maps(symbol_entity_specs_get_%s_num(source, i), /* dest */ NULL, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (list_name)
               print "symbol_entity_specs_add_%s(dest, copied);" % (list_name);
           elif type_name == "default_argument_info_t*":
                   print "default_argument_info_t* source_default_arg = symbol_entity_specs_get_%s_num(source, i);" % (list_name)

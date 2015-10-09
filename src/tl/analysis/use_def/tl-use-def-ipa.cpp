@@ -511,19 +511,20 @@ namespace Analysis {
                 std::string lib_file_name = IS_C_LANGUAGE ? "cLibraryFunctionList" : "cppLibraryFunctionList";
                 if (VERBOSE)
                 {
-                    info_printf("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and " 
+                    info_printf_at(make_locus(__FILE__, __LINE__, 0),
+                            "Function's '%s' code not reached. Usage analysis of global variables and " 
                                 "reference parameters is limited. \nIf you know the side effects of this function, "
                                 "add it to the file '%s' and recompile your code. \n"
                                 "(If you recompile the compiler, add it in $MCC_HOME/src/tl/analysis/use_def/%s instead).\n",
-                                __FILE__, __LINE__, func_name.c_str(), _c_lib_file.c_str(), lib_file_name.c_str());
+                                func_name.c_str(), _c_lib_file.c_str(), lib_file_name.c_str());
                 }
             }
             else
             {
                 if (VERBOSE)
                 {
-                    info_printf("%s:%d: info: Function's '%s' code not reached. Usage analysis is limited\n",
-                                __FILE__, __LINE__, func_name.c_str());
+                    info_printf_at(make_locus(__FILE__, __LINE__, 0),
+                            "Function's '%s' code not reached. Usage analysis is limited\n", func_name.c_str());
                 }
             }
             _warned_unreach_funcs.insert(func_sym);

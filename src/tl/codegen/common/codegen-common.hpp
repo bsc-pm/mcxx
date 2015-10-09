@@ -94,6 +94,39 @@ namespace Codegen
         protected:
             std::ostream* file;
     };
+
+    // Inspired from an example in http://wordaligned.org/articles/cpp-streambufs
+    template <typename char_type,
+             typename traits = std::char_traits<char_type> >
+                 class CodegenStreambuf:
+                     public std::basic_streambuf<char_type, traits>
+    {
+        public:
+            typedef typename traits::int_type int_type;
+
+            CodegenStreambuf(std::basic_streambuf<char_type, traits> * sb, CodegenVisitor* v)
+                : _sb(sb), _v(v) { }
+
+        private:
+            virtual int_type overflow(int_type c)
+            {
+                if (c == '\n')
+                {
+                    _v->set_current_line(_v->get_current_line() + 1);
+                }
+                _v->set_last_is_newline(c == '\n');
+                return _sb->sputc(c);
+            }
+
+            virtual int sync()
+            {
+                return _sb->pubsync();
+            }
+
+        private:
+            std::basic_streambuf<char_type, traits> * _sb;
+            CodegenVisitor* _v;
+    };
 }
 
 #endif // CODEGEN_COMMON_HPP

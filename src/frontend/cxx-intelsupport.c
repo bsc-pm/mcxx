@@ -70,8 +70,7 @@ void intel_check_assume_nodecl(
     {
         if (!standard_conversion_between_types(&scs, t, get_signed_int_type(), locus))
         {
-            error_printf("%s: error: argument of '__assume' is of type '%s' not convertible to int\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "argument of '__assume' is of type '%s' not convertible to int\n",
                     print_type_str(t, decl_context));
             nodecl_free(assumed_expr);
             *nodecl_out = nodecl_make_err_expr(locus);
@@ -82,8 +81,7 @@ void intel_check_assume_nodecl(
     {
         if (!standard_conversion_between_types(&scs, t, get_bool_type(), locus))
         {
-            error_printf("%s: error: argument of '__assume' is of type '%s' not convertible to bool\n",
-                    nodecl_locus_to_str(assumed_expr),
+            error_printf_at(nodecl_get_locus(assumed_expr), "argument of '__assume' is of type '%s' not convertible to bool\n",
                     print_type_str(t, decl_context));
             nodecl_free(assumed_expr);
             *nodecl_out = nodecl_make_err_expr(locus);
@@ -140,8 +138,7 @@ void intel_check_assume_aligned_nodecl(
 
     if (!is_pointer_type(no_ref(nodecl_get_type(pointer_arg))))
     {
-        error_printf("%s: error: first argument of __assume_aligned must be a pointer\n",
-                nodecl_locus_to_str(pointer_arg));
+        error_printf_at(nodecl_get_locus(pointer_arg), "first argument of __assume_aligned must be a pointer\n");
 
         *nodecl_out = nodecl_make_err_expr(locus);
         nodecl_free(pointer_arg);
@@ -151,8 +148,7 @@ void intel_check_assume_aligned_nodecl(
 
     if (!nodecl_is_constant(alignment) || !const_value_is_integer(nodecl_get_constant(alignment)))
     {
-        error_printf("%s: error: second argument of __assume_aligned argument must be an integer constant\n",
-                nodecl_locus_to_str(alignment));
+        error_printf_at(nodecl_get_locus(alignment), "second argument of __assume_aligned argument must be an integer constant\n");
         *nodecl_out = nodecl_make_err_expr(locus);
         nodecl_free(pointer_arg);
         nodecl_free(alignment);
@@ -164,8 +160,7 @@ void intel_check_assume_aligned_nodecl(
         char is_power_of_two = (v && !(v & (v - 1))); // Bithack
         if (!is_power_of_two)
         {
-            error_printf("%s: error: second argument of __assume_aligned argument must be a power of two constant\n",
-                    nodecl_locus_to_str(alignment));
+            error_printf_at(nodecl_get_locus(alignment), "second argument of __assume_aligned argument must be a power of two constant\n");
             *nodecl_out = nodecl_make_err_expr(locus);
             nodecl_free(pointer_arg);
             nodecl_free(alignment);

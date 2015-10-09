@@ -58,8 +58,8 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<std::string> arguments = map_clause.get_tokenized_arguments();
         if (arguments.empty())
         {
-            error_printf("%s: error: empty 'map' clause\n",
-                    pragma_line.get_locus_str().c_str());
+            error_printf_at(pragma_line.get_locus(),
+                    "empty 'map' clause\n");
             return;
         }
 
@@ -134,8 +134,9 @@ namespace TL { namespace OpenMP {
             {
                 if (map_set == NULL)
                 {
-                    error_printf("%s: error: skipping item '%s' in 'map' clause because it lacks map-kind\n",
-                            pragma_line.get_locus_str().c_str(),
+                    error_printf_at(
+                            pragma_line.get_locus(),
+                            "skipping item '%s' in 'map' clause because it lacks map-kind\n",
                             current_map_expr.c_str());
                     continue;
                 }
@@ -212,8 +213,8 @@ namespace TL { namespace OpenMP {
                 }
                 else
                 {
-                    error_printf("%s: error: invalid expression '%s' in 'map' clause\n",
-                            it->get_locus_str().c_str(),
+                    error_printf_at(it->get_locus(),
+                            "invalid expression '%s' in 'map' clause\n",
                             it->prettyprint().c_str());
                 }
             }
@@ -317,8 +318,9 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                error_printf("%s: error: invalid argument '%s' for clause 'defaultmap', it should be 'tofrom:scalar'",
-                        ctr.get_locus_str().c_str(),
+                error_printf_at(
+                        ctr.get_locus(),
+                        "invalid argument '%s' for clause 'defaultmap', it should be 'tofrom:scalar'\n",
                         concat_strings(defaultmap_clause.get_raw_arguments()).c_str());
             }
         }
@@ -394,48 +396,48 @@ namespace TL { namespace OpenMP {
     }
 
     void Core::distribute_parallel_for_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::distribute_parallel_for_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::distribute_parallel_do_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::distribute_parallel_do_handler_post(TL::PragmaCustomStatement ctr) { }
 
     // Combined
     void Core::target_teams_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::target_teams_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::teams_distribute_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::teams_distribute_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::teams_distribute_parallel_for_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::teams_distribute_parallel_for_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::teams_distribute_parallel_do_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::teams_distribute_parallel_do_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::target_teams_distribute_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::target_teams_distribute_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::target_teams_distribute_parallel_for_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::target_teams_distribute_parallel_for_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::target_teams_distribute_parallel_do_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::target_teams_distribute_parallel_do_handler_post(TL::PragmaCustomStatement ctr) { }
 
@@ -443,8 +445,7 @@ namespace TL { namespace OpenMP {
     {
         if (_inside_declare_target)
         {
-            error_printf("%s: error: nesting of '#pragma omp declare target' not implemented\n",
-                    ctr.get_locus_str().c_str());
+            error_printf_at(ctr.get_locus(), "nesting of '#pragma omp declare target' not implemented\n");
         }
         _inside_declare_target = true;
     }
@@ -455,8 +456,7 @@ namespace TL { namespace OpenMP {
     {
         if (!_inside_declare_target)
         {
-            error_printf("%s: error: invalid nesting of '#pragma omp end declare target'\n",
-                    ctr.get_locus_str().c_str());
+            error_printf_at(ctr.get_locus(), "invalid nesting of '#pragma omp end declare target'\n");
         }
         _inside_declare_target = false;
     }

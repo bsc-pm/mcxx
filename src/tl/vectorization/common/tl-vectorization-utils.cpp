@@ -160,7 +160,7 @@ namespace Utils
             std::cerr << "---" << std::endl;
             std::cerr << n.prettyprint() << std::endl;
 
-            running_error("get_new_mask_symbol needs FunctionCode or ForStatement");
+            fatal_error("get_new_mask_symbol needs FunctionCode or ForStatement");
         }
            
         TL::Symbol new_mask_sym = scope.new_symbol("__mask_" +

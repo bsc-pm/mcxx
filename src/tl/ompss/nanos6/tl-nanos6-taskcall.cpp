@@ -31,6 +31,7 @@
 #include "tl-symbol-utils.hpp"
 #include "tl-counters.hpp"
 #include "cxx-exprtype.h"
+#include "cxx-diagnostic.h"
 #include <map>
 
 namespace TL { namespace Nanos6 {
@@ -124,11 +125,11 @@ namespace TL { namespace Nanos6 {
             .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
         ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
 
-        std::cerr << construct.get_locus_str()
-            << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
-        std::cerr << function_parsing_context.get_locus_str()
-            << ": note: task function declared here"
-            << std::endl;
+        info_printf_at(construct.get_locus(),
+                "call to task function '%s'\n",
+                called_sym.get_qualified_name().c_str());
+        info_printf_at(function_parsing_context.get_locus(),
+                "task function declared here\n");
 
         Scope sc = construct.retrieve_context();
         Scope new_block_context_sc = new_block_context(sc.get_decl_context());

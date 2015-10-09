@@ -247,10 +247,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // KLUDGE: Note that since names can't be repeated we surround this one with spaces
 // The error message may be a bit weird, as if it was bad formatted
 %token<token_atrib> AB1 "'>>' "
-// AB2 is '>' when it is just before '='
-// KLUDGE: Note that since names can't be repeated we surround this one with one space before
-// The error message may be a bit weird, as if it was bad formatted
-%token<token_atrib> AB2 "'>=' "
 /* End of different tokens in C++2003 and C++2011 */
 %token<token_atrib> '>'
 %token<token_atrib> '?'
@@ -613,6 +609,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> attribute_specifier_seq_opt
 %type<ast> attribute_specifier_seq_and_virt_specifier_seq
 %type<ast> attribute_specifier_seq_and_virt_specifier_seq_opt
+%type<ast> attributable_statement
 
 // These are C++11 only
 %type<ast> std_attribute_specifier
@@ -1275,6 +1272,10 @@ attribute_specifier_seq_opt : /* empty */
 static_assert_declaration : STATIC_ASSERT '(' constant_expression ',' string_literal ')' ';'
 {
     $$ = ASTMake2(AST_STATIC_ASSERT, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+}
+| STATIC_ASSERT '(' constant_expression ')' ';'
+{
+    $$ = ASTMake2(AST_STATIC_ASSERT, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4025,12 +4026,45 @@ nondeclarating_statement : labeled_statement
 {
     $$ = $1;
 }
+/* C++2011 */
+| std_attribute_specifier_seq attributable_statement
+{
+    warn_printf_at(ast_get_locus($1),
+        "attributes at the beginning of statement are ignored\n");
+    $$ = $2;
+}
+;
+
+attributable_statement : expression_statement
+{
+    $$ = $1;
+}
+| compound_statement
+{
+    $$ = $1;
+}
+| selection_statement
+{
+    $$ = $1;
+}
+| iteration_statement
+{
+    $$ = $1;
+}
+| jump_statement
+{
+    $$ = $1;
+}
+| labeled_statement
+{
+    $$ = $1;
+}
 ;
 
 labeled_statement : identifier_token ':' statement
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-	
+
 	$$ = ASTMake2(AST_LABELED_STATEMENT, identifier, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CASE constant_expression ':' statement
@@ -6656,26 +6690,14 @@ right_token : AB1 '>'
 }
 ;
 
-right_assign_token : AB1 AB2 '='
+right_assign_token : RIGHT_ASSIGN
 {
-    // C++2011
-    $$.token_text = UNIQUESTR_LITERAL(">>=");
-}
-| RIGHT_ASSIGN
-{
-    // C++2003
     $$ = $1;
 }
 ;
 
-greater_equal_token : AB2 '='
+greater_equal_token : GREATER_OR_EQUAL
 {
-    // C++2011
-    $$.token_text = UNIQUESTR_LITERAL(">=");
-}
-| GREATER_OR_EQUAL
-{
-    // C++2003
     $$ = $1;
 }
 ;
@@ -6686,11 +6708,6 @@ right_bracket_token : '>'
     $$.token_text = $1.token_text;
 }
 | AB1
-{
-    // C++2011
-    $$.token_text = $1.token_text;
-}
-| AB2
 {
     // C++2011
     $$.token_text = $1.token_text;
@@ -6723,9 +6740,10 @@ right_bracket_token : '>'
 
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
-	fprintf(stderr, "%s:%d:%d: error: %s\n",
-            mcxxlloc.first_filename,
-            mcxxlloc.first_line,
-            mcxxlloc.first_column,
-            c);
+    error_printf_at(
+        make_locus(
+                    mcxxlloc.first_filename,
+                    mcxxlloc.first_line,
+                    mcxxlloc.first_column),
+        "%s\n", c);
 }

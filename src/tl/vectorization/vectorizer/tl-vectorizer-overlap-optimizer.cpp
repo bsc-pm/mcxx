@@ -203,7 +203,7 @@ namespace Vectorization
             }
         }
 
-        running_error("Overlap: Init cache missing case\n");
+        fatal_error("Overlap: Init cache missing case\n");
     }
 
     bool OverlappedAccessesOptimizer::need_update_post(
@@ -226,7 +226,7 @@ namespace Vectorization
                 return true;
         }
 
-        running_error("Overlap: Cache update post missing case\n");
+        fatal_error("Overlap: Cache update post missing case\n");
     }
 
     Nodecl::List OverlappedAccessesOptimizer::get_ogroup_init_statements(

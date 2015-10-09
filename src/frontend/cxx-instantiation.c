@@ -131,8 +131,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
             if (updated_template_parameters->arguments[i] == NULL)
             {
-                error_printf("%s: could not instantiate template arguments of template type\n", 
-                        locus_to_str(locus));
+                error_printf_at(locus, "could not instantiate template arguments of template type\n");
                 return NULL;
             }
 
@@ -306,8 +305,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                         nodecl_get_constant(symbol_entity_specs_get_bitfield_size(new_member)),
                                         const_value_get_zero(/* bytes*/ 4, /* sign */ 1))))
                         {
-                            error_printf("%s: error: invalid bitfield of size '%d'\n",
-                                    locus_to_str(new_member->locus),
+                            error_printf_at(new_member->locus, "invalid bitfield of size '%d'\n",
                                     const_value_cast_to_4(
                                         nodecl_get_constant(symbol_entity_specs_get_bitfield_size(new_member))));
 
@@ -319,8 +317,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     }
                     else
                     {
-                        error_printf("%s: error: bitfield specification is not a constant expression", 
-                                locus_to_str(new_member->locus));
+                        error_printf_at(new_member->locus, "bitfield specification is not a constant expression");
 
                         // Fix it to 1
                         symbol_entity_specs_set_bitfield_size(new_member, const_value_to_nodecl(const_value_get_signed_int(1)));
@@ -958,6 +955,31 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         member_of_template->locus);
                 break;
             }
+        case SK_MEMBER_STATIC_ASSERT:
+            {
+                nodecl_t nodecl_cxx_static_assert = member_of_template->value;
+                ERROR_CONDITION(nodecl_get_kind(nodecl_cxx_static_assert) != NODECL_CXX_STATIC_ASSERT, "Invalid node", 0);
+
+                nodecl_t nodecl_predicate = nodecl_get_child(nodecl_cxx_static_assert, 0);
+                nodecl_t nodecl_message = nodecl_get_child(nodecl_cxx_static_assert, 0);
+
+                nodecl_predicate = instantiate_expression(
+                        nodecl_predicate,
+                        context_of_being_instantiated,
+                        instantiation_symbol_map,
+                        /* pack_index */ -1);
+
+                nodecl_t nodecl_static_assert = nodecl_null();
+                build_scope_nodecl_static_assert(
+                        nodecl_predicate,
+                        nodecl_message,
+                        context_of_being_instantiated,
+                        &nodecl_static_assert);
+                ERROR_CONDITION(!nodecl_is_null(nodecl_static_assert)
+                        && !nodecl_is_err_expr(nodecl_static_assert), "Invalid node", 0);
+
+                break;
+            }
         default:
             {
                 internal_error("Unexpected member kind=%s\n", symbol_kind_name(member_of_template));
@@ -1118,8 +1140,7 @@ static void instantiate_dependent_friend_function(
                 }
                 else
                 {
-                    error_printf("%s: error: friend function declaration is ambiguous '%s'\n",
-                            locus_to_str(locus), friend->symbol_name);
+                    error_printf_at(locus, "friend function declaration is ambiguous '%s'\n", friend->symbol_name);
 
                     scope_entry_list_iterator_t* it = NULL;
                     for (it = entry_list_iterator_begin(new_friend_list);
@@ -1128,8 +1149,7 @@ static void instantiate_dependent_friend_function(
                     {
                         scope_entry_t* current_entry = entry_list_iterator_current(it);
 
-                        info_printf("%s: info:   %s\n",
-                                locus_to_str(current_entry->locus),
+                        info_printf_at(current_entry->locus, "%s\n",
                                 print_decl_type_str(current_entry->type_information, current_entry->decl_context, 
                                     get_qualified_symbol_name(current_entry, current_entry->decl_context)));
                     }
@@ -1141,8 +1161,7 @@ static void instantiate_dependent_friend_function(
 
         if (new_function == NULL)
         {
-            error_printf("%s: error: function '%s' shall refer a specialization of a function template\n",
-                    locus_to_str(locus), friend->symbol_name);
+            error_printf_at(locus, "function '%s' shall refer a specialization of a function template\n", friend->symbol_name);
             return;
         }
         entry_list_free(candidates_list);
@@ -1240,8 +1259,7 @@ static void instantiate_dependent_friend_function(
                     }
                     else
                     {
-                        error_printf("%s: error: friend function declaration is ambiguous '%s'\n",
-                                locus_to_str(locus), friend->symbol_name);
+                        error_printf_at(locus, "friend function declaration is ambiguous '%s'\n", friend->symbol_name);
 
                         for (it = entry_list_iterator_begin(new_friend_list);
                                 !entry_list_iterator_end(it);
@@ -1249,8 +1267,7 @@ static void instantiate_dependent_friend_function(
                         {
                             scope_entry_t* current_entry = entry_list_iterator_current(it);
 
-                            info_printf("%s: info:   %s\n",
-                                    locus_to_str(current_entry->locus),
+                            info_printf_at(current_entry->locus, "%s\n",
                                     print_decl_type_str(current_entry->type_information, current_entry->decl_context, 
                                         get_qualified_symbol_name(current_entry, current_entry->decl_context)));
                         }
@@ -1261,8 +1278,7 @@ static void instantiate_dependent_friend_function(
 
                 if (new_function == NULL)
                 {
-                    error_printf("%s: function '%s' shall refer a nontemplate function or a specialization of a function template\n",
-                            locus_to_str(locus), friend->symbol_name);
+                    error_printf_at(locus, "function '%s' shall refer a nontemplate function or a specialization of a function template\n", friend->symbol_name);
                     return;
                 }
             }
@@ -1381,8 +1397,7 @@ static void instantiate_dependent_friend_function(
             {
                 if (is_qualified)
                 {
-                    error_printf("%s: template function '%s' shall refer a declared template function\n",
-                            locus_to_str(locus), friend->symbol_name);
+                    error_printf_at(locus, "template function '%s' shall refer a declared template function\n", friend->symbol_name);
                     return;
                 }
                 else
@@ -1819,8 +1834,7 @@ static void instantiate_bases(
 
         if (!is_class_type(upd_base_class_named_type))
         {
-            error_printf("%s: error: type '%s' is not a class type\n",
-                    locus_to_str(locus),
+            error_printf_at(locus, "type '%s' is not a class type\n",
                     print_type_str(upd_base_class_named_type, context_of_being_instantiated));
             continue;
         }
@@ -1923,9 +1937,10 @@ static void instantiate_template_class(scope_entry_t* entry,
     {
         if (is_incomplete_type(selected_template))
         {
-            error_printf("%s: instantiation of '%s' is not possible at this point since "
+            error_printf_at(
+                    locus,
+                    "instantiation of '%s' is not possible at this point since "
                     "its most specialized template '%s' is incomplete\n",
-                    locus_to_str(locus),
                     print_type_str(get_user_defined_type(entry), decl_context),
                     print_type_str(selected_template, decl_context));
             return;
@@ -1937,8 +1952,7 @@ static void instantiate_template_class(scope_entry_t* entry,
     }
     else
     {
-        error_printf("%s: instantiation of '%s' is not possible at this point\n",
-                locus_to_str(locus), print_type_str(get_user_defined_type(entry), decl_context));
+        error_printf_at(locus, "instantiation of '%s' is not possible at this point\n", print_type_str(get_user_defined_type(entry), decl_context));
         return;
     }
 }
@@ -1961,9 +1975,9 @@ static void instantiate_nontemplate_member_class_of_template_class(
 
     if (is_incomplete_type(selected_template))
     {
-        error_printf("%s: instantiation of '%s' is not possible at this point since "
+        error_printf_at(locus,
+                "instantiation of '%s' is not possible at this point since "
                 "its template '%s' is incomplete\n",
-                locus_to_str(locus),
                 print_type_str(being_instantiated, decl_context),
                 print_type_str(selected_template, decl_context));
         return;

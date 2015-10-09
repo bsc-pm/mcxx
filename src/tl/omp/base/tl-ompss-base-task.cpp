@@ -515,16 +515,17 @@ namespace TL { namespace OmpSs {
 
                         ERROR_CONDITION(arg.is_null(), "Invalid node", 0);
 
-                        warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
+                        warn_printf_at(
+                                function_sym.get_locus(),
+                                "assuming dummy argument '%s' of function task '%s' "
                                 "is SHARED because it does not have VALUE attribute\n",
-                                function_sym.get_locus_str().c_str(),
                                 it->get_name().c_str(),
                                 function_sym.get_name().c_str());
                         if (!arg.is_constant())
                         {
-                            info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
+                            info_printf_at(function_sym.get_locus(),
+                                    "during the execution of task '%s', the dummy argument '%s' may not have "
                                     "the value that the actual argument '%s' had at task creation\n",
-                                    function_sym.get_locus_str().c_str(),
                                     function_sym.get_name().c_str(),
                                     it->get_name().c_str(),
                                     arg.prettyprint().c_str());
@@ -1382,12 +1383,12 @@ namespace TL { namespace OmpSs {
                 && expression_stmt_is_a_reduction(enclosing_stmt, _function_task_set)
                 && only_one_task_is_involved_in_this_stmt(enclosing_stmt))
         {
-            std::cerr << locus_to_str(enclosing_stmt.get_locus())
-                      << ": info: enabling experimental optimization: transforming task expression '"
-                      << enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().prettyprint()
-                      << "' into a simple task" << std::endl
-                      << "To disable this optimization use the flag "
-                      << " --variable=disable_task_expression_optimization:1" << std::endl;
+            info_printf_at(enclosing_stmt.get_locus(),
+                      "enabling experimental optimization: transforming task expression '%s' into a simple task\n",
+                      enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().prettyprint().c_str());
+            info_printf_at(enclosing_stmt.get_locus(),
+                      "To disable this optimization use the flag "
+                      " --variable=disable_task_expression_optimization:1\n");
 
             transform_task_expression_into_simple_task(func_call, enclosing_stmt);
             return;

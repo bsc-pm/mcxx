@@ -170,9 +170,9 @@ void DeviceOpenCL::generate_ndrange_code(
             TL::Source sizeof_arg;
             if (index_local >= new_shmem.size())
             {
-                std::cerr << called_task.get_locus_str()
-                    << ": warning: The size of the local symbol '"
-                    << unpacked_argument.get_name() << "' has not been specified in the 'shmem' clause, assuming zero" << std::endl;
+                warn_printf_at(called_task.get_locus(),
+                        "the size of the local symbol '%s' has not been specified in the 'shmem' clause, assuming zero\n",
+                        unpacked_argument.get_name().c_str());
 
                 sizeof_arg << "0";
             }
@@ -433,13 +433,11 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            running_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus_str().c_str());
+            fatal_printf_at(original_statements.get_locus(), "nested functions are not supported\n");
 
 
         if (IS_FORTRAN_LANGUAGE)
-            running_error("%s: error: internal subprograms are not supported\n",
-                    original_statements.get_locus_str().c_str());
+            fatal_printf_at(original_statements.get_locus(), "internal subprograms are not supported\n");
     }
 
 
@@ -530,9 +528,12 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             }
         }
 
-        ERROR_CONDITION(!found && !_disable_opencl_file_check,
-                "%s: error: no OpenCL file in the command line matches clause file(%s)\n",
-                original_statements.get_locus_str().c_str(), file_clause_arg.c_str());
+        if (!found && !_disable_opencl_file_check)
+        {
+            error_printf_at(original_statements.get_locus(),
+                    "no OpenCL file in the command line matches clause file(%s)\n",
+                    file_clause_arg.c_str());
+        }
     }
     else
     {
@@ -556,8 +557,8 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
         if (ocl_files == 0)
         {
-            running_error("%s: error: no OpenCL file specified for kernel '%s'\n",
-                    original_statements.get_locus_str().c_str(),
+            fatal_printf_at(original_statements.get_locus(),
+                    "no OpenCL file specified for kernel '%s'\n",
                     called_task.get_name().c_str());
         }
     }
@@ -1002,7 +1003,7 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
     FILE* ancillary_file = fopen(new_filename.c_str(), "w");
     if (ancillary_file == NULL)
     {
-        running_error("%s: error: cannot open file '%s'. %s\n",
+        fatal_error("%s: error: cannot open file '%s'. %s\n",
                 original_filename.c_str(),
                 new_filename.c_str(),
                 strerror(errno));
