@@ -2662,8 +2662,8 @@ static char operand_is_integral_or_enum_type(type_t* t, const locus_t* locus UNU
 
 static char operand_is_integral_or_bool_or_unscoped_enum_type_noref(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
-    return (is_integral_type(t)
-            || is_unscoped_enum_type(t));
+    return (is_integral_type(no_ref(t))
+            || is_unscoped_enum_type(no_ref(t)));
 }
 
 static
