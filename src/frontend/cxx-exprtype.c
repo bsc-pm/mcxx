@@ -9656,9 +9656,19 @@ static void check_new_expression_impl(
         return;
     }
 
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
+            operator_new_list,
+            /* builtins */ NULL,
+            arguments + 1,
+            num_arguments - 1,
+            decl_context,
+            locus,
+            /* explicit_template_arguments */ NULL);
+    entry_list_free(operator_new_list);
+
     candidate_t* candidate_set = NULL;
     scope_entry_list_iterator_t *it = NULL;
-    for (it = entry_list_iterator_begin(operator_new_list);
+    for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
@@ -9713,8 +9723,8 @@ static void check_new_expression_impl(
         uniquestr_sprintf(&message, "no suitable '%s' found for new-expression\n",
                 argument_call);
 
-        diagnostic_candidates(operator_new_list, &message, locus);
-        entry_list_free(operator_new_list);
+        diagnostic_candidates(overload_set, &message, locus);
+        entry_list_free(overload_set);
 
         error_printf_at(locus, "%s", message);
 
@@ -9724,8 +9734,11 @@ static void check_new_expression_impl(
         return;
     }
 
+    entry_list_free(overload_set);
+
     if (function_has_been_deleted(decl_context, chosen_operator_new, locus))
     {
+
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_placement_list);
         nodecl_free(nodecl_initializer);
