@@ -6472,6 +6472,10 @@ void check_nodecl_member_initializer_list(
                             locus);
                     *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
                 }
+                else if (is_error_type(t))
+                {
+                    // skip
+                }
                 else
                 {
                     internal_error("Code unreachable", 0);
