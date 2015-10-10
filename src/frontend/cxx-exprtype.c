@@ -10571,7 +10571,7 @@ static char conversion_is_valid_reinterpret_cast(
     // A pointer can be explicitly converted to any integral type
     if (is_pointer_type(orig_type)
             && is_integral_type(dest_type)
-            && type_get_size(orig_type) == type_get_size(dest_type))
+            && type_get_size(orig_type) <= type_get_size(dest_type))
         RETURN(1);
 
     // A nullptr can be converted to integral
