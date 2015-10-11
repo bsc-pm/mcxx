@@ -2500,7 +2500,7 @@ namespace {
 
         // 1.- Create constraint [-∞, +∞] for each parameter
         compute_parameters_constraints(pcfg_constraints);
-
+    
         // 2.- Create constraints for all constants (macros, static variables, etc.)
         compute_non_local_symbols_constraints(pcfg_constraints);
 
@@ -2551,7 +2551,9 @@ namespace {
             /*unnecessary for parameters*/pcfg_constraints[entry],
             &_constraints, &_ordered_constraints);
         cbv.compute_non_local_symbols_constraints(non_local_syms);
-        pcfg_constraints[entry] = cbv.get_output_constraints();
+        VarToConstraintMap output_constraints = cbv.get_output_constraints();
+        pcfg_constraints[entry].insert(output_constraints.begin(),
+                                       output_constraints.end());
     }
 
 namespace {
