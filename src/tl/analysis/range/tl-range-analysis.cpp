@@ -44,6 +44,7 @@ namespace {
 
     // ************************************************************************************** //
     // *** Variables and methods to simulate SSA during the Constraint Graph construction *** //
+
     std::string fake_sym = "__return_sym";
 
     Scope ssa_scope;
@@ -70,10 +71,77 @@ namespace {
         }
         return next_id;
     }
+
+    struct CompareString {
+        bool operator()(const std::string& first, const std::string& second) {
+            return first.size() > second.size();
+        }
+    };
+
+    bool replace_substring(std::string& str, const std::string& from, const std::string& to) {
+        size_t start_pos = str.find(from);
+        if (start_pos == std::string::npos)
+            return false;
+        str.replace(start_pos, from.length(), to);
+        return true;
+    }
+
+    std::string get_subscripts_string(
+            const Nodecl::ArraySubscript& n,
+            /*in*/ VarToConstraintMap& input_constraints)
+    {
+        std::string subscripts_str;
+
+        // Concatenate all the subscripts in a string replacing symbols with the ssa symbols
+        const Nodecl::List& subscripts = n.get_subscripts().as<Nodecl::List>();
+        for (Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
+        {
+            const Nodecl::NodeclBase& s = *it;
+            if (input_constraints.find(s) != input_constraints.end())
+                subscripts_str += input_constraints[s].get_symbol().get_name();
+            else    // The subscript is an operation
+            {
+                // 1.- Get all symbol_names
+                ObjectList<Nodecl::Symbol> all_syms = Nodecl::Utils::get_all_symbols_first_occurrence(s);
+                std::vector<std::string> all_syms_names;
+                std::vector<std::string> all_syms_replacements;
+                for (ObjectList<Nodecl::Symbol>::iterator its = all_syms.begin();
+                     its != all_syms.end(); ++its)
+                {
+                    all_syms_names.push_back(its->get_symbol().get_name());
+                    if (input_constraints.find(*its) != input_constraints.end())
+                        all_syms_replacements.push_back(input_constraints[*its].get_symbol().get_name());
+                    else
+                        internal_error("No input constraint found for symbol '%s' in subscript '%s'.\n",
+                                       its->get_symbol().get_name().c_str(),
+                                       s.prettyprint().c_str());
+                }
+                // Order the names by length (longer first)
+                CompareString cs;
+                std::sort(all_syms_names.begin(), all_syms_names.end(), cs);
+
+                // 2.- Build the subscript string
+                subscripts_str = s.prettyprint();
+                // Remove blank spaces from the string (e.g. due to operations in the subscripts)
+                subscripts_str.erase(remove_if(subscripts_str.begin(), subscripts_str.end(), isspace),
+                                     subscripts_str.end());
+                // Replace in the subscript each symbol by its corresponding ssa symbol
+                std::vector<std::string>::iterator its = all_syms_names.begin();
+                std::vector<std::string>::iterator itr = all_syms_replacements.begin();
+                for (; its != all_syms_names.end(); ++its, ++itr)
+                    replace_substring(subscripts_str, *its, *itr);
+            }
+            subscripts_str += "_";
+        }
+
+        return subscripts_str;
+    }
+
     // ************************************************************************************** //
 
     // ************************************************************************************** //
     // ***************** initialize global variables for ranges operations ****************** //
+
     const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*signed*/ 1);
     const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*signed*/ 1);
     const_value_t* minus_one = const_value_get_minus_one(/*num_bytes*/ 4, /*sign*/1);
@@ -81,6 +149,7 @@ namespace {
     NBase plus_inf = Nodecl::Analysis::PlusInfinity::make(Type::get_long_int_type(), long_max);
     const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/4, /*sign*/1);
     NBase minus_inf = Nodecl::Analysis::MinusInfinity::make(Type::get_long_int_type(), long_min);
+
     // ************************************************************************************** //
 }
 
@@ -105,30 +174,8 @@ namespace {
             // 1. Build a symbol for the new constraint based on the name of the original variable
             std::stringstream ss; ss << get_next_id(n);
             Symbol s(Utils::get_nodecl_base(n).get_symbol());
-//          const Nodecl::List& subscripts = n.get_subscripts().as<Nodecl::List>();
-//          for (Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
-//          {
-//              if (_input_constraints->find(*it) != _input_constraints->end())
-//                 subscripts_str += (*_input_constraints)[*it].get_symbol().get_name();
-//              else    // The subscript is a global variable
-//                 subscripts_str += it->prettyprint();
-//              subscripts_str += "_";
-//          }
-            // We need a better way to represent array accesses
-            // Since the subscripts might be vary complicated, we use the locus
-            // But this approach must be thought deeply...
-            std::string subscripts_str = n.get_locus_str();
-                // Replace ':' with '_' to split the line and column
-            std::string line_col = subscripts_str.substr(subscripts_str.find(":"));
-            std::replace(line_col.begin(), line_col.end(), ':', '_');
-                // Remove the path and the extension of the file
-            std::size_t slash = subscripts_str.find_last_of("/");
-            if (slash != std::string::npos)
-            {
-                std::size_t dot = subscripts_str.find_last_of(".");
-                subscripts_str = subscripts_str.substr(slash+1,dot-slash-1);
-            }
-            subscripts_str += line_col;
+            std::string subscripts_str = get_subscripts_string(n, *_input_constraints);
+
             std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
             Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
             Type t = s.get_type();
@@ -436,17 +483,8 @@ namespace {
 
         std::string subscripts_str;
         if (lhs.no_conv().is<Nodecl::ArraySubscript>())
-        {
-            const Nodecl::List& subscripts = lhs.no_conv().as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
-            for (Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
-            {
-                if (_input_constraints.find(*it) != _input_constraints.end())
-                    subscripts_str += _input_constraints[*it].get_symbol().get_name();
-                else    // The subscript is a global variable
-                    subscripts_str += it->prettyprint();
-                subscripts_str += "_";
-            }
-        }
+            subscripts_str = get_subscripts_string(lhs.no_conv().as<Nodecl::ArraySubscript>(),
+                                                   _input_constraints);
 
         std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
         Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
