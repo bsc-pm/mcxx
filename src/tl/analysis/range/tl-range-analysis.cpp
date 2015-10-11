@@ -1174,13 +1174,15 @@ namespace {
 
     CGNode* ConstraintGraph::insert_node(const NBase& value, CGNodeType type)
     {
-        // If the node already existed, return it
-        if (_nodes.find(value) != _nodes.end())
-            return _nodes[value];
+        // If the node is a SSA symbol, there can only be one (no repetitions)
+        // So, if it already existed, return it
+        if (value.is<Nodecl::Symbol>()
+            && (_nodes.find(value) != _nodes.end()))
+            return _nodes.find(value)->second;
 
         // Otherwise, create the node and return it
         CGNode* node = new CGNode(type, value);
-        _nodes[value] = node;
+        _nodes.insert(std::pair<NBase, CGNode*>(value, node));
         return node;
     }
 
@@ -1189,7 +1191,7 @@ namespace {
         CGNode* node = new CGNode(type, NBase::null());
         NBase value = Nodecl::IntegerLiteral::make(Type::get_long_int_type(), 
                                                    const_value_get_integer(node->get_id(), /*num_bytes*/4, /*sign*/1));
-        _nodes[value] = node;
+        _nodes.insert(std::pair<NBase, CGNode*>(value, node));
         return node;
     }
 

@@ -36,7 +36,7 @@ namespace TL {
 namespace Analysis {
 
     typedef std::map<Symbol, NBase> Constraints;
-    typedef std::map<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGValueToCGNode_map;
+    typedef std::multimap<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGValueToCGNode_map;
     typedef std::map<NBase, Utils::Constraint, Nodecl::Utils::Nodecl_structural_less> VarToConstraintMap;
 
     // **************************************************************************************************** //
