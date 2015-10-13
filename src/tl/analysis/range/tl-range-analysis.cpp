@@ -2104,6 +2104,23 @@ namespace {
         }
     }
 
+namespace {
+    void compute_boundary_from_future(
+            NBase& boundary,
+            const NBase& future_sym,
+            const NBase& future_sym_valuation)
+    {
+        // In the boundary, replace the future symbol with its valuation
+        Nodecl::Utils::nodecl_replace_nodecl_by_structure(
+                boundary, future_sym, future_sym_valuation);
+        // If the resulting node may be synthesized (calculated), then do it
+        Optimizations::Calculator calc;
+        const_value_t* boundary_const = calc.compute_const_value(boundary);
+        if (boundary_const != NULL)
+            boundary = const_value_to_nodecl(boundary_const);
+    }
+}
+
     // Solve future edges propagating the values computed after the widening process
     // Remove from the Constraint Graph the future edges, so they are not taken into account any more
     void ConstraintGraph::futures(SCC* scc)
@@ -2141,23 +2158,26 @@ namespace {
 
                     // 3.2.- Get the current constraint
                     const Nodecl::Range& c_val = n->get_constraint().as<Nodecl::Range>();
-                    const NBase& c_val_lb = c_val.get_lower();
-                    const NBase& c_val_ub = c_val.get_upper();
+                    NBase c_val_lb = c_val.get_lower();
+                    NBase c_val_ub = c_val.get_upper();
                     NBase future_valuation;
-                    // Not just replace!!! since the boundary may be an operation
                     if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(c_val_lb, s))
                     {
+                        compute_boundary_from_future(c_val_lb, s, s_val_lb);
                         future_valuation = Nodecl::Range::make(
-                                s_val_lb,
+                                c_val_lb,
                                 c_val_ub,
                                 const_value_to_nodecl(zero),
                                 Type::get_long_int_type());
                     }
                     else if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(c_val_ub, s))
                     {
+                        Nodecl::Utils::nodecl_replace_nodecl_by_structure(
+                                c_val_ub, s, s_val_ub);
+                        compute_boundary_from_future(c_val_ub, s, s_val_ub);
                         future_valuation = Nodecl::Range::make(
                                 c_val_lb,
-                                s_val_ub,
+                                c_val_ub,
                                 const_value_to_nodecl(zero),
                                 Type::get_long_int_type());
                     }
