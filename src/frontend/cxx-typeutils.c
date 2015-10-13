@@ -4211,6 +4211,7 @@ type_t* array_type_rebase(type_t* array_type, type_t* new_element_type)
 
 extern inline type_t* get_unqualified_type(type_t* t)
 {
+    type_t* orig_type = t;
     t = advance_over_typedefs(t);
 
     if (t->kind == TK_ARRAY)
@@ -4220,17 +4221,25 @@ extern inline type_t* get_unqualified_type(type_t* t)
     }
 
     // Keep restrict attribute as it can't be discarded like const or volatile
-    char is_restricted = (get_cv_qualifier(t) & CV_RESTRICT) == CV_RESTRICT;
+    cv_qualifier_t cv = get_cv_qualifier(t);
+    char is_restricted = (cv & CV_RESTRICT) == CV_RESTRICT;
 
     ERROR_CONDITION(t->unqualified_type == NULL, "This cannot be NULL", 0);
-    
+
     if (!is_restricted)
     {
-        return t->unqualified_type;
+        if (cv == CV_NONE)
+            // Return the original type
+            return orig_type;
+        else
+            return t->unqualified_type;
     }
     else
     {
-        return get_restrict_qualified_type(t->unqualified_type);
+        if (cv == CV_RESTRICT)
+            return get_restrict_qualified_type(orig_type);
+        else
+            return get_restrict_qualified_type(t->unqualified_type);
     }
 }
 
@@ -4245,7 +4254,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     type_t* unchanged_type = original;
 
     original = advance_over_typedefs_with_cv_qualif(original, &old_cv_qualifier);
-    
+
     // Try hard to preserve the type
     if (cv_qualification == old_cv_qualifier)
         return unchanged_type;
