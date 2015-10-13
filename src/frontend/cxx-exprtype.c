@@ -23654,55 +23654,56 @@ static nodecl_t cxx_nodecl_make_conversion_internal(nodecl_t expr,
 
     if (verify_conversion)
     {
-        type_t* orig_type = nodecl_get_type(expr);
+        type_t* conv_orig_type = nodecl_get_type(expr);
+        type_t* conv_dest_type = dest_type;
 
         char there_is_a_scs = 0;
-        if (both_operands_are_compatible_vector_types(no_ref(orig_type), no_ref(dest_type)))
+        if (both_operands_are_compatible_vector_types(no_ref(conv_orig_type), no_ref(conv_dest_type)))
         {
-            type_t* elem_orig_type = vector_type_get_element_type(no_ref(orig_type));
-            if (is_lvalue_reference_type(orig_type))
+            type_t* elem_orig_type = vector_type_get_element_type(no_ref(conv_orig_type));
+            if (is_lvalue_reference_type(conv_orig_type))
                 elem_orig_type = get_lvalue_reference_type(elem_orig_type);
-            else if (is_rvalue_reference_type(orig_type))
+            else if (is_rvalue_reference_type(conv_orig_type))
                 elem_orig_type = get_rvalue_reference_type(elem_orig_type);
-            orig_type = elem_orig_type;
+            conv_orig_type = elem_orig_type;
 
-            type_t* elem_dest_type = vector_type_get_element_type(no_ref(dest_type));
-            if (is_lvalue_reference_type(dest_type))
+            type_t* elem_dest_type = vector_type_get_element_type(no_ref(conv_dest_type));
+            if (is_lvalue_reference_type(conv_dest_type))
                 elem_dest_type = get_lvalue_reference_type(elem_dest_type);
-            else if (is_rvalue_reference_type(dest_type))
+            else if (is_rvalue_reference_type(conv_dest_type))
                 elem_dest_type = get_rvalue_reference_type(elem_dest_type);
-            dest_type = elem_dest_type;
+            conv_dest_type = elem_dest_type;
         }
-        else if (both_operands_are_same_sized_vector_types(no_ref(orig_type), no_ref(dest_type)))
+        else if (both_operands_are_same_sized_vector_types(no_ref(conv_orig_type), no_ref(conv_dest_type)))
         {
             // Allow this case unconditionally
             there_is_a_scs = 1;
         }
-        else if (is_vector_type(no_ref(dest_type)))
+        else if (is_vector_type(no_ref(conv_dest_type)))
         {
-            type_t* elem_dest_type = vector_type_get_element_type(no_ref(dest_type));
-            if (is_lvalue_reference_type(dest_type))
+            type_t* elem_dest_type = vector_type_get_element_type(no_ref(conv_dest_type));
+            if (is_lvalue_reference_type(conv_dest_type))
                 elem_dest_type = get_lvalue_reference_type(elem_dest_type);
-            else if (is_rvalue_reference_type(dest_type))
+            else if (is_rvalue_reference_type(conv_dest_type))
                 elem_dest_type = get_rvalue_reference_type(elem_dest_type);
-            dest_type = elem_dest_type;
+            conv_dest_type = elem_dest_type;
         }
 
         standard_conversion_t scs;
         if (!there_is_a_scs)
             there_is_a_scs = standard_conversion_between_types(
-                &scs, orig_type,
-                get_unqualified_type(dest_type), locus);
+                &scs, conv_orig_type,
+                get_unqualified_type(conv_dest_type), locus);
         // Try again with enum types
         if (!there_is_a_scs
-                && (is_enum_type(orig_type)
-                    || is_enum_type(no_ref(dest_type))))
+                && (is_enum_type(conv_orig_type)
+                    || is_enum_type(no_ref(conv_dest_type))))
         {
-            type_t* underlying_orig_type = get_unqualified_type(no_ref(orig_type));
+            type_t* underlying_orig_type = get_unqualified_type(no_ref(conv_orig_type));
             if (is_enum_type(underlying_orig_type))
                 underlying_orig_type = enum_type_get_underlying_type(underlying_orig_type);
 
-            type_t* underlying_dest_type = get_unqualified_type(no_ref(dest_type));
+            type_t* underlying_dest_type = get_unqualified_type(no_ref(conv_dest_type));
             if (is_enum_type(underlying_dest_type))
                 underlying_dest_type = enum_type_get_underlying_type(underlying_dest_type);
 
@@ -23715,7 +23716,7 @@ static nodecl_t cxx_nodecl_make_conversion_internal(nodecl_t expr,
 
         ERROR_CONDITION(!there_is_a_scs, "At this point (%s) there should be a SCS from '%s' to '%s'\n",
                 locus_to_str(locus),
-                print_declarator(orig_type),
+                print_declarator(nodecl_get_type(expr)),
                 print_declarator(get_unqualified_type(dest_type)));
     }
 
