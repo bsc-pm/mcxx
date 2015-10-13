@@ -4401,10 +4401,10 @@ symbol_entity_specs_set_is_builtin(sym___builtin_aarch64_simd_bslv8hi_uuuu, 1);
 {
 scope_entry_t* sym___builtin_aarch64_simd_bslv8qi_pupp = new_symbol(decl_context, decl_context->current_scope, uniquestr("__builtin_aarch64_simd_bslv8qi_pupp"));
 sym___builtin_aarch64_simd_bslv8qi_pupp->kind = SK_FUNCTION;sym___builtin_aarch64_simd_bslv8qi_pupp->do_not_print = 1;
-sym___builtin_aarch64_simd_bslv8qi_pupp->type_information = ({type_t* return_type = get_vector_type(get_signed_short_int_type(), 16);
+sym___builtin_aarch64_simd_bslv8qi_pupp->type_information = ({type_t* return_type = get_vector_type(get_signed_char_type(), 8);
 parameter_info_t p[3]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(get_unsigned_char_type(), 8);
-p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
-p[2].type_info = get_vector_type(get_signed_short_int_type(), 16);
+p[1].type_info = get_vector_type(get_signed_char_type(), 8);
+p[2].type_info = get_vector_type(get_signed_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;

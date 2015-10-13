@@ -3658,9 +3658,10 @@ extern void gcc_builtins_x86_64(const decl_context_t* global_context)
 }
 
 #ifndef HAVE_INT128
+// Kind of a fallback
 static type_t* get_unsigned_16x8_int(void)
 {
-    return get_vector_type_by_elements(get_unsigned_int_type(), 16);
+    return get_vector_type_by_elements(get_unsigned_char_type(), 16);
 }
 #endif
 
@@ -3840,15 +3841,10 @@ static void gcc_builtins_neon_arm64(const decl_context_t* decl_context)
         {"__Poly8_t",    get_signed_char_type   },
         {"__Poly16_t",   get_signed_short_int_type   },
         {"__Poly64_t",   get_unsigned_long_int_type },
-        {"__Poly128_t",  get_unsigned_int128_type },
-#if 0
-        {"__Poly16_t",   get_signed_short_int_type  },
-        {"__Poly64_t",   get_unsigned_long_int_type },
 #ifdef HAVE_INT128
-        {"__Poly128_t",  get_unsigned_int128_type   },
+        {"__Poly128_t",  get_unsigned_int128_type },
 #else
         {"__Poly128_t",  get_unsigned_16x8_int      },
-#endif
 #endif
         {"__builtin_aarch64_simd_qi", get_signed_char_type       },
         {"__builtin_aarch64_simd_hi", get_signed_short_int_type  },

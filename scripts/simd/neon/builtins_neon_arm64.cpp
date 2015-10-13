@@ -62,8 +62,9 @@ GENERATE_NEON_VECTOR(128, float32_t, __Float32x4_t)
 GENERATE_NEON_VECTOR(128, float64_t, __Float64x2_t)
 
 GENERATE_NEON_VECTOR(64, int16_t, __Poly16x4_t)
-GENERATE_NEON_VECTOR(128, int16_t, __Poly16x8_t)
+GENERATE_NEON_VECTOR(64, int8_t, __Poly8x8_t)
 
+GENERATE_NEON_VECTOR(128, int16_t, __Poly16x8_t)
 GENERATE_NEON_VECTOR(128, int8_t, __Poly8x16_t)
 
 template <>
