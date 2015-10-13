@@ -374,6 +374,7 @@ src_frontend_libgccbuiltins_la_SOURCES = \
   src/frontend/cxx-gccbuiltins.h \
   src/frontend/cxx-gccbuiltins-ia32.h \
   src/frontend/cxx-gccbuiltins-arm-neon.h \
+  src/frontend/cxx-gccbuiltins-arm64-neon.h \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
