@@ -34,6 +34,8 @@
 #include "tl-vector-backend-avx2.hpp"
 #include "tl-vector-legalization-neon.hpp"
 #include "tl-vector-backend-neon.hpp"
+#include "tl-vector-legalization-romol.hpp"
+#include "tl-vector-backend-romol.hpp"
 #include "tl-vectorization-three-addresses.hpp"
 
 
@@ -41,11 +43,16 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorLoweringPhase::VectorLoweringPhase() : _knl_enabled(false), _knc_enabled(false), _avx2_enabled(false), _neon_enabled(false)
+        VectorLoweringPhase::VectorLoweringPhase()
+            : _knl_enabled(false),
+            _knc_enabled(false),
+            _avx2_enabled(false),
+            _neon_enabled(false),
+            _romol_enabled(false)
         {
             set_phase_name("Vector Lowering Phase");
             set_phase_description("This phase lowers Vector IR to builtin calls. "
-                    "By default targets SSE but AVX, AVX2, KNC, KNL and NEON are implemented as well");
+                    "By default targets SSE but AVX, AVX2, KNC, KNL, NEON and RoMoL are implemented as well");
 
             register_parameter("knl_enabled",
                     "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
@@ -66,6 +73,11 @@ namespace TL
                     "If set to '1' enables compilation for NEON architecture, otherwise it is disabled",
                     _neon_enabled_str,
                     "0").connect(std::bind(&VectorLoweringPhase::set_neon, this, std::placeholders::_1));
+
+            register_parameter("romol_enabled",
+                    "If set to '1' enables compilation for RoMoL architecture, otherwise it is disabled",
+                    _romol_enabled_str,
+                    "0").connect(std::bind(&VectorLoweringPhase::set_romol, this, std::placeholders::_1));
 
             register_parameter("prefer_mask_gather_scatter",
                     "If set to '1' enables gather/scatter generation for unaligned load/stores with masks",
@@ -96,6 +108,11 @@ namespace TL
         void VectorLoweringPhase::set_neon(const std::string neon_enabled_str)
         {
             parse_boolean_option("neon_enabled", neon_enabled_str, _neon_enabled, "Invalid value for neon_enabled");
+        }
+
+        void VectorLoweringPhase::set_romol(const std::string romol_enabled_str)
+        {
+            parse_boolean_option("romol_enabled", romol_enabled_str, _romol_enabled, "Invalid value for romol_enabled");
         }
 
         void VectorLoweringPhase::set_prefer_gather_scatter(
@@ -131,6 +148,7 @@ namespace TL
                 { _knc_enabled, "KNC" },
                 { _knl_enabled, "KNL" },
                 { _neon_enabled, "NEON" },
+                { _romol_enabled, "RoMoL" },
             };
 
             const int N = sizeof(backend_flag) / sizeof(*backend_flag);
@@ -196,6 +214,15 @@ namespace TL
                 // Lower to NEON intrinsics
                 NeonVectorBackend neon_vector_backend;
                 neon_vector_backend.walk(translation_unit);
+            }
+            else if (_romol_enabled)
+            {
+                RomolVectorLegalization romol_vector_legalization;
+                romol_vector_legalization.walk(translation_unit);
+
+                // Lower to RoMoL
+                RomolVectorBackend romol_vector_backend;
+                romol_vector_backend.walk(translation_unit);
             }
             else
             {

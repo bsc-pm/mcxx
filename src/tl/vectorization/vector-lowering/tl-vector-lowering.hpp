@@ -40,6 +40,7 @@ namespace TL
                 bool _knc_enabled;
                 bool _avx2_enabled;
                 bool _neon_enabled;
+                bool _romol_enabled;
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
 
@@ -47,6 +48,7 @@ namespace TL
                 std::string _knc_enabled_str;
                 std::string _avx2_enabled_str;
                 std::string _neon_enabled_str;
+                std::string _romol_enabled_str;
                 std::string _intel_compiler_profile_str;
                 std::string _prefer_gather_scatter_str;
                 std::string _prefer_mask_gather_scatter_str;
@@ -55,6 +57,7 @@ namespace TL
                 void set_knc(const std::string knc_enabled_str);
                 void set_avx2(const std::string avx2_enabled_str);
                 void set_neon(const std::string neon_enabled_str);
+                void set_romol(const std::string romol_enabled_str);
                 void set_intel_compiler_profile(
                         const std::string intel_compiler_profile_str);
                 void set_prefer_gather_scatter(

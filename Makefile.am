@@ -2603,6 +2603,35 @@ src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_SOURCES =
 endif
 
 ##########################################################################
+# src/tl/vectorization/vector-lowering/romol
+##########################################################################
+
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/vector-lowering/romol/libtlvector-lowering-romol.la
+
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_CFLAGS = $(tl_cflags)
+
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_CXXFLAGS = $(tl_cflags) \
+                              $(vector_lowering_cflags) \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/romol/legalization \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/romol/backend \
+                              $(END)
+
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+	$(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
+$(END)
+
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_SOURCES = \
+     src/tl/vectorization/vector-lowering/romol/legalization/tl-vector-legalization-romol.hpp \
+     src/tl/vectorization/vector-lowering/romol/legalization/tl-vector-legalization-romol.cpp \
+     src/tl/vectorization/vector-lowering/romol/backend/tl-vector-backend-romol.hpp \
+     src/tl/vectorization/vector-lowering/romol/backend/tl-vector-backend-romol.cpp \
+     $(END)
+endif
+
+##########################################################################
 # src/tl/vectorization/vector-lowering
 ##########################################################################
 
@@ -2626,6 +2655,9 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_c
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/ \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/legalization \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/backend \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/legalization \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/backend \
                  $(END)
 
 src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)
@@ -2641,6 +2673,7 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LIBADD = \
     $(top_builddir)/src/tl/vectorization/vector-lowering/knc/libtlvector-lowering-knc.la \
     $(top_builddir)/src/tl/vectorization/vector-lowering/knl/libtlvector-lowering-knl.la \
     $(top_builddir)/src/tl/vectorization/vector-lowering/neon/libtlvector-lowering-neon.la \
+    $(top_builddir)/src/tl/vectorization/vector-lowering/romol/libtlvector-lowering-romol.la \
     $(END)
 endif
 
