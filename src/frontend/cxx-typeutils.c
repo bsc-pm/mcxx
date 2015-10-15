@@ -14190,6 +14190,10 @@ extern inline scope_entry_list_t* class_type_get_all_bases(type_t *t, char inclu
 
 static char covariant_return(type_t* overrided_type, type_t* virtual_type)
 {
+    if (overrided_type == NULL
+            && virtual_type == NULL)
+        return 1;
+
     if (equivalent_types(overrided_type, virtual_type))
         return 1;
 
@@ -14216,10 +14220,27 @@ static char covariant_return(type_t* overrided_type, type_t* virtual_type)
     return 0;
 }
 
+static char same_function_qualification(type_t* overrided_type, type_t* virtual_type)
+{
+    if (!equivalent_cv_qualification(get_cv_qualifier(overrided_type), get_cv_qualifier(virtual_type)))
+        return 0;
+
+    if (function_type_get_ref_qualifier(overrided_type) !=
+            function_type_get_ref_qualifier(virtual_type))
+        return 0;
+
+    return 1;
+}
+
 extern inline char function_type_can_override(type_t* potential_overrider, type_t* function_type)
 {
+    ERROR_CONDITION(!is_function_type(potential_overrider), "Must be a function type", 0);
+    ERROR_CONDITION(!is_function_type(function_type), "Must be a function type", 0);
+
     return compatible_parameters(potential_overrider->function, function_type->function)
-        && covariant_return(potential_overrider, function_type);
+        && covariant_return(function_type_get_return_type(potential_overrider),
+                function_type_get_return_type(function_type))
+        && same_function_qualification(potential_overrider, function_type);
 }
 
 extern inline char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2)
