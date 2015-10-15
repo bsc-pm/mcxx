@@ -3623,10 +3623,11 @@ static char update_simplified_unresolved_overloaded_type(scope_entry_t* entry,
         }
         else
         {
-            nodecl_set_type(*nodecl_output, 
+            *nodecl_output = nodecl_make_pointer_to_member(entry,
                     get_pointer_to_member_type(
                         entry->type_information,
-                        symbol_entity_specs_get_class_type(entry)));
+                        symbol_entity_specs_get_class_type(entry)),
+                    locus);
         }
     }
 
@@ -26521,10 +26522,10 @@ char check_nodecl_template_argument_can_be_converted_to_parameter_type(
             if (entry == NULL)
                 return 0;
 
-            *nodecl_out = nodecl_make_symbol(entry, locus);
-            nodecl_set_type(*nodecl_out,
+            *nodecl_out = nodecl_make_pointer_to_member(entry,
                     get_pointer_to_member_type(entry->type_information,
-                        symbol_entity_specs_get_class_type(entry)));
+                        symbol_entity_specs_get_class_type(entry)),
+                    locus);
             return 1;
         }
         else
@@ -26556,9 +26557,6 @@ char check_nodecl_template_argument_can_be_converted_to_parameter_type(
                     parameter_type,
                     locus))
             return 0;
-
-        if (scs.conv[0] == SCI_IDENTITY)
-            return 1;
 
         if ((scs.conv[0] == SCI_IDENTITY)
                 || ((scs.conv[0] == SCI_NO_CONVERSION)
@@ -26668,7 +26666,10 @@ char check_nodecl_nontype_template_argument_expression(
         // &C::id
         nodecl_t current_expr = nodecl_expr;
         related_symbol = nodecl_get_symbol(current_expr);
-        if (related_symbol != NULL)
+
+        if (related_symbol != NULL
+                && symbol_entity_specs_get_is_member(related_symbol)
+                && !symbol_entity_specs_get_is_static(related_symbol))
         {
             valid = 1;
             should_be_a_constant_expression = 0;
@@ -26696,12 +26697,6 @@ char check_nodecl_nontype_template_argument_expression(
     }
 
     *nodecl_output = nodecl_expr;
-
-    if (related_symbol != NULL
-            && !symbol_entity_specs_get_is_template_parameter(related_symbol))
-    {
-        nodecl_set_symbol(*nodecl_output, related_symbol);
-    }
 
     return 1;
 }
@@ -27978,17 +27973,10 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
                 && (sym->kind == SK_VARIABLE
                     || sym->kind == SK_FUNCTION))
         {
-            if (sym->kind == SK_VARIABLE)
-            {
-                v->nodecl_result = nodecl_make_pointer_to_member(sym, 
-                        get_pointer_to_member_type(sym->type_information,
-                            symbol_entity_specs_get_class_type(sym)),
-                        nodecl_get_locus(node));
-            }
-            else // SK_FUNCTION
-            {
-                v->nodecl_result = nodecl_op;
-            }
+            v->nodecl_result = nodecl_make_pointer_to_member(sym, 
+                    get_pointer_to_member_type(sym->type_information,
+                        symbol_entity_specs_get_class_type(sym)),
+                    nodecl_get_locus(node));
             return;
         }
     }
