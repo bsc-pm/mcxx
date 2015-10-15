@@ -9365,6 +9365,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             {
                 operand_types[i] = get_pointer_type(operand_types[i]);
             }
+
+            if (!is_class_type(operand_types[i]))
+                operand_types[i] = get_unqualified_type(operand_types[i]);
         }
 
         char is_pointer_and_zero =
