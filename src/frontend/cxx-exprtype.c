@@ -26588,6 +26588,7 @@ char check_nontype_template_argument_type(type_t* t)
         || is_lvalue_reference_type(t)
         || is_pointer_type(t)
         || is_pointer_to_member_type(t)
+        || is_function_type(t)
         || is_dependent_type(t);
 }
 
