@@ -233,47 +233,54 @@ bool CxxBase::is_non_language_reference_variable(const Nodecl::NodeclBase &n)
     return false;
 }
 
-void CxxBase::emit_line_marker(const locus_t* locus)
+void CxxBase::emit_saved_locus()
 {
-    if (!CURRENT_CONFIGURATION->line_markers)
-        return;
+    const locus_t* locus = state._saved_locus;
 
-    // We do not emit line markers in prettyprint
-    if (!is_file_output())
-        return;
-
-    // Avoid nodes without locus
     if (locus == NULL)
-        return;
-
-    // Avoid 0-th line
-    unsigned int line = locus_get_line(locus);
-    if (line == 0)
-        return;
-
-    // Avoid ""
-    std::string filename = locus_get_filename(locus);
-    if (filename == "")
         return;
 
     // Do we need a newline?
     if (!last_is_newline())
         *file << "\n";
 
-    std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
-    if (filename.size() >= internal_source.size())
-    {
-        std::string prefix = filename.substr(0, internal_source.size());
+    std::string filename = locus_get_filename(locus);
+    int line = locus_get_line(locus);
 
-        if (prefix == internal_source)
+    // #line linenum filename
+    *file << "#line " << line << " \"" << filename << "\"\n";
+    *file << TL::pad_to_column(locus_get_column(locus));
+}
+
+void CxxBase::emit_line_marker(const locus_t* locus)
+{
+    if (!CURRENT_CONFIGURATION->line_markers)
+        return;
+
+    bool save_locus =
+        (is_file_output()
+         && locus != NULL
+         && locus_get_line(locus) != 0
+         && *locus_get_filename(locus) != '\0');
+
+    if (save_locus)
+    {
+        std::string filename = locus_get_filename(locus);
+        const std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
+        if (filename.size() >= internal_source.size())
         {
-            filename = this->get_output_filename();
-            line = get_current_line() + 1;
+            std::string prefix = filename.substr(0, internal_source.size());
+            if (prefix == internal_source)
+                save_locus = false;
         }
     }
 
-    *file << "# " << line << " \"" << filename << "\"\n";
-    *file << TL::pad_to_column(locus_get_column(locus));
+    if (save_locus)
+    {
+        state._saved_locus = locus;
+    }
+
+    emit_saved_locus();
 }
 
 void CxxBase::emit_line_marker(Nodecl::NodeclBase n)
