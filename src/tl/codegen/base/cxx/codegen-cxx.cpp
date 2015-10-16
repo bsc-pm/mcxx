@@ -7134,7 +7134,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     {
                         *file << "(";
                         walk(init);
-                        *file << ");";
+                        *file << ")";
                     }
                 }
             }
