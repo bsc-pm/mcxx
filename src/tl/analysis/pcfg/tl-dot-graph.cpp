@@ -774,7 +774,7 @@ connect_node:
             }
         }
         if (current->is_omp_task_node()
-            || current->is_ompss_async_target_node())
+            || current->is_omp_async_target_node())
         {
             std::string auto_scope_str = print_node_data_sharing(current);
             if(!auto_scope_str.empty())

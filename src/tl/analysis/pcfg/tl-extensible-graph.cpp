@@ -645,14 +645,14 @@ namespace Analysis {
         if (n->is_visited()
             && (n->node_is_enclosed_by(outer_node)
                 || n->is_omp_task_node()
-                || n->is_ompss_async_target_node()
+                || n->is_omp_async_target_node()
                 || n->is_omp_virtual_tasksync()))
         {
             n->set_visited(false);
 
             if(n->is_graph_node())
             {
-                Node* new_outer = (n->is_omp_task_node()||n->is_ompss_async_target_node() ? n : outer_node);
+                Node* new_outer = (n->is_omp_task_node() || n->is_omp_async_target_node() ? n : outer_node);
                 clear_visits_in_level(n->get_graph_entry_node(), new_outer);
             }
 
@@ -661,7 +661,7 @@ namespace Analysis {
                 n = n->get_outer_node();
                 if(n->node_is_enclosed_by(outer_node)
                     || n->is_omp_task_node()
-                    || n->is_ompss_async_target_node()
+                    || n->is_omp_async_target_node()
                     || n->is_omp_virtual_tasksync())
                 {
                     n->set_visited(false);  // Be sure we do not miss any node
@@ -679,7 +679,7 @@ namespace Analysis {
         if (n->is_visited()
             && (n->node_is_enclosed_by(outer_node)
                 || n->is_omp_task_node()
-                || n->is_ompss_async_target_node()
+                || n->is_omp_async_target_node()
                 || n->is_omp_virtual_tasksync()))
         {
             n->set_visited(false);
@@ -700,13 +700,13 @@ namespace Analysis {
         if (n->is_visited_aux()
             && (n->node_is_enclosed_by(outer_node)
                 || n->is_omp_task_node()
-                || n->is_ompss_async_target_node()))
+                || n->is_omp_async_target_node()))
         {
             n->set_visited_aux(false);
 
             if(n->is_graph_node())
             {
-                Node* new_outer = ((n->is_omp_task_node()||n->is_ompss_async_target_node()) ? n : outer_node);
+                Node* new_outer = ((n->is_omp_task_node() || n->is_omp_async_target_node()) ? n : outer_node);
                 clear_visits_aux_in_level(n->get_graph_entry_node(), new_outer);
             }
 
@@ -715,7 +715,7 @@ namespace Analysis {
                 n = n->get_outer_node();
                 if (n->node_is_enclosed_by(outer_node)
                     || n->is_omp_task_node()
-                    || n->is_ompss_async_target_node())
+                    || n->is_omp_async_target_node())
                     n->set_visited_extgraph_aux(false);     // Be sure we do not miss any node
                                                             // in case we clean up from the middle of the graph
             }
@@ -927,7 +927,7 @@ namespace Analysis {
     {
         ObjectList<Node*> result;
         if (!task->is_omp_task_node()
-            && !task->is_ompss_async_target_node())
+            && !task->is_omp_async_target_node())
         {
             WARNING_MESSAGE("Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0);
         }
@@ -961,7 +961,7 @@ namespace Analysis {
     ObjectList<Node*> ExtensibleGraph::get_task_last_sync_for_tasks(Node* task) const
     {
         if (!task->is_omp_task_node()
-            && !task->is_ompss_async_target_node())
+            && !task->is_omp_async_target_node())
             return ObjectList<Node*>();
 
         std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync_tasks.find(task);
@@ -977,7 +977,7 @@ namespace Analysis {
     ObjectList<Node*> ExtensibleGraph::get_task_last_sync_for_sequential_code(Node* task) const
     {
         if (!task->is_omp_task_node()
-            && !task->is_ompss_async_target_node())
+            && !task->is_omp_async_target_node())
             return ObjectList<Node*>();
 
         std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync_sequential.find(task);
@@ -1008,7 +1008,7 @@ namespace Analysis {
     ObjectList<Node*> ExtensibleGraph::get_task_next_sync_for_tasks(Node* task) const
     {
         if (!task->is_omp_task_node()
-            && !task->is_ompss_async_target_node())
+            && !task->is_omp_async_target_node())
             return ObjectList<Node*>();
 
         std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync_tasks.find(task);
@@ -1024,7 +1024,7 @@ namespace Analysis {
     ObjectList<Node*> ExtensibleGraph::get_task_next_sync_for_sequential_code(Node* task) const
     {
         if (!task->is_omp_task_node()
-            && !task->is_ompss_async_target_node())
+            && !task->is_omp_async_target_node())
             return ObjectList<Node*>();
 
         std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync_sequential.find(task);
@@ -1298,7 +1298,7 @@ namespace Analysis {
         Node* current = (n->is_omp_task_node() ? n->get_parents()[0] : n);
         while(result == NULL && current != NULL)
         {
-            if (current->is_omp_task_node() && current->is_ompss_async_target_node())
+            if (current->is_omp_task_node() || current->is_omp_async_target_node())
                 result = current;
             else
                 current = current->get_outer_node();
@@ -1336,7 +1336,7 @@ namespace Analysis {
                 {
                     ObjectList<Node*> children = current->get_children();
                     for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-                        if(!(*it)->is_omp_task_node() && !(*it)->is_ompss_async_target_node())
+                        if(!(*it)->is_omp_task_node() && !(*it)->is_omp_async_target_node())
                             result = node_contains_tasks_rec(graph_node, *it, tasks) || result;
                 }
             }
@@ -1353,7 +1353,7 @@ namespace Analysis {
 
     Node* ExtensibleGraph::get_enclosing_control_structure(Node* node)
     {
-        if (node->is_omp_task_node() || node->is_ompss_async_target_node())
+        if (node->is_omp_task_node() || node->is_omp_async_target_node())
             node = node->get_parents()[0];
 
         Node* outer_node = node->get_outer_node();
@@ -1373,7 +1373,7 @@ namespace Analysis {
     Node* ExtensibleGraph::get_task_creation_from_task(Node* task)
     {
         if (!task->is_omp_task_node()
-            && !task->is_ompss_async_target_node())
+            && !task->is_omp_async_target_node())
             return NULL;
 
         const ObjectList<Node*>& parents = task->get_parents();
@@ -1405,7 +1405,7 @@ namespace Analysis {
         Node* task = NULL;
         for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
         {
-            if ((*it)->is_omp_task_node() || (*it)->is_ompss_async_target_node())
+            if ((*it)->is_omp_task_node() || (*it)->is_omp_async_target_node())
             {
                 task = *it;
                 break;

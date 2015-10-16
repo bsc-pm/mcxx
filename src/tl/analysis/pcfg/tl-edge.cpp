@@ -142,11 +142,11 @@ namespace Analysis {
     NBase Edge::get_condition()
     {
         ERROR_CONDITION((!_source->is_omp_task_node()
-                            && !_source->is_ompss_sync_target_node()
-                            && !_source->is_ompss_async_target_node())
+                            && !_source->is_omp_sync_target_node()
+                            && !_source->is_omp_async_target_node())
                         || (!_target->is_omp_task_node()
-                            && !_source->is_ompss_sync_target_node()
-                            && !_target->is_ompss_async_target_node()
+                            && !_source->is_omp_sync_target_node()
+                            && !_target->is_omp_async_target_node()
                             && !_target->is_omp_taskwait_node()
                             && !_target->is_omp_barrier_graph_node()),
                         "Only edges between tasks or targets and synchronization points "

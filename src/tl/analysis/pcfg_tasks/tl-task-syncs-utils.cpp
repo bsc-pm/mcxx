@@ -83,7 +83,7 @@ namespace TaskAnalysis{
                                                                     : source->get_children());
         for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
         {
-            if (!(*it)->is_omp_task_node() && !(*it)->is_ompss_async_target_node())
+            if (!(*it)->is_omp_task_node() && !(*it)->is_omp_async_target_node())
                 if (data_reference_is_modified_between_nodes_rec(*it, target, var, is_modified))
                     return true;
         }
@@ -102,7 +102,7 @@ namespace TaskAnalysis{
             for (ObjectList<Node*>::const_iterator it = source_children.begin();
                  it != source_children.end() && !target_found; ++it)
             {
-                if (!(*it)->is_omp_task_node() && !(*it)->is_ompss_async_target_node())
+                if (!(*it)->is_omp_task_node() && !(*it)->is_omp_async_target_node())
                 {
                     target_found = target_found || data_reference_is_modified_between_nodes_rec(*it, target, var, is_modified);
                     ExtensibleGraph::clear_visits_aux(*it);

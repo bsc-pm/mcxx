@@ -671,7 +671,7 @@ namespace {
 #endif
 
         if (current->is_omp_task_node()
-            || current->is_ompss_async_target_node())
+            || current->is_omp_async_target_node())
         {
             int new_domain_id = next_domain_id++;
             compute_task_synchronizations_rec(current->get_graph_entry_node(), changed, points_of_sync, new_domain_id, next_domain_id);
@@ -907,7 +907,7 @@ namespace {
         for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
         {
             Node* child = (*it)->get_target();
-            if ((child->is_omp_task_node() || child->is_ompss_async_target_node())
+            if ((child->is_omp_task_node() || child->is_omp_async_target_node())
                 && (visited_tasks.find(child)==visited_tasks.end()) // Avoid cycles
                 && (((*it)->get_sync_kind() != __Maybe)))           // This path will be taken for sure
             {
@@ -942,7 +942,7 @@ namespace {
 
             // Add current node if it is a task or asynchronous target
             if ((current->is_omp_task_node()
-                    || current->is_ompss_async_target_node())
+                    || current->is_omp_async_target_node())
                 && (current != skip)
                 && !tasks_are_synchronized(current, skip))
             {
@@ -999,7 +999,7 @@ namespace {
                                     goto task_synchronized;
                                 }
                                 else if ((*itc)->is_omp_task_node()
-                                    || (*itc)->is_ompss_async_target_node())
+                                    || (*itc)->is_omp_async_target_node())
                                 {
                                     buff.push(*itc);
                                 }

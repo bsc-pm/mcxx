@@ -654,7 +654,7 @@ namespace Analysis {
         n->set_visited_extgraph(true);
 
         // 2.- Task nodes information has already been propagated to its corresponding task_creation node
-        if (n->is_omp_task_node() || n->is_ompss_async_target_node())
+        if (n->is_omp_task_node() || n->is_omp_async_target_node())
             return;
 
         // 3.- Compute the information from the children
@@ -759,7 +759,7 @@ namespace Analysis {
         NodeclSet private_ue_vars, private_killed_vars, private_undef_vars;
         if (n->is_omp_loop_node() || n->is_omp_sections_node() || n->is_omp_single_node()
             || n->is_omp_parallel_node() || n->is_omp_task_node()
-            || n->is_ompss_async_target_node() || n->is_ompss_sync_target_node())
+            || n->is_omp_async_target_node() || n->is_omp_sync_target_node())
         {   // Take into account data-sharing clauses in Use-Def Task node computation
             const Nodecl::List& environ =
             n->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();

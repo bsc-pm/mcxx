@@ -836,7 +836,7 @@ namespace Analysis {
                 || is_omp_flush_node() || is_omp_loop_node() || is_omp_master_node() || is_omp_parallel_node()
                 || is_omp_section_node() || is_omp_sections_node() || is_omp_simd_node() || is_omp_single_node()
                 || is_omp_task_creation_node() || is_omp_task_node() || is_omp_taskwait_node() || is_omp_taskyield_node()
-                || is_ompss_async_target_node() || is_ompss_sync_target_node() || is_ompss_taskwait_on_node());
+                || is_omp_async_target_node() || is_omp_sync_target_node() || is_ompss_taskwait_on_node());
     }
     
     bool Node::is_omp_atomic_node()
@@ -928,12 +928,12 @@ namespace Analysis {
         return (get_type() == __OmpTaskwait);
     }
 
-    bool Node::is_ompss_async_target_node()
+    bool Node::is_omp_async_target_node()
     {
         return (is_graph_node() && (get_graph_type() == __OmpAsyncTarget));
     }
 
-    bool Node::is_ompss_sync_target_node()
+    bool Node::is_omp_sync_target_node()
     {
         return (is_graph_node() && (get_graph_type() == __OmpSyncTarget));
     }

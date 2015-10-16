@@ -339,7 +339,7 @@ match_array_subscripts_end:
                 // If the current node is a task or a target,
                 // then try to simplify its synchronizations
                 if (current->is_omp_task_node()
-                    || current->is_ompss_async_target_node())
+                    || current->is_omp_async_target_node())
                 {
                     // Tune the synchronizations with its children, if possible
                     ObjectList<Edge*> exits = current->get_exit_edges();

@@ -110,7 +110,7 @@ namespace {
             return false;
         
         // Return true only when we find the task traversing the current path
-        if(current->is_omp_task_node() || current->is_ompss_async_target_node())
+        if(current->is_omp_task_node() || current->is_omp_async_target_node())
         {
             if(current == task)
                 return true;
@@ -807,13 +807,13 @@ insert_values:
     {
         // Fill source and target lists with the corresponding clauses
         if (source->_pcfg_node->is_omp_task_node()
-            || source->_pcfg_node->is_ompss_async_target_node())
+            || source->_pcfg_node->is_omp_async_target_node())
         {
             Nodecl::OpenMP::Task task = source->_pcfg_node->get_graph_related_ast().as<Nodecl::OpenMP::Task>();
             _source_clauses = get_task_dependency_clauses(task);
         }
         if (target->_pcfg_node->is_omp_task_node()
-            || target->_pcfg_node->is_ompss_async_target_node())
+            || target->_pcfg_node->is_omp_async_target_node())
         {
             Nodecl::OpenMP::Task task = target->_pcfg_node->get_graph_related_ast().as<Nodecl::OpenMP::Task>();
             _target_clauses = get_task_dependency_clauses(task);
@@ -916,7 +916,7 @@ insert_values:
                 tdg_node_id = current->get_graph_related_ast().get_line();
                 tdg_current = new TDG_Node(current, Task);
             }
-            else if(current->is_ompss_async_target_node())
+            else if(current->is_omp_async_target_node())
             {
                 tdg_node_id = current->get_graph_related_ast().get_line();
                 tdg_current = new TDG_Node(current, Target);
@@ -1149,8 +1149,8 @@ insert_values:
         n->set_visited(true);
 
         if (n->is_omp_task_node()
-            || n->is_ompss_sync_target_node()
-            || n->is_ompss_async_target_node())
+            || n->is_omp_sync_target_node()
+            || n->is_omp_async_target_node())
         {
             // Connect all tasks synchronized here with the new Taskwait/Barrier TDG_Node
             TDG_Node* tdg_sync = find_tdg_node_from_pcfg_node(n);
@@ -1159,8 +1159,8 @@ insert_values:
             {
                 Node* child = (*it)->get_target();
                 if (child->is_omp_task_node()
-                    || child->is_ompss_sync_target_node()
-                    || child->is_ompss_async_target_node()
+                    || child->is_omp_sync_target_node()
+                    || child->is_omp_async_target_node()
                     || child->is_omp_taskwait_node()
                     || child->is_omp_barrier_graph_node())
                 {
@@ -1191,7 +1191,7 @@ insert_values:
             {
                 Node* child = (*it)->get_target();
                 if (child->is_omp_task_node()
-                    || child->is_ompss_async_target_node()
+                    || child->is_omp_async_target_node()
                     || child->is_omp_taskwait_node()
                     || child->is_omp_barrier_graph_node())
                 {

@@ -149,7 +149,7 @@ namespace {
                                  "the node that is sequentially executed. "\
                                  "Task creation node %d has %d children", current->get_id(), children.size());
             }
-            else if (current->is_omp_task_node() || current->is_ompss_async_target_node())
+            else if (current->is_omp_task_node() || current->is_omp_async_target_node())
             {
                 ObjectList<Node*> children = current->get_children();
                 ERROR_CONDITION(children.empty(),

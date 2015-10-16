@@ -470,10 +470,10 @@ namespace Analysis {
             bool is_omp_taskwait_node();
 
             //! Returns true when the node is a OMPSS::ASYNCRHONOUS_TARGET node
-            bool is_ompss_async_target_node();
+            bool is_omp_async_target_node();
 
             //! Return true when the node is an OMPSS:SYNCRHONOUS_TARGET
-            bool is_ompss_sync_target_node();
+            bool is_omp_sync_target_node();
 
             //! Returns true when the node is a WAITON_DEPS node
             bool is_ompss_taskwait_on_node();
