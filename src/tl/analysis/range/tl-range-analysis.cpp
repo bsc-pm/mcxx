@@ -1145,9 +1145,10 @@ namespace {
     // We need this to avoid removing the constraint when purging unused constraints
     void ConstraintBuilder::visit(const Nodecl::ReturnStatement& n)
     {
-        Symbol ssa_sym(ssa_scope.new_symbol(fake_sym));
-        Nodecl::Symbol lhs = ssa_sym.make_nodecl(/*set_ref_type*/false);
         NBase rhs = n.get_value();
+        Symbol ssa_sym(ssa_scope.new_symbol(fake_sym));
+        ssa_sym.set_type(rhs.get_type());
+        Nodecl::Symbol lhs = ssa_sym.make_nodecl(/*set_ref_type*/false);
         visit_assignment(lhs, rhs);
     }
 
@@ -1688,10 +1689,25 @@ namespace {
             {
                 for (std::vector<CGNode*>::const_iterator itt = nodes.begin();
                      itt != nodes.end(); ++itt)
-                {   // In a cycle, the root is the Phi node
+                {   // In a cycle, the root is a Phi node
                     if ((*itt)->get_type() == __Phi)
-                    {
-                        scc->add_root(*itt);
+                    {   // Only when it has one back edge and
+                        // the other edge comes from a node outside the SCC
+                        // Otherwise, these Phi nodes are joining IfElse branches
+                        bool has_back_edge = 0;
+                        bool has_entry_from_other_scc = 0;
+                        const ObjectList<CGEdge*>& entries = (*itt)->get_entries();
+                        if (entries.size() != 2)
+                            continue;
+                        if (entries[0]->is_back_edge()
+                                || entries[1]->is_back_edge())
+                            has_back_edge = 1;
+                        if (_node_to_scc_map[entries[0]->get_source()] != _node_to_scc_map[*itt]
+                                || _node_to_scc_map[entries[1]->get_source()] != _node_to_scc_map[*itt])
+                            has_entry_from_other_scc = 1;
+
+                        if (has_back_edge && has_entry_from_other_scc)
+                            scc->add_root(*itt);
                     }
                 }
             }
@@ -1994,7 +2010,8 @@ namespace {
 
                 // 2.4.2.- Apply the widen operation
                 const NBase& new_valuation = n->get_valuation();
-                ERROR_CONDITION(!new_valuation.is<Nodecl::Range>(),
+                ERROR_CONDITION(!new_valuation.is<Nodecl::Range>()
+                                    && !new_valuation.is<Nodecl::Analysis::EmptyRange>(),
                                 "Non-range interval '%s' found for CG-Node %d. Range expected\n",
                                 new_valuation.prettyprint().c_str(), n->get_id());
                 widen_valuation = new_valuation;
@@ -2006,7 +2023,11 @@ namespace {
                     const Nodecl::Range& new_range = new_valuation.as<Nodecl::Range>();
                     const NBase& new_lb = new_range.get_lower();
                     const NBase& new_ub = new_range.get_upper();
-                    if (old_lb.is_constant() && new_lb.is_constant())
+                    if (last_range.is<Nodecl::Analysis::EmptyRange>())
+                    {
+                        widen_valuation = new_range;
+                    }
+                    else if (old_lb.is_constant() && new_lb.is_constant())
                     {
                         const_value_t* old_lb_c = old_lb.get_constant();
                         const_value_t* new_lb_c = new_lb.get_constant();
@@ -2250,7 +2271,8 @@ namespace {
 
                 // 4.2.- Apply the narrow operation
                 const NBase& new_valuation = n->get_valuation();
-                ERROR_CONDITION(!new_valuation.is<Nodecl::Range>(),
+                ERROR_CONDITION(!new_valuation.is<Nodecl::Range>()
+                                    && !new_valuation.is<Nodecl::Analysis::EmptyRange>(),
                                 "Non-range interval '%s' found for CG-Node %d. Range expected\n",
                                 new_valuation.prettyprint().c_str(), n->get_id());
                 narrow_valuation = new_valuation;
@@ -2660,7 +2682,7 @@ namespace {
 
                 // 2.- Replace the occurrences of the child_ssa_sym with phi_ssa_sym
                 //     only if there are modifications within the loop caused by the back edge
-                //     (i.e. parent_val is not a __ComparatorTrue)
+                //     (i.e. parent_c is not a __ComparatorTrue)
                 //     Do this before inserting the new one, because we do not want it to be replaced
                 std::stack<Node*> nodes;
                 nodes.push(parent->get_children()[0]);  // parent is the last node of a loop,
@@ -2669,7 +2691,6 @@ namespace {
                 Utils::Constraint& child_c = child_constrs[orig_var];
                 Symbol child_ssa_sym = child_c.get_symbol();
                 NBase child_ssa_var = child_ssa_sym.make_nodecl(/*set_ref_type*/false);
-                NBase parent_val = parent_c.get_value();
                 // The constraint may be a __ComparatorTrue
                 if (parent_c.get_kind() != Utils::ConstraintKind::__ComparatorTrue)
                 {
@@ -2683,7 +2704,7 @@ namespace {
 
                         // Base case: the node has already been processed
                         if (treated.find(n) != treated.end())
-                            break;
+                            continue;
                         treated.insert(n);
 
                         // Gather the constraints generated by this node
@@ -2704,8 +2725,11 @@ namespace {
 
                         // Prepare following iterations
                         ObjectList<Node*> children =
-                            n->is_exit_node() ? n->get_outer_node()->get_children()
-                                            : n->get_children();
+                            n->is_exit_node()
+                                ? n->get_outer_node()->get_children()           // exit graph nodes
+                                : n->is_graph_node()
+                                    ? n->get_graph_entry_node()->get_children() // enter graph nodes
+                                    : n->get_children();                        // regular child
                         for (ObjectList<Node*>::iterator itc = children.begin();
                             itc != children.end(); ++itc)
                         {

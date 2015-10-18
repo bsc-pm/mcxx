@@ -171,11 +171,17 @@ namespace {
         ERROR_CONDITION(b1.is<Nodecl::Analysis::MinusInfinity>() && b2.is<Nodecl::Analysis::PlusInfinity>(),
                         " Cannot add -inf + +inf. Undefined result.\n", 0);
 
-        // 2.- Add the boundaries
+        // 2.- Add the boundaries (avoiding overflows when operating with constants)
         NBase b;
-        if (b1.is<Nodecl::Analysis::MinusInfinity>() || b1.is<Nodecl::Analysis::PlusInfinity>())
+        if (b1.is<Nodecl::Analysis::MinusInfinity>()
+                || (b1.is_constant() && const_value_is_zero(const_value_sub(b1.get_constant(), long_min)))
+                || b1.is<Nodecl::Analysis::PlusInfinity>()
+                || (b1.is_constant() && const_value_is_zero(const_value_sub(b1.get_constant(), long_max))))
             b = b1;             // -inf + x = -inf, +inf + x = +inf
-        else if (b2.is<Nodecl::Analysis::MinusInfinity>() || b2.is<Nodecl::Analysis::PlusInfinity>())
+        else if (b2.is<Nodecl::Analysis::MinusInfinity>()
+                || (b2.is_constant() && const_value_is_zero(const_value_sub(b2.get_constant(), long_min)))
+                || b2.is<Nodecl::Analysis::PlusInfinity>()
+                || (b2.is_constant() && const_value_is_zero(const_value_sub(b2.get_constant(), long_max))))
             b = b2;             // x + -inf = -inf, x + +inf = +inf
         else if (b1.is_constant() && b2.is_constant())
             b = NBase(const_value_to_nodecl(const_value_add(b1.get_constant(), b2.get_constant())));
@@ -226,13 +232,18 @@ namespace {
         ERROR_CONDITION(b1.is<Nodecl::Analysis::MinusInfinity>() && b2.is<Nodecl::Analysis::MinusInfinity>(),
                         " Cannot subtract -inf - -inf. Undefined result.\n", 0);
 
-        // 2.- Subtract the boundaries
+        // 2.- Subtract the boundaries (avoiding overflows when operating with constants)
         NBase b;
-        if (b1.is<Nodecl::Analysis::MinusInfinity>() || b1.is<Nodecl::Analysis::PlusInfinity>())
+        if (b1.is<Nodecl::Analysis::MinusInfinity>()
+                || (b1.is_constant() && const_value_is_zero(const_value_sub(b1.get_constant(), long_min)))
+                || b1.is<Nodecl::Analysis::PlusInfinity>()
+                || (b1.is_constant() && const_value_is_zero(const_value_sub(b1.get_constant(), long_max))))
             b = b1;             // -inf - x = -inf, +inf - x = +inf
-        else if (b2.is<Nodecl::Analysis::MinusInfinity>())
+        else if (b2.is<Nodecl::Analysis::MinusInfinity>()
+                || (b2.is_constant() && const_value_is_zero(const_value_sub(b2.get_constant(), long_min))))
             b = plus_inf.shallow_copy();             // x - -inf = +inf
-        else if (b2.is<Nodecl::Analysis::PlusInfinity>())
+            else if (b2.is<Nodecl::Analysis::PlusInfinity>()
+                || (b2.is_constant() && const_value_is_zero(const_value_sub(b2.get_constant(), long_max))))
             b = minus_inf.shallow_copy();            // x - +inf = -inf
         else if (b1.is_constant() && b2.is_constant())
             b = NBase(const_value_to_nodecl(const_value_sub(b1.get_constant(), b2.get_constant())));
