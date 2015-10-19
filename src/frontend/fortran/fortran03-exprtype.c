@@ -318,13 +318,12 @@ static void fortran_check_expression_impl_(AST expression, const decl_context_t*
         }
         else
         {
-            nodecl_t konst = const_value_to_nodecl_with_basic_type(nodecl_get_constant(*nodecl_output),
-                    fortran_get_rank0_type(nodecl_get_type(*nodecl_output)));
+            const_value_t* konst = nodecl_get_constant(*nodecl_output);
             fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s' with a constant value of '%s'\n",
                     ast_location(expression),
                     fortran_prettyprint_in_buffer(expression),
                     print_declarator(nodecl_get_type(*nodecl_output)),
-                    codegen_to_str(konst, nodecl_retrieve_context(*nodecl_output)));
+                    const_value_to_str(konst));
         }
     }
 
