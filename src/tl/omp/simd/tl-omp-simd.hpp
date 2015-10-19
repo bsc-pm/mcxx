@@ -53,6 +53,7 @@ namespace TL
                 std::string _fast_math_enabled_str;
                 std::string _avx2_enabled_str;
                 std::string _neon_enabled_str;
+                std::string _romol_enabled_str;
                 std::string _knc_enabled_str;
                 std::string _knl_enabled_str;
                 std::string _spml_enabled_str;
@@ -64,6 +65,7 @@ namespace TL
                 bool _fast_math_enabled;
                 bool _avx2_enabled;
                 bool _neon_enabled;
+                bool _romol_enabled;
                 bool _knc_enabled;
                 bool _knl_enabled;
                 bool _spml_enabled;
@@ -75,6 +77,7 @@ namespace TL
                 void set_fast_math(const std::string fast_math_enabled_str);
                 void set_avx2(const std::string avx2_enabled_str);
                 void set_neon(const std::string neon_enabled_str);
+                void set_romol(const std::string romol_enabled_str);
                 void set_knc(const std::string knc_enabled_str);
                 void set_knl(const std::string knl_enabled_str);
                 void set_spml(const std::string spml_enabled_str);

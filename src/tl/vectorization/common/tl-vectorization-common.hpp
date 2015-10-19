@@ -58,7 +58,8 @@ namespace TL
             AVX2_ISA,
             KNC_ISA,
             KNL_ISA,
-            NEON_ISA
+            NEON_ISA,
+            ROMOL_ISA,
         };
     }
 }

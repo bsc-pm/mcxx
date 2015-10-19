@@ -84,6 +84,11 @@ namespace TL {
                     _neon_enabled_str,
                     "0").connect(std::bind(&Simd::set_neon, this, std::placeholders::_1));
 
+            register_parameter("romol_enabled",
+                    "If set to '1' enables compilation for RoMoL instruction set, otherwise it is disabled",
+                    _romol_enabled_str,
+                    "0").connect(std::bind(&Simd::set_romol, this, std::placeholders::_1));
+
             register_parameter("spml_enabled",
                     "If set to '1' enables SPML OpenMP mode, otherwise it is disabled",
                     _spml_enabled_str,
@@ -136,6 +141,11 @@ namespace TL {
             parse_boolean_option("neon_enabled", neon_enabled_str, _neon_enabled, "Invalid neon_enabled value");
         }
 
+        void Simd::set_romol(const std::string romol_enabled_str)
+        {
+            parse_boolean_option("romol_enabled", romol_enabled_str, _romol_enabled, "Invalid romol_enabled value");
+        }
+
         void Simd::set_spml(const std::string spml_enabled_str)
         {
             parse_boolean_option("spml_enabled", spml_enabled_str, _spml_enabled, "Invalid spml_enabled value");
@@ -184,6 +194,7 @@ namespace TL {
                     { _knc_enabled,  "KNC",  KNC_ISA, },
                     { _knl_enabled,  "KNL",  KNL_ISA, },
                     { _neon_enabled, "NEON", NEON_ISA },
+                    { _romol_enabled, "RoMoL", ROMOL_ISA },
                 };
 
                 simd_isa = SSE4_2_ISA; // Default ISA is SSE 4.2
@@ -212,11 +223,20 @@ namespace TL {
                     fatal_error("SVML cannot be used with NEON\n");
                 }
 
+                if (_svml_enabled && _romol_enabled)
+                {
+                    fatal_error("SVML cannot be used with RoMoL\n");
+                }
+
                 if (_spml_enabled)
                 {
                     if (_neon_enabled)
                     {
                         fatal_error("SPML cannot be used with NEON\n");
+                    }
+                    if (_romol_enabled)
+                    {
+                        fatal_error("SPML cannot be used with RoMoL\n");
                     }
 
                     fprintf(stderr, " -- SPML OpenMP enabled -- \n");
@@ -261,6 +281,13 @@ namespace TL {
 
             switch (simd_isa)
             {
+                case ROMOL_ISA:
+                    _vector_length = 4096;
+                    _device_name = "romol";
+                    _support_masking = true;
+                    _mask_size = 1024;
+
+                    break;
                 case KNC_ISA:
                     _vector_length = 64;
                     _device_name = "knc";
