@@ -88,6 +88,8 @@ namespace TL
                     const TL::Symbol& tl_symbol); 
 
             bool is_all_one_mask(const Nodecl::NodeclBase& n);
+            Nodecl::MaskLiteral get_all_one_mask(const int num_elements,
+                    const bool support_masking);
 
             Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask);
 
@@ -110,7 +112,9 @@ namespace TL
                     const Nodecl::NodeclBase& then);
 
             Nodecl::MaskLiteral get_contiguous_mask_literal(
-                    const int size, const int num_active_lanes);
+                    const int size,
+                    const int num_active_lanes,
+                    const bool support_masking);
             Nodecl::List get_vector_offset_list(
                     const int start_value, const int increment,
                     const int vector_size);

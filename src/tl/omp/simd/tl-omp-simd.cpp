@@ -282,10 +282,10 @@ namespace TL {
             switch (simd_isa)
             {
                 case ROMOL_ISA:
-                    _vector_length = 4096;
+                    _vector_length = 128;
                     _device_name = "romol";
                     _support_masking = true;
-                    _mask_size = 1024;
+                    _mask_size = 128;
 
                     break;
                 case KNC_ISA:

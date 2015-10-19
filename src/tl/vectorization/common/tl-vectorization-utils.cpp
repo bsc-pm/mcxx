@@ -214,6 +214,25 @@ namespace Utils
         return false;
     }
 
+    int get_mask_size(const int num_elements,
+            const bool support_masking)
+    {
+        return support_masking ? // todo: unify representation?
+            num_elements/8 : // bit mask representation
+            num_elements;    // integer mask representation (sse)
+    }
+
+    Nodecl::MaskLiteral get_all_one_mask(const int num_elements,
+            const bool support_masking)
+    {
+        int mask_size = get_mask_size(
+                num_elements, support_masking);
+
+        return Nodecl::MaskLiteral::make(
+                TL::Type::get_mask_type(num_elements),
+                    const_value_get_minus_one(mask_size, 1));
+    }
+
     Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask)
     {
         if(Utils::is_all_one_mask(mask))
@@ -319,24 +338,29 @@ namespace Utils
         }
     }
 
-    Nodecl::MaskLiteral get_contiguous_mask_literal(const int size, const int num_active_lanes)
+    Nodecl::MaskLiteral get_contiguous_mask_literal(const int size,
+            const int num_active_lanes,
+            const bool support_masking)
     {
+        int mask_size = get_mask_size(size, support_masking);
+
         if (num_active_lanes == 0)
         {
             return Nodecl::MaskLiteral::make(
                     TL::Type::get_mask_type(size),
-                    const_value_get_zero(size, 1));
+                    const_value_get_zero(mask_size, 1));
         }
 
         if ( size == num_active_lanes)
         {
             return Nodecl::MaskLiteral::make(
                     TL::Type::get_mask_type(size),
-                    const_value_get_minus_one(size, 1));
+                    const_value_get_minus_one(mask_size, 1));
         }
 
         const_value_t* mask_value;
 
+        // TODO: Use get_mask_size
         if (size == 16)
         {
             unsigned short int value =

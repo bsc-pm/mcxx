@@ -475,7 +475,8 @@ namespace Vectorization
             {
                 mask_value = Vectorization::Utils::get_contiguous_mask_literal(
                         _environment._vectorization_factor,
-                        _epilog_iterations);
+                        _epilog_iterations,
+                        _environment._support_masking);
             }
             else // Unknown number of iterations
             {
@@ -487,7 +488,8 @@ namespace Vectorization
                 Nodecl::MaskLiteral all_one_mask =
                     Vectorization::Utils::get_contiguous_mask_literal(
                             _environment._vectorization_factor,
-                            _environment._vectorization_factor);
+                            _environment._vectorization_factor,
+                            _environment._support_masking);
                 _environment._mask_list.push_back(all_one_mask);
 
                 // Vectorising mask

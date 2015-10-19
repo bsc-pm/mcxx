@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer-environment.hpp"
+#include "tl-vectorization-utils.hpp"
 
 #include "tl-nodecl.hpp"
 #include "cxx-cexpr.h"
@@ -96,10 +97,11 @@ namespace Vectorization
         _analysis_scopes.push_back(n);
 
         // Add MaskLiteral to mask_list
+
         Nodecl::MaskLiteral all_one_mask =
-            Nodecl::MaskLiteral::make(
-                    TL::Type::get_mask_type(_vectorization_factor),
-                    const_value_get_minus_one(_vectorization_factor, 1));
+            Vectorization::Utils::get_all_one_mask(
+                    _vectorization_factor, _support_masking);
+        
         _mask_list.push_back(all_one_mask);
     }
 
