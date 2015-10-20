@@ -62,6 +62,10 @@ namespace TL { namespace Vectorization {
             {
                 return n.as<Nodecl::Assignment>().get_lhs();
             }
+            else if (n.is<Nodecl::VectorMaskAssignment>())
+            {
+                return n.as<Nodecl::VectorMaskAssignment>().get_lhs();
+            }
             else
             {
                 internal_error("Code unreachable", 0);
@@ -274,6 +278,7 @@ namespace TL { namespace Vectorization {
                     builtin_fun.make_nodecl(/* set_ref_type */ true),
                     Nodecl::List::make(
                         assig_get_lhs(current_assig),
+                        n.get_lhs(),
                         n.get_rhs()),
                     /* alternate-name */ Nodecl::NodeclBase::null(),
                     /* function-form */ Nodecl::NodeclBase::null(),
@@ -342,6 +347,8 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorDiv& n)
     {
+        // FIXME: there is no 'div' yet
+        // visit_elementwise_binary_expression(n, "div");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorEqual& n)
@@ -525,7 +532,16 @@ namespace TL { namespace Vectorization {
     // void RomolVectorBackend::visit(const Nodecl::ParenthesizedExpression& n);
     // void RomolVectorBackend::visit(const Nodecl::VectorReductionAdd& n);
     // void RomolVectorBackend::visit(const Nodecl::VectorReductionMinus& n);
-    // void RomolVectorBackend::visit(const Nodecl::VectorMaskAssignment& n);
+
+    void RomolVectorBackend::visit(const Nodecl::VectorMaskAssignment& n)
+    {
+        AssignAndKeep k(current_assig, n);
+
+        Nodecl::NodeclBase rhs = n.get_rhs();
+
+        walk(rhs);
+    }
+
     // void RomolVectorBackend::visit(const Nodecl::VectorMaskConversion& n);
     // void RomolVectorBackend::visit(const Nodecl::VectorMaskOr& n);
     // void RomolVectorBackend::visit(const Nodecl::VectorMaskAnd& n);
