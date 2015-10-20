@@ -67,6 +67,63 @@ namespace TL { namespace Vectorization {
                 internal_error("Code unreachable", 0);
             }
         }
+
+        std::string type_name(TL::Type t)
+        {
+            if (t.is_float())
+            {
+                return "fl";
+            }
+            else if (t.is_double())
+            {
+                return "db";
+            }
+            else if (::is_any_signed_int_type(t.get_internal_type()))
+            {
+                int size = t.get_size();
+                std::stringstream ss;
+                ss << "int" << (size * 8);
+                return ss.str();
+            }
+                else if (::is_any_unsigned_int_type(t.get_internal_type()))
+            {
+                int size = t.get_size();
+                std::stringstream ss;
+                ss << "uint" << (size * 8);
+                return ss.str();
+            }
+            else
+            {
+                internal_error("Unsupported type '%s'\n", print_declarator(t.get_internal_type()));
+            }
+        }
+
+        std::string binary_operation_name(const std::string& op, TL::Type t)
+        {
+            std::stringstream ss;
+            std::string tname = type_name(t);
+            ss << "valib_" << op << "_" << tname << "_" << tname << "_" << tname;
+
+            return ss.str();
+        }
+
+        std::string unary_operation_name(const std::string& op, TL::Type t)
+        {
+            std::stringstream ss;
+            std::string tname = type_name(t);
+            ss << "valib_" << op << "_" << tname << "_" << tname;
+
+            return ss.str();
+        }
+
+        std::string relational_operation_name(const std::string& op, TL::Type t)
+        {
+            std::stringstream ss;
+            std::string tname = type_name(t);
+            ss << "valib_" << op << "_" << tname << "_" << tname;
+
+            return ss.str();
+        }
     }
 
     RomolVectorBackend::RomolVectorBackend()
@@ -129,7 +186,8 @@ namespace TL { namespace Vectorization {
         walk(rhs);
     }
 
-    void RomolVectorBackend::visit(const Nodecl::VectorAdd& n)
+    template <typename Node>
+    void RomolVectorBackend::visit_elementwise_binary_expression(const Node& n, const std::string& name)
     {
         if (current_assig.is_null())
         {
@@ -139,11 +197,12 @@ namespace TL { namespace Vectorization {
 
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
-        TL::Type element = t.vector_element();
-        ERROR_CONDITION(!element.is_float(), "Not implemented: %s", print_declarator(element.get_internal_type()));
 
-        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_add_fl_fl_fl");
-        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found", 0);
+        TL::Type element_type = t.vector_element();
+        std::string binary_operation = binary_operation_name(name, element_type);
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(
+                binary_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", binary_operation.c_str());
 
         current_assig.replace(
                 Nodecl::FunctionCall::make(
@@ -160,12 +219,82 @@ namespace TL { namespace Vectorization {
                 );
     }
 
+    template <typename Node>
+    void RomolVectorBackend::visit_elementwise_unary_expression(const Node& n, const std::string& name)
+    {
+        if (current_assig.is_null())
+        {
+            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+            return;
+        }
+
+        TL::Type t = n.get_type();
+        ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
+
+        TL::Type element_type = t.vector_element();
+        std::string binary_operation = unary_operation_name(name, element_type);
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(
+                binary_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", binary_operation.c_str());
+
+        current_assig.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(
+                        assig_get_lhs(current_assig),
+                        n.get_rhs()),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
+                );
+    }
+
+    template <typename Node>
+    void RomolVectorBackend::visit_relational_expression(const Node& n, const std::string& name)
+    {
+        if (current_assig.is_null())
+        {
+            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+            return;
+        }
+
+        TL::Type t = n.get_type();
+        ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
+
+        TL::Type element_type = t.vector_element();
+        std::string binary_operation = relational_operation_name(name, element_type);
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(
+                binary_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", binary_operation.c_str());
+
+        current_assig.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(
+                        assig_get_lhs(current_assig),
+                        n.get_rhs()),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
+                );
+    }
+
+    void RomolVectorBackend::visit(const Nodecl::VectorAdd& n)
+    {
+        visit_elementwise_binary_expression(n, "add");
+    }
+
     void RomolVectorBackend::visit(const Nodecl::VectorAlignRight& n)
     {
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorArithmeticShr& n)
     {
+        visit_elementwise_binary_expression(n, "asr");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorAssignment& n)
@@ -182,10 +311,12 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorBitwiseShl& n)
     {
+        visit_elementwise_binary_expression(n, "lsl");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorBitwiseShr& n)
     {
+        visit_elementwise_binary_expression(n, "lsr");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorBitwiseXor& n)
@@ -206,6 +337,7 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorDifferent& n)
     {
+        visit_relational_expression(n, "ne");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorDiv& n)
@@ -214,6 +346,7 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorEqual& n)
     {
+        visit_relational_expression(n, "eq");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorFabs& n)
@@ -234,10 +367,12 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorGreaterOrEqualThan& n)
     {
+        visit_relational_expression(n, "ge");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorGreaterThan& n)
     {
+        visit_relational_expression(n, "gt");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorLiteral& n)
@@ -254,11 +389,13 @@ namespace TL { namespace Vectorization {
 
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
-        TL::Type element = t.vector_element();
-        ERROR_CONDITION(!element.is_float(), "Not implemented: %s", print_declarator(element.get_internal_type()));
+        TL::Type element_type = t.vector_element();
 
-        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_ld_fl");
-        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found", 0);
+        std::string load_operation = "valib_ld_";
+        load_operation += type_name(element_type);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(load_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", load_operation.c_str());
 
         current_assig.replace(
                 Nodecl::FunctionCall::make(
@@ -272,7 +409,6 @@ namespace TL { namespace Vectorization {
                     n.get_locus()
                     )
                 );
-
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorLogicalOr& n)
@@ -281,30 +417,65 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorLowerOrEqualThan& n)
     {
+        visit_relational_expression(n, "le");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorLowerThan& n)
     {
+        visit_relational_expression(n, "lt");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorMinus& n)
     {
+        visit_elementwise_binary_expression(n, "sub");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorMod& n)
     {
+        // FIXME: there is no 'mod' yet
+        // visit_elementwise_binary_expression(n, "mod");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorMul& n)
     {
+        visit_elementwise_binary_expression(n, "mul");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorNeg& n)
     {
+        visit_elementwise_unary_expression(n, "neg");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorPromotion& n)
     {
+        if (current_assig.is_null())
+        {
+            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+            return;
+        }
+
+        TL::Type t = n.get_type();
+        ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
+        TL::Type element_type = t.vector_element();
+
+        std::string vector_promotion_operation = "valib_set_";
+        vector_promotion_operation += type_name(element_type);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(vector_promotion_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", vector_promotion_operation.c_str());
+
+        current_assig.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(
+                        assig_get_lhs(current_assig),
+                        n.get_rhs()),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
+                );
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorRcp& n)
@@ -327,11 +498,13 @@ namespace TL { namespace Vectorization {
     {
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
-        TL::Type element = t.vector_element();
-        ERROR_CONDITION(!element.is_float(), "Not implemented: %s", print_declarator(element.get_internal_type()));
+        TL::Type element_type = t.vector_element();
 
-        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_st_fl");
-        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found", 0);
+        std::string store_operation = "valib_st_";
+        store_operation += type_name(element_type);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(store_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", store_operation.c_str());
 
         n.replace(
                 Nodecl::FunctionCall::make(

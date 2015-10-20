@@ -45,6 +45,15 @@ namespace TL
 
                 Nodecl::NodeclBase current_assig;
 
+                template <typename Node>
+                void visit_elementwise_binary_expression(const Node& n, const std::string& name);
+
+                template <typename Node>
+                void visit_elementwise_unary_expression(const Node& n, const std::string& name);
+
+                template <typename Node>
+                void visit_relational_expression(const Node& n, const std::string& name);
+
             public:
                 RomolVectorBackend();
 
