@@ -282,10 +282,13 @@ namespace TL {
             switch (simd_isa)
             {
                 case ROMOL_ISA:
-                    _vector_length = 128;
+                    // length in _bytes_ of the vector register
+                    _vector_length = 512;
                     _device_name = "romol";
                     _support_masking = true;
-                    _mask_size = 128;
+                    // number of lanes we want to mask
+                    // the size of the mask register is _mask_size / 8
+                    _mask_size = 512;
 
                     break;
                 case KNC_ISA:

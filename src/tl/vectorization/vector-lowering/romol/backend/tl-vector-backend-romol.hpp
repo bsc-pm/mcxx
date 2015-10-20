@@ -31,6 +31,8 @@
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-visitor.hpp"
 
+#include <stack>
+
 namespace TL
 {
     namespace Vectorization
@@ -41,8 +43,12 @@ namespace TL
             private:
                 TL::Vectorization::Vectorizer& _vectorizer;
 
+                Nodecl::NodeclBase current_assig;
+
             public:
                 RomolVectorBackend();
+
+                virtual void visit(const Nodecl::Assignment& n);
 
                 virtual void visit(const Nodecl::FunctionCode& n);
                 virtual void visit(const Nodecl::ObjectInit& n);

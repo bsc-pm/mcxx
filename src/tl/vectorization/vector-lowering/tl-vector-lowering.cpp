@@ -220,6 +220,9 @@ namespace TL
                 RomolVectorLegalization romol_vector_legalization;
                 romol_vector_legalization.walk(translation_unit);
 
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
                 // Lower to RoMoL
                 RomolVectorBackend romol_vector_backend;
                 romol_vector_backend.walk(translation_unit);
