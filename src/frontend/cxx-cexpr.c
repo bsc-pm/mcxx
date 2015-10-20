@@ -2031,12 +2031,18 @@ static const_value_t* const_value_make_string_internal(const char* literal, int 
 {
     const_value_t* result = NEW0(const_value_t);
     result->kind = CVK_STRING;
-    
+
     result->value.m = NEW0(const_multi_value_t);
 
     result->value.m->kind = MVK_C_STRING;
     result->value.m->num_elements = num_elements + (add_null ? 1 : 0);
-    result->value.m->c_str = uniquestr(literal);
+
+    // Make sure the input is OK
+    char tmp[num_elements + 1];
+    strncpy(tmp, literal, num_elements);
+    tmp[num_elements] = '\0';
+
+    result->value.m->c_str = uniquestr(tmp);
 
     return result;
 }
