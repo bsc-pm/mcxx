@@ -33,6 +33,7 @@ linker_options =
 {simd, avx2} options = --variable=avx2_enabled:1
 {simd, (romol|valib)} options = --variable=romol_enabled:1
 {simd, (mmic|knl)} preprocessor_options = -include immintrin.h
+{simd, (romol|valib)} preprocessor_options = -I @PKGDATADIR@/romol -include valib.h
 {simd, avx2} preprocessor_options = -include immintrin.h
 linker_options = -Xlinker --enable-new-dtags
 linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -liomp5

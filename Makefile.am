@@ -3689,6 +3689,24 @@ support/mpi/openmpi/mpi.mf03 : $(srcdir)/support/mpi/openmpi/attr_fn-f90-interfa
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null -J support/mpi/openmpi $(srcdir)/support/mpi/openmpi/mpi.F90
 
 ##########################################################################
+# support/romol
+##########################################################################
+
+if BUILD_VECTORIZATION
+
+romoldir=$(pkgdatadir)/romol
+
+romol_DATA = \
+			  support/romol/valib.h \
+			  $(END)
+
+endif
+
+EXTRA_DIST += \
+			support/romol/valib.h \
+			$(END)
+
+##########################################################################
 # Hooks
 ##########################################################################
 

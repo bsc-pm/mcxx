@@ -59,6 +59,7 @@ linker_name = @GCC@
 {simd, avx2} options = --variable=avx2_enabled:1
 {simd, neon} options = --variable=neon_enabled:1
 {simd, (romol|valib)} options = --variable=romol_enabled:1
+{simd, (romol|valib)} preprocessor_options = -I @PKGDATADIR@/romol -include valib.h
 {(mmic|knl)} preprocessor_options = -include immintrin.h
 {simd, avx2} preprocessor_options = -include immintrin.h
 {simd,neon} preprocessor_options = -mfpu=neon -include arm_neon.h
