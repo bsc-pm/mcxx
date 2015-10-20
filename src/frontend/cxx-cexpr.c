@@ -3910,24 +3910,20 @@ const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
     int nelems1 = const_value_get_num_elements(v1);
     int nelems2 = const_value_get_num_elements(v2);
     int num_elements = nelems1 + nelems2 ;
-    char new_string[num_elements + 1];
+    const_value_t* new_string[num_elements + 1];
 
     int p = 0;
     int i;
     for (i = 0; i < nelems1; i++, p++)
     {
-        new_string[p] = const_value_cast_to_1(const_value_get_element_num(v1, i));
+        new_string[p] = const_value_get_element_num(v1, i);
     }
     for (i = 0; i < nelems2; i++, p++)
     {
-        new_string[p] = const_value_cast_to_1(const_value_get_element_num(v2, i));
+        new_string[p] = const_value_get_element_num(v2, i);
     }
 
-    new_string[num_elements] = '\0';
-
-    const char* str = uniquestr(new_string);
-
-    return const_value_make_string(str, num_elements);
+    return const_value_make_string_from_values(num_elements, new_string);
 }
 
 const_value_t* const_value_cast_as_another(const_value_t* val, const_value_t* mold)
