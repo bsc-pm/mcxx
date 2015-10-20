@@ -44,8 +44,8 @@ linker_name = @GCC@
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
 
 #simd
-{simd, !(mmic|knl|avx2|neon)} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
-{simd, !(mmic|knl|avx2|neon)} compiler_options = @SIMD_FLAGS@
+{simd, !(mmic|knl|avx2|neon|romol)} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !(mmic|knl|avx2|neon|romol)} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
