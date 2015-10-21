@@ -190,6 +190,91 @@ namespace TL { namespace Vectorization {
         walk(rhs);
     }
 
+    void RomolVectorBackend::emit_mask_is_zero(Nodecl::NodeclBase n,
+            Nodecl::NodeclBase mask_tmp)
+    {
+        const std::string mask_is_zero = "valib_mask_is_zero";
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(mask_is_zero);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", mask_is_zero.c_str());
+
+        n.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(mask_tmp),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
+                );
+    }
+
+    void RomolVectorBackend::emit_mask_is_nonzero(Nodecl::NodeclBase n,
+            Nodecl::NodeclBase mask_tmp)
+    {
+        Nodecl::NodeclBase t = n.shallow_copy();
+        emit_mask_is_zero(t, mask_tmp);
+
+        n.replace(
+                Nodecl::LogicalNot::make(
+                    t,
+                    TL::Type::get_bool_type(),
+                    n.get_locus())
+                );
+    }
+
+    namespace {
+        bool is_symbol_of_mask_type(Nodecl::NodeclBase n)
+        {
+            n = n.no_conv();
+
+            return n.is<Nodecl::Symbol>()
+                && n.get_symbol().get_type().is_mask();
+        }
+
+        bool is_constant_zero(Nodecl::NodeclBase n)
+        {
+            return n.is_constant()
+                && const_value_is_zero(n.get_constant());
+        }
+    }
+
+    template <typename Node>
+    void RomolVectorBackend::emit_mask_comparison(const Node& n,
+            void (RomolVectorBackend::* emit_cmp_fun)(Nodecl::NodeclBase, Nodecl::NodeclBase))
+    {
+        if (is_symbol_of_mask_type(n.get_lhs())
+                && is_constant_zero(n.get_rhs()))
+        {
+            // mask <?> 0
+            (this->*emit_cmp_fun)(n, n.get_lhs());
+        }
+        else if (is_symbol_of_mask_type(n.get_rhs())
+                && is_constant_zero(n.get_lhs()))
+        {
+            // 0 <?> mask
+            (this->*emit_cmp_fun)(n, n.get_rhs());
+        }
+        else
+        {
+            internal_error("unsupported mask operation at %s", n.get_locus_str().c_str());
+        }
+    }
+
+    void RomolVectorBackend::visit(const Nodecl::Different& n)
+    {
+        if (n.get_lhs().get_type().no_ref().is_mask()
+                || n.get_rhs().get_type().no_ref().is_mask())
+            emit_mask_comparison(n, &RomolVectorBackend::emit_mask_is_nonzero);
+    }
+
+    void RomolVectorBackend::visit(const Nodecl::Equal& n)
+    {
+        if (n.get_lhs().get_type().no_ref().is_mask()
+                || n.get_rhs().get_type().no_ref().is_mask())
+            emit_mask_comparison(n, &RomolVectorBackend::emit_mask_is_zero);
+    }
+
     template <typename Node>
     void RomolVectorBackend::visit_elementwise_binary_expression(const Node& n, const std::string& name)
     {

@@ -54,13 +54,23 @@ namespace TL
                 template <typename Node>
                 void visit_relational_expression(const Node& n, const std::string& name);
 
+                void emit_mask_is_nonzero(Nodecl::NodeclBase n, Nodecl::NodeclBase mask_tmp);
+                void emit_mask_is_zero(Nodecl::NodeclBase n, Nodecl::NodeclBase mask_tmp);
+
+                template <typename Node>
+                void emit_mask_comparison(const Node& n,
+                        void (RomolVectorBackend::* emit_cmp_fun)(Nodecl::NodeclBase, Nodecl::NodeclBase));
             public:
                 RomolVectorBackend();
 
-                virtual void visit(const Nodecl::Assignment& n);
-
+                // Non vector-specific
                 virtual void visit(const Nodecl::FunctionCode& n);
+                virtual void visit(const Nodecl::Assignment& n);
                 virtual void visit(const Nodecl::ObjectInit& n);
+                virtual void visit(const Nodecl::Different& n);
+                virtual void visit(const Nodecl::Equal& n);
+
+                // Vector specific
                 virtual void visit(const Nodecl::VectorAdd& n);
                 virtual void visit(const Nodecl::VectorAlignRight& n);
                 virtual void visit(const Nodecl::VectorArithmeticShr& n);

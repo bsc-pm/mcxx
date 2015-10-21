@@ -2,6 +2,7 @@
 #define VALIB_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // Vector registers
 typedef
@@ -309,6 +310,8 @@ void valib_set_uint8 (VRegId dest, uint8_t src);
 
 void valib_mask_all(MaskRegId dest);
 void valib_mask_none(MaskRegId dest);
+
+bool valib_mask_is_zero(MaskRegId src);
 
 void valib_mask_or(MaskRegId dest, MaskRegId src1, MaskRegId src2);
 void valib_mask_and(MaskRegId dest, MaskRegId src1, MaskRegId src2);
