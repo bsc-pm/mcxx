@@ -12,14 +12,22 @@ enum VRegId_tag
     V_8,  V_9,  V_10, V_11, V_12, V_13, V_14, V_15,
     V_16, V_17, V_18, V_19, V_20, V_21, V_22, V_23,
     V_24, V_25, V_26, V_27, V_28, V_29, V_30, V_31
-} VRegId;
+};
+
 
 // Mask registers
 typedef
 enum MaskRegId_tag
 {
     M_0, M_1, M_2, M_3, M_4, M_5, M_6, M_7
-} MaskRegId;
+};
+
+// These aliases will be internally used by Mercurium
+// Make sure you tag the intrinsic with the proper directionality
+typedef enum VRegId_tag VDestRegId;
+typedef enum VRegId_tag VSrcRegId;
+typedef enum MaskRegId_tag MaskDestRegId;
+typedef enum MaskRegId_tag MaskSrcRegId;
 
 // -------------------------------------------------------
 // Vector arithmetic (unmasked)
