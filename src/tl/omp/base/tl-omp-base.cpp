@@ -783,40 +783,6 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        PragmaCustomClause priority = pragma_line.get_clause("priority");
-        {
-            TL::ObjectList<Nodecl::NodeclBase> expr_list = priority.get_arguments_as_expressions(directive);
-
-            if (priority.is_defined()
-                    && expr_list.size() == 1)
-            {
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "This task has priority '" << expr_list[0].prettyprint() << "'\n";
-                    ;
-                }
-                execution_environment.append(
-                        Nodecl::OpenMP::Priority::make(
-                            expr_list[0],
-                            directive.get_locus()));
-            }
-            else
-            {
-                if (priority.is_defined())
-                {
-                    warn_printf_at(directive.get_locus(), "ignoring invalid 'priority' clause in 'task' construct\n");
-                }
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "No priority was defined for this task\n";
-                    ;
-                }
-            }
-        }
 
         // Attach the implicit flushes at the entry and exit of the task (for analysis purposes)
         execution_environment.append(
@@ -828,53 +794,11 @@ namespace TL { namespace OpenMP {
                     directive.get_locus())
                 );
 
-        // Label task (this is used only for instrumentation)
         handle_label_clause(directive, execution_environment);
 
-        PragmaCustomClause if_clause = pragma_line.get_clause("if");
-        {
-            ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
-            if (if_clause.is_defined()
-                    && expr_list.size() == 1)
-            {
-                execution_environment.append(Nodecl::OpenMP::If::make(expr_list[0].shallow_copy()));
-
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "This task will be deferred only if expression '"
-                        << expr_list[0].prettyprint() << "'\n"
-                        // << OpenMP::Report::indent
-                        // << OpenMP::Report::indent
-                        // << "Note that this does not affect dependences: if "
-                        // "the task is not deferred the current thread will block until they are satisfied\n"
-                        // << OpenMP::Report::indent
-                        // << "Note also that there is some unavoidable overhead "
-                        // "caused by the required bookkeeping of the task context, even if the task is not deferred\n"
-                    ;
-                }
-            }
-            else
-            {
-                if (if_clause.is_defined())
-                {
-                    error_printf_at(directive.get_locus(), "ignoring invalid 'if' clause\n");
-                }
-
-                // if (emit_omp_report())
-                // {
-                //     *_omp_report_file
-                //         << OpenMP::Report::indent
-                //         "This task may run deferred because it does not have any 'if' clause\n"
-                //         // << OpenMP::Report::indent
-                //         // << "Note that the runtime may still choose not to run the task deferredly by a number of reasons\n"
-                //         ;
-                // }
-            }
-        }
-
-        handle_final_clause(directive, execution_environment);
+        handle_task_if_clause(directive, execution_environment);
+        handle_task_final_clause(directive, execution_environment);
+        handle_task_priority_clause(directive, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -1265,7 +1189,7 @@ namespace TL { namespace OpenMP {
         handle_label_clause(directive, execution_environment);
 
         if (this->in_ompss_mode())
-            handle_final_clause(directive, execution_environment);
+            handle_task_final_clause(directive, execution_environment);
 
         if (pragma_line.get_clause("schedule").is_defined())
         {
@@ -3705,7 +3629,54 @@ namespace TL { namespace OpenMP {
         w.walk(execution_environment);
     }
 
-    void Base::handle_final_clause(
+    void Base::handle_task_if_clause(
+            const TL::PragmaCustomStatement& directive,
+            Nodecl::List& execution_environment)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
+        ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+        if (if_clause.is_defined()
+                && expr_list.size() == 1)
+        {
+            execution_environment.append(Nodecl::OpenMP::If::make(expr_list[0].shallow_copy()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "This task will be deferred only if expression '"
+                    << expr_list[0].prettyprint() << "'\n"
+                    // << OpenMP::Report::indent
+                    // << OpenMP::Report::indent
+                    // << "Note that this does not affect dependences: if "
+                    // "the task is not deferred the current thread will block until they are satisfied\n"
+                    // << OpenMP::Report::indent
+                    // << "Note also that there is some unavoidable overhead "
+                    // "caused by the required bookkeeping of the task context, even if the task is not deferred\n"
+                    ;
+            }
+        }
+        else
+        {
+            if (if_clause.is_defined())
+            {
+                error_printf_at(directive.get_locus(), "ignoring invalid 'if' clause\n");
+            }
+
+            // if (emit_omp_report())
+            // {
+            //     *_omp_report_file
+            //         << OpenMP::Report::indent
+            //         "This task may run deferred because it does not have any 'if' clause\n"
+            //         // << OpenMP::Report::indent
+            //         // << "Note that the runtime may still choose not to run the task deferredly by a number of reasons\n"
+            //         ;
+            // }
+        }
+    }
+
+    void Base::handle_task_final_clause(
             const TL::PragmaCustomStatement& directive,
             Nodecl::List& execution_environment)
     {
@@ -3734,6 +3705,43 @@ namespace TL { namespace OpenMP {
             if (final_clause.is_defined())
             {
                 error_printf_at(directive.get_locus(), "ignoring invalid 'final' clause\n");
+            }
+        }
+    }
+
+    void Base::handle_task_priority_clause(
+            const TL::PragmaCustomStatement& directive,
+            Nodecl::List& execution_environment)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomClause priority = pragma_line.get_clause("priority");
+        TL::ObjectList<Nodecl::NodeclBase> expr_list = priority.get_arguments_as_expressions(directive);
+
+        if (priority.is_defined()
+                && expr_list.size() == 1)
+        {
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "This task generating construct has priority '" << expr_list[0].prettyprint() << "'\n";
+            }
+            execution_environment.append(
+                    Nodecl::OpenMP::Priority::make(
+                        expr_list[0],
+                        directive.get_locus()));
+        }
+        else
+        {
+            if (priority.is_defined())
+            {
+                warn_printf_at(directive.get_locus(), "ignoring invalid 'priority' clause\n");
+            }
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "No priority was defined\n";
             }
         }
     }
@@ -3774,6 +3782,7 @@ namespace TL { namespace OpenMP {
             }
         }
     }
+
 
 } }
 

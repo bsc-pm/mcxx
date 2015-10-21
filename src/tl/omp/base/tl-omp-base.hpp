@@ -181,12 +181,20 @@ namespace TL
                         TL::Symbol new_induction_var,
                         TL::Symbol block_extent_var);
 
-                void handle_label_clause(
-                        const TL::PragmaCustomStatement& pragma_line,
+                void handle_task_if_clause(
+                        const TL::PragmaCustomStatement& directive,
                         Nodecl::List& execution_environment);
 
-                void handle_final_clause(
-                        const TL::PragmaCustomStatement& pragma_line,
+                void handle_task_final_clause(
+                        const TL::PragmaCustomStatement& directive,
+                        Nodecl::List& execution_environment);
+
+                void handle_task_priority_clause(
+                        const TL::PragmaCustomStatement& directive,
+                        Nodecl::List& execution_environment);
+
+                void handle_label_clause(
+                        const TL::PragmaCustomStatement& directive,
                         Nodecl::List& execution_environment);
 
                 void register_omp();
