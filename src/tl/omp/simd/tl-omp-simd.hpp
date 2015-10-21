@@ -92,6 +92,7 @@ namespace TL
 
                 std::string _device_name;
                 unsigned int _vector_length;
+                unsigned int _fixed_vectorization_factor;
                 bool _support_masking;
                 unsigned int _mask_size;
                 bool _fast_math_enabled;

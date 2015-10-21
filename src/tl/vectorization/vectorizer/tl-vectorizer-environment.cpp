@@ -36,6 +36,7 @@ namespace Vectorization
 {
     VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
             const unsigned int vector_length,
+            const unsigned int fixed_vectorization_factor,
             const bool support_masking,
             const unsigned int mask_size,
             const bool fast_math,
@@ -48,7 +49,9 @@ namespace Vectorization
             const map_tlsym_objlist_int_t& overlap_symbols_map,
             const objlist_tlsym_t * reduction_list,
             std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) :
-        _device(device), _vector_length(vector_length),
+        _device(device),
+        _vector_length(vector_length),
+        _fixed_vectorization_factor(fixed_vectorization_factor),
         _support_masking(support_masking),
         _mask_size(mask_size),
         _fast_math(fast_math),
@@ -61,14 +64,21 @@ namespace Vectorization
         _reduction_list(reduction_list),
         _new_external_vector_symbol_map(new_external_vector_symbol_map)
     {
-        if (target_type.is_valid())
+        if (_fixed_vectorization_factor == 0)
         {
-            _target_type = target_type;
-            _vectorization_factor =
-                vector_length/target_type.get_size();
+            if (target_type.is_valid())
+            {
+                _target_type = target_type;
+                _vectorization_factor =
+                    vector_length/target_type.get_size();
+            }
+            else
+                _vectorization_factor = 0;
         }
         else
-            _vectorization_factor = 0;
+        {
+            _vectorization_factor = _fixed_vectorization_factor;
+        }
 
         _inside_inner_masked_bb.push_back(false);
         _mask_check_bb_cost.push_back(0);
@@ -85,8 +95,11 @@ namespace Vectorization
     {
         _target_type = target_type;
 
-        _vectorization_factor =
-            _vector_length/target_type.get_size();
+        if (_fixed_vectorization_factor == 0)
+        {
+            _vectorization_factor =
+                _vector_length/target_type.get_size();
+        }
     }
 
     void VectorizerEnvironment::load_environment(

@@ -279,16 +279,17 @@ namespace TL {
                 _vectorizer.disable_gathers_scatters();
             }
 
+            _fixed_vectorization_factor = 0;
             switch (simd_isa)
             {
                 case ROMOL_ISA:
-                    // length in _bytes_ of the vector register
-                    _vector_length = 512;
+                    _vector_length  = 512;
+                    _fixed_vectorization_factor = 64;
                     _device_name = "romol";
                     _support_masking = true;
                     // number of lanes we want to mask
                     // the size of the mask register is _mask_size / 8
-                    _mask_size = 512;
+                    _mask_size = 64;
 
                     break;
                 case KNC_ISA:
@@ -451,7 +452,6 @@ namespace TL {
             Vectorization::prefetch_info_t prefetch_info;
             process_prefetch_clause(simd_environment, prefetch_info);
 
-
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
@@ -467,6 +467,7 @@ namespace TL {
             VectorizerEnvironment loop_environment(
                     _device_name,
                     _vector_length,
+                    _fixed_vectorization_factor,
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
@@ -483,7 +484,8 @@ namespace TL {
             // Add scopes, default masks, etc.
             loop_environment.load_environment(loop_statement);
             // Set target type
-            if (!loop_environment._target_type.is_valid())
+            if (_fixed_vectorization_factor == 0
+                    && !loop_environment._target_type.is_valid())
             {
                 VectorizerTargetTypeHeuristic target_type_heuristic;
                 loop_environment.set_target_type(
@@ -794,6 +796,7 @@ namespace TL {
             VectorizerEnvironment for_environment(
                     _device_name,
                     _vector_length,
+                    _fixed_vectorization_factor,
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
@@ -1242,6 +1245,7 @@ namespace TL {
             VectorizerEnvironment function_environment(
                     _device_name,
                     _vector_length,
+                    _fixed_vectorization_factor,
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
@@ -1444,6 +1448,7 @@ namespace TL {
             VectorizerEnvironment function_environment(
                     _device_name,
                     _vector_length,
+                    _fixed_vectorization_factor,
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
@@ -1614,6 +1619,7 @@ namespace TL {
             VectorizerEnvironment parallel_environment(
                     _device_name,
                     _vector_length,
+                    _fixed_vectorization_factor,
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
@@ -1886,7 +1892,15 @@ namespace TL {
 
             if(!omp_vector_length_for.is_null())
             {
-                vectorlengthfor_type = omp_vector_length_for.get_type();
+                if (_fixed_vectorization_factor == 0)
+                {
+                    vectorlengthfor_type = omp_vector_length_for.get_type();
+                }
+                else
+                {
+                    warn_printf_at(omp_vector_length_for.get_locus(),
+                            "ignoring 'vectorlengthfor' clause because in this architecture the vector length is fixed\n");
+                }
             }
         }
 

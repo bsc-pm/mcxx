@@ -40,6 +40,7 @@ namespace Vectorization
         public:
             const std::string& _device;
             const unsigned int _vector_length;
+            unsigned int _fixed_vectorization_factor;
             const bool _support_masking;
             const unsigned int _mask_size;
             const bool _fast_math;
@@ -71,6 +72,7 @@ namespace Vectorization
 
             VectorizerEnvironment(const std::string& device,
                     const unsigned int vector_length,
+                    const unsigned int fixed_vectorization_factor,
                     const bool support_masking,
                     const unsigned int mask_size,
                     const bool fast_math,
