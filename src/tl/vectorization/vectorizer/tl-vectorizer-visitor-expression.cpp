@@ -593,8 +593,6 @@ namespace Vectorization
         TL::Type vector_type = Utils::get_qualified_vector_to(
                 n_type, _environment._vectorization_factor);
 
-        Nodecl::Symbol n_symbol;
-
         Nodecl::NodeclBase gather_copy;
         Nodecl::NodeclBase base;
         Nodecl::NodeclBase strides;
@@ -619,12 +617,6 @@ namespace Vectorization
                 subscripted = Nodecl::Utils::advance_conversions(
                         subscripted.as<Nodecl::Cast>().get_rhs());
             }
-
-            ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
-                    "Vectorizer: ArraySubscript form not supported yet: %s",
-                    n.prettyprint().c_str());
-
-            n_symbol = subscripted.as<Nodecl::Symbol>();
 
             // Get a scatter for real scatter or unaligned store extra flag
             gather_copy = Vectorizer::_vectorizer_analysis->shallow_copy(array);
