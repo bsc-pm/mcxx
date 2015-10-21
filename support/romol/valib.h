@@ -34,20 +34,20 @@ typedef enum MaskRegId_tag MaskSrcRegId;
 // -------------------------------------------------------
 
 #define ARITH_BINOP(op) \
-void valib_##op##_db_db_db (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_fl_fl_fl (VRegId dest, VRegId src1, VRegId src2); \
+void valib_##op##_db_db_db (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_fl_fl_fl (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int64_int64_int64 (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_uint64_uint64_uint64 (VRegId dest, VRegId src1, VRegId src2); \
+void valib_##op##_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int32_int32_int32 (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_uint32_uint32_uint32 (VRegId dest, VRegId src1, VRegId src2); \
+void valib_##op##_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int16_int16_int16 (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_uint16_uint16_uint16 (VRegId dest, VRegId src1, VRegId src2); \
+void valib_##op##_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int8_int8_int8 (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_uint8_uint8_uint8 (VRegId dest, VRegId src1, VRegId src2);
+void valib_##op##_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2);
 
 // VDEST <- VSRC1 (op) VSRC2
 ARITH_BINOP(add)
@@ -55,20 +55,20 @@ ARITH_BINOP(sub)
 ARITH_BINOP(mul)
 
 #define ARITH_UNOP(op) \
-void valib_##op##_db_db (VRegId dest, VRegId src); \
-void valib_##op##_fl_fl (VRegId dest, VRegId src); \
+void valib_##op##_db_db (VDestRegId dest, VSrcRegId src); \
+void valib_##op##_fl_fl (VDestRegId dest, VSrcRegId src); \
 \
-void valib_##op##_int64_int64 (VRegId dest, VRegId src); \
-void valib_##op##_uint64_uint64 (VRegId dest, VRegId src); \
+void valib_##op##_int64_int64 (VDestRegId dest, VSrcRegId src); \
+void valib_##op##_uint64_uint64 (VDestRegId dest, VSrcRegId src); \
 \
-void valib_##op##_int32_int32 (VRegId dest, VRegId src); \
-void valib_##op##_uint32_uint32 (VRegId dest, VRegId src); \
+void valib_##op##_int32_int32 (VDestRegId dest, VSrcRegId src); \
+void valib_##op##_uint32_uint32 (VDestRegId dest, VSrcRegId src); \
 \
-void valib_##op##_int16_int16 (VRegId dest, VRegId src); \
-void valib_##op##_uint16_uint16 (VRegId dest, VRegId src); \
+void valib_##op##_int16_int16 (VDestRegId dest, VSrcRegId src); \
+void valib_##op##_uint16_uint16 (VDestRegId dest, VSrcRegId src); \
 \
-void valib_##op##_int8_int8 (VRegId dest, VRegId src); \
-void valib_##op##_uint8_uint8 (VRegId dest, VRegId src);
+void valib_##op##_int8_int8 (VDestRegId dest, VSrcRegId src); \
+void valib_##op##_uint8_uint8 (VDestRegId dest, VSrcRegId src);
 
 // VDEST <- (op) VSRC
 ARITH_UNOP(neg)
@@ -78,20 +78,20 @@ ARITH_UNOP(neg)
 // -------------------------------------------------------
 
 #define ARITH_BINOP_MASK(op) \
-void valib_##op##m_db_db_db (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
-void valib_##op##m_fl_fl_fl (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
+void valib_##op##m_db_db_db (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_fl_fl_fl (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
 \
-void valib_##op##m_int64_int64_int64 (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
-void valib_##op##m_uint64_uint64_uint64 (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
+void valib_##op##m_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
 \
-void valib_##op##m_int32_int32_int32 (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
-void valib_##op##m_uint32_uint32_uint32 (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
+void valib_##op##m_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
 \
-void valib_##op##m_int16_int16_int16 (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
-void valib_##op##m_uint16_uint16_uint16 (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
+void valib_##op##m_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
 \
-void valib_##op##m_int8_int8_int8 (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr); \
-void valib_##op##m_uint8_uint8_uint8 (VRegId dest, VRegId src1, VRegId src2, MaskRegId mr);
+void valib_##op##m_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr);
 
 // VDEST <- VSRC1 (op[mask]) VSRC2
 // (FIXME: what are the values of VDEST that correspond to unmasked elements?)
@@ -100,20 +100,20 @@ ARITH_BINOP_MASK(sub)
 ARITH_BINOP_MASK(mul)
 
 #define ARITH_UNOP_MASK(op) \
-void valib_##op##m_db_db (VRegId dest, VRegId src, MaskRegId mr); \
-void valib_##op##m_fl_fl (VRegId dest, VRegId src, MaskRegId mr); \
+void valib_##op##m_db_db (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
+void valib_##op##m_fl_fl (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
 \
-void valib_##op##m_int64_int64 (VRegId dest, VRegId src, MaskRegId mr); \
-void valib_##op##m_uint64_uint64 (VRegId dest, VRegId src, MaskRegId mr); \
+void valib_##op##m_int64_int64 (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
+void valib_##op##m_uint64_uint64 (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
 \
-void valib_##op##m_int32_int32 (VRegId dest, VRegId src, MaskRegId mr); \
-void valib_##op##m_uint32_uint32 (VRegId dest, VRegId src, MaskRegId mr); \
+void valib_##op##m_int32_int32 (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
+void valib_##op##m_uint32_uint32 (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
 \
-void valib_##op##m_int16_int16 (VRegId dest, VRegId src, MaskRegId mr); \
-void valib_##op##m_uint16_uint16 (VRegId dest, VRegId src, MaskRegId mr); \
+void valib_##op##m_int16_int16 (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
+void valib_##op##m_uint16_uint16 (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
 \
-void valib_##op##m_int8_int8 (VRegId dest, VRegId src, MaskRegId mr); \
-void valib_##op##m_uint8_uint8 (VRegId dest, VRegId src, MaskRegId mr);
+void valib_##op##m_int8_int8 (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
+void valib_##op##m_uint8_uint8 (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr);
 
 ARITH_UNOP_MASK(neg)
 
@@ -122,20 +122,20 @@ ARITH_UNOP_MASK(neg)
 // -------------------------------------------------------
 
 #define ARITH_BINOP_SCALAR(op) \
-void valib_##op##s_db_db_db (VRegId dest, VRegId src1, double src2, MaskRegId mr); \
-void valib_##op##s_fl_fl_fl (VRegId dest, VRegId src1, float src2, MaskRegId mr); \
+void valib_##op##s_db_db_db (VDestRegId dest, VSrcRegId src1, double src2, MaskSrcRegId mr); \
+void valib_##op##s_fl_fl_fl (VDestRegId dest, VSrcRegId src1, float src2, MaskSrcRegId mr); \
 \
-void valib_##op##s_int64_int64_int64 (VRegId dest, VRegId src1, int64_t src2, MaskRegId mr); \
-void valib_##op##s_uint64_uint64_uint64 (VRegId dest, VRegId src1, uint64_t src2, MaskRegId mr); \
+void valib_##op##s_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, int64_t src2, MaskSrcRegId mr); \
+void valib_##op##s_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, uint64_t src2, MaskSrcRegId mr); \
 \
-void valib_##op##s_int32_int32_int32 (VRegId dest, VRegId src1, int32_t src2, MaskRegId mr); \
-void valib_##op##s_uint32_uint32_uint32 (VRegId dest, VRegId src1, uint32_t src2, MaskRegId mr); \
+void valib_##op##s_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, int32_t src2, MaskSrcRegId mr); \
+void valib_##op##s_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, uint32_t src2, MaskSrcRegId mr); \
 \
-void valib_##op##s_int16_int16_int16 (VRegId dest, VRegId src1, int16_t src2, MaskRegId mr); \
-void valib_##op##s_uint16_uint16_uint16 (VRegId dest, VRegId src1, uint16_t src2, MaskRegId mr); \
+void valib_##op##s_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, int16_t src2, MaskSrcRegId mr); \
+void valib_##op##s_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, uint16_t src2, MaskSrcRegId mr); \
 \
-void valib_##op##s_int8_int8_int8 (VRegId dest, VRegId src1, int8_t src2, MaskRegId mr); \
-void valib_##op##s_uint8_uint8_uint8 (VRegId dest, VRegId src1, int8_t src2, MaskRegId mr);
+void valib_##op##s_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, int8_t src2, MaskSrcRegId mr); \
+void valib_##op##s_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, int8_t src2, MaskSrcRegId mr);
 
 // VDEST <- VSRC1 (op) scalar_SRC2
 ARITH_BINOP_SCALAR(add)
@@ -147,20 +147,20 @@ ARITH_BINOP_SCALAR(mul)
 // -------------------------------------------------------
 
 #define ARITH_BINOP_SCALAR_MASK(op) \
-void valib_##op##sm_db_db_db (VRegId dest, VRegId src1, double src2, MaskRegId mr); \
-void valib_##op##sm_fl_fl_fl (VRegId dest, VRegId src1, float src2, MaskRegId mr); \
+void valib_##op##sm_db_db_db (VDestRegId dest, VSrcRegId src1, double src2, MaskSrcRegId mr); \
+void valib_##op##sm_fl_fl_fl (VDestRegId dest, VSrcRegId src1, float src2, MaskSrcRegId mr); \
 \
-void valib_##op##sm_int64_int64_int64 (VRegId dest, VRegId src1, int64_t src2, MaskRegId mr); \
-void valib_##op##sm_uint64_uint64_uint64 (VRegId dest, VRegId src1, uint64_t src2, MaskRegId mr); \
+void valib_##op##sm_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, int64_t src2, MaskSrcRegId mr); \
+void valib_##op##sm_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, uint64_t src2, MaskSrcRegId mr); \
 \
-void valib_##op##sm_int32_int32_int32 (VRegId dest, VRegId src1, int32_t src2, MaskRegId mr); \
-void valib_##op##sm_uint32_uint32_uint32 (VRegId dest, VRegId src1, uint32_t src2, MaskRegId mr); \
+void valib_##op##sm_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, int32_t src2, MaskSrcRegId mr); \
+void valib_##op##sm_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, uint32_t src2, MaskSrcRegId mr); \
 \
-void valib_##op##sm_int16_int16_int16 (VRegId dest, VRegId src1, int16_t src2, MaskRegId mr); \
-void valib_##op##sm_uint16_uint16_uint16 (VRegId dest, VRegId src1, uint16_t src2, MaskRegId mr); \
+void valib_##op##sm_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, int16_t src2, MaskSrcRegId mr); \
+void valib_##op##sm_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, uint16_t src2, MaskSrcRegId mr); \
 \
-void valib_##op##sm_int8_int8_int8 (VRegId dest, VRegId src1, int8_t src2, MaskRegId mr); \
-void valib_##op##sm_uint8_uint8_uint8 (VRegId dest, VRegId src1, int8_t src2, MaskRegId mr);
+void valib_##op##sm_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, int8_t src2, MaskSrcRegId mr); \
+void valib_##op##sm_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, int8_t src2, MaskSrcRegId mr);
 
 // VDEST <- VSRC1 (op[mask]) scalar_SRC2
 // (FIXME: what are the values of VDEST that correspond to unmasked elements?)
@@ -173,24 +173,24 @@ ARITH_BINOP_SCALAR_MASK(mul)
 // -------------------------------------------------------
 
 #define ELEMENTWISE_BIT_BINOP(op) \
-void valib_##op##_int64_int64_int64 (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_uint64_uint64_uint64 (VRegId dest, VRegId src1, VRegId src2); \
+void valib_##op##_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int32_int32_int32 (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_uint32_uint32_uint32 (VRegId dest, VRegId src1, VRegId src2); \
+void valib_##op##_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int16_int16_int16 (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_uint16_uint16_uint16 (VRegId dest, VRegId src1, VRegId src2); \
+void valib_##op##_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int8_int8_int8 (VRegId dest, VRegId src1, VRegId src2); \
-void valib_##op##_uint8_uint8_uint8 (VRegId dest, VRegId src1, VRegId src2);
+void valib_##op##_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2);
 
 ELEMENTWISE_BIT_BINOP(lsl)
 ELEMENTWISE_BIT_BINOP(lsr)
 ELEMENTWISE_BIT_BINOP(asr)
 
 #define BITWISE_BINOP(op) \
-void valib_##op(VRegId dest, VRegId src1, VRegId src2);
+void valib_##op(VDestRegId dest, VSrcRegId src1, VSrcRegId src2);
 
 BITWISE_BINOP(or)
 BITWISE_BINOP(and)
@@ -200,7 +200,7 @@ BITWISE_BINOP(lsr)
 BITWISE_BINOP(asr)
 
 #define BITWISE_UNOP(op) \
-void valib_##op##b (VRegId dest, VRegId src1, VRegId src2);
+void valib_##op##b (VDestRegId dest, VSrcRegId src1, VSrcRegId src2);
 
 BITWISE_UNOP(not)
 
@@ -208,20 +208,20 @@ BITWISE_UNOP(not)
 // Relational operators
 // -------------------------------------------------------
 #define RELATIONAL_OP(op) \
-void valib_##op##_db_db (MaskRegId mrdest, VRegId src1, VRegId src2); \
-void valib_##op##_fl_fl (MaskRegId mrdest, VRegId src1, VRegId src2); \
+void valib_##op##_db_db (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_fl_fl (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int64_int64 (MaskRegId mrdest, VRegId src1, VRegId src2); \
-void valib_##op##_uint64_uint64 (MaskRegId mrdest, VRegId src1, VRegId src2); \
+void valib_##op##_int64_int64 (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint64_uint64 (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int32_int32 (MaskRegId mrdest, VRegId src1, VRegId src2); \
-void valib_##op##_uint32_uint32 (MaskRegId mrdest, VRegId src1, VRegId src2); \
+void valib_##op##_int32_int32 (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint32_uint32 (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int16_int16 (MaskRegId mrdest, VRegId src1, VRegId src2); \
-void valib_##op##_uint16_uint16 (MaskRegId mrdest, VRegId src1, VRegId src2); \
+void valib_##op##_int16_int16 (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint16_uint16 (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
 \
-void valib_##op##_int8_int8 (MaskRegId mrdest, VRegId src1, VRegId src2); \
-void valib_##op##_uint8_uint8 (MaskRegId mrdest, VRegId src1, VRegId src2);
+void valib_##op##_int8_int8 (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint8_uint8 (MaskSrcRegId mrdest, VSrcRegId src1, VSrcRegId src2);
 
 RELATIONAL_OP(eq)
 RELATIONAL_OP(ne)
@@ -235,20 +235,20 @@ RELATIONAL_OP(ge)
 // -------------------------------------------------------
 
 // DEST <- *ADDRESS
-void valib_ld_db ( VRegId dest, double * address);
-void valib_ld_fl ( VRegId dest, float * address);
-void valib_ld_int64 ( VRegId dest, int64_t * address);
-void valib_ld_int32 ( VRegId dest, int32_t * address);
-void valib_ld_int16 ( VRegId dest, int16_t * address);
-void valib_ld_int8 ( VRegId dest, int8_t * address);
+void valib_ld_db ( VDestRegId dest, double * address);
+void valib_ld_fl ( VDestRegId dest, float * address);
+void valib_ld_int64 ( VDestRegId dest, int64_t * address);
+void valib_ld_int32 ( VDestRegId dest, int32_t * address);
+void valib_ld_int16 ( VDestRegId dest, int16_t * address);
+void valib_ld_int8 ( VDestRegId dest, int8_t * address);
 
 // *ADDRESS <- SRC
-void valib_st_db ( VRegId src, double * address);
-void valib_st_fl ( VRegId src, float * address);
-void valib_st_int64 ( VRegId src, int64_t * address);
-void valib_st_int32 ( VRegId src, int32_t * address);
-void valib_st_int16 ( VRegId src, int16_t * address);
-void valib_st_int8 ( VRegId src, int8_t * address);
+void valib_st_db ( VSrcRegId src, double * address);
+void valib_st_fl ( VSrcRegId src, float * address);
+void valib_st_int64 ( VSrcRegId src, int64_t * address);
+void valib_st_int32 ( VSrcRegId src, int32_t * address);
+void valib_st_int16 ( VSrcRegId src, int16_t * address);
+void valib_st_int8 ( VSrcRegId src, int8_t * address);
 
 // -------------------------------------------------------
 // Gather/Scatter
@@ -261,20 +261,20 @@ void valib_st_int8 ( VRegId src, int8_t * address);
 // -------------------------------------------------------
 
 #define VECTOR_RED(op) \
-double valib_##op##_db (VRegId src); \
-float valib_##op##_fl (VRegId src); \
+double valib_##op##_db (VSrcRegId src); \
+float valib_##op##_fl (VSrcRegId src); \
 \
-int64_t valib_##op##_int64 (VRegId src); \
-uint64_t valib_##op##_uint64 (VRegId src); \
+int64_t valib_##op##_int64 (VSrcRegId src); \
+uint64_t valib_##op##_uint64 (VSrcRegId src); \
 \
-int32_t valib_##op##_int32 (VRegId src); \
-uint32_t valib_##op##_uint32 (VRegId src); \
+int32_t valib_##op##_int32 (VSrcRegId src); \
+uint32_t valib_##op##_uint32 (VSrcRegId src); \
 \
-int16_t valib_##op##_int16 (VRegId src); \
-uint16_t valib_##op##_uint16 (VRegId src); \
+int16_t valib_##op##_int16 (VSrcRegId src); \
+uint16_t valib_##op##_uint16 (VSrcRegId src); \
 \
-int8_t valib_##op##_int8 (VRegId src); \
-uint8_t valib_##op##_uint8 (VRegId src);
+int8_t valib_##op##_int8 (VSrcRegId src); \
+uint8_t valib_##op##_uint8 (VSrcRegId src);
 
 VECTOR_RED(add)
 VECTOR_RED(sub)
@@ -294,40 +294,40 @@ uint32_t valib_get_max_vector_length(void);
 // Vector value movement
 // -------------------------------------------------------
 
-void valib_mov(VRegId dest, VRegId src);
-void valib_movm(VRegId dest, VRegId src, MaskRegId mr);
+void valib_mov(VDestRegId dest, VSrcRegId src);
+void valib_movm(VDestRegId dest, VSrcRegId src, MaskSrcRegId mr);
 
 // -------------------------------------------------------
 // Scalar to vector promotion
 // -------------------------------------------------------
 
-void valib_set_db (VRegId dest, double src);
-void valib_set_fl (VRegId dest, float src);
-void valib_set_int64 (VRegId dest, int64_t src);
-void valib_set_uint64 (VRegId dest, uint64_t src);
-void valib_set_int32 (VRegId dest, int32_t src);
-void valib_set_uint32 (VRegId dest, uint32_t src);
-void valib_set_int16 (VRegId dest, int16_t src);
-void valib_set_uint16 (VRegId dest, uint16_t src);
-void valib_set_int8 (VRegId dest, int8_t src);
-void valib_set_uint8 (VRegId dest, uint8_t src);
+void valib_set_db (VDestRegId dest, double src);
+void valib_set_fl (VDestRegId dest, float src);
+void valib_set_int64 (VDestRegId dest, int64_t src);
+void valib_set_uint64 (VDestRegId dest, uint64_t src);
+void valib_set_int32 (VDestRegId dest, int32_t src);
+void valib_set_uint32 (VDestRegId dest, uint32_t src);
+void valib_set_int16 (VDestRegId dest, int16_t src);
+void valib_set_uint16 (VDestRegId dest, uint16_t src);
+void valib_set_int8 (VDestRegId dest, int8_t src);
+void valib_set_uint8 (VDestRegId dest, uint8_t src);
 
 // -------------------------------------------------------
 // Mask operations
 // -------------------------------------------------------
 
-void valib_mask_all(MaskRegId dest);
-void valib_mask_none(MaskRegId dest);
+void valib_mask_all(MaskDestRegId dest);
+void valib_mask_none(MaskDestRegId dest);
 
-bool valib_mask_is_zero(MaskRegId src);
+bool valib_mask_is_zero(MaskSrcRegId src);
 
-void valib_mask_or(MaskRegId dest, MaskRegId src1, MaskRegId src2);
-void valib_mask_and(MaskRegId dest, MaskRegId src1, MaskRegId src2);
-void valib_mask_xor(MaskRegId dest, MaskRegId src1, MaskRegId src2);
+void valib_mask_or(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
+void valib_mask_and(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
+void valib_mask_xor(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
 
-int32_t valib_mask_clz(MaskRegId src); // count leading zeros
-int32_t valib_mask_ctz(MaskRegId src); // count trailing zeros
-int32_t valib_mask_popcount(MaskRegId src);
+int32_t valib_mask_clz(MaskSrcRegId src); // count leading zeros
+int32_t valib_mask_ctz(MaskSrcRegId src); // count trailing zeros
+int32_t valib_mask_popcount(MaskSrcRegId src);
 
 // -------------------------------------------------------
 // Insert/extract
