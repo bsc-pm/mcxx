@@ -401,7 +401,7 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    static void compute_nodecl_udr(AST tree, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+    static void compute_nodecl_udr_(AST tree, const decl_context_t* decl_context, nodecl_t* nodecl_output, bool is_builtin)
     {
         AST omp_dr_reduction_id = ASTSon0(tree);
         AST omp_dr_typename_list = ASTSon1(tree);
@@ -480,6 +480,8 @@ namespace TL { namespace OpenMP {
                         type_name);
                 continue;
             }
+
+            new_red->set_is_builtin(is_builtin);
 
             // Now parse the combiner expression in the new expression scope
             if (IS_C_LANGUAGE
@@ -599,7 +601,27 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Core::parse_declare_reduction(ReferenceScope ref_sc, const std::string &declare_reduction)
+    static void compute_nodecl_udr_builtin(AST tree, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+    {
+        compute_nodecl_udr_(tree, decl_context, nodecl_output, /* is_builtin */ true);
+    }
+
+    static void compute_nodecl_udr_regular(AST tree, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+    {
+        compute_nodecl_udr_(tree, decl_context, nodecl_output, /* is_builtin */ false);
+    }
+
+    typedef void (*compute_nodecl_udr_t)(AST tree, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+
+    static compute_nodecl_udr_t compute_nodecl_udr(bool is_builtin)
+    {
+        if (is_builtin)
+            return compute_nodecl_udr_builtin;
+        else
+            return compute_nodecl_udr_regular;
+    }
+
+    void Core::parse_declare_reduction(ReferenceScope ref_sc, const std::string &declare_reduction, bool is_builtin)
     {
         Source declare_reduction_src;
         declare_reduction_src << declare_reduction;
@@ -608,17 +630,17 @@ namespace TL { namespace OpenMP {
                 ref_sc,
                 /* ParseFlags */ Source::DEFAULT,
                 "@OMP-DECLARE-REDUCTION@",
-                compute_nodecl_udr,
+                compute_nodecl_udr(is_builtin),
                 decl_context_map_id);
     }
 
-    void Core::parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src)
+    void Core::parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src, bool is_builtin)
     {
         declare_reduction_src.parse_generic(
                 ref_sc,
                 /* ParseFlags */ Source::DEFAULT,
                 "@OMP-DECLARE-REDUCTION@",
-                compute_nodecl_udr,
+                compute_nodecl_udr(is_builtin),
                 decl_context_map_id);
     }
 
@@ -666,13 +688,13 @@ namespace TL { namespace OpenMP {
             declare_reduction_src << " : " << initializer.get_raw_arguments()[0];
         }
 
-        parse_declare_reduction(directive.get_context_of_decl(), declare_reduction_src);
+        parse_declare_reduction(directive.get_context_of_decl(), declare_reduction_src, /* is_builtin */ false);
     }
 
     void Core::declare_reduction_handler_post(TL::PragmaCustomDirective directive) { }
 
     Reduction::Reduction(TL::Scope sc, const std::string& name, TL::Type t)
-        : _scope(sc), _name(name), _type(t), _locus(NULL), _is_initialization(false)
+        : _scope(sc), _name(name), _type(t), _locus(NULL), _is_initialization(false), _is_builtin(false)
     {
         // Create a new expression scope
         _expr_scope = new_block_context(sc.get_decl_context());
@@ -710,43 +732,6 @@ namespace TL { namespace OpenMP {
 
             TL::Symbol Reduction::* p = it->second;
             (this->*p) = omp_sym;
-        }
-    }
-
-    bool Reduction::is_builtin(const std::string& op_name)
-    {
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            return (op_name == "+"
-                    || op_name == "*"
-                    || op_name == "-"
-                    || op_name == "&"
-                    || op_name == "|"
-                    || op_name == "^"
-                    || op_name == "&&"
-                    || op_name == "||"
-                    || op_name == "max"
-                    || op_name == "min");
-        }
-        else if (IS_FORTRAN_LANGUAGE)
-        {
-            std::string lop = strtolower(op_name.c_str());
-            return (lop == "+"
-                    || lop == "*"
-                    || lop == "-"
-                    || lop == ".and."
-                    || lop == ".or."
-                    || lop == ".eqv."
-                    || lop == ".neqv."
-                    || lop == "max"
-                    || lop == "min"
-                    || lop == "iand"
-                    || lop == "ior"
-                    || lop == "ieor");
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
         }
     }
 
