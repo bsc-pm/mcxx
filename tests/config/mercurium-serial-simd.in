@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
 
-# Unmaintained tests
-cat <<EOF
-test_ignore=yes
-EOF
-
-exit
-
 if [ "@NANOX_ENABLED@" = "no" -o "@NANOX_SSE@" = "no" ];
 then
 
