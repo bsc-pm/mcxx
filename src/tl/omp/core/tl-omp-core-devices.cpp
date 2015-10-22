@@ -299,8 +299,9 @@ namespace TL { namespace OpenMP {
 
         PragmaCustomClause depend_clause = pragma_line.get_clause("depend");
         // depend
-        get_dependences_openmp(pragma_line,
+        get_dependences_openmp(
                 depend_clause,
+                pragma_line,
                 data_environment,
                 /* default-data-sharing */ DS_NONE,
                 extra_symbols);
