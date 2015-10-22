@@ -333,14 +333,15 @@ namespace TL
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source casting, intrin_src;
 
             // Intrinsic name
-            intrin_src << "_mm_cmplt";
+            intrin_src << casting << "_mm_cmplt";
 
             // Postfix
             if (type.is_float()) 
             { 
+                casting << "(" << as_type(TL::Type::get_int_type().get_vector_of_elements(4)) << ")";
                 intrin_src << "_ps"; 
             } 
             else if (type.is_signed_int() ||
@@ -385,14 +386,15 @@ namespace TL
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, casting;
 
             // Intrinsic name
-            intrin_src << "_mm_cmpgt";
+            intrin_src << casting <<"_mm_cmpgt";
 
             // Postfix
             if (type.is_float()) 
             { 
+                casting << "(" << as_type(TL::Type::get_int_type().get_vector_of_elements(4)) << ")";
                 intrin_src << "_ps"; 
             } 
             else if (type.is_signed_int() ||
@@ -437,14 +439,15 @@ namespace TL
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, casting;
 
             // Intrinsic name
-            intrin_src << "_mm_cmpgt";
+            intrin_src << casting << "_mm_cmpgt";
 
             // Postfix
             if (type.is_float()) 
             { 
+                casting << "(" << as_type(TL::Type::get_int_type().get_vector_of_elements(4)) << ")";
                 intrin_src << "_ps"; 
             } 
             else if (type.is_signed_int() ||
@@ -489,14 +492,15 @@ namespace TL
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, casting;
 
             // Intrinsic name
-            intrin_src << "_mm_cmplt";
+            intrin_src << casting << "_mm_cmplt";
 
             // Postfix
             if (type.is_float()) 
             { 
+                casting << "(" << as_type(TL::Type::get_int_type().get_vector_of_elements(4)) << ")";
                 intrin_src << "_ps"; 
             } 
             else if (type.is_signed_int() ||
@@ -541,14 +545,15 @@ namespace TL
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, casting;
 
             // Intrinsic name
-            intrin_src << "_mm_cmpeq";
+            intrin_src << casting << "_mm_cmpeq";
 
             // Postfix
             if (type.is_float()) 
             { 
+                casting << "(" << as_type(TL::Type::get_int_type().get_vector_of_elements(4)) << ")";
                 intrin_src << "_ps"; 
             } 
             else if (type.is_signed_int() ||
@@ -593,10 +598,13 @@ namespace TL
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, casting;
 
             // Intrinsic name
-            intrin_src << "_mm_cmpneq";
+            intrin_src
+                << "(" << as_type(TL::Type::get_int_type().get_vector_of_elements(4)) << ")"
+                << "_mm_andnot_ps("
+                << casting << "_mm_cmpeq";
 
             // Postfix
             if (type.is_float()) 
@@ -606,17 +614,20 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
+                casting << "(" << as_type(TL::Type::get_float_type().get_vector_of_elements(4)) << ")";
                 intrin_src << "_epi32"; 
             } 
             else if (type.is_signed_short_int() ||
                     type.is_unsigned_short_int()) 
             { 
+                casting << "(" << as_type(TL::Type::get_float_type().get_vector_of_elements(4)) << ")";
                 intrin_src << "_epi16"; 
             } 
             else if (type.is_char() || 
                     type.is_signed_char() ||
                     type.is_unsigned_char()) 
             { 
+                casting << "(" << as_type(TL::Type::get_float_type().get_vector_of_elements(4)) << ")";
                 intrin_src << "_epi8"; 
             } 
             else
@@ -634,6 +645,8 @@ namespace TL
             intrin_src << ", ";
             intrin_src << as_expression(node.get_rhs());
             intrin_src << ")";
+
+            intrin_src << ", (" << as_type(TL::Type::get_float_type().get_vector_of_elements(4)) << ") _mm_set1_epi32(~0))";
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
