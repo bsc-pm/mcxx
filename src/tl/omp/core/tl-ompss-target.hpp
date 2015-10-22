@@ -57,12 +57,17 @@ namespace TL { namespace OmpSs {
         // The real name of the kernel
         std::string name;
 
-        bool copy_deps;
+        enum CopyDepsValue {
+            UNDEF_COPY_DEPS,
+            NO_COPY_DEPS,
+            COPY_DEPS,
+        };
+        CopyDepsValue copy_deps;
 
         TargetContext()
             : device_list(), copy_in(), copy_out(), copy_inout(),
             ndrange(), shmem(), onto(), is_implicit(),
-            has_implements(), implements(), file(), name(), copy_deps()
+            has_implements(), implements(), file(), name(), copy_deps(UNDEF_COPY_DEPS)
         {
         }
     };
