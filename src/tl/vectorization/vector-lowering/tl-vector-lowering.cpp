@@ -169,11 +169,14 @@ namespace TL
 
             if(_avx2_enabled)
             {
-                // KNC Legalization phase
+                // AVX2 Legalization phase
                 AVX2VectorLegalization avx2_vector_legalization;
                 avx2_vector_legalization.walk(translation_unit);
 
-                // Lowering to intrinsics
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
+                // AVX2 Lowering to intrinsics
                 AVX2VectorLowering avx2_vector_lowering;
                 avx2_vector_lowering.walk(translation_unit);
             }
@@ -211,6 +214,9 @@ namespace TL
                 NeonVectorLegalization neon_vector_legalization;
                 neon_vector_legalization.walk(translation_unit);
 
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
                 // Lower to NEON intrinsics
                 NeonVectorBackend neon_vector_backend;
                 neon_vector_backend.walk(translation_unit);
@@ -229,6 +235,9 @@ namespace TL
             }
             else
             {
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
                 SSEVectorLowering sse_vector_lowering;
                 sse_vector_lowering.walk(translation_unit);
             }
