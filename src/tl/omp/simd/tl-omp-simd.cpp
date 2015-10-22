@@ -597,7 +597,7 @@ namespace TL {
 
                     // Vectorize reductions
                     if(_vectorizer.is_supported_reduction(
-                                omp_red.is_builtin(reduction_name),
+                                omp_red.is_builtin(),
                                 reduction_name,
                                 reduction_type,
                                 loop_environment))
@@ -903,7 +903,7 @@ namespace TL {
 
                     // Vectorize reductions
                     if(_vectorizer.is_supported_reduction(
-                                omp_red.is_builtin(reduction_name),
+                                omp_red.is_builtin(),
                                 reduction_name,
                                 reduction_type,
                                 for_environment))
@@ -1684,7 +1684,7 @@ namespace TL {
 
                     // Vectorize reductions
                     if(_vectorizer.is_supported_reduction(
-                                omp_red.is_builtin(reduction_name),
+                                omp_red.is_builtin(),
                                 reduction_name,
                                 reduction_type,
                                 parallel_environment))

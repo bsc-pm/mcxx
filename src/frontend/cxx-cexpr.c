@@ -84,11 +84,24 @@ typedef enum const_value_kind_tag
     CVK_UNKNOWN, // something constant but without logical value
 } const_value_kind_t;
 
+typedef
+enum multi_value_kind_tag
+{
+    MVK_INVALID = 0,
+    MVK_ELEMENTS,
+    MVK_C_STRING,
+} multi_value_kind_t;
+
 typedef struct const_multi_value_tag
 {
     type_t* struct_type;
+    multi_value_kind_t kind;
+
     int num_elements;
-    const_value_t* elements[];
+    union {
+        const_value_t** elements;
+        const char* c_str;
+    };
 } const_multi_value_t;
 
 /*
@@ -324,17 +337,51 @@ static const_value_t* multival_get_element_num(const_value_t* v, int element)
 {
     ERROR_CONDITION(element >= v->value.m->num_elements, "Invalid index %d in a multi-value constant with up to %d components", 
             element, v->value.m->num_elements);
-    return v->value.m->elements[element];
+
+    if (v->value.m->kind == MVK_ELEMENTS)
+    {
+        return v->value.m->elements[element];
+    }
+    else if (v->value.m->kind == MVK_C_STRING)
+    {
+        int len = strlen(v->value.m->c_str);
+
+        if (len == v->value.m->num_elements)
+            return const_value_get_integer(
+                    v->value.m->c_str[element],
+                    /* bytes */ 1,
+                    /* sign */ 0);
+        else if (len + 1 == v->value.m->num_elements)
+        {
+            if (element == len)
+            {
+                return const_value_get_zero(1, /* sign */ 0);
+            }
+            else
+            {
+                return const_value_get_integer(
+                        v->value.m->c_str[element],
+                        /* bytes */ 1,
+                        /* sign */ 0);
+            }
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+    return NULL;
 }
 
 static const_value_t* make_multival(int num_elements, const_value_t **elements)
 {
     const_value_t* result = NEW0(const_value_t);
     
-    result->value.m = xcalloc
-        /* cannot change this to NEW_VEC0 because of flexible member */
-        (1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
+    result->value.m = NEW0(const_multi_value_t);
+
+    result->value.m->kind = MVK_ELEMENTS;
     result->value.m->num_elements = num_elements;
+    result->value.m->elements = NEW_VEC(const_value_t*, num_elements);
 
     int i;
     for (i = 0; i < num_elements; i++)
@@ -569,11 +616,12 @@ char const_value_is_nonzero(const_value_t* v)
 {
     if (IS_MULTIVALUE(v->kind))
     {
-        int num_elements = v->value.m->num_elements;
+        int num_elements = const_value_get_num_elements(v);
         int i;
         for (i=0; i<num_elements; i++)
         {
-            if (const_value_is_nonzero(v->value.m->elements[i]))
+            if (const_value_is_nonzero(
+                        const_value_get_element_num(v, i)))
                 return 1;
         }
 
@@ -1981,29 +2029,33 @@ const_value_t* const_value_make_string_from_values(int num_elements, const_value
 
 static const_value_t* const_value_make_string_internal(const char* literal, int num_elements, char add_null)
 {
-    const_value_t* elements[num_elements + 1];
-    memset(elements, 0, sizeof(elements));
-    int i;
-    for (i = 0; i < num_elements; i++)
-    {
-        elements[i] = const_value_get_integer(literal[i], 1, 0);
-    }
-    if (add_null)
-    {
-        elements[num_elements] = const_value_get_integer(0, 1, 0);
-        num_elements++;
-    }
+    const_value_t* result = NEW0(const_value_t);
+    result->kind = CVK_STRING;
 
-    return const_value_make_string_from_values(num_elements, elements);
+    result->value.m = NEW0(const_multi_value_t);
+
+    result->value.m->kind = MVK_C_STRING;
+    result->value.m->num_elements = num_elements + (add_null ? 1 : 0);
+
+    // Make sure the input is OK
+    char tmp[num_elements + 1];
+    strncpy(tmp, literal, num_elements);
+    tmp[num_elements] = '\0';
+
+    result->value.m->c_str = uniquestr(tmp);
+
+    return result;
 }
 
 const_value_t* const_value_make_string_null_ended(const char* literal, int num_elements)
 {
+    ERROR_CONDITION(literal == NULL, "Invalid literal", 0);
     return const_value_make_string_internal(literal, num_elements, /* add_null */ 1);
 }
 
 const_value_t* const_value_make_string(const char* literal, int num_elements)
 {
+    ERROR_CONDITION(literal == NULL, "Invalid literal", 0);
     return const_value_make_string_internal(literal, num_elements, /* add_null */ 0);
 }
 
@@ -3757,16 +3809,45 @@ void const_value_string_unpack_to_int(const_value_t* v,
 
     int i, nels = const_value_get_num_elements(v);
 
-    if (nels > 0
-            && const_value_is_zero(v->value.m->elements[nels-1]))
+    if (v->value.m->kind == MVK_ELEMENTS)
     {
-        *is_null_ended = 1;
-        nels--;
-    }
+        if (nels > 0
+                && const_value_is_zero(v->value.m->elements[nels-1]))
+        {
+            *is_null_ended = 1;
+            nels--;
+        }
 
-    for (i = 0; i < nels; i++)
+        for (i = 0; i < nels; i++)
+        {
+            result[i] = const_value_cast_to_4(v->value.m->elements[i]);
+        }
+    }
+    else if (v->value.m->kind == MVK_C_STRING)
     {
-        result[i] = const_value_cast_to_4(v->value.m->elements[i]);
+        int len = strlen(v->value.m->c_str);
+        if (nels == len + 1)
+        {
+            *is_null_ended = 1;
+            nels--;
+        }
+        else if (nels == len)
+        {
+            // do nothing
+        }
+        else
+        {
+            internal_error("Invalid number of elements (%d) and strlen (%d)\n", nels, len);
+        }
+
+        for (i = 0; i < nels; i++)
+        {
+            result[i] = v->value.m->c_str[i];
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
     }
 
     *num_elements = nels;
@@ -3775,20 +3856,50 @@ void const_value_string_unpack_to_int(const_value_t* v,
 
 const char *const_value_string_unpack_to_string(const_value_t* v, char *is_null_ended)
 {
-    int *values = NULL, num_elements = 0;
-    const_value_string_unpack_to_int(v, &values, &num_elements, is_null_ended);
+    ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
 
-    char str[num_elements + 1];
-    int i;
-    for (i = 0; i < num_elements; i++)
+    if (v->value.m->kind == MVK_ELEMENTS)
     {
-        str[i] = (char)values[i];
+        int *values = NULL, num_elements = 0;
+        const_value_string_unpack_to_int(v, &values, &num_elements, is_null_ended);
+
+        char str[num_elements + 1];
+        int i;
+        for (i = 0; i < num_elements; i++)
+        {
+            str[i] = (char)values[i];
+        }
+        str[num_elements] = '\0';
+
+        DELETE(values);
+
+        return uniquestr(str);
     }
-    str[num_elements] = '\0';
+    else if (v->value.m->kind == MVK_C_STRING)
+    {
+        int len = strlen(v->value.m->c_str);
+        int nels = v->value.m->num_elements;
+        if (nels == len + 1)
+        {
+            *is_null_ended = 1;
+        }
+        else if (nels == len)
+        {
+            // do nothing
+        }
+        else
+        {
+            internal_error("Invalid number of elements (%d) and strlen (%d)\n", nels, len);
+        }
 
-    DELETE(values);
+        return v->value.m->c_str;
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 
-    return uniquestr(str);
+    return NULL;
 }
 
 const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
@@ -3799,24 +3910,20 @@ const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
     int nelems1 = const_value_get_num_elements(v1);
     int nelems2 = const_value_get_num_elements(v2);
     int num_elements = nelems1 + nelems2 ;
-    char new_string[num_elements + 1];
+    const_value_t* new_string[num_elements + 1];
 
     int p = 0;
     int i;
     for (i = 0; i < nelems1; i++, p++)
     {
-        new_string[p] = const_value_cast_to_1(const_value_get_element_num(v1, i));
+        new_string[p] = const_value_get_element_num(v1, i);
     }
     for (i = 0; i < nelems2; i++, p++)
     {
-        new_string[p] = const_value_cast_to_1(const_value_get_element_num(v2, i));
+        new_string[p] = const_value_get_element_num(v2, i);
     }
 
-    new_string[num_elements] = '\0';
-
-    const char* str = uniquestr(new_string);
-
-    return const_value_make_string(str, num_elements);
+    return const_value_make_string_from_values(num_elements, new_string);
 }
 
 const_value_t* const_value_cast_as_another(const_value_t* val, const_value_t* mold)
@@ -4320,20 +4427,43 @@ const char* const_value_to_str(const_value_t* cval)
             }
         case CVK_STRING:
             {
-                result = "{string: [";
 
-                int i;
-                for (i = 0; i < cval->value.m->num_elements; i++)
+                if (cval->value.m->kind == MVK_ELEMENTS)
                 {
-                    if (i  > 0)
+                    result = "{string: [";
+                    int i;
+                    for (i = 0; i < cval->value.m->num_elements; i++)
                     {
-                        result = strappend(result, ", ");
-                    }
+                        if (i  > 0)
+                        {
+                            result = strappend(result, ", ");
+                        }
 
-                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                        result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                    }
+                    result = strappend(result, "]}");
+                }
+                else if (cval->value.m->kind == MVK_C_STRING)
+                {
+                    char is_null_ended = 0;
+                    int len = strlen(cval->value.m->c_str);
+                    if (cval->value.m->num_elements == len + 1)
+                        is_null_ended = 1;
+                    else if (cval->value.m->num_elements == len)
+                        /* do nothing */;
+                    else
+                        internal_error("Code unreachable", 0);
+
+                    uniquestr_sprintf(&result,
+                            "{string: (%snull-ended) \"%s\"}",
+                            is_null_ended ? "" : "not-",
+                            cval->value.m->c_str);
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
                 }
 
-                result = strappend(result, "]}");
                 break;
             }
         case CVK_RANGE:

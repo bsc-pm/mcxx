@@ -1606,12 +1606,15 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
 // Given a character literal computes the type due to its lexic form
 static void character_literal_type(AST expr, nodecl_t* nodecl_output)
 {
+    const locus_t* locus = ast_get_locus(expr);
+    int current_column = locus_get_column(locus);
     const char *literal = ASTText(expr);
 
     type_t* result = NULL;
     if (*literal == 'L')
     {
         result = get_wchar_t_type();
+        current_column++;
         literal++;
     }
     else if (*literal == 'u')
@@ -1621,6 +1624,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
             warn_printf_at(ast_get_locus(expr), "char16_t literals are a C++11 feature\n");
         }
         result = get_char16_t_type();
+        current_column++;
         literal++;
     }
     else if (*literal == 'U')
@@ -1630,6 +1634,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
             warn_printf_at(ast_get_locus(expr), "char32_t literals are a C++11 feature\n");
         }
         result = get_char32_t_type();
+        current_column++;
         literal++;
     }
     else
@@ -1646,6 +1651,8 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     }
     else
     {
+        // Skip backslash
+        current_column++;
         switch (literal[2])
         {
             case '\'': { value = literal[2]; break; }
@@ -1683,9 +1690,13 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf_at(ast_get_locus(expr), "%s does not seem a valid character literal\n",
+                               const locus_t* char_locus = make_locus(
+                                       locus_get_filename(locus),
+                                       locus_get_line(locus),
+                                       current_column);
+                               error_printf_at(char_locus, "%s does not seem a valid character literal\n",
                                        prettyprint_in_buffer(expr));
-                               *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                               *nodecl_output = nodecl_make_err_expr(char_locus);
                                return;
                            }
                            break;
@@ -1708,9 +1719,13 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf_at(ast_get_locus(expr), "%s does not seem a valid character literal\n",
+                               const locus_t* char_locus = make_locus(
+                                       locus_get_filename(locus),
+                                       locus_get_line(locus),
+                                       current_column);
+                               error_printf_at(char_locus, "%s does not seem a valid character literal\n",
                                        prettyprint_in_buffer(expr));
-                               *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                               *nodecl_output = nodecl_make_err_expr(char_locus);
                                return;
                            }
                            break;
@@ -1733,11 +1748,16 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            {
                                if (!IS_HEXA_CHAR(literal[i]))
                                {
+                                   const locus_t* char_locus = make_locus(
+                                           locus_get_filename(locus),
+                                           locus_get_line(locus),
+                                           current_column);
+
                                    char ill_literal[11];
                                    strncpy(ill_literal, &literal[1], /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                   error_printf_at(ast_get_locus(expr), "invalid universal literal character name '%s'\n",
+                                   error_printf_at(char_locus, "invalid universal literal character name '%s'\n",
                                            ill_literal);
-                                   *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                                   *nodecl_output = nodecl_make_err_expr(char_locus);
                                    return;
                                }
 
@@ -1765,9 +1785,14 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            break;
                        }
             default: {
-                         error_printf_at(ast_get_locus(expr), "%s does not seem a valid escape character\n",
+                         const locus_t* char_locus = make_locus(
+                                 locus_get_filename(locus),
+                                 locus_get_line(locus),
+                                 current_column);
+                         error_printf_at(char_locus,
+                                 "%s does not seem a valid escape character\n",
                                  prettyprint_in_buffer(expr));
-                         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                         *nodecl_output = nodecl_make_err_expr(char_locus);
                          return;
                      }
         }
@@ -1780,7 +1805,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
 
     *nodecl_output = nodecl_make_integer_literal(result, 
             const_value_get_integer(value, type_get_size(result), is_signed_integral_type(result)), 
-            ast_get_locus(expr));
+            locus);
 }
 
 #define check_range_of_floating(expr, text, value, typename, huge) \
@@ -1971,6 +1996,8 @@ static void compute_length_of_literal_string(
         type_t** base_type,
         const locus_t* locus)
 {
+    int current_column = locus_get_column(locus);
+
     const char* orig_literal = literal;
     int capacity_codepoints = 16;
     *num_codepoints = 0;
@@ -2005,21 +2032,25 @@ static void compute_length_of_literal_string(
             {
                 current_base_type = get_const_qualified_type(current_base_type);
             }
+            current_column++;
             literal++;
         }
         else if ((*literal) == 'u' && (*(literal + 1) == '8'))
         {
             current_base_type = get_const_qualified_type(get_char_type());
+            current_column += 2;
             literal += 2;
         }
         else if ((*literal) == 'u')
         {
             current_base_type = get_const_qualified_type(get_char16_t_type());
+            current_column++;
             literal++;
         }
         else if ((*literal) == 'U')
         {
             current_base_type = get_const_qualified_type(get_char32_t_type());
+            current_column++;
             literal++;
         }
         else
@@ -2050,6 +2081,7 @@ static void compute_length_of_literal_string(
                 warn_printf_at(locus, "raw-string-literals are a C++11 feature\n");
             }
             is_raw_string = 1;
+            current_column++;
             literal++;
         }
         else
@@ -2061,6 +2093,7 @@ static void compute_length_of_literal_string(
                 "Lexical problem in the literal '%s'\n", orig_literal);
 
         // Advance the "
+        current_column++;
         literal++;
 
         // Advance till we find a '"'
@@ -2073,6 +2106,7 @@ static void compute_length_of_literal_string(
                 const char *beginning_of_escape = literal;
 
                 // A scape sequence
+                current_column++;
                 literal++;
                 switch (*literal)
                 {
@@ -2102,6 +2136,7 @@ static void compute_length_of_literal_string(
                                    // Advance this octal, so the remaining figures are 2
                                    unsigned int current_value = (*literal) - '0';
 
+                                   current_column++;
                                    literal++;
                                    int remaining_figures = 2;
 
@@ -2111,11 +2146,14 @@ static void compute_length_of_literal_string(
                                        current_value *= 8;
                                        current_value += ((*literal) - '0');
                                        remaining_figures--;
+
+                                       current_column++;
                                        literal++;
                                    }
                                    // Go backwards because we have already
                                    // advanced the last element of this
                                    // escaped entity
+                                   current_column--;
                                    literal--;
 
                                    ADD_CODEPOINT(current_value);
@@ -2125,7 +2163,22 @@ static void compute_length_of_literal_string(
                                // This is an hexadecimal
                                {
                                    // Jump 'x' itself
+                                   current_column++;
                                    literal++;
+
+                                   if (!IS_HEXA_CHAR(*literal))
+                                   {
+                                       const locus_t* char_locus = make_locus(
+                                               locus_get_filename(locus),
+                                               locus_get_line(locus),
+                                               current_column);
+
+                                       error_printf_at(char_locus, "expecting hexadecimal digit\n");
+
+                                       *num_codepoints = -1;
+                                       DELETE(*codepoints);
+                                       return;
+                                   }
 
                                    unsigned int current_value = 0;
 
@@ -2147,12 +2200,14 @@ static void compute_length_of_literal_string(
                                        {
                                            internal_error("Code unreachable", 0);
                                        }
+                                       current_column++;
                                        literal++;
                                    }
 
                                    // Go backwards because we have already
                                    // advanced the last element of this
                                    // escaped entity
+                                   current_column--;
                                    literal--;
 
                                    ADD_CODEPOINT(current_value);
@@ -2170,6 +2225,7 @@ static void compute_length_of_literal_string(
                                    }
 
                                    // Advance 'u'/'U'
+                                   current_column++;
                                    literal++;
 
                                    unsigned int current_value = 0;
@@ -2178,9 +2234,14 @@ static void compute_length_of_literal_string(
                                    {
                                        if (!IS_HEXA_CHAR(*literal))
                                        {
+                                           const locus_t* char_locus = make_locus(
+                                                   locus_get_filename(locus),
+                                                   locus_get_line(locus),
+                                                   current_column);
+
                                            char ill_literal[11];
                                            strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                           error_printf_at(locus, "invalid universal literal name '%s'\n",
+                                           error_printf_at(char_locus, "invalid universal literal name '%s'\n",
                                                    ill_literal);
                                            *num_codepoints = -1;
                                            DELETE(*codepoints);
@@ -2204,11 +2265,13 @@ static void compute_length_of_literal_string(
                                            internal_error("Code unreachable", 0);
                                        }
 
+                                       current_column++;
                                        literal++;
                                        remaining_hexa_digits--;
                                    }
 
                                    // Go backwards one
+                                   current_column--;
                                    literal--;
 
                                    ADD_CODEPOINT(current_value);
@@ -2216,10 +2279,14 @@ static void compute_length_of_literal_string(
                                }
                     default:
                                {
-                                   char c[3];
+                                   const locus_t* char_locus = make_locus(
+                                           locus_get_filename(locus),
+                                           locus_get_line(locus),
+                                           current_column);
 
+                                   char c[3];
                                    strncpy(c, beginning_of_escape, 3);
-                                   error_printf_at(locus, "invalid escape sequence '%s'\n", c);
+                                   error_printf_at(char_locus, "unknown escape sequence '%s'\n", c);
                                    *num_codepoints = -1;
                                    DELETE(*codepoints);
                                    return;
@@ -2236,10 +2303,12 @@ static void compute_length_of_literal_string(
             //
             // For instance, for "\n", "\002", "\uabcd" and "\U98abcdef" (*literal) should
             // be 'n', '2', 'd' and 'f' respectively.
+            current_column++;
             literal++;
         }
 
         // Advance the "
+        current_column++;
         literal++;
 
         num_of_strings_seen++;
@@ -3623,10 +3692,11 @@ static char update_simplified_unresolved_overloaded_type(scope_entry_t* entry,
         }
         else
         {
-            nodecl_set_type(*nodecl_output, 
+            *nodecl_output = nodecl_make_pointer_to_member(entry,
                     get_pointer_to_member_type(
                         entry->type_information,
-                        symbol_entity_specs_get_class_type(entry)));
+                        symbol_entity_specs_get_class_type(entry)),
+                    locus);
         }
     }
 
@@ -9365,6 +9435,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             {
                 operand_types[i] = get_pointer_type(operand_types[i]);
             }
+
+            if (!is_class_type(operand_types[i]))
+                operand_types[i] = get_unqualified_type(operand_types[i]);
         }
 
         char is_pointer_and_zero =
@@ -26518,10 +26591,10 @@ char check_nodecl_template_argument_can_be_converted_to_parameter_type(
             if (entry == NULL)
                 return 0;
 
-            *nodecl_out = nodecl_make_symbol(entry, locus);
-            nodecl_set_type(*nodecl_out,
+            *nodecl_out = nodecl_make_pointer_to_member(entry,
                     get_pointer_to_member_type(entry->type_information,
-                        symbol_entity_specs_get_class_type(entry)));
+                        symbol_entity_specs_get_class_type(entry)),
+                    locus);
             return 1;
         }
         else
@@ -26554,9 +26627,6 @@ char check_nodecl_template_argument_can_be_converted_to_parameter_type(
                     locus))
             return 0;
 
-        if (scs.conv[0] == SCI_IDENTITY)
-            return 1;
-
         if ((scs.conv[0] == SCI_IDENTITY)
                 || ((scs.conv[0] == SCI_NO_CONVERSION)
                     && (scs.conv[1] == SCI_NO_CONVERSION
@@ -26585,6 +26655,7 @@ char check_nontype_template_argument_type(type_t* t)
         || is_lvalue_reference_type(t)
         || is_pointer_type(t)
         || is_pointer_to_member_type(t)
+        || is_function_type(t)
         || is_dependent_type(t);
 }
 
@@ -26664,7 +26735,10 @@ char check_nodecl_nontype_template_argument_expression(
         // &C::id
         nodecl_t current_expr = nodecl_expr;
         related_symbol = nodecl_get_symbol(current_expr);
-        if (related_symbol != NULL)
+
+        if (related_symbol != NULL
+                && symbol_entity_specs_get_is_member(related_symbol)
+                && !symbol_entity_specs_get_is_static(related_symbol))
         {
             valid = 1;
             should_be_a_constant_expression = 0;
@@ -26692,12 +26766,6 @@ char check_nodecl_nontype_template_argument_expression(
     }
 
     *nodecl_output = nodecl_expr;
-
-    if (related_symbol != NULL
-            && !symbol_entity_specs_get_is_template_parameter(related_symbol))
-    {
-        nodecl_set_symbol(*nodecl_output, related_symbol);
-    }
 
     return 1;
 }
@@ -27974,17 +28042,10 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
                 && (sym->kind == SK_VARIABLE
                     || sym->kind == SK_FUNCTION))
         {
-            if (sym->kind == SK_VARIABLE)
-            {
-                v->nodecl_result = nodecl_make_pointer_to_member(sym, 
-                        get_pointer_to_member_type(sym->type_information,
-                            symbol_entity_specs_get_class_type(sym)),
-                        nodecl_get_locus(node));
-            }
-            else // SK_FUNCTION
-            {
-                v->nodecl_result = nodecl_op;
-            }
+            v->nodecl_result = nodecl_make_pointer_to_member(sym, 
+                    get_pointer_to_member_type(sym->type_information,
+                        symbol_entity_specs_get_class_type(sym)),
+                    nodecl_get_locus(node));
             return;
         }
     }

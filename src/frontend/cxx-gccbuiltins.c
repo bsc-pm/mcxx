@@ -2956,7 +2956,16 @@ REGISTER_SYNC_COMPARE_AND_SWAP_BOOL_SPECIALIZATIONS("__sync_bool_compare_and_swa
     REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, \
             IS_CXX_LANGUAGE || type_get_size(get_signed_long_int_type()) == 4, \
             get_pointer_type(get_volatile_qualified_type(get_unsigned_long_long_int_type())), \
-            get_unsigned_long_long_int_type(), get_unsigned_long_long_int_type())
+            get_unsigned_long_long_int_type(), get_unsigned_long_long_int_type()) \
+    if (type_get_size(get_pointer_type(get_void_type())) == 4) { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_pointer_type(get_void_type()))), \
+            get_pointer_type(get_void_type()), get_pointer_type(get_void_type())) \
+    } else if (type_get_size(get_pointer_type(get_void_type())) == 8) { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_pointer_type(get_void_type()))), \
+            get_pointer_type(get_void_type()), get_pointer_type(get_void_type())) \
+    } else internal_error("Code unreachable", 0);
 
 DEF_SYNC_BUILTIN (BUILT_IN_VAL_COMPARE_AND_SWAP_N,
 		  "__sync_val_compare_and_swap",
@@ -3411,6 +3420,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
         get_unsigned_long_int_type(),
         get_signed_long_long_int_type(),
         get_unsigned_long_long_int_type(),
+        get_pointer_type(get_void_type()),
         NULL
     };
 
@@ -3433,16 +3443,23 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
 
             if (is_pointer_type(no_ref(argument_type))
-                    && is_pointer_type(parameter_type))
+                    && !is_void_type(pointer_type_get_pointee_type(no_ref(argument_type)))
+                    && is_pointer_type(parameter_type)
+                    && !is_void_type(pointer_type_get_pointee_type(parameter_type)))
             {
                 // Use sizes instead of types
                 argument_type = pointer_type_get_pointee_type(no_ref(argument_type));
                 parameter_type = pointer_type_get_pointee_type(parameter_type);
 
-                all_arguments_matched = is_integral_type(argument_type)
-                    && is_integral_type(parameter_type)
+                all_arguments_matched = ((is_integral_type(argument_type)
+                            && is_integral_type(parameter_type))
+                        || (is_pointer_type(argument_type)
+                            && is_void_type(pointer_type_get_pointee_type(argument_type))
+                            && is_pointer_type(parameter_type)
+                            && is_void_type(pointer_type_get_pointee_type(parameter_type))))
                     && equivalent_types(get_unqualified_type(argument_type),
                             get_unqualified_type(parameter_type));
+
             }
             else
             {
