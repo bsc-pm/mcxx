@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef SSE_VECTOR_LOWERING_HPP
-#define SSE_VECTOR_LOWERING_HPP
+#ifndef SSE_VECTOR_BACKEND_HPP
+#define SSE_VECTOR_BACKEND_HPP
 
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-visitor.hpp"
@@ -34,7 +34,7 @@ namespace TL
 {
     namespace Vectorization
     {
-        class SSEVectorLowering : public Nodecl::ExhaustiveVisitor<void>
+        class SSEVectorBackend : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
                 std::string get_casting_intrinsic(const TL::Type& type_from,
@@ -51,7 +51,7 @@ namespace TL
 
             public:
 
-                SSEVectorLowering();
+                SSEVectorBackend();
 
                 virtual void visit(const Nodecl::ObjectInit& node);
                 
@@ -99,4 +99,4 @@ namespace TL
         };
     }
 }
-#endif // SSE_VECTOR_LOWERING_HPP
+#endif // SSE_VECTOR_BACKEND_HPP

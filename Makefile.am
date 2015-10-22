@@ -2484,8 +2484,10 @@ src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_LIBADD = \
 	$(END)
 
 src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_SOURCES = \
-	 src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.hpp \
-	 src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.cpp \
+     src/tl/vectorization/vector-lowering/sse/legalization/tl-vector-legalization-sse.hpp \
+     src/tl/vectorization/vector-lowering/sse/legalization/tl-vector-legalization-sse.cpp \
+	 src/tl/vectorization/vector-lowering/sse/backend/tl-vector-backend-sse.hpp \
+	 src/tl/vectorization/vector-lowering/sse/backend/tl-vector-backend-sse.cpp \
   	 $(END)
 endif
 
@@ -2643,6 +2645,8 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CFLAGS = $(phases_c
 src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cxxflags)\
                  $(vector_lowering_cflags) \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/sse/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/sse/legalization \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/sse/backend \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/ \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/legalization \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/backend \

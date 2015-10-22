@@ -25,7 +25,8 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vector-lowering.hpp"
-#include "tl-vector-lowering-sse.hpp"
+#include "tl-vector-legalization-sse.hpp"
+#include "tl-vector-backend-sse.hpp"
 #include "tl-vector-legalization-knc.hpp"
 #include "tl-vector-backend-knc.hpp"
 #include "tl-vector-legalization-knl.hpp"
@@ -235,11 +236,14 @@ namespace TL
             }
             else
             {
+                SSEVectorLegalization sse_vector_legalization;
+                sse_vector_legalization.walk(translation_unit);
+
                 VectorizationThreeAddresses three_addresses_visitor;
                 three_addresses_visitor.walk(translation_unit);
 
-                SSEVectorLowering sse_vector_lowering;
-                sse_vector_lowering.walk(translation_unit);
+                SSEVectorBackend sse_vector_backend;
+                sse_vector_backend.walk(translation_unit);
             }
         }
 
