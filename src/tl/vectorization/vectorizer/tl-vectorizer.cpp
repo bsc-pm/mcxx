@@ -478,9 +478,9 @@ namespace Vectorization
             add_vector_function_version(global_scope.get_symbol_from_name("sinf"),
                     global_scope.get_symbol_from_name("_mm_sin_ps").make_nodecl(true),
                     "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
-            add_vector_function_version(global_scope.get_symbol_from_name("sincosf"),
-                    global_scope.get_symbol_from_name("_mm_sincos_ps").make_nodecl(true),
-                    "smp", 4, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+//            add_vector_function_version(global_scope.get_symbol_from_name("sincosf"),
+//                    global_scope.get_symbol_from_name("_mm_sincos_ps").make_nodecl(true),
+//                    "smp", 4, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("floorf"),
                     global_scope.get_symbol_from_name("_mm_floor_ps").make_nodecl(true),
                     "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -497,9 +497,9 @@ namespace Vectorization
             add_vector_function_version(global_scope.get_symbol_from_name("sin"),
                     global_scope.get_symbol_from_name("_mm_sin_pd").make_nodecl(true),
                     "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
-            add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
-                    global_scope.get_symbol_from_name("_mm_sincos_pd").make_nodecl(true),
-                    "smp", 2, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+//            add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
+//                    global_scope.get_symbol_from_name("_mm_sincos_pd").make_nodecl(true),
+//                    "smp", 2, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("floor"),
                     global_scope.get_symbol_from_name("_mm_floor_pd").make_nodecl(true),
                     "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -556,9 +556,9 @@ namespace Vectorization
             add_vector_function_version(global_scope.get_symbol_from_name("cosf"),
                     global_scope.get_symbol_from_name("_mm256_cos_ps").make_nodecl(true),
                     "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
-            add_vector_function_version(global_scope.get_symbol_from_name("sincosf"),
-                    global_scope.get_symbol_from_name("_mm256_sincos_ps").make_nodecl(true),
-                    "avx2", 8, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+//            add_vector_function_version(global_scope.get_symbol_from_name("sincosf"),
+//                    global_scope.get_symbol_from_name("_mm256_sincos_ps").make_nodecl(true),
+//                    "avx2", 8, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("floorf"),
                     global_scope.get_symbol_from_name("_mm256_floor_ps").make_nodecl(true),
                     "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
@@ -578,9 +578,9 @@ namespace Vectorization
             add_vector_function_version(global_scope.get_symbol_from_name("cos"),
                     global_scope.get_symbol_from_name("_mm256_cos_pd").make_nodecl(true),
                     "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
-            add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
-                    global_scope.get_symbol_from_name("_mm256_sincos_pd").make_nodecl(true),
-                    "avx2", 4, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+//            add_vector_function_version(global_scope.get_symbol_from_name("sincos"),
+//                    global_scope.get_symbol_from_name("_mm256_sincos_pd").make_nodecl(true),
+//                    "avx2", 4, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             add_vector_function_version(global_scope.get_symbol_from_name("floor"),
                     global_scope.get_symbol_from_name("_mm256_floor_pd").make_nodecl(true),
                     "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
