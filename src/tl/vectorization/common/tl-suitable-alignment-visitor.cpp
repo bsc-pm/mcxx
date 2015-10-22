@@ -83,14 +83,25 @@ namespace Vectorization
 
         int field_offset = 0;
 
-        while (subscripted.is<Nodecl::ClassMemberAccess>())
+        if (subscripted.is<Nodecl::ClassMemberAccess>())
         {
             Nodecl::NodeclBase rhs = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
             ERROR_CONDITION(!rhs.is<Nodecl::Symbol>(),
                     "invalid rhs in class member acces", 0);
+            bool field_is_array = rhs.get_symbol().get_type().is_array();
 
-            field_offset += rhs.as<Nodecl::Symbol>().get_symbol().get_offset();
-            subscripted = subscripted.as<Nodecl::ClassMemberAccess>().get_lhs();
+            while (subscripted.is<Nodecl::ClassMemberAccess>())
+            {
+                rhs = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
+                ERROR_CONDITION(!rhs.is<Nodecl::Symbol>(),
+                        "invalid rhs in class member acces", 0);
+
+                if (field_is_array)
+                {
+                    field_offset += rhs.as<Nodecl::Symbol>().get_symbol().get_offset();
+                }
+                subscripted = subscripted.as<Nodecl::ClassMemberAccess>().get_lhs();
+            }
         }
 
         ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
