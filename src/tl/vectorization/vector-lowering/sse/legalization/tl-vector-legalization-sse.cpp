@@ -40,8 +40,7 @@ namespace TL
 
         void SSEVectorLegalization::visit(const Nodecl::FunctionCode& node)
         {
-            ast_dump_graphviz(::nodecl_get_ast(node.get_internal_nodecl()), stderr);
-            std::cerr << "\n\n\n\n";
+            walk(node.get_statements());
         }
 
         void SSEVectorLegalization::visit(const Nodecl::ObjectInit& node) 

@@ -33,7 +33,6 @@
 #define SSE_INTRIN_PREFIX "_mm"
 #define SSE_MASK_BIT_SIZE 0
 
-
 namespace TL 
 {
     namespace Vectorization
@@ -144,6 +143,7 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }      
             //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
+            //
 
             walk(node.get_lhs());
             walk(node.get_rhs());
@@ -1777,6 +1777,12 @@ namespace TL
 
             node.replace(function_call);
         }                                                 
+
+        void SSEVectorBackend::visit(const Nodecl::VectorReductionMinus& node) 
+        { 
+            // A famous OpenMP blunder
+            visit(node.as<Nodecl::VectorReductionAdd>());
+        }
 
         void SSEVectorBackend::visit(const Nodecl::VectorMaskAssignment& node)
         {
