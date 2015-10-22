@@ -13300,6 +13300,22 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             // these types be transparently compatible
             orig = dest;
         }
+        // workaround for SSE types that are incorrectly declared
+        else if ((strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
+                    || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
+                && (is_vector_type(orig)
+                    && is_vector_type(dest)
+                    && (vector_type_get_vector_size(orig) == 8
+                        || vector_type_get_vector_size(orig) == 16)
+                    && (vector_type_get_vector_size(orig)
+                        == vector_type_get_vector_size(dest))
+                    && (is_integral_type(vector_type_get_element_type(orig)) == is_integral_type(vector_type_get_element_type(dest))
+                        || is_floating_type(vector_type_get_element_type(orig)) == is_floating_type(vector_type_get_element_type(dest)))))
+        {
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
     }
 
     // Third kind of conversion
