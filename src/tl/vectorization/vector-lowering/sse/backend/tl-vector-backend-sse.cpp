@@ -40,6 +40,7 @@ namespace TL
     {
         SSEVectorBackend::SSEVectorBackend()
         {
+            std::cerr << "--- SSE backend phase ---" << std::endl;
         }
 
         std::string SSEVectorBackend::get_casting_intrinsic(const TL::Type& type_from,

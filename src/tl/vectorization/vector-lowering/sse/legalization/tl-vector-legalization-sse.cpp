@@ -27,6 +27,8 @@
 #include "tl-vector-legalization-sse.hpp"
 #include "tl-source.hpp"
 
+#include "cxx-graphviz.h"
+
 namespace TL 
 {
     namespace Vectorization
@@ -34,6 +36,12 @@ namespace TL
         SSEVectorLegalization::SSEVectorLegalization() 
         {
             std::cerr << "--- SSE legalization phase ---" << std::endl;
+        }
+
+        void SSEVectorLegalization::visit(const Nodecl::FunctionCode& node)
+        {
+            ast_dump_graphviz(::nodecl_get_ast(node.get_internal_nodecl()), stderr);
+            std::cerr << "\n\n\n\n";
         }
 
         void SSEVectorLegalization::visit(const Nodecl::ObjectInit& node) 

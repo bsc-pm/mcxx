@@ -44,6 +44,8 @@ namespace TL
 
                 SSEVectorLegalization();
 
+                virtual void visit(const Nodecl::FunctionCode& node);
+
                 virtual void visit(const Nodecl::ObjectInit& node);
  
                 virtual void visit(const Nodecl::VectorConversion& node);
