@@ -38,35 +38,20 @@ namespace TL
         class SSEVectorLegalization : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                std::list<Nodecl::NodeclBase> _old_m512;
 
+                void fix_comparison_type(Nodecl::NodeclBase node);
             public:
 
                 SSEVectorLegalization();
 
-                virtual void visit(const Nodecl::FunctionCode& node);
-
                 virtual void visit(const Nodecl::ObjectInit& node);
- 
-                virtual void visit(const Nodecl::VectorConversion& node);
 
-                virtual void visit(const Nodecl::VectorGather& node);
-                virtual void visit(const Nodecl::VectorScatter& node);
-
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-        };
-
-        class SSEStrideVisitorConv : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                unsigned int _vector_num_elements;
-
-            public:
-                SSEStrideVisitorConv(unsigned int vector_num_elements);
-        //        virtual void visit(const Nodecl::VectorConversion& node);
-
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-
+                virtual void visit(const Nodecl::VectorLowerThan& n);
+                virtual void visit(const Nodecl::VectorLowerOrEqualThan& n);
+                virtual void visit(const Nodecl::VectorGreaterThan& n);
+                virtual void visit(const Nodecl::VectorGreaterOrEqualThan& n);
+                virtual void visit(const Nodecl::VectorEqual& n);
+                virtual void visit(const Nodecl::VectorDifferent& n);
         };
     }
 }
