@@ -214,23 +214,15 @@ namespace Utils
         return false;
     }
 
-    int get_mask_size(const int num_elements,
-            const bool support_masking)
+    Nodecl::MaskLiteral get_all_one_mask(const int num_elements)
     {
-        return support_masking ? // todo: unify representation?
-            num_elements/8 : // bit mask representation
-            num_elements;    // integer mask representation (sse)
-    }
-
-    Nodecl::MaskLiteral get_all_one_mask(const int num_elements,
-            const bool support_masking)
-    {
-        int mask_size = get_mask_size(
-                num_elements, support_masking);
+        int mask_bytes = num_elements / 8;
+        if (mask_bytes == 0)
+            mask_bytes = 1;
 
         return Nodecl::MaskLiteral::make(
                 TL::Type::get_mask_type(num_elements),
-                    const_value_get_minus_one(mask_size, 1));
+                    const_value_get_minus_one(mask_bytes, 1));
     }
 
     Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask)
@@ -339,28 +331,32 @@ namespace Utils
     }
 
     Nodecl::MaskLiteral get_contiguous_mask_literal(const int size,
-            const int num_active_lanes,
-            const bool support_masking)
+            const int num_active_lanes)
     {
-        int mask_size = get_mask_size(size, support_masking);
-
         if (num_active_lanes == 0)
         {
             return Nodecl::MaskLiteral::make(
-                    TL::Type::get_mask_type(size),
-                    const_value_get_zero(mask_size, 1));
+                    TL::Type::get_mask_type(/* bits */ size),
+                    const_value_get_zero(/*bytes */ size * 8, /* sign */ 0));
         }
 
         if ( size == num_active_lanes)
         {
             return Nodecl::MaskLiteral::make(
-                    TL::Type::get_mask_type(size),
-                    const_value_get_minus_one(mask_size, 1));
+                    TL::Type::get_mask_type(/* bits */ size),
+                    const_value_get_minus_one(/* bytes */ size * 8, /* sign */ 0));
         }
 
         const_value_t* mask_value;
 
-        // TODO: Use get_mask_size
+        cvalue_uint_t value = 0;
+        value = ~value;
+        value <<= num_active_lanes;
+        value = ~value;
+
+        mask_value = const_value_get_integer(value, size * 8, 0);
+
+#if 0
         if (size == 16)
         {
             unsigned short int value =
@@ -379,6 +375,7 @@ namespace Utils
         {
             internal_error("Vectorization Utils: Unsupported mask size", 0);
         }
+#endif
 
         return Nodecl::MaskLiteral::make(
                 TL::Type::get_mask_type(size),

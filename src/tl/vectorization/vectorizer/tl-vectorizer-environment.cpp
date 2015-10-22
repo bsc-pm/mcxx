@@ -113,7 +113,7 @@ namespace Vectorization
 
         Nodecl::MaskLiteral all_one_mask =
             Vectorization::Utils::get_all_one_mask(
-                    _vectorization_factor, _support_masking);
+                    _vectorization_factor);
         
         _mask_list.push_back(all_one_mask);
     }

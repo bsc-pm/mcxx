@@ -15911,6 +15911,9 @@ extern inline type_t* mask_type_get_underlying_type(type_t* t)
     type_t** it = &unsigned_integers[0];
     unsigned int num_bits = mask_type_get_num_bits(t);
 
+    if (num_bits < 8)
+        return get_unsigned_char_type();
+
     while (*it != NULL)
     {
         if ((8 * type_get_size(*it)) == num_bits)
