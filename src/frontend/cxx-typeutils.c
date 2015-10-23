@@ -11918,6 +11918,14 @@ static const char* get_builtin_type_name(type_t* type_info)
                 result = strappend(result, "< dependent expression type >");
                 break;
             }
+        case STK_MASK:
+            {
+                const char* c;
+                uniquestr_sprintf(&c, "mask type of %d bits", 
+                        type_info->type->vector_size);
+                result = strappend(result, c);
+                break;
+            }
         default :
             {
                 const char* c;
