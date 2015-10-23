@@ -96,7 +96,10 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMaskAssignment& node);
                 virtual void visit(const Nodecl::VectorMaskNot& node);
 
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                virtual void visit(const Nodecl::VectorSqrt& node);
+
+                virtual void visit(const Nodecl::VectorRcp& node);
+                virtual void visit(const Nodecl::VectorRsqrt& node);
         };
     }
 }

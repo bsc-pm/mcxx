@@ -1805,31 +1805,148 @@ namespace TL
         void SSEVectorBackend::visit(const Nodecl::VectorMaskNot& node)
         {
             fatal_error("SSE Backend: Vector masks are not supported in SSE.");
-/*            Nodecl::NodeclBase mask = node.get_rhs();
+        }
 
-            walk(mask);
+        void SSEVectorBackend::visit(const Nodecl::VectorSqrt& node)
+        {
+            TL::Type type = node.get_type().basic_type();
+
+            if (!node.get_mask().is_null())
+                fatal_error("SSE Backend: Node %s at %s has an unsupported mask", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
 
             TL::Source intrin_src;
 
-            intrin_src << "(!("
-                << as_expression(mask)
-                << "))";
+            intrin_src << "_mm_sqrt";
 
-            Nodecl::NodeclBase function_call =
-                intrin_src.parse_expression(node.retrieve_context());
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_src << "_pd"; 
+            } 
+            else
+            {
+                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(node.get_rhs());
+
+
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
-            */
         }
 
+        void SSEVectorBackend::visit(const Nodecl::VectorRcp& node)
+        {
+            TL::Type type = node.get_type().basic_type();
 
-        Nodecl::ExhaustiveVisitor<void>::Ret SSEVectorBackend::unhandled_node(const Nodecl::NodeclBase& n) 
-        { 
-            fatal_error("SSE Backend: Unknown node %s at %s.",
-                    ast_print_node_type(n.get_kind()),
-                    locus_to_str(n.get_locus())); 
+            if (!node.get_mask().is_null())
+                fatal_error("SSE Backend: Node %s at %s has an unsupported mask", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
 
-            return Ret(); 
+            TL::Source intrin_src, one;
+
+            // Intrinsic name
+            intrin_src << "_mm_div";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                one << "_mm_set_ps1(1.0f)";
+                intrin_src << "_ps"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                one << "_mm_set1_pd(1.0)";
+                intrin_src << "_pd"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                one << "_mm_set1_epi32(1)";
+                intrin_src << "_epi32"; 
+            } 
+            else if (type.is_signed_short_int() ||
+                    type.is_unsigned_short_int()) 
+            { 
+                one << "_mm_set1_epi16(1)";
+                intrin_src << "_epi16"; 
+            } 
+            else
+            {
+                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(node.get_rhs());
+
+            intrin_src << "(";
+            intrin_src << one;
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
+        void SSEVectorBackend::visit(const Nodecl::VectorRsqrt& node)
+        {
+            TL::Type type = node.get_type().basic_type();
+
+            if (!node.get_mask().is_null())
+                fatal_error("SSE Backend: Node %s at %s has an unsupported mask", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+
+            TL::Source intrin_src;
+
+            intrin_src << "_mm_rsqrt";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_src << "_pd"; 
+            } 
+            else
+            {
+                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(node.get_rhs());
+
+
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }
     }
 }

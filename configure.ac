@@ -794,7 +794,7 @@ dnl SIMD Support
 AX_EXT
 
 simd_version="no (SSE 4.1 or higher not detected)."
-simd_math_version="(SVML not detected)"
+simd_math_version="(SVML not enabled)"
 svml_enabled="no"
 simd_flags=
 simd_includes=
@@ -822,7 +822,14 @@ then
   nanox_sse="yes"
 fi
 
-AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"; svml_enabled="yes"], [])
+AC_ARG_WITH([svml],
+       AS_HELP_STRING([--with-svml=dir], [Directory of the SVML library]),
+       [
+        svml_enabled="yes"
+        svml_lib="${withval}"
+        simd_math_version="(SVML)"
+       ]
+)
 
 SIMD_FLAGS=$simd_flags
 SIMD_INCLUDES=$simd_includes
