@@ -5,6 +5,7 @@ then
 
 cat <<EOF
 test_ignore=yes
+test_ignore_reason="SSE4.2 not available"
 EOF
 
 exit
