@@ -581,6 +581,11 @@ namespace TL { namespace Nanox {
                         symbol_entity_specs_set_is_user_declared(private_sym, 1);
                         private_sym->defined = 1;
 
+                        // Privates may need to be initialized with constant
+                        // values
+                        private_sym->value =
+                            (*it)->get_captured_value().shallow_copy().get_internal_nodecl();
+
                         if (sym.is_valid())
                         {
                             symbol_map->add_map(sym, private_sym);

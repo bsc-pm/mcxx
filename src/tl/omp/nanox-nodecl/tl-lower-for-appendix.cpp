@@ -76,10 +76,12 @@ namespace TL { namespace Nanox {
             schedule.set_text(fixed_schedule);
         }
 
+        // FIXME - Implement final closure for ForAppendix
         if (is_ompss_schedule)
         {
            Nodecl::NodeclBase new_construct = construct;
 
+#if 0
            bool generate_final_stmts =
               Nanos::Version::interface_is_at_least("master", 5024) &&
               !_lowering->final_clause_transformation_disabled();
@@ -143,8 +145,10 @@ namespace TL { namespace Nanox {
               // Walk over the tree transforming OpenMP/OmpSs non-task pragmas
               walk(final_stmt_list);
            }
-#warning FOO
-           // lower_for_slicer(new_construct);
+#endif
+           lower_for_slicer(new_construct.as<Nodecl::OpenMP::For>(),
+                   construct.get_prependix(),
+                   construct.get_appendix());
         }
         else
         {

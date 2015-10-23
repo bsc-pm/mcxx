@@ -349,13 +349,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase &lastprivate1,
                 Nodecl::NodeclBase &lastprivate2,
                 Nodecl::NodeclBase &reduction_initialization,
-                Nodecl::NodeclBase &reduction_code);
+                Nodecl::NodeclBase &reduction_code,
+                Nodecl::NodeclBase &placeholder_prependix,
+                Nodecl::NodeclBase &placeholder_appendix
+                );
         void distribute_loop_with_outline_slicer(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
                 Nodecl::RangeLoopControl& range,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase& statements,
+                Nodecl::NodeclBase& prependix,
+                Nodecl::NodeclBase& appendix,
                 TL::Symbol slicer_descriptor,
                 Source &outline_distribute_loop_source,
                 // Loop (in the outline distributed code)
@@ -365,8 +370,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& lastprivate1,
                 Nodecl::NodeclBase& lastprivate2,
                 Nodecl::NodeclBase& reduction_initialization,
-                Nodecl::NodeclBase& reduction_code);
+                Nodecl::NodeclBase& reduction_code,
+                Nodecl::NodeclBase &placeholder_prependix,
+                Nodecl::NodeclBase &placeholder_appendix);
         void lower_for_slicer(const Nodecl::OpenMP::For& construct);
+        void lower_for_slicer(const Nodecl::OpenMP::For& construct,
+                // These two are only non-null for OpenMP::ForAppendix
+                Nodecl::NodeclBase prependix,
+                Nodecl::NodeclBase appendix);
 
         void loop_spawn_slicer(
                 OutlineInfo& outline_info,

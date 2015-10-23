@@ -1035,8 +1035,34 @@ namespace TL {
                 // ForAppendix only if appendix is not empty
                 if (!appendix_list.empty() || !prependix_list.empty())
                 {
+                    Nodecl::List omp_for_appendix_environment = omp_for_environment.shallow_copy().as<Nodecl::List>();
+                    for(Nodecl::List::iterator it = omp_reduction_list.begin();
+                            it != omp_reduction_list.end();
+                            it++)
+                    {
+                        Nodecl::OpenMP::ReductionItem omp_red_item = (*it).as<Nodecl::OpenMP::ReductionItem>();
+                        TL::OpenMP::Reduction omp_red = *(OpenMP::Reduction::get_reduction_info_from_symbol(
+                                    omp_red_item.get_reductor().get_symbol()));
+
+                        std::map<TL::Symbol, TL::Symbol>::iterator new_external_symbol_pair =
+                            new_external_vector_symbol_map.find(omp_red_item.get_reduced_symbol().get_symbol());
+
+                        ERROR_CONDITION (new_external_symbol_pair == new_external_vector_symbol_map.end(),
+                                "Reduced symbol '%s' not found\n",
+                                omp_red_item.get_reduced_symbol().get_symbol().get_name().c_str());
+
+                        TL::Symbol vector_tl_symbol = new_external_symbol_pair->second;
+                        ERROR_CONDITION(vector_tl_symbol.get_value().is_null(), "Invalid vector symbol", 0);
+
+                        omp_for_appendix_environment.append(
+                                Nodecl::OpenMP::PrivateInit::make(
+                                    vector_tl_symbol.get_value(),
+                                    vector_tl_symbol));
+                    }
+
                     for_epilog =
-                        Nodecl::OpenMP::ForAppendix::make(omp_for_environment.shallow_copy(),
+                        Nodecl::OpenMP::ForAppendix::make(
+                                omp_for_appendix_environment,
                                 loop_context.shallow_copy(),
                                 prependix_list,
                                 appendix_list,
