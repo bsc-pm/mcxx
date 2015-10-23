@@ -144,12 +144,13 @@ namespace TL { namespace Nanox {
               walk(final_stmt_list);
            }
 #warning FOO
-           // lower_for_slicer(new_construct.as<Nodecl::OpenMP::ForAppendix>());
+           // lower_for_slicer(new_construct);
         }
         else
         {
-#warning FOO
-            // lower_for_worksharing(construct);
+            lower_for_worksharing(construct.as<Nodecl::OpenMP::For>(),
+                    construct.get_prependix(),
+                    construct.get_appendix());
         }
     }
 

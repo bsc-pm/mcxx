@@ -297,24 +297,37 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase &lastprivate1,
                 Nodecl::NodeclBase &lastprivate2,
                 Nodecl::NodeclBase &reduction_initialization,
-                Nodecl::NodeclBase &reduction_code);
+                Nodecl::NodeclBase &reduction_code,
+                // Only used for OpenMP::ForAppendix
+                Nodecl::NodeclBase &placeholder_prependix,
+                Nodecl::NodeclBase &placeholder_appendix);
         void distribute_loop_with_outline_worksharing(
                 const Nodecl::OpenMP::For& construct,
                 Nodecl::List& distribute_environment,
                 Nodecl::RangeLoopControl& range,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase& statements,
+                // Used only for OpenMP::ForAppendix
+                Nodecl::NodeclBase& prependix, Nodecl::NodeclBase& appendix,
                 TL::Symbol slicer_descriptor,
                 Source &outline_distribute_loop_source,
                 // Loop (in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder2,
-                Nodecl::NodeclBase &lastprivate1,
-                Nodecl::NodeclBase &lastprivate2,
+                Nodecl::NodeclBase& lastprivate1,
+                Nodecl::NodeclBase& lastprivate2,
                 Nodecl::NodeclBase& reduction_initialization,
-                Nodecl::NodeclBase& reduction_code);
+                Nodecl::NodeclBase& reduction_code,
+                // Used only for OpenMP::ForAppendix
+                Nodecl::NodeclBase& placeholder_prependix,
+                Nodecl::NodeclBase& placeholder_appendix);
         void lower_for_worksharing(const Nodecl::OpenMP::For& construct);
+        void lower_for_worksharing(const Nodecl::OpenMP::For& construct,
+                // These two are only non-null for OpenMP::ForAppendix
+                Nodecl::NodeclBase prependix,
+                Nodecl::NodeclBase appendix);
+
         void loop_spawn_worksharing(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
