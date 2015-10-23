@@ -174,15 +174,41 @@ namespace TL
             }
         }
 
-        Nodecl::NodeclVisitor<void>::Ret AVX2VectorLegalization::unhandled_node(const Nodecl::NodeclBase& n) 
-        { 
-            fatal_error("AVX2 Legalization: Unknown node %s at %s.",
-                    ast_print_node_type(n.get_kind()),
-                    locus_to_str(n.get_locus())); 
-
-            return Ret(); 
+        void AVX2VectorLegalization::fix_comparison_type(Nodecl::NodeclBase node)
+        {
+            // There is no mask type in AVX2, __m256i is used instead
+            node.set_type(TL::Type::get_int_type().get_vector_of_elements(8));
         }
 
+        void AVX2VectorLegalization::visit(const Nodecl::VectorLowerThan& n)
+        {
+            fix_comparison_type(n);
+        }
+
+        void AVX2VectorLegalization::visit(const Nodecl::VectorLowerOrEqualThan& n)
+        {
+            fix_comparison_type(n);
+        }
+
+        void AVX2VectorLegalization::visit(const Nodecl::VectorGreaterThan& n)
+        {
+            fix_comparison_type(n);
+        }
+
+        void AVX2VectorLegalization::visit(const Nodecl::VectorGreaterOrEqualThan& n)
+        {
+            fix_comparison_type(n);
+        }
+
+        void AVX2VectorLegalization::visit(const Nodecl::VectorEqual& n)
+        {
+            fix_comparison_type(n);
+        }
+
+        void AVX2VectorLegalization::visit(const Nodecl::VectorDifferent& n)
+        {
+            fix_comparison_type(n);
+        }
 
         AVX2StrideVisitorConv::AVX2StrideVisitorConv(unsigned int vector_num_elements)
             : _vector_num_elements(vector_num_elements)

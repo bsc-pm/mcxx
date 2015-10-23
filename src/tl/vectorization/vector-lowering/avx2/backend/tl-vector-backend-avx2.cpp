@@ -180,70 +180,6 @@ namespace Vectorization
         return result.str();
     }
 
-    void AVX2VectorLowering::process_mask_component(const Nodecl::NodeclBase& mask,
-            TL::Source& mask_prefix, TL::Source& mask_args, const TL::Type& type,
-            AVX2ConfigMaskProcessing conf)
-    {
-        if(!mask.is_null())
-        {
-            TL::Source old;
-
-            mask_prefix << "_mask";
-
-            if (_old_m512.empty())
-            {
-                old << get_undef_intrinsic(type);
-            }
-            else
-            {
-                old << "("
-                    << print_type_str(
-                            type.get_vector_to(_vector_length).get_internal_type(),
-                            mask.retrieve_context().get_decl_context())
-                    << ")"
-                    << as_expression(_old_m512.back());
-
-                if ((conf & AVX2ConfigMaskProcessing::KEEP_OLD) !=
-                        AVX2ConfigMaskProcessing::KEEP_OLD)
-                { // DEFAULT
-                    _old_m512.pop_back();
-                }
-            }
-
-            walk(mask);
-
-            if((conf & AVX2ConfigMaskProcessing::ONLY_MASK) ==
-                    AVX2ConfigMaskProcessing::ONLY_MASK)
-            {
-                mask_args << as_expression(mask);
-            }
-            else // DEFAULT
-            {
-                mask_args << old.get_source()
-                    << ", "
-                    << as_expression(mask)
-                    ;
-            }
-
-            if((conf & AVX2ConfigMaskProcessing::NO_FINAL_COMMA) !=
-                    AVX2ConfigMaskProcessing::NO_FINAL_COMMA)
-            {
-                mask_args << ", ";
-            }
-        }
-        else if((conf & AVX2ConfigMaskProcessing::ALWAYS_OLD) ==
-                AVX2ConfigMaskProcessing::ALWAYS_OLD)
-        {
-            if (!_old_m512.empty())
-            {
-                internal_error("AVX2 Lowering: mask is null but old is not null. Old '%s'. At %s",
-                        _old_m512.back().prettyprint().c_str(),
-                        locus_to_str(mask.get_locus()));
-            }
-
-            mask_args << get_undef_intrinsic(type) << ", ";
-        }
-    }
 
     void AVX2VectorLowering::visit(const Nodecl::ObjectInit& node)
     {
@@ -270,6 +206,10 @@ namespace Vectorization
         const Nodecl::NodeclBase lhs = binary_node.get_lhs();
         const Nodecl::NodeclBase rhs = binary_node.get_rhs();
         const Nodecl::NodeclBase mask = binary_node.get_mask();
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
 
         TL::Type type = binary_node.get_type().basic_type();
 
@@ -289,8 +229,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         if (type.is_float())
         {
@@ -336,6 +274,11 @@ namespace Vectorization
         const Nodecl::NodeclBase rhs = unary_node.get_rhs();
         const Nodecl::NodeclBase mask = unary_node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = unary_node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix,
@@ -354,8 +297,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         if (type.is_float())
         {
@@ -399,6 +340,11 @@ namespace Vectorization
         const Nodecl::NodeclBase rhs = binary_node.get_rhs();
         const Nodecl::NodeclBase mask = binary_node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = binary_node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix,
@@ -419,8 +365,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         if (type.is_float())
         {
@@ -504,6 +448,11 @@ namespace Vectorization
         const Nodecl::NodeclBase third_op = node.get_third_op();
         const Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix,
@@ -522,9 +471,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type,
-                AVX2ConfigMaskProcessing::ONLY_MASK);
 
         if (type.is_float())
         {
@@ -954,6 +900,11 @@ namespace Vectorization
         const Nodecl::NodeclBase rhs = node.get_rhs();
         const Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
@@ -974,8 +925,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         if (type.is_signed_int() ||
                 type.is_unsigned_int())
@@ -1022,6 +971,11 @@ namespace Vectorization
         const Nodecl::NodeclBase rhs = node.get_rhs();
         const Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
@@ -1042,8 +996,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         if (type.is_signed_int() ||
                 type.is_unsigned_int())
@@ -1092,6 +1044,11 @@ namespace Vectorization
         const Nodecl::NodeclBase rhs = node.get_rhs();
         const Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
@@ -1112,8 +1069,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         if (type.is_signed_int() ||
                 type.is_unsigned_int())
@@ -1188,6 +1143,11 @@ namespace Vectorization
         const Nodecl::NodeclBase num_elements = node.get_num_elements();
         const Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
@@ -1211,8 +1171,6 @@ namespace Vectorization
 
         intrin_op_name << "alignr";
         intrin_type_suffix << "epi8";
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         walk(left_vector);
         walk(right_vector);
@@ -1639,6 +1597,11 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = node.get_rhs();
         Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type vtype = node.get_type();
         TL::Type type = vtype.basic_type();
 
@@ -1658,8 +1621,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         intrin_op_name << "load";
 
@@ -1703,6 +1664,11 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = node.get_rhs();
         Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type vtype = node.get_type();
         TL::Type type = vtype.basic_type();
 
@@ -1723,8 +1689,6 @@ namespace Vectorization
             << intrin_type_suffix
             ;
 
-        process_mask_component(mask, mask_prefix, mask_args, type);
-
         intrin_op_name << "loadu";
 
         if (type.is_float())
@@ -1738,7 +1702,7 @@ namespace Vectorization
         else if (type.is_integral_type())
         {
             intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-            casting_args << get_casting_to_scalar_pointer(vtype);
+            casting_args << "(" << as_type(TL::Type::get_long_long_int_type().get_vector_of_elements(4).get_pointer_to()) << ")";
         }
         else
         {
@@ -1781,6 +1745,11 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = node.get_rhs();
         Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_lhs().get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_op_name, args,
@@ -1800,9 +1769,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type,
-                AVX2ConfigMaskProcessing::ONLY_MASK );
 
         intrin_op_name << "store";
 
@@ -1852,6 +1818,11 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = node.get_rhs();
         Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_lhs().get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_op_name, args,
@@ -1871,9 +1842,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type,
-                AVX2ConfigMaskProcessing::ONLY_MASK );
 
         intrin_op_name << "storeu";
 
@@ -1922,6 +1890,11 @@ namespace Vectorization
         const Nodecl::NodeclBase strides = node.get_strides();
         const Nodecl::NodeclBase mask = node.get_mask();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_type().basic_type();
         TL::Type index_type = strides.get_type().basic_type();
 
@@ -1941,9 +1914,6 @@ namespace Vectorization
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
-
 
         intrin_op_name << "i32gather";
 
@@ -2001,94 +1971,13 @@ namespace Vectorization
         TL::Type scalar_type = vector_type.basic_type();
         Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 
-        if (mask.is_null()) // UNMASKED FUNCTION CALLS
+        if (!mask.is_null())
         {
-            walk(arguments);
-            node.replace(function_call);
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
         }
-        else // MASKED FUNCTION CALLS
-        {
-            TL::Source intrin_src, intrin_name, intrin_op_name, intrin_type_suffix,
-                mask_prefix, args, mask_args, extra_args;
 
-            intrin_src << intrin_name
-                << "("
-                << args
-                << ")"
-                ;
-
-            // Vector function name
-            intrin_name << function_call.get_called().
-                as<Nodecl::Symbol>().get_symbol().get_name();
-
-            TL::Symbol scalar_sym =
-                node.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
-
-            // Use scalar symbol to look up
-            if(_vectorizer.is_svml_function(scalar_sym,
-                        "avx2",
-                        _vector_length,
-                        scalar_type,
-                        /*masked*/ !mask.is_null()))
-            {
-                process_mask_component(mask, mask_prefix, mask_args, scalar_type,
-                        AVX2ConfigMaskProcessing::NO_FINAL_COMMA);
-
-                walk(arguments);
-
-                args << mask_args;
-                for (Nodecl::List::const_iterator it = arguments.begin();
-                        it != arguments.end();
-                        it++)
-                {
-                    args.append_with_separator(as_expression(*it), ", ");
-                }
-
-                Nodecl::NodeclBase intrin_function_call =
-                    intrin_src.parse_expression(node.retrieve_context());
-
-                node.replace(intrin_function_call);
-            }
-            else // Compound Expression to avoid infinite recursion
-            {
-                TL::Source conditional_exp, mask_casting;
-
-                process_mask_component(mask, mask_prefix, mask_args, scalar_type,
-                        AVX2ConfigMaskProcessing::ONLY_MASK | AVX2ConfigMaskProcessing::NO_FINAL_COMMA);
-
-                walk(arguments);
-
-                for (Nodecl::List::const_iterator it = arguments.begin();
-                        it != arguments.end();
-                        it++)
-                {
-                    args.append_with_separator(as_expression(*it), ", ");
-                }
-
-                args.append_with_separator(mask_args, ", ");
-
-                mask_casting << "("
-                    << mask.get_type().no_ref().get_simple_declaration(
-                            mask.retrieve_context(), "")
-                    << ")";
-
-                // Conditional expression
-                //#warning This should work
-                /*
-                   conditional_exp << "("
-                   << "(" << as_expression(mask) << "!= " << "(" << mask_casting << "0))"
-                   << " ? " <<  intrin_src << " : " << get_undef_intrinsic(scalar_type)
-                   << ")"
-                   ;
-                 */
-                conditional_exp <<  intrin_src;
-
-                Nodecl::NodeclBase conditional_exp_node =
-                    conditional_exp.parse_expression(node.retrieve_context());
-
-                node.replace(conditional_exp_node);
-            }
-        }
+        walk(arguments);
+        node.replace(function_call);
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorFabs& node)
@@ -2096,12 +1985,14 @@ namespace Vectorization
         const Nodecl::NodeclBase mask = node.get_mask();
         const Nodecl::NodeclBase argument = node.get_argument();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_type().basic_type();
 
         TL::Source intrin_src, mask_prefix, mask_args;
-
-        process_mask_component(mask, mask_prefix, mask_args,
-                TL::Type::get_int_type());
 
         walk(argument);
 
@@ -2144,11 +2035,14 @@ namespace Vectorization
         const Nodecl::NodeclBase sin_pointer = node.get_sin_pointer();
         const Nodecl::NodeclBase cos_pointer = node.get_cos_pointer();
 
+        if (!mask.is_null())
+        {
+            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        }
+
         TL::Type type = node.get_type().basic_type();
 
         TL::Source intrin_src, mask_prefix, mask_args;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         walk(source);
         walk(sin_pointer);
@@ -2309,178 +2203,49 @@ namespace Vectorization
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
     {
-        TL::Source intrin_src, mask_cast;
-
-        TL::Type rhs_type = node.get_rhs().get_type();
-
-        if(rhs_type.is_integral_type())
-            mask_cast << "(" << node.get_lhs().get_type().no_ref().
-                get_simple_declaration(node.retrieve_context(), "") << ")";
-
-        walk(node.get_lhs());
-        walk(node.get_rhs());
-
-        intrin_src << as_expression(node.get_lhs())
-            << " = "
-            << "("
-            << mask_cast
-            << "("
-            << as_expression(node.get_rhs())
-            << "))"
-            ;
-
-        Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
-
-        node.replace(function_call);
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
-    //TODO
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskConversion& node)
     {
-        walk(node.get_nest());
-
-        node.get_nest().set_type(node.get_type());
-
-        node.replace(node.get_nest());
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskNot& node)
     {
-        TL::Source intrin_src;
-
-        walk(node.get_rhs());
-
-        intrin_src << AVX2_INTRIN_PREFIX << "_knot("
-            << as_expression(node.get_rhs())
-            << ")"
-            ;
-
-        Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
-
-        node.replace(function_call);
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskAnd& node)
     {
-        TL::Source intrin_src;
-
-        walk(node.get_lhs());
-        walk(node.get_rhs());
-
-        intrin_src << AVX2_INTRIN_PREFIX << "_kand("
-            << as_expression(node.get_lhs())
-            << ", "
-            << as_expression(node.get_rhs())
-            << ")"
-            ;
-
-        Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
-
-        node.replace(function_call);
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskOr& node)
     {
-        TL::Source intrin_src;
-
-        walk(node.get_lhs());
-        walk(node.get_rhs());
-
-        intrin_src << AVX2_INTRIN_PREFIX << "_kor("
-            << as_expression(node.get_lhs())
-            << ", "
-            << as_expression(node.get_rhs())
-            << ")"
-            ;
-
-        Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
-
-        node.replace(function_call);
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskAnd1Not& node)
     {
-        TL::Source intrin_src;
-
-        walk(node.get_lhs());
-        walk(node.get_rhs());
-
-        intrin_src << AVX2_INTRIN_PREFIX << "_kandn("
-            << as_expression(node.get_lhs())
-            << ", "
-            << as_expression(node.get_rhs())
-            << ")"
-            ;
-
-        Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
-
-        node.replace(function_call);
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskAnd2Not& node)
     {
-        TL::Source intrin_src;
-
-        walk(node.get_lhs());
-        walk(node.get_rhs());
-
-        intrin_src << AVX2_INTRIN_PREFIX << "_kandnr("
-            << as_expression(node.get_lhs())
-            << ", "
-            << as_expression(node.get_rhs())
-            << ")"
-            ;
-
-        Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
-
-        node.replace(function_call);
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskXor& node)
     {
-        TL::Source intrin_src;
-
-        walk(node.get_lhs());
-        walk(node.get_rhs());
-
-        intrin_src << AVX2_INTRIN_PREFIX << "_kxor("
-            << as_expression(node.get_lhs())
-            << ", "
-            << as_expression(node.get_rhs())
-            << ")"
-            ;
-
-        Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
-
-        node.replace(function_call);
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
 
     void AVX2VectorLowering::visit(const Nodecl::MaskLiteral& node)
     {
-        Nodecl::IntegerLiteral int_mask =
-            Nodecl::IntegerLiteral::make(
-                    TL::Type::get_short_int_type(),
-                    node.get_constant());
-
-        node.replace(int_mask);
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
     }
 
-    Nodecl::NodeclVisitor<void>::Ret AVX2VectorLowering::unhandled_node(
-            const Nodecl::NodeclBase& n)
-    {
-        internal_error("AVX2 Lowering: Unknown node %s at %s.",
-                ast_print_node_type(n.get_kind()),
-                locus_to_str(n.get_locus()));
-
-        return Ret();
-    }
 }
 }

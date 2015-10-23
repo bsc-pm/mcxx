@@ -38,7 +38,7 @@ namespace TL
         class AVX2VectorLegalization : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                std::list<Nodecl::NodeclBase> _old_m512;
+                void fix_comparison_type(Nodecl::NodeclBase node);
 
             public:
 
@@ -51,7 +51,12 @@ namespace TL
                 virtual void visit(const Nodecl::VectorGather& node);
                 virtual void visit(const Nodecl::VectorScatter& node);
 
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                virtual void visit(const Nodecl::VectorLowerThan& n);
+                virtual void visit(const Nodecl::VectorLowerOrEqualThan& n);
+                virtual void visit(const Nodecl::VectorGreaterThan& n);
+                virtual void visit(const Nodecl::VectorGreaterOrEqualThan& n);
+                virtual void visit(const Nodecl::VectorEqual& n);
+                virtual void visit(const Nodecl::VectorDifferent& n);
         };
 
         class AVX2StrideVisitorConv : public Nodecl::NodeclVisitor<void>
