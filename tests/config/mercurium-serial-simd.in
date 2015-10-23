@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ "@NANOX_ENABLED@" = "no"];
+if [ "@NANOX_ENABLED@" = "no" ];
 then
 cat <<EOF
 test_ignore=yes
