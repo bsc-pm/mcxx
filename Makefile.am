@@ -1983,6 +1983,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-barrier.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-parallel.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-for.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-for-appendix.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-for-worksharing.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-for-slicer.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-sections.cpp \

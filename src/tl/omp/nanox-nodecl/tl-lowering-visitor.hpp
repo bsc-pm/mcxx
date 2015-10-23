@@ -69,6 +69,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OmpSs::WaitOnDependences& construct);
         virtual void visit(const Nodecl::OmpSs::Register& construct);
 
+        virtual void visit(const Nodecl::OpenMP::ForAppendix& construct);
 
         // This typedef should be public because It's used by some local functions
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
