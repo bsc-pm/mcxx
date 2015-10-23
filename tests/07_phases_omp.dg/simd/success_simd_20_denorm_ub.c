@@ -119,13 +119,15 @@ int main (int argc, char* argv[])
                 b[i+15]))));
     }
 
-    if(foo(b,N) != result)
+    int r = foo(b,N);
+    printf("TEST1: %d and %d\n",  r, result);
+
+    if(r != result)
     {
-        printf("ERROR %d != %d\n", foo(b,N), result);
+        printf("ERROR %d != %d\n", r, result);
         return 1;
     }
 
-    printf("%d and %d\n",  foo(b,N), result);
     printf("SUCCESS\n");
 
 
@@ -156,11 +158,15 @@ int main (int argc, char* argv[])
                 b[i+15]))));
     }
 
-    if(foo(b,N) != result)
+    r = foo(b,N);
+    printf("TEST2: %d and %d\n",  r, result);
+
+    if(r != result)
     {
-        printf("ERROR %d != %d\n", foo(b,N), result);
+        printf("ERROR %d != %d\n", r, result);
         return 1;
     }
+    printf("SUCCESS\n");
 
     return 0;
 }
