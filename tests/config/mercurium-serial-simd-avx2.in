@@ -60,8 +60,8 @@ compile_versions="\${compile_versions} nanox_mercurium"
 test_CC_nanox_mercurium="\${MCC}"
 test_CXX_nanox_mercurium="\${MCXX}"
 
-test_CFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_CXXFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_mercurium="--simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CXXFLAGS_nanox_mercurium="--simd --debug-flags=vectorization_verbose --openmp --avx2 ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
 test_LDFLAGS_nanox_mercurium="@abs_top_builddir@/lib/perish.o"
 
 EOF
@@ -79,15 +79,15 @@ IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tes
 compile_versions="\${compile_versions} nanox_imcc_svml"
 test_CC_nanox_imcc_svml="\${IMCC}"
 
-test_CFLAGS_nanox_imcc_svml="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --svml -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_CXXFLAGS_nanox_imcc_svml="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --svml -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_imcc_svml="--simd --debug-flags=vectorization_verbose --openmp --avx2 --svml -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CXXFLAGS_nanox_imcc_svml="--simd --debug-flags=vectorization_verbose --openmp --avx2 --svml -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
 test_LDFLAGS_nanox_imcc_svml="@abs_top_builddir@/lib/perish.o"
 
 compile_versions="\${compile_versions} nanox_imcc_svml_fast_math"
 test_CC_nanox_imcc_svml_fast_math="\${IMCC}"
 
-test_CFLAGS_nanox_imcc_svml_fast_math="-O0 --simd --debug-flags=vectorization_verbose --avx2 --openmp --svml --fast-math -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_CXXFLAGS_nanox_imcc_svml_fast_math="-O0 --simd --debug-flags=vectorization_verbose --avx2 --openmp --svml --fast-math -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_imcc_svml_fast_math="--simd --debug-flags=vectorization_verbose --avx2 --openmp --svml --fast-math -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CXXFLAGS_nanox_imcc_svml_fast_math="--simd --debug-flags=vectorization_verbose --avx2 --openmp --svml --fast-math -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
 test_LDFLAGS_nanox_imcc_svml_fast_math="@abs_top_builddir@/lib/perish.o"
 
 EOF
@@ -100,8 +100,8 @@ IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tes
 compile_versions="\${compile_versions} nanox_imcc"
 test_CC_nanox_imcc="\${IMCC}"
 
-test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_imcc="--simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CXXFLAGS_nanox_imcc="--simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
 test_LDFLAGS_nanox_imcc="@abs_top_builddir@/lib/perish.o"
 
 EOF
