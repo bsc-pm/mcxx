@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 
-if [ "@NANOX_ENABLED@" = "no" -o "@NANOX_SSE@" = "no" ];
+if [ "@NANOX_ENABLED@" = "no"]
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="Nanos++ support not enabled"
+EOF
+exit
+fi
+
+if [ "@NANOX_SSE@" = "no" ];
 then
 
 cat <<EOF
 test_ignore=yes
 test_ignore_reason="SSE4.2 not available"
 EOF
-
 exit
-
 fi
 
 if [ "$1" = "svml" -a -z "@ICC@" ];

@@ -9933,8 +9933,9 @@ extern inline const char* print_gnu_vector_type(
     // Workaround for i386 and x86-64 MMX and SSE vectors, which happen to be may_alias
     if ((strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
                 || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
-            && (vector_type_get_vector_size(t) == 8
-                || vector_type_get_vector_size(t) == 16))
+            && (vector_type_get_vector_size(t) == 8       // MMX
+                || vector_type_get_vector_size(t) == 16   // SSE
+                || vector_type_get_vector_size(t) == 32)) // AVX2
     {
         may_alias = " __attribute__((__may_alias__))";
     }
@@ -13305,8 +13306,9 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
                     || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
                 && (is_vector_type(orig)
                     && is_vector_type(dest)
-                    && (vector_type_get_vector_size(orig) == 8
-                        || vector_type_get_vector_size(orig) == 16)
+                    && (vector_type_get_vector_size(orig) == 8      // MMX
+                        || vector_type_get_vector_size(orig) == 16  // SSE
+                        || vector_type_get_vector_size(orig) == 32) // AVX2
                     && (vector_type_get_vector_size(orig)
                         == vector_type_get_vector_size(dest))
                     && (is_integral_type(vector_type_get_element_type(orig)) == is_integral_type(vector_type_get_element_type(dest))
