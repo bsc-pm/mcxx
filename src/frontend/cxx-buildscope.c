@@ -2439,7 +2439,9 @@ static void build_scope_simple_declaration(AST a, const decl_context_t* decl_con
                                 ERROR_CONDITION(is_braced_list_type(initializer_type),
                                         "Invalid type", 0);
                                 cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
-                                entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                                entry->type_information = get_cv_qualified_type(
+                                        clear_special_expr_type_variants(no_ref(initializer_type)),
+                                        cv_qualif);
                             }
                             else
                             {
@@ -3465,6 +3467,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                     /* is_decltype */ 0);
                         }
                     }
+
+                    computed_type = clear_special_expr_type_variants(computed_type);
 
                     *simple_type_info = computed_type;
                 }

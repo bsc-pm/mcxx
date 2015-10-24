@@ -13717,7 +13717,7 @@ extern inline type_t* get_literal_string_type(int length, type_t* base_type)
 extern inline char array_type_is_string_literal(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "Invalid type", 0);
-    t = advance_over_typedefs(no_ref(t));
+    t = advance_over_typedefs(t);
 
     return t->array->is_string_literal;
 }
