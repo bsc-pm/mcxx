@@ -178,7 +178,12 @@ namespace Analysis {
         void narrow(SCC* scc);
 
         //! Method to evaluate the ranges in a single Constraint Graph node
-        void evaluate_cgnode(CGNode* const node);
+        // When narrowing, during the first iteration, we may not want to consider back edges,
+        // otherwise Phi operations that went to +-inf will never change
+        void evaluate_cgnode(
+                CGNode* const node,
+                bool narrowing = 0,
+                bool consider_back_edges = 1);
 
         CGNode* fill_cg_with_binary_op_rec(
                 const NBase& val,
