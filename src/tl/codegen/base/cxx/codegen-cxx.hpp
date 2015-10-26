@@ -285,6 +285,8 @@ namespace Codegen
                 bool in_condition;
                 Nodecl::NodeclBase condition_top;
 
+                bool in_for_stmt_decl;
+
                 bool in_member_declaration;
 
                 bool in_forwarded_member_declaration;
@@ -340,6 +342,7 @@ namespace Codegen
                     emit_declarations(EMIT_NO_DECLARATIONS),
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
+                    in_for_stmt_decl(false),
                     in_member_declaration(false),
                     in_forwarded_member_declaration(false),
                     in_dependent_template_function_code(false),

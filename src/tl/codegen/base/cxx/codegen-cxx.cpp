@@ -3292,9 +3292,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     Nodecl::NodeclBase cond = node.get_cond();
     Nodecl::NodeclBase next = node.get_next();
 
-    // No condition top as "for((i=0); ...)" looks unnecessary ugly
-    int old = state.in_condition;
-    state.in_condition = 1;
+    // // No condition top as "for((i=0); ...)" looks unnecessary ugly
+    int old = state.in_for_stmt_decl;
+    state.in_for_stmt_decl = 1;
 
     Nodecl::List init_list = init.as<Nodecl::List>();
     if (!init_list.empty())
@@ -3318,20 +3318,24 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
         }
     }
 
+    // But it is desirable for the condition in "for( ... ; (i = x) ; ...)"
+    state.in_for_stmt_decl = old;
     *(file) << "; ";
 
+    old = state.in_condition;
     Nodecl::NodeclBase old_condition_top = state.condition_top;
+
+    state.in_condition = 1;
     state.condition_top = cond.no_conv();
 
-    // But it is desirable for the condition in "for( ... ; (i = x) ; ...)"
     walk(cond);
     *(file) << "; ";
 
     state.condition_top = old_condition_top;
+    state.in_condition = old;
 
     // Here we do not care about parentheses "for ( ... ; ... ; i = i + 1)"
     walk(next);
-    state.in_condition = old;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::IteratorLoopControl& node)
@@ -7381,7 +7385,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         gcc_extension = "__extension__ ";
     }
 
-    if (!state.in_condition)
+    if (!state.in_condition
+            && !state.in_for_stmt_decl)
         indent();
 
     if (_emit_saved_variables_as_unused
@@ -7416,7 +7421,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 
-    if (!state.in_condition)
+    if (!state.in_condition
+            && !state.in_for_stmt_decl)
     {
         *(file) << ";\n";
     }
