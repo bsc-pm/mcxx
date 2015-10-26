@@ -3301,6 +3301,13 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                     return DEDUCTION_OK;
                 }
 
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEDEDUC: Deduction fails because deduced argument type '%s' "
+                            "cannot be matched to the argument type '%s'\n",
+                            print_declarator(deduced_argument),
+                            print_declarator(argument));
+                }
                 deduction_result_value = DEDUCTION_FAILURE;
             }
         }
