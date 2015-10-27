@@ -322,8 +322,11 @@ namespace {
             const NBase& val,
             Utils::ConstraintKind c_kind)
     {
+        NBase val_no_conv = val;
+        while (val_no_conv.is<Nodecl::Conversion>())
+            val_no_conv = val_no_conv.as<Nodecl::Conversion>().get_nest();
         // Create the constraint
-        Utils::Constraint c(s, val, c_kind);
+        Utils::Constraint c(s, val_no_conv, c_kind);
 
         // Insert the constraint in the global structures
         // that will allow us building the Constraint Graph
@@ -332,7 +335,7 @@ namespace {
         // which reuse SSA variables that were calculated before
         if (_constraints->find(s) == _constraints->end())
             _ordered_constraints->push_back(s);
-        (*_constraints)[s] = val;
+        (*_constraints)[s] = val_no_conv;
 
         // Print the constraint in the standard error
         c.print_constraint();
@@ -1377,8 +1380,7 @@ namespace {
     }
 
     CGNode* ConstraintGraph::fill_cg_with_binary_op_rec(
-            const NBase& val,
-            CGNodeType n_type)
+            const NBase& val)
     {
         ERROR_CONDITION(!Nodecl::Utils::nodecl_is_arithmetic_op(val),
                         "Expected arithmetic operation in constraint, but found '%s'.\n",
@@ -1409,19 +1411,19 @@ namespace {
                 NBase const_range = generate_range_from_constant(rhs.shallow_copy());
                 CGNode* source2 = insert_node(const_range, __Const);// const
 
-                target_op = insert_node(n_type);                    // outerOP
+                target_op = insert_node(val_type);                  // OP
 
-                connect_nodes(source1, target_op);                  // var -> outerOP
-                connect_nodes(source2, target_op);                  // const -> outerOP
+                connect_nodes(source1, target_op);                  // var -> OP
+                connect_nodes(source2, target_op);                  // const -> OP
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
             {   // var OP (...)
-                CGNode* source1 = insert_node(lhs);                             // var
-                CGNode* source2 = fill_cg_with_binary_op_rec(rhs, val_type);    // (...)
-                target_op = insert_node(val_type);                              // OP
+                CGNode* source1 = insert_node(lhs);                 // var
+                CGNode* source2 = fill_cg_with_binary_op_rec(rhs);  // (...)
+                target_op = insert_node(val_type);                  // OP
 
-                connect_nodes(source1, target_op);                              // var -> OP
-                connect_nodes(source2, target_op);                              // (...) -> OP
+                connect_nodes(source1, target_op);                  // var -> OP
+                connect_nodes(source2, target_op);                  // (...) -> OP
             }
             else
             {
@@ -1432,22 +1434,36 @@ namespace {
         {
             if (rhs.is<Nodecl::Symbol>())
             {   // const OP var
-                CGNode* source = insert_node(rhs);                  // var
-                target_op = insert_node(n_type);                    // outerOP
-                connect_nodes(source, target_op);                   // var -> outerOP
+                NBase const_range = generate_range_from_constant(lhs.shallow_copy());
+                CGNode* source1 = insert_node(const_range, __Const);    // const
+                CGNode* source2 = insert_node(rhs);                     // var
+
+                target_op = insert_node(val_type);                      // OP
+
+                connect_nodes(source1, target_op);                      // const -> OP
+                connect_nodes(source2, target_op);                      // var -> OP
             }
             else if (rhs.is_constant())
             {
-                // TODO
+                NBase const_range1 = generate_range_from_constant(lhs.shallow_copy());
+                CGNode* source1 = fill_cg_with_binary_op_rec(const_range1);             // (...)
+
+                NBase const_range2 = generate_range_from_constant(rhs.shallow_copy());
+                CGNode* source2 = insert_node(const_range2, __Const);                   // const
+
+                target_op = insert_node(val_type);                                      // OP
+
+                connect_nodes(source1, target_op);                                      // (...) -> OP
+                connect_nodes(source2, target_op);                                      // const -> OP
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
             {   // const OP (...)
-                CGNode* source1 = fill_cg_with_binary_op_rec(rhs, val_type);    // (...)
+                CGNode* source1 = fill_cg_with_binary_op_rec(rhs);              // (...)
 
                 NBase const_range = generate_range_from_constant(lhs.shallow_copy());
                 CGNode* source2 = insert_node(const_range, __Const);            // const
 
-                target_op = insert_node(n_type);                                // OP
+                target_op = insert_node(val_type);                              // OP
 
                 connect_nodes(source1, target_op);                              // (...) -> OP
                 connect_nodes(source2, target_op);                              // const -> OP
@@ -1459,7 +1475,7 @@ namespace {
         }
         else if (Nodecl::Utils::nodecl_is_arithmetic_op(lhs))
         {
-            CGNode* source1 = fill_cg_with_binary_op_rec(lhs, val_type);
+            CGNode* source1 = fill_cg_with_binary_op_rec(lhs);
             if (rhs.is<Nodecl::Symbol>())
             {   // (...) OP var
                 CGNode* source2 = insert_node(rhs);             // var
@@ -1472,17 +1488,17 @@ namespace {
                 NBase const_range = generate_range_from_constant(rhs.shallow_copy());
                 CGNode* source2 = insert_node(const_range, __Const);    // const
 
-                target_op = insert_node(n_type);                        // outerOP
+                target_op = insert_node(val_type);                      // OP
 
-                connect_nodes(source1, target_op);                      // var -> outerOP
-                connect_nodes(source2, target_op);                      // const -> outerOP
+                connect_nodes(source1, target_op);                      // var -> OP
+                connect_nodes(source2, target_op);                      // const -> OP
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
             {   // (.x.) OP (.y.)
-                CGNode* source2 = fill_cg_with_binary_op_rec(rhs, val_type);    // (.y.)
-                target_op = insert_node(val_type);                              // OP
-                connect_nodes(source1, target_op);                              // (.x.) -> OP
-                connect_nodes(source2, target_op);                              // (.y.) -> OP
+                CGNode* source2 = fill_cg_with_binary_op_rec(rhs);      // (.y.)
+                target_op = insert_node(val_type);                      // OP
+                connect_nodes(source1, target_op);                      // (.x.) -> OP
+                connect_nodes(source2, target_op);                      // (.y.) -> OP
             }
             else
             {
@@ -1499,13 +1515,12 @@ namespace {
 
     void ConstraintGraph::fill_cg_with_binary_op(
             const NBase& s,
-            const NBase& val,
-            CGNodeType op_type)
+            const NBase& val)
     {
         // res = (...) OP (...)
-        CGNode* target_op = fill_cg_with_binary_op_rec(val, op_type);   // OP
-        CGNode* target = insert_node(s);                                // res
-        connect_nodes(target_op, target);                               // OP -> res
+        CGNode* target_op = fill_cg_with_binary_op_rec(val);    // OP
+        CGNode* target = insert_node(s);                        // res
+        connect_nodes(target_op, target);                       // OP -> res
     }
 
     /*! Generate a constraint graph from the PCFG and the precomputed Constraints for each node
@@ -1619,7 +1634,7 @@ namespace {
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(val))
             {
                 CGNodeType type = get_op_type_from_value(val);
-                fill_cg_with_binary_op(ssa_var, val, type);
+                fill_cg_with_binary_op(ssa_var, val);
             }
             else
             {
@@ -1864,6 +1879,72 @@ namespace {
         return roots;
     }
 
+namespace {
+
+    NBase evaluate_binary_operation(CGNode* n)
+    {
+        const ObjectList<CGNode*>& parents = n->get_parents();
+
+        // Check the integrity of the Constraint Graph at this point
+        ERROR_CONDITION(parents.size() != 2,
+                        "An operation node is expected to have two entries, "
+                        "but node %d has %d entries.\n",
+                        n->get_id(), parents.size());
+
+        // Get first operator
+        NBase op1;
+        CGNode* n1 = parents[0];
+        CGNodeType n1_t = n1->get_type();
+        if ((n1_t == __Sym) || (n1_t == __Const) || (n1_t == __Intersection))
+            op1 = n1->get_valuation();
+        else
+            op1 = evaluate_binary_operation(n1);
+
+        // Get second operator
+        NBase op2;
+        CGNode* n2 = parents[1];
+        CGNodeType n2_t = n2->get_type();
+        if ((n2_t == __Sym) || (n2_t == __Const) || (n2_t == __Intersection))
+            op2 = n2->get_valuation();
+        else
+            op2 = evaluate_binary_operation(n2);
+
+        // Compute the operation
+        NBase valuation;
+        switch (n->get_type())
+        {
+            case __Add:
+            {
+                valuation = Utils::range_addition(op1, op2);
+                break;
+            }
+            case __Sub:
+            {
+                valuation = Utils::range_subtraction(op1, op2);
+                break;
+            }
+            case __Mul:
+            {
+                valuation = Utils::range_multiplication(op1, op2);
+                break;
+            }
+            case __Div:
+            {
+                valuation = Utils::range_division(op1, op2);
+                break;
+            }
+            default:
+            {
+                internal_error("Unexpected parent type %s while evaluating node %d. "
+                               "Expecting binary operation.\n",
+                               n->get_type_as_string().c_str(), n->get_id());
+            }
+        };
+
+        return valuation;
+    }
+}
+
     void ConstraintGraph::evaluate_cgnode(
             CGNode* const n,
             bool narrowing,
@@ -1974,42 +2055,7 @@ namespace {
                     // Any other operation must be a binary operation
                     default:
                     {
-                        ERROR_CONDITION(grandparents.size() != 2, 
-                                        "A binary operation node is expected to have exactly 2 entries, "
-                                        "but node %d has %d entries.\n", 
-                                        parent->get_id(), grandparents.size());
-                        ObjectList<CGNode*>::const_iterator it = grandparents.begin();
-                        op1 = (*it)->get_valuation(); ++it;
-                        op2 = (*it)->get_valuation();
-                        switch (parent_type)
-                        {
-                            case __Add:
-                            {
-                                new_valuation = Utils::range_addition(op1, op2);
-                                break;
-                            }
-                            case __Sub:
-                            {
-                                new_valuation = Utils::range_subtraction(op1, op2);
-                                break;
-                            }
-                            case __Mul:
-                            {
-                                new_valuation = Utils::range_multiplication(op1, op2);
-                                break;
-                            }
-                            case __Div:
-                            {
-                                new_valuation = Utils::range_division(op1, op2);
-                                break;
-                            }
-                            default:
-                            {
-                                internal_error("Unexpected parent type %d while evaluating node %d. "
-                                               "Expecting binary operation.\n",
-                                               parent->get_type_as_string().c_str(), n->get_id());
-                            }
-                        };
+                        new_valuation = evaluate_binary_operation(parent);
                         break;
                     }
                 };
