@@ -648,54 +648,6 @@ def generate_visitor_class_header(rule_map):
     print "};"
     print ""
     print "template <typename _Ret>"
-    print "class ModularVisitor;"
-    print "template <typename _Ret>"
-    print "class ModuleVisitor : public NodeclVisitor<_Ret>"
-    print "{"
-    print "  protected:"
-    print "     ModularVisitor<_Ret> *_modular_visitor;"
-    print "  public:"
-    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
-    print "     ModuleVisitor(ModularVisitor<_Ret>* modular_visitor) : _modular_visitor(modular_visitor) { }"
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
-         qualified_name = get_qualified_name(namespaces, class_name)
-         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
-         print "     {"
-         if module_name == "base":
-                 print "        return _modular_visitor->walk(n);"
-         else:
-                 print "        return this->unhandled_node(n);"
-         print "     }"
-    print "};"
-    print "template <typename _Ret>"
-    print "class ModularVisitor : public NodeclVisitor<_Ret>"
-    print "{"
-    print "  protected:"
-    module_set = set([])
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
-        module_set.add(module_name)
-    # modules discovered
-    for module_name in module_set:
-        if module_name != "base":
-            print "     ModuleVisitor<_Ret>* %s;" % ("_module_" + module_name)
-    print "  public:"
-    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
-    for module_name in module_set:
-        if module_name != "base":
-            print "     void set_%s(ModuleVisitor<_Ret>* module_visitor) { %s = module_visitor; }" \
-                    % ("module_" + module_name, "_module_" + module_name)
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
-         qualified_name = get_qualified_name(namespaces, class_name)
-         if (module_name == "base"):
-             pass
-         else:
-             print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
-             print "     {"
-             print "        return %s->visit(n);" % ("_module_" + module_name)
-             print "     }"
-    print "};"
-
-    print "template <typename _Ret>"
     print "typename BaseNodeclVisitor<_Ret>::Ret BaseNodeclVisitor<_Ret>::walk(const NodeclBase& n)"
     print "{"
     print """
