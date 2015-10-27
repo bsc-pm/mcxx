@@ -110,7 +110,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorStore& n);
                 // virtual void visit(const Nodecl::VectorSincos& n);
                 // virtual void visit(const Nodecl::ParenthesizedExpression& n);
-                // virtual void visit(const Nodecl::VectorReductionAdd& n);
+                virtual void visit(const Nodecl::VectorReductionAdd& n);
                 // virtual void visit(const Nodecl::VectorReductionMinus& n);
                 virtual void visit(const Nodecl::VectorMaskAssignment& n);
                 // virtual void visit(const Nodecl::VectorMaskConversion& n);

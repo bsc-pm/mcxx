@@ -261,20 +261,20 @@ void valib_st_int8 ( VSrcRegId src, int8_t * address);
 // -------------------------------------------------------
 
 #define VECTOR_RED(op) \
-double valib_##op##_db (VSrcRegId src); \
-float valib_##op##_fl (VSrcRegId src); \
+double valib_red_##op##_db (VSrcRegId src); \
+float valib_red_##op##_fl (VSrcRegId src); \
 \
-int64_t valib_##op##_int64 (VSrcRegId src); \
-uint64_t valib_##op##_uint64 (VSrcRegId src); \
+int64_t valib_red_##op##_int64 (VSrcRegId src); \
+uint64_t valib_red_##op##_uint64 (VSrcRegId src); \
 \
-int32_t valib_##op##_int32 (VSrcRegId src); \
-uint32_t valib_##op##_uint32 (VSrcRegId src); \
+int32_t valib_red_##op##_int32 (VSrcRegId src); \
+uint32_t valib_red_##op##_uint32 (VSrcRegId src); \
 \
-int16_t valib_##op##_int16 (VSrcRegId src); \
-uint16_t valib_##op##_uint16 (VSrcRegId src); \
+int16_t valib_red_##op##_int16 (VSrcRegId src); \
+uint16_t valib_red_##op##_uint16 (VSrcRegId src); \
 \
-int8_t valib_##op##_int8 (VSrcRegId src); \
-uint8_t valib_##op##_uint8 (VSrcRegId src);
+int8_t valib_red_##op##_int8 (VSrcRegId src); \
+uint8_t valib_red_##op##_uint8 (VSrcRegId src);
 
 VECTOR_RED(add)
 VECTOR_RED(sub)

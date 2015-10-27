@@ -615,7 +615,28 @@ namespace TL { namespace Vectorization {
     // void RomolVectorBackend::visit(const Nodecl::VectorPrefetch& n)
     // void RomolVectorBackend::visit(const Nodecl::VectorSincos& n);
     // void RomolVectorBackend::visit(const Nodecl::ParenthesizedExpression& n);
-    // void RomolVectorBackend::visit(const Nodecl::VectorReductionAdd& n);
+    void RomolVectorBackend::visit(const Nodecl::VectorReductionAdd& n)
+    {
+        TL::Type element_type = n.get_type();
+
+        std::string red_operation = "valib_red_add_";
+        red_operation += type_name(element_type);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(red_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", red_operation.c_str());
+
+        n.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(
+                        n.get_vector_src()
+                        ),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus())
+                );
+    }
     // void RomolVectorBackend::visit(const Nodecl::VectorReductionMinus& n);
 
     void RomolVectorBackend::visit(const Nodecl::VectorMaskAssignment& n)

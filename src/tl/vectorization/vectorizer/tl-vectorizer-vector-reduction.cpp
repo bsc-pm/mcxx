@@ -108,6 +108,25 @@ namespace TL
                         }
                     }
                 }
+                else if(_environment._device.compare("romol") == 0)
+                {
+                    if((red_name.compare("+") == 0) ||
+                            (red_name.compare("-") == 0))
+                    {
+                        if(reduction_type.is_signed_int())
+                        {
+                            return true;
+                        }
+                        else if(reduction_type.is_float())
+                        {
+                            return true;
+                        }
+                        else if (reduction_type.is_double())
+                        {
+                            return true;
+                        }
+                    }
+                }
             }
 
             return false;

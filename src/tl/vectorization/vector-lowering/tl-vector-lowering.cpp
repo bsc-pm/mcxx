@@ -231,8 +231,8 @@ namespace TL
                 three_addresses_visitor.walk(translation_unit);
 
                 // Lower to RoMoL
-                RomolVectorBackend romol_vector_backend;
-                romol_vector_backend.walk(translation_unit);
+                // RomolVectorBackend romol_vector_backend;
+                // romol_vector_backend.walk(translation_unit);
             }
             else
             {
