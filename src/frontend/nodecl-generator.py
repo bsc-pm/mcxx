@@ -648,22 +648,6 @@ def generate_visitor_class_header(rule_map):
     print "};"
     print ""
     print "template <typename _Ret>"
-    print "class ProxyVisitor : public NodeclVisitor<_Ret>"
-    print "{"
-    print "public:"
-    print "     ProxyVisitor() : _proxy(NULL) { }"
-    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
-         qualified_name = get_qualified_name(namespaces, class_name)
-         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
-         print "     {"
-         print "        return _proxy->walk(n);"
-         print "     }"
-    print "protected:"
-    print "   BaseNodeclVisitor<_Ret> *_proxy;"
-    print "};"
-
-    print "template <typename _Ret>"
     print "class ModularVisitor;"
     print "template <typename _Ret>"
     print "class ModuleVisitor : public NodeclVisitor<_Ret>"
