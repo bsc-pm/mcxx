@@ -11735,6 +11735,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
 typedef
 struct check_arg_data_tag
 {
+    scope_entry_t* function;
     const decl_context_t* decl_context;
 } check_arg_data_t;
 
@@ -11767,13 +11768,27 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
         }
         if (!found_a_conversion)
         {
-            error_printf_at(
-                    nodecl_get_locus(*arg),
-                    "argument %d of type '%s' cannot be "
-                    "converted to type '%s' of parameter\n",
-                    num_parameter + 1,
-                    print_type_str(no_ref(arg_type), p->decl_context),
-                    print_type_str(param_type, p->decl_context));
+            if (p->function != NULL)
+            {
+                error_printf_at(
+                        nodecl_get_locus(*arg),
+                        "in call to function '%s', argument %d of type '%s' cannot be "
+                        "converted to type '%s' of parameter\n",
+                        p->function->symbol_name,
+                        num_parameter + 1,
+                        print_type_str(no_ref(arg_type), p->decl_context),
+                        print_type_str(param_type, p->decl_context));
+            }
+            else
+            {
+                error_printf_at(
+                        nodecl_get_locus(*arg),
+                        "in function call, argument %d of type '%s' cannot be "
+                        "converted to type '%s' of parameter\n",
+                        num_parameter + 1,
+                        print_type_str(no_ref(arg_type), p->decl_context),
+                        print_type_str(param_type, p->decl_context));
+            }
         }
     }
     return found_a_conversion;
@@ -12262,6 +12277,11 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
 
     check_arg_data_t data;
     data.decl_context = decl_context;
+    if (nodecl_get_kind(nodecl_called) == NODECL_SYMBOL
+            && nodecl_get_symbol(nodecl_called)->kind == SK_FUNCTION)
+    {
+        data.function = nodecl_get_symbol(nodecl_called);
+    }
 
     nodecl_t nodecl_argument_list_output = nodecl_null();
     if (!check_argument_types_of_call(
