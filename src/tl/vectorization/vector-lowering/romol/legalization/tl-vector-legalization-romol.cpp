@@ -131,14 +131,4 @@ namespace TL { namespace Vectorization {
         walk(flags);
     }
 
-    Nodecl::NodeclVisitor<void>::Ret RomolVectorLegalization::unhandled_node(
-            const Nodecl::NodeclBase& n)
-    {
-        fatal_error("RoMoL Legalization: Unknown n %s at %s.",
-                ast_print_node_type(n.get_kind()),
-                locus_to_str(n.get_locus()));
-
-        return Ret();
-    }
-
 } }
