@@ -2233,9 +2233,9 @@ namespace TL { namespace Vectorization
         walk(node.get_rhs());
 
         intrin_src
-            << "_mm_andnot_si256("
+            << "_mm256_andnot_si256("
             << as_expression(node.get_rhs()) << ","
-            << "_mm_set256_set1_epi32(~0))"
+            << "_mm256_set1_epi32(~0))"
             ;
 
         Nodecl::NodeclBase function_call =
