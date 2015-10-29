@@ -203,6 +203,11 @@ namespace TL { namespace Vectorization
         }
     }
 
+#define UNSUPPORTED_MASK(node) \
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2 (node=%s).", \
+                ast_print_node_type((node).get_kind()))
+
+
     void AVX2VectorLowering::common_binary_op_lowering(const Nodecl::NodeclBase& node,
             const std::string& intrin_op_name)
     {
@@ -213,7 +218,7 @@ namespace TL { namespace Vectorization
         const Nodecl::NodeclBase mask = binary_node.get_mask();
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = binary_node.get_type().basic_type();
@@ -281,7 +286,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = unary_node.get_type().basic_type();
@@ -347,7 +352,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = binary_node.get_type().basic_type();
@@ -455,7 +460,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_type().basic_type();
@@ -907,7 +912,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_type().basic_type();
@@ -978,7 +983,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_type().basic_type();
@@ -1051,7 +1056,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_type().basic_type();
@@ -1150,7 +1155,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_type().basic_type();
@@ -1604,7 +1609,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type vtype = node.get_type();
@@ -1671,7 +1676,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type vtype = node.get_type();
@@ -1752,7 +1757,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_lhs().get_type().basic_type();
@@ -1825,7 +1830,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_lhs().get_type().basic_type();
@@ -1897,7 +1902,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_type().basic_type();
@@ -1978,7 +1983,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         walk(arguments);
@@ -1992,7 +1997,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_type().basic_type();
@@ -2042,7 +2047,7 @@ namespace TL { namespace Vectorization
 
         if (!mask.is_null())
         {
-            fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+            UNSUPPORTED_MASK(node);
         }
 
         TL::Type type = node.get_type().basic_type();
@@ -2238,10 +2243,6 @@ namespace TL { namespace Vectorization
 
         node.replace(function_call);
     }
-
-#define UNSUPPORTED_MASK(node) \
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2 (node=%s).", \
-                ast_print_node_type((node).get_kind()))
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskConversion& node)
     {
