@@ -79,9 +79,9 @@ namespace TL
                         const std::string& intrin_op_name);
 
                 std::string get_casting_intrinsic(const TL::Type& type_from,
-                        const TL::Type& type_to);
+                        const TL::Type& type_to,
+                        const locus_t* locus);
                 std::string get_casting_to_scalar_pointer(const TL::Type& type_to);
-                std::string get_undef_intrinsic(const TL::Type& type);
 
                 void visit_aligned_vector_load(const Nodecl::VectorLoad& node);
                 void visit_unaligned_vector_load(const Nodecl::VectorLoad& node);

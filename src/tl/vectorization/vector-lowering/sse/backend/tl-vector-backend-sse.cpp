@@ -28,6 +28,8 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-source.hpp"
 
+#include "cxx-diagnostic.h"
+
 #define SSE_VECTOR_BIT_SIZE 128
 #define SSE_VECTOR_BYTE_SIZE 16
 #define SSE_INTRIN_PREFIX "_mm"
@@ -43,7 +45,8 @@ namespace TL
         }
 
         std::string SSEVectorBackend::get_casting_intrinsic(const TL::Type& type_from,
-                const TL::Type& type_to)
+                const TL::Type& type_to,
+                const locus_t* locus)
         {
             std::stringstream result;
 
@@ -80,7 +83,7 @@ namespace TL
             }
             else
             {            
-                fatal_error("SSE Backend: casting intrinsic not supported");
+                fatal_printf_at(locus, "SSE Backend: casting intrinsic not supported");
             }
 
             return result.str(); 
@@ -138,7 +141,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -195,7 +199,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -259,7 +264,8 @@ namespace TL
              */ 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -309,7 +315,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -362,7 +369,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -415,7 +423,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -468,7 +477,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -521,7 +531,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -574,7 +585,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -632,7 +644,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -674,7 +687,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -714,7 +728,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -754,7 +769,8 @@ namespace TL
             }
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -844,7 +860,8 @@ namespace TL
 
         void SSEVectorBackend::visit(const Nodecl::VectorLogicalOr& node) 
         { 
-            fatal_error("SSE Backend %s: 'logical or' operation (i.e., operator '||') is not supported in SSE. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
+            fatal_printf_at(node.get_locus(),
+                    "SSE Backend %s: 'logical or' operation (i.e., operator '||') is not supported in SSE. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
                     locus_to_str(node.get_locus()));
         }                                                 
 
@@ -880,7 +897,8 @@ namespace TL
             }
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             } 
@@ -1074,7 +1092,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1127,7 +1146,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1208,7 +1228,8 @@ namespace TL
             }
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1292,7 +1313,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1338,7 +1360,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1396,7 +1419,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1444,7 +1468,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1494,7 +1519,8 @@ namespace TL
             }
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1514,7 +1540,8 @@ namespace TL
             }
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1586,7 +1613,8 @@ namespace TL
             }
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported index type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported index type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1610,7 +1638,8 @@ namespace TL
             }
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported source type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported source type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1706,7 +1735,8 @@ namespace TL
                 else
                 {
                 */
-                    fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                    fatal_printf_at(node.get_locus(),
+                            "SSE Backend: Node %s at %s has an unsupported type.", 
                             ast_print_node_type(node.get_kind()),
                             locus_to_str(node.get_locus()));
                 //}
@@ -1763,7 +1793,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1838,7 +1869,8 @@ namespace TL
         }
 
 #define UNSUPPORTED_MASK(node) \
-        fatal_error("SSE Backend: Vector masks are not supported in SSE (node=%s).", \
+        fatal_printf_at(node.get_locus(), \
+                "SSE Backend: Vector masks are not supported in SSE (node=%s).", \
                 ast_print_node_type((node).get_kind()))
 
         void SSEVectorBackend::visit(const Nodecl::VectorMaskConversion& node)
@@ -1881,7 +1913,8 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             if (!node.get_mask().is_null())
-                fatal_error("SSE Backend: Node %s at %s has an unsupported mask", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported mask", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
 
@@ -1900,7 +1933,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1923,7 +1957,8 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             if (!node.get_mask().is_null())
-                fatal_error("SSE Backend: Node %s at %s has an unsupported mask", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported mask", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
 
@@ -1957,7 +1992,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1981,7 +2017,8 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             if (!node.get_mask().is_null())
-                fatal_error("SSE Backend: Node %s at %s has an unsupported mask", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported mask", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
 
@@ -2000,7 +2037,8 @@ namespace TL
             } 
             else
             {
-                fatal_error("SSE Backend: Node %s at %s has an unsupported type.", 
+                fatal_printf_at(node.get_locus(),
+                        "SSE Backend: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      

@@ -38,7 +38,8 @@ namespace TL
         {
             private:
                 std::string get_casting_intrinsic(const TL::Type& type_from,
-                        const TL::Type& type_to);
+                        const TL::Type& type_to,
+                        const locus_t* locus);
                 
                 void visit_aligned_vector_load(
                         const Nodecl::VectorLoad& node);
