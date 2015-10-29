@@ -29,65 +29,85 @@
 
 #include "cxx-graphviz.h"
 
-namespace TL 
+namespace TL
 {
     namespace Vectorization
     {
-        SSEVectorLegalization::SSEVectorLegalization() 
+        namespace {
+            TL::Type sse_comparison_type()
+            {
+                return TL::Type::get_int_type().get_vector_of_elements(4);
+            }
+
+            void fix_mask_symbol(TL::Symbol sym)
+            {
+                if (sym.get_type().is_mask())
+                {
+                    sym.set_type(sse_comparison_type());
+                }
+            }
+
+            void fix_comparison_type(Nodecl::NodeclBase node)
+            {
+                // There is no mask type in SSE, __m128i is used instead
+                if (node.get_type().is_mask())
+                    node.set_type(sse_comparison_type());
+                else if (node.get_type().is_lvalue_reference()
+                        && node.get_type().no_ref().is_mask())
+                    node.set_type(sse_comparison_type().get_lvalue_reference_to());
+            }
+        }
+
+        SSEVectorLegalization::SSEVectorLegalization()
         {
             std::cerr << "--- SSE legalization phase ---" << std::endl;
+        }
+
+        void SSEVectorLegalization::visit(const Nodecl::Symbol &node)
+        {
+            fix_mask_symbol(node.get_symbol());
+            fix_comparison_type(node);
         }
 
         void SSEVectorLegalization::visit(const Nodecl::ObjectInit& node) 
         {
             TL::Source intrin_src;
-            
-            if(node.has_symbol())
-            {
-                TL::Symbol sym = node.get_symbol();
 
-                // Vectorizing initialization
-                Nodecl::NodeclBase init = sym.get_value();
-                if(!init.is_null())
-                {
-                    walk(init);
-                }
+            TL::Symbol sym = node.get_symbol();
+            fix_mask_symbol(sym);
+
+            // Vectorizing initialization
+            Nodecl::NodeclBase init = sym.get_value();
+            if (!init.is_null())
+            {
+                walk(init);
             }
         }
 
-        void SSEVectorLegalization::fix_comparison_type(Nodecl::NodeclBase node)
-        {
-            // There is no mask type in SSE, __m128i is used instead
-            node.set_type(TL::Type::get_int_type().get_vector_of_elements(4));
+#define BINARY_MASK_OPS(Node) \
+        void SSEVectorLegalization::visit(const Nodecl::Node& n) \
+        { \
+            walk(n.get_lhs()); \
+            walk(n.get_rhs()); \
+            fix_comparison_type(n); \
         }
 
-        void SSEVectorLegalization::visit(const Nodecl::VectorLowerThan& n)
-        {
-            fix_comparison_type(n);
-        }
+        BINARY_MASK_OPS(VectorMaskAssignment)
+        BINARY_MASK_OPS(VectorLowerThan)
+        BINARY_MASK_OPS(VectorLowerOrEqualThan)
+        BINARY_MASK_OPS(VectorGreaterThan)
+        BINARY_MASK_OPS(VectorGreaterOrEqualThan)
+        BINARY_MASK_OPS(VectorEqual)
+        BINARY_MASK_OPS(VectorDifferent)
+        BINARY_MASK_OPS(VectorMaskOr)
+        BINARY_MASK_OPS(VectorMaskAnd)
+        BINARY_MASK_OPS(VectorMaskAnd1Not)
+        BINARY_MASK_OPS(VectorMaskAnd2Not)
+        BINARY_MASK_OPS(VectorMaskXor)
 
-        void SSEVectorLegalization::visit(const Nodecl::VectorLowerOrEqualThan& n)
+        void SSEVectorLegalization::visit(const Nodecl::VectorMaskNot& n)
         {
-            fix_comparison_type(n);
-        }
-
-        void SSEVectorLegalization::visit(const Nodecl::VectorGreaterThan& n)
-        {
-            fix_comparison_type(n);
-        }
-
-        void SSEVectorLegalization::visit(const Nodecl::VectorGreaterOrEqualThan& n)
-        {
-            fix_comparison_type(n);
-        }
-
-        void SSEVectorLegalization::visit(const Nodecl::VectorEqual& n)
-        {
-            fix_comparison_type(n);
-        }
-
-        void SSEVectorLegalization::visit(const Nodecl::VectorDifferent& n)
-        {
+            walk(n.get_rhs());
             fix_comparison_type(n);
         }
     }

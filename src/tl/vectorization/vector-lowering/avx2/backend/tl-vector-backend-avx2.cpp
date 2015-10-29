@@ -84,10 +84,15 @@ const int FROUND_CUR_DIRECTION  = 0x04;
 };
 
 
-namespace TL
+namespace TL { namespace Vectorization
 {
-namespace Vectorization
-{
+    namespace {
+        TL::Type avx2_comparison_type()
+        {
+            return TL::Type::get_int_type().get_vector_of_elements(8);
+        }
+    }
+
     AVX2VectorLowering::AVX2VectorLowering()
         : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer()),
         _vector_length(AVX2_VECTOR_BYTE_SIZE)
@@ -2203,48 +2208,74 @@ namespace Vectorization
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
     {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
-    }
+        walk(node.get_lhs());
+        walk(node.get_rhs());
 
-    void AVX2VectorLowering::visit(const Nodecl::VectorMaskConversion& node)
-    {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        // Emit this is as a plain assignment
+        node.replace(
+                Nodecl::Assignment::make(
+                    node.get_lhs(),
+                    node.get_rhs(),
+                    avx2_comparison_type().get_lvalue_reference_to()));
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskNot& node)
     {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        TL::Type type = node.get_rhs().get_type().basic_type();
+
+        TL::Source intrin_src;
+
+        walk(node.get_rhs());
+
+        intrin_src
+            << "_mm_andnot_si256("
+            << as_expression(node.get_rhs()) << ","
+            << "_mm_set256_set1_epi32(~0))"
+            ;
+
+        Nodecl::NodeclBase function_call =
+            intrin_src.parse_expression(node.retrieve_context());
+
+        node.replace(function_call);
+    }
+
+#define UNSUPPORTED_MASK(node) \
+        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2 (node=%s).", \
+                ast_print_node_type((node).get_kind()))
+
+    void AVX2VectorLowering::visit(const Nodecl::VectorMaskConversion& node)
+    {
+        UNSUPPORTED_MASK(node);
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskAnd& node)
     {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        UNSUPPORTED_MASK(node);
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskOr& node)
     {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        UNSUPPORTED_MASK(node);
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskAnd1Not& node)
     {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        UNSUPPORTED_MASK(node);
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskAnd2Not& node)
     {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        UNSUPPORTED_MASK(node);
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorMaskXor& node)
     {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        UNSUPPORTED_MASK(node);
     }
-
 
     void AVX2VectorLowering::visit(const Nodecl::MaskLiteral& node)
     {
-        fatal_error("AVX2 Backend: Vector masks are not supported in AVX2.");
+        UNSUPPORTED_MASK(node);
     }
 
 }

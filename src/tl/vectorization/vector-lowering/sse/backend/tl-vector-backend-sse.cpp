@@ -1789,22 +1789,91 @@ namespace TL
                     intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
-        }                                                 
+        }
 
-        void SSEVectorBackend::visit(const Nodecl::VectorReductionMinus& node) 
-        { 
+        void SSEVectorBackend::visit(const Nodecl::VectorReductionMinus& node)
+        {
             // A famous OpenMP blunder
             visit(node.as<Nodecl::VectorReductionAdd>());
         }
 
+        namespace {
+            TL::Type sse_comparison_type()
+            {
+                return TL::Type::get_int_type().get_vector_of_elements(4);
+            }
+        }
+
         void SSEVectorBackend::visit(const Nodecl::VectorMaskAssignment& node)
         {
-            fatal_error("SSE Backend: Vector masks are not supported in SSE.");
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            // Emit this is as a plain assignment
+            node.replace(
+                    Nodecl::Assignment::make(
+                        node.get_lhs(),
+                        node.get_rhs(),
+                        sse_comparison_type().get_lvalue_reference_to()));
         }
 
         void SSEVectorBackend::visit(const Nodecl::VectorMaskNot& node)
         {
-            fatal_error("SSE Backend: Vector masks are not supported in SSE.");
+            TL::Type type = node.get_rhs().get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            walk(node.get_rhs());
+
+            intrin_src
+                << "_mm_andnot_si128("
+                << as_expression(node.get_rhs()) << ","
+                << "_mm_set1_epi32(~0))"
+                ;
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
+#define UNSUPPORTED_MASK(node) \
+        fatal_error("SSE Backend: Vector masks are not supported in SSE (node=%s).", \
+                ast_print_node_type((node).get_kind()))
+
+        void SSEVectorBackend::visit(const Nodecl::VectorMaskConversion& node)
+        {
+            UNSUPPORTED_MASK(node);
+        }
+
+        void SSEVectorBackend::visit(const Nodecl::VectorMaskAnd& node)
+        {
+            UNSUPPORTED_MASK(node);
+        }
+
+        void SSEVectorBackend::visit(const Nodecl::VectorMaskOr& node)
+        {
+            UNSUPPORTED_MASK(node);
+        }
+
+        void SSEVectorBackend::visit(const Nodecl::VectorMaskAnd1Not& node)
+        {
+            UNSUPPORTED_MASK(node);
+        }
+
+        void SSEVectorBackend::visit(const Nodecl::VectorMaskAnd2Not& node)
+        {
+            UNSUPPORTED_MASK(node);
+        }
+
+        void SSEVectorBackend::visit(const Nodecl::VectorMaskXor& node)
+        {
+            UNSUPPORTED_MASK(node);
+        }
+
+        void SSEVectorBackend::visit(const Nodecl::MaskLiteral& node)
+        {
+            UNSUPPORTED_MASK(node);
         }
 
         void SSEVectorBackend::visit(const Nodecl::VectorSqrt& node)
@@ -1948,5 +2017,7 @@ namespace TL
 
             node.replace(function_call);
         }
+
+
     }
 }

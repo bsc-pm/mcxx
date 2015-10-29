@@ -37,21 +37,27 @@ namespace TL
     {
         class SSEVectorLegalization : public Nodecl::ExhaustiveVisitor<void>
         {
-            private:
-
-                void fix_comparison_type(Nodecl::NodeclBase node);
             public:
 
                 SSEVectorLegalization();
 
+                virtual void visit(const Nodecl::Symbol &node);
                 virtual void visit(const Nodecl::ObjectInit& node);
 
-                virtual void visit(const Nodecl::VectorLowerThan& n);
-                virtual void visit(const Nodecl::VectorLowerOrEqualThan& n);
-                virtual void visit(const Nodecl::VectorGreaterThan& n);
-                virtual void visit(const Nodecl::VectorGreaterOrEqualThan& n);
-                virtual void visit(const Nodecl::VectorEqual& n);
-                virtual void visit(const Nodecl::VectorDifferent& n);
+                virtual void visit(const Nodecl::VectorMaskAssignment& n);
+                virtual void visit(const Nodecl::VectorLowerThan &node);
+                virtual void visit(const Nodecl::VectorLowerOrEqualThan &node);
+                virtual void visit(const Nodecl::VectorGreaterThan &node);
+                virtual void visit(const Nodecl::VectorGreaterOrEqualThan &node);
+                virtual void visit(const Nodecl::VectorEqual &node);
+                virtual void visit(const Nodecl::VectorDifferent &node);
+                virtual void visit(const Nodecl::VectorMaskOr &node);
+                virtual void visit(const Nodecl::VectorMaskAnd &node);
+                virtual void visit(const Nodecl::VectorMaskAnd1Not &node);
+                virtual void visit(const Nodecl::VectorMaskAnd2Not &node);
+                virtual void visit(const Nodecl::VectorMaskXor &node);
+
+                virtual void visit(const Nodecl::VectorMaskNot& n);
         };
     }
 }
