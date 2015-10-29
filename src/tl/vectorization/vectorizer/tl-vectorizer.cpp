@@ -457,7 +457,7 @@ namespace Vectorization
                 << "__m128d _mm_log_pd(__m128d);\n"
                 << "__m128d _mm_sin_pd(__m128d);\n"
                 << "__m128d _mm_cos_pd(__m128d);\n"
-                << "__m128 _mm_sincos_pd(__m128d*, __m128d);\n"
+                << "__m128d _mm_sincos_pd(__m128d*, __m128d);\n"
                 << "__m128d _mm_floor_pd(__m128d);\n"
                 ;
 
@@ -532,7 +532,7 @@ namespace Vectorization
                 << "__m256d _mm256_log_pd(__m256d);\n"
                 << "__m256d _mm256_sin_pd(__m256d);\n"
                 << "__m256d _mm256_cos_pd(__m256d);\n"
-                << "__m256 _mm256_sincos_pd(__m256d*, __m256d);\n"
+                << "__m256d _mm256_sincos_pd(__m256d*, __m256d);\n"
                 << "__m256d _mm256_floor_pd(__m256d);\n"
                 ;
 
