@@ -2439,7 +2439,9 @@ static void build_scope_simple_declaration(AST a, const decl_context_t* decl_con
                                 ERROR_CONDITION(is_braced_list_type(initializer_type),
                                         "Invalid type", 0);
                                 cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
-                                entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                                entry->type_information = get_cv_qualified_type(
+                                        clear_special_expr_type_variants(no_ref(initializer_type)),
+                                        cv_qualif);
                             }
                             else
                             {
@@ -3465,6 +3467,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                     /* is_decltype */ 0);
                         }
                     }
+
+                    computed_type = clear_special_expr_type_variants(computed_type);
 
                     *simple_type_info = computed_type;
                 }
@@ -11690,6 +11694,13 @@ static void update_function_specifiers(scope_entry_t* entry,
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
+    if (!symbol_entity_specs_get_is_constructor(entry)
+            && symbol_entity_specs_get_is_member(entry)
+            && !symbol_entity_specs_get_is_static(entry)
+            && symbol_entity_specs_get_is_constexpr(entry))
+    {
+        entry->type_information = get_const_qualified_type(entry->type_information);
+    }
 
     // Merge inline attribute
     symbol_entity_specs_set_is_inline(entry,
@@ -12537,6 +12548,10 @@ static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* de
         symbol_entity_specs_set_is_thread(entry, gather_info->is_thread);
         symbol_entity_specs_set_is_thread_local(entry, gather_info->is_thread_local);
         symbol_entity_specs_set_is_constexpr(entry, gather_info->is_constexpr);
+        if (symbol_entity_specs_get_is_constexpr(entry))
+        {
+            entry->type_information = get_const_qualified_type(entry->type_information);
+        }
         symbol_entity_specs_set_linkage_spec(entry, linkage_current_get_name());
 
         return entry;
@@ -12797,7 +12812,14 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         {
             symbol_entity_specs_set_is_member(new_entry, 1);
             symbol_entity_specs_set_class_type(new_entry,
-                get_user_defined_type(decl_context->current_scope->related_entry));
+                    get_user_defined_type(decl_context->current_scope->related_entry));
+
+            if (!symbol_entity_specs_get_is_constructor(new_entry)
+                    && !symbol_entity_specs_get_is_static(new_entry)
+                    && symbol_entity_specs_get_is_constexpr(new_entry))
+            {
+                new_entry->type_information = get_const_qualified_type(new_entry->type_information);
+            }
         }
 
         for (i = 0; i < gather_info->num_arguments_info; i++)
@@ -16318,6 +16340,13 @@ static scope_entry_t* build_scope_function_definition_declarator(
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
+    if (!symbol_entity_specs_get_is_constructor(entry)
+            && symbol_entity_specs_get_is_member(entry)
+            && !symbol_entity_specs_get_is_static(entry)
+            && symbol_entity_specs_get_is_constexpr(entry))
+    {
+        entry->type_information = get_const_qualified_type(entry->type_information);
+    }
     symbol_entity_specs_set_is_inline(entry,
             symbol_entity_specs_get_is_inline(entry)
             || gather_info->is_inline

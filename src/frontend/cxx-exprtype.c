@@ -21047,6 +21047,37 @@ type_t* deduce_decltype_auto_initializer(
     return compute_type_of_decltype_nodecl(nodecl_expression_used_for_deduction, decl_context);
 }
 
+// Expressions types can carry more information that we do not want
+// to leak to variables/declarations
+type_t* clear_special_expr_type_variants(type_t* t)
+{
+    if (is_array_type(t)
+            && array_type_is_string_literal(t))
+    {
+        type_t* arr_type = get_array_type(
+                array_type_get_element_type(no_ref(t)),
+                array_type_get_array_size_expr(no_ref(t)),
+                array_type_get_array_size_expr_context(no_ref(t)));
+
+        return arr_type;
+    }
+    else if (is_zero_type(t))
+    {
+        return variant_type_get_nonvariant(t);
+    }
+    else if (is_lvalue_reference_type(t))
+    {
+        t = get_lvalue_reference_type(
+                clear_special_expr_type_variants(no_ref(t)));
+    }
+    else if (is_rvalue_reference_type(t))
+    {
+        t = get_rvalue_reference_type(
+                clear_special_expr_type_variants(no_ref(t)));
+    }
+    return t;
+}
+
 type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context_t* decl_context)
 {
     if (nodecl_is_err_expr(nodecl_expr))
@@ -21095,6 +21126,8 @@ type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context
                 decl_context,
                 /* is_decltype */ 1);
     }
+
+    computed_type = clear_special_expr_type_variants(computed_type);
 
     if (nodecl_get_kind(nodecl_expr) == NODECL_SYMBOL
             || nodecl_get_kind(nodecl_expr) == NODECL_CLASS_MEMBER_ACCESS)

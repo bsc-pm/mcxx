@@ -12651,16 +12651,27 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
         }
     }
 
-    // cv1 T1 -> const T2&
-    // cv1 T1 ->   cv2 T2&&   where cv2 is more or equal qualified thant cv1
-    if ((is_lvalue_reference_type(dest)
-                && is_const_qualified_type(reference_type_get_referenced_type(dest)))
-            || (!is_lvalue_reference_type(orig) // Make sure that orig is not a lvalue reference.
-                                                // Note that when both orig and dest are both references
-                                                // of  the same kind (lvalue or rvalue) has already been
-                                                // handled above
-                && is_rvalue_reference_type(dest)
-                && is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig))))
+    // (A)
+    // cv1 T1   -> const T2&
+    // cv1 T1&& -> const T2&
+    //
+    // (B)
+    // cv1 T1   ->   cv2 T2&&
+    // [note: cv1 T1&& -> cv2 T2&& has been handled above]
+    //
+    // where cv2 is more or equal qualified thant cv1.
+    //
+    // Note that the case when both orig and dest are both references
+    // of the same kind (lvalue or rvalue) has already been
+    // handled above
+    if (// (A)
+            ((is_lvalue_reference_type(dest)
+              && is_const_qualified_type(reference_type_get_referenced_type(dest)))
+             // (B)
+             // Make sure that orig is not a lvalue reference (it can be an rvalue-ref, though)
+             || (!is_lvalue_reference_type(orig)
+                 && is_rvalue_reference_type(dest)
+                 && is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig)))))
     {
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         // cv T1 -> T2
@@ -12685,6 +12696,7 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
         {
             (*result).conv[0] = conversion_among_lvalues.conv[0];
             (*result).conv[1] = conversion_among_lvalues.conv[1];
+            (*result).conv[2] = conversion_among_lvalues.conv[2];
             ok = 1;
         }
 
@@ -13332,6 +13344,9 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
     //
     //  qualification-conversion
     //
+    //  T* -> const T*
+    //  char* -> const char*       [only for string-literals]
+    //  wchar_t* -> const wchar_t* [only for string-literals]
     if (!equivalent_types(orig, dest)
             && ((is_pointer_type(orig)
                     && is_pointer_type(dest))
@@ -13743,7 +13758,7 @@ extern inline type_t* get_literal_string_type(int length, type_t* base_type)
 extern inline char array_type_is_string_literal(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "Invalid type", 0);
-    t = advance_over_typedefs(no_ref(t));
+    t = advance_over_typedefs(t);
 
     return t->array->is_string_literal;
 }

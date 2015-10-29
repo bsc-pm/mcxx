@@ -957,8 +957,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-nodecl-utils-fortran.cpp \
     src/tl/tl-nodecl-utils-c.hpp \
     src/tl/tl-nodecl-utils-c.cpp \
-    src/tl/tl-nodecl-replace.hpp \
-    src/tl/tl-nodecl-replace.cpp \
     src/tl/tl-scope.hpp \
     src/tl/tl-scope-fwd.hpp \
     src/tl/tl-scope.cpp \
@@ -1004,8 +1002,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-clauses-info.cpp \
     src/tl/tl-pragmasupport.hpp \
     src/tl/tl-pragmasupport.cpp \
-    src/tl/tl-replace.hpp \
-    src/tl/tl-replace.cpp \
     src/tl/tl-modules-fwd.hpp \
     src/tl/tl-modules.hpp \
     src/tl/tl-modules.cpp \

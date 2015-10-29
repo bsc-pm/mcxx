@@ -44,7 +44,7 @@ namespace Codegen
 
     class CodegenModuleVisitor;
 
-    class CodegenVisitor : public Nodecl::ModularVisitor<void>
+    class CodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
         private:
             bool _is_file_output;
@@ -79,20 +79,6 @@ namespace Codegen
             virtual void push_scope(TL::Scope sc) { }
             virtual void pop_scope() { }
 
-            friend class CodegenModuleVisitor;
-    };
-
-    class CodegenModuleVisitor : public Nodecl::ModuleVisitor<void>
-    {
-        public:
-            CodegenModuleVisitor(CodegenVisitor* codegen_visitor)
-                : Nodecl::ModuleVisitor<void>(codegen_visitor),
-                file(codegen_visitor->file)
-        {
-        }
-
-        protected:
-            std::ostream* file;
     };
 
     // Inspired from an example in http://wordaligned.org/articles/cpp-streambufs

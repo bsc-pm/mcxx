@@ -326,6 +326,8 @@
 "  -export-dynamic\n" \
 "  -f<name>\n" \
 "  -include FILE\n" \
+"  -isystem DIR\n" \
+"  -isysroot DIR\n" \
 "  -MD\n" \
 "  -MF <file>\n" \
 "  -MG <file>\n" \
@@ -2325,7 +2327,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'i':
             {
-                if (strcmp(argument, "-include") == 0)
+                if (strcmp(argument, "-include") == 0
+                        || strcmp(argument, "-isystem") == 0
+                        || strcmp(argument, "-isysroot") == 0)
                 {
                     if(!dry_run)
                     {
