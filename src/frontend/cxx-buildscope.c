@@ -11697,7 +11697,8 @@ static void update_function_specifiers(scope_entry_t* entry,
     if (!symbol_entity_specs_get_is_constructor(entry)
             && symbol_entity_specs_get_is_member(entry)
             && !symbol_entity_specs_get_is_static(entry)
-            && symbol_entity_specs_get_is_constexpr(entry))
+            && symbol_entity_specs_get_is_constexpr(entry)
+            && !is_any_reference_type(entry->type_information))
     {
         entry->type_information = get_const_qualified_type(entry->type_information);
     }
@@ -12548,7 +12549,8 @@ static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* de
         symbol_entity_specs_set_is_thread(entry, gather_info->is_thread);
         symbol_entity_specs_set_is_thread_local(entry, gather_info->is_thread_local);
         symbol_entity_specs_set_is_constexpr(entry, gather_info->is_constexpr);
-        if (symbol_entity_specs_get_is_constexpr(entry))
+        if (symbol_entity_specs_get_is_constexpr(entry)
+                && !is_any_reference_type(entry->type_information))
         {
             entry->type_information = get_const_qualified_type(entry->type_information);
         }
@@ -12816,7 +12818,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
             if (!symbol_entity_specs_get_is_constructor(new_entry)
                     && !symbol_entity_specs_get_is_static(new_entry)
-                    && symbol_entity_specs_get_is_constexpr(new_entry))
+                    && symbol_entity_specs_get_is_constexpr(new_entry)
+                    && !is_any_reference_type(new_entry->type_information))
             {
                 new_entry->type_information = get_const_qualified_type(new_entry->type_information);
             }
@@ -16343,7 +16346,8 @@ static scope_entry_t* build_scope_function_definition_declarator(
     if (!symbol_entity_specs_get_is_constructor(entry)
             && symbol_entity_specs_get_is_member(entry)
             && !symbol_entity_specs_get_is_static(entry)
-            && symbol_entity_specs_get_is_constexpr(entry))
+            && symbol_entity_specs_get_is_constexpr(entry)
+            && !is_any_reference_type(entry->type_information))
     {
         entry->type_information = get_const_qualified_type(entry->type_information);
     }
