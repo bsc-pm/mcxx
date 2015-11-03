@@ -31,9 +31,18 @@
 #include "filename.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-nodecl.hpp"
+#include <time.h>
 
 namespace TL {
 namespace Analysis {
+
+    double time_nsec()
+    {
+        struct timespec tp;
+        clock_gettime(CLOCK_MONOTONIC, &tp);
+        return (tp.tv_sec * 1e9 + tp.tv_nsec);
+    }
+
 namespace Utils {
 
     // ******************************************************************************************* //
