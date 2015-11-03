@@ -509,7 +509,6 @@ next_it:    ;
         {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
             _pcfg->connect_nodes(_utils->_last_nodes, func_graph_node);
         }
-        _utils->_last_nodes = ObjectList<Node*>(1, func_graph_node->get_graph_entry_node());
 
         // Create the nodes for the arguments
         Node* func_node;
@@ -522,7 +521,7 @@ next_it:    ;
         else
             func_node = new Node(_utils->_nid, (_utils->_is_vector ? __VectorFunctionCall : __FunctionCall),
                                   func_graph_node, n);
-        _pcfg->connect_nodes(_utils->_last_nodes, func_node);
+        _pcfg->connect_nodes(func_graph_node->get_graph_entry_node(), func_node);
 
         Node* graph_exit = func_graph_node->get_graph_exit_node();
         graph_exit->set_id(++(_utils->_nid));
