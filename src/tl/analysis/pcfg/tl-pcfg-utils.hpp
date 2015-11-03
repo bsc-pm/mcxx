@@ -64,6 +64,7 @@ namespace Analysis {
     NODE_TYPE(OmpTaskyield) \
     NODE_TYPE(OmpVirtualTaskSync) \
     NODE_TYPE(OmpWaitonDeps) \
+    NODE_TYPE(Return) \
     NODE_TYPE(VectorFunctionCall) \
     NODE_TYPE(VectorGather) \
     NODE_TYPE(VectorLoad) \

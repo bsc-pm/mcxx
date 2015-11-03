@@ -35,101 +35,9 @@
 namespace TL {
 namespace Analysis {
 
-    // **************************************************************************************************** //
-    // Comparator for the values introduced in the Constraint Graph
-    // We cannot use the Nodecl_structural_less becuase it compares constant values,
-    // and, for convenience, we introduce constant values to constant constraints
-    // For example:
-    //      int a = 5;          -> a_0 = [5:5]; a_0 has const value 5
-    //      b = a;              -> b_0 = a_0;   this a_0 does not have any const value
-    int cmp_trees(nodecl_t n1, nodecl_t n2)
-    {
-        const bool n1_is_null = nodecl_is_null(n1);
-        const bool n2_is_null = nodecl_is_null(n2);
-
-        if ((n1_is_null && n2_is_null)
-            || (nodecl_get_ast(n1) == nodecl_get_ast(n2)))
-            return 0;
-
-        if (n1_is_null == n2_is_null)
-        {
-            if(nodecl_get_kind(n1) == NODECL_CONVERSION)
-                n1 = nodecl_get_child(n1, 0);
-            if(nodecl_get_kind(n2) == NODECL_CONVERSION)
-                n2 = nodecl_get_child(n2, 0);
-
-            const node_t n1_kind = nodecl_get_kind(n1);
-            const node_t n2_kind = nodecl_get_kind(n2);
-
-            if (n1_kind == n2_kind) // kind
-            {
-                const scope_entry_t * const n1_symbol = nodecl_get_symbol(n1);
-                const scope_entry_t * const n2_symbol = nodecl_get_symbol(n2);
-
-                if (n1_symbol == n2_symbol) // symbol
-                {
-                    // Everything looks equal in this single node, let's check our children
-                    int equal = 0;
-                    for (int i=0; (equal == 0) && (i < MCXX_MAX_AST_CHILDREN); i++)
-                    {
-                        const nodecl_t n1_child = nodecl_get_child(n1, i);
-                        const nodecl_t n2_child = nodecl_get_child(n2, i);
-
-                        if(nodecl_is_null(n1_child) &&
-                            nodecl_is_null(n2_child)) // Optimization: Skip recursive call.
-                            continue;
-
-                        equal = cmp_trees(n1_child, n2_child);
-                    }
-
-                    return equal;
-                }
-                else if (n1_symbol < n2_symbol) // symbol
-                {
-                    return -1;
-                }
-                else // symbol
-                {
-                    return 1;
-                }
-            }
-            else if (n1_kind < n2_kind) // kind
-            {
-                return -1;
-            }
-            else // kind
-            {
-                return 1;
-            }
-        }
-        else if (!n1_is_null)
-        {
-            return -1;
-        }
-        else
-        {
-            return 1;
-        }
-    }
-
-    bool structurally_less(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2)
-    {
-        nodecl_t n1_ = n1.get_internal_nodecl();
-        nodecl_t n2_ = n2.get_internal_nodecl();
-
-        return cmp_trees(n1_, n2_) < 0;
-    }
-
-    struct RangeA_structural_less {
-        bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
-        {
-            return structurally_less(n1, n2);
-        }
-    };
-
     typedef std::map<Symbol, NBase> Constraints;
     /* This must be a multimap, so constant values may be repeated */
-    typedef std::multimap<NBase, CGNode*, RangeA_structural_less> CGValueToCGNode_map;
+    typedef std::multimap<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGValueToCGNode_map;
     typedef std::map<NBase, Utils::Constraint, Nodecl::Utils::Nodecl_structural_less> VarToConstraintMap;
 
     // **************************************************************************************************** //
@@ -222,6 +130,7 @@ namespace Analysis {
         Ret visit(const Nodecl::GreaterThan& n);
         Ret visit(const Nodecl::GreaterOrEqualThan& n);
         Ret visit(const Nodecl::LogicalAnd& n);
+        Ret visit(const Nodecl::LogicalNot& n);
         Ret visit(const Nodecl::LowerOrEqualThan& n);
         Ret visit(const Nodecl::LowerThan& n);
         Ret visit(const Nodecl::Mod& n);
@@ -275,8 +184,7 @@ namespace Analysis {
         // otherwise Phi operations that went to +-inf will never change
         void evaluate_cgnode(
                 CGNode* const node,
-                bool narrowing = 0,
-                bool consider_back_edges = 1);
+                bool narrowing = 0);
 
         CGNode* fill_cg_with_binary_op_rec(
                 const NBase& val);

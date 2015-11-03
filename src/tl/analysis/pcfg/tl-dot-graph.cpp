@@ -604,6 +604,7 @@ connect_node:
             case __Normal:
             case __Labeled:
             case __FunctionCall:
+            case __Return:
             {
                 // Get the Statements within the BB
                 NodeclList node_block = current->get_statements();

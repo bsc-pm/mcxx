@@ -250,8 +250,10 @@ namespace {
     {
         if (_input_constraints->find(n) == _input_constraints->end())
         {
+            Symbol n_sym = n.get_symbol();
+
             // FunctionCalls are replaced with the value [-inf, +inf]
-            if (n.get_symbol().is_function())
+            if (n_sym.is_function())
             {
                 // 1. Build a symbol for the new constraint based on the name of the original variable
                 std::stringstream ss; ss << get_next_id(n);
@@ -271,23 +273,24 @@ namespace {
                 (*_input_constraints)[n] = c;
                 return;
             }
+            else if (!n_sym.is_variable())
+            {   // The symbol is probably an enum
+                ERROR_CONDITION(!n.is_constant(),
+                                "Expected enum symbol whereas '%s' is not an enum.\n",
+                                n_sym.get_name().c_str());
+                n.replace(const_value_to_nodecl(n.get_constant()));
+                return;
+            }
 
-            // Check for global variables
-            ERROR_CONDITION(n.get_symbol().get_scope().is_namespace_scope(),
+            ERROR_CONDITION(n_sym.get_scope().is_namespace_scope(),
                     "No constraints found for non-global symbol %s in locus %s."
                     "We should replace the variable with the corresponding constraint.",
                     n.prettyprint().c_str(), n.get_locus_str().c_str());
 
-            // n is a global variable
             return;
         }
 
-        NBase new_n = (*_input_constraints)[n].get_symbol().make_nodecl(/*set_ref_type*/false);
-        NBase& val = (*_input_constraints)[n].get_value();
-        if (val.is_constant())
-            new_n.set_constant(val.get_constant());
-        n.replace(new_n);
-
+        n.replace((*_input_constraints)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
     }
 
     // ************ Class replacing original variables with ssa symbols ************ //
@@ -400,7 +403,6 @@ namespace {
 
             // Get the value for the constraint
             NBase val;
-
             if (occ.is_constant())
             {
                 const NBase& const_val = const_value_to_nodecl(occ.get_constant());
@@ -426,7 +428,8 @@ namespace {
     {
         if (n.is<Nodecl::Equal>()
                 || n.is<Nodecl::LowerThan>() || n.is<Nodecl::LowerOrEqualThan>()
-                || n.is<Nodecl::GreaterThan>() || n.is<Nodecl::GreaterOrEqualThan>())
+                || n.is<Nodecl::GreaterThan>() || n.is<Nodecl::GreaterOrEqualThan>()
+                || n.is<Nodecl::LogicalNot>())
         {
             // False constraints are not just the negation of the condition,
             // because LHS fulfilling is not enough for the whole condition to fulfill
@@ -564,9 +567,45 @@ namespace {
             node_t comparison_kind)
     {
         // 1.- Check the input is something we expect: 'side' is a symbol
-        ERROR_CONDITION(_input_constraints.find(n) == _input_constraints.end(),
-                        "Some input constraint required for the variable '%s' when parsing a %s nodecl",
-                        n.prettyprint().c_str(), ast_print_node_type(comparison_kind));
+        if (_input_constraints.find(n) == _input_constraints.end())
+        {
+            if (!n.is<Nodecl::ArraySubscript>())
+            {
+                internal_error("Some input constraint required for the variable '%s' when parsing a %s nodecl",
+                               n.prettyprint().c_str(), ast_print_node_type(comparison_kind));
+            }
+            else
+            {   // It may happen that this position of the array has a value set,
+                // but a different subscript was used
+                // Add a new constraint for this nodecl with value [-inf, +inf]
+
+                // 1.- Build a symbol for the new constraint based on the name of the original variable
+                std::stringstream ss; ss << get_next_id(n);
+                Symbol s(Utils::get_nodecl_base(n).get_symbol());
+
+                std::string subscripts_str = get_subscripts_string(
+                        n.no_conv().as<Nodecl::ArraySubscript>(),
+                        _input_constraints);
+
+                std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
+                Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
+                Type t = s.get_type();
+                ssa_sym.set_type(t);
+                ssa_to_original_var[ssa_sym] = n;
+
+                // 2.- Build the value for the constraint
+                NBase inf_val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                                plus_inf.shallow_copy(),
+                                                const_value_to_nodecl(zero), t);
+
+                // 3.- Build the constraint and insert it in the constraints map
+                Utils::Constraint c = build_constraint(ssa_sym, inf_val, Utils::ConstraintKind::__Parameter);
+                _input_constraints[n] = c;  // We add it in the input constraints, so
+                                            // the rest of this algorithm works properly
+                _output_constraints[n] = c;
+            }
+        }
+
         if (!val.is_constant())
         {
             ERROR_CONDITION(_input_constraints.find(val) == _input_constraints.end(),
@@ -1152,6 +1191,15 @@ namespace {
         set_false_constraint_to_inf(rhs);
     }
 
+    void ConstraintBuilder::visit(const Nodecl::LogicalNot& n)
+    {
+        const NBase& rhs = n.get_rhs();
+        const NBase& lhs = const_value_to_nodecl(zero);
+        visit_comparison(rhs.no_conv(),
+                         lhs,
+                         NODECL_EQUAL);
+    }
+
     // x <= c;    ---TRUE-->    X1 = X0 ∩ [-∞, c]
     //            --FALSE-->    X1 = X0 ∩ [ c+1,  +∞]
     void ConstraintBuilder::visit(const Nodecl::LowerOrEqualThan& n)
@@ -1176,7 +1224,7 @@ namespace {
     {
         NBase lhs = n.get_lhs().no_conv();
         NBase rhs = n.get_rhs().no_conv();
-        // 1.- Check the input is something we expect: LHS has a constraint or is a parameter
+        // 1.- Check the input is something we expect: LHS has a constraint
         ERROR_CONDITION(_input_constraints.find(lhs) == _input_constraints.end(),
                         "Some input constraint required for the LHS when parsing a %s nodecl",
                         ast_print_node_type(n.get_kind()));
@@ -1633,7 +1681,6 @@ namespace {
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(val))
             {
-                CGNodeType type = get_op_type_from_value(val);
                 fill_cg_with_binary_op(ssa_var, val);
             }
             else
@@ -1947,8 +1994,7 @@ namespace {
 
     void ConstraintGraph::evaluate_cgnode(
             CGNode* const n,
-            bool narrowing,
-            bool consider_back_edges)
+            bool narrowing)
     {
         const NBase& old_valuation = n->get_valuation();
         NBase new_valuation;
@@ -1993,13 +2039,15 @@ namespace {
                         // Intersection nodes may have one unique flow entry and many future entries
                         ObjectList<CGEdge*>& parent_entries = parent->get_entries();
                         CGNode* flow_grandparent = NULL;
-                        bool has_future_entries = false;
+                        std::set<CGNode*> future_grandparents;
                         unsigned int n_flow_entries = 0;
                         for (ObjectList<CGEdge*>::const_iterator it = parent_entries.begin();
                              it != parent_entries.end(); ++it)
                         {
                             if ((*it)->is_future_edge())
-                                has_future_entries = true;
+                            {
+                                future_grandparents.insert((*it)->get_source());
+                            }
                             else
                             {
                                 flow_grandparent = (*it)->get_source();
@@ -2014,41 +2062,55 @@ namespace {
                         // 2.2.- Compute the intersection
                         op1 = flow_grandparent->get_valuation();
                         op2 = parent->get_constraint();
-                        if (!narrowing && has_future_entries)
+                        if (!narrowing && !future_grandparents.empty())
                             new_valuation = op1;
                         else
+                        {   // Simplify the intersection range as possible
+                            ObjectList<NBase> op2_syms = Nodecl::Utils::get_all_memory_accesses(op2);
+                            for (ObjectList<NBase>::iterator it = op2_syms.begin();
+                                 it != op2_syms.end(); ++it)
+                            {
+                                for (std::set<CGNode*>::iterator itf = future_grandparents.begin();
+                                     itf != future_grandparents.end(); ++itf)
+                                {
+                                    NBase constr = (*itf)->get_constraint();
+                                    if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(constr, *it))
+                                    {   // Replace the symbol by its constant value, if it has
+                                        NBase itf_val = (*itf)->get_valuation();
+                                        if (itf_val.is_constant())
+                                        {
+                                            NBase itf_val_const = const_value_to_nodecl(itf_val.get_constant());
+                                            Nodecl::Utils::nodecl_replace_nodecl_by_structure(op2, *it, itf_val_const);
+                                        }
+                                    }
+                                }
+                                Optimizations::ReduceExpressionVisitor rev;
+                                rev.walk(op2);
+                            }
+
                             new_valuation = Utils::range_intersection(op1, op2);
+                        }
                         break;
                     }
                     case __Phi:
                     {
                         // 2.1.- Check the integrity of the Constraint Graph at this point
-                        ERROR_CONDITION(grandparents.size() != 2,
-                                        "A phi node is expected to have 2 entries, "
+                        ERROR_CONDITION(grandparents.size() < 2,
+                                        "A phi node is expected to have, at least, 2 entries, "
                                         "but node %d has %d entries.\n", 
                                         parent->get_id(), grandparents.size());
                         
                         // 2.2.- Join all entry valuations into the phi node
                         ObjectList<NBase> entry_valuations;
                         ObjectList<CGEdge*>& parent_entries = parent->get_entries();
-                        if (consider_back_edges)
+                        int n_entries = parent_entries.size();
+                        int i = 0;
+                        while (i < n_entries)
                         {
-                            op1 = parent_entries[0]->get_source()->get_valuation();
-                            op2 = parent_entries[1]->get_source()->get_valuation();
-                            new_valuation = Utils::range_union(op1, op2);
-                        }
-                        else
-                        {
-                            if (parent_entries[0]->is_back_edge())
-                                new_valuation = parent_entries[1]->get_source()->get_valuation();
-                            else if (parent_entries[1]->is_back_edge())
-                                new_valuation = parent_entries[0]->get_source()->get_valuation();
-                            else
-                            {
-                                op1 = parent_entries[0]->get_source()->get_valuation();
-                                op2 = parent_entries[1]->get_source()->get_valuation();
-                                new_valuation = Utils::range_union(op1, op2);
-                            }
+                            new_valuation = Utils::range_union(
+                                    new_valuation,
+                                    parent_entries[i]->get_source()->get_valuation());
+                            i++;
                         }
                         break;
                     }
@@ -2482,7 +2544,7 @@ namespace {
             if (n->get_type() == __Sym)
             {
                 // 4.1.- Compute the new valuation of the node
-                evaluate_cgnode(n, /*narrowing*/ 1, /*consider_back_edges*/ (visited.find(n) != visited.end()));
+                evaluate_cgnode(n, /*narrowing*/ 1);
 
                 // 4.2.- Apply the narrow operation
                 const NBase& new_valuation = n->get_valuation();
@@ -2491,12 +2553,8 @@ namespace {
                                 "Non-range interval '%s' found for CG-Node %d. Range expected\n",
                                 new_valuation.prettyprint().c_str(), n->get_id());
 
-                if (new_valuation.is<Nodecl::Analysis::EmptyRange>())
-                {   // FIXME Review this case, when the new valuation returns an EmptyRange,
-                    // but the old one was not empty
-                    // do nothing => keep the old valuation
-                }
-                else if (old_valuation.is<Nodecl::Analysis::EmptyRange>())
+                if (new_valuation.is<Nodecl::Analysis::EmptyRange>()
+                    || old_valuation.is<Nodecl::Analysis::EmptyRange>())
                 {
                     narrow_valuation = new_valuation;
                 }
@@ -2564,12 +2622,13 @@ namespace {
                               << "  ::  " << (constraint.is_null() ? n->get_type_as_string() : constraint.prettyprint())
                               << " = " << narrow_valuation.prettyprint() << std::endl;
                 }
+                n->set_valuation(narrow_valuation);
             }
 
             // 5.- Prepare next iteration by adding to the worklist the children nodes
             // only if the new valuation is different from the previous one
             // or it is the first time we try to narrow this node
-            if (n->get_type() != __Sym      // Nothing can change
+            if (n->get_type() != __Sym      // Always add operation nodes, because they never change
                     || !Nodecl::Utils::structurally_equal_nodecls(old_valuation, narrow_valuation,
                                                                   /*skip_conversions*/true)
                     || visited.find(n) == visited.end())
@@ -2610,7 +2669,8 @@ namespace {
         // We store the components which are cycles,
         // so we do not have to traverse the whole graph again
         std::vector<SCC*> cycle_scc;    // Store them in the same order we solve them the first time
-        std::cerr << " ================= WIDEN =================" << std::endl;
+        if (RANGES_DEBUG)
+            std::cerr << " ================= WIDEN =================" << std::endl;
         while (!next_scc.empty())
         {
             // 1.- Get the next SCC to be solved
@@ -2675,7 +2735,8 @@ namespace {
         }
 
         // Apply the "futures" operation
-        std::cerr << " ================= FUTURES =================" << std::endl;
+        if (RANGES_DEBUG)
+            std::cerr << " ================= FUTURES =================" << std::endl;
         for (std::vector<SCC*>::iterator it = cycle_scc.begin(); it != cycle_scc.end(); ++it)
         {
             SCC* scc = *it;
@@ -2688,7 +2749,8 @@ namespace {
         visited.clear();
         for (std::vector<SCC*>::const_iterator it = root_sccs.begin(); it != root_sccs.end(); ++it)
             next_scc.push(*it);
-        std::cerr << " ================= NARROW =================" << std::endl;
+        if (RANGES_DEBUG)
+            std::cerr << " ================= NARROW =================" << std::endl;
         while (!next_scc.empty())
         {
             // 1.- Get the next SCC to be solved
@@ -2911,7 +2973,6 @@ namespace {
 
                 // 2.- Replace the occurrences of the child_ssa_sym with phi_ssa_sym
                 //     only if there are modifications within the loop caused by the back edge
-                //     (i.e. parent_c is not a __ComparatorTrue)
                 //     Do this before inserting the new one, because we do not want it to be replaced
                 std::stack<Node*> nodes;
                 nodes.push(parent->get_children()[0]);  // parent is the last node of a loop,
@@ -2920,50 +2981,46 @@ namespace {
                 Utils::Constraint& child_c = child_constrs[orig_var];
                 Symbol child_ssa_sym = child_c.get_symbol();
                 NBase child_ssa_var = child_ssa_sym.make_nodecl(/*set_ref_type*/false);
-                // The constraint may be a __ComparatorTrue
-                if (parent_c.get_kind() != Utils::ConstraintKind::__ComparatorTrue)
+                std::set<Node*> treated;
+                treated.insert(parent);
+                while (!nodes.empty())
                 {
-                    std::set<Node*> treated;
-                    treated.insert(parent);
-                    while (!nodes.empty())
+                    // Get the node to be treated
+                    Node* n = nodes.top();
+                    nodes.pop();
+
+                    // Base case: the node has already been processed
+                    if (treated.find(n) != treated.end())
+                        continue;
+                    treated.insert(n);
+
+                    // Gather the constraints generated by this node
+                    VarToConstraintMap& n_constrs = pcfg_constraints[n];
+                    if (n_constrs.find(orig_var) != n_constrs.end())
                     {
-                        // Get the node to be treated
-                        Node* n = nodes.top();
-                        nodes.pop();
-
-                        // Base case: the node has already been processed
-                        if (treated.find(n) != treated.end())
-                            continue;
-                        treated.insert(n);
-
-                        // Gather the constraints generated by this node
-                        VarToConstraintMap& n_constrs = pcfg_constraints[n];
-                        if (n_constrs.find(orig_var) != n_constrs.end())
+                        Utils::Constraint& n_c = n_constrs[orig_var];
+                        NBase& n_val = n_c.get_value();
+                        if (RANGES_DEBUG
+                            && Nodecl::Utils::nodecl_contains_nodecl_by_structure(n_val, child_ssa_var))
                         {
-                            Utils::Constraint& n_c = n_constrs[orig_var];
-                            NBase& n_val = n_c.get_value();
-                            if (RANGES_DEBUG
-                                && Nodecl::Utils::nodecl_contains_nodecl_by_structure(n_val, child_ssa_var))
-                            {
-                                std::cerr << "    REPLACE " << child_ssa_var.prettyprint()
-                                          << " WITH " << phi_ssa_var.prettyprint()
-                                          << " IN " << n_val.prettyprint() << std::endl;
-                            }
-                            Nodecl::Utils::nodecl_replace_nodecl_by_structure(n_val, child_ssa_var, phi_ssa_var);
+                            std::cerr << "    REPLACE " << child_ssa_var.prettyprint()
+                                        << " WITH " << phi_ssa_var.prettyprint()
+                                        << " IN " << n_val.prettyprint() << std::endl;
                         }
+                        Nodecl::Utils::nodecl_replace_nodecl_by_structure(n_val, child_ssa_var, phi_ssa_var);
+                    }
 
-                        // Prepare following iterations
-                        ObjectList<Node*> children =
-                            n->is_exit_node()
-                                ? n->get_outer_node()->get_children()           // exit graph nodes
-                                : n->is_graph_node()
-                                    ? n->get_graph_entry_node()->get_children() // enter graph nodes
-                                    : n->get_children();                        // regular child
-                        for (ObjectList<Node*>::iterator itc = children.begin();
-                            itc != children.end(); ++itc)
-                        {
-                            nodes.push(*itc);
-                        }
+                    // Prepare following iterations
+                    ObjectList<Node*> children =
+                        n->is_exit_node()
+                            ? n->get_outer_node()->get_children()           // exit graph nodes
+                            : n->is_graph_node()
+                                ? ObjectList<Node*>(1, n->get_graph_entry_node()) // enter graph nodes
+                                : n->get_children();                        // regular child
+                    for (ObjectList<Node*>::iterator itc = children.begin();
+                        itc != children.end(); ++itc)
+                    {
+                        nodes.push(*itc);
                     }
                 }
 
@@ -3014,7 +3071,6 @@ namespace {
         {
             Node* n = worklist.front();
             worklist.pop();
-
             if (treated.find(n) != treated.end())
             {
                 if (!n->is_exit_node())
@@ -3067,6 +3123,15 @@ namespace {
                 // 2.1.2.- Propagate the information from the exit node to the graph node
                 Node* graph_exit = n->get_graph_exit_node();
                 pcfg_constraints[n] = pcfg_constraints[graph_exit];
+
+                // Do not consider those graphs that finish only with a return statement
+                // That may break the sequential order of execution
+                const ObjectList<Node*> exit_parents = graph_exit->get_parents();
+                if (exit_parents.size()==1 && exit_parents[0]->is_return_node())
+                {
+                    treated.insert(n);
+                    continue;
+                }
             }
             else
             {
@@ -3118,8 +3183,12 @@ namespace {
                                 // the initialization value of this variable is undefined
                                 // 2.2.1.1.1.- Get a new symbol for the new constraint
                                 std::stringstream ss; ss << get_next_id(orig_var);
-                                Symbol orig_sym(orig_var.get_symbol());
-                                std::string constr_name = orig_sym.get_name() + "_" + ss.str();
+                                Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
+                                std::string subscripts_str;
+                                if (orig_var.no_conv().is<Nodecl::ArraySubscript>())
+                                    subscripts_str = get_subscripts_string(orig_var.no_conv().as<Nodecl::ArraySubscript>(),
+                                                                           input_constrs) + "_";
+                                std::string constr_name = orig_sym.get_name() + "_" + subscripts_str + ss.str();
                                 Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
@@ -3166,8 +3235,12 @@ namespace {
                             {
                                 // 2.2.1.2.2.1.- Get a new symbol for the new constraint
                                 std::stringstream ss; ss << get_next_id(orig_var);
-                                Symbol orig_sym(orig_var.get_symbol());
-                                std::string constr_name = orig_sym.get_name() + "_" + ss.str();
+                                Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
+                                std::string subscripts_str;
+                                if (orig_var.no_conv().is<Nodecl::ArraySubscript>())
+                                    subscripts_str = get_subscripts_string(orig_var.no_conv().as<Nodecl::ArraySubscript>(),
+                                                                           input_constrs) + "_";
+                                std::string constr_name = orig_sym.get_name() + "_" + subscripts_str + ss.str();
                                 Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
@@ -3284,7 +3357,10 @@ namespace {
             treated.insert(n);
 
             // Make sure we compute constraints in the proper order (sequential order of the statements)
-            if (!n->is_omp_task_node())
+            if (!n->is_omp_task_node()
+                    && !n->is_break_node()
+                    && !n->is_return_node()
+                    && !n->is_goto_node())
             {
                 const ObjectList<Edge*>& exits = n->get_exit_edges();
                 if (n_has_backedge)

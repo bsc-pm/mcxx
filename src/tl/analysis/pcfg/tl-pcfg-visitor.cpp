@@ -3067,6 +3067,7 @@ next_it:    ;
         ObjectList<Node*> return_last_nodes = _utils->_last_nodes;
         ObjectList<Node*> returned_value = walk(n.get_value());
         Node* return_node = merge_nodes(n, returned_value);
+        return_node->set_type(__Return);
         _pcfg->connect_nodes(return_last_nodes, return_node);
         _utils->_last_nodes.clear();
         _utils->_return_nodes.append(return_node);

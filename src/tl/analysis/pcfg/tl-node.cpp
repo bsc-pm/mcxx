@@ -762,6 +762,11 @@ namespace Analysis {
         return (is_graph_node() && get_graph_type() == __SplitStmt);
     }
 
+    bool Node::is_return_node()
+    {
+        return (get_type() == __Return);
+    }
+
     bool Node::is_unclassified_node()
     {
         return (get_type() == __UnclassifiedNode);

@@ -375,6 +375,9 @@ namespace Analysis {
             //! Returns true when the node is a composed node because the statement it contains has been split
             bool is_split_statement();
 
+            //! Returns true when the node is a RETURN node
+            bool is_return_node();
+
             //! Returns true when the node is a UNCLASSIFIED node
             bool is_unclassified_node();
 
