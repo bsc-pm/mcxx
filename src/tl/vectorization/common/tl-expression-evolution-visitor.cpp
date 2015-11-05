@@ -225,8 +225,6 @@ namespace Vectorization
 
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_uniform )
-                           || ( lhs_is_uniform && rhs_is_adjacent_access )
-                           || ( lhs_is_adjacent_access && rhs_is_uniform )
                            || ( lhs_is_uniform && rhs_is_adjacent_access );
 
         return ( rhs_is_uniform && lhs_is_uniform );

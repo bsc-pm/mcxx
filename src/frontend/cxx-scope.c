@@ -4034,7 +4034,9 @@ static type_t* update_type_aux_(type_t* orig_type,
                 array_size, 
                 array_size_context);
 
-        updated_array_type = get_cv_qualified_type(updated_array_type, cv_qualifier);
+        updated_array_type = get_cv_qualified_type(updated_array_type, 
+                // combine qualifier
+                cv_qualifier | get_cv_qualifier(updated_array_type));
 
         return updated_array_type;
     }

@@ -265,6 +265,8 @@ LIBMCXX_EXTERN char same_functional_expression(
         nodecl_t n1,
         nodecl_t n2);
 
+LIBMCXX_EXTERN type_t* clear_special_expr_type_variants(type_t* t);
+
 // Used by the lexer
 char* interpret_schar(const char* schar, const locus_t* locus);
 

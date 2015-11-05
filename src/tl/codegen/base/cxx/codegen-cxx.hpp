@@ -285,6 +285,8 @@ namespace Codegen
                 bool in_condition;
                 Nodecl::NodeclBase condition_top;
 
+                bool in_for_stmt_decl;
+
                 bool in_member_declaration;
 
                 bool in_forwarded_member_declaration;
@@ -331,12 +333,16 @@ namespace Codegen
                 // its C++11 support
                 bool _do_not_emit_this;
 
+                // Saved locus when emitting location
+                const locus_t* _saved_locus;
+
                 State() :
                     global_namespace(),
                     opened_namespace(),
                     emit_declarations(EMIT_NO_DECLARATIONS),
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
+                    in_for_stmt_decl(false),
                     in_member_declaration(false),
                     in_forwarded_member_declaration(false),
                     in_dependent_template_function_code(false),
@@ -352,7 +358,8 @@ namespace Codegen
                     do_not_derref_rebindable_reference(false),
                     _inline_comment_nest(0),
                     _indent_level(0),
-                   _do_not_emit_this(false) { }
+                   _do_not_emit_this(false),
+                   _saved_locus(NULL) { }
             } state;
             // End of State
 
@@ -609,6 +616,8 @@ namespace Codegen
 
             void emit_line_marker(Nodecl::NodeclBase n);
             void emit_line_marker(const locus_t* locus);
+
+            void emit_saved_locus();
 
             bool looks_like_braced_list(Nodecl::NodeclBase n);
         protected:

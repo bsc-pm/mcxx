@@ -145,49 +145,73 @@ namespace TL
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
             PragmaCustomClause no_copy_deps = pragma_line.get_clause("no_copy_deps");
 
-            target_ctx.copy_deps = false;
-
-            if (!copy_deps.is_defined()
-                    && !no_copy_deps.is_defined())
+            if (target_ctx.copy_deps == OmpSs::TargetContext::UNDEF_COPY_DEPS)
             {
-                if (this->in_ompss_mode()
-                        && this->copy_deps_by_default())
+                target_ctx.copy_deps = OmpSs::TargetContext::NO_COPY_DEPS;
+
+                if (!copy_deps.is_defined()
+                        && !no_copy_deps.is_defined())
                 {
-                    // Copy deps is true only if there is no copy_in, copy_out
-                    // or copy_inout
-                    if ( !copy_in.is_defined()
-                            && !copy_out.is_defined()
-                            && !copy_inout.is_defined())
+                    if (this->in_ompss_mode()
+                            && this->copy_deps_by_default())
                     {
-                        target_ctx.copy_deps = true;
-
-                        if (!_already_informed_new_ompss_copy_deps)
+                        // Copy deps is true only if there is no copy_in, copy_out
+                        // or copy_inout
+                        if ( !copy_in.is_defined()
+                                && !copy_out.is_defined()
+                                && !copy_inout.is_defined())
                         {
-                            info_printf_at(pragma_line.get_locus(),
-                                    "unless 'no_copy_deps' is specified, "
-                                    "the default in OmpSs is now 'copy_deps'\n");
-                            info_printf_at(pragma_line.get_locus(),
-                                    "this diagnostic is only shown for the "
-                                    "first task found\n");
+                            target_ctx.copy_deps = OmpSs::TargetContext::COPY_DEPS;
 
-                            _already_informed_new_ompss_copy_deps = true;
+                            if (!_already_informed_new_ompss_copy_deps)
+                            {
+                                info_printf_at(pragma_line.get_locus(),
+                                        "unless 'no_copy_deps' is specified, "
+                                        "the default in OmpSs is now 'copy_deps'\n");
+                                info_printf_at(pragma_line.get_locus(),
+                                        "this diagnostic is only shown for the "
+                                        "first task found\n");
+
+                                _already_informed_new_ompss_copy_deps = true;
+                            }
                         }
                     }
                 }
+                else if (copy_deps.is_defined())
+                {
+                    target_ctx.copy_deps = OmpSs::TargetContext::COPY_DEPS;
+                }
+                else if (no_copy_deps.is_defined())
+                {
+                    target_ctx.copy_deps = OmpSs::TargetContext::NO_COPY_DEPS;
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
             }
-            else if (copy_deps.is_defined())
+            else if (target_ctx.copy_deps == OmpSs::TargetContext::NO_COPY_DEPS
+                    || target_ctx.copy_deps == OmpSs::TargetContext::COPY_DEPS)
             {
-                target_ctx.copy_deps = true;
-            }
-            else if (no_copy_deps.is_defined())
-            {
-                target_ctx.copy_deps = false;
+                if (copy_deps.is_defined())
+                {
+                    warn_printf_at(pragma_line.get_locus(),
+                            "ignoring 'copy_deps' clause because this context is already '%s'\n",
+                            target_ctx.copy_deps == OmpSs::TargetContext::NO_COPY_DEPS ? "no_copy_deps" : "copy_deps");
+                }
+                if (no_copy_deps.is_defined())
+                {
+                    warn_printf_at(pragma_line.get_locus(),
+                            "ignoring 'no_copy_deps' clause because this context is already '%s'\n",
+                            target_ctx.copy_deps == OmpSs::TargetContext::NO_COPY_DEPS ? "no_copy_deps" : "copy_deps");
+                }
             }
             else
             {
                 internal_error("Code unreachable", 0);
             }
-
+            ERROR_CONDITION(target_ctx.copy_deps == OmpSs::TargetContext::UNDEF_COPY_DEPS,
+                    "Invalid value for copy_deps at this point", 0)
 
             PragmaCustomClause implements = pragma_line.get_clause("implements");
             if (implements.is_defined())
@@ -527,7 +551,7 @@ namespace TL
             target_info.append_to_device_list(target_ctx.device_list);
 
             // Set data sharings for referenced entities in copies
-            if (target_ctx.copy_deps)
+            if (target_ctx.copy_deps == OmpSs::TargetContext::COPY_DEPS)
             {
                 // Copy the dependences, as well
 
@@ -592,7 +616,7 @@ namespace TL
             }
 
             if (this->in_ompss_mode()
-                    && (target_ctx.copy_deps
+                    && (target_ctx.copy_deps == OmpSs::TargetContext::COPY_DEPS
                         || !target_ctx.copy_in.empty()
                         || !target_ctx.copy_out.empty()
                         || !target_ctx.copy_inout.empty())

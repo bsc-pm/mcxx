@@ -249,8 +249,8 @@ namespace TL
 
                 void collapse_check_loop(TL::PragmaCustomStatement construct);
 
-                void parse_declare_reduction(ReferenceScope ref_sc, const std::string& declare_reduction_src);
-                void parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src);
+                void parse_declare_reduction(ReferenceScope ref_sc, const std::string& declare_reduction_src, bool is_builtin);
+                void parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src, bool is_builtin);
                 void parse_declare_reduction(ReferenceScope ref_sc,
                         const std::string &name,
                         const std::string &typenames,

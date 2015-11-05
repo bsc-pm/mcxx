@@ -772,7 +772,7 @@ namespace Vectorization
             fatal_error("Epilog loop is not an OpenMP valid loop");
         }
 
-        // i = (upper_bound) - ((upper_bound) % UnrollFactor) + (lower_bound)
+        // i = ub + 1 - (ub - lb + 1) % UnrollFactor
 
         Nodecl::NodeclBase upper_bound = tl_for_statement.get_upper_bound();
         Nodecl::NodeclBase upper_bound_plus_one = 

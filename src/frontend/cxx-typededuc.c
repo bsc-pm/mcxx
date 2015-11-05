@@ -3301,6 +3301,13 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                     return DEDUCTION_OK;
                 }
 
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEDEDUC: Deduction fails because deduced argument type '%s' "
+                            "cannot be matched to the argument type '%s'\n",
+                            print_declarator(deduced_argument),
+                            print_declarator(argument));
+                }
                 deduction_result_value = DEDUCTION_FAILURE;
             }
         }
@@ -3512,7 +3519,7 @@ deduction_result_t handle_explicit_template_arguments(
                     diagnostic_context_push_buffered();
                     type_t* template_argument_type =
                         update_type(
-                                raw_explicit_template_arguments->arguments[current_arg]->type,
+                                template_parameters->parameters[current_param]->entry->type_information,
                                 context_for_updating,
                                 locus);
                     diagnostic_context_pop_and_discard();
@@ -3589,6 +3596,7 @@ deduction_result_t handle_explicit_template_arguments(
             new_template_argument->type = raw_explicit_template_arguments->arguments[current_arg]->type;
             if (new_template_argument->kind == TPK_NONTYPE)
             {
+                new_template_argument->type = template_parameters->parameters[current_param]->entry->type_information;
                 diagnostic_context_push_buffered();
                 new_template_argument->type = update_type(
                         new_template_argument->type,
@@ -3606,6 +3614,7 @@ deduction_result_t handle_explicit_template_arguments(
                     free_template_parameter_list((*explicit_template_arguments));
                     return DEDUCTION_FAILURE;
                 }
+
                 if (!check_nontype_template_argument_type(new_template_argument->type))
                 {
                     DEBUG_CODE()

@@ -313,16 +313,16 @@ longlongsuffix [lL][lL]
 complexsuffix [ji]
 
  /* A.2.28 */
-cchar       ([^\\'\n]|{escape_seq}|(\\[']))
+cchar       (([^'\\\n])|(\\['])|(\\\\)|(\\[^'\\\n]+))
 
-universal4 (\\u[0-9a-fA-F]{4})
-universal8 (\\U[0-9a-fA-F]{8})
+ /* universal4 (\\u[0-9a-fA-F]{4}) */
+ /* universal8 (\\U[0-9a-fA-F]{8}) */
 
-universal ({universal4}|{universal8})
+ /* universal ({universal4}|{universal8}) */
 
  /* A.2.29 */
  /* \e is a GNU extension */
-escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+)|{universal})
+ /* escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+)|{universal}) */
  /* A.2.34 */
 fractconst  (({digit}*\.{digit}+)|({digit}+(\.)?))
  /* A.2.35 */
@@ -337,7 +337,7 @@ floatingsuffix_all ({floatingsuffix_std}|{floatingsuffix_nonstd})
  /* GNU extension for complex floating suffix */
 floatingsuffix  ({floatingsuffix_all}|{floatingsuffix_all}{complexsuffix}|{complexsuffix}{floatingsuffix_all}|{complexsuffix})
  /* A.2.40 */
-schar       ([^\\"\n]|{escape_seq}|(\\["]))
+schar       (([^"\\\n])|(\\["])|(\\\\)|(\\[^"\\\n]+))
 
 dchar [^ ()\n\v\t\r]
 rchar [^)]
@@ -1551,10 +1551,10 @@ type {
 
  /* A.2.26 */
  /*!if CPLUSPLUS*/
-[LUu]?'{cchar}*'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
+[LUu]?'{cchar}'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
  /*!endif*/
  /*!if C99*/
-L?'{cchar}*'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
+L?'{cchar}'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
  /*!endif*/
 
  /* A.2.33 */
@@ -1904,7 +1904,6 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
  /*!endif*/
 "&"         { parse_token_text(); update_location(); return '&'; }
 "*"         { parse_token_text(); update_location(); return '*'; }
-"\""        { parse_token_text(); update_location(); return '"'; }
  /*!if CPLUSPLUS*/
 "::"        { parse_token_text(); update_location(); return TWO_COLONS; }
  /*!endif*/

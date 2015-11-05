@@ -4211,6 +4211,7 @@ type_t* array_type_rebase(type_t* array_type, type_t* new_element_type)
 
 extern inline type_t* get_unqualified_type(type_t* t)
 {
+    type_t* orig_type = t;
     t = advance_over_typedefs(t);
 
     if (t->kind == TK_ARRAY)
@@ -4220,17 +4221,25 @@ extern inline type_t* get_unqualified_type(type_t* t)
     }
 
     // Keep restrict attribute as it can't be discarded like const or volatile
-    char is_restricted = (get_cv_qualifier(t) & CV_RESTRICT) == CV_RESTRICT;
+    cv_qualifier_t cv = get_cv_qualifier(t);
+    char is_restricted = (cv & CV_RESTRICT) == CV_RESTRICT;
 
     ERROR_CONDITION(t->unqualified_type == NULL, "This cannot be NULL", 0);
-    
+
     if (!is_restricted)
     {
-        return t->unqualified_type;
+        if (cv == CV_NONE)
+            // Return the original type
+            return orig_type;
+        else
+            return t->unqualified_type;
     }
     else
     {
-        return get_restrict_qualified_type(t->unqualified_type);
+        if (cv == CV_RESTRICT)
+            return get_restrict_qualified_type(orig_type);
+        else
+            return get_restrict_qualified_type(t->unqualified_type);
     }
 }
 
@@ -4245,7 +4254,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     type_t* unchanged_type = original;
 
     original = advance_over_typedefs_with_cv_qualif(original, &old_cv_qualifier);
-    
+
     // Try hard to preserve the type
     if (cv_qualification == old_cv_qualifier)
         return unchanged_type;
@@ -10147,12 +10156,57 @@ extern inline const char* print_opencl_vector_type(
     return c;
 }
 
+extern inline const char* print_neon_vector_type(
+        const decl_context_t* decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    int size = vector_type_get_vector_size(t);
+    int num_elements = vector_type_get_num_elements(t);
+    type_t* element_type = vector_type_get_element_type(t);
+
+    const char *c = NULL;
+    if (size == 8
+            || size == 16)
+    {
+        if (is_integral_type(element_type))
+        {
+            uniquestr_sprintf(&c, "%sint%dx%d_t",
+                    is_unsigned_integral_type(element_type) ? "u" : "",
+                    (int)type_get_size(element_type) * 8,
+                    num_elements);
+            return c;
+        }
+        else if (is_float_type(element_type))
+        {
+            uniquestr_sprintf(&c, "float32x%d_t", num_elements);
+            return c;
+        }
+        else if (is_double_type(element_type))
+        {
+            uniquestr_sprintf(&c, "float64x%d_t", num_elements);
+            return c;
+        }
+    }
+
+    const char* typename = get_simple_type_name_string_internal_impl(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+    uniquestr_sprintf(&c, "<<neon-vector-%s-%d>>",
+            typename,
+            vector_type_get_vector_size(t));
+    return c;
+}
+
 // Arrays 'vector_flavors' and 'print_vector_functions' are parallel arrays
 #define VECTOR_FLAVORS \
     VECTOR_FLAVOR(gnu, print_gnu_vector_type) \
     VECTOR_FLAVOR(intel, print_intel_sse_avx_vector_type) \
     VECTOR_FLAVOR(altivec, print_altivec_vector_type) \
-    VECTOR_FLAVOR(opencl, print_opencl_vector_type)
+    VECTOR_FLAVOR(opencl, print_opencl_vector_type) \
+    VECTOR_FLAVOR(neon, print_neon_vector_type)
 
 #define VECTOR_FLAVOR(name, _) #name,
 const char* vector_flavors[] = {
@@ -12588,16 +12642,27 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
         }
     }
 
-    // cv1 T1 -> const T2&
-    // cv1 T1 ->   cv2 T2&&   where cv2 is more or equal qualified thant cv1
-    if ((is_lvalue_reference_type(dest)
-                && is_const_qualified_type(reference_type_get_referenced_type(dest)))
-            || (!is_lvalue_reference_type(orig) // Make sure that orig is not a lvalue reference.
-                                                // Note that when both orig and dest are both references
-                                                // of  the same kind (lvalue or rvalue) has already been
-                                                // handled above
-                && is_rvalue_reference_type(dest)
-                && is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig))))
+    // (A)
+    // cv1 T1   -> const T2&
+    // cv1 T1&& -> const T2&
+    //
+    // (B)
+    // cv1 T1   ->   cv2 T2&&
+    // [note: cv1 T1&& -> cv2 T2&& has been handled above]
+    //
+    // where cv2 is more or equal qualified thant cv1.
+    //
+    // Note that the case when both orig and dest are both references
+    // of the same kind (lvalue or rvalue) has already been
+    // handled above
+    if (// (A)
+            ((is_lvalue_reference_type(dest)
+              && is_const_qualified_type(reference_type_get_referenced_type(dest)))
+             // (B)
+             // Make sure that orig is not a lvalue reference (it can be an rvalue-ref, though)
+             || (!is_lvalue_reference_type(orig)
+                 && is_rvalue_reference_type(dest)
+                 && is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig)))))
     {
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         // cv T1 -> T2
@@ -12622,6 +12687,7 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
         {
             (*result).conv[0] = conversion_among_lvalues.conv[0];
             (*result).conv[1] = conversion_among_lvalues.conv[1];
+            (*result).conv[2] = conversion_among_lvalues.conv[2];
             ok = 1;
         }
 
@@ -13252,6 +13318,9 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
     //
     //  qualification-conversion
     //
+    //  T* -> const T*
+    //  char* -> const char*       [only for string-literals]
+    //  wchar_t* -> const wchar_t* [only for string-literals]
     if (!equivalent_types(orig, dest)
             && ((is_pointer_type(orig)
                     && is_pointer_type(dest))
@@ -13663,7 +13732,7 @@ extern inline type_t* get_literal_string_type(int length, type_t* base_type)
 extern inline char array_type_is_string_literal(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "Invalid type", 0);
-    t = advance_over_typedefs(no_ref(t));
+    t = advance_over_typedefs(t);
 
     return t->array->is_string_literal;
 }
@@ -14136,6 +14205,10 @@ extern inline scope_entry_list_t* class_type_get_all_bases(type_t *t, char inclu
 
 static char covariant_return(type_t* overrided_type, type_t* virtual_type)
 {
+    if (overrided_type == NULL
+            && virtual_type == NULL)
+        return 1;
+
     if (equivalent_types(overrided_type, virtual_type))
         return 1;
 
@@ -14162,10 +14235,27 @@ static char covariant_return(type_t* overrided_type, type_t* virtual_type)
     return 0;
 }
 
+static char same_function_qualification(type_t* overrided_type, type_t* virtual_type)
+{
+    if (!equivalent_cv_qualification(get_cv_qualifier(overrided_type), get_cv_qualifier(virtual_type)))
+        return 0;
+
+    if (function_type_get_ref_qualifier(overrided_type) !=
+            function_type_get_ref_qualifier(virtual_type))
+        return 0;
+
+    return 1;
+}
+
 extern inline char function_type_can_override(type_t* potential_overrider, type_t* function_type)
 {
+    ERROR_CONDITION(!is_function_type(potential_overrider), "Must be a function type", 0);
+    ERROR_CONDITION(!is_function_type(function_type), "Must be a function type", 0);
+
     return compatible_parameters(potential_overrider->function, function_type->function)
-        && covariant_return(potential_overrider, function_type);
+        && covariant_return(function_type_get_return_type(potential_overrider),
+                function_type_get_return_type(function_type))
+        && same_function_qualification(potential_overrider, function_type);
 }
 
 extern inline char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2)

@@ -2439,7 +2439,9 @@ static void build_scope_simple_declaration(AST a, const decl_context_t* decl_con
                                 ERROR_CONDITION(is_braced_list_type(initializer_type),
                                         "Invalid type", 0);
                                 cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
-                                entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                                entry->type_information = get_cv_qualified_type(
+                                        clear_special_expr_type_variants(no_ref(initializer_type)),
+                                        cv_qualif);
                             }
                             else
                             {
@@ -3465,6 +3467,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                     /* is_decltype */ 0);
                         }
                     }
+
+                    computed_type = clear_special_expr_type_variants(computed_type);
 
                     *simple_type_info = computed_type;
                 }
@@ -6471,6 +6475,10 @@ void check_nodecl_member_initializer_list(
                             entry,
                             locus);
                     *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+                }
+                else if (is_error_type(t))
+                {
+                    // skip
                 }
                 else
                 {
@@ -11570,6 +11578,11 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
     if (!is_named_type(declarator_type))
     {
         // We should mix here default argument info because the declarator has function-type form
+        if (symbol_entity_specs_get_num_parameters(function_symbol) == 0)
+        {
+            symbol_entity_specs_reserve_default_argument_info(function_symbol, gather_info->num_arguments_info);
+        }
+
         ERROR_CONDITION(gather_info->num_arguments_info != symbol_entity_specs_get_num_parameters(function_symbol),
                 "These two should be the same and they are %d != %d", 
                 gather_info->num_arguments_info, 
@@ -11681,6 +11694,13 @@ static void update_function_specifiers(scope_entry_t* entry,
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
+    if (!symbol_entity_specs_get_is_constructor(entry)
+            && symbol_entity_specs_get_is_member(entry)
+            && !symbol_entity_specs_get_is_static(entry)
+            && symbol_entity_specs_get_is_constexpr(entry))
+    {
+        entry->type_information = get_const_qualified_type(entry->type_information);
+    }
 
     // Merge inline attribute
     symbol_entity_specs_set_is_inline(entry,
@@ -12193,6 +12213,37 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
     return NULL;
 }
 
+static char dependent_typename_entry_aliases_member(type_t* dependent_typename, scope_entry_t* member)
+{
+    ERROR_CONDITION(!is_dependent_typename_type(dependent_typename), "Invalid type", 0);
+    ERROR_CONDITION(!symbol_entity_specs_get_is_member(member), "Invalid symbol", 0);
+
+    scope_entry_t* current_class = named_type_get_symbol(
+            symbol_entity_specs_get_class_type(member)
+            );
+
+    scope_entry_t* dependent_entry = NULL;
+    nodecl_t nodecl_dependent_parts = nodecl_null();
+
+    dependent_typename_get_components(dependent_typename, &dependent_entry, &nodecl_dependent_parts);
+    if ((current_class == dependent_entry)
+            && nodecl_get_kind(nodecl_dependent_parts) == NODECL_CXX_DEP_NAME_NESTED)
+    {
+        nodecl_t list = nodecl_get_child(nodecl_dependent_parts, 0);
+        if (nodecl_list_length(list) == 1)
+        {
+            nodecl_t nodecl_name = nodecl_list_head(list);
+            if (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE
+                    && strcmp(nodecl_get_text(nodecl_name), member->symbol_name) == 0)
+            {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 /*
  * This function registers a new typedef name.
  */
@@ -12212,7 +12263,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (entry->kind != SK_ENUM 
+            if (entry->kind != SK_ENUM
                     && entry->kind != SK_CLASS
                     && entry->kind != SK_TYPEDEF)
             {
@@ -12229,7 +12280,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 
         entry_list_free(list);
 
-        // We have to allow 
+        // We have to allow
         // typedef struct A { .. } A;
         //
         // In this case the declarator_id (rightmost "A") will be a SK_CLASS
@@ -12242,10 +12293,19 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         //
         // This is ill-formed because the rightmost A should be the same typename for the leftmost one.
         //
-        if (!is_named_type(declarator_type)
-                || named_type_get_symbol(declarator_type) != entry)
+        if ((is_named_type(declarator_type)
+                && named_type_get_symbol(declarator_type) == entry)
+                || (symbol_entity_specs_get_is_member(entry)
+                    && is_dependent_typename_type(declarator_type)
+                    && dependent_typename_entry_aliases_member(declarator_type, entry)))
         {
-            if(!equivalent_types(entry->type_information, declarator_type))
+            // In this special case, "A" will not be redefined, lets undefine
+            // here and let it be redefined again later
+            entry->defined = 0;
+        }
+        else
+        {
+            if (!equivalent_types(entry->type_information, declarator_type))
             {
                 error_printf_at(ast_get_locus(declarator_id), "symbol '%s' has been redeclared as a different symbol kind\n", 
                         prettyprint_in_buffer(declarator_id));
@@ -12254,7 +12314,12 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                         print_type_str(declarator_type, decl_context));
                 info_printf_at(entry->locus, "previous declaration of '%s' (with type '%s')\n",
                         entry->symbol_name,
-                        print_type_str(entry->type_information, entry->decl_context));
+                        print_type_str(
+                            entry->kind == SK_TYPEDEF
+                                ? entry->type_information
+                                : get_user_defined_type(entry),
+                            entry->decl_context)
+                        );
                 return NULL;
             }
 
@@ -12278,12 +12343,6 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                     }
                 }
             }
-        }
-        else
-        {
-            // In this special case, "A" will not be redefined, lets undefine
-            // here and let it be redefined again later
-            entry->defined = 0;
         }
 
         return entry;
@@ -12489,6 +12548,10 @@ static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* de
         symbol_entity_specs_set_is_thread(entry, gather_info->is_thread);
         symbol_entity_specs_set_is_thread_local(entry, gather_info->is_thread_local);
         symbol_entity_specs_set_is_constexpr(entry, gather_info->is_constexpr);
+        if (symbol_entity_specs_get_is_constexpr(entry))
+        {
+            entry->type_information = get_const_qualified_type(entry->type_information);
+        }
         symbol_entity_specs_set_linkage_spec(entry, linkage_current_get_name());
 
         return entry;
@@ -12749,7 +12812,14 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         {
             symbol_entity_specs_set_is_member(new_entry, 1);
             symbol_entity_specs_set_class_type(new_entry,
-                get_user_defined_type(decl_context->current_scope->related_entry));
+                    get_user_defined_type(decl_context->current_scope->related_entry));
+
+            if (!symbol_entity_specs_get_is_constructor(new_entry)
+                    && !symbol_entity_specs_get_is_static(new_entry)
+                    && symbol_entity_specs_get_is_constexpr(new_entry))
+            {
+                new_entry->type_information = get_const_qualified_type(new_entry->type_information);
+            }
         }
 
         for (i = 0; i < gather_info->num_arguments_info; i++)
@@ -16270,6 +16340,13 @@ static scope_entry_t* build_scope_function_definition_declarator(
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
+    if (!symbol_entity_specs_get_is_constructor(entry)
+            && symbol_entity_specs_get_is_member(entry)
+            && !symbol_entity_specs_get_is_static(entry)
+            && symbol_entity_specs_get_is_constexpr(entry))
+    {
+        entry->type_information = get_const_qualified_type(entry->type_information);
+    }
     symbol_entity_specs_set_is_inline(entry,
             symbol_entity_specs_get_is_inline(entry)
             || gather_info->is_inline

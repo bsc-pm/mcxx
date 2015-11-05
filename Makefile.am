@@ -374,6 +374,7 @@ src_frontend_libgccbuiltins_la_SOURCES = \
   src/frontend/cxx-gccbuiltins.h \
   src/frontend/cxx-gccbuiltins-ia32.h \
   src/frontend/cxx-gccbuiltins-arm-neon.h \
+  src/frontend/cxx-gccbuiltins-arm64-neon.h \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
@@ -956,8 +957,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-nodecl-utils-fortran.cpp \
     src/tl/tl-nodecl-utils-c.hpp \
     src/tl/tl-nodecl-utils-c.cpp \
-    src/tl/tl-nodecl-replace.hpp \
-    src/tl/tl-nodecl-replace.cpp \
     src/tl/tl-scope.hpp \
     src/tl/tl-scope-fwd.hpp \
     src/tl/tl-scope.cpp \
@@ -1003,8 +1002,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-clauses-info.cpp \
     src/tl/tl-pragmasupport.hpp \
     src/tl/tl-pragmasupport.cpp \
-    src/tl/tl-replace.hpp \
-    src/tl/tl-replace.cpp \
     src/tl/tl-modules-fwd.hpp \
     src/tl/tl-modules.hpp \
     src/tl/tl-modules.cpp \
@@ -1193,7 +1190,9 @@ src_tl_analysis_common_libanalysis_utils_la_CXXFLAGS = $(tl_cflags) \
 				-I$(top_srcdir)/src/tl/optimizations
 src_tl_analysis_common_libanalysis_utils_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_common_libanalysis_utils_la_LIBADD = $(tl_libadd) src/tl/libtl.la \
-				src/tl/optimizations/libtloptimizations.la
+				src/tl/optimizations/libtloptimizations.la \
+				-lrt \
+				$(END)
 
 src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 				src/tl/analysis/common/tl-link-data.hpp \
@@ -2573,6 +2572,35 @@ src_tl_vectorization_vector_lowering_knl_libtlvector_lowering_knl_la_SOURCES = \
 endif
 
 ##########################################################################
+# src/tl/vectorization/vector-lowering/neon
+##########################################################################
+
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/vector-lowering/neon/libtlvector-lowering-neon.la
+
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_CFLAGS = $(tl_cflags)
+
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_CXXFLAGS = $(tl_cflags) \
+                              $(vector_lowering_cflags) \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/neon/legalization \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/neon/backend \
+                              $(END)
+
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+	$(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
+$(END)
+
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_SOURCES = \
+     src/tl/vectorization/vector-lowering/neon/legalization/tl-vector-legalization-neon.hpp \
+     src/tl/vectorization/vector-lowering/neon/legalization/tl-vector-legalization-neon.cpp \
+     src/tl/vectorization/vector-lowering/neon/backend/tl-vector-backend-neon.hpp \
+     src/tl/vectorization/vector-lowering/neon/backend/tl-vector-backend-neon.cpp \
+     $(END)
+endif
+
+##########################################################################
 # src/tl/vectorization/vector-lowering
 ##########################################################################
 
@@ -2593,6 +2621,9 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_c
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knl/ \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knl/legalization \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knl/backend \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/legalization \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/backend \
                  $(END)
 
 src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)
@@ -2607,6 +2638,7 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LIBADD = \
     $(top_builddir)/src/tl/vectorization/vector-lowering/avx2/libtlvector-lowering-avx2.la \
     $(top_builddir)/src/tl/vectorization/vector-lowering/knc/libtlvector-lowering-knc.la \
     $(top_builddir)/src/tl/vectorization/vector-lowering/knl/libtlvector-lowering-knl.la \
+    $(top_builddir)/src/tl/vectorization/vector-lowering/neon/libtlvector-lowering-neon.la \
     $(END)
 endif
 
@@ -3367,6 +3399,27 @@ scripts/generate_builtins_neon.bin : $(srcdir)/scripts/simd/neon/builtins_neon.c
 
 generate_builtins_neon: scripts/generate_builtins_neon.bin
 	qemu-arm ./scripts/generate_builtins_neon.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm-neon.h
+
+#####################################
+# ARM64 NEON builtins generator
+#####################################
+
+LATEST_GXX_NEON_ARM64=aarch64-linux-gnu-g++
+LATEST_GXX_NEON_ARM64_FLAGS =
+
+# These files are only regenerated manually
+.PHONY: generate_builtins_neon_arm64
+CLEANFILES += scripts/generate_builtins_neon_arm64.bin
+
+scripts/generate_builtins_neon_arm64.bin : $(srcdir)/scripts/simd/neon/builtins_neon_arm64.cpp Makefile
+	$(LATEST_GXX_NEON_ARM64) $(LATEST_GXX_NEON_ARM64_FLAGS) \
+		-static \
+		-I$(srcdir)/scripts/simd \
+		-o scripts/generate_builtins_neon_arm64.bin \
+		$(srcdir)/scripts/simd/neon/builtins_neon_arm64.cpp
+
+generate_builtins_neon_arm64: scripts/generate_builtins_neon_arm64.bin
+	qemu-aarch64 ./scripts/generate_builtins_neon_arm64.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm64-neon.h
 
 #####################################
 

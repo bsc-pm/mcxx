@@ -6064,14 +6064,16 @@ OPERATOR_TABLE
         {
             if (result_var.is_valid())
             {
-                if (result_var.get_name() != entry.get_name()
-                        && result_var.get_name() != ".result")
-                {
-                    *(file) << " RESULT(" << rename(result_var) << ")";
-                }
-
                 if (result_var.get_name() == ".result")
                     lacks_result = true;
+
+                if (!lacks_result)
+                {
+                    if (result_var.get_name() != entry.get_name())
+                        *(file) << " RESULT(" << rename(result_var) << ")";
+                    else
+                        remove_rename(result_var);
+                }
             }
             else
             {

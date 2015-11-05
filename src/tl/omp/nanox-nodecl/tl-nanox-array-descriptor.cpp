@@ -39,7 +39,7 @@ namespace TL { namespace Nanox {
 
         // FIXME - Avoid creating functions twice for a same t
         std::stringstream ss;
-        ss << "nanox_modify_array_descriptor_" << name << "_"
+        ss << "nanox_mod_arr_desc_" << name << "_"
             << std::hex
             << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
             << std::dec

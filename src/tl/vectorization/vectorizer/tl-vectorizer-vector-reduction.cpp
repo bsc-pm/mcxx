@@ -43,10 +43,18 @@ namespace TL
         {
             if(is_builtin)
             {
+                std::string red_name = reduction_name;
+                std::string operator_ = "operator ";
+                if (red_name.substr(0, operator_.size()) == operator_)
+                {
+                    // "operator #" -> "#"
+                    red_name = red_name.substr(operator_.size());
+                }
+
                 if(_environment._device.compare("smp") == 0)
                 {
-                    if((reduction_name.compare("+") == 0) ||
-                            (reduction_name.compare("-") == 0))
+                    if((red_name.compare("+") == 0) ||
+                            (red_name.compare("-") == 0))
                     {
                         if(reduction_type.is_signed_int())
                         {
@@ -64,8 +72,8 @@ namespace TL
                 }
                 else if(_environment._device.compare("avx2") == 0)
                 {
-                    if((reduction_name.compare("+") == 0) ||
-                            (reduction_name.compare("-") == 0))
+                    if((red_name.compare("+") == 0) ||
+                            (red_name.compare("-") == 0))
                     {
                         if(reduction_type.is_signed_int())
                         {
@@ -83,8 +91,8 @@ namespace TL
                 }
                 else if(_environment._device.compare("knc") == 0)
                 {
-                    if((reduction_name.compare("+") == 0) ||
-                            (reduction_name.compare("-") == 0))
+                    if((red_name.compare("+") == 0) ||
+                            (red_name.compare("-") == 0))
                     {
                         if(reduction_type.is_signed_int())
                         {

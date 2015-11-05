@@ -1606,12 +1606,15 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
 // Given a character literal computes the type due to its lexic form
 static void character_literal_type(AST expr, nodecl_t* nodecl_output)
 {
+    const locus_t* locus = ast_get_locus(expr);
+    int current_column = locus_get_column(locus);
     const char *literal = ASTText(expr);
 
     type_t* result = NULL;
     if (*literal == 'L')
     {
         result = get_wchar_t_type();
+        current_column++;
         literal++;
     }
     else if (*literal == 'u')
@@ -1621,6 +1624,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
             warn_printf_at(ast_get_locus(expr), "char16_t literals are a C++11 feature\n");
         }
         result = get_char16_t_type();
+        current_column++;
         literal++;
     }
     else if (*literal == 'U')
@@ -1630,6 +1634,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
             warn_printf_at(ast_get_locus(expr), "char32_t literals are a C++11 feature\n");
         }
         result = get_char32_t_type();
+        current_column++;
         literal++;
     }
     else
@@ -1646,6 +1651,8 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     }
     else
     {
+        // Skip backslash
+        current_column++;
         switch (literal[2])
         {
             case '\'': { value = literal[2]; break; }
@@ -1683,9 +1690,13 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf_at(ast_get_locus(expr), "%s does not seem a valid character literal\n",
+                               const locus_t* char_locus = make_locus(
+                                       locus_get_filename(locus),
+                                       locus_get_line(locus),
+                                       current_column);
+                               error_printf_at(char_locus, "%s does not seem a valid character literal\n",
                                        prettyprint_in_buffer(expr));
-                               *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                               *nodecl_output = nodecl_make_err_expr(char_locus);
                                return;
                            }
                            break;
@@ -1708,9 +1719,13 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf_at(ast_get_locus(expr), "%s does not seem a valid character literal\n",
+                               const locus_t* char_locus = make_locus(
+                                       locus_get_filename(locus),
+                                       locus_get_line(locus),
+                                       current_column);
+                               error_printf_at(char_locus, "%s does not seem a valid character literal\n",
                                        prettyprint_in_buffer(expr));
-                               *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                               *nodecl_output = nodecl_make_err_expr(char_locus);
                                return;
                            }
                            break;
@@ -1733,11 +1748,16 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            {
                                if (!IS_HEXA_CHAR(literal[i]))
                                {
+                                   const locus_t* char_locus = make_locus(
+                                           locus_get_filename(locus),
+                                           locus_get_line(locus),
+                                           current_column);
+
                                    char ill_literal[11];
                                    strncpy(ill_literal, &literal[1], /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                   error_printf_at(ast_get_locus(expr), "invalid universal literal character name '%s'\n",
+                                   error_printf_at(char_locus, "invalid universal literal character name '%s'\n",
                                            ill_literal);
-                                   *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                                   *nodecl_output = nodecl_make_err_expr(char_locus);
                                    return;
                                }
 
@@ -1765,9 +1785,14 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            break;
                        }
             default: {
-                         error_printf_at(ast_get_locus(expr), "%s does not seem a valid escape character\n",
+                         const locus_t* char_locus = make_locus(
+                                 locus_get_filename(locus),
+                                 locus_get_line(locus),
+                                 current_column);
+                         error_printf_at(char_locus,
+                                 "%s does not seem a valid escape character\n",
                                  prettyprint_in_buffer(expr));
-                         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                         *nodecl_output = nodecl_make_err_expr(char_locus);
                          return;
                      }
         }
@@ -1780,7 +1805,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
 
     *nodecl_output = nodecl_make_integer_literal(result, 
             const_value_get_integer(value, type_get_size(result), is_signed_integral_type(result)), 
-            ast_get_locus(expr));
+            locus);
 }
 
 #define check_range_of_floating(expr, text, value, typename, huge) \
@@ -1971,6 +1996,8 @@ static void compute_length_of_literal_string(
         type_t** base_type,
         const locus_t* locus)
 {
+    int current_column = locus_get_column(locus);
+
     const char* orig_literal = literal;
     int capacity_codepoints = 16;
     *num_codepoints = 0;
@@ -2005,21 +2032,25 @@ static void compute_length_of_literal_string(
             {
                 current_base_type = get_const_qualified_type(current_base_type);
             }
+            current_column++;
             literal++;
         }
         else if ((*literal) == 'u' && (*(literal + 1) == '8'))
         {
             current_base_type = get_const_qualified_type(get_char_type());
+            current_column += 2;
             literal += 2;
         }
         else if ((*literal) == 'u')
         {
             current_base_type = get_const_qualified_type(get_char16_t_type());
+            current_column++;
             literal++;
         }
         else if ((*literal) == 'U')
         {
             current_base_type = get_const_qualified_type(get_char32_t_type());
+            current_column++;
             literal++;
         }
         else
@@ -2050,6 +2081,7 @@ static void compute_length_of_literal_string(
                 warn_printf_at(locus, "raw-string-literals are a C++11 feature\n");
             }
             is_raw_string = 1;
+            current_column++;
             literal++;
         }
         else
@@ -2061,6 +2093,7 @@ static void compute_length_of_literal_string(
                 "Lexical problem in the literal '%s'\n", orig_literal);
 
         // Advance the "
+        current_column++;
         literal++;
 
         // Advance till we find a '"'
@@ -2073,6 +2106,7 @@ static void compute_length_of_literal_string(
                 const char *beginning_of_escape = literal;
 
                 // A scape sequence
+                current_column++;
                 literal++;
                 switch (*literal)
                 {
@@ -2102,6 +2136,7 @@ static void compute_length_of_literal_string(
                                    // Advance this octal, so the remaining figures are 2
                                    unsigned int current_value = (*literal) - '0';
 
+                                   current_column++;
                                    literal++;
                                    int remaining_figures = 2;
 
@@ -2111,11 +2146,14 @@ static void compute_length_of_literal_string(
                                        current_value *= 8;
                                        current_value += ((*literal) - '0');
                                        remaining_figures--;
+
+                                       current_column++;
                                        literal++;
                                    }
                                    // Go backwards because we have already
                                    // advanced the last element of this
                                    // escaped entity
+                                   current_column--;
                                    literal--;
 
                                    ADD_CODEPOINT(current_value);
@@ -2125,7 +2163,22 @@ static void compute_length_of_literal_string(
                                // This is an hexadecimal
                                {
                                    // Jump 'x' itself
+                                   current_column++;
                                    literal++;
+
+                                   if (!IS_HEXA_CHAR(*literal))
+                                   {
+                                       const locus_t* char_locus = make_locus(
+                                               locus_get_filename(locus),
+                                               locus_get_line(locus),
+                                               current_column);
+
+                                       error_printf_at(char_locus, "expecting hexadecimal digit\n");
+
+                                       *num_codepoints = -1;
+                                       DELETE(*codepoints);
+                                       return;
+                                   }
 
                                    unsigned int current_value = 0;
 
@@ -2147,12 +2200,14 @@ static void compute_length_of_literal_string(
                                        {
                                            internal_error("Code unreachable", 0);
                                        }
+                                       current_column++;
                                        literal++;
                                    }
 
                                    // Go backwards because we have already
                                    // advanced the last element of this
                                    // escaped entity
+                                   current_column--;
                                    literal--;
 
                                    ADD_CODEPOINT(current_value);
@@ -2170,6 +2225,7 @@ static void compute_length_of_literal_string(
                                    }
 
                                    // Advance 'u'/'U'
+                                   current_column++;
                                    literal++;
 
                                    unsigned int current_value = 0;
@@ -2178,9 +2234,14 @@ static void compute_length_of_literal_string(
                                    {
                                        if (!IS_HEXA_CHAR(*literal))
                                        {
+                                           const locus_t* char_locus = make_locus(
+                                                   locus_get_filename(locus),
+                                                   locus_get_line(locus),
+                                                   current_column);
+
                                            char ill_literal[11];
                                            strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                           error_printf_at(locus, "invalid universal literal name '%s'\n",
+                                           error_printf_at(char_locus, "invalid universal literal name '%s'\n",
                                                    ill_literal);
                                            *num_codepoints = -1;
                                            DELETE(*codepoints);
@@ -2204,11 +2265,13 @@ static void compute_length_of_literal_string(
                                            internal_error("Code unreachable", 0);
                                        }
 
+                                       current_column++;
                                        literal++;
                                        remaining_hexa_digits--;
                                    }
 
                                    // Go backwards one
+                                   current_column--;
                                    literal--;
 
                                    ADD_CODEPOINT(current_value);
@@ -2216,10 +2279,14 @@ static void compute_length_of_literal_string(
                                }
                     default:
                                {
-                                   char c[3];
+                                   const locus_t* char_locus = make_locus(
+                                           locus_get_filename(locus),
+                                           locus_get_line(locus),
+                                           current_column);
 
+                                   char c[3];
                                    strncpy(c, beginning_of_escape, 3);
-                                   error_printf_at(locus, "invalid escape sequence '%s'\n", c);
+                                   error_printf_at(char_locus, "unknown escape sequence '%s'\n", c);
                                    *num_codepoints = -1;
                                    DELETE(*codepoints);
                                    return;
@@ -2236,10 +2303,12 @@ static void compute_length_of_literal_string(
             //
             // For instance, for "\n", "\002", "\uabcd" and "\U98abcdef" (*literal) should
             // be 'n', '2', 'd' and 'f' respectively.
+            current_column++;
             literal++;
         }
 
         // Advance the "
+        current_column++;
         literal++;
 
         num_of_strings_seen++;
@@ -2662,8 +2731,8 @@ static char operand_is_integral_or_enum_type(type_t* t, const locus_t* locus UNU
 
 static char operand_is_integral_or_bool_or_unscoped_enum_type_noref(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
-    return (is_integral_type(t)
-            || is_unscoped_enum_type(t));
+    return (is_integral_type(no_ref(t))
+            || is_unscoped_enum_type(no_ref(t)));
 }
 
 static
@@ -2701,17 +2770,40 @@ char both_operands_are_arithmetic_or_enum_noref(type_t* lhs_type, type_t* rhs_ty
         && (is_arithmetic_type(no_ref(rhs_type)) || is_enum_type(no_ref(rhs_type)));
 }
 
-static char both_operands_are_vector_types(type_t* lhs_type, type_t* rhs_type)
+static char both_operands_are_same_sized_vector_types(type_t* lhs_type, type_t* rhs_type)
 {
     return is_vector_type(lhs_type)
+        && is_arithmetic_type(vector_type_get_element_type(lhs_type))
         && is_vector_type(rhs_type)
-        && equivalent_types(get_unqualified_type(lhs_type), get_unqualified_type(rhs_type));
+        && is_arithmetic_type(vector_type_get_element_type(rhs_type))
+        && vector_type_get_vector_size(lhs_type) == vector_type_get_vector_size(rhs_type);
+}
+
+static char both_operands_are_compatible_vector_types(type_t* lhs_type, type_t* rhs_type)
+{
+    return is_vector_type(lhs_type)
+        && is_arithmetic_type(vector_type_get_element_type(lhs_type))
+        && is_vector_type(rhs_type)
+        && is_arithmetic_type(vector_type_get_element_type(rhs_type))
+        && vector_type_get_num_elements(lhs_type) == vector_type_get_num_elements(rhs_type);
+}
+
+static char both_operands_are_equivalent_vector_types(type_t* lhs_type, type_t* rhs_type)
+{
+    return both_operands_are_compatible_vector_types(lhs_type, rhs_type)
+        && equivalent_types(
+                vector_type_get_element_type(lhs_type),
+                vector_type_get_element_type(rhs_type));
 }
 
 static char one_scalar_operand_and_one_vector_operand(type_t* lhs_type, type_t* rhs_type)
 {
-    return (is_vector_type(lhs_type) && is_arithmetic_type(rhs_type)) ||
-           (is_vector_type(rhs_type) && is_arithmetic_type(lhs_type));
+    return (is_vector_type(lhs_type)
+            && is_arithmetic_type(vector_type_get_element_type(lhs_type))
+            && is_arithmetic_type(rhs_type))
+        || (is_vector_type(rhs_type)
+                && is_arithmetic_type(vector_type_get_element_type(rhs_type))
+                && is_arithmetic_type(lhs_type));
 }
 
 static char left_operand_is_vector_and_right_operand_is_scalar(type_t* lhs_type, type_t* rhs_type)
@@ -3523,7 +3615,7 @@ type_t* compute_type_no_overload_add_operation(nodecl_t *lhs, nodecl_t *rhs,
         return result;
     }
     // Vector case
-    else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
+    else if (both_operands_are_compatible_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
         type_t* result = no_ref(lhs_type);
 
@@ -3600,10 +3692,11 @@ static char update_simplified_unresolved_overloaded_type(scope_entry_t* entry,
         }
         else
         {
-            nodecl_set_type(*nodecl_output, 
+            *nodecl_output = nodecl_make_pointer_to_member(entry,
                     get_pointer_to_member_type(
                         entry->type_information,
-                        symbol_entity_specs_get_class_type(entry)));
+                        symbol_entity_specs_get_class_type(entry)),
+                    locus);
         }
     }
 
@@ -3827,7 +3920,7 @@ type_t* compute_type_no_overload_bin_arithmetic(nodecl_t *lhs, nodecl_t *rhs, co
         return result;
     }
     // Vector case
-    else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
+    else if (both_operands_are_compatible_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
         type_t* result = no_ref(lhs_type);
 
@@ -4021,7 +4114,7 @@ type_t* compute_type_no_overload_bin_only_integer(nodecl_t *lhs, nodecl_t *rhs, 
         return result;
     }
     // Vector case
-    else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
+    else if (both_operands_are_compatible_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
         type_t* result = no_ref(lhs_type);
 
@@ -4168,7 +4261,7 @@ static type_t* compute_type_no_overload_sub(nodecl_t *lhs, nodecl_t *rhs, const 
         return result;
     }
     // Vector case
-    else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
+    else if (both_operands_are_compatible_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
         type_t* result = no_ref(lhs_type);
 
@@ -4701,55 +4794,58 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
 
         return result_type;
     }
-    else if (both_operands_are_vector_types(no_ref_lhs_type, no_ref_rhs_type)
+    else if (both_operands_are_equivalent_vector_types(no_ref_lhs_type, no_ref_lhs_type)
             || one_scalar_operand_and_one_vector_operand(no_ref_lhs_type, no_ref_rhs_type))
     {
-        // return compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
         type_t* common_vec_type = NULL;
         if (one_scalar_operand_and_one_vector_operand(no_ref_lhs_type, no_ref_rhs_type))
         {
-            common_vec_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
+            common_vec_type = compute_scalar_vector_type(no_ref_lhs_type, no_ref_rhs_type);
         }
-        else
+        else // both are vectors
         {
-            if (vector_type_get_vector_size(no_ref_lhs_type) == 0)
-            {
-                common_vec_type = no_ref_rhs_type;
-            }
-            else if (vector_type_get_vector_size(no_ref_rhs_type) == 0)
-            {
-                common_vec_type = no_ref_lhs_type;
-            }
-            else if (vector_type_get_vector_size(no_ref_rhs_type) 
-                    != vector_type_get_vector_size(no_ref_rhs_type))
-            {
-                // Vectors do not match their size
-                return get_error_type();
-            }
-            else
-            {
-                common_vec_type = no_ref_lhs_type;
-            }
-
-            type_t* elem_lhs_type = vector_type_get_element_type(no_ref_lhs_type);
-            type_t* elem_rhs_type = vector_type_get_element_type(no_ref_rhs_type);
-            if (!both_operands_are_arithmetic(elem_lhs_type, elem_rhs_type, locus))
-            {
-                // We cannot do a binary relational op on them
-                return get_error_type();
-            }
+            common_vec_type = no_ref_lhs_type;
         }
 
-        type_t* ret_bool_type = NULL;
-        C_LANGUAGE()
+        // Mimick what gcc does
+        type_t* ret_elem_type = NULL;
+        type_t* suitable_integer[] =
         {
-            ret_bool_type = get_signed_int_type();
-        }
-        CXX_LANGUAGE()
+            get_signed_char_type(),
+            get_signed_short_int_type(),
+            get_signed_int_type(),
+            get_signed_long_int_type(),
+            get_signed_long_long_int_type(),
+#ifdef HAVE_INT128
+            get_signed_int128_type(),
+#endif
+        };
+
+        _size_t elem_size = type_get_size(vector_type_get_element_type(common_vec_type));
+        int i, N = STATIC_ARRAY_LENGTH(suitable_integer);
+        for (i = 0; i < N; i++)
         {
-            ret_bool_type = get_bool_type();
+            if (type_get_size(suitable_integer[i]) == elem_size)
+            {
+                ret_elem_type = suitable_integer[i];
+                break;
+            }
         }
-        type_t* result_type = get_vector_type(ret_bool_type, vector_type_get_vector_size(common_vec_type));
+
+        if (ret_elem_type == NULL)
+        {
+            error_printf_at(locus, "no suitable integer type found for vectorial relational operation\n");
+            return get_error_type();
+        }
+
+        type_t* result_type = get_vector_type(ret_elem_type,
+                vector_type_get_vector_size(common_vec_type));
+
+        ERROR_CONDITION(vector_type_get_num_elements(result_type)
+                != vector_type_get_num_elements(common_vec_type),
+                "Number of elements should be the same (%d vs %d)",
+                vector_type_get_num_elements(result_type),
+                vector_type_get_num_elements(common_vec_type));
 
         unary_record_conversion_to_result(no_ref_lhs_type, lhs);
         unary_record_conversion_to_result(no_ref_rhs_type, rhs);
@@ -4961,16 +5057,11 @@ static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs,
 
     char is_vector_op = 0;
     int vector_size = 0;
-    if (both_operands_are_vector_types(no_ref(lhs_type),
+    if (both_operands_are_compatible_vector_types(
+                no_ref(lhs_type),
                 no_ref(rhs_type)))
     {
         is_vector_op = 1;
-        vector_size = vector_type_get_vector_size(lhs_type);
-
-        if (vector_size != vector_type_get_vector_size(rhs_type))
-        {
-            return get_error_type();
-        }
 
         lhs_type = vector_type_get_element_type(lhs_type);
         rhs_type = vector_type_get_element_type(rhs_type);
@@ -5248,7 +5339,7 @@ static type_t* compute_type_no_overload_assig_arithmetic_or_pointer_type(nodecl_
 
         return lhs_type;
     }
-    else if (both_operands_are_vector_types(no_ref(lhs_type), 
+    else if (both_operands_are_compatible_vector_types(no_ref(lhs_type), 
                 no_ref(rhs_type)))
     {
         unary_record_conversion_to_result(no_ref(lhs_type), rhs);
@@ -5466,10 +5557,26 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
             rhs_type = nodecl_get_type(*rhs);
         }
 
+        char both_are_vectors = both_operands_are_compatible_vector_types(no_ref(lhs_type), no_ref(rhs_type));
+        char scalar_and_vector = one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type));
+
         standard_conversion_t sc;
         if (rhs_type == NULL
                 || is_error_type(rhs_type)
-                || !standard_conversion_between_types(&sc, no_ref(rhs_type), no_ref(lhs_type), locus))
+                || ((both_are_vectors || scalar_and_vector)
+                    && !standard_conversion_between_types(&sc,
+                        is_vector_type(no_ref(rhs_type))
+                            ? vector_type_get_element_type(no_ref(rhs_type))
+                            : no_ref(rhs_type),
+                        is_vector_type(no_ref(lhs_type))
+                            ? vector_type_get_element_type(no_ref(lhs_type))
+                            : no_ref(lhs_type),
+                        locus))
+                || (!both_are_vectors && !scalar_and_vector
+                    && !standard_conversion_between_types(&sc,
+                        no_ref(rhs_type),
+                        no_ref(lhs_type),
+                        locus)))
         {
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
@@ -5567,7 +5674,7 @@ static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs
 
         return lhs_type;
     }
-    else if (both_operands_are_vector_types(no_ref(lhs_type),
+    else if (both_operands_are_compatible_vector_types(no_ref(lhs_type),
                 no_ref(rhs_type)))
     {
         return lhs_type;
@@ -7607,6 +7714,7 @@ static void cxx_compute_name_from_entry_list(
                         nodecl_locus_to_str(nodecl_name), codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
             }
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
 
         if (nodecl_expr_is_value_dependent(entry->value))
@@ -8975,7 +9083,7 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         {
             final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1], locus);
         }
-        else if (both_operands_are_vector_types(operand_types[0], operand_types[1]))
+        else if (both_operands_are_compatible_vector_types(operand_types[0], operand_types[1]))
         {
             final_type = operand_types[0];
         }
@@ -9327,6 +9435,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             {
                 operand_types[i] = get_pointer_type(operand_types[i]);
             }
+
+            if (!is_class_type(operand_types[i]))
+                operand_types[i] = get_unqualified_type(operand_types[i]);
         }
 
         char is_pointer_and_zero =
@@ -9345,7 +9456,7 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         {
             final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1], locus);
         }
-        else if (both_operands_are_vector_types(operand_types[0], operand_types[1]))
+        else if (both_operands_are_compatible_vector_types(operand_types[0], operand_types[1]))
         {
             final_type = operand_types[0];
         }
@@ -9655,9 +9766,19 @@ static void check_new_expression_impl(
         return;
     }
 
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
+            operator_new_list,
+            /* builtins */ NULL,
+            arguments + 1,
+            num_arguments - 1,
+            decl_context,
+            locus,
+            /* explicit_template_arguments */ NULL);
+    entry_list_free(operator_new_list);
+
     candidate_t* candidate_set = NULL;
     scope_entry_list_iterator_t *it = NULL;
-    for (it = entry_list_iterator_begin(operator_new_list);
+    for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
@@ -9712,8 +9833,8 @@ static void check_new_expression_impl(
         uniquestr_sprintf(&message, "no suitable '%s' found for new-expression\n",
                 argument_call);
 
-        diagnostic_candidates(operator_new_list, &message, locus);
-        entry_list_free(operator_new_list);
+        diagnostic_candidates(overload_set, &message, locus);
+        entry_list_free(overload_set);
 
         error_printf_at(locus, "%s", message);
 
@@ -9723,8 +9844,11 @@ static void check_new_expression_impl(
         return;
     }
 
+    entry_list_free(overload_set);
+
     if (function_has_been_deleted(decl_context, chosen_operator_new, locus))
     {
+
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_placement_list);
         nodecl_free(nodecl_initializer);
@@ -10570,7 +10694,7 @@ static char conversion_is_valid_reinterpret_cast(
     // A pointer can be explicitly converted to any integral type
     if (is_pointer_type(orig_type)
             && is_integral_type(dest_type)
-            && type_get_size(orig_type) == type_get_size(dest_type))
+            && type_get_size(orig_type) <= type_get_size(dest_type))
         RETURN(1);
 
     // A nullptr can be converted to integral
@@ -18019,6 +18143,15 @@ static const_value_t* get_zero_value_of_type(type_t* t)
         DELETE(cval);
         return result;
     }
+    else if (is_vector_type(t))
+    {
+        int n = vector_type_get_num_elements(t);
+
+        return const_value_make_array_from_scalar(
+                n,
+                get_zero_value_of_type(
+                    vector_type_get_element_type(t)));
+    }
     else
     {
         internal_error("Cannot get zero value of type '%s'\n",
@@ -19980,6 +20113,121 @@ static void compute_nodecl_equal_initializer(AST initializer,
     }
 }
 
+static void compute_nodecl_braced_initializer_list(AST initializer_list,
+        const decl_context_t* decl_context,
+        nodecl_t* nodecl_output)
+{
+    if (initializer_list == NULL)
+    {
+        *nodecl_output = nodecl_null();
+        return;
+    }
+
+    if (ASTKind(initializer_list) == AST_AMBIGUITY)
+    {
+        int i, valid_option = -1, N = ast_get_num_ambiguities(initializer_list);
+
+        diagnostic_context_t* ambig_diag[N + 1];
+        for (i = 0; i < N; i++)
+        {
+            nodecl_t nodecl_current = nodecl_null();
+
+            AST current_interpretation = ast_get_ambiguity(initializer_list, i);
+            ast_fix_parents_inside_intepretation(current_interpretation);
+
+            ambig_diag[i] = diagnostic_context_push_buffered();
+            compute_nodecl_braced_initializer_list(
+                    current_interpretation,
+                    decl_context,
+                    &nodecl_current);
+            diagnostic_context_pop();
+
+            if (!nodecl_is_err_expr(nodecl_current))
+            {
+                if (nodecl_is_null(*nodecl_output))
+                {
+                    *nodecl_output = nodecl_current;
+                    valid_option = i;
+                }
+                else
+                {
+                    internal_error("More than one ambiguity valid at %s\n", nodecl_locus_to_str(nodecl_current));
+                }
+            }
+            else
+            {
+                nodecl_free(nodecl_current);
+            }
+        }
+
+        if (valid_option < 0)
+        {
+            // Commit everything
+            diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+            for (i = 0; i < N; i++)
+            {
+                diagnostic_context_commit(ambig_diag[i]);
+            }
+            diagnostic_context_pop();
+            diagnostic_context_commit(combine_diagnostics);
+
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(initializer_list));
+            return;
+        }
+        else
+        {
+            // Commit the chosen interpretation and discard all others
+            for (i = 0; i < N; i++)
+            {
+                if (i == valid_option)
+                {
+                    diagnostic_context_commit(ambig_diag[i]);
+                }
+                else
+                {
+                    diagnostic_context_discard(ambig_diag[i]);
+                }
+            }
+
+            ast_replace_with_ambiguity(initializer_list, valid_option);
+        }
+    }
+    else
+    {
+        // Compute head (recursively)
+        nodecl_t nodecl_prev_list = nodecl_null();
+        compute_nodecl_braced_initializer_list(
+                ASTSon0(initializer_list),
+                decl_context,
+                &nodecl_prev_list);
+
+        if (!nodecl_is_null(nodecl_prev_list)
+                && nodecl_is_err_expr(nodecl_prev_list))
+        {
+            *nodecl_output = nodecl_prev_list;
+            return;
+        }
+
+        // Compute current
+        nodecl_t nodecl_current = nodecl_null();
+        compute_nodecl_initializer_clause(
+                ASTSon1(initializer_list),
+                decl_context,
+                /* preserve_top_level_parentheses */ 0,
+                &nodecl_current);
+
+        if (nodecl_is_err_expr(nodecl_current))
+        {
+            *nodecl_output = nodecl_current;
+            return;
+        }
+
+        *nodecl_output = nodecl_append_to_list(
+                nodecl_prev_list,
+                nodecl_current);
+    }
+}
+
 static void compute_nodecl_braced_initializer(AST initializer, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST initializer_list = ASTSon0(initializer);
@@ -20000,29 +20248,22 @@ static void compute_nodecl_braced_initializer(AST initializer, const decl_contex
             }
         }
 
-        AST it;
-        for_each_element(initializer_list, it)
+        compute_nodecl_braced_initializer_list(initializer_list,
+                decl_context,
+                nodecl_output);
+
+        if (nodecl_is_err_expr(*nodecl_output))
+            return;
+
+        int i, num_items = 0;
+        nodecl_t* list = nodecl_unpack_list(*nodecl_output, &num_items);
+        for (i = 0; i < num_items; i++)
         {
-            AST initializer_clause = ASTSon1(it);
-
-            nodecl_t nodecl_initializer_clause = nodecl_null();
-            compute_nodecl_initializer_clause(initializer_clause, decl_context,
-                    /* preserve_top_level_parentheses */ 0,
-                    &nodecl_initializer_clause);
-
-            if (nodecl_is_err_expr(nodecl_initializer_clause))
-            {
-                *nodecl_output = nodecl_initializer_clause;
-                return;
-            }
-
             any_is_type_dependent = any_is_type_dependent
-                || nodecl_expr_is_type_dependent(nodecl_initializer_clause);
-
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_initializer_clause);
-
-            P_LIST_ADD(types, num_types, nodecl_get_type(nodecl_initializer_clause));
+                || nodecl_expr_is_type_dependent(list[i]);
+            P_LIST_ADD(types, num_types, nodecl_get_type(list[i]));
         }
+        xfree(list);
     }
 
     if (nodecl_is_null(*nodecl_output)
@@ -20282,6 +20523,52 @@ static void check_nodecl_function_argument_initialization_(
     }
 }
 
+static char check_vector_type_initialization(
+        type_t* expr_type,
+        type_t* initialized_vec_type,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(!is_vector_type(no_ref(initialized_vec_type)), "Must be a vector", 0);
+    type_t* expr_elem_type = expr_type;
+    if (is_vector_type(no_ref(expr_elem_type)))
+    {
+        expr_elem_type = vector_type_get_element_type(no_ref(expr_elem_type));
+
+        expr_elem_type = get_cv_qualified_type(
+                expr_elem_type,
+                get_cv_qualifier(expr_elem_type)
+                | get_cv_qualifier(expr_type));
+
+        if (is_lvalue_reference_type(expr_type))
+        {
+            expr_elem_type = get_lvalue_reference_type(expr_elem_type);
+        }
+        else if (is_rvalue_reference_type(expr_type))
+        {
+            expr_elem_type = get_lvalue_reference_type(expr_elem_type);
+        }
+    }
+
+    type_t* initialized_elem_type = vector_type_get_element_type(no_ref(initialized_vec_type));
+    initialized_elem_type = get_cv_qualified_type(
+            initialized_elem_type,
+            get_cv_qualifier(initialized_vec_type)
+            | get_cv_qualifier(initialized_elem_type));
+
+    if (is_lvalue_reference_type(initialized_vec_type))
+    {
+        initialized_elem_type = get_lvalue_reference_type(initialized_elem_type);
+    }
+    else if (is_rvalue_reference_type(initialized_vec_type))
+    {
+        initialized_elem_type = get_rvalue_reference_type(initialized_elem_type);
+    }
+
+
+    standard_conversion_t scs;
+    return standard_conversion_between_types(&scs, expr_elem_type, initialized_elem_type, locus);
+}
+
 void check_nodecl_function_argument_initialization(
         nodecl_t nodecl_expr,
         const decl_context_t* decl_context,
@@ -20348,18 +20635,29 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     {
         standard_conversion_t standard_conversion_sequence;
 
-        char can_be_initialized = 
+        char vector_initialization =
+            both_operands_are_compatible_vector_types(no_ref(initializer_expr_type), no_ref(declared_type_no_cv))
+            || is_vector_type(no_ref(declared_type_no_cv));
+
+        char can_be_initialized =
             (is_string_literal_type(initializer_expr_type)
              && is_array_type(declared_type_no_cv)
              && ((is_character_type(array_type_get_element_type(declared_type_no_cv))
                      && is_character_type(array_type_get_element_type(no_ref(initializer_expr_type))))
                  || (is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
                      && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
-            || standard_conversion_between_types(
+            || (!vector_initialization
+                    && standard_conversion_between_types(
                     &standard_conversion_sequence,
                     initializer_expr_type,
                     declared_type_no_cv,
-                    locus);
+                    locus))
+            || (vector_initialization
+                    && check_vector_type_initialization(
+                        initializer_expr_type,
+                        declared_type_no_cv,
+                        locus));
+            ;
 
         if (!can_be_initialized)
         {
@@ -20380,6 +20678,11 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     {
         scope_entry_t* conversor = NULL;
         scope_entry_list_t* candidates = NULL;
+
+        char vector_initialization =
+            both_operands_are_compatible_vector_types(no_ref(initializer_expr_type), no_ref(declared_type_no_cv))
+            || is_vector_type(no_ref(declared_type_no_cv));
+
         char can_be_initialized =
             (is_string_literal_type(initializer_expr_type)
              && is_array_type(declared_type_no_cv)
@@ -20391,14 +20694,20 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                      && is_char16_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))
                  || (is_char32_t_type(array_type_get_element_type(declared_type_no_cv))
                      && is_char32_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
-            || solve_initialization_of_nonclass_type(
+            || (!vector_initialization
+                    && solve_initialization_of_nonclass_type(
                         initializer_expr_type,
                         declared_type_no_cv,
                         decl_context,
                         initialization_kind | IK_BY_USER_DEFINED_CONVERSION,
                         &conversor,
                         &candidates,
-                        nodecl_get_locus(nodecl_expr));
+                        nodecl_get_locus(nodecl_expr)))
+            || (vector_initialization
+                    && check_vector_type_initialization(
+                        initializer_expr_type,
+                        declared_type_no_cv,
+                        locus));
 
         if (!can_be_initialized)
         {
@@ -20738,6 +21047,37 @@ type_t* deduce_decltype_auto_initializer(
     return compute_type_of_decltype_nodecl(nodecl_expression_used_for_deduction, decl_context);
 }
 
+// Expressions types can carry more information that we do not want
+// to leak to variables/declarations
+type_t* clear_special_expr_type_variants(type_t* t)
+{
+    if (is_array_type(t)
+            && array_type_is_string_literal(t))
+    {
+        type_t* arr_type = get_array_type(
+                array_type_get_element_type(no_ref(t)),
+                array_type_get_array_size_expr(no_ref(t)),
+                array_type_get_array_size_expr_context(no_ref(t)));
+
+        return arr_type;
+    }
+    else if (is_zero_type(t))
+    {
+        return variant_type_get_nonvariant(t);
+    }
+    else if (is_lvalue_reference_type(t))
+    {
+        t = get_lvalue_reference_type(
+                clear_special_expr_type_variants(no_ref(t)));
+    }
+    else if (is_rvalue_reference_type(t))
+    {
+        t = get_rvalue_reference_type(
+                clear_special_expr_type_variants(no_ref(t)));
+    }
+    return t;
+}
+
 type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context_t* decl_context)
 {
     if (nodecl_is_err_expr(nodecl_expr))
@@ -20786,6 +21126,8 @@ type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context
                 decl_context,
                 /* is_decltype */ 1);
     }
+
+    computed_type = clear_special_expr_type_variants(computed_type);
 
     if (nodecl_get_kind(nodecl_expr) == NODECL_SYMBOL
             || nodecl_get_kind(nodecl_expr) == NODECL_CLASS_MEMBER_ACCESS)
@@ -23418,20 +23760,56 @@ static nodecl_t cxx_nodecl_make_conversion_internal(nodecl_t expr,
 
     if (verify_conversion)
     {
+        type_t* conv_orig_type = nodecl_get_type(expr);
+        type_t* conv_dest_type = dest_type;
+
+        char there_is_a_scs = 0;
+        if (both_operands_are_compatible_vector_types(no_ref(conv_orig_type), no_ref(conv_dest_type)))
+        {
+            type_t* elem_orig_type = vector_type_get_element_type(no_ref(conv_orig_type));
+            if (is_lvalue_reference_type(conv_orig_type))
+                elem_orig_type = get_lvalue_reference_type(elem_orig_type);
+            else if (is_rvalue_reference_type(conv_orig_type))
+                elem_orig_type = get_rvalue_reference_type(elem_orig_type);
+            conv_orig_type = elem_orig_type;
+
+            type_t* elem_dest_type = vector_type_get_element_type(no_ref(conv_dest_type));
+            if (is_lvalue_reference_type(conv_dest_type))
+                elem_dest_type = get_lvalue_reference_type(elem_dest_type);
+            else if (is_rvalue_reference_type(conv_dest_type))
+                elem_dest_type = get_rvalue_reference_type(elem_dest_type);
+            conv_dest_type = elem_dest_type;
+        }
+        else if (both_operands_are_same_sized_vector_types(no_ref(conv_orig_type), no_ref(conv_dest_type)))
+        {
+            // Allow this case unconditionally
+            there_is_a_scs = 1;
+        }
+        else if (is_vector_type(no_ref(conv_dest_type)))
+        {
+            type_t* elem_dest_type = vector_type_get_element_type(no_ref(conv_dest_type));
+            if (is_lvalue_reference_type(conv_dest_type))
+                elem_dest_type = get_lvalue_reference_type(elem_dest_type);
+            else if (is_rvalue_reference_type(conv_dest_type))
+                elem_dest_type = get_rvalue_reference_type(elem_dest_type);
+            conv_dest_type = elem_dest_type;
+        }
+
         standard_conversion_t scs;
-        char there_is_a_scs = standard_conversion_between_types(
-                &scs, nodecl_get_type(expr),
-                get_unqualified_type(dest_type), locus);
+        if (!there_is_a_scs)
+            there_is_a_scs = standard_conversion_between_types(
+                &scs, conv_orig_type,
+                get_unqualified_type(conv_dest_type), locus);
         // Try again with enum types
         if (!there_is_a_scs
-                && (is_enum_type(nodecl_get_type(expr))
-                    || is_enum_type(no_ref(dest_type))))
+                && (is_enum_type(conv_orig_type)
+                    || is_enum_type(no_ref(conv_dest_type))))
         {
-            type_t* underlying_orig_type = get_unqualified_type(no_ref(nodecl_get_type(expr)));
+            type_t* underlying_orig_type = get_unqualified_type(no_ref(conv_orig_type));
             if (is_enum_type(underlying_orig_type))
                 underlying_orig_type = enum_type_get_underlying_type(underlying_orig_type);
 
-            type_t* underlying_dest_type = get_unqualified_type(no_ref(dest_type));
+            type_t* underlying_dest_type = get_unqualified_type(no_ref(conv_dest_type));
             if (is_enum_type(underlying_dest_type))
                 underlying_dest_type = enum_type_get_underlying_type(underlying_dest_type);
 
@@ -26246,10 +26624,10 @@ char check_nodecl_template_argument_can_be_converted_to_parameter_type(
             if (entry == NULL)
                 return 0;
 
-            *nodecl_out = nodecl_make_symbol(entry, locus);
-            nodecl_set_type(*nodecl_out,
+            *nodecl_out = nodecl_make_pointer_to_member(entry,
                     get_pointer_to_member_type(entry->type_information,
-                        symbol_entity_specs_get_class_type(entry)));
+                        symbol_entity_specs_get_class_type(entry)),
+                    locus);
             return 1;
         }
         else
@@ -26282,9 +26660,6 @@ char check_nodecl_template_argument_can_be_converted_to_parameter_type(
                     locus))
             return 0;
 
-        if (scs.conv[0] == SCI_IDENTITY)
-            return 1;
-
         if ((scs.conv[0] == SCI_IDENTITY)
                 || ((scs.conv[0] == SCI_NO_CONVERSION)
                     && (scs.conv[1] == SCI_NO_CONVERSION
@@ -26313,6 +26688,7 @@ char check_nontype_template_argument_type(type_t* t)
         || is_lvalue_reference_type(t)
         || is_pointer_type(t)
         || is_pointer_to_member_type(t)
+        || is_function_type(t)
         || is_dependent_type(t);
 }
 
@@ -26392,7 +26768,10 @@ char check_nodecl_nontype_template_argument_expression(
         // &C::id
         nodecl_t current_expr = nodecl_expr;
         related_symbol = nodecl_get_symbol(current_expr);
-        if (related_symbol != NULL)
+
+        if (related_symbol != NULL
+                && symbol_entity_specs_get_is_member(related_symbol)
+                && !symbol_entity_specs_get_is_static(related_symbol))
         {
             valid = 1;
             should_be_a_constant_expression = 0;
@@ -26420,12 +26799,6 @@ char check_nodecl_nontype_template_argument_expression(
     }
 
     *nodecl_output = nodecl_expr;
-
-    if (related_symbol != NULL
-            && !symbol_entity_specs_get_is_template_parameter(related_symbol))
-    {
-        nodecl_set_symbol(*nodecl_output, related_symbol);
-    }
 
     return 1;
 }
@@ -27702,17 +28075,10 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
                 && (sym->kind == SK_VARIABLE
                     || sym->kind == SK_FUNCTION))
         {
-            if (sym->kind == SK_VARIABLE)
-            {
-                v->nodecl_result = nodecl_make_pointer_to_member(sym, 
-                        get_pointer_to_member_type(sym->type_information,
-                            symbol_entity_specs_get_class_type(sym)),
-                        nodecl_get_locus(node));
-            }
-            else // SK_FUNCTION
-            {
-                v->nodecl_result = nodecl_op;
-            }
+            v->nodecl_result = nodecl_make_pointer_to_member(sym, 
+                    get_pointer_to_member_type(sym->type_information,
+                        symbol_entity_specs_get_class_type(sym)),
+                    nodecl_get_locus(node));
             return;
         }
     }

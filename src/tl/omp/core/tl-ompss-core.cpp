@@ -578,7 +578,7 @@ namespace TL { namespace OpenMP {
             TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_out = update_clauses(target_context.copy_out, function_sym);
             TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_inout = update_clauses(target_context.copy_inout, function_sym);
 
-            if (target_context.copy_deps)
+            if (target_context.copy_deps == OmpSs::TargetContext::COPY_DEPS)
             {
                 // Honour copy deps but first remove useless dependences
                 target_ctx_copy_in.append(input_arguments);
@@ -614,7 +614,7 @@ namespace TL { namespace OpenMP {
 
             target_info.append_to_device_list(target_context.device_list);
 
-            target_info.set_copy_deps(target_context.copy_deps);
+            target_info.set_copy_deps(target_context.copy_deps == OmpSs::TargetContext::COPY_DEPS);
         }
 
         // Store the target information in the current function task
