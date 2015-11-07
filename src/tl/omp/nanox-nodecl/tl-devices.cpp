@@ -868,9 +868,21 @@ namespace TL { namespace Nanox {
                             {
                                 if (!is_array_type(private_sym->type_information))
                                 {
-                                    private_sym->value = Nodecl::Utils::deep_copy(red->get_initializer(),
-                                            Scope(function_context),
-                                            reduction_init_map).get_internal_nodecl();
+                                    if (!red->get_initializer().is<Nodecl::FunctionCall>())
+                                    {
+                                        private_sym->value = Nodecl::Utils::deep_copy(red->get_initializer(),
+                                                Scope(function_context),
+                                                reduction_init_map).get_internal_nodecl();
+                                    }
+                                    else
+                                    {
+                                        initial_statements
+                                            << as_expression(
+                                                    Nodecl::Utils::deep_copy(red->get_initializer(),
+                                                        Scope(function_context),
+                                                        reduction_init_map).get_internal_nodecl()
+                                                    ) << ";";
+                                    }
                                 }
                                 else
                                 {
