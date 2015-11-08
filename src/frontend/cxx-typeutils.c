@@ -1898,11 +1898,15 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
                                 && nodecl_is_constant(result->arguments[i]->value)
                                 && !is_dependent_type(result->parameters[i]->entry->type_information))
                         {
-                            if (!is_enum_type(result->parameters[i]->entry->type_information))
+                            const_value_t* value = nodecl_get_constant(result->arguments[i]->value);
+                            if (!is_enum_type(result->parameters[i]->entry->type_information)
+                                    // We are not ready to handle these yet
+                                    && !const_value_is_object(value)
+                                    && !const_value_is_address(value))
                             {
                                 result->arguments[i]->value =
                                     const_value_to_nodecl_with_basic_type(
-                                            nodecl_get_constant(result->arguments[i]->value),
+                                            value,
                                             simplify_types_template_arguments(
                                                 result->parameters[i]->entry->type_information
                                                 ));
@@ -2415,6 +2419,17 @@ static int template_arg_value_type_identical_compare(nodecl_t n1, nodecl_t n2)
 
     const_value_t* cv1 = nodecl_get_constant(n1);
     const_value_t* cv2 = nodecl_get_constant(n2);
+
+    // Ignore these as constants
+    if (cv1 != NULL
+            && (const_value_is_object(cv1)
+                || const_value_is_address(cv1)))
+        cv1 = NULL;
+    if (cv2 != NULL
+            && (const_value_is_object(cv2)
+                || const_value_is_address(cv2)))
+        cv2 = NULL;
+
     if (cv1 == NULL
             && cv2 != NULL)
         return -1;

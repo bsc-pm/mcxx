@@ -82,6 +82,8 @@ typedef enum const_value_kind_tag
     CVK_RANGE,
     CVK_MASK,
     CVK_UNKNOWN, // something constant but without logical value
+    CVK_ADDRESS, // an "address" to a constant value
+    CVK_OBJECT, // a named object (or subobject)
 } const_value_kind_t;
 
 typedef
@@ -103,6 +105,13 @@ typedef struct const_multi_value_tag
         const char* c_str;
     };
 } const_multi_value_t;
+
+typedef struct const_value_object_tag
+{
+    scope_entry_t* base;
+    int num_accessors;
+    subobject_accessor_t *accessors;
+} const_value_object_t;
 
 /*
 IMPORTANT: incompatible changes to memory layout of struct const_value_tag
@@ -140,6 +149,10 @@ struct const_value_tag
         // CVK_VECTOR
         // CVK_RANGE
         const_multi_value_t* m;
+        // CVK_ADDRESS
+        const_value_t* addr;
+        // CVK_OBJECT
+        const_value_object_t *object;
     } value;
 };
 
@@ -1519,6 +1532,13 @@ nodecl_t const_value_to_nodecl_(const_value_t* v,
                 return cache_const(v, basic_type, result, cached);
                 break;
             }
+        case CVK_ADDRESS:
+        case CVK_OBJECT:
+            {
+                internal_error("Creating a nodecl from an address-constant "
+                        "or object-constant is not supported yet", 0);
+                break;
+            }
         default:
             {
                 // The caller should check this case
@@ -2006,6 +2026,8 @@ const_value_t* const_value_make_array_from_scalar(int num_elements, const_value_
 
 const_value_t* const_value_make_struct(int num_elements, const_value_t **elements, type_t* struct_type)
 {
+    ERROR_CONDITION(struct_type == NULL
+            || !is_class_type(struct_type), "Invalid struct type", 0);
     const_value_t* result = make_multival(num_elements, elements);
     result->kind = CVK_STRUCT;
     result->value.m->struct_type = struct_type;
@@ -4360,6 +4382,9 @@ const char* signed_int128_to_str(signed __int128 i)
 
 const char* const_value_to_str(const_value_t* cval)
 {
+    if (cval == NULL)
+        return "<<NULL>>";
+
     const char* result = NULL;
     switch (cval->kind)
     {
@@ -4550,6 +4575,45 @@ const char* const_value_to_str(const_value_t* cval)
             {
                 return "{unknown}";
             }
+        case CVK_ADDRESS:
+            {
+                uniquestr_sprintf(&result, "{address: %s}",
+                        const_value_to_str(cval->value.addr));
+                break;
+            }
+        case CVK_OBJECT:
+            {
+                result = "{named-obj: <";
+                result = strappend(result, get_qualified_symbol_name(cval->value.object->base, cval->value.object->base->decl_context));
+                result = strappend(result, ">, [");
+                int i;
+                for (i = 0; i < cval->value.object->num_accessors; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    switch (cval->value.object->accessors[i].kind)
+                    {
+                        case SUBOBJ_MEMBER:
+                            {
+                                result = strappend(result, "member-num: ");
+                            }
+                            break;
+                        case SUBOBJ_ELEMENT:
+                            {
+                                result = strappend(result, "element: ");
+                            }
+                            break;
+                        default:
+                            internal_error("Unexpected kind of accessor", 0);
+                    }
+                    result = strappend(result, const_value_to_str(cval->value.object->accessors[i].index));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
         default:
             internal_error("Unexpected constant kind %d", cval->kind);
             break;
@@ -4568,4 +4632,73 @@ const_value_t* const_value_get_unknown(void)
 char const_value_is_unknown(const_value_t* cval)
 {
     return cval != NULL && cval->kind == CVK_UNKNOWN;
+}
+
+const_value_t* const_value_make_address(const_value_t* val)
+{
+    ERROR_CONDITION(val == NULL, "Invalid value", 0);
+
+    const_value_t* cval = NEW0(const_value_t);
+    cval->kind = CVK_ADDRESS;
+    cval->value.addr = val;
+
+    return cval;
+}
+
+char const_value_is_address(const_value_t* val)
+{
+    return val->kind == CVK_ADDRESS;
+}
+
+const_value_t* const_value_address_dereference(const_value_t* val)
+{
+    ERROR_CONDITION(!const_value_is_address(val), "Invalid value", 0);
+    return val->value.addr;
+}
+
+const_value_t* const_value_make_object(scope_entry_t* base,
+        int num_subobject_accesors,
+        subobject_accessor_t* accessors)
+{
+    const_value_t* cval = NEW0(const_value_t);
+    cval->kind = CVK_OBJECT;
+    cval->value.object = NEW0(const_value_object_t);
+    cval->value.object->base = base;
+    cval->value.object->num_accessors = num_subobject_accesors;
+    cval->value.object->accessors = NEW_VEC(subobject_accessor_t, num_subobject_accesors);
+    memcpy(cval->value.object->accessors, accessors, sizeof(subobject_accessor_t)*num_subobject_accesors);
+
+    return cval;
+}
+
+char const_value_is_object(const_value_t* val)
+{
+    return val->kind == CVK_OBJECT;
+}
+
+scope_entry_t* const_value_object_get_base(const_value_t* val)
+{
+    ERROR_CONDITION(!const_value_is_object(val), "Invalid value", 0);
+    return val->value.object->base;
+}
+
+int const_value_object_get_num_accessors(const_value_t* val)
+{
+    ERROR_CONDITION(!const_value_is_object(val), "Invalid value", 0);
+    return val->value.object->num_accessors;
+}
+
+subobject_accessor_t const_value_object_get_accessor_num(const_value_t* val, int i)
+{
+    ERROR_CONDITION(!const_value_is_object(val), "Invalid value", 0);
+    ERROR_CONDITION(i < 0 || i > val->value.object->num_accessors, "Invalid accessor index (%d)", i);
+    return val->value.object->accessors[i];
+}
+
+void const_value_object_get_all_accessors(const_value_t* val, subobject_accessor_t* out)
+{
+    ERROR_CONDITION(!const_value_is_object(val), "Invalid value", 0);
+    memcpy(out,
+            val->value.object->accessors,
+            sizeof(subobject_accessor_t) * val->value.object->num_accessors);
 }

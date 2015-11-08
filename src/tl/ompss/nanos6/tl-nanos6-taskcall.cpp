@@ -224,6 +224,7 @@ namespace TL { namespace Nanos6 {
                     it_args->get_locus());
             Nodecl::NodeclBase new_arg = ::cxx_nodecl_make_conversion(symbol_ref.get_internal_nodecl(),
                     it_params->get_type().get_internal_type(),
+                    TL::Scope::get_global_scope().get_decl_context(),
                     symbol_ref.get_locus());
             new_args.append(new_arg);
 

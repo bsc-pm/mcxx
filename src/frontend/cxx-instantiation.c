@@ -450,6 +450,15 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             instantiation_symbol_map,
                             /* pack_index */ -1);
 
+                    if (is_any_reference_type(nodecl_get_type(new_enumerator->value)))
+                    {
+                        new_enumerator->value =
+                            cxx_nodecl_make_conversion(new_enumerator->value,
+                                    no_ref(nodecl_get_type(new_enumerator->value)),
+                                    new_enumerator_context,
+                                    enumerator->locus);
+                    }
+
                     ERROR_CONDITION(
                             !nodecl_is_constant(new_enumerator->value),
                             "This enumerator is not constant", 0);

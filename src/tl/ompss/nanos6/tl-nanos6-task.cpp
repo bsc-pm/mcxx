@@ -203,6 +203,7 @@ namespace TL { namespace Nanos6 {
             task_ptr_arg = ::cxx_nodecl_make_conversion(
                     task_ptr_arg.get_internal_nodecl(),
                     task_ptr.get_type().no_ref().get_internal_type(),
+                    TL::Scope::get_global_scope().get_decl_context(),
                     node.get_locus());
 
             Nodecl::NodeclBase new_task =

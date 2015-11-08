@@ -1773,6 +1773,16 @@ void build_scope_nodecl_static_assert(nodecl_t nodecl_predicate,
         const decl_context_t* decl_context,
         nodecl_t *nodecl_single_assert)
 {
+    check_contextual_conversion(
+            nodecl_predicate,
+            get_bool_type(),
+            decl_context,
+            &nodecl_predicate);
+    if (nodecl_is_err_expr(nodecl_predicate))
+    {
+        *nodecl_single_assert = nodecl_make_err_statement(nodecl_get_locus(nodecl_predicate));
+    }
+
     if (!nodecl_expr_is_value_dependent(nodecl_predicate))
     {
         if (!nodecl_is_constant(nodecl_predicate))
@@ -3238,6 +3248,22 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
 
                 if (nodecl_is_err_expr(nodecl_alignas_expr))
                     break;
+
+                if (!is_integral_type(no_ref(nodecl_get_type(nodecl_alignas_expr))))
+                {
+                    error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
+                            "alignment-specifier expression does not have integral type");
+                    break;
+                }
+
+                nodecl_alignas_expr = nodecl_expression_make_rvalue(nodecl_alignas_expr, decl_context);
+                if (!nodecl_expr_is_value_dependent(nodecl_alignas_expr)
+                        && !nodecl_is_constant(nodecl_alignas_expr))
+                {
+                    error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
+                            "alignment-specifier expression is not an integral constant expression\n");
+                    break;
+                }
 
                 gather_info->alignas_list = nodecl_append_to_list(
                         gather_info->alignas_list,
@@ -5528,6 +5554,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 }
                 else
                 {
+                    nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
+
                     if (nodecl_is_constant(nodecl_expr))
                     {
                         enumeration_item->type_information = nodecl_get_type(nodecl_expr);
@@ -10556,6 +10584,8 @@ static void set_array_type(type_t** declarator_type,
             return;
         }
 
+        nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
+
         if (!nodecl_expr_is_value_dependent(nodecl_expr)
                 && !nodecl_is_constant(nodecl_expr))
         {
@@ -14784,9 +14814,6 @@ static void build_scope_template_template_parameter(AST a,
     AST id_expr = ASTSon2(a);
     if (id_expr != NULL)
     {
-        // This might be ambiguous
-        // check_expression(id_expr, template_context);
-
         scope_entry_list_t* entry_list = query_id_expression(template_context, id_expr, NULL);
 
         enum cxx_symbol_kind valid_templates_arguments[] = 
@@ -17839,11 +17866,13 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
 
                         AST expression = ASTSon1(declarator);
                         nodecl_t nodecl_bit_size = nodecl_null();
-                        if (!check_expression(expression, decl_context, &nodecl_bit_size))
+                        if (!check_expression_must_be_constant(expression, decl_context, &nodecl_bit_size))
                         {
                             error_printf_at(ast_get_locus(expression), "invalid bitfield size '%s'\n",
                                     prettyprint_in_buffer(expression));
                         }
+
+                        nodecl_bit_size = nodecl_expression_make_rvalue(nodecl_bit_size, decl_context);
 
                         if (!nodecl_is_constant(nodecl_bit_size))
                         {
@@ -18270,6 +18299,8 @@ static void check_nodecl_noexcept_spec(nodecl_t nodecl_expr,
         return;
     }
 
+    nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
+
     if (!nodecl_is_constant(nodecl_expr)
             && !nodecl_expr_is_value_dependent(nodecl_expr)
             && !nodecl_expr_is_type_dependent(nodecl_expr))
@@ -18664,6 +18695,7 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
             nodecl_expr = cxx_nodecl_make_conversion(
                     nodecl_expr,
                     get_signed_int_type(),
+                    decl_context,
                     locus);
         }
     }
@@ -18675,6 +18707,87 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
             check_contextual_conversion(
                     nodecl_expr,
                     get_bool_type(),
+                    decl_context,
+                    &nodecl_expr);
+
+            if (nodecl_is_err_expr(nodecl_expr))
+                return;
+        }
+    }
+
+    if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+    {
+        nodecl_get_symbol(nodecl_condition)->value = nodecl_expr;
+    }
+    else
+    {
+        *nodecl_output = nodecl_expr;
+    }
+}
+
+static void build_scope_nodecl_condition_for_switch(nodecl_t nodecl_condition,
+        const decl_context_t* decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_expr = nodecl_null();
+    type_t* orig_type = NULL;
+
+    if (nodecl_is_null(nodecl_condition))
+    {
+        *nodecl_output = nodecl_null();
+        return;
+    }
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_condition;
+        return;
+    }
+    else if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+    {
+        orig_type = lvalue_ref(
+                nodecl_get_symbol(nodecl_condition)->type_information
+                );
+        nodecl_expr = nodecl_get_symbol(nodecl_condition)->value;
+    }
+    else
+    {
+        orig_type = nodecl_get_type(nodecl_condition);
+        nodecl_expr = nodecl_condition;
+    }
+
+    C_LANGUAGE()
+    {
+        standard_conversion_t scs;
+        if (!standard_conversion_between_types(&scs,
+                    orig_type,
+                    get_signed_int_type(),
+                    locus))
+        {
+            error_printf_at(locus, "expression of type '%s' is not valid in this context\n",
+                    print_type_str(orig_type, decl_context));
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
+
+        if (!equivalent_types(orig_type, get_signed_int_type()))
+        {
+            nodecl_expr = cxx_nodecl_make_conversion(
+                    nodecl_expr,
+                    get_signed_int_type(),
+                    decl_context,
+                    locus);
+        }
+    }
+
+    CXX_LANGUAGE()
+    {
+        // FIXME - C++11 states that it should be convertible to enum or integral
+        if (!nodecl_expr_is_type_dependent(nodecl_expr))
+        {
+            check_contextual_conversion(
+                    nodecl_expr,
+                    get_signed_int_type(),
                     decl_context,
                     &nodecl_expr);
 
@@ -19692,7 +19805,7 @@ static void build_scope_nodecl_switch_statement(
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    build_scope_nodecl_condition(
+    build_scope_nodecl_condition_for_switch(
             nodecl_condition,
             decl_context,
             locus,
@@ -19933,6 +20046,8 @@ static void build_scope_case_statement(AST a,
                 nodecl_make_err_statement(ast_get_locus(a)));
         return;
     }
+
+    nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
 
     if (!nodecl_expr_is_value_dependent(nodecl_expr)
             && !nodecl_is_constant(nodecl_expr))
@@ -20346,9 +20461,10 @@ static void build_scope_nodecl_do_statement(
             return;
         }
 
-        nodecl_expr =  nodecl_make_conversion(
-                nodecl_shallow_copy(nodecl_expr),
-                get_bool_type(),
+        nodecl_expr =  cxx_nodecl_make_conversion(
+                nodecl_expr,
+                get_signed_int_type(),
+                decl_context,
                 locus);
     }
     CXX_LANGUAGE()

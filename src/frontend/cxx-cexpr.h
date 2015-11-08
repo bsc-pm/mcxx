@@ -286,6 +286,34 @@ LIBMCXX_EXTERN const_value_t* const_value_build_from_raw_data(const char*);
 // Debugging
 LIBMCXX_EXTERN const char* const_value_to_str(const_value_t*);
 
+// EXPERIMENTAL
+LIBMCXX_EXTERN const_value_t* const_value_make_address(const_value_t* val);
+LIBMCXX_EXTERN char const_value_is_address(const_value_t* val);
+LIBMCXX_EXTERN const_value_t* const_value_address_dereference(const_value_t* val);
+
+typedef
+enum subobject_accessor_kind {
+    SUBOBJ_INVALID = 0,
+    SUBOBJ_ELEMENT,
+    SUBOBJ_MEMBER,
+} subobject_accessor_kind_t;
+
+typedef
+struct subobject_accessors_tag
+{
+    subobject_accessor_kind_t kind;
+    const_value_t* index;
+} subobject_accessor_t;
+
+LIBMCXX_EXTERN const_value_t* const_value_make_object(scope_entry_t* object,
+        int num_subobject_accesors,
+        subobject_accessor_t* accessors);
+LIBMCXX_EXTERN char const_value_is_object(const_value_t*);
+LIBMCXX_EXTERN scope_entry_t* const_value_object_get_base(const_value_t*);
+LIBMCXX_EXTERN int const_value_object_get_num_accessors(const_value_t*);
+LIBMCXX_EXTERN subobject_accessor_t const_value_object_get_accessor_num(const_value_t*, int i);
+LIBMCXX_EXTERN void const_value_object_get_all_accessors(const_value_t*, subobject_accessor_t* out);
+
 MCXX_END_DECLS
 
 #endif // CXX_CEXPR_H
