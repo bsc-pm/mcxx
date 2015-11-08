@@ -1631,16 +1631,6 @@ OPERATOR_TABLE
             subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
         }
 
-        TL::Symbol array_symbol;
-        if (subscripted.is<Nodecl::Symbol>())
-        {
-            array_symbol = subscripted.get_symbol();
-        }
-        else if (subscripted.is<Nodecl::Dereference>())
-        {
-            array_symbol = subscripted.as<Nodecl::Dereference>().get_rhs().get_symbol();
-        }
-
         TL::Symbol subscripted_symbol =
             ::fortran_data_ref_get_symbol(subscripted.get_internal_nodecl());
 
