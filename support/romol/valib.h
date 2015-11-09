@@ -4,30 +4,37 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Vector registers
+#define MAX_VECTOR_LENGTH 64
+
 typedef
-enum VRegId_tag
+union valib_vector_t {
+#define INTVEC(bytes) \
+    int##bytes##_t i##bytes[MAX_VECTOR_LENGTH]; \
+    uint##bytes##_t ui##bytes[MAX_VECTOR_LENGTH];
+    INTVEC(8)
+    INTVEC(16)
+    INTVEC(32)
+    INTVEC(64)
+#undef INTVEC
+
+    float f[MAX_VECTOR_LENGTH];
+    double d[MAX_VECTOR_LENGTH];
+    long double ld[MAX_VECTOR_LENGTH];
+#if 0
+    float128_t f128[MAX_VECTOR_LENGTH];
+#endif
+} valib_vector_t;
+
+typedef union valib_mask_t
 {
-    V_0,  V_1,  V_2,  V_3,  V_4,  V_5,  V_6,  V_7,
-    V_8,  V_9,  V_10, V_11, V_12, V_13, V_14, V_15,
-    V_16, V_17, V_18, V_19, V_20, V_21, V_22, V_23,
-    V_24, V_25, V_26, V_27, V_28, V_29, V_30, V_31
-};
+    char m[MAX_VECTOR_LENGTH / 8 + !!(MAX_VECTOR_LENGTH % 8)];
+} valib_mask_t;
 
-
-// Mask registers
-typedef
-enum MaskRegId_tag
-{
-    M_0, M_1, M_2, M_3, M_4, M_5, M_6, M_7
-};
-
-// These aliases will be internally used by Mercurium
-// Make sure you tag the intrinsic with the proper directionality
-typedef enum VRegId_tag VDestRegId;
-typedef enum VRegId_tag VSrcRegId;
-typedef enum MaskRegId_tag MaskDestRegId;
-typedef enum MaskRegId_tag MaskSrcRegId;
+// Aliases to document the directionality
+typedef valib_vector_t VDestRegId;
+typedef valib_vector_t VSrcRegId;
+typedef valib_mask_t MaskDestRegId;
+typedef valib_mask_t MaskSrcRegId;
 
 // -------------------------------------------------------
 // Vector arithmetic (unmasked)
