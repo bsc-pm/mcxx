@@ -69,7 +69,7 @@ namespace TL { namespace Vectorization {
             }
             else
             {
-                internal_error("Code unreachable", 0);
+                internal_error("Code unreachable %s", ast_print_node_type(n.get_kind()));
             }
         }
 
@@ -782,22 +782,6 @@ namespace TL { namespace Vectorization {
         Nodecl::NodeclBase rhs = n.get_rhs();
 
         walk(rhs);
-
-        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_mask_mov");
-        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found 'valib_mask_mov", 0);
-
-        current_assig.replace(
-                Nodecl::FunctionCall::make(
-                    builtin_fun.make_nodecl(/* set_ref_type */ true),
-                    Nodecl::List::make(
-                        assig_get_lhs(current_assig),
-                        rhs),
-                    /* alternate-name */ Nodecl::NodeclBase::null(),
-                    /* function-form */ Nodecl::NodeclBase::null(),
-                    n.get_type(),
-                    n.get_locus()
-                    )
-                );
     }
 
     // void RomolVectorBackend::visit(const Nodecl::VectorMaskConversion& n);
@@ -854,11 +838,26 @@ namespace TL { namespace Vectorization {
         sym.set_value(value);
 
         // Refer the symbol
-        n.replace(
-                Nodecl::Conversion::make(
+        Nodecl::NodeclBase ref_to_literal =
+            Nodecl::Conversion::make(
                     sym.make_nodecl(/* set_ref_type*/ true, n.get_locus()),
                     sym.get_type(),
-                    n.get_locus())
+                    n.get_locus());
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_mask_mov");
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found 'valib_mask_mov", 0);
+
+        current_assig.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(
+                        assig_get_lhs(current_assig),
+                        ref_to_literal),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
                 );
     }
 } }
