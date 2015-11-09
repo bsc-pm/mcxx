@@ -657,13 +657,4 @@ namespace TL { namespace Vectorization {
     // void RomolVectorBackend::visit(const Nodecl::VectorMaskXor& n);
 
     // void RomolVectorBackend::visit(const Nodecl::MaskLiteral& n);
-
-    Nodecl::NodeclVisitor<void>::Ret RomolVectorBackend::unhandled_node(const Nodecl::NodeclBase& n)
-    {
-        internal_error("NEON Backend: Unknown node %s at %s.",
-                ast_print_node_type(n.get_kind()),
-                locus_to_str(n.get_locus()));
-
-        return Ret();
-    }
 } }

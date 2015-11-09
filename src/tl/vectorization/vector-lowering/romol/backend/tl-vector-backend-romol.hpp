@@ -122,9 +122,6 @@ namespace TL
                 // virtual void visit(const Nodecl::VectorMaskXor& n);
 
                 // virtual void visit(const Nodecl::MaskLiteral& n);
-
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(
-                        const Nodecl::NodeclBase& n);
         };
     }
 }
