@@ -2062,7 +2062,7 @@ namespace TL { namespace Vectorization
         walk(sin_pointer);
         walk(cos_pointer);
 
-        fatal_printf_at(node.get_locus(), "AVX2 Lowering: Sincos is unsupported.", 0);
+        fatal_printf_at(node.get_locus(), "AVX2 Lowering: Sincos is unsupported.");
 
         if (type.is_float())
         {
