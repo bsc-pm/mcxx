@@ -10201,56 +10201,56 @@ extern inline const char* print_neon_vector_type(
     return c;
 }
 
+// Improve this
+enum { ROMOL_VECTOR_LENGTH = 64 };
+
+extern inline const char* print_romol_vector_type(
+        const decl_context_t* decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    int num_elements = vector_type_get_num_elements(t);
+    if (num_elements == ROMOL_VECTOR_LENGTH)
+    {
+        return "valib_vector_t";
+    }
+
+    const char* typename = get_simple_type_name_string_internal_impl(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+    const char *c = NULL;
+    uniquestr_sprintf(&c, "<<romol-vector-%s-%d>>",
+            typename,
+            num_elements);
+    return c;
+}
+
 // Arrays 'vector_flavors' and 'print_vector_functions' are parallel arrays
 #define VECTOR_FLAVORS \
-    VECTOR_FLAVOR(gnu, print_gnu_vector_type) \
-    VECTOR_FLAVOR(intel, print_intel_sse_avx_vector_type) \
-    VECTOR_FLAVOR(altivec, print_altivec_vector_type) \
-    VECTOR_FLAVOR(opencl, print_opencl_vector_type) \
-    VECTOR_FLAVOR(neon, print_neon_vector_type)
+    VECTOR_FLAVOR(gnu, print_gnu_vector_type, NULL) \
+    VECTOR_FLAVOR(intel, print_intel_sse_avx_vector_type, print_intel_mask_type) \
+    VECTOR_FLAVOR(altivec, print_altivec_vector_type, NULL) \
+    VECTOR_FLAVOR(opencl, print_opencl_vector_type, NULL) \
+    VECTOR_FLAVOR(neon, print_neon_vector_type, NULL) \
+    VECTOR_FLAVOR(romol, print_romol_vector_type, print_romol_mask_type)
 
-#define VECTOR_FLAVOR(name, _) #name,
+#define VECTOR_FLAVOR(name, _, __) #name,
 const char* vector_flavors[] = {
     VECTOR_FLAVORS
     NULL
 };
 #undef VECTOR_FLAVOR
 
-#define VECTOR_FLAVOR(_, function) function,
+#define VECTOR_FLAVOR(_, function, __) function,
 const print_vector_type_fun print_vector_type_functions[] = {
     VECTOR_FLAVORS
     NULL
 };
 #undef VECTOR_FLAVOR
 
-
-extern inline void vector_types_set_flavor(const char* c)
-{
-    int i;
-    for (i = 0; vector_flavors[i] != NULL; i++)
-    {
-        if (strcmp(vector_flavors[i], c) == 0)
-        {
-            CURRENT_CONFIGURATION->print_vector_type = print_vector_type_functions[i];
-            break;
-        }
-    }
-}
-
-extern inline const char* vector_types_get_vector_flavor(void)
-{
-    int i;
-    for (i = 0; vector_flavors[i] != NULL; i++)
-    {
-        if (CURRENT_CONFIGURATION->print_vector_type == print_vector_type_functions[i])
-        {
-            return vector_flavors[i];
-        }
-    }
-    return NULL;
-}
-
-extern inline const char* print_mask_type_intel(
+extern inline const char* print_intel_mask_type(
         const decl_context_t* decl_context UNUSED_PARAMETER,
         type_t* t,
         print_symbol_callback_t print_symbol_fun UNUSED_PARAMETER,
@@ -10283,14 +10283,56 @@ extern inline const char* print_mask_type_intel(
     return result;
 }
 
-extern inline const char* print_mask_type(
-        const decl_context_t* decl_context,
+extern inline const char* print_romol_mask_type(
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         type_t* t,
-        print_symbol_callback_t print_symbol_fun,
-        void* print_symbol_data)
+        print_symbol_callback_t print_symbol_fun UNUSED_PARAMETER,
+        void* print_symbol_data UNUSED_PARAMETER)
 {
-    // Do we want to make a flavor of these?
-    return print_mask_type_intel(decl_context, t, print_symbol_fun, print_symbol_data);
+    unsigned int num_bits = mask_type_get_num_bits(t);
+
+    if (num_bits == ROMOL_VECTOR_LENGTH)
+        return "valib_mask_t";
+
+    const char* result = NULL;
+    uniquestr_sprintf(&result, "<<romol-vector-mask-%d>>", num_bits);
+
+    return result;
+}
+
+#define VECTOR_FLAVOR(_, __, mask_function) mask_function,
+// Note that we use print_vector_type_fun as well
+const print_vector_type_fun print_mask_type_functions[] = {
+    VECTOR_FLAVORS
+    NULL
+};
+#undef VECTOR_FLAVOR
+
+extern inline void vector_types_set_flavor(const char* c)
+{
+    int i;
+    for (i = 0; vector_flavors[i] != NULL; i++)
+    {
+        if (strcmp(vector_flavors[i], c) == 0)
+        {
+            CURRENT_CONFIGURATION->print_vector_type = print_vector_type_functions[i];
+            CURRENT_CONFIGURATION->print_mask_type = print_mask_type_functions[i];
+            break;
+        }
+    }
+}
+
+extern inline const char* vector_types_get_vector_flavor(void)
+{
+    int i;
+    for (i = 0; vector_flavors[i] != NULL; i++)
+    {
+        if (CURRENT_CONFIGURATION->print_vector_type == print_vector_type_functions[i])
+        {
+            return vector_flavors[i];
+        }
+    }
+    return NULL;
 }
 
 // Returns a string with the name of this simple type
@@ -10515,7 +10557,15 @@ static const char* get_simple_type_name_string_internal_impl(const decl_context_
             }
         case STK_MASK:
             {
-                result = print_mask_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                if (CURRENT_CONFIGURATION->print_mask_type == NULL)
+                {
+                    // FIXME: Devise a better fallback
+                    print_intel_mask_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                }
+                else
+                {
+                    result = CURRENT_CONFIGURATION->print_mask_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                }
                 break;
             }
         case STK_CLASS :

@@ -67,6 +67,8 @@ linker_name = @GCC@
 {simd,neon} compiler_options = -mfpu=neon
 {simd,neon} linker_options = -mfpu=neon
 {neon} options = --vector-flavor=neon
+{romol} options = --vector-flavor=romol
+{!(neon|romol)} options = --vector-flavor=gnu
 
 {@NANOX_GATE@,cluster} options = --variable=nanos_main_enabled:1
 
