@@ -1190,7 +1190,9 @@ src_tl_analysis_common_libanalysis_utils_la_CXXFLAGS = $(tl_cflags) \
 				-I$(top_srcdir)/src/tl/optimizations
 src_tl_analysis_common_libanalysis_utils_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_common_libanalysis_utils_la_LIBADD = $(tl_libadd) src/tl/libtl.la \
-				src/tl/optimizations/libtloptimizations.la
+				src/tl/optimizations/libtloptimizations.la \
+				-lrt \
+				$(END)
 
 src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 				src/tl/analysis/common/tl-link-data.hpp \
