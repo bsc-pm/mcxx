@@ -816,18 +816,61 @@ namespace Vectorization
                         subscripted.as<Nodecl::Cast>().get_rhs());
             }
 
-            ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
-                    "Vectorizer: ArraySubscript form not supported yet: %s",
-                    lhs.prettyprint().c_str());
-
-            lhs_symbol = subscripted.as<Nodecl::Symbol>();
-
             // Get a scatter for real scatter or unaligned store extra flag
             lhs_scatter_copy = Vectorizer::_vectorizer_analysis->shallow_copy(array);
-            base = lhs_scatter_copy.as<Nodecl::ArraySubscript>().get_subscripted();
-            // The array must have been linearized
-            strides = lhs_scatter_copy.as<Nodecl::ArraySubscript>().
-                get_subscripts().as<Nodecl::List>().front();
+
+            if (subscripted.is<Nodecl::Symbol>())
+            {
+                lhs_symbol = subscripted.as<Nodecl::Symbol>();
+
+                base = lhs_scatter_copy.as<Nodecl::ArraySubscript>().get_subscripted();
+                // The array must have been linearized
+                strides = lhs_scatter_copy.as<Nodecl::ArraySubscript>().
+                    get_subscripts().as<Nodecl::List>().front();
+            }
+            else if (subscripted.is<Nodecl::ArraySubscript>())
+            {
+                base = lhs_scatter_copy.as<Nodecl::ArraySubscript>().get_subscripted();
+                strides = lhs_scatter_copy.as<Nodecl::ArraySubscript>().
+                    get_subscripts().as<Nodecl::List>().front();
+
+                while (subscripted.is<Nodecl::ArraySubscript>() &&
+                        !Vectorizer::_vectorizer_analysis->
+                        is_uniform(_environment._analysis_simd_scope, subscripted, subscripted))
+                {
+                    subscripted = subscripted.as<Nodecl::ArraySubscript>().get_subscripted();
+                    
+                    // TODO: Fix. Gather/statter is not ready for multi-dimensional arrays
+                    // The array must have been linearized
+                    strides = base.as<Nodecl::ArraySubscript>().
+                        get_subscripts().as<Nodecl::List>().front();
+                   
+                    base = base.as<Nodecl::ArraySubscript>().get_subscripted();
+                }
+
+                Nodecl::NodeclBase subscripted_sym = subscripted;
+
+                while (subscripted_sym.is<Nodecl::ArraySubscript>())
+                {
+                    subscripted_sym = subscripted_sym.as<Nodecl::ArraySubscript>().
+                        get_subscripted().no_conv();
+                }
+
+                if (subscripted_sym.is<Nodecl::Symbol>())
+                {
+                    lhs_symbol = subscripted_sym.as<Nodecl::Symbol>();
+                }
+                else
+                {
+                    internal_error("Vectorizer: Symbol not found in base of ArraySubscript. ArraySubscript form not supported yet: %s",
+                            lhs.prettyprint().c_str());
+                }
+            }
+            else
+            {
+                internal_error("Vectorizer: ArraySubscript form not supported yet: %s",
+                    lhs.prettyprint().c_str());
+            }
 
             // Vectorize strides
             walk(strides);

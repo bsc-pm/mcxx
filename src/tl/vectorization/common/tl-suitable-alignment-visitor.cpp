@@ -104,8 +104,9 @@ namespace Vectorization
             }
         }
 
-        ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
-                "Subscripted is not a Nodecl::Symbol", 0);
+        // Double pointers
+        if (!subscripted.is<Nodecl::Symbol>())
+            return false;
 
         alignment = get_pointer_alignment(subscripted.as<Nodecl::Symbol>());
 
