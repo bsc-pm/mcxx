@@ -2674,10 +2674,14 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Conversion& node)
     {
+#if 0
         codegen_casting(
                 /* dest_type */ node.get_type(),
                 /* source_type */ node.get_nest().get_type(),
                 node.get_nest());
+#endif
+#warning FIXME
+        walk(node.get_nest());
     }
 
     void FortranBase::visit(const Nodecl::UnknownPragma& node)

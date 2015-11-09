@@ -540,6 +540,9 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     if (nodecl_is_null(dim))
     {
         type_t* t = no_ref(nodecl_get_type(array));
+        if (fortran_is_pointer_to_array_type(t))
+            return nodecl_null();
+
         int i, rank = fortran_get_rank_of_type(t);
         nodecl_t nodecl_list = nodecl_null();
         for (i = 0; i < rank; i++)

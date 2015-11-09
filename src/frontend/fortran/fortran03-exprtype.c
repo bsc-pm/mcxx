@@ -107,6 +107,7 @@ char fortran_check_array_bounds_expression(AST a, const decl_context_t* decl_con
 {
     fortran_push_checking_array_expression();
     fortran_check_expression_impl_(a, decl_context, nodecl_output);
+    *nodecl_output = fortran_expression_as_value(*nodecl_output);
     fortran_pop_checking_array_expression();
 
     return !nodecl_is_err_expr(*nodecl_output);
@@ -339,7 +340,7 @@ static void fortran_check_expression_impl_(AST expression, const decl_context_t*
     // }
 }
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context_t*, type_t* lhs_type, type_t* rhs_type, 
+static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context_t*,
         nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
 
 static void common_binary_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
@@ -384,17 +385,15 @@ static void check_ac_value_list(
 
             nodecl_t nodecl_lower = nodecl_null();
             fortran_check_expression_impl_(lower_bound, decl_context, &nodecl_lower);
+            nodecl_lower = fortran_expression_as_value(nodecl_lower);
             nodecl_t nodecl_upper = nodecl_null();
             fortran_check_expression_impl_(upper_bound, decl_context, &nodecl_upper);
+            nodecl_upper = fortran_expression_as_value(nodecl_upper);
             nodecl_t nodecl_stride = nodecl_null();
             if (stride != NULL)
             {
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
-                if (nodecl_is_err_expr(nodecl_stride))
-                {
-                    *nodecl_output = nodecl_stride;
-                    return;
-                }
+                nodecl_stride = fortran_expression_as_variable(nodecl_stride);
             }
             else
             {
@@ -559,6 +558,7 @@ static void check_ac_value_list(
         {
             nodecl_t nodecl_expr = nodecl_null();
             fortran_check_expression_impl_(ac_value, decl_context, &nodecl_expr);
+            nodecl_expr = fortran_expression_as_value(nodecl_expr);
 
             if (nodecl_is_err_expr(nodecl_expr))
             {
@@ -769,11 +769,17 @@ static void check_substring(AST expr, const decl_context_t* decl_context, nodecl
 
     nodecl_t nodecl_lower = nodecl_null();
     if (lower != NULL)
+    {
         fortran_check_expression_impl_(lower, decl_context, &nodecl_lower);
+        nodecl_lower = fortran_expression_as_value(nodecl_lower);
+    }
 
     nodecl_t nodecl_upper = nodecl_null();
     if (upper != NULL)
+    {
         fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
+        nodecl_upper = fortran_expression_as_value(nodecl_upper);
+    }
 
     type_t* string_type = fortran_get_rank0_type(lhs_type);
     ERROR_CONDITION(!fortran_is_character_type(string_type), "Bad string type", 0);
@@ -792,15 +798,8 @@ static void check_substring(AST expr, const decl_context_t* decl_context, nodecl
             const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
     nodecl_set_locus(nodecl_stride, ast_get_locus(expr));
 
-    char is_derref_subscripted = (nodecl_get_kind(nodecl_subscripted) == NODECL_DEREFERENCE);
-
     type_t* data_type = synthesized_type;
-    if (is_derref_subscripted)
-    {
-        nodecl_subscripted = nodecl_get_child(nodecl_subscripted, 0);
-        data_type = get_pointer_type(data_type);
-    }
-    else if (!nodecl_is_constant(nodecl_subscripted))
+    if (is_any_reference_type(nodecl_get_type(nodecl_subscripted)))
     {
         data_type = lvalue_ref(data_type);
     }
@@ -811,15 +810,6 @@ static void check_substring(AST expr, const decl_context_t* decl_context, nodecl
                 nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, fortran_get_default_integer_type(), ast_get_locus(expr))),
             data_type,
             ast_get_locus(expr));
-
-    if (is_derref_subscripted)
-    {
-        *nodecl_output = nodecl_make_dereference(
-                *nodecl_output,
-                lvalue_ref(synthesized_type),
-                nodecl_get_locus(*nodecl_output));
-    }
-
     // FIXME - We should compute a constant
 }
 
@@ -967,6 +957,8 @@ scope_entry_t* fortran_data_ref_get_symbol(nodecl_t n)
             return fortran_data_ref_get_symbol(nodecl_get_child(n, 0));
         case NODECL_CLASS_MEMBER_ACCESS:
             return fortran_data_ref_get_symbol(nodecl_get_child(n, 1));
+        case NODECL_CONVERSION:
+            return fortran_data_ref_get_symbol(nodecl_get_child(n, 0));
         default:
             return NULL;
     }
@@ -1058,6 +1050,7 @@ static void check_array_ref_(
             if (lower != NULL)
             {
                 fortran_check_expression_impl_(lower, decl_context, &nodecl_lower);
+                nodecl_lower = fortran_expression_as_value(nodecl_lower);
             }
             else
             {
@@ -1074,6 +1067,7 @@ static void check_array_ref_(
             if (upper != NULL)
             {
                 fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
+                nodecl_upper = fortran_expression_as_value(nodecl_upper);
             }
             else
             {
@@ -1095,6 +1089,7 @@ static void check_array_ref_(
             if (stride != NULL)
             {
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
+                nodecl_stride = fortran_expression_as_value(nodecl_stride);
             }
             else
             {
@@ -1254,6 +1249,7 @@ static void check_array_ref_(
         else
         {
             fortran_check_expression_impl_(subscript, decl_context, &nodecl_indexes[num_subscripts]);
+            nodecl_indexes[num_subscripts] = fortran_expression_as_value(nodecl_indexes[num_subscripts]);
 
             if (nodecl_is_err_expr(nodecl_indexes[num_subscripts]))
             {
@@ -1317,7 +1313,7 @@ static void check_array_ref_(
     }
 
     type_t* data_type = synthesized_type;
-    if (is_lvalue_reference_type(nodecl_get_type(nodecl_subscripted)))
+    if (is_any_reference_type(nodecl_get_type(nodecl_subscripted)))
     {
         data_type = lvalue_ref(data_type);
     }
@@ -1359,6 +1355,11 @@ static void check_array_ref(AST expr, const decl_context_t* decl_context, nodecl
             && (fortran_is_array_type(no_ref(subscripted_type))
                 || fortran_is_pointer_to_array_type(no_ref(subscripted_type))))
     {
+        if (is_any_reference_type(subscripted_type)
+                && fortran_is_pointer_to_array_type(no_ref(subscripted_type)))
+        {
+            nodecl_subscripted = fortran_expression_as_variable(nodecl_subscripted);
+        }
         check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_subscripted, nodecl_output,
                 /* do_complete_array_ranks */ 1, /* require_lower_bound */ 0);
         return;
@@ -1367,6 +1368,11 @@ static void check_array_ref(AST expr, const decl_context_t* decl_context, nodecl
     else if (fortran_is_character_type(no_ref(subscripted_type))
             || fortran_is_pointer_to_character_type(no_ref(subscripted_type)))
     {
+        if (is_any_reference_type(subscripted_type)
+                && fortran_is_pointer_to_character_type(no_ref(subscripted_type)))
+        {
+            nodecl_subscripted = fortran_expression_as_variable(nodecl_subscripted);
+        }
         check_substring(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
     }
@@ -1580,6 +1586,8 @@ static void check_complex_literal(AST expr, const decl_context_t* decl_context, 
 
     nodecl_t nodecl_real = nodecl_null();
     fortran_check_expression_impl_(real_part, decl_context, &nodecl_real);
+    nodecl_real = fortran_expression_as_value(nodecl_real);
+
     if (nodecl_is_err_expr(nodecl_real))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
@@ -1588,6 +1596,8 @@ static void check_complex_literal(AST expr, const decl_context_t* decl_context, 
 
     nodecl_t nodecl_imag = nodecl_null();
     fortran_check_expression_impl_(imag_part, decl_context, &nodecl_imag);
+    nodecl_imag = fortran_expression_as_value(nodecl_imag);
+
     if (nodecl_is_err_expr(nodecl_imag))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
@@ -1731,6 +1741,11 @@ static void check_component_ref_(AST expr,
         return;
     }
 
+    if (is_any_reference_type(nodecl_get_type(nodecl_lhs)))
+    {
+        nodecl_lhs = fortran_expression_as_variable(nodecl_lhs);
+    }
+
     // The type of the lhs_type (may be a class type or array of class type)
     type_t* lhs_type = no_ref(nodecl_get_type(nodecl_lhs));
 
@@ -1870,6 +1885,7 @@ static void check_component_ref_(AST expr,
                 ast_get_locus(expr));
     nodecl_set_constant(*nodecl_output, const_value);
 
+#if 0
     if (is_pointer_type(component_type))
     {
         *nodecl_output =
@@ -1878,6 +1894,7 @@ static void check_component_ref_(AST expr,
                     lvalue_ref(pointer_type_get_pointee_type(component_type)),
                     ast_get_locus(expr));
     }
+#endif
 
     if (ASTKind(rhs) == AST_ARRAY_SUBSCRIPT)
     {
@@ -2606,16 +2623,7 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 {
                     // If the actual argument is a pointer type and the dummy argument is a derreference,
                     // get the pointer type being derreferenced
-                    if (nodecl_get_kind(argument_types[i].argument) == NODECL_DEREFERENCE)
-                    {
-                        real_type = no_ref(
-                                nodecl_get_type(
-                                    nodecl_get_child(
-                                        argument_types[i].argument, 0)));
-
-                        ERROR_CONDITION(!is_pointer_type(real_type), "This should be a pointer type!", 0);
-                    }
-                    else
+                    if (!is_pointer_type(real_type))
                     {
                         ok = 0;
                         break;
@@ -3117,16 +3125,7 @@ static void check_called_symbol_list(
                 {
                     // If the actual argument is a pointer type and the dummy argument is a derreference,
                     // get the pointer type being derreferenced
-                    if (nodecl_get_kind(fixed_argument_info_items[i].argument) == NODECL_DEREFERENCE)
-                    {
-                        real_type = no_ref(
-                                nodecl_get_type(
-                                    nodecl_get_child(
-                                        fixed_argument_info_items[i].argument, 0)));
-
-                        ERROR_CONDITION(!is_pointer_type(real_type), "This should be a pointer type!", 0);
-                    }
-                    else
+                    if (!is_pointer_type(real_type))
                     {
                         error_printf_at(nodecl_get_locus(fixed_argument_info_items[i].argument), "cannot associate non-POINTER actual argument to POINTER dummy argument\n");
                         // This is not a derreferenced pointer?
@@ -3483,12 +3482,14 @@ static void check_function_call(AST expr, const decl_context_t* decl_context, no
                 result_type,
                 ast_get_locus(expr));
 
+#if 0
         if (is_pointer_type(no_ref(result_type)))
         {
             *nodecl_output = nodecl_make_dereference(*nodecl_output, 
                     lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                     ast_get_locus(expr));
         }
+#endif
     }
     else
     {
@@ -3587,6 +3588,7 @@ static void check_parenthesized_expression(AST expr, const decl_context_t* decl_
 {
     nodecl_t nodecl_expr = nodecl_null();
     fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_expr);
+    nodecl_expr = fortran_expression_as_value(nodecl_expr);
 
     if (nodecl_is_err_expr(nodecl_expr))
     {
@@ -3615,7 +3617,7 @@ static void check_power_op(AST expr, const decl_context_t* decl_context, nodecl_
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void common_binary_intrinsic_check(AST expr, const decl_context_t*, type_t* lhs_type, type_t* rhs_type, 
+static void common_binary_intrinsic_check(AST expr, const decl_context_t*,
         nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
 static void common_binary_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
@@ -3626,9 +3628,6 @@ static void common_binary_check(AST expr, const decl_context_t* decl_context, no
     nodecl_t nodecl_rhs = nodecl_null();
     fortran_check_expression_impl_(rhs, decl_context, &nodecl_rhs);
 
-    type_t* lhs_type = nodecl_get_type(nodecl_lhs);
-    type_t* rhs_type = nodecl_get_type(nodecl_rhs);
-
     if (nodecl_is_err_expr(nodecl_lhs)
             || nodecl_is_err_expr(nodecl_rhs))
     {
@@ -3636,16 +3635,16 @@ static void common_binary_check(AST expr, const decl_context_t* decl_context, no
        return;
     }
 
-    common_binary_intrinsic_check(expr, decl_context, lhs_type, rhs_type, nodecl_lhs, nodecl_rhs, nodecl_output);
+    common_binary_intrinsic_check(expr, decl_context, nodecl_lhs, nodecl_rhs, nodecl_output);
 }
 
-static void common_binary_intrinsic_check(AST expr, const decl_context_t* decl_context, type_t* lhs_type, type_t* rhs_type,
+static void common_binary_intrinsic_check(AST expr, const decl_context_t* decl_context,
         nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output)
 {
-    compute_result_of_intrinsic_operator(expr, decl_context, lhs_type, rhs_type, nodecl_lhs, nodecl_rhs, nodecl_output);
+    compute_result_of_intrinsic_operator(expr, decl_context, nodecl_lhs, nodecl_rhs, nodecl_output);
 }
 
-static void common_unary_intrinsic_check(AST expr, const decl_context_t* decl_context, type_t* rhs_type,
+static void common_unary_intrinsic_check(AST expr, const decl_context_t* decl_context,
         nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
 
 static void common_unary_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output) 
@@ -3654,22 +3653,19 @@ static void common_unary_check(AST expr, const decl_context_t* decl_context, nod
     nodecl_t nodecl_expr = nodecl_null();
     fortran_check_expression_impl_(rhs, decl_context, &nodecl_expr);
 
-    type_t* rhs_type = nodecl_get_type(nodecl_expr);
-
     if (nodecl_is_err_expr(nodecl_expr))
     {
        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr)); 
        return;
     }
 
-    common_unary_intrinsic_check(expr, decl_context, rhs_type, nodecl_expr, nodecl_output);
-
+    common_unary_intrinsic_check(expr, decl_context, nodecl_expr, nodecl_output);
 }
 
-static void common_unary_intrinsic_check(AST expr, const decl_context_t* decl_context, type_t* rhs_type,
+static void common_unary_intrinsic_check(AST expr, const decl_context_t* decl_context,
         nodecl_t nodecl_rhs, nodecl_t* nodecl_output)
 {
-    compute_result_of_intrinsic_operator(expr, decl_context, NULL, rhs_type, nodecl_null(), nodecl_rhs, nodecl_output);
+    compute_result_of_intrinsic_operator(expr, decl_context, nodecl_null(), nodecl_rhs, nodecl_output);
 }
 
 static void check_string_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
@@ -3858,12 +3854,14 @@ static void check_user_defined_unary_op(AST expr, const decl_context_t* decl_con
             result_type,
             ast_get_locus(expr));
 
+#if 0
     if (is_pointer_type(no_ref(result_type)))
     {
         *nodecl_output = nodecl_make_dereference(*nodecl_output,
                 lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                 ast_get_locus(expr));
     }
+#endif
 }
 
 static void check_user_defined_binary_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
@@ -3967,12 +3965,14 @@ static void check_user_defined_binary_op(AST expr, const decl_context_t* decl_co
             result_type,
             ast_get_locus(expr));
 
+#if 0
     if (is_pointer_type(no_ref(result_type)))
     {
         *nodecl_output = nodecl_make_dereference(*nodecl_output, 
                 lvalue_ref(pointer_type_get_pointee_type(no_ref(result_type))),
                 ast_get_locus(expr));
     }
+#endif
 }
 
 static void check_nodecl_literal(AST expr, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
@@ -4009,6 +4009,7 @@ static void check_symbol_literal(AST expr, const decl_context_t* decl_context UN
             nodecl_set_type(*nodecl_output, entry->type_information);
         }
 
+#if 0
         if (is_pointer_type(entry->type_information))
         {
             *nodecl_output = nodecl_make_dereference(
@@ -4016,6 +4017,7 @@ static void check_symbol_literal(AST expr, const decl_context_t* decl_context UN
                     lvalue_ref(pointer_type_get_pointee_type(entry->type_information)),
                     nodecl_get_locus(*nodecl_output));
         }
+#endif
     }
     else
     {
@@ -4432,6 +4434,7 @@ static void check_symbol_name_as_a_variable(
         nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
     }
 
+#if 0
     if (is_pointer_type(no_ref(entry->type_information)))
     {
         *nodecl_output = 
@@ -4440,6 +4443,7 @@ static void check_symbol_name_as_a_variable(
                     lvalue_ref(pointer_type_get_pointee_type(no_ref(entry->type_information))),
                     ast_get_locus(sym));
     }
+#endif
 }
 
 static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context, nodecl_t* nodecl_output)
@@ -4703,6 +4707,58 @@ static char is_defined_assignment(AST expr, AST lvalue,
     return !is_error_type(result_type);
 }
 
+nodecl_t fortran_expression_as_value(nodecl_t expr)
+{
+    type_t* t = nodecl_get_type(expr);
+
+    if (is_any_reference_type(t))
+    {
+        expr = nodecl_make_conversion(
+                expr,
+                no_ref(t),
+                nodecl_get_locus(expr));
+        t = no_ref(t);
+    }
+
+    if (is_pointer_type(t))
+    {
+        expr = nodecl_make_dereference(
+                expr,
+                lvalue_ref(pointer_type_get_pointee_type(t)),
+                nodecl_get_locus(expr));
+        return fortran_expression_as_value(expr);
+    }
+
+    return expr;
+}
+
+// Here variable is the Fortran meaning of variable: an lvalue of non-pointer type
+nodecl_t fortran_expression_as_variable(nodecl_t expr)
+{
+    type_t* t = nodecl_get_type(expr);
+
+    if (!is_any_reference_type(t))
+    {
+        return nodecl_make_err_expr(nodecl_get_locus(expr));
+    }
+
+    if (is_pointer_type(no_ref(t)))
+    {
+        expr = nodecl_make_conversion(
+                expr,
+                no_ref(t),
+                nodecl_get_locus(expr));
+        expr = nodecl_make_dereference(
+                expr,
+                lvalue_ref(pointer_type_get_pointee_type(no_ref(t))),
+                nodecl_get_locus(expr));
+        return fortran_expression_as_variable(expr);
+    }
+
+    return expr;
+}
+
+
 static void check_assignment(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST lvalue = ASTSon0(expr);
@@ -4728,8 +4784,14 @@ static void check_assignment(AST expr, const decl_context_t* decl_context, nodec
     
     scope_entry_t* assignment_op = NULL;
     scope_entry_t* generic_specifier_symbol = NULL;
-    char is_defined_assig = is_defined_assignment(expr, lvalue, rvalue, nodecl_lvalue, nodecl_rvalue, decl_context, 
-            &assignment_op, &generic_specifier_symbol);
+    char is_defined_assig = is_defined_assignment(expr,
+            lvalue,
+            rvalue,
+            nodecl_lvalue,
+            nodecl_rvalue,
+            decl_context, 
+            &assignment_op,
+            &generic_specifier_symbol);
 
     if (!is_defined_assig
             && !is_intrinsic_assignment(lvalue_type, rvalue_type))
@@ -4741,17 +4803,20 @@ static void check_assignment(AST expr, const decl_context_t* decl_context, nodec
         return;
     }
 
-
     if (!is_defined_assig)
     {
+        nodecl_lvalue = fortran_expression_as_variable(nodecl_lvalue);
+        nodecl_rvalue = fortran_expression_as_value(nodecl_rvalue);
+
         if (!equivalent_types(
-                    get_unqualified_type(no_ref(lvalue_type)), 
-                    get_unqualified_type(no_ref(rvalue_type))))
+                    get_unqualified_type(no_ref(nodecl_get_type(nodecl_lvalue))), 
+                    get_unqualified_type(nodecl_get_type(nodecl_rvalue))))
         {
             nodecl_rvalue = nodecl_make_conversion(nodecl_rvalue, 
                     lvalue_type,
                     nodecl_get_locus(nodecl_rvalue));
         }
+
         *nodecl_output = nodecl_make_assignment(nodecl_lvalue, nodecl_rvalue, lvalue_type, ast_get_locus(expr));
     }
     else
@@ -5157,30 +5222,6 @@ void fortran_check_initialization(
     }
 }
 
-static nodecl_t remove_dereference_from_data_ref(nodecl_t n)
-{
-    if (nodecl_get_kind(n) == NODECL_DEREFERENCE)
-    {
-        return nodecl_shallow_copy(nodecl_get_child(n, 0));
-    }
-    else if (nodecl_get_kind(n) == NODECL_ARRAY_SUBSCRIPT)
-    {
-        nodecl_t subscripted = remove_dereference_from_data_ref(nodecl_get_child(n, 0));
-
-        return nodecl_make_array_subscript(
-                subscripted,
-                nodecl_shallow_copy(nodecl_get_child(n, 1)),
-                nodecl_get_type(subscripted),
-                nodecl_get_locus(n));
-    }
-    else
-    {
-        // FIXME - Could we abort here?
-        return nodecl_shallow_copy(n);
-    }
-}
-
-
 static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST lvalue = ASTSon0(expr);
@@ -5296,6 +5337,10 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
             {
                 auxiliar = nodecl_get_child(auxiliar, 0);
             }
+            else if (nodecl_get_kind(auxiliar) == NODECL_CONVERSION)
+            {
+                auxiliar = nodecl_get_child(auxiliar, 0);
+            }
             else
             {
                 break;
@@ -5346,22 +5391,30 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
     // If the right part is not a symbol name, but an expression of type
     // POINTER (currently only possible if we call a FUNCTION returning
     // POINTER), then it must be have been derreferenced
-    else if (nodecl_get_kind(nodecl_rvalue) != NODECL_DEREFERENCE)
+    else if (!is_pointer_type(no_ref(nodecl_get_type(nodecl_rvalue))))
     {
         error_printf_at(ast_get_locus(expr), "right hand of pointer assignment does not yield a POINTER data-reference\n");
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
 
-    if (nodecl_get_kind(nodecl_rvalue) == NODECL_DEREFERENCE)
+    if (is_pointer_type(no_ref(nodecl_get_type(nodecl_rvalue))))
     {
-        nodecl_rvalue = nodecl_get_child(nodecl_rvalue, 0);
+        // lvalue pointer to rvalue pointer
+        if (is_any_reference_type(nodecl_get_type(nodecl_rvalue)))
+        {
+            nodecl_rvalue = nodecl_make_conversion(
+                    nodecl_rvalue,
+                    no_ref(nodecl_get_type(nodecl_rvalue)),
+                    nodecl_get_locus(nodecl_rvalue));
+        }
     }
     else if (nodecl_get_kind(nodecl_rvalue) == NODECL_SYMBOL
             || nodecl_get_kind(nodecl_rvalue) == NODECL_CLASS_MEMBER_ACCESS
             || nodecl_get_kind(nodecl_rvalue) == NODECL_ARRAY_SUBSCRIPT)
     {
         // Build a reference here
+        nodecl_rvalue = fortran_expression_as_variable(nodecl_rvalue);
         nodecl_rvalue = nodecl_make_reference(nodecl_rvalue,
                 get_pointer_type(no_ref(rvalue_sym->type_information)),
                 nodecl_get_locus(nodecl_rvalue));
@@ -5375,11 +5428,8 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
         internal_error("Code unreachable", 0);
     }
 
-    nodecl_t nodecl_lvalue_without_deref = remove_dereference_from_data_ref(nodecl_lvalue);
-    nodecl_free(nodecl_lvalue);
-
     *nodecl_output = nodecl_make_assignment(
-            nodecl_lvalue_without_deref,
+            nodecl_lvalue,
             nodecl_rvalue,
             no_ref(lvalue_sym->type_information),
             ast_get_locus(expr));
@@ -5913,26 +5963,34 @@ static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_t
 static void conform_types(type_t* lhs_type, type_t* rhs_type, 
         type_t** conf_lhs_type, type_t** conf_rhs_type);
 
+static type_t* adjust_type_for_intrinsic_operator(type_t* t)
+{
+    t = no_ref(t);
+
+    if (is_pointer_type(t))
+        t = pointer_type_get_pointee_type(t);
+
+    return t;
+}
+
 static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context_t* decl_context, 
-        type_t* lhs_type, 
-        type_t* rhs_type,
         nodecl_t nodecl_lhs,
         nodecl_t nodecl_rhs,
         nodecl_t* nodecl_output)
 {
-    lhs_type = no_ref(lhs_type);
-    rhs_type = no_ref(rhs_type);
-
-    // Remove pointer, which is actually only used for data refs
-    if (is_pointer_type(lhs_type))
-        lhs_type = pointer_type_get_pointee_type(lhs_type);
-    if (is_pointer_type(rhs_type))
-        rhs_type = pointer_type_get_pointee_type(rhs_type);
-
+    type_t* adj_lhs_type = NULL;
     type_t* conf_lhs_type = NULL;
+
+    type_t* adj_rhs_type = NULL;
     type_t* conf_rhs_type = NULL;
 
-    conform_types(lhs_type, rhs_type, &conf_lhs_type, &conf_rhs_type);
+    if (!nodecl_is_null(nodecl_lhs))
+    {
+        adj_lhs_type = adjust_type_for_intrinsic_operator(nodecl_get_type(nodecl_lhs));
+    }
+    adj_rhs_type = adjust_type_for_intrinsic_operator(nodecl_get_type(nodecl_rhs));
+
+    conform_types(adj_lhs_type, adj_rhs_type, &conf_lhs_type, &conf_rhs_type);
 
     if (!operand_map_init)
     {
@@ -5960,11 +6018,12 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context
     type_t* result = NULL;
     char convert_to_common = 0;
 
+    // Lookup an intrinsic operator that matches the LHS and RHS types (once conformed)
     operand_types_t* operand_types = value->operand_types;
     int i;
     for (i = 0; i < value->num_operands && result == NULL; i++)
     {
-        if (((lhs_type == NULL 
+        if (((conf_lhs_type == NULL 
                         && operand_types[i].lhs_type == NULL)
                     || ((operand_types[i].lhs_type)(conf_lhs_type)))
                 && ((operand_types[i].rhs_type)(conf_rhs_type)))
@@ -5977,8 +6036,9 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context
 
     if (result == NULL)
     {
+        // No intrinsic operator was found, try with a user defined one
         result = get_error_type();
-        // Now try with a user defined operator
+
         scope_entry_list_t* call_list = fortran_query_name_str_for_function(decl_context, value->op_symbol_name,
                 ast_get_locus(expr));
 
@@ -5987,7 +6047,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context
         {
             int num_actual_arguments = 0;
             nodecl_t nodecl_arguments[2] = { nodecl_null(), nodecl_null() };
-            if (lhs_type == NULL)
+            if (adj_lhs_type == NULL)
             {
                 num_actual_arguments = 1;
                 nodecl_arguments[0] = nodecl_make_fortran_actual_argument(nodecl_rhs, nodecl_get_locus(nodecl_rhs));
@@ -6060,12 +6120,14 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context
                         result,
                         ast_get_locus(expr));
 
+#if 0
                 if (is_pointer_type(no_ref(result)))
                 {
                     *nodecl_output = nodecl_make_dereference(*nodecl_output, 
                             lvalue_ref(pointer_type_get_pointee_type(no_ref(result))),
                             ast_get_locus(expr));
                 }
+#endif
 
                 if (!nodecl_is_null(nodecl_simplify)
                         && nodecl_is_constant(nodecl_simplify))
@@ -6077,11 +6139,11 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context
 
         if (is_error_type(result))
         {
-            if (lhs_type != NULL)
+            if (adj_lhs_type != NULL)
             {
                 error_printf_at(ast_get_locus(expr), "invalid operand types %s and %s for intrinsic binary operator '%s'\n",
-                        fortran_print_type_str(lhs_type),
-                        fortran_print_type_str(rhs_type),
+                        fortran_print_type_str(nodecl_get_type(nodecl_lhs)),
+                        fortran_print_type_str(nodecl_get_type(nodecl_rhs)),
                         get_operator_for_expr(expr));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                 return get_error_type();
@@ -6089,7 +6151,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context
             else
             {
                 error_printf_at(ast_get_locus(expr), "invalid operand types %s for intrinsic unary operator '%s'\n",
-                        fortran_print_type_str(rhs_type),
+                        fortran_print_type_str(nodecl_get_type(nodecl_rhs)),
                         get_operator_for_expr(expr));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                 return get_error_type();
@@ -6099,36 +6161,34 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context
     else
     {
         // Restore the rank of the common type
-        result = rerank_type(result, lhs_type, rhs_type);
+        result = rerank_type(result, adj_lhs_type, adj_rhs_type);
 
         const_value_t* val = NULL;
         if (value->compute_const != NULL)
         {
-            if (lhs_type != NULL) 
-            {
-                // Binary
-                val = value->compute_const(nodecl_lhs, nodecl_rhs);
-            }
-            else
-            {
-                val = value->compute_const(nodecl_null(), nodecl_rhs);
-            }
+            val = value->compute_const(nodecl_lhs, nodecl_rhs);
         }
+
+        if (!nodecl_is_null(nodecl_lhs))
+            nodecl_lhs = fortran_expression_as_value(nodecl_lhs);
+        nodecl_rhs = fortran_expression_as_value(nodecl_rhs);
+
+        ERROR_CONDITION(is_any_reference_type(result), "Invalid type", 0);
 
         // Keep the conversions
         if (convert_to_common)
         {
-            if (lhs_type != NULL
+            if (!nodecl_is_null(nodecl_lhs)
                     && !equivalent_types(
-                        get_unqualified_type(no_ref(result)), 
-                        get_unqualified_type(no_ref(lhs_type))))
+                        get_unqualified_type(result), 
+                        get_unqualified_type(nodecl_get_type(nodecl_lhs))))
             {
                 nodecl_lhs = nodecl_make_conversion(nodecl_lhs, result, 
                         nodecl_get_locus(nodecl_lhs));
             }
             if (!equivalent_types(
-                        get_unqualified_type(no_ref(result)), 
-                        get_unqualified_type(no_ref(rhs_type))))
+                        get_unqualified_type(result), 
+                        get_unqualified_type(nodecl_get_type(nodecl_rhs))))
             {
                 nodecl_rhs = nodecl_make_conversion(nodecl_rhs, result, 
                         nodecl_get_locus(nodecl_rhs));
@@ -6567,19 +6627,11 @@ static nodecl_t fortran_nodecl_adjust_function_argument(
     nodecl_t expr = nodecl_get_child(argument, 0);
     type_t* argument_type = nodecl_get_type(expr);
 
-    if (is_pointer_type(no_ref(parameter_type))
-            && !is_call_to_null(argument, NULL))
-    {
-        // When calling a function with a POINTER dummy argument we have an
-        // extra dereference, let's get the pointer reference itself
-        ERROR_CONDITION(nodecl_get_kind(expr) != NODECL_DEREFERENCE, "Invalid pointer access", 0);
-        expr = nodecl_get_child(expr, 0);
-        nodecl_set_child(argument, 0, expr);
-    }
-    else if (is_lvalue_reference_type(parameter_type)
+    if (is_lvalue_reference_type(parameter_type)
             && !is_lvalue_reference_type(argument_type))
     {
         // Passing a non-variable actual argument to a non-VALUE dummy argument
+        // This would create a temporary
         const_value_t* cval = nodecl_get_constant(expr);
         expr = nodecl_make_conversion(
                 expr, parameter_type, nodecl_get_locus(expr));
@@ -6612,6 +6664,7 @@ static void multiexpression_check_range(AST range,
                 nodecl_t nodecl_lower = nodecl_null();
 
                 fortran_check_expression_impl_(lower, decl_context, &nodecl_lower);
+                nodecl_lower = fortran_expression_as_value(nodecl_lower);
                 if (nodecl_is_err_expr(nodecl_lower))
                 {
                     *nodecl_output = nodecl_lower;
@@ -6622,6 +6675,7 @@ static void multiexpression_check_range(AST range,
                 nodecl_t nodecl_upper = nodecl_null();
 
                 fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
+                nodecl_upper = fortran_expression_as_value(nodecl_upper);
                 if (nodecl_is_err_expr(nodecl_upper))
                 {
                     *nodecl_output = nodecl_upper;
@@ -6633,6 +6687,7 @@ static void multiexpression_check_range(AST range,
                 if (stride != NULL)
                 {
                     fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
+                    nodecl_stride = fortran_expression_as_value(nodecl_stride);
                     if (nodecl_is_err_expr(nodecl_stride))
                     {
                         *nodecl_output = nodecl_stride;
