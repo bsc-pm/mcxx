@@ -121,7 +121,7 @@ namespace TL
                 // virtual void visit(const Nodecl::VectorMaskAnd2Not& n);
                 // virtual void visit(const Nodecl::VectorMaskXor& n);
 
-                // virtual void visit(const Nodecl::MaskLiteral& n);
+                virtual void visit(const Nodecl::MaskLiteral& n);
         };
     }
 }

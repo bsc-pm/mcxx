@@ -103,20 +103,20 @@ namespace TL { namespace Vectorization {
             }
         }
 
-        std::string binary_operation_name(const std::string& op, TL::Type t)
+        std::string binary_operation_name(const std::string& op, TL::Type t, bool has_mask)
         {
             std::stringstream ss;
             std::string tname = type_name(t);
-            ss << "valib_" << op << "_" << tname << "_" << tname << "_" << tname;
+            ss << "valib_" << op << (has_mask ? "m" : "") << "_" << tname << "_" << tname << "_" << tname;
 
             return ss.str();
         }
 
-        std::string unary_operation_name(const std::string& op, TL::Type t)
+        std::string unary_operation_name(const std::string& op, TL::Type t, bool has_mask)
         {
             std::stringstream ss;
             std::string tname = type_name(t);
-            ss << "valib_" << op << "_" << tname << "_" << tname;
+            ss << "valib_" << op << (has_mask ? "m" : "") << "_" << tname << "_" << tname;
 
             return ss.str();
         }
@@ -288,19 +288,28 @@ namespace TL { namespace Vectorization {
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
 
+        Nodecl::NodeclBase mask = n.get_mask();
+
         TL::Type element_type = t.vector_element();
-        std::string binary_operation = binary_operation_name(name, element_type);
+        std::string binary_operation = binary_operation_name(name, element_type, !mask.is_null());
         TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(
                 binary_operation);
         ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", binary_operation.c_str());
 
+        Nodecl::List args =
+            Nodecl::List::make(
+                    assig_get_lhs(current_assig),
+                    n.get_lhs(),
+                    n.get_rhs());
+        if (!mask.is_null())
+        {
+            args.append(mask);
+        }
+
         current_assig.replace(
                 Nodecl::FunctionCall::make(
                     builtin_fun.make_nodecl(/* set_ref_type */ true),
-                    Nodecl::List::make(
-                        assig_get_lhs(current_assig),
-                        n.get_lhs(),
-                        n.get_rhs()),
+                    args,
                     /* alternate-name */ Nodecl::NodeclBase::null(),
                     /* function-form */ Nodecl::NodeclBase::null(),
                     n.get_type(),
@@ -321,18 +330,26 @@ namespace TL { namespace Vectorization {
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
 
+        Nodecl::NodeclBase mask = n.get_mask();
+
         TL::Type element_type = t.vector_element();
-        std::string binary_operation = unary_operation_name(name, element_type);
+        std::string unary_operation = unary_operation_name(name, element_type, !mask.is_null());
         TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(
-                binary_operation);
-        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", binary_operation.c_str());
+                unary_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", unary_operation.c_str());
+
+        Nodecl::List args = Nodecl::List::make(
+                assig_get_lhs(current_assig),
+                n.get_rhs());
+        if (!mask.is_null())
+        {
+            args.append(mask);
+        }
 
         current_assig.replace(
                 Nodecl::FunctionCall::make(
                     builtin_fun.make_nodecl(/* set_ref_type */ true),
-                    Nodecl::List::make(
-                        assig_get_lhs(current_assig),
-                        n.get_rhs()),
+                    args,
                     /* alternate-name */ Nodecl::NodeclBase::null(),
                     /* function-form */ Nodecl::NodeclBase::null(),
                     n.get_type(),
@@ -424,6 +441,48 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorConversion& n)
     {
+        if (current_assig.is_null())
+        {
+            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+            return;
+        }
+
+        Nodecl::NodeclBase nest = n.get_nest();
+        Nodecl::NodeclBase mask = n.get_mask();
+
+        TL::Type dest = n.get_type().vector_element().no_ref();
+        TL::Type orig = nest.get_type().vector_element().no_ref();
+
+        std::stringstream conv_name;
+        conv_name << "valib_cv";
+        if (!mask.is_null())
+        {
+            conv_name << "m";
+        }
+        conv_name << "_" << type_name(orig) << "_" << type_name(dest);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(conv_name.str());
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", conv_name.str().c_str());
+
+        Nodecl::List args = Nodecl::List::make(
+                assig_get_lhs(current_assig),
+                n.get_nest());
+
+        if (!mask.is_null())
+        {
+            args.append(mask);
+        }
+
+        current_assig.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    args,
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
+                );
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorDifferent& n)
@@ -433,8 +492,7 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorDiv& n)
     {
-        // FIXME: there is no 'div' yet
-        // visit_elementwise_binary_expression(n, "div");
+        visit_elementwise_binary_expression(n, "div");
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorEqual& n)
@@ -470,6 +528,12 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorLiteral& n)
     {
+        if (current_assig.is_null())
+        {
+            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+            return;
+        }
+
         TL::Counter& counter = TL::CounterManager::get_counter("vector-literal-id");
         std::stringstream ss;
         ss << "_vliteral_" << (int)(counter);
@@ -491,11 +555,26 @@ namespace TL { namespace Vectorization {
         sym.set_value(value);
 
         // Refer the symbol
-        n.replace(
+        Nodecl::NodeclBase ref_to_literal =
                 Nodecl::Conversion::make(
                     sym.make_nodecl(/* set_ref_type*/ true, n.get_locus()),
                     sym.get_type(),
-                    n.get_locus())
+                    n.get_locus());
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_mov");
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found 'valib_mov", 0);
+
+        current_assig.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(
+                        assig_get_lhs(current_assig),
+                        ref_to_literal),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
                 );
     }
 
@@ -511,18 +590,32 @@ namespace TL { namespace Vectorization {
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
         TL::Type element_type = t.vector_element();
 
-        std::string load_operation = "valib_ld_";
+        Nodecl::NodeclBase mask = n.get_mask();
+
+        std::string load_operation;
+        if (!mask.is_null())
+            load_operation = "valib_ldm_";
+        else
+            load_operation = "valib_ld_";
+
         load_operation += type_name(element_type);
 
         TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(load_operation);
         ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", load_operation.c_str());
 
+        Nodecl::List args =
+            Nodecl::List::make(
+                    assig_get_lhs(current_assig),
+                    n.get_rhs());
+        if (!mask.is_null())
+        {
+            args.append(mask);
+        }
+
         current_assig.replace(
                 Nodecl::FunctionCall::make(
                     builtin_fun.make_nodecl(/* set_ref_type */ true),
-                    Nodecl::List::make(
-                        assig_get_lhs(current_assig),
-                        n.get_rhs()),
+                    args,
                     /* alternate-name */ Nodecl::NodeclBase::null(),
                     /* function-form */ Nodecl::NodeclBase::null(),
                     n.get_type(),
@@ -620,18 +713,33 @@ namespace TL { namespace Vectorization {
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
         TL::Type element_type = t.vector_element();
 
-        std::string store_operation = "valib_st_";
+        Nodecl::NodeclBase mask = n.get_mask();
+
+        std::string store_operation;
+        if (!mask.is_null())
+            store_operation = "valib_stm_";
+        else
+            store_operation = "valib_st_";
+
         store_operation += type_name(element_type);
 
         TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(store_operation);
         ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", store_operation.c_str());
 
+        Nodecl::List args =
+            Nodecl::List::make(
+                    n.get_rhs(),
+                    n.get_lhs() /* dest */);
+
+        if (!mask.is_null())
+        {
+            args.append(mask);
+        }
+
         n.replace(
                 Nodecl::FunctionCall::make(
                     builtin_fun.make_nodecl(/* set_ref_type */ true),
-                    Nodecl::List::make(
-                        n.get_rhs(),
-                        n.get_lhs() /* dest */),
+                    args,
                     /* alternate-name */ Nodecl::NodeclBase::null(),
                     /* function-form */ Nodecl::NodeclBase::null(),
                     n.get_type(),
@@ -674,6 +782,22 @@ namespace TL { namespace Vectorization {
         Nodecl::NodeclBase rhs = n.get_rhs();
 
         walk(rhs);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_mask_mov");
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found 'valib_mask_mov", 0);
+
+        current_assig.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(
+                        assig_get_lhs(current_assig),
+                        rhs),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
+                );
     }
 
     // void RomolVectorBackend::visit(const Nodecl::VectorMaskConversion& n);
@@ -684,5 +808,57 @@ namespace TL { namespace Vectorization {
     // void RomolVectorBackend::visit(const Nodecl::VectorMaskAnd2Not& n);
     // void RomolVectorBackend::visit(const Nodecl::VectorMaskXor& n);
 
-    // void RomolVectorBackend::visit(const Nodecl::MaskLiteral& n);
+    void RomolVectorBackend::visit(const Nodecl::MaskLiteral& n)
+    {
+        TL::Counter& counter = TL::CounterManager::get_counter("mask-literal-id");
+        std::stringstream ss;
+        ss << "_mliteral_" << (int)(counter);
+        counter++;
+
+        // FIXME - Cache these in a literal pool
+        TL::Symbol sym = TL::Scope::get_global_scope().new_symbol(ss.str());
+        sym.get_internal_symbol()->kind = SK_VARIABLE;
+        sym.get_internal_symbol()->type_information = n.get_type().no_ref().get_internal_type();
+        symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
+        symbol_entity_specs_set_is_static(sym.get_internal_symbol(), 1);
+
+        // FIXME: This is overly complicated to do it here inline
+        int num_elements = n.get_type().get_mask_num_elements();
+        int num_bytes = num_elements / 8 + !!(num_elements % 8);
+
+        // Endianness issues lurking here
+        union U {
+            cvalue_uint_t v;
+            unsigned char c[sizeof(cvalue_uint_t)];
+        } a;
+        memset(&a, 0, sizeof(a));
+        a.v = const_value_cast_to_cvalue_uint(n.get_constant());
+
+        Nodecl::List l;
+        int i;
+        for (i = 0; i < (ssize_t)std::min(sizeof(cvalue_uint_t), (size_t)num_bytes); i++)
+        {
+            l.append(const_value_to_nodecl(const_value_get_integer(a.c[i], /* bytes */ 1, /* sign */ 0)));
+        }
+        for (; i < num_bytes; i++)
+        {
+            l.append(const_value_to_nodecl(const_value_get_zero(/* bytes */ 1, /* sign */ 0)));
+        }
+        // -- FIXME
+
+        Nodecl::NodeclBase value =
+            Nodecl::StructuredValue::make(
+                    l,
+                    Nodecl::StructuredValueBracedTypecast::make(),
+                    sym.get_type());
+        sym.set_value(value);
+
+        // Refer the symbol
+        n.replace(
+                Nodecl::Conversion::make(
+                    sym.make_nodecl(/* set_ref_type*/ true, n.get_locus()),
+                    sym.get_type(),
+                    n.get_locus())
+                );
+    }
 } }
