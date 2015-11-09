@@ -25,6 +25,7 @@
   --------------------------------------------------------------------*/
 
 #include "tl-vector-backend-romol.hpp"
+#include "tl-counters.hpp"
 
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -469,6 +470,33 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorLiteral& n)
     {
+        TL::Counter& counter = TL::CounterManager::get_counter("vector-literal-id");
+        std::stringstream ss;
+        ss << "_vliteral_" << (int)(counter);
+        counter++;
+
+        // FIXME - Cache these in a literal pool
+        TL::Symbol sym = TL::Scope::get_global_scope().new_symbol(ss.str());
+        sym.get_internal_symbol()->kind = SK_VARIABLE;
+        sym.get_internal_symbol()->type_information = n.get_type().no_ref().get_internal_type();
+        symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
+        symbol_entity_specs_set_is_static(sym.get_internal_symbol(), 1);
+
+        Nodecl::NodeclBase value =
+            Nodecl::StructuredValue::make(
+                    n.get_scalar_values().shallow_copy(),
+                    Nodecl::StructuredValueBracedTypecast::make(),
+                    sym.get_type());
+        value.set_constant(n.get_constant());
+        sym.set_value(value);
+
+        // Refer the symbol
+        n.replace(
+                Nodecl::Conversion::make(
+                    sym.make_nodecl(/* set_ref_type*/ true, n.get_locus()),
+                    sym.get_type(),
+                    n.get_locus())
+                );
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorLoad& n)
@@ -602,8 +630,8 @@ namespace TL { namespace Vectorization {
                 Nodecl::FunctionCall::make(
                     builtin_fun.make_nodecl(/* set_ref_type */ true),
                     Nodecl::List::make(
-                        n.get_lhs(), // dest
-                        n.get_rhs()),
+                        n.get_rhs(),
+                        n.get_lhs() /* dest */),
                     /* alternate-name */ Nodecl::NodeclBase::null(),
                     /* function-form */ Nodecl::NodeclBase::null(),
                     n.get_type(),
