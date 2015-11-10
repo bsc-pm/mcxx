@@ -18,7 +18,7 @@ AC_DEFUN([AM_PATH_PYTHON2],
     dnl A version check is needed.
     if test -n "$PYTHON"; then
       # If the user set $PYTHON, use it and don't search something else.
-      AC_MSG_CHECKING([whether $PYTHON version is >= $1])
+      AC_MSG_CHECKING([whether $PYTHON version is >= $1 (but not Python 3)])
       AM_PYTHON_CHECK_VERSION([$PYTHON], [$1],
 			      [AC_MSG_RESULT([yes])],
 			      [AC_MSG_RESULT([no])
