@@ -598,6 +598,24 @@ int32_t valib_mask_ctz(MaskSrcRegId src); // count trailing zeros
 int32_t valib_mask_popcount(MaskSrcRegId src);
 
 // -------------------------------------------------------
+// Selection
+// -------------------------------------------------------
+// dest is formed by elements of src2 where src1 is 1, src3 otherwise
+
+void valib_select_int8 (VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int16(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int32(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int64(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+
+void valib_select_int8 (VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int16(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int32(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int64(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+
+void valib_select_fl(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_db(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+
+// -------------------------------------------------------
 // Insert/extract
 // -------------------------------------------------------
 
