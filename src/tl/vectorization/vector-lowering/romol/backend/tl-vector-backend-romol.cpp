@@ -276,14 +276,21 @@ namespace TL { namespace Vectorization {
             emit_mask_comparison(n, &RomolVectorBackend::emit_mask_is_zero);
     }
 
-    template <typename Node>
-    void RomolVectorBackend::visit_elementwise_binary_expression(const Node& n, const std::string& name)
+    bool RomolVectorBackend::does_not_have_side_effects(const Nodecl::NodeclBase& n)
     {
         if (current_assig.is_null())
         {
-            warn_printf_at(n.get_locus(), "discarding expression without side effects");
-            return;
+            warn_printf_at(n.get_locus(), "discarding expression without side effects\n");
+            return true;
         }
+        return false;
+    }
+
+    template <typename Node>
+    void RomolVectorBackend::visit_elementwise_binary_expression(const Node& n, const std::string& name)
+    {
+        if (does_not_have_side_effects(n))
+            return;
 
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
@@ -321,11 +328,8 @@ namespace TL { namespace Vectorization {
     template <typename Node>
     void RomolVectorBackend::visit_elementwise_unary_expression(const Node& n, const std::string& name)
     {
-        if (current_assig.is_null())
-        {
-            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+        if (does_not_have_side_effects(n))
             return;
-        }
 
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
@@ -361,11 +365,8 @@ namespace TL { namespace Vectorization {
     template <typename Node>
     void RomolVectorBackend::visit_relational_expression(const Node& n, const std::string& name)
     {
-        if (current_assig.is_null())
-        {
-            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+        if (does_not_have_side_effects(n))
             return;
-        }
 
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
@@ -441,17 +442,14 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorConversion& n)
     {
-        if (current_assig.is_null())
-        {
-            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+        if (does_not_have_side_effects(n))
             return;
-        }
 
         Nodecl::NodeclBase nest = n.get_nest();
         Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type dest = n.get_type().vector_element().no_ref();
-        TL::Type orig = nest.get_type().vector_element().no_ref();
+        TL::Type dest = n.get_type().no_ref().vector_element();
+        TL::Type orig = nest.get_type().no_ref().vector_element();
 
         std::stringstream conv_name;
         conv_name << "valib_cv";
@@ -462,7 +460,11 @@ namespace TL { namespace Vectorization {
         conv_name << "_" << type_name(orig) << "_" << type_name(dest);
 
         TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(conv_name.str());
-        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", conv_name.str().c_str());
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s' ('%s' => '%s')",
+                conv_name.str().c_str(),
+                print_declarator(nest.get_type().no_ref().get_internal_type()),
+                print_declarator(n.get_type().no_ref().get_internal_type())
+                );
 
         Nodecl::List args = Nodecl::List::make(
                 assig_get_lhs(current_assig),
@@ -528,11 +530,8 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorLiteral& n)
     {
-        if (current_assig.is_null())
-        {
-            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+        if (does_not_have_side_effects(n))
             return;
-        }
 
         TL::Counter& counter = TL::CounterManager::get_counter("vector-literal-id");
         std::stringstream ss;
@@ -580,11 +579,8 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorLoad& n)
     {
-        if (current_assig.is_null())
-        {
-            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+        if (does_not_have_side_effects(n))
             return;
-        }
 
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
@@ -661,11 +657,8 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorPromotion& n)
     {
-        if (current_assig.is_null())
-        {
-            warn_printf_at(n.get_locus(), "discarding expression without side effects");
+        if (does_not_have_side_effects(n))
             return;
-        }
 
         TL::Type t = n.get_type();
         ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);

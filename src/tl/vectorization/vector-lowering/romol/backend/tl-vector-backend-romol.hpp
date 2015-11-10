@@ -60,6 +60,8 @@ namespace TL
                 template <typename Node>
                 void emit_mask_comparison(const Node& n,
                         void (RomolVectorBackend::* emit_cmp_fun)(Nodecl::NodeclBase, Nodecl::NodeclBase));
+
+                bool does_not_have_side_effects(const Nodecl::NodeclBase& n);
             public:
                 RomolVectorBackend();
 
