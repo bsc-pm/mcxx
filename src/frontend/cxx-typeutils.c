@@ -5221,7 +5221,7 @@ static dhash_ptr_t* get_vector_sized_hash(unsigned int vector_size)
     return result;
 }
 
-extern inline type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
+extern inline type_t* get_vector_type_by_bytes(type_t* element_type, unsigned int vector_size)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid type", 0);
 
@@ -5251,7 +5251,7 @@ extern inline type_t* get_vector_type(type_t* element_type, unsigned int vector_
 
 extern inline type_t* get_vector_type_by_elements(type_t* element_type, unsigned int num_elements)
 {
-    return get_vector_type(
+    return get_vector_type_by_bytes(
             element_type,
             num_elements * type_get_size(element_type));
 }
@@ -5269,7 +5269,7 @@ extern inline char is_vector_type(type_t* t)
 
 extern inline type_t* get_generic_vector_type(type_t* element_type)
 {
-    return get_vector_type(element_type, 0);
+    return get_vector_type_by_bytes(element_type, 0);
 }
 
 extern inline char is_generic_vector_type(type_t* t)
@@ -5278,7 +5278,7 @@ extern inline char is_generic_vector_type(type_t* t)
     return (is_vector_type(t) && t->type->vector_size == 0);
 }
 
-extern inline int vector_type_get_vector_size(type_t* t)
+extern inline int vector_type_get_vector_size_in_bytes(type_t* t)
 {
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
@@ -5286,7 +5286,7 @@ extern inline int vector_type_get_vector_size(type_t* t)
     int intel_vector_size = 0;
     if (is_intel_vector_struct_type(t, &intel_vector_size))
     {
-        return vector_type_get_vector_size(
+        return vector_type_get_vector_size_in_bytes(
                 intel_vector_struct_type_get_vector_type(t));
     }
     else
@@ -5316,7 +5316,7 @@ extern inline int vector_type_get_num_elements(type_t* t)
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
 
-    return vector_type_get_vector_size(t) / type_get_size(vector_type_get_element_type(t));
+    return vector_type_get_vector_size_in_bytes(t) / type_get_size(vector_type_get_element_type(t));
 }
 
 static type_t* _get_new_function_type(type_t* t,
@@ -9933,15 +9933,15 @@ extern inline const char* print_gnu_vector_type(
     // Workaround for i386 and x86-64 MMX and SSE vectors, which happen to be may_alias
     if ((strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
                 || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
-            && (vector_type_get_vector_size(t) == 8       // MMX
-                || vector_type_get_vector_size(t) == 16   // SSE
-                || vector_type_get_vector_size(t) == 32)) // AVX2
+            && (vector_type_get_vector_size_in_bytes(t) == 8       // MMX
+                || vector_type_get_vector_size_in_bytes(t) == 16   // SSE
+                || vector_type_get_vector_size_in_bytes(t) == 32)) // AVX2
     {
         may_alias = " __attribute__((__may_alias__))";
     }
 
     uniquestr_sprintf(&c, "__attribute__((vector_size(%d)))%s %s",
-            vector_type_get_vector_size(t),
+            vector_type_get_vector_size_in_bytes(t),
             may_alias,
             typename);
 
@@ -9955,7 +9955,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
         void* print_symbol_data)
 {
     type_t* element_type = vector_type_get_element_type(t);
-    int size = vector_type_get_vector_size(t);
+    int size = vector_type_get_vector_size_in_bytes(t);
 
     switch (size)
     {
@@ -10033,7 +10033,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
     const char* c = NULL;
     uniquestr_sprintf(&c, "<<intel-vector-%s-%d>>",
             typename,
-            vector_type_get_vector_size(t));
+            vector_type_get_vector_size_in_bytes(t));
     return c;
 }
 
@@ -10048,7 +10048,7 @@ extern inline const char* print_altivec_vector_type(
             print_symbol_fun,
             print_symbol_data);
 
-    int size = vector_type_get_vector_size(t);
+    int size = vector_type_get_vector_size_in_bytes(t);
 
     const char* c = NULL;
     if (size == 16)
@@ -10060,7 +10060,7 @@ extern inline const char* print_altivec_vector_type(
     {
         uniquestr_sprintf(&c, "<<altivec-vector-%s-%d>>",
                 typename,
-                vector_type_get_vector_size(t));
+                vector_type_get_vector_size_in_bytes(t));
     }
 
     return c;
@@ -10072,7 +10072,7 @@ extern inline const char* print_opencl_vector_type(
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
 {
-    int size = vector_type_get_vector_size(t);
+    int size = vector_type_get_vector_size_in_bytes(t);
     type_t* element_type = vector_type_get_element_type(t);
 
     const char* c = NULL;
@@ -10153,7 +10153,7 @@ extern inline const char* print_opencl_vector_type(
             print_symbol_data);
     uniquestr_sprintf(&c, "<<opencl-vector-%s-%d>>",
             typename,
-            vector_type_get_vector_size(t));
+            vector_type_get_vector_size_in_bytes(t));
     return c;
 }
 
@@ -10163,7 +10163,7 @@ extern inline const char* print_neon_vector_type(
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
 {
-    int size = vector_type_get_vector_size(t);
+    int size = vector_type_get_vector_size_in_bytes(t);
     int num_elements = vector_type_get_num_elements(t);
     type_t* element_type = vector_type_get_element_type(t);
 
@@ -10197,7 +10197,7 @@ extern inline const char* print_neon_vector_type(
             print_symbol_data);
     uniquestr_sprintf(&c, "<<neon-vector-%s-%d>>",
             typename,
-            vector_type_get_vector_size(t));
+            vector_type_get_vector_size_in_bytes(t));
     return c;
 }
 
@@ -11854,8 +11854,11 @@ static const char* get_builtin_type_name(type_t* type_info)
         case STK_VECTOR:
             {
                 const char* c;
-                uniquestr_sprintf(&c, "vector of size %d of ", 
-                        simple_type_info->vector_size);
+                int num_elements = vector_type_get_num_elements(type_info);
+
+                uniquestr_sprintf(&c, "vector (bytes=%d) of %d elements of ", 
+                        simple_type_info->vector_size,
+                        num_elements);
                 result = strappend(result, c);
                 result = strappend(result, print_declarator(simple_type_info->vector_element));
                 break;
@@ -13376,11 +13379,11 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
                     || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
                 && (is_vector_type(orig)
                     && is_vector_type(dest)
-                    && (vector_type_get_vector_size(orig) == 8      // MMX
-                        || vector_type_get_vector_size(orig) == 16  // SSE
-                        || vector_type_get_vector_size(orig) == 32) // AVX2
-                    && (vector_type_get_vector_size(orig)
-                        == vector_type_get_vector_size(dest))
+                    && (vector_type_get_vector_size_in_bytes(orig) == 8      // MMX
+                        || vector_type_get_vector_size_in_bytes(orig) == 16  // SSE
+                        || vector_type_get_vector_size_in_bytes(orig) == 32) // AVX2
+                    && (vector_type_get_vector_size_in_bytes(orig)
+                        == vector_type_get_vector_size_in_bytes(dest))
                     && (is_integral_type(vector_type_get_element_type(orig)) == is_integral_type(vector_type_get_element_type(dest))
                         || is_floating_type(vector_type_get_element_type(orig)) == is_floating_type(vector_type_get_element_type(dest)))))
         {
@@ -15804,9 +15807,9 @@ extern inline type_t* type_deep_copy_compute_maps(
                 new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
-        result = get_vector_type(
+        result = get_vector_type_by_bytes(
                 element_type,
-                vector_type_get_vector_size(orig));
+                vector_type_get_vector_size_in_bytes(orig));
     }
     else if (is_class_type(orig))
     {
@@ -17075,9 +17078,9 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
         type_t * element_type = vector_type_get_element_type(orig);
         element_type = rewrite_redundant_typedefs(element_type);
 
-        result = get_vector_type(
+        result = get_vector_type_by_bytes(
                 element_type,
-                vector_type_get_vector_size(orig));
+                vector_type_get_vector_size_in_bytes(orig));
     }
 
     cv_qualifier_t cv_qualif_orig = CV_NONE;

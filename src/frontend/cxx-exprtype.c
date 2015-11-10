@@ -2776,7 +2776,7 @@ static char both_operands_are_same_sized_vector_types(type_t* lhs_type, type_t* 
         && is_arithmetic_type(vector_type_get_element_type(lhs_type))
         && is_vector_type(rhs_type)
         && is_arithmetic_type(vector_type_get_element_type(rhs_type))
-        && vector_type_get_vector_size(lhs_type) == vector_type_get_vector_size(rhs_type);
+        && vector_type_get_vector_size_in_bytes(lhs_type) == vector_type_get_vector_size_in_bytes(rhs_type);
 }
 
 static char both_operands_are_compatible_vector_types(type_t* lhs_type, type_t* rhs_type)
@@ -4838,8 +4838,8 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
             return get_error_type();
         }
 
-        type_t* result_type = get_vector_type(ret_elem_type,
-                vector_type_get_vector_size(common_vec_type));
+        type_t* result_type = get_vector_type_by_bytes(ret_elem_type,
+                vector_type_get_vector_size_in_bytes(common_vec_type));
 
         ERROR_CONDITION(vector_type_get_num_elements(result_type)
                 != vector_type_get_num_elements(common_vec_type),
@@ -5074,7 +5074,7 @@ static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs,
     {
         if (is_vector_op)
         {
-            type_t* result = get_vector_type(conversion_type, vector_size);
+            type_t* result = get_vector_type_by_bytes(conversion_type, vector_size);
 
             binary_record_conversion_to_result(result, lhs, rhs);
 
@@ -8987,7 +8987,7 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
     }
     else
     {
-        converted_type = get_vector_type(get_signed_int_type(), vector_type_get_vector_size(no_ref(first_type)));
+        converted_type = get_vector_type_by_bytes(get_signed_int_type(), vector_type_get_vector_size_in_bytes(no_ref(first_type)));
     }
 
     if (is_void_type(no_ref(second_type))
@@ -18233,8 +18233,7 @@ static const_value_t* generate_aggregate_constant(struct type_init_stack_t *type
         }
         else if (is_vector_type(initializer_type))
         {
-            int num_items = vector_type_get_vector_size(initializer_type) 
-                / type_get_size(vector_type_get_element_type(initializer_type));
+            int num_items = vector_type_get_num_elements(initializer_type);
             ERROR_CONDITION(type_stack[type_stack_idx].num_values != num_items,
                     "Inconsistency %d != %d",
                     type_stack[type_stack_idx].num_values,
@@ -18483,8 +18482,7 @@ void check_nodecl_braced_initializer(
                         type_stack[type_stack_idx].num_values = -1;
                     }
                     else
-                        type_stack[type_stack_idx].num_items = 
-                            vector_type_get_vector_size(declared_type) / type_get_size(vector_type_get_element_type(declared_type));
+                        type_stack[type_stack_idx].num_items = vector_type_get_num_elements(declared_type);
                 }
                 else if (is_complex_type(declared_type))
                 {

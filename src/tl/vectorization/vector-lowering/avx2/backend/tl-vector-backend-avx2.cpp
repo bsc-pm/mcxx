@@ -1211,7 +1211,7 @@ namespace TL { namespace Vectorization
         if (type.is_float())
         {
             TL::Type vector_int_type =
-                TL::Type::get_int_type().get_vector_to(_vector_length);
+                TL::Type::get_int_type().get_vector_of_elements(_vector_length);
 
             Nodecl::VectorBitwiseXor vector_xor =
                 Nodecl::VectorBitwiseXor::make(
@@ -1235,7 +1235,7 @@ namespace TL { namespace Vectorization
         else if (type.is_double())
         {
             TL::Type vector_int_type =
-                TL::Type::get_long_long_int_type().get_vector_to(_vector_length);
+                TL::Type::get_long_long_int_type().get_vector_of_bytes(_vector_length);
 
             Nodecl::VectorBitwiseXor vector_xor =
                 Nodecl::VectorBitwiseXor::make(
@@ -1260,7 +1260,7 @@ namespace TL { namespace Vectorization
                 type.is_unsigned_int())
         {
             TL::Type vector_int_type =
-                TL::Type::get_int_type().get_vector_to(_vector_length);
+                TL::Type::get_int_type().get_vector_of_bytes(_vector_length);
 
             Nodecl::VectorMinus vector_minus =
                 Nodecl::VectorMinus::make(

@@ -10190,7 +10190,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             }
             else
             {
-                *declarator_type = get_vector_type(gather_info->mode_type, 
+                *declarator_type = get_vector_type_by_bytes(gather_info->mode_type, 
                         gather_info->vector_size);
             }
         }
@@ -10212,7 +10212,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             else
             {
                 *declarator_type = get_cv_qualified_type(
-                        get_vector_type(base_vector_type,
+                        get_vector_type_by_bytes(base_vector_type,
                             gather_info->vector_size), 
                         cv_qualif);
             }

@@ -2045,7 +2045,7 @@ namespace TL {
                             enclosing_scope.new_symbol("__vred_" + red_sym.get_name());
                         new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
                         symbol_entity_specs_set_is_user_declared(new_red_sym.get_internal_symbol(), 1);
-                        new_red_sym.set_type(red_sym.get_type().get_vector_to(_vector_length));
+                        new_red_sym.set_type(red_sym.get_type().get_vector_of_elements(_vector_length));
 
                         // Add new TL::Symbol to map
                         new_external_vector_symbol_map.insert(std::pair<TL::Symbol, TL::Symbol>(

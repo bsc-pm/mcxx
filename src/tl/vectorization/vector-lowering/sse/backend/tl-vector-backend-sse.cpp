@@ -1212,7 +1212,7 @@ namespace TL
                 intrin_src << "v_ps";
 
                 casting = "(";
-                casting += print_type_str(TL::Type::get_float_type().get_vector_to(16).get_internal_type(),
+                casting += print_type_str(TL::Type::get_float_type().get_vector_of_bytes(16).get_internal_type(),
                         node.retrieve_context().get_decl_context());
                 casting += ")";
             }
@@ -1222,7 +1222,7 @@ namespace TL
                 // TODO _pd
                 intrin_src << "v_pd";
                 casting = "(";
-                casting += print_type_str(TL::Type::get_double_type().get_vector_to(16).get_internal_type(),
+                casting += print_type_str(TL::Type::get_double_type().get_vector_of_bytes(16).get_internal_type(),
                         node.retrieve_context().get_decl_context());
                 casting += ")";
             }
@@ -1306,7 +1306,7 @@ namespace TL
             { 
                 intrin_src << "_si128(("; 
                 intrin_src << print_type_str(
-                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        TL::Type::get_long_long_int_type().get_vector_of_bytes(16).get_pointer_to().get_internal_type(),
                         node.retrieve_context().get_decl_context());
 
                 intrin_src << ")"; 
@@ -1353,7 +1353,7 @@ namespace TL
             { 
                 intrin_src << "_si128(("; 
                 intrin_src << print_type_str(
-                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        TL::Type::get_long_long_int_type().get_vector_of_bytes(16).get_pointer_to().get_internal_type(),
                         node.retrieve_context().get_decl_context());
 
                 intrin_src << ")"; 
@@ -1413,7 +1413,7 @@ namespace TL
             { 
                 intrin_src << "_si128((";
                 intrin_src << print_type_str(
-                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        TL::Type::get_long_long_int_type().get_vector_of_bytes(16).get_pointer_to().get_internal_type(),
                         node.retrieve_context().get_decl_context());
                 intrin_src << ")";
             } 
@@ -1462,7 +1462,7 @@ namespace TL
             { 
                 intrin_src << "_si128((";
                 intrin_src << print_type_str(
-                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        TL::Type::get_long_long_int_type().get_vector_of_bytes(16).get_pointer_to().get_internal_type(),
                         node.retrieve_context().get_decl_context());
                 intrin_src << ")";
             } 
