@@ -9,7 +9,7 @@ function path_search {
 
 
 USER_FLAGS=" $* "
-EXTRA_MCC_FLAGS=""
+EXTRA_FLAGS=
 
 # -----------------------------------------------
 # Compiler
@@ -22,7 +22,7 @@ MPICXX=@MPICXX@
 # Setup options for MIC
 if [[ "$USER_FLAGS" == *--mmic* ]] 
 then
-   MPI_PLUGIN_FLAGS+=" -mmic"
+   EXTRA_FLAGS+=" -mmic"
    NANOX_INSTALL=@NANOX_MIC@
 else
    NANOX_INSTALL=@NANOX@
@@ -75,11 +75,10 @@ export MPICH_F90="$MCC"
 # Flags
 # -----------------------------------------------
 
-# Extra flags for intel MPI (pretty hackish)
-if [[ $($MPIFC -help 2> /dev/null) == *I_MPI* ]]
+# Extra flags for multithreading Intel MPI
+if [[ $( $MPICXX -openmp -show ) == *-mt_mpi* ]]
 then
-   MPI_PLUGIN_FLAGS+=" -mt_mpi"
-   EXTRA_MCC_FLAGS+=" -mt_mpi"
+   EXTRA_FLAGS+=" -mt_mpi"
 fi
 
 #Call the native mercurim compiler and recompile Offload plugin whenever needed
@@ -120,10 +119,10 @@ OLDPPWD=$PWD
 
 if [[ "$USER_FLAGS" == *\ -c\ * ]]
 then
-   ${MPIFC} $USER_FLAGS
+   ${MPIFC} $EXTRA_FLAGS $USER_FLAGS
 elif [ $# -eq 0 ]
 then
-   ${MPIFC} $USER_FLAGS
+   ${MPIFC} $EXTRA_FLAGS $USER_FLAGS
    echo "\
 This Offload compiler uses internally $MPIFC from your current PATH.
 If you want to change compiler, use OFFL_FC and OFFL_CXX env variables (make sure they point to the same MPI implementation)."
@@ -134,13 +133,13 @@ else
    trap "rm -f $OLDPPWD/temporaloffloadplugin$$.o" EXIT
 
    MPI_PLUGIN_FLAGS+=" "$(cat $NANOX_INSTALL/src/arch/mpi/${build_type}_flags)
-   compile_messages=$( $MPICXX -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o 2>&1 )
+   compile_messages=$( $MPICXX $EXTRA_FLAGS -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o 2>&1 )
 
    if [[ ! -f $OLDPPWD/temporaloffloadplugin$$.o ]] ;
    then 
        echo "\
 Compiling OmpSs MPI Offload library
-$MPICXX -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o
+$MPICXX $EXTRA_FLAGS -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o
 $compile_messages
 
 OmpSs MPI Offload library could not be compiled.
@@ -152,6 +151,6 @@ Check if your environment is not producing any conflict. If it is not, please re
    if [[ $( $MPICXX -show) == *-lmpi_cxx* ]]; then
       EXTRA_MCC_FLAGS="$EXTRA_MCC_FLAGS -lmpi_cxx"
    fi
-   ${MPIFC} $EXTRA_MCC_FLAGS $OLDPPWD/temporaloffloadplugin$$.o $USER_FLAGS
+   ${MPIFC} $EXTRA_MCC_FLAGS $OLDPPWD/temporaloffloadplugin$$.o $USER_FLAGS $EXTRA_FLAGS
    rm -f $OLDPPWD/temporaloffloadplugin$$.o
 fi
