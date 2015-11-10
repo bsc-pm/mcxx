@@ -9,20 +9,16 @@
 typedef
 union valib_vector_t {
 #define INTVEC(bytes) \
-    int##bytes##_t i##bytes[MAX_VECTOR_LENGTH]; \
-    uint##bytes##_t ui##bytes[MAX_VECTOR_LENGTH];
+    int##bytes##_t int##bytes[MAX_VECTOR_LENGTH]; \
+    uint##bytes##_t uint##bytes[MAX_VECTOR_LENGTH];
     INTVEC(8)
     INTVEC(16)
     INTVEC(32)
     INTVEC(64)
 #undef INTVEC
 
-    float f[MAX_VECTOR_LENGTH];
-    double d[MAX_VECTOR_LENGTH];
-    long double ld[MAX_VECTOR_LENGTH];
-#if 0
-    float128_t f128[MAX_VECTOR_LENGTH];
-#endif
+    float fl[MAX_VECTOR_LENGTH];
+    double db[MAX_VECTOR_LENGTH];
 } valib_vector_t;
 
 typedef union valib_mask_t

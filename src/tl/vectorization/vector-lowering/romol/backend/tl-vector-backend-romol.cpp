@@ -688,13 +688,50 @@ namespace TL { namespace Vectorization {
         symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
         symbol_entity_specs_set_is_static(sym.get_internal_symbol(), 1);
 
+        Nodecl::NodeclBase scalar_values = n.get_scalar_values().shallow_copy();
+
+        // Get the appropiate field
+        TL::Symbol valib_vector_type = TL::Scope::get_global_scope().get_symbol_from_name("valib_vector_t");
+        ERROR_CONDITION(!valib_vector_type.is_valid(), "valib_vector_t not found", 0);
+
+        TL::ObjectList<TL::Symbol> fields = valib_vector_type.get_type().get_fields();
+        std::string field_name = type_name(sym.get_type().vector_element());
+        TL::Symbol appropiate_field;
+        for (TL::ObjectList<TL::Symbol>::iterator it = fields.begin();
+                it != fields.end();
+                it++)
+        {
+            if (it->get_name() == field_name)
+            {
+                appropiate_field = *it;
+                break;
+            }
+        }
+        ERROR_CONDITION(!appropiate_field.is_valid(), "Field '%s' not found in '%s'\n",
+                field_name.c_str(), valib_vector_type.get_name().c_str());
+
         Nodecl::NodeclBase value =
             Nodecl::StructuredValue::make(
-                    n.get_scalar_values().shallow_copy(),
+                    Nodecl::List::make(
+                        Nodecl::FieldDesignator::make(
+                            appropiate_field.make_nodecl(),
+                            Nodecl::StructuredValue::make(
+                                scalar_values,
+                                Nodecl::StructuredValueBracedTypecast::make(),
+                                appropiate_field.get_type(),
+                                n.get_locus()),
+                            appropiate_field.get_type(),
+                            n.get_locus())),
                     Nodecl::StructuredValueBracedTypecast::make(),
-                    sym.get_type());
+                    sym.get_type(),
+                    n.get_locus());
         value.set_constant(n.get_constant());
         sym.set_value(value);
+
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                n,
+                Nodecl::ObjectInit::make(sym, n.get_locus())
+                );
 
         // Refer the symbol
         Nodecl::NodeclBase ref_to_literal =
@@ -938,11 +975,17 @@ namespace TL { namespace Vectorization {
                         )
                     );
         }
-        else if (current_assig.is<Nodecl::VectorAssignment>())
+        else if (current_assig.is<Nodecl::VectorAssignment>()
+                || (current_assig.is<Nodecl::Assignment>()
+                    && n.get_type().no_ref().is_vector()))
         {
-            Nodecl::VectorAssignment assig = current_assig.as<Nodecl::VectorAssignment>();
+            Nodecl::NodeclBase mask;
 
-            Nodecl::NodeclBase mask = assig.get_mask();
+            if (current_assig.is<Nodecl::VectorAssignment>())
+            {
+                Nodecl::VectorAssignment assig = current_assig.as<Nodecl::VectorAssignment>();
+                mask = assig.get_mask();
+            }
 
             std::string builtin_name;
             if (mask.is_null())
@@ -1040,23 +1083,18 @@ namespace TL { namespace Vectorization {
         int num_elements = n.get_type().get_mask_num_elements();
         int num_bytes = num_elements / 8 + !!(num_elements % 8);
 
-        // Endianness issues lurking here
-        union U {
-            cvalue_uint_t v;
-            unsigned char c[sizeof(cvalue_uint_t)];
-        } a;
-        memset(&a, 0, sizeof(a));
-        a.v = const_value_cast_to_cvalue_uint(n.get_constant());
+        ERROR_CONDITION((size_t)num_bytes > sizeof(cvalue_uint_t),
+                "Cannot compute a mask correctly: too many bytes", 0);
+        cvalue_uint_t v = const_value_cast_to_cvalue_uint(n.get_constant());
 
         Nodecl::List l;
         int i;
-        for (i = 0; i < (ssize_t)std::min(sizeof(cvalue_uint_t), (size_t)num_bytes); i++)
+        for (i = 0; i < num_bytes; i++)
         {
-            l.append(const_value_to_nodecl(const_value_get_integer(a.c[i], /* bytes */ 1, /* sign */ 0)));
-        }
-        for (; i < num_bytes; i++)
-        {
-            l.append(const_value_to_nodecl(const_value_get_zero(/* bytes */ 1, /* sign */ 0)));
+            l.append(const_value_to_nodecl(const_value_get_integer(
+                            ((v >> 8*i) & 0xff),
+                            /* bytes */ 1,
+                            /* sign */ 0)));
         }
         // -- FIXME
 
@@ -1066,6 +1104,11 @@ namespace TL { namespace Vectorization {
                     Nodecl::StructuredValueBracedTypecast::make(),
                     sym.get_type());
         sym.set_value(value);
+
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                n,
+                Nodecl::ObjectInit::make(sym, n.get_locus())
+                );
 
         // Refer the symbol
         Nodecl::NodeclBase ref_to_literal =
