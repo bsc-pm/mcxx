@@ -499,7 +499,7 @@ namespace Vectorization
                     Nodecl::VectorMaskAnd::make(
                             prev_mask.shallow_copy(),
                             condition.shallow_copy(),
-                            mask_type,
+                            mask_type.no_ref(),
                             n.get_locus());
 
                 Nodecl::ExpressionStatement true_mask_exp =
@@ -1363,55 +1363,59 @@ namespace Vectorization
     {
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
                 _environment._mask_list.back());
-
-        Nodecl::NodeclBase nest = n.get_nest();
-        walk(nest);
+        walk(n.get_nest());
 
         // If false, someone (TL::Symbol) moves/replaces my tree.
         // Therefore do nothing, I'm no longer a Conversion!!
-        if (n.is<Nodecl::Conversion>())
+        if (!n.is<Nodecl::Conversion>())
+            return;
+
+        Nodecl::NodeclBase nest = n.get_nest();
+
+        TL::Type src_vector_type = nest.get_type().no_ref();
+        TL::Type dst_type = n.get_type();
+
+        if (src_vector_type.is_vector())
         {
-            // Update nest
-            nest = n.get_nest();
-
-            TL::Type src_vector_type = nest.get_type().no_ref();
-            TL::Type dst_type = n.get_type();           
-
-            if (src_vector_type.is_vector())
+            // Remove lvalue conversions.
+            // In a vector code they are explicit loads ops.
+            if (src_vector_type.basic_type().is_same_type(dst_type) &&
+                    // FIXME - is this next check too restrictive?
+                    (nest.is<Nodecl::VectorLoad>() ||
+                     nest.is<Nodecl::VectorGather>()))
             {
-                // Remove lvalue conversions.
-                // In a vector code they are explicit loads ops.
-                if (src_vector_type.basic_type().is_same_type(dst_type) &&
-                        (nest.is<Nodecl::VectorLoad>() ||
-                         nest.is<Nodecl::VectorGather>()))
-                {
-                    n.replace(nest.shallow_copy());
-                }
+                // There is no conversion
+                n.replace(nest);
+            }
+            else if (src_vector_type.basic_type().is_same_type(dst_type))
+            {
+                // There is no conversion
+                n.replace(nest);
+            }
+            else
+            {
+                TL::Type dst_vec_type;
+
+                if (dst_type.is_bool())
+                    dst_vec_type = TL::Type::get_mask_type(
+                            _environment._vectorization_factor);
                 else
-                {
-                    TL::Type dst_vec_type;
-
-                    if (dst_type.is_bool())
-                        dst_vec_type = TL::Type::get_mask_type(
-                                _environment._vectorization_factor);
-                    else
-                        dst_vec_type = Utils::get_qualified_vector_to(dst_type,
-                                _environment._vectorization_factor);
+                    dst_vec_type = Utils::get_qualified_vector_to(dst_type,
+                            _environment._vectorization_factor);
 
 
-                    Nodecl::VectorConversion vector_conv =
-                        Nodecl::VectorConversion::make(
-                                n.get_nest().shallow_copy(),
-                                mask,
-                                dst_vec_type,
-                                n.get_locus());
+                Nodecl::VectorConversion vector_conv =
+                    Nodecl::VectorConversion::make(
+                            n.get_nest().shallow_copy(),
+                            mask,
+                            dst_vec_type,
+                            n.get_locus());
 
-                    vector_conv.set_constant(const_value_convert_to_type(
-                                n.get_nest().get_constant(),
-                                dst_vec_type.get_internal_type()));
+                vector_conv.set_constant(const_value_convert_to_type(
+                            n.get_nest().get_constant(),
+                            dst_vec_type.get_internal_type()));
 
-                    n.replace(vector_conv);
-                }
+                n.replace(vector_conv);
             }
         }
     }
@@ -1803,13 +1807,13 @@ namespace Vectorization
             {
                 // If _target_type and call_type have the same size, we use call_type as
                 // this function should have been registered with this type
-                if (call_type.is_void() || 
-                        _environment._target_type.get_size() == call_type.get_size())
-                {
-                    function_target_type = call_type;
-                    function_target_type_size =
-                        (function_target_type.is_void() ? 1 : function_target_type.get_size());
-                }
+                // if (call_type.is_void() || 
+                //         _environment._target_type.get_size() == call_type.get_size())
+                // {
+                //     function_target_type = call_type;
+                //     function_target_type_size =
+                //         (function_target_type.is_void() ? 1 : function_target_type.get_size());
+                // }
 
                 ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best "\
                         "vector function for '%s' is null", func_name.get_qualified_name().c_str());

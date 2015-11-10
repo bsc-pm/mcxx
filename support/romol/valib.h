@@ -65,6 +65,7 @@ ARITH_BINOP(add)
 ARITH_BINOP(sub)
 ARITH_BINOP(mul)
 ARITH_BINOP(div)
+ARITH_BINOP(mod)
 
 #define ARITH_UNOP(op) \
 void valib_##op##_db_db (VDestRegId dest, VSrcRegId src); \
@@ -111,6 +112,7 @@ ARITH_BINOP_MASK(add)
 ARITH_BINOP_MASK(sub)
 ARITH_BINOP_MASK(mul)
 ARITH_BINOP_MASK(div)
+ARITH_BINOP_MASK(mod)
 
 #define ARITH_UNOP_MASK(op) \
 void valib_##op##m_db_db (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
@@ -155,6 +157,7 @@ ARITH_BINOP_SCALAR(add)
 ARITH_BINOP_SCALAR(sub)
 ARITH_BINOP_SCALAR(mul)
 ARITH_BINOP_SCALAR(div)
+ARITH_BINOP_SCALAR(mod)
 
 // -------------------------------------------------------
 // Mixed vector/scalar arithmetic (masked)
@@ -182,6 +185,7 @@ ARITH_BINOP_SCALAR_MASK(add)
 ARITH_BINOP_SCALAR_MASK(sub)
 ARITH_BINOP_SCALAR_MASK(mul)
 ARITH_BINOP_SCALAR_MASK(div)
+ARITH_BINOP_SCALAR_MASK(mod)
 
 // -------------------------------------------------------
 // Bitwise operations (vector)
@@ -587,6 +591,7 @@ bool valib_mask_is_zero(MaskSrcRegId src);
 void valib_mask_or(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
 void valib_mask_and(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
 void valib_mask_xor(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
+void valib_mask_not(MaskDestRegId dest, MaskSrcRegId src);
 
 int32_t valib_mask_clz(MaskSrcRegId src); // count leading zeros
 int32_t valib_mask_ctz(MaskSrcRegId src); // count trailing zeros

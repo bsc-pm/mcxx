@@ -75,7 +75,14 @@ namespace Vectorization
                 n.is<Nodecl::VectorFunctionCall>() ||
                 n.is<Nodecl::VectorConversion>() ||
                 n.is<Nodecl::VectorConditionalExpression>() ||
-                n.is<Nodecl::VectorAlignRight>())
+                n.is<Nodecl::VectorAlignRight>() ||
+                n.is<Nodecl::VectorMaskNot>() ||
+                n.is<Nodecl::VectorMaskAnd>() ||
+                n.is<Nodecl::VectorMaskOr>() ||
+                n.is<Nodecl::VectorMaskXor>() ||
+                n.is<Nodecl::VectorMaskAnd1Not>() ||
+                n.is<Nodecl::VectorMaskAnd2Not>()
+                )
             return true;
 
         return false;

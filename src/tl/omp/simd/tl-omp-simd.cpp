@@ -1414,6 +1414,9 @@ namespace TL {
                 int _vectorization_factor =
                     _vector_length/target_type.get_size();
 
+                if (_fixed_vectorization_factor != 0)
+                    _vectorization_factor = _fixed_vectorization_factor;
+
                 TL::Type function_return_type = func_sym.get_type().returns();
                 vector_func_code = Vectorizer::_function_versioning.get_best_version(
                             func_sym,
