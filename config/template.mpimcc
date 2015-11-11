@@ -71,7 +71,7 @@ export MPICH_CC="$MCC"
 # -----------------------------------------------
 
 # Extra flags for multithreading Intel MPI
-if [[ $( $MPICXX -openmp -show ) == *-mt_mpi* ]]
+if [[ $( $MPICXX -openmp -show ) == *-lmpi_mt* ]]
 then
    EXTRA_FLAGS+=" -mt_mpi"
 fi

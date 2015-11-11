@@ -59,7 +59,7 @@ MCC="plaincxx --profile=${MCC}_base"
 # -----------------------------------------------
 
 # Extra flags for multithreading Intel MPI
-if [[ $( $MPICXX -openmp -show ) == *-mt_mpi* ]]
+if [[ $( $MPICXX -openmp -show ) == *-lmpi_mt* ]]
 then
    EXTRA_FLAGS+=" -mt_mpi"
 fi
