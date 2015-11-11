@@ -120,7 +120,35 @@ namespace Utils {
 
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
-    
+
+
+    class LIBTL_CLASS InfinityCalculator : public Nodecl::NodeclVisitor<NBase>
+    {
+    private:
+        // *** Visitors *** //
+        Ret unhandled_node(const Nodecl::NodeclBase& n);
+        Ret visit(const Nodecl::Add& n);
+        Ret visit(const Nodecl::Analysis::MinusInfinity& n);
+        Ret visit(const Nodecl::Analysis::PlusInfinity& n);
+        Ret visit(const Nodecl::BooleanLiteral& n);
+        Ret visit(const Nodecl::ComplexLiteral& n);
+        Ret visit(const Nodecl::Div& n);
+        Ret visit(const Nodecl::FloatingLiteral& n);
+        Ret visit(const Nodecl::IntegerLiteral& n);
+        Ret visit(const Nodecl::Minus& n);
+        Ret visit(const Nodecl::Mul& n);
+        Ret visit(const Nodecl::Neg& n);
+        Ret visit(const Nodecl::Plus& n);
+        Ret visit(const Nodecl::StringLiteral& n);
+        Ret visit(const Nodecl::Symbol& n);
+
+    public:
+        // *** Constructors *** //
+        InfinityCalculator();
+
+        NBase compute(Nodecl::NodeclBase val);
+    };
+
 }
 }
 }

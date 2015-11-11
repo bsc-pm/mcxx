@@ -655,6 +655,10 @@ namespace {
 
         // 4.3.- Build the values created for the TRUE and FALSE edges
         NBase val_true, val_false;
+        const_value_t* val_const = val.get_constant();
+        if (val.is_constant())
+            if (!const_value_is_signed(val_const))
+                val_const = const_value_cast_as_another(val_const, one);
         switch (comparison_kind)
         {
             case NODECL_EQUAL:
@@ -668,7 +672,7 @@ namespace {
                         // v == x;   --TRUE--->   v1 = v0 ∩ [x, x]
                         NBase real_val;
                         if (val.is_constant())
-                            real_val = const_value_to_nodecl(val.get_constant());
+                            real_val = const_value_to_nodecl(val_const);
                         else
                             real_val = val;
                         val_true = Nodecl::Analysis::RangeIntersection::make(
@@ -683,10 +687,10 @@ namespace {
                         NBase lb, ub;
                         if (val.is_constant())
                         {
-                            const_value_t* lb_const = const_value_add(val.get_constant(), one);
+                            const_value_t* lb_const = const_value_add(val_const, one);
                             lb = const_value_to_nodecl(lb_const);
                             lb.set_constant(lb_const);
-                            const_value_t* ub_const = const_value_sub(val.get_constant(), one);
+                            const_value_t* ub_const = const_value_sub(val_const, one);
                             ub = const_value_to_nodecl(ub_const);
                             ub.set_constant(ub_const);
                         }
@@ -723,10 +727,10 @@ namespace {
                         NBase lb, ub;
                         if (val.is_constant())
                         {
-                            const_value_t* lb_const = const_value_add(val.get_constant(), one);
+                            const_value_t* lb_const = const_value_add(val_const, one);
                             lb = const_value_to_nodecl(lb_const);
                             lb.set_constant(lb_const);
-                            const_value_t* ub_const = const_value_sub(val.get_constant(), one);
+                            const_value_t* ub_const = const_value_sub(val_const, zero);
                             ub = const_value_to_nodecl(ub_const);
                             ub.set_constant(ub_const);
                         }
@@ -749,7 +753,7 @@ namespace {
                         // v != x;   --FALSE-->   v2 = v0 ∩ [x, x]
                         NBase real_val;
                         if (val.is_constant())
-                            real_val = const_value_to_nodecl(val.get_constant());
+                            real_val = const_value_to_nodecl(val_const);
                         else
                             real_val = val;
                         val_false = Nodecl::Analysis::RangeIntersection::make(
@@ -775,7 +779,7 @@ namespace {
                         // v <= x;   --TRUE--->   v1 = v0 ∩ [-∞, x]
                         NBase real_val;
                         if (val.is_constant())
-                            real_val = const_value_to_nodecl(val.get_constant());
+                            real_val = const_value_to_nodecl(val_const);
                         else
                             real_val = val;
                         val_true = Nodecl::Analysis::RangeIntersection::make(
@@ -790,7 +794,7 @@ namespace {
                         NBase lb;
                         if (val.is_constant())
                         {
-                            const_value_t* lb_const = const_value_add(val.get_constant(), one);
+                            const_value_t* lb_const = const_value_add(val_const, one);
                             lb = const_value_to_nodecl(lb_const);
                             lb.set_constant(lb_const);
                         }
@@ -812,7 +816,7 @@ namespace {
                         // x <= v;   --TRUE--->   v1 = v0 ∩ [x, +∞]
                         NBase lb;
                         if (val.is_constant())
-                            lb = const_value_to_nodecl(val.get_constant());
+                            lb = const_value_to_nodecl(val_const);
                         else
                             lb = val.shallow_copy();
                         val_true = Nodecl::Analysis::RangeIntersection::make(
@@ -827,7 +831,7 @@ namespace {
                         NBase ub;
                         if (val.is_constant())
                         {
-                            const_value_t* ub_const = const_value_sub(val.get_constant(), one);
+                            const_value_t* ub_const = const_value_sub(val_const, one);
                             ub = const_value_to_nodecl(ub_const);
                             ub.set_constant(ub_const);
                         }
@@ -859,7 +863,7 @@ namespace {
                         NBase ub;
                         if (val.is_constant())
                         {
-                            const_value_t* ub_const = const_value_sub(val.get_constant(), one);
+                            const_value_t* ub_const = const_value_sub(val_const, one);
                             ub = const_value_to_nodecl(ub_const);
                             ub.set_constant(ub_const);
                         }
@@ -878,7 +882,7 @@ namespace {
                         // v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
                         NBase lb;
                         if (val.is_constant())
-                            lb = const_value_to_nodecl(val.get_constant());
+                            lb = const_value_to_nodecl(val_const);
                         else
                             lb = val.shallow_copy();
                         val_false = Nodecl::Analysis::RangeIntersection::make(
@@ -896,7 +900,7 @@ namespace {
                         NBase lb;
                         if (val.is_constant())
                         {
-                            const_value_t* lb_const = const_value_add(val.get_constant(), one);
+                            const_value_t* lb_const = const_value_add(val_const, one);
                             lb = const_value_to_nodecl(lb_const);
                             lb.set_constant(lb_const);
                         }
@@ -915,7 +919,7 @@ namespace {
                         // x < v   --FALSE-->  v2 = v0 ∩ [-∞, x]
                         NBase ub;
                         if (val.is_constant())
-                            ub = const_value_to_nodecl(val.get_constant());
+                            ub = const_value_to_nodecl(val_const);
                         else
                             ub = val.shallow_copy();
                         val_false = Nodecl::Analysis::RangeIntersection::make(
@@ -941,7 +945,7 @@ namespace {
                         // v >= x;   --TRUE--->  v1 = v0 ∩ [x, +∞]
                         NBase lb;
                         if (val.is_constant())
-                            lb = const_value_to_nodecl(val.get_constant());
+                            lb = const_value_to_nodecl(val_const);
                         else
                             lb = val.shallow_copy();
                         val_true = Nodecl::Analysis::RangeIntersection::make(
@@ -956,7 +960,7 @@ namespace {
                         NBase ub;
                         if (val.is_constant())
                         {
-                            const_value_t* ub_const = const_value_sub(val.get_constant(), one);
+                            const_value_t* ub_const = const_value_sub(val_const, one);
                             ub = const_value_to_nodecl(ub_const);
                             ub.set_constant(ub_const);
                         }
@@ -978,7 +982,7 @@ namespace {
                         // x >= v;   --TRUE--->  v1 = v0 ∩ [-∞, x]
                         NBase ub;
                         if (val.is_constant())
-                            ub = const_value_to_nodecl(val.get_constant());
+                            ub = const_value_to_nodecl(val_const);
                         else
                             ub = val.shallow_copy();
                         val_true = Nodecl::Analysis::RangeIntersection::make(
@@ -993,7 +997,7 @@ namespace {
                         NBase lb;
                         if (val.is_constant())
                         {
-                            const_value_t* lb_const = const_value_add(val.get_constant(), one);
+                            const_value_t* lb_const = const_value_add(val_const, one);
                             lb = const_value_to_nodecl(lb_const);
                             lb.set_constant(lb_const);
                         }
@@ -1025,7 +1029,7 @@ namespace {
                         NBase lb;
                         if (val.is_constant())
                         {
-                            const_value_t* lb_const = const_value_add(val.get_constant(), one);
+                            const_value_t* lb_const = const_value_add(val_const, one);
                             lb = const_value_to_nodecl(lb_const);
                             lb.set_constant(lb_const);
                         }
@@ -1044,7 +1048,7 @@ namespace {
                         // v > x;   --FALSE-->  v2 = v0 ∩ [-∞, x]
                         NBase ub;
                         if (val.is_constant())
-                            ub = const_value_to_nodecl(val.get_constant());
+                            ub = const_value_to_nodecl(val_const);
                         else
                             ub = val.shallow_copy();
                         val_false = Nodecl::Analysis::RangeIntersection::make(
@@ -1062,7 +1066,7 @@ namespace {
                         NBase ub;
                         if (val.is_constant())
                         {
-                            const_value_t* ub_const = const_value_sub(val.get_constant(), one);
+                            const_value_t* ub_const = const_value_sub(val_const, one);
                             ub = const_value_to_nodecl(ub_const);
                             ub.set_constant(ub_const);
                         }
@@ -1081,7 +1085,7 @@ namespace {
                         // x > v;   --FALSE--->  v1 = v0 ∩ [x, +∞]
                         NBase lb;
                         if (val.is_constant())
-                            lb = const_value_to_nodecl(val.get_constant());
+                            lb = const_value_to_nodecl(val_const);
                         else
                             lb = val.shallow_copy();
                         val_false = Nodecl::Analysis::RangeIntersection::make(
@@ -2107,9 +2111,10 @@ namespace {
                         int i = 0;
                         while (i < n_entries)
                         {
+                            CGNode* source = parent_entries[i]->get_source();
                             new_valuation = Utils::range_union(
                                     new_valuation,
-                                    parent_entries[i]->get_source()->get_valuation());
+                                    source->get_valuation());
                             i++;
                         }
                         break;
@@ -2410,6 +2415,11 @@ namespace {
         // In the boundary, replace the future symbol with its valuation
         Nodecl::Utils::nodecl_replace_nodecl_by_structure(
                 boundary, future_sym, future_sym_valuation);
+
+        // If the resulting node has infinity operands, reduce them
+        Utils::InfinityCalculator inf_calc;
+        boundary = inf_calc.compute(boundary);
+
         // If the resulting node may be synthesized (calculated), then do it
         Optimizations::Calculator calc;
         const_value_t* boundary_const = calc.compute_const_value(boundary);
@@ -2836,6 +2846,9 @@ namespace {
         {
             ssa_scope = pcfg_ast.retrieve_context();
         }
+
+        // Restart the global identifiers for CGNodes and SCCs
+        reset_ids();
     }
     
     void RangeAnalysis::compute_range_analysis()
@@ -3233,7 +3246,31 @@ namespace {
                             if (!Nodecl::Utils::structurally_equal_nodecls(old_value, current_value,
                                 /*skip_conversion_nodes*/true))
                             {
-                                // 2.2.1.2.2.1.- Get a new symbol for the new constraint
+                                // 2.2.1.2.2.1.- Build the value of the new constraint
+                                NBase new_value;
+                                if (old_value.is<Nodecl::Analysis::Phi>())
+                                {   // Attach a new element to the list inside the node Phi
+                                    Nodecl::List expressions = old_value.as<Nodecl::Analysis::Phi>().get_expressions().shallow_copy().as<Nodecl::List>();
+                                    Nodecl::Symbol new_expr = c.get_symbol().make_nodecl(/*set_ref_type*/false);
+                                    if (!Nodecl::Utils::nodecl_is_in_nodecl_list(new_expr, expressions, /*skip_conversions*/ true))
+                                    {   // The value was already an expression of the Phi operation
+                                        expressions.append(new_expr);
+                                        new_value = Nodecl::Analysis::Phi::make(expressions, orig_var.get_type());
+                                    }
+                                    else
+                                    {   // nothing to do
+                                        continue;
+                                    }
+                                }
+                                else
+                                {   // Create a new node Phi with the combination of the old constraint and the new one
+                                    Nodecl::Symbol tmp1 = old_c.get_symbol().make_nodecl(/*set_ref_type*/false);
+                                    Nodecl::Symbol tmp2 = c.get_symbol().make_nodecl(/*set_ref_type*/false);
+                                    Nodecl::List expressions = Nodecl::List::make(tmp1, tmp2);
+                                    new_value = Nodecl::Analysis::Phi::make(expressions, current_value.get_type());
+                                }
+
+                                // 2.2.1.2.2.2.- Get a new symbol for the new constraint
                                 std::stringstream ss; ss << get_next_id(orig_var);
                                 Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
                                 std::string subscripts_str;
@@ -3245,23 +3282,6 @@ namespace {
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
                                 ssa_to_original_var[ssa_var] = orig_var;
-
-                                // 2.2.1.2.2.2.- Build the value of the new constraint
-                                NBase new_value;
-                                if (old_value.is<Nodecl::Analysis::Phi>())
-                                {   // Attach a new element to the list inside the node Phi
-                                    Nodecl::List expressions = old_value.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
-                                    Nodecl::Symbol new_expr = c.get_symbol().make_nodecl(/*set_ref_type*/false);
-                                    expressions.append(new_expr);
-                                    new_value = Nodecl::Analysis::Phi::make(expressions, orig_var.get_type());
-                                }
-                                else
-                                {   // Create a new node Phi with the combination of the old constraint and the new one
-                                    Nodecl::Symbol tmp1 = old_c.get_symbol().make_nodecl(/*set_ref_type*/false);
-                                    Nodecl::Symbol tmp2 = c.get_symbol().make_nodecl(/*set_ref_type*/false);
-                                    Nodecl::List expressions = Nodecl::List::make(tmp1, tmp2);
-                                    new_value = Nodecl::Analysis::Phi::make(expressions, current_value.get_type());
-                                }
 
                                 // 2.2.1.2.2.3.- Remove the old constraint from the input_constrs
                                 // If it was in the merged_input_constrs map, it will be renewed with the insertion

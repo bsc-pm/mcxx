@@ -469,46 +469,151 @@ namespace {
         return result;
     }
 
+    NBase boundary_division(const NBase& b1, const NBase& b2)
+    {
+        NBase b;
+
+        if (b2.is_constant() && const_value_is_zero(b2.get_constant()))
+        {   // Base case: x / 0
+            return Nodecl::NodeclBase::null();
+        }
+        else if (const_value_is_zero(b1.get_constant()))
+        {   // Base case: 0 / x, x != +-inf
+            return NBase(const_value_to_nodecl(zero));
+        }
+        else if ((b1.is<Nodecl::Analysis::MinusInfinity>()
+                    || b1.is<Nodecl::Analysis::PlusInfinity>())
+                && (b2.is<Nodecl::Analysis::MinusInfinity>()
+                    || b2.is<Nodecl::Analysis::PlusInfinity>()))
+        {   // Base case: +-inf / +-inf
+            return Nodecl::NodeclBase::null();
+        }
+
+        // Rest of cases
+        if (b1.is<Nodecl::Analysis::MinusInfinity>())
+        {
+            if (b2.is_constant())
+            {
+                const_value_t* b2_const = b2.get_constant();
+                if (const_value_is_positive(b2_const))
+                {   // -inf / k
+                    return minus_inf.shallow_copy();
+                }
+                else
+                {   // -inf / -k
+                    return plus_inf.shallow_copy();
+                }
+            }
+            else
+            {   // -inf / v
+                return Nodecl::NodeclBase::null();
+            }
+        }
+        else if (b1.is<Nodecl::Analysis::PlusInfinity>())
+        {
+            if (b2.is_constant())
+            {
+                const_value_t* b2_const = b2.get_constant();
+                if (const_value_is_positive(b2_const))
+                {   // +inf / k
+                    return plus_inf.shallow_copy();
+                }
+                else
+                {   // +inf / -k
+                    return minus_inf.shallow_copy();
+                }
+            }
+            else
+            {   // +inf / v
+                return Nodecl::NodeclBase::null();
+            }
+        }
+        else if (b1.is_constant())
+        {
+            const_value_t* b1_const = b1.get_constant();
+            if (const_value_is_positive(b1_const))
+            {
+                if (b2.is<Nodecl::Analysis::MinusInfinity>())
+                {   // k / -inf
+                    return minus_inf.shallow_copy();
+                }
+                else if (b2.is<Nodecl::Analysis::PlusInfinity>())
+                {   // k / +inf
+                    return plus_inf.shallow_copy();
+                }
+                else if (b2.is_constant())
+                {   // k1 / k2
+                    return NBase(const_value_to_nodecl(const_value_div(b1_const,
+                                                                       b2.get_constant())));
+                }
+                else
+                {   // k / v
+                    return Nodecl::NodeclBase::null();
+                }
+            }
+            else    // b1 is negative
+            {
+                if (b2.is<Nodecl::Analysis::MinusInfinity>())
+                {   // -k / -inf
+                    return plus_inf.shallow_copy();
+                }
+                else if (b2.is<Nodecl::Analysis::PlusInfinity>())
+                {   // -k / +inf
+                    return minus_inf.shallow_copy();
+                }
+                else if (b2.is_constant())
+                {   // -k1 / k2
+                    return NBase(const_value_to_nodecl(const_value_div(b1_const,
+                                                                       b2.get_constant())));
+                }
+                else
+                {   // -k / v
+                    return Nodecl::NodeclBase::null();
+                }
+            }
+        }
+        else
+        {   // v / ...
+            return Nodecl::NodeclBase::null();
+        }
+
+        return b;
+    }
+
     NBase range_division(const NBase& r1, const NBase& r2)
     {
+        // 1.- Check the integrity of the operands
         if(!r1.is<Nodecl::Range>() || !r2.is<Nodecl::Range>())
             return Nodecl::Div::make(r1, r2, r1.get_type());
 
-        NBase result;
-
+        // 2.- Get the boundaries of the ranges to be subtracted
         NBase r1_lb = r1.as<Nodecl::Range>().get_lower();
         NBase r1_ub = r1.as<Nodecl::Range>().get_upper();
         NBase r2_lb = r2.as<Nodecl::Range>().get_lower();
         NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
         TL::Type t = r1_lb.get_type();
 
-        NBase lb, ub;
-        if (r1_lb.is_constant() && r2_lb.is_constant())
-        {
-            ERROR_CONDITION(const_value_is_zero(r2_lb.get_constant()),
-                            "Range division by 0.\n", 0);
-            lb = NBase(const_value_to_nodecl(const_value_div(r1_lb.get_constant(), r2_lb.get_constant())));
-        }
-        else if (r1_lb.is<Nodecl::Analysis::MinusInfinity>() && r2_lb.is<Nodecl::Analysis::MinusInfinity>())
-            lb = r1_lb;
-        else
-            lb = Nodecl::Div::make(r1_lb.shallow_copy(), r2_ub.shallow_copy(), t);
-        if (r1_ub.is_constant() && r2_ub.is_constant())
-        {
-            ERROR_CONDITION(const_value_is_zero(r2_ub.get_constant()),
-                            "Range division by 0.\n", 0);
-            ub = NBase(const_value_to_nodecl(const_value_div(r1_ub.get_constant(), r2_ub.get_constant())));
-        }
-        else if (r1_ub.is<Nodecl::Analysis::PlusInfinity>() && r2_ub.is<Nodecl::Analysis::PlusInfinity>())
-            ub = r1_ub;
-        else
-            ub = Nodecl::Div::make(r1_ub.shallow_copy(), r2_lb.shallow_copy(), t);
+        // 3.- Compute the lower bound
+        NBase lb = boundary_division(r1_lb, r2_lb);
 
-        NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
-        result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
+        // 4.- Compute the upper bound
+        NBase ub = boundary_division(r1_ub, r2_ub);
+
+        // 5.- Base case
+        // The increment of a range not representing an induction variable is always 0
+        const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
+        if (lb.is_null() || ub.is_null())
+            return Nodecl::Range::make(
+                minus_inf.shallow_copy(),
+                                       plus_inf.shallow_copy(),
+                                       zero_nodecl,
+                                       Type::get_int_type());
+
+        // 6.- Build the range
+        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
 
         if (RANGES_DEBUG)
-            std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
+            std::cerr << "        Range Division " << r1.prettyprint() << " / " << r2.prettyprint()
                       << " = " << result.prettyprint() << std::endl;
 
         return result;
@@ -642,7 +747,7 @@ namespace {
             else if (intersect_rhs.is<Nodecl::Analysis::EmptyRange>())
                 result = intersect_lhs;
             else
-                result = Nodecl::Analysis::RangeIntersection::make(n, m, n.get_type());
+                result = range_union(intersect_lhs, intersect_rhs);
         }
         // If we are intersecting something that is not a range, just create the intersection node and return it
         else if(!n.is<Nodecl::Range>() || !m.is<Nodecl::Range>())
@@ -859,12 +964,8 @@ namespace {
     NBase range_union(const NBase& n, const NBase& m)
     {
         // Base case : some node is null
-        // One Nodecl may be null when computing a Phi node the first time
-        // => the back edge with have a null valuation
-        // FIXME We may want to implement the top element, ⊤
-        ERROR_CONDITION(n.is_null() && m.is_null(),
-                        "Computing the union of two null ranges. Only one may be null.",
-                        0);
+        // Nodes may be null when computing a Phi node the first time
+
         if (n.is_null())
             return m;
         else if (m.is_null())
@@ -888,6 +989,16 @@ namespace {
             result = range_and_rangeunion_union(n.as<Nodecl::Range>(), m.as<Nodecl::Analysis::RangeUnion>());
         else if (n.is<Nodecl::Analysis::RangeUnion>() && m.is<Nodecl::Range>())
             result = range_and_rangeunion_union(m.as<Nodecl::Range>(), n.as<Nodecl::Analysis::RangeUnion>());
+        else if (n.is<Nodecl::Analysis::RangeUnion>() && m.is<Nodecl::Analysis::RangeUnion>())
+        {   // ( [r1] U [r2] ) U ( [r3] U [r4] )
+            Nodecl::Analysis::RangeUnion n_union = n.as<Nodecl::Analysis::RangeUnion>();
+            // try r1 U ( [r3] U [r4] )
+            result = range_and_rangeunion_union(n_union.get_lhs().as<Nodecl::Range>(),
+                                                m.as<Nodecl::Analysis::RangeUnion>());
+            // try r2 U result
+            result = range_and_rangeunion_union(n_union.get_rhs().as<Nodecl::Range>(),
+                                                result.as<Nodecl::Analysis::RangeUnion>());
+        }
         // If we are uniting something that is not a range, just create the union node
         else if (n.is<Nodecl::Analysis::RangeIntersection>() || n.is<Nodecl::Analysis::RangeUnion>()
                     || m.is<Nodecl::Analysis::RangeIntersection>() || m.is<Nodecl::Analysis::RangeUnion>())
@@ -1136,6 +1247,102 @@ namespace {
 
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
+
+    InfinityCalculator::InfinityCalculator()
+    {}
+
+    NBase InfinityCalculator::compute(Nodecl::NodeclBase val)
+    {
+        return walk(val);
+    }
+
+    NBase InfinityCalculator::unhandled_node(const Nodecl::NodeclBase& n)
+    {
+        internal_error("Unhandled node type '%s' while unsing the inifinity calculator for expression '%s'\n",
+                       ast_print_node_type(n.get_kind()),
+                       n.prettyprint().c_str());
+        return NBase::null();
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Add& n)
+    {
+        NBase lhs = walk(n.get_lhs());
+        NBase rhs = walk(n.get_rhs());
+        return boundary_addition(lhs, rhs);
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Analysis::MinusInfinity& n)
+    {
+        return n;
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Analysis::PlusInfinity& n)
+    {
+        return n;
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::BooleanLiteral& n)
+    {
+        return n;
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::ComplexLiteral& n)
+    {
+        return n;
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Div& n)
+    {
+        NBase lhs = walk(n.get_lhs());
+        NBase rhs = walk(n.get_rhs());
+        return boundary_division(lhs, rhs);
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::FloatingLiteral& n)
+    {
+        return n;
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::IntegerLiteral& n)
+    {
+        return n;
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Minus& n)
+    {
+        NBase lhs = walk(n.get_lhs());
+        NBase rhs = walk(n.get_rhs());
+        return boundary_subtraction(lhs, rhs);
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Mul& n)
+    {
+        NBase lhs = walk(n.get_lhs());
+        NBase rhs = walk(n.get_rhs());
+        return boundary_multiplication(lhs, rhs);
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Neg& n)
+    {
+        NBase rhs = walk(n.get_rhs());
+        return Nodecl::Neg::make(rhs, n.get_type());
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Plus& n)
+    {
+        NBase rhs = walk(n.get_rhs());
+        return Nodecl::Plus::make(rhs, n.get_type());
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::StringLiteral& n)
+    {
+        return n;
+    }
+
+    NBase InfinityCalculator::visit(const Nodecl::Symbol& n)
+    {
+        return n;
+    }
 
 }
 }

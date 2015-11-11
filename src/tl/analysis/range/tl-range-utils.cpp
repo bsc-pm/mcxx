@@ -30,13 +30,14 @@
 namespace TL {
 namespace Analysis {
 
+    static unsigned int node_last_id = 0;
+    static unsigned int scc_last_id = 0;
+
     // ************************************************************* //
     // ****************** Constraint Graph Nodes ******************* //
 
-    unsigned int CGNode::_last_id = 0;
-
     CGNode::CGNode(CGNodeType type, const NBase& constraint)
-        : _id(++CGNode::_last_id), _type(type),
+        : _id(++node_last_id), _type(type),
           _constraint(constraint), _valuation(),
           _entries(), _exits()
     {}
@@ -204,10 +205,8 @@ namespace Analysis {
     // *********************************************** //
     // ********************* SCC ********************* //
 
-    unsigned int SCC::_last_id = 0;
-
     SCC::SCC(std::map<CGNode*, SCC*>* const node_to_scc_map)
-        : _nodes(), _roots(), _id(++SCC::_last_id), _node_to_scc_map(node_to_scc_map)
+        : _nodes(), _roots(), _id(++scc_last_id), _node_to_scc_map(node_to_scc_map)
     {}
 
     bool SCC::empty() const
@@ -310,5 +309,10 @@ namespace Analysis {
     // *************** END I/O methods *************** //
     // *********************************************** //
 
+    void reset_ids()
+    {
+        node_last_id = 0;
+        scc_last_id = 0;
+    }
 }
 }

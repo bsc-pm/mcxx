@@ -746,6 +746,15 @@ namespace Optimizations {
     {
         return TL::ObjectList<const_value_t*>(1, n.get_constant());
     }
+
+    Calculator::Ret Calculator::visit(const Nodecl::Analysis::PlusInfinity& n)
+    {
+        return TL::ObjectList<const_value_t*>();
+    }
     
+    Calculator::Ret Calculator::visit(const Nodecl::Analysis::MinusInfinity& n)
+    {
+        return TL::ObjectList<const_value_t*>();
+    }
 }
 }

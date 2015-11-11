@@ -89,7 +89,9 @@ namespace Optimizations {
         Ret visit(const Nodecl::VectorMod& n);
         Ret visit(const Nodecl::VectorLiteral& n);
         Ret visit(const Nodecl::VectorPromotion& n);
-        
+        Ret visit(const Nodecl::Analysis::PlusInfinity& n);
+        Ret visit(const Nodecl::Analysis::MinusInfinity& n);
+
     public:
         // *** Constructors *** //
         Calculator();

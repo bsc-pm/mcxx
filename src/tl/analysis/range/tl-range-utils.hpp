@@ -121,8 +121,6 @@ namespace Analysis {
         // where it is easier to find elements
         std::set<CGEdge*> _exits;           //! Set of descendants of the node in the Constraint Graph
 
-        static unsigned int _last_id;       //! Static variable used to store the last identifier assigned
-
     public:    
         // *** Constructor *** //
         CGNode(CGNodeType type, const NBase& constraint=NBase::null());
@@ -168,8 +166,6 @@ namespace Analysis {
         unsigned int _id;
         std::map<CGNode*, SCC*>* const _node_to_scc_map;
 
-        static unsigned int _last_id;
-
     public:
         // *** Constructor *** //
         SCC(std::map<CGNode*, SCC*>* const node_to_scc_map);
@@ -199,6 +195,8 @@ namespace Analysis {
 
     // *************** END I/O methods *************** //
     // *********************************************** //
+
+    void reset_ids();
 
 }
 }
