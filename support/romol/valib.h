@@ -6,33 +6,27 @@
 
 #define MAX_VECTOR_LENGTH 64
 
-typedef
-union valib_vector_t {
-#define INTVEC(bytes) \
-    int##bytes##_t int##bytes[MAX_VECTOR_LENGTH]; \
-    uint##bytes##_t uint##bytes[MAX_VECTOR_LENGTH];
-    INTVEC(8)
-    INTVEC(16)
-    INTVEC(32)
-    INTVEC(64)
-#undef INTVEC
+// Vector registers
+typedef int valib_vector_t;
+enum {
+    VR0,  VR1,  VR2,  VR3,  VR4,  VR5,  VR6,  VR7,
+    VR8,  VR9,  VR10, VR11, VR12, VR13, VR14, VR15,
+    VR16, VR17, VR18, VR19, VR20, VR21, VR22, VR23,
+    VR24, VR25, VR26, VR27, VR28, VR29, VR30, VR31
+};
 
-    float fl[MAX_VECTOR_LENGTH];
-    double db[MAX_VECTOR_LENGTH];
-} valib_vector_t;
-
-typedef union valib_mask_t
-{
-    char m[MAX_VECTOR_LENGTH / 8 + !!(MAX_VECTOR_LENGTH % 8)];
-} valib_mask_t;
-
-// FIXME - Temporary workaround until we implement the missing bits in vector lowering
-static valib_vector_t _force_vector_to_appear;
-static valib_mask_t _force_mask_to_appear;
+// Mask registers
+typedef int valib_mask_t;
+enum {
+    MR0, MR1, MR2, MR3, MR4, MR5, MR6, MR7
+};
 
 // Aliases to document the directionality
+// This is used by Mercurium, so make sure to
+// mark the builtins with the apropiate typedef
 typedef valib_vector_t VDestRegId;
 typedef valib_vector_t VSrcRegId;
+
 typedef valib_mask_t MaskDestRegId;
 typedef valib_mask_t MaskSrcRegId;
 
@@ -576,6 +570,11 @@ void valib_cvm_fl_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
 // -------------------------------------------------------
 // Mask operations
 // -------------------------------------------------------
+
+void valib_mask_ld(MaskDestRegId dest, void*);
+void valib_mask_st(MaskSrcRegId dest, void*);
+// Note: if the mask fits in a GPR we may want to have
+// GPRs <-> mask movements
 
 void valib_mask_mov(MaskDestRegId dest, MaskSrcRegId src);
 

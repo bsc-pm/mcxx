@@ -138,6 +138,31 @@ namespace TL { namespace Vectorization {
         {
             return std::string("valib_mask_") + op;
         }
+
+        TL::Type get_array_of_vector(TL::Type t)
+        {
+            ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
+
+            return t.vector_element().get_array_to(
+                    const_value_to_nodecl(
+                        const_value_get_signed_int(t.vector_num_elements())
+                        ),
+                    TL::Scope::get_global_scope());
+        }
+
+        TL::Type get_array_of_mask(TL::Type t)
+        {
+            ERROR_CONDITION(!t.is_mask(), "Invalid type", 0);
+
+            int n = (t.get_mask_num_elements() / 8)
+                + !!(t.get_mask_num_elements() % 8);
+
+            return TL::Type::get_unsigned_char_type().get_array_to(
+                    const_value_to_nodecl(
+                        const_value_get_signed_int(n)
+                        ),
+                    TL::Scope::get_global_scope());
+        }
     }
 
     RomolVectorBackend::RomolVectorBackend()
@@ -684,7 +709,7 @@ namespace TL { namespace Vectorization {
         // FIXME - Cache these in a literal pool
         TL::Symbol sym = TL::Scope::get_global_scope().new_symbol(ss.str());
         sym.get_internal_symbol()->kind = SK_VARIABLE;
-        sym.get_internal_symbol()->type_information = n.get_type().no_ref().get_internal_type();
+        sym.get_internal_symbol()->type_information = get_array_of_vector(n.get_type()).get_internal_type();
         symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
         symbol_entity_specs_set_is_static(sym.get_internal_symbol(), 1);
 
@@ -694,34 +719,9 @@ namespace TL { namespace Vectorization {
         TL::Symbol valib_vector_type = TL::Scope::get_global_scope().get_symbol_from_name("valib_vector_t");
         ERROR_CONDITION(!valib_vector_type.is_valid(), "valib_vector_t not found", 0);
 
-        TL::ObjectList<TL::Symbol> fields = valib_vector_type.get_type().get_fields();
-        std::string field_name = type_name(sym.get_type().vector_element());
-        TL::Symbol appropiate_field;
-        for (TL::ObjectList<TL::Symbol>::iterator it = fields.begin();
-                it != fields.end();
-                it++)
-        {
-            if (it->get_name() == field_name)
-            {
-                appropiate_field = *it;
-                break;
-            }
-        }
-        ERROR_CONDITION(!appropiate_field.is_valid(), "Field '%s' not found in '%s'\n",
-                field_name.c_str(), valib_vector_type.get_name().c_str());
-
         Nodecl::NodeclBase value =
             Nodecl::StructuredValue::make(
-                    Nodecl::List::make(
-                        Nodecl::FieldDesignator::make(
-                            appropiate_field.make_nodecl(),
-                            Nodecl::StructuredValue::make(
-                                scalar_values,
-                                Nodecl::StructuredValueBracedTypecast::make(),
-                                appropiate_field.get_type(),
-                                n.get_locus()),
-                            appropiate_field.get_type(),
-                            n.get_locus())),
+                    scalar_values,
                     Nodecl::StructuredValueBracedTypecast::make(),
                     sym.get_type(),
                     n.get_locus());
@@ -737,11 +737,18 @@ namespace TL { namespace Vectorization {
         Nodecl::NodeclBase ref_to_literal =
                 Nodecl::Conversion::make(
                     sym.make_nodecl(/* set_ref_type*/ true, n.get_locus()),
-                    sym.get_type(),
+                    TL::Type::get_void_type(),
                     n.get_locus());
 
-        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_mov");
-        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found 'valib_mov", 0);
+        TL::Type t = n.get_type();
+        ERROR_CONDITION(!t.is_vector(), "Invalid type", 0);
+        TL::Type element_type = t.vector_element();
+
+        std::string load_operation = "valib_ld_";
+        load_operation += type_name(element_type);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(load_operation);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", load_operation.c_str());
 
         current_assig.replace(
                 Nodecl::FunctionCall::make(
@@ -1075,18 +1082,17 @@ namespace TL { namespace Vectorization {
         // FIXME - Cache these in a literal pool
         TL::Symbol sym = TL::Scope::get_global_scope().new_symbol(ss.str());
         sym.get_internal_symbol()->kind = SK_VARIABLE;
-        sym.get_internal_symbol()->type_information = n.get_type().no_ref().get_internal_type();
+        sym.get_internal_symbol()->type_information = get_array_of_mask(n.get_type()).get_internal_type();
         symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
         symbol_entity_specs_set_is_static(sym.get_internal_symbol(), 1);
 
-        // FIXME: This is overly complicated to do it here inline
+        // Sanity check
         int num_elements = n.get_type().get_mask_num_elements();
         int num_bytes = num_elements / 8 + !!(num_elements % 8);
-
         ERROR_CONDITION((size_t)num_bytes > sizeof(cvalue_uint_t),
                 "Cannot compute a mask correctly: too many bytes", 0);
-        cvalue_uint_t v = const_value_cast_to_cvalue_uint(n.get_constant());
 
+        cvalue_uint_t v = const_value_cast_to_cvalue_uint(n.get_constant());
         Nodecl::List l;
         int i;
         for (i = 0; i < num_bytes; i++)
@@ -1096,7 +1102,6 @@ namespace TL { namespace Vectorization {
                             /* bytes */ 1,
                             /* sign */ 0)));
         }
-        // -- FIXME
 
         Nodecl::NodeclBase value =
             Nodecl::StructuredValue::make(
@@ -1114,11 +1119,11 @@ namespace TL { namespace Vectorization {
         Nodecl::NodeclBase ref_to_literal =
             Nodecl::Conversion::make(
                     sym.make_nodecl(/* set_ref_type*/ true, n.get_locus()),
-                    sym.get_type(),
+                    TL::Type::get_void_type(),
                     n.get_locus());
 
-        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_mask_mov");
-        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found 'valib_mask_mov", 0);
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name("valib_mask_ld");
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found 'valib_mask_ld", 0);
 
         current_assig.replace(
                 Nodecl::FunctionCall::make(
