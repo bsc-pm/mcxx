@@ -58,24 +58,23 @@ namespace TL
     class LIBTL_CLASS Scope : public Object
     {
         private:
-            bool _valid;
             const decl_context_t* _decl_context;
             static void get_head(const ObjectList<Symbol>& in, Symbol& out);
         protected:
             virtual tl_type_t* get_extended_attribute(const std::string& str) const;
         public:
             Scope()
-                : _valid(0), _decl_context(decl_context_empty())
+                : _decl_context(decl_context_empty())
             {
             }
 
             Scope(const decl_context_t* decl_context)
-                : _valid(decl_context != NULL), _decl_context(decl_context)
+                : _decl_context(decl_context)
             {
             }
 
             Scope(const Scope& sc)
-                : Object(sc), _valid(sc._valid), _decl_context(sc._decl_context)
+                : Object(sc), _decl_context(sc._decl_context)
             {
             }
 
@@ -88,7 +87,7 @@ namespace TL
             //! States whether the scope is valid
             bool is_valid() const
             {
-                return _valid;
+                return _decl_context != NULL;
             }
 
             //! States if the current scope is either a class scope or a scope within a class scope
