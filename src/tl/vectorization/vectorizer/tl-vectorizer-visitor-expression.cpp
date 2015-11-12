@@ -518,7 +518,8 @@ namespace Vectorization
 
                 CXX_LANGUAGE()
                 {
-                    n.prepend_sibling(
+                    Nodecl::Utils::add_statements_at_beginning_of_function(
+                            n,
                             Nodecl::CxxDef::make(
                                 Nodecl::NodeclBase::null(),
                                 true_mask_nodecl_sym.get_symbol(),
@@ -556,7 +557,8 @@ namespace Vectorization
 
                 CXX_LANGUAGE()
                 {
-                    n.prepend_sibling(
+                    Nodecl::Utils::add_statements_at_beginning_of_function(
+                            n,
                             Nodecl::CxxDef::make(
                                 Nodecl::NodeclBase::null(),
                                 false_mask_nodecl_sym.get_symbol(),

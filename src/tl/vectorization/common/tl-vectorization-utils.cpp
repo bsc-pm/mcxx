@@ -142,27 +142,15 @@ namespace Utils
             const int mask_size,
             const bool ref_type)
     {
-        TL::Scope scope;
+        TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(n);
+        ERROR_CONDITION(!enclosing_function.is_valid(), "Cannot find enclosing function", 0);
 
-        if (n.is<Nodecl::FunctionCode>())
-        {
-            scope = n.as<Nodecl::FunctionCode>().get_statements().
-                retrieve_context();
-        }
-        else if (n.is<Nodecl::ForStatement>() ||
-                n.is<Nodecl::WhileStatement>())
-        {
-            scope = n.get_parent().get_parent().
-                get_parent().get_parent().retrieve_context();
-        }
-        else
-        {
-            std::cerr << "---" << std::endl;
-            std::cerr << n.prettyprint() << std::endl;
+        TL::Scope scope = enclosing_function
+            .get_function_code()
+            .as<Nodecl::FunctionCode>()
+            .get_statements()
+            .retrieve_context();
 
-            fatal_error("get_new_mask_symbol needs FunctionCode or ForStatement");
-        }
-           
         TL::Symbol new_mask_sym = scope.new_symbol("__mask_" +
                 Utils::get_var_counter());
         new_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;

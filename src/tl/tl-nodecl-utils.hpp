@@ -139,6 +139,8 @@ namespace Utils {
     void prepend_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n);
     void append_to_enclosing_top_level_location(Nodecl::NodeclBase current_location, Nodecl::NodeclBase n);
 
+    void add_statements_at_beginning_of_function(Nodecl::NodeclBase current_location, Nodecl::NodeclBase new_stmts);
+
     Nodecl::NodeclBase advance_conversions(Nodecl::NodeclBase n);
 
     TL::ObjectList<Nodecl::NodeclBase> get_declarations_of_entity_at_top_level(TL::Symbol);

@@ -91,13 +91,11 @@ namespace Vectorization
     TL::Symbol VectorizationThreeAddresses::get_temporal_symbol(
             const Nodecl::NodeclBase& reference)
     {
-        TL::Scope scope = _object_init.is_null() ? 
-            reference.retrieve_context() : _object_init.retrieve_context();
-
         std::stringstream new_sym_name;
         new_sym_name << "_v3atmp" << sym_counter;
 
-        TL::Symbol tl_sym = scope.new_symbol(new_sym_name.str());
+        ERROR_CONDITION(!_function_scope.is_valid(), "Invalid function scope", 0);
+        TL::Symbol tl_sym = _function_scope.new_symbol(new_sym_name.str());
         tl_sym.get_internal_symbol()->kind = SK_VARIABLE;
         symbol_entity_specs_set_is_user_declared(tl_sym.get_internal_symbol(), 1);
         tl_sym.set_type(reference.get_type().no_ref().get_unqualified_type());
@@ -147,7 +145,7 @@ namespace Vectorization
         {
             if (IS_CXX_LANGUAGE)
             {
-                Nodecl::Utils::prepend_sibling_statement(_object_init, cxx_def);
+                Nodecl::Utils::prepend_sibling_statement(_first_statement, cxx_def);
             }
             Nodecl::Utils::prepend_sibling_statement(_object_init, new_stmt);
         }
@@ -155,7 +153,7 @@ namespace Vectorization
         {
             if (IS_CXX_LANGUAGE)
             {
-                Nodecl::Utils::prepend_sibling_statement(n, cxx_def);
+                Nodecl::Utils::prepend_sibling_statement(_first_statement, cxx_def);
             }
             Nodecl::Utils::prepend_sibling_statement(n, new_stmt);
         }
@@ -225,6 +223,42 @@ namespace Vectorization
         {
             decomp(third);
         }
+    }
+
+    void VectorizationThreeAddresses::visit(const Nodecl::FunctionCode& n)
+    {
+        _function_scope = nodecl_get_decl_context(
+                n.get_statements().get_internal_nodecl()
+                );
+
+        Nodecl::NodeclBase stmts = n.get_statements().as<Nodecl::Context>().get_in_context();
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            if (!stmts.is_null())
+            {
+                ERROR_CONDITION(stmts.as<Nodecl::List>().size() > 1,
+                        "Too many items in list", 0);
+
+                Nodecl::NodeclBase compound = n.as<Nodecl::List>()[0];
+                ERROR_CONDITION(!compound.is<Nodecl::CompoundStatement>(), "Invalid statement", 0);
+
+                _first_statement = compound.as<Nodecl::CompoundStatement>().get_statements();
+                if (!_first_statement.is_null())
+                {
+                    _first_statement = _first_statement.as<Nodecl::List>()[0];
+                }
+            }
+        }
+        else
+        {
+            if (!stmts.is_null())
+            {
+                _first_statement = stmts.as<Nodecl::List>()[0];
+            }
+        }
+
+        walk(n.get_statements());
     }
 
     void VectorizationThreeAddresses::visit(const Nodecl::ObjectInit& n)
