@@ -2027,7 +2027,27 @@ const_value_t* const_value_make_string_from_values(int num_elements, const_value
     return result;
 }
 
-static const_value_t* const_value_make_string_internal(const char* literal, int num_elements, char add_null)
+static const_value_t* const_value_make_string_using_values(const char* literal,
+        int num_elements,
+        char add_null)
+{
+    const_value_t* elements[num_elements + 1];
+    memset(elements, 0, sizeof(elements));
+    int i;
+    for (i = 0; i < num_elements; i++)
+    {
+        elements[i] = const_value_get_integer(literal[i], 1, 0);
+    }
+    if (add_null)
+    {
+        elements[num_elements] = const_value_get_integer(0, 1, 0);
+        num_elements++;
+    }
+
+    return const_value_make_string_from_values(num_elements, elements);
+}
+
+static const_value_t* const_value_make_string_using_cstring(const char* literal, int num_elements, char add_null)
 {
     const_value_t* result = NEW0(const_value_t);
     result->kind = CVK_STRING;
@@ -2047,6 +2067,27 @@ static const_value_t* const_value_make_string_internal(const char* literal, int 
     return result;
 }
 
+static char has_embedded_null(const char* literal, int num_elements)
+{
+    const char *p;
+    for (p = literal; p < literal + num_elements; p++)
+    {
+        if (*p == '\0')
+            return 1;
+    }
+    return 0;
+}
+
+static const_value_t* const_value_make_string_internal(const char* literal,
+        int num_elements,
+        char add_null)
+{
+    if (!has_embedded_null(literal, num_elements))
+        return const_value_make_string_using_cstring(literal, num_elements, add_null);
+    else
+        return const_value_make_string_using_values(literal, num_elements, add_null);
+}
+
 const_value_t* const_value_make_string_null_ended(const char* literal, int num_elements)
 {
     ERROR_CONDITION(literal == NULL, "Invalid literal", 0);
@@ -2056,7 +2097,7 @@ const_value_t* const_value_make_string_null_ended(const char* literal, int num_e
 const_value_t* const_value_make_string(const char* literal, int num_elements)
 {
     ERROR_CONDITION(literal == NULL, "Invalid literal", 0);
-    return const_value_make_string_internal(literal, num_elements, /* add_null */ 0);
+    return const_value_make_string_using_cstring(literal, num_elements, /* add_null */ 0);
 }
 
 static const_value_t* const_value_make_wstring_internal(int* literal,
