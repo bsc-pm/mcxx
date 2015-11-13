@@ -156,17 +156,266 @@ struct const_value_tag
     } value;
 };
 
-static rb_red_blk_tree* _int_hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2];
 
-static int cvalue_uint_cmp(const void *a, const void* b)
+#define CASE_MULTIVALUE \
+    case CVK_COMPLEX: \
+    case CVK_ARRAY: \
+    case CVK_STRUCT: \
+    case CVK_VECTOR: \
+    case CVK_STRING: \
+    case CVK_RANGE
+
+#define IS_MULTIVALUE(x) \
+    (x == CVK_COMPLEX \
+    || x == CVK_ARRAY \
+    || x == CVK_STRUCT \
+    || x == CVK_VECTOR \
+    || x == CVK_STRING \
+    || x == CVK_RANGE)
+
+static int const_value_compare_multival_(const_multi_value_t* m1, const_multi_value_t* m2);
+
+// static int const_value_compare_(const_value_t* val1, const_value_t* val2)
+static int const_value_compare_(const void* p1, const void *p2)
 {
-    cvalue_uint_t ca = *(cvalue_uint_t*)a;
-    cvalue_uint_t cb = *(cvalue_uint_t*)b;
+    const_value_t* val1 = (const_value_t*)p1;
+    const_value_t* val2 = (const_value_t*)p2;
 
-    if (ca < cb) return -1;
-    else if (ca > cb) return 1;
-    else return 0;
+    ERROR_CONDITION(val1 == NULL || val2 == NULL, "Invalid constant", 0);
+
+    if (val1 == val2)
+        return 0;
+
+    if (val1->kind != val2->kind)
+        return (int)val1->kind > (int)val2->kind ? 1 : -1;
+    if (val1->sign != val2->sign)
+        return (int)val1->sign > (int)val2->sign ? 1 : -1;
+    if (val1->num_bytes != val2->num_bytes)
+        return val1->num_bytes > val2->num_bytes ? 1 : -1;
+
+    switch (val1->kind)
+    {
+        case CVK_NONE:
+            internal_error("Code unreachable", 0);
+        case CVK_INTEGER:
+        case CVK_MASK:
+            if (val1->sign)
+            {
+                if (val1->value.si != val2->value.si)
+                    return val1->value.si > val2->value.si ? 1 : -1;
+            }
+            else 
+            {
+                if (val1->value.i != val2->value.i)
+                    return val1->value.i > val2->value.i ? 1 : -1;
+            }
+            break;
+#define COMPARE_FLOATS(field) \
+            { \
+                int k1 = fpclassify(val1->value.field); \
+                int k2 = fpclassify(val2->value.field); \
+                if (k1 != k2) return k1 > k2 ? 1 : -1; \
+                if (!(isnan(val1->value.field) && isnan(val2->value.field))) \
+                { \
+                    if (val1->value.field != val2->value.field) \
+                    return val1->value.field > val2->value.field ? 1 : -1; \
+                } \
+                break; \
+            }
+        case CVK_FLOAT:
+            COMPARE_FLOATS(f);
+        case CVK_DOUBLE:
+            COMPARE_FLOATS(d);
+        case CVK_LONG_DOUBLE:
+            COMPARE_FLOATS(ld);
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            COMPARE_FLOATS(f128);
+#endif
+        CASE_MULTIVALUE:
+            {
+                // Lexicographical
+                int k = const_value_compare_multival_(val1->value.m, val2->value.m);
+                if (k != 0)
+                    return k;
+                break;
+            }
+        case CVK_UNKNOWN:
+            {
+                // Do nothing, there must be a single value for this one
+                break;
+            }
+        case CVK_ADDRESS:
+            {
+                return const_value_compare_(
+                        val1->value.addr,
+                        val2->value.addr);
+            }
+        case CVK_OBJECT:
+            {
+                if (val1->value.object->base != val2->value.object->base)
+                    return val1->value.object->base > val2->value.object->base ? 1 : -1;
+                if (val1->value.object->num_accessors != val2->value.object->num_accessors)
+                    return val1->value.object->num_accessors > val2->value.object->num_accessors ? 1 : -1;
+                int i, num = val1->value.object->num_accessors;
+                for (i = 0; i < num; i++)
+                {
+                    if (val1->value.object->accessors[i].kind != val2->value.object->accessors[i].kind)
+                        return val1->value.object->accessors[i].kind > val2->value.object->accessors[i].kind ? 1 : -1;
+                    int k = const_value_compare_(val1->value.object->accessors[i].index, val2->value.object->accessors[i].index);
+                    if (k != 0)
+                        return k;
+                }
+                break;
+            }
+        default:
+            internal_error("Code unreachable", 0);
+    }
+
+    return 0;
 }
+
+static int const_value_compare_multival_(const_multi_value_t* m1, const_multi_value_t* m2)
+{
+    if (m1 == m2)
+        return 0;
+
+    if ((m1->struct_type != NULL)
+            != (m2->struct_type != NULL))
+        return m1->struct_type != NULL ? 1 : -1;
+
+    if (m1->struct_type != NULL)
+    {
+        type_t* t1 = get_unqualified_type(get_actual_class_type(m1->struct_type));
+        type_t* t2 = get_unqualified_type(get_actual_class_type(m2->struct_type));
+        if (!equivalent_types(t1, t2))
+        {
+            return (t1 > t2) ? 1 : -1;
+        }
+    }
+
+    if (m1->num_elements != m2->num_elements)
+        return m1->num_elements > m2->num_elements ? 1 : -1;
+
+    if (m1->kind == MVK_C_STRING
+            && m2->kind == MVK_C_STRING)
+    {
+        int k = strcmp(m1->c_str, m2->c_str);
+        if (k != 0)
+            return k > 0 ? 1 : -1;
+    }
+    else if (m1->kind == MVK_ELEMENTS
+            && m2->kind == MVK_ELEMENTS)
+    {
+        int i;
+        int num = m1->num_elements;
+        for (i = 0; i < num; i++)
+        {
+            int k = const_value_compare_(m1->elements[i], m2->elements[i]);
+            if (k != 0)
+                return k;
+        }
+    }
+    // These two cases are not ideal because we are creating new const values
+    // of integer kind just for the comparison
+    else if (m1->kind == MVK_ELEMENTS
+            && m2->kind == MVK_C_STRING)
+    {
+        int i;
+        int num = m1->num_elements;
+        for (i = 0; i < num; i++)
+        {
+            int k = const_value_compare_(m1->elements[i], const_value_get_integer(m2->c_str[i], 1, 0));
+            if (k != 0)
+                return k;
+        }
+    }
+    else if (m1->kind == MVK_C_STRING
+            && m2->kind == MVK_ELEMENTS)
+    {
+        int i;
+        int num = m1->num_elements;
+        for (i = 0; i < num; i++)
+        {
+            int k = const_value_compare_(const_value_get_integer(m1->c_str[i], 1, 0), m2->elements[i]);
+            if (k != 0)
+                return k;
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    return 0;
+}
+
+static void const_value_free(const_value_t* v)
+{
+    ERROR_CONDITION(v == NULL, "Invalid constant", 0);
+
+    switch (v->kind)
+    {
+        case CVK_NONE:
+        case CVK_UNKNOWN:
+            internal_error("Code unreachable", 0);
+        case CVK_INTEGER:
+        case CVK_MASK:
+        case CVK_FLOAT:
+        case CVK_DOUBLE:
+        case CVK_LONG_DOUBLE:
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+#endif
+        case CVK_ADDRESS:
+            // Do nothing
+            break;
+        CASE_MULTIVALUE:
+            {
+                if (v->value.m != NULL
+                        && v->value.m->kind == MVK_ELEMENTS)
+                    DELETE(v->value.m->elements);
+                break;
+            }
+        case CVK_OBJECT:
+            {
+                DELETE(v->value.object->accessors);
+                DELETE(v->value.object);
+                break;
+            }
+        default:
+            internal_error("Code unreachable", 0);
+    }
+    DELETE(v);
+}
+
+static rb_red_blk_tree* _const_value_pool = NULL;
+
+static const_value_t* const_value_return_unique(const_value_t* v)
+{
+    if (_const_value_pool == NULL)
+    {
+        _const_value_pool = rb_tree_create(const_value_compare_, NULL, NULL); \
+    }
+
+    rb_red_blk_node* n = rb_tree_query(_const_value_pool, v);
+
+    const_value_t* result;
+    if (n == NULL)
+    {
+        result = v;
+        rb_tree_insert(_const_value_pool, v, v);
+    }
+    else
+    {
+        result = (const_value_t*)rb_node_get_info(n);
+        if (result != v)
+            const_value_free(v);
+    }
+
+    return result;
+}
+
 
 const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char sign)
 {
@@ -182,32 +431,13 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
         value &= ~mask;
     }
 
-    int pool = 2 * num_bytes + !!sign;
-    if (_int_hash_pool[pool] == NULL)
-    {
-        _int_hash_pool[pool] = rb_tree_create(cvalue_uint_cmp, NULL, NULL);
-    }
+    const_value_t* cval = NEW0(const_value_t);
+    cval->kind = CVK_INTEGER;
+    cval->value.i = value;
+    cval->num_bytes = num_bytes;
+    cval->sign = sign;
 
-    rb_red_blk_node* n = rb_tree_query(_int_hash_pool[pool], &value);
-
-    if (n == NULL)
-    {
-        const_value_t* cval = NEW0(const_value_t);
-        cval->kind = CVK_INTEGER;
-        cval->value.i = value;
-        cval->num_bytes = num_bytes;
-        cval->sign = sign;
-
-        cvalue_uint_t* k = NEW(cvalue_uint_t);
-        *k = value;
-        rb_tree_insert(_int_hash_pool[pool], k, cval);
-
-        return cval;
-    }
-    else
-    {
-        return (const_value_t*)rb_node_get_info(n);
-    }
+    return const_value_return_unique(cval);
 }
 
 #define GET_SIGNED_INTEGER(type)  \
@@ -225,7 +455,7 @@ const_value_t* const_value_get_unsigned_##type ( cvalue_uint_t value ) \
 #define GET_INTEGER(type) \
     GET_SIGNED_INTEGER(type) \
     GET_UNSIGNED_INTEGER(type)
-    
+
 
 GET_INTEGER(int)
 GET_INTEGER(short_int)
@@ -233,41 +463,14 @@ GET_INTEGER(long_int)
 GET_INTEGER(long_long_int)
 
 #define CONST_VALUE_GET_FLOAT(name, type, cvk_kind, field) \
-static inline int cache_cmp_##name(const void* v1, const void *v2) \
-{ \
-    type f1 = *(type*)v1; \
-    type f2 = *(type*)v2; \
- \
-    if (f1 < f2) return -1; \
-    else if (f1 > f2) return 1; \
-    else return 0; \
-} \
 const_value_t* const_value_get_##name(type f) \
 { \
-    static rb_red_blk_tree* _floating_cache = NULL; \
-    if (_floating_cache == NULL) \
-    { \
-        _floating_cache = rb_tree_create(cache_cmp_##name, NULL, NULL); \
-    } \
- \
-    rb_red_blk_node* n = rb_tree_query(_floating_cache, &f); \
- \
-    if (n == NULL) \
-    { \
-        const_value_t* v = NEW0(const_value_t); \
-        v->kind = cvk_kind; \
-        v->value.field = f; \
-        v->sign = 1; \
- \
-        type* k = NEW(type); \
-        *k = f; \
-        rb_tree_insert(_floating_cache, k, v); \
-        return v; \
-    } \
-    else \
-    { \
-        return (const_value_t*)rb_node_get_info(n); \
-    } \
+    const_value_t* v = NEW0(const_value_t); \
+    v->kind = cvk_kind; \
+    v->value.field = f; \
+    v->sign = 1; \
+    \
+    return const_value_return_unique(v); \
 }
 
 CONST_VALUE_GET_FLOAT(float, float, CVK_FLOAT, f);
@@ -324,22 +527,6 @@ case 128: \
         default: { internal_error("Cannot perform conversion of floating point to integer of %d bytes\n", bytes); } \
     } \
 }
-
-#define IS_MULTIVALUE(x) \
-    (x == CVK_COMPLEX \
-    || x == CVK_ARRAY \
-    || x == CVK_STRUCT \
-    || x == CVK_VECTOR \
-    || x == CVK_STRING \
-    || x == CVK_RANGE)
-
-#define CASE_MULTIVALUE \
-    case CVK_COMPLEX: \
-    case CVK_ARRAY: \
-    case CVK_STRUCT: \
-    case CVK_VECTOR: \
-    case CVK_STRING: \
-    case CVK_RANGE
 
 static int multival_get_num_elements(const_value_t* v)
 {
@@ -1981,14 +2168,16 @@ const_value_t* const_value_make_array(int num_elements, const_value_t **elements
 {
     const_value_t* result = make_multival(num_elements, elements);
     result->kind = CVK_ARRAY;
-    return result;
+
+    return const_value_return_unique(result);
 }
 
 const_value_t* const_value_make_vector(int num_elements, const_value_t **elements)
 {
     const_value_t* result = make_multival(num_elements, elements);
     result->kind = CVK_VECTOR;
-    return result;
+
+    return const_value_return_unique(result);
 }
 
 static const_value_t* const_value_make_multival_from_scalar(
@@ -2009,6 +2198,7 @@ static const_value_t* const_value_make_multival_from_scalar(
 
     DELETE(value_set);
 
+    // const_value_return_unique should have already been called in const_value_make
     return result;
 }
 
@@ -2031,7 +2221,8 @@ const_value_t* const_value_make_struct(int num_elements, const_value_t **element
     const_value_t* result = make_multival(num_elements, elements);
     result->kind = CVK_STRUCT;
     result->value.m->struct_type = struct_type;
-    return result;
+
+    return const_value_return_unique(result);
 }
 
 type_t* const_value_get_struct_type(const_value_t* v)
@@ -2046,7 +2237,7 @@ const_value_t* const_value_make_string_from_values(int num_elements, const_value
     const_value_t* result = make_multival(num_elements, elements);
     result->kind = CVK_STRING;
 
-    return result;
+    return const_value_return_unique(result);
 }
 
 static const_value_t* const_value_make_string_using_values(const char* literal,
@@ -2086,7 +2277,7 @@ static const_value_t* const_value_make_string_using_cstring(const char* literal,
 
     result->value.m->c_str = uniquestr(tmp);
 
-    return result;
+    return const_value_return_unique(result);
 }
 
 static char has_embedded_null(const char* literal, int num_elements)
@@ -2119,7 +2310,7 @@ const_value_t* const_value_make_string_null_ended(const char* literal, int num_e
 const_value_t* const_value_make_string(const char* literal, int num_elements)
 {
     ERROR_CONDITION(literal == NULL, "Invalid literal", 0);
-    return const_value_make_string_using_cstring(literal, num_elements, /* add_null */ 0);
+    return const_value_make_string_internal(literal, num_elements, /* add_null */ 0);
 }
 
 static const_value_t* const_value_make_wstring_internal(int* literal,
@@ -2161,7 +2352,8 @@ const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t*
 
     const_value_t* result = make_multival(2, complex_);
     result->kind = CVK_COMPLEX;
-    return result;
+
+    return const_value_return_unique(result);
 }
 
 const_value_t* const_value_get_complex_float(_Complex float f)
@@ -2199,7 +2391,8 @@ const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper
     const_value_t* range[] = { lower, upper, stride };
     const_value_t* result = make_multival(3, range);
     result->kind = CVK_RANGE;
-    return result;
+
+    return const_value_return_unique(result);
 }
 
 const_value_t* const_value_complex_get_real_part(const_value_t* value)
@@ -4622,11 +4815,12 @@ const char* const_value_to_str(const_value_t* cval)
     return result;
 }
 
-static const_value_t unknown_value = { .kind = CVK_UNKNOWN };
-
 const_value_t* const_value_get_unknown(void)
 {
-    return &unknown_value;
+    const_value_t* result = NEW0(const_value_t);
+    result->kind = CVK_UNKNOWN;
+
+    return result;
 }
 
 char const_value_is_unknown(const_value_t* cval)
@@ -4642,7 +4836,7 @@ const_value_t* const_value_make_address(const_value_t* val)
     cval->kind = CVK_ADDRESS;
     cval->value.addr = val;
 
-    return cval;
+    return const_value_return_unique(cval);
 }
 
 char const_value_is_address(const_value_t* val)
@@ -4668,7 +4862,7 @@ const_value_t* const_value_make_object(scope_entry_t* base,
     cval->value.object->accessors = NEW_VEC(subobject_accessor_t, num_subobject_accesors);
     memcpy(cval->value.object->accessors, accessors, sizeof(subobject_accessor_t)*num_subobject_accesors);
 
-    return cval;
+    return const_value_return_unique(cval);
 }
 
 char const_value_is_object(const_value_t* val)
