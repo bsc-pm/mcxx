@@ -5379,7 +5379,7 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
                 && !is_target)
         {
             // If the variable is not a POINTER, not a TARGET or not a subobject of a TARGET, error
-            error_printf_at(ast_get_locus(expr), "symbol name in right hand of pointer assignment is not a POINTER or TARGET data-reference\n");
+            error_printf_at(ast_get_locus(expr), "symbol name in right hand side f pointer assignment is not a POINTER or TARGET data-reference\n");
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
         }
@@ -5393,7 +5393,7 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
     // POINTER), then it must be have been derreferenced
     else if (!is_pointer_type(no_ref(nodecl_get_type(nodecl_rvalue))))
     {
-        error_printf_at(ast_get_locus(expr), "right hand of pointer assignment does not yield a POINTER data-reference\n");
+        error_printf_at(ast_get_locus(expr), "right hand side of pointer assignment does not yield a POINTER data-reference\n");
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
