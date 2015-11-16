@@ -2913,6 +2913,7 @@ OPERATOR_TABLE
         }
     }
 
+#if 0
     void FortranBase::visit(const Nodecl::Cast& node)
     {
         codegen_casting(
@@ -2920,6 +2921,7 @@ OPERATOR_TABLE
                 /* source_type */ node.get_rhs().get_type(),
                 node.get_rhs());
     }
+#endif
 
     void FortranBase::visit(const Nodecl::Sizeof& node)
     {

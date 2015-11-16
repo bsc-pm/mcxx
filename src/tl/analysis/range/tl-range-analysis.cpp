@@ -128,11 +128,11 @@ namespace {
         }
     }
 
-    void ConstraintReplacement::visit(const Nodecl::Cast& n)
-    {   // Remove casts from the constraints
-        n.replace(n.get_rhs());
-        walk(n);
-    }
+    // void ConstraintReplacement::visit(const Nodecl::Cast& n)
+    // {   // Remove casts from the constraints
+    //     n.replace(n.get_rhs());
+    //     walk(n);
+    // }
 
     void ConstraintReplacement::visit(const Nodecl::ClassMemberAccess& n)
     {

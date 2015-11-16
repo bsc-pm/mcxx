@@ -612,11 +612,11 @@ namespace Vectorization
                     "Vectorizer: ArraySubscript has not been linearized: %s",
                     n.prettyprint().c_str());
 
-            if (subscripted.is<Nodecl::Cast>())
-            {
-                subscripted = Nodecl::Utils::advance_conversions(
-                        subscripted.as<Nodecl::Cast>().get_rhs());
-            }
+            // if (subscripted.is<Nodecl::Cast>())
+            // {
+            //     subscripted = Nodecl::Utils::advance_conversions(
+            //             subscripted.as<Nodecl::Cast>().get_rhs());
+            // }
 
             // Get a scatter for real scatter or unaligned store extra flag
             gather_copy = Vectorizer::_vectorizer_analysis->shallow_copy(array);
@@ -810,11 +810,11 @@ namespace Vectorization
                     "Vectorizer: ArraySubscript has not been linearized: %s",
                     lhs.prettyprint().c_str());
 
-            if (subscripted.is<Nodecl::Cast>())
-            {
-                subscripted = Nodecl::Utils::advance_conversions(
-                        subscripted.as<Nodecl::Cast>().get_rhs());
-            }
+            // if (subscripted.is<Nodecl::Cast>())
+            // {
+            //     subscripted = Nodecl::Utils::advance_conversions(
+            //             subscripted.as<Nodecl::Cast>().get_rhs());
+            // }
 
             ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
                     "Vectorizer: ArraySubscript form not supported yet: %s",
@@ -1416,6 +1416,7 @@ namespace Vectorization
         }
     }
 
+#if 0
     void VectorizerVisitorExpression::visit(const Nodecl::Cast& n)
     {
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
@@ -1442,6 +1443,7 @@ namespace Vectorization
          */
         n.replace(vector_conv);
     }
+#endif
 
     void VectorizerVisitorExpression::visit(const Nodecl::ArraySubscript& n)
     {
@@ -2085,8 +2087,9 @@ namespace Vectorization
                 // Add pointer casting to base --> (float *) &a[i].fp
                 Nodecl::NodeclBase base = vector_gather.get_base();
 
-                base.replace(Nodecl::Cast::make(base.shallow_copy(),
-                            n_original.get_type().no_ref().get_pointer_to(), ""));
+                base.replace(Nodecl::Conversion::make(base.shallow_copy(),
+                            n_original.get_type().no_ref().get_pointer_to()));
+                base.set_text("C");
 
                 // Add member to strides
                 Nodecl::NodeclBase strides = vector_gather.get_strides();

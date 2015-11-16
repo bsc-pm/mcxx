@@ -1716,10 +1716,10 @@ namespace Nodecl
         TL::Type deref_type = new_subscripted.get_type().basic_type().
             get_pointer_to();
 
-        new_subscripted = Nodecl::Cast::make(
+        new_subscripted = Nodecl::Conversion::make(
                 new_subscripted.shallow_copy(),
-                deref_type,
-                "C");
+                deref_type);
+        new_subscripted.set_text("C");
 
         Nodecl::ArraySubscript result_array =
             ArraySubscript::make(new_subscripted.shallow_copy(),

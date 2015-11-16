@@ -81,7 +81,6 @@ namespace Codegen
             Ret visit(const Nodecl::C99FieldDesignator &);
             Ret visit(const Nodecl::C99IndexDesignator &);
             Ret visit(const Nodecl::CaseStatement &);
-            Ret visit(const Nodecl::Cast &);
             Ret visit(const Nodecl::CatchHandler &);
             Ret visit(const Nodecl::ClassMemberAccess &);
             Ret visit(const Nodecl::Comma &);
@@ -92,6 +91,7 @@ namespace Codegen
             Ret visit(const Nodecl::Context &);
             Ret visit(const Nodecl::ContinueStatement &);
             Ret visit(const Nodecl::Conversion &);
+            Ret visit(const Nodecl::CxxCast &);
             Ret visit(const Nodecl::CxxClassMemberAccess &);
             Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxArrowPtrMember& node);
@@ -620,6 +620,8 @@ namespace Codegen
             void emit_saved_locus();
 
             bool looks_like_braced_list(Nodecl::NodeclBase n);
+
+            void emit_explicit_cast(Nodecl::NodeclBase node, Nodecl::NodeclBase nest);
         protected:
 
             void walk_list(const Nodecl::List&,

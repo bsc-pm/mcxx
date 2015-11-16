@@ -78,6 +78,15 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::
     state = old_state;
 }
 
+namespace {
+    Nodecl::NodeclBase no_conv(Nodecl::NodeclBase n)
+    {
+        if (n.is<Nodecl::Conversion>() && n.get_text() == "")
+            return no_conv(n.as<Nodecl::Conversion>().get_nest());
+        return n;
+    }
+}
+
 void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
 {
     codegen(n, State(), out);
@@ -597,76 +606,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
     walk(statement);
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
-{
-    emit_line_marker(node);
-    std::string cast_kind = node.get_text();
-    TL::Type t = fix_references(node.get_type());
-    Nodecl::NodeclBase nest = node.get_rhs();
-
-    if (IS_C_LANGUAGE
-            || cast_kind == "C")
-    {
-        bool is_non_ref = is_non_language_reference_type(node.get_type());
-        if (is_non_ref)
-        {
-            if (node.get_type().no_ref().is_array())
-            {
-                // Special case for arrays, themselves are an address
-                *(file) << "(";
-            }
-            else
-            {
-                *(file) << "(*";
-            }
-
-            // This avoids a warning in some compilers which complain on (T* const)e
-            t = t.get_unqualified_type();
-        }
-        *(file) << "(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
-
-        if (is_non_ref)
-        {
-            *(file) << "&(";
-        }
-
-        char needs_parentheses = operand_has_lower_priority(node, nest);
-        if (needs_parentheses)
-        {
-            *(file) << "(";
-        }
-        walk(nest);
-        if (needs_parentheses)
-        {
-            *(file) << ")";
-        }
-
-        if (is_non_ref)
-        {
-            *(file) << "))";
-        }
-    }
-    else
-    {
-        std::string decl = this->get_declaration(t, this->get_current_scope(),  "");
-        if (!decl.empty())
-        {
-            if (decl[0] == ':')
-            {
-                decl = " " + decl;
-            }
-            if (decl[decl.length() - 1] == '>')
-            {
-                decl += " ";
-            }
-        }
-
-        *(file) << cast_kind << "<" << decl << ">(";
-        walk(nest);
-        *(file) << ")";
-    }
-}
-
 CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
 {
     Nodecl::NodeclBase name = node.get_name();
@@ -690,7 +629,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
         set_indent_level(0);
 
         state.in_condition = 1;
-        state.condition_top = name.no_conv();
+        state.condition_top = no_conv(name);
 
         walk(name);
 
@@ -1097,10 +1036,97 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ContinueStatement& node)
     *(file) << "continue;\n";
 }
 
+void CxxBase::emit_explicit_cast(Nodecl::NodeclBase node, Nodecl::NodeclBase nest)
+{
+    std::string cast_kind = node.get_text();
+    TL::Type t = fix_references(node.get_type());
+
+    emit_line_marker(node);
+    if (cast_kind == "C")
+    {
+        bool is_non_ref = is_non_language_reference_type(node.get_type());
+        if (is_non_ref)
+        {
+            if (node.get_type().no_ref().is_array())
+            {
+                // Special case for arrays, themselves are an address
+                *(file) << "(";
+            }
+            else
+            {
+                *(file) << "(*";
+            }
+
+            // This avoids a warning in some compilers which complain on (T* const)e
+            t = t.get_unqualified_type();
+        }
+        *(file) << "(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
+
+        if (is_non_ref)
+        {
+            *(file) << "&(";
+        }
+
+        char needs_parentheses = operand_has_lower_priority(node, nest);
+        if (needs_parentheses)
+        {
+            *(file) << "(";
+        }
+        walk(nest);
+        if (needs_parentheses)
+        {
+            *(file) << ")";
+        }
+
+        if (is_non_ref)
+        {
+            *(file) << "))";
+        }
+    }
+    else if (cast_kind == "static_cast"
+            || cast_kind == "dynamic_cast"
+            || cast_kind == "reinterpret_cast"
+            || cast_kind == "const_cast")
+    {
+        std::string decl = this->get_declaration(t, this->get_current_scope(),  "");
+        if (!decl.empty())
+        {
+            if (decl[0] == ':')
+            {
+                decl = " " + decl;
+            }
+            if (decl[decl.length() - 1] == '>')
+            {
+                decl += " ";
+            }
+        }
+
+        *(file) << cast_kind << "<" << decl << ">(";
+        walk(nest);
+        *(file) << ")";
+    }
+    else
+    {
+        internal_error("Code unreachable '%s'", cast_kind.c_str());
+    }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxCast& node)
+{
+    emit_explicit_cast(node, node.get_rhs());
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::Conversion& node)
 {
-    // Do nothing
-    walk(node.get_nest());
+    if (node.get_text() == "")
+    {
+        // Implicit conversion
+        walk(node.get_nest());
+    }
+    else
+    {
+        emit_explicit_cast(node, node.get_nest());
+    }
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
@@ -1737,7 +1763,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
         if (type_it != type_end
                 && type_it->is_valid())
         {
-            actual_arg = actual_arg.no_conv();
+            actual_arg = no_conv(actual_arg);
 
             bool param_is_ref = is_non_language_reference_type(*type_it);
 
@@ -3004,7 +3030,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IfElseStatement& node)
 
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = condition.no_conv();
+    state.condition_top = no_conv(condition);
 
     walk(condition);
 
@@ -3326,7 +3352,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     Nodecl::NodeclBase old_condition_top = state.condition_top;
 
     state.in_condition = 1;
-    state.condition_top = cond.no_conv();
+    state.condition_top = no_conv(cond);
 
     walk(cond);
     *(file) << "; ";
@@ -4282,7 +4308,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SwitchStatement& node)
 
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = expression.no_conv();
+    state.condition_top = no_conv(expression);
 
     walk(expression);
 
@@ -4547,7 +4573,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     int old_indent = get_indent_level();
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = condition.no_conv();
+    state.condition_top = no_conv(condition);
 
     emit_line_marker(condition);
     walk(condition);
@@ -6961,7 +6987,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
 
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that
-        Nodecl::NodeclBase init = symbol.get_value().no_conv();
+        Nodecl::NodeclBase init = no_conv(symbol.get_value());
 
         if (is_definition)
         {
@@ -8896,7 +8922,7 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
 
 bool CxxBase::looks_like_braced_list(Nodecl::NodeclBase n)
 {
-    n = n.no_conv();
+    n = no_conv(n);
 
     if (n.is<Nodecl::CxxBracedInitializer>())
         return true;
@@ -9098,19 +9124,20 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
                 return -3;
             }
             // This one is special as we keep several casts in a single node
-        case NODECL_CAST:
+        case NODECL_CXX_CAST:
+        case NODECL_CONVERSION:
             {
-                if (IS_C_LANGUAGE
-                        || (text == "C"))
+                if (text == "C")
                 {
                     return -4;
                 }
-                else
+                else if (text != "")
                 {
                     // These casts are postfix expressions actually
                     // static_cast, dynamic_cast, reinterpret_cast, const_cast
                     return -2;
                 }
+                /* fall-through when text == "" */
             }
             // This is a pointer to member
         case NODECL_OFFSET:
@@ -9176,7 +9203,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
 
 int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    n = advance_implicit_function_calls(n.no_conv()).no_conv();
+    n = no_conv(advance_implicit_function_calls(no_conv(n)));
 
     node_t kind;
     if (n.is<Nodecl::FunctionCall>()
@@ -9235,8 +9262,8 @@ static char is_relational_operator(node_t n)
 
 bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    current_operator = current_operator.no_conv();
-    operand = operand.no_conv();
+    current_operator = no_conv(current_operator);
+    operand = no_conv(operand);
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -9246,8 +9273,8 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    current_operator = current_operator.no_conv();
-    operand = operand.no_conv();
+    current_operator = no_conv(current_operator);
+    operand = no_conv(operand);
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -9390,7 +9417,7 @@ bool CxxBase::nodecl_calls_to_constructor_indirectly(Nodecl::NodeclBase node)
 
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
-    node = node.no_conv();
+    node = no_conv(node);
 
     ERROR_CONDITION(!node.is<Nodecl::FunctionCall>(), "Invalid node", 0);
 
@@ -9399,7 +9426,7 @@ Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBa
 
 bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node)
 {
-    node = node.no_conv();
+    node = no_conv(node);
 
     if (node.is<Nodecl::FunctionCall>())
     {
@@ -9414,7 +9441,7 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node)
 
 bool CxxBase::nodecl_calls_to_constructor_default_init(Nodecl::NodeclBase node)
 {
-    node = node.no_conv();
+    node = no_conv(node);
 
     return (node.is<Nodecl::FunctionCall>()
             && node.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormDefaultInit>());
@@ -9422,7 +9449,7 @@ bool CxxBase::nodecl_calls_to_constructor_default_init(Nodecl::NodeclBase node)
 
 bool CxxBase::nodecl_calls_to_constructor_default_init_braced(Nodecl::NodeclBase node)
 {
-    node = node.no_conv();
+    node = no_conv(node);
 
     return (node.is<Nodecl::FunctionCall>()
             && node.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormDefaultInitBraced>());

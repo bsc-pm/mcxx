@@ -11764,7 +11764,7 @@ static void check_nodecl_cast_expr(
 {
     if (is_dependent_type(declarator_type))
     {
-        *nodecl_output = nodecl_make_cast(
+        *nodecl_output = nodecl_make_cxx_cast(
                 nodecl_casted_expr,
                 declarator_type,
                 cast_kind,
@@ -11776,7 +11776,7 @@ static void check_nodecl_cast_expr(
 
     if (nodecl_expr_is_type_dependent(nodecl_casted_expr))
     {
-        *nodecl_output = nodecl_make_cast(
+        *nodecl_output = nodecl_make_cxx_cast(
                 nodecl_casted_expr,
                 declarator_type,
                 cast_kind,
@@ -12029,32 +12029,23 @@ static void check_nodecl_cast_expr(
         }
     }
 
-    *nodecl_output = nodecl_make_cast(
+    *nodecl_output = cxx_nodecl_make_conversion(
             nodecl_casted_expr,
             declarator_type,
-            cast_kind,
+            decl_context,
             locus);
 
-    if (nodecl_is_constant(nodecl_casted_expr))
+    if (nodecl_get_kind(*nodecl_output) != NODECL_CONVERSION
+            || nodecl_get_text(*nodecl_output) != NULL)
     {
-        const_value_t * casted_value = nodecl_get_constant(nodecl_casted_expr);
-        const_value_t* converted_value = NULL;
-        if (!is_any_reference_type(declarator_type))
-        {
-            converted_value = cxx_nodecl_make_value_conversion(
-                    nodecl_get_type(nodecl_casted_expr),
-                    declarator_type,
-                    casted_value);
-        }
-        else
-        {
-            converted_value = cxx_nodecl_make_glvalue_conversion(
-                    nodecl_get_type(nodecl_casted_expr),
-                    declarator_type,
-                    casted_value);
-        }
-        nodecl_set_constant(*nodecl_output, converted_value);
+        const_value_t* val = nodecl_get_constant(*nodecl_output);
+        *nodecl_output = nodecl_make_conversion(
+                *nodecl_output,
+                declarator_type,
+                nodecl_get_locus(*nodecl_output));
+        nodecl_set_constant(*nodecl_output, val);
     }
+    nodecl_set_text(*nodecl_output, cast_kind);
 
     if (!is_dynamic_cast)
     {
@@ -13075,10 +13066,11 @@ static void check_nodecl_function_call_cxx(
 
         if (!is_class_type(no_ref(nodecl_get_type(called_entity))))
         {
-            *nodecl_output = nodecl_make_cast(called_entity,
+            *nodecl_output = nodecl_make_conversion(called_entity,
                     get_void_type(),
-                    /* cast_kind */ "C",
                     nodecl_get_locus(called_entity));
+            // mark it as a C cast
+            nodecl_set_text(*nodecl_output, "C");
             return;
         }
     }
@@ -16381,7 +16373,8 @@ static char check_nodecl_noexcept_rec(nodecl_t nodecl_expr)
     {
         return 0;
     }
-    else if (nodecl_get_kind(nodecl_expr) == NODECL_CAST
+    else if (nodecl_get_kind(nodecl_expr) == NODECL_CONVERSION
+            && nodecl_get_text(nodecl_expr) != NULL
             && strcmp(nodecl_get_text(nodecl_expr), "dynamic_cast") == 0
             && dynamic_cast_requires_runtime_check(nodecl_expr))
     {
@@ -20535,11 +20528,11 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             // We only build a cast if this is an explicit type cast
             if (emit_cast)
             {
-                *nodecl_output = nodecl_make_cast(
+                *nodecl_output = nodecl_make_conversion(
                         nodecl_expr_out,
                         declared_type,
-                        /* cast_kind */ "C",
                         nodecl_get_locus(nodecl_expr_out));
+                nodecl_set_text(*nodecl_output, "C");
             }
             else
             {
@@ -30044,6 +30037,7 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
 static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    const char* text = nodecl_get_text(node);
 
     if (nodecl_is_err_expr(nodecl_expr))
     {
@@ -30062,6 +30056,21 @@ static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_
                 nodecl_get_type(node),
                 v->decl_context,
                 nodecl_get_locus(node));
+
+        if (text != NULL)
+        {
+            if (nodecl_get_kind(v->nodecl_result) != NODECL_CONVERSION
+                    || nodecl_get_type(v->nodecl_result) != NULL)
+            {
+                const_value_t* cval = nodecl_get_constant(v->nodecl_result);
+                v->nodecl_result = nodecl_make_conversion(
+                        v->nodecl_result,
+                        nodecl_get_type(node),
+                        nodecl_get_locus(node));
+                nodecl_set_constant(v->nodecl_result, cval);
+            }
+            nodecl_set_text(v->nodecl_result, text);
+        }
     }
 }
 
@@ -30072,7 +30081,7 @@ static void instantiate_parenthesized_expression(nodecl_instantiate_expr_visitor
     v->nodecl_result = cxx_nodecl_wrap_in_parentheses(nodecl_expr);
 }
 
-static void instantiate_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+static void instantiate_cxx_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_casted_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
 
@@ -30423,7 +30432,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_cxx_noexcept = instantiate_expr_visitor_fun(instantiate_noexcept);
 
     // Casts
-    NODECL_VISITOR(v)->visit_cast = instantiate_expr_visitor_fun(instantiate_cast);
+    NODECL_VISITOR(v)->visit_cxx_cast = instantiate_expr_visitor_fun(instantiate_cxx_cast);
 
     // Conversion
     NODECL_VISITOR(v)->visit_conversion = instantiate_expr_visitor_fun(instantiate_conversion);

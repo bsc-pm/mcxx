@@ -79,8 +79,8 @@ namespace Analysis{
                         if(t.is_pointer() && !value.is_null())      // This can be null if uninitialized ObjectInit
                         {
                             // Skip casts
-                            while(value.is<Nodecl::Cast>())
-                                value = value.as<Nodecl::Cast>().get_rhs();
+                            // while(value.is<Nodecl::Cast>())
+                            //     value = value.as<Nodecl::Cast>().get_rhs();
                             
                             if(value.is<Nodecl::FunctionCall>())
                             {

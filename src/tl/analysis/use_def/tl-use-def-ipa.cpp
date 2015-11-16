@@ -212,8 +212,8 @@ namespace Analysis {
         {
             // 1.1.- Skip conversions and casts
             NBase n = it->no_conv();
-            if (n.is<Nodecl::Cast>())
-                n = n.as<Nodecl::Cast>().get_rhs();
+            // if (n.is<Nodecl::Cast>())
+            //     n = n.as<Nodecl::Cast>().get_rhs();
             
             // 1.2- Compute the usage in the expression of the current argument
             NBase n_base = Utils::get_nodecl_base(n);

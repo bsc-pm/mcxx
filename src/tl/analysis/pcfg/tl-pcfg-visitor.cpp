@@ -898,10 +898,10 @@ next_it:    ;
         return visit_case_or_default( n.get_statement( ), n.get_case( ).as<Nodecl::List>() );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Cast& n )
-    {
-        return visit_unary_node( n, n.get_rhs( ) );
-    }
+    // ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Cast& n )
+    // {
+    //     return visit_unary_node( n, n.get_rhs( ) );
+    // }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CatchHandler& n )
     {

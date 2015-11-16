@@ -75,11 +75,11 @@ namespace Vectorization
         subscripted = Nodecl::Utils::advance_conversions(subscripted);
 
         // Linearized multidimensional arrays
-        if (subscripted.is<Nodecl::Cast>())
-        {
-            subscripted = Nodecl::Utils::advance_conversions(
-                    subscripted.as<Nodecl::Cast>().get_rhs());
-        }
+        // if (subscripted.is<Nodecl::Cast>())
+        // {
+        //     subscripted = Nodecl::Utils::advance_conversions(
+        //             subscripted.as<Nodecl::Cast>().get_rhs());
+        // }
 
         int field_offset = 0;
 
