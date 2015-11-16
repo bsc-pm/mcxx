@@ -4525,9 +4525,9 @@ static void link_files(const char** file_list, int num_files,
     }
 
     //Adding linker options pre
-    for(j = 0; j < num_args_linker_options_pre; j++, i++) 
+    for(j = 0; j < num_args_linker_options_pre; j++, i++)
     {
-        linker_args[i] = compilation_configuration->linker_options[j];
+        linker_args[i] = compilation_configuration->linker_options_pre[j];
     }
 
     //Adding linker command arguments
