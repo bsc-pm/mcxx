@@ -72,7 +72,7 @@ namespace Analysis{
                             t = s.get_type().no_ref();
                             if(!s.is<Nodecl::Symbol>() && !s.is<Nodecl::ClassMemberAccess>() && !s.is<Nodecl::ArraySubscript>())
                                 continue;
-                            value = it->as<Nodecl::Assignment>().get_rhs();
+                            value = it->as<Nodecl::Assignment>().get_rhs().no_conv();
                         }
                         
                         // Check whether this is a pointer and the assignment is a recognized memory operation
