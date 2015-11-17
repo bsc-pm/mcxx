@@ -30,6 +30,7 @@
 #include "tl-vectorizer-prefetcher.hpp"
 #include "tl-pragmasupport.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-vectorization-common.hpp"
 
 namespace TL
 {
@@ -98,6 +99,16 @@ namespace TL
                 bool _fast_math_enabled;
                 bool _overlap_in_place;
 
+                void process_func_simd_clause(const Nodecl::List& omp_environment,
+                        Vectorization::map_tlsym_int_t& aligned_expressions,
+                        Vectorization::map_tlsym_int_t& linear_symbols,
+                        Vectorization::objlist_tlsym_t& uniform_symbols,
+                        Vectorization::objlist_nodecl_t& suitable_expressions,
+                        Vectorization::map_tlsym_objlist_t& nontemporal_expressions,
+                        Vectorization::map_tlsym_objlist_int_t& overlap_symbols,
+                        Vectorization::prefetch_info_t& prefetch_info,
+                        TL::Type& vectorlengthfor_type);
+
                 void process_aligned_clause(const Nodecl::List& environment,
                         TL::Vectorization::map_tlsym_int_t& aligned_expressions_map);
                 void process_linear_clause(const Nodecl::List& environment,
@@ -143,6 +154,7 @@ namespace TL
                         bool overlap_in_place);
                 ~SimdVisitor();
 
+
                 virtual void visit(const Nodecl::FunctionCode& func_code);
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
@@ -158,6 +170,12 @@ namespace TL
                 void common_simd_function_preregister(
                         const Nodecl::OpenMP::SimdFunction& simd_node,
                         const bool masked_version);
+
+                void simd_function_def_preregister(const Nodecl::OpenMP::SimdFunction& simd_node,
+                        bool masked_version);
+                void simd_function_decl_preregister(const Nodecl::OpenMP::SimdFunction& simd_node,
+                        bool masked_version);
+
 
             public:
                 SimdPreregisterVisitor(Vectorization::SIMDInstructionSet simd_isa,

@@ -51,16 +51,19 @@ namespace TL
         {
         }
 
-        void VectorizerVisitorFunctionHeader::visit(const Nodecl::FunctionCode& function_code)
+        void VectorizerVisitorFunctionHeader::vectorize(TL::Symbol& func_sym)
         {
             //Vectorize function type and parameters
-            TL::Symbol vect_func_sym = function_code.get_symbol();
-            TL::Type func_type = vect_func_sym.get_type();
+            Nodecl::NodeclBase func_code = func_sym.get_function_code();
+            TL::Type func_type = func_sym.get_type();
 
-            objlist_tlsym_t parameters = vect_func_sym.get_function_parameters();
+            objlist_tlsym_t parameters = func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_vector_type;
 
-            TL::ObjectList<TL::Symbol> used_symbols = Nodecl::Utils::get_all_symbols(function_code.get_statements());
+            TL::ObjectList<TL::Symbol> used_symbols;
+            if (!func_code.is_null())
+                Nodecl::Utils::get_all_symbols(func_code.
+                        as<Nodecl::FunctionCode>().get_statements());
 
             for(objlist_tlsym_t::iterator it = parameters.begin();
                     it != parameters.end();
@@ -113,8 +116,7 @@ namespace TL
                     }
                     else
                     {
-                        fatal_printf_at(
-                                function_code.get_locus(),
+                        fatal_printf_at(func_code.get_locus(),
                                 "cannot vectorize parameter '%s' of type '%s'\n",
                                 it->get_name().c_str(),
                                 tl_sym_type.get_declaration(it->get_scope(), "").c_str());
@@ -149,7 +151,7 @@ namespace TL
 
             if(_masked_version)
             {
-                TL::Scope scope = vect_func_sym.get_related_scope();
+                TL::Scope scope = func_sym.get_related_scope();
 
                 // Create mask parameter
                 TL::Symbol mask_sym = scope.new_symbol("__mask_param");
@@ -158,47 +160,36 @@ namespace TL
                 mask_sym.set_type(TL::Type::get_mask_type(_environment._vectorization_factor));
 
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(),
-                        vect_func_sym.get_internal_symbol(),
+                        func_sym.get_internal_symbol(),
                         /*nesting*/ 0, parameters.size());
 
                 // Add mask symbol and type to parameters
                 parameters.append(mask_sym);
                 parameters_vector_type.append(mask_sym.get_type());
-                vect_func_sym.set_related_symbols(parameters);
+                func_sym.set_related_symbols(parameters);
 
                 // Take care of default_argument_info_t*
                 //TODO: Move this into a function
                 {
-                    symbol_entity_specs_add_default_argument_info(vect_func_sym.get_internal_symbol(), NULL);
-                    // int num_parameters = symbol_entity_specs_get_num_parameters(vect_func_sym.get_internal_symbol());
+                    symbol_entity_specs_add_default_argument_info(func_sym.get_internal_symbol(), NULL);
+                    // int num_parameters = symbol_entity_specs_get_num_parameters(func_sym.get_internal_symbol());
                     // default_argument_info_t** default_argument_info =
-                    //     vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info;
+                    //     func_sym.get_internal_symbol()->entity_specs.default_argument_info;
 
                     // num_parameters++;
                     // default_argument_info = (default_argument_info_t**)xrealloc(default_argument_info,
                     //         num_parameters * sizeof(*default_argument_info));
                     // default_argument_info[num_parameters-1] = NULL;
 
-                    // vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
-                    // vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
+                    // func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
+                    // func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
                 }
             }
 
-            vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
+            func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
                         _environment._vectorization_factor).get_function_returning(
                             parameters_vector_type));
         }
-
-        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunctionHeader::unhandled_node(const Nodecl::NodeclBase& n)
-        {
-            std::cerr << "Function Visitor HEADER: Unknown node "
-                << ast_print_node_type(n.get_kind())
-                << " at " << n.get_locus()
-                << std::endl;
-
-            return Ret();
-        }
-
 
 
         // Vectorize Local Symbols
@@ -210,7 +201,7 @@ namespace TL
         {
         }
 
-        void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
+        void VectorizerVisitorFunction::vectorize(const Nodecl::FunctionCode& function_code)
         {
             // Vectorize Local Symbols & Parameters
             VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
@@ -255,16 +246,6 @@ namespace TL
                 _environment._mask_list.pop_back();
 
             _environment._function_return = TL::Symbol();
-        }
-
-        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n)
-        {
-            std::cerr << "Function Visitor CODE: Unknown node "
-                << ast_print_node_type(n.get_kind())
-                << " at " << n.get_locus()
-                << std::endl;
-
-            return Ret();
         }
     }
 }

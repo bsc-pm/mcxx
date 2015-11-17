@@ -27,15 +27,13 @@
 #ifndef TL_VECTORIZER_VISITOR_FUNCTION_HPP
 #define TL_VECTORIZER_VISITOR_FUNCTION_HPP
 
-#include "tl-nodecl-visitor.hpp"
-
 #include "tl-vectorizer-environment.hpp"
 
 namespace TL
 {
     namespace Vectorization
     {
-        class VectorizerVisitorFunction : public Nodecl::NodeclVisitor<void>
+        class VectorizerVisitorFunction
         {
             private:
                 VectorizerEnvironment& _environment;
@@ -45,12 +43,10 @@ namespace TL
                 VectorizerVisitorFunction(VectorizerEnvironment& environment,
                         const bool masked_version);
 
-                virtual void visit(const Nodecl::FunctionCode& function_code);
-
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                virtual void vectorize(const Nodecl::FunctionCode& func_code);
         };
 
-        class VectorizerVisitorFunctionHeader : public Nodecl::NodeclVisitor<void>
+        class VectorizerVisitorFunctionHeader 
         {
             private:
                 VectorizerEnvironment& _environment;
@@ -64,9 +60,7 @@ namespace TL
                         const std::map<TL::Symbol, int> &linear_symbols,
                         const bool masked_version);
 
-                virtual void visit(const Nodecl::FunctionCode& function_code);
-
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                virtual void vectorize(TL::Symbol& func_sym);
         };
     }
 }

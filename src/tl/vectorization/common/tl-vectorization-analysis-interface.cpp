@@ -108,15 +108,10 @@ namespace Vectorization
     Nodecl::FunctionCode VectorizationAnalysisInterface::copy_function_code(
             const Nodecl::NodeclBase& n)
     {
-        Nodecl::FunctionCode func_code;
+        ERROR_CONDITION(!n.is<Nodecl::OpenMP::SimdFunction>() &&
+                !n.is<Nodecl::FunctionCode>(), "SimdFunction or FunctionCode expected", 0);
 
-        if (n.is<Nodecl::OpenMP::SimdFunction>())
-            func_code = n.as<Nodecl::OpenMP::SimdFunction>().
-                get_statement().as<Nodecl::FunctionCode>();
-        else
-            func_code = n.as<Nodecl::FunctionCode>();
-
-        TL::Symbol func_sym = func_code.get_symbol();
+        TL::Symbol func_sym = n.get_symbol();
         std::string orig_func_name = func_sym.get_name();
 
         TL::Symbol new_func_sym = func_sym.get_scope().

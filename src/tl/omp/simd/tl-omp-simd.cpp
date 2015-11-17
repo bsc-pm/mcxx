@@ -27,7 +27,6 @@
 #include "tl-omp-simd.hpp"
 #include "tl-vectorizer-target-type-heuristic.hpp"
 
-#include "tl-vectorization-common.hpp"
 #include "tl-omp.hpp"
 #include "tl-optimizations.hpp"
 #include "tl-counters.hpp"
@@ -1097,13 +1096,6 @@ namespace TL {
 
         void SimdPreregisterVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
         {
-            Nodecl::FunctionCode function_code = simd_node.get_statement()
-                .as<Nodecl::FunctionCode>();
-
-            // Preprocess SimdFunction
-            _vectorizer.preprocess_code(simd_node);
-            _vectorizer.initialize_analysis(simd_node);
-
             Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
 
             Nodecl::OpenMP::Mask omp_mask = omp_environment.find_first<Nodecl::OpenMP::Mask>();
@@ -1134,13 +1126,6 @@ namespace TL {
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
         {
-            Nodecl::FunctionCode function_code = simd_node.get_statement()
-                .as<Nodecl::FunctionCode>();
-
-            // Preprocess SimdFunction
-            _vectorizer.preprocess_code(simd_node);
-            _vectorizer.initialize_analysis(simd_node);
-
             Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
 
             Nodecl::OpenMP::Mask omp_mask = omp_environment.find_first<Nodecl::OpenMP::Mask>();
@@ -1156,7 +1141,7 @@ namespace TL {
                 fatal_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             }
 
-           // Mask Version
+            // Mask Version
             if (_support_masking && omp_nomask.is_null())
             {
                 common_simd_function(simd_node, true);
@@ -1168,26 +1153,24 @@ namespace TL {
             }
 
             // Remove SimdFunction node
-            simd_node.replace(function_code);
+            Nodecl::Utils::remove_from_enclosing_list(simd_node);
         }
 
-        void SimdPreregisterVisitor::common_simd_function_preregister(
+
+        void SimdPreregisterVisitor::simd_function_def_preregister(
                 const Nodecl::OpenMP::SimdFunction& simd_node,
-                const bool masked_version)
+                bool masked_version)
         {
-            Nodecl::FunctionCode function_code = simd_node.get_statement()
-                .as<Nodecl::FunctionCode>();
-
-            // Clone SimdFunction
-            TL::Symbol func_sym = function_code.get_symbol();
-            std::string orig_func_name = func_sym.get_name();
-
             // Set new vector function symbol
+            const TL::Symbol func_sym = simd_node.get_symbol();
+            const std::string func_name = func_sym.get_name();
             std::stringstream vector_func_name;
+            Nodecl::FunctionCode func_code = func_sym.get_function_code().
+                as<Nodecl::FunctionCode>();
 
             TL::Counter &counter = TL::CounterManager::get_counter("simd-function");
             vector_func_name <<"__"
-                << orig_func_name
+                << func_name
                 << "_" << (int)counter
                 << "_"
                 << _device_name
@@ -1208,65 +1191,233 @@ namespace TL {
                         );
             new_func_decl_context->template_parameters = NULL;
 
-            TL::Symbol new_func_sym = TL::Scope(new_func_decl_context).
+            TL::Symbol vec_func_sym = TL::Scope(new_func_decl_context).
                 new_symbol(vector_func_name.str());
-            new_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
+            vec_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
 
             Nodecl::Utils::SimpleSymbolMap func_sym_map;
-            func_sym_map.add_map(func_sym, new_func_sym);
+            func_sym_map.add_map(func_sym, vec_func_sym);
 
-            Nodecl::OpenMP::SimdFunction simd_node_copy =
-                Nodecl::Utils::deep_copy(simd_node, simd_node,
-                        func_sym_map).as<Nodecl::OpenMP::SimdFunction>();
+            //Nodecl::OpenMP::SimdFunction simd_node_copy =
+            //    Nodecl::Utils::deep_copy(simd_node, simd_node,
+            //            func_sym_map).as<Nodecl::OpenMP::SimdFunction>();
+
+            Nodecl::Utils::NodeclDeepCopyMap out_func_nodecl_map;
+            Nodecl::Utils::SymbolDeepCopyMap out_func_sym_map;
 
             Nodecl::FunctionCode vector_func_code =
-                simd_node_copy.get_statement().as<Nodecl::FunctionCode>();
+                  Nodecl::Utils::deep_copy(func_code, func_code,
+                          func_sym_map, out_func_nodecl_map,
+                          out_func_sym_map).as<Nodecl::FunctionCode>();
 
-            FunctionDeepCopyFixVisitor fix_deep_copy_visitor(func_sym, new_func_sym);
+            FunctionDeepCopyFixVisitor fix_deep_copy_visitor(func_sym, vec_func_sym);
             fix_deep_copy_visitor.walk(vector_func_code.get_statements());
+
+            // Append vectorized function code to scalar function
+            simd_node.append_sibling(vector_func_code);
+
+
+            // Reconvert output symbol map
+            Nodecl::Utils::SimpleSymbolMap func_sym_map_simd_node;
+            for (const auto& out_sym : out_func_sym_map)
+            {
+                func_sym_map_simd_node.add_map(out_sym.first, out_sym.second);
+            }
+            
+            // Clone SimdFunction
+            Nodecl::OpenMP::SimdFunction simd_node_copy = 
+                  Nodecl::Utils::deep_copy(simd_node, simd_node,
+                          func_sym_map_simd_node).as<Nodecl::OpenMP::SimdFunction>();
+
+            // Append copy of SimdFunction node to vector function
+            vector_func_code.append_sibling(simd_node_copy);
+
 
             // Register new simd nodes in analysis
             Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
-                    function_code, vector_func_code);
+                    simd_node, simd_node_copy);
+            Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
+                    func_code, vector_func_code);
 
             // Process clauses FROM THE COPY
             Nodecl::List omp_environment = simd_node_copy.
                 get_environment().as<Nodecl::List>();
 
-            // Aligned clause
             map_tlsym_int_t aligned_expressions;
-            process_aligned_clause(omp_environment, aligned_expressions);
-
-            // Linear clause
             map_tlsym_int_t linear_symbols;
-            process_linear_clause(omp_environment, linear_symbols);
-
-            // Uniform clause
             objlist_tlsym_t uniform_symbols;
-            process_uniform_clause(omp_environment, uniform_symbols);
-
-            // Suitable clause
             objlist_nodecl_t suitable_expressions;
-            process_suitable_clause(omp_environment, suitable_expressions);
-
-            // Nontemporal clause
             map_tlsym_objlist_t nontemporal_expressions;
-            process_nontemporal_clause(omp_environment, nontemporal_expressions);
-
-            // Overlap clause
             map_tlsym_objlist_int_t overlap_symbols;
-            process_overlap_clause(omp_environment, overlap_symbols);
-//            VectorizerOverlap vectorizer_overlap(overlap_symbols);
-
-            // Prefetch clause
             prefetch_info_t prefetch_info;
-            process_prefetch_clause(omp_environment, prefetch_info);
-
-
-            // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
-            process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
 
+            process_func_simd_clause(omp_environment,
+                    aligned_expressions,
+                    linear_symbols,
+                    uniform_symbols,
+                    suitable_expressions,
+                    nontemporal_expressions,
+                    overlap_symbols,
+                    prefetch_info,
+                    vectorlengthfor_type);
+
+
+            // Vectorizer Environment
+            VectorizerEnvironment function_environment(
+                    _device_name,
+                    _vector_length,
+                    _fixed_vectorization_factor,
+                    _support_masking,
+                    _mask_size,
+                    _fast_math_enabled,
+                    vectorlengthfor_type,
+                    aligned_expressions,
+                    linear_symbols,
+                    uniform_symbols,
+                    suitable_expressions,
+                    nontemporal_expressions,
+                    overlap_symbols,
+                    NULL,
+                    NULL);
+
+            // Set target type
+            if (!function_environment._target_type.is_valid())
+            {
+                VectorizerTargetTypeHeuristic target_type_heuristic;
+                function_environment.set_target_type(
+                        target_type_heuristic.get_target_type(vector_func_code));
+            }
+
+            // Add scopes, default masks, etc.
+            function_environment.load_environment(vector_func_code);
+
+            // Add SIMD version to vector function versioning
+            TL::Type function_return_type = func_sym.get_type().returns();
+            int function_return_type_size = function_return_type.is_void() ? 1 : function_return_type.get_size();
+            _vectorizer.add_vector_function_version(
+                    func_sym,
+                    vec_func_sym, _device_name, 
+                    function_environment._vectorization_factor
+                    * function_return_type_size,
+                    function_return_type,
+                    masked_version,
+                    TL::Vectorization::SIMD_FUNC_PRIORITY, false);
+
+
+            _vectorizer.vectorize_function_header(vec_func_sym,
+                    function_environment,
+                    uniform_symbols,
+                    linear_symbols,
+                    masked_version);
+
+            function_environment.unload_environment();
+            //_vectorizer.postprocess_code(simd_node);
+
+            // Add extra CxxDef that may have been required during vectorization
+            // std::cerr << "(2) ENV = " << &function_environment << std::endl;
+            for (TL::ObjectList<VectorizerEnvironment::VectorizedClass>::iterator
+                    it_classes = function_environment._vectorized_classes.begin();
+                    it_classes != function_environment._vectorized_classes.end();
+                    it_classes++)
+            {
+                Nodecl::NodeclBase translation_unit = CURRENT_COMPILED_FILE->nodecl;
+                Nodecl::List top_level = translation_unit
+                    .as<Nodecl::TopLevel>()
+                    .get_top_level()
+                    .as<Nodecl::List>();
+
+                bool found = false;
+                for (Nodecl::List::iterator it_nodes = top_level.begin();
+                        it_nodes != top_level.end() && !found;
+                        it_nodes++)
+                {
+                    if (it_nodes->is<Nodecl::CxxDef>()
+                            && it_nodes->get_symbol() == it_classes->first.get_symbol())
+                    {
+                        it_nodes->append_sibling(
+                                Nodecl::CxxDef::make(
+                                    Nodecl::NodeclBase::null(),
+                                    it_classes->second.get_symbol()));
+                    }
+                }
+            }
+            function_environment._vectorized_classes.clear();
+
+            // Remove SimdFunction node
+            Nodecl::Utils::remove_from_enclosing_list(simd_node);
+// 
+            // Free analysis
+            //_vectorizer.finalize_analysis();
+
+            // Prostprocess code
+        }
+
+
+        void SimdPreregisterVisitor::simd_function_decl_preregister(
+                const Nodecl::OpenMP::SimdFunction& simd_node,
+                bool masked_version)
+        {
+            // Set new vector function symbol
+            TL::Symbol func_sym = simd_node.get_symbol();
+            std::stringstream vector_func_name;
+
+            TL::Counter &counter = TL::CounterManager::get_counter("simd-function");
+            vector_func_name <<"__"
+                << func_sym.get_name()
+                << "_" << (int)counter
+                << "_"
+                << _device_name
+                << "_"
+                << _vector_length
+                ;
+            counter++;
+
+            if (masked_version)
+            {
+                vector_func_name << "_mask";
+            }
+
+            // Remove template parameters, if any
+            decl_context_t *new_func_decl_context = 
+                decl_context_clone(func_sym.get_scope().get_decl_context());
+            new_func_decl_context->template_parameters = NULL;
+
+            TL::Symbol vector_func_sym = TL::Scope(new_func_decl_context).
+                new_symbol(vector_func_name.str());
+            vector_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
+            vector_func_sym.set_type(func_sym.get_type());
+
+            //Necessary??
+            // Register new simd nodes in analysis
+            //Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
+            //        function_code, vector_func_code);
+
+            // Process clauses FROM THE COPY
+
+            Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
+
+            map_tlsym_int_t aligned_expressions;
+            map_tlsym_int_t linear_symbols;
+            objlist_tlsym_t uniform_symbols;
+            objlist_nodecl_t suitable_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
+            map_tlsym_objlist_int_t overlap_symbols;
+            prefetch_info_t prefetch_info;
+            TL::Type vectorlengthfor_type;
+ 
+
+            process_func_simd_clause(omp_environment,
+                    aligned_expressions,
+                    linear_symbols,
+                    uniform_symbols,
+                    suitable_expressions,
+                    nontemporal_expressions,
+                    overlap_symbols,
+                    prefetch_info,
+                    vectorlengthfor_type);
+
+           
             // Vectorizer Environment
             VectorizerEnvironment function_environment(
                     _device_name,
@@ -1289,21 +1440,26 @@ namespace TL {
             // simd_node.append_sibling(vector_func_code);
 
             // Add scopes, default masks, etc.
-            function_environment.load_environment(vector_func_code);
-            // Set target type
-            if (!function_environment._target_type.is_valid())
-            {
-                VectorizerTargetTypeHeuristic target_type_heuristic;
-                function_environment.set_target_type(
-                        target_type_heuristic.get_target_type(vector_func_code));
-            }
+            function_environment.load_environment(simd_node);
 
             // Add SIMD version to vector function versioning
             TL::Type function_return_type = func_sym.get_type().returns();
             int function_return_type_size = function_return_type.is_void() ? 1 : function_return_type.get_size();
+
+            // Set target type
+            if (!function_environment._target_type.is_valid())
+            {
+                function_environment.set_target_type(    // TODO!!
+                        function_return_type.is_void() ? TL::Type::get_float_type() :
+                        function_return_type);
+                //VectorizerTargetTypeHeuristic target_type_heuristic;
+                //function_environment.set_target_type(
+                //        target_type_heuristic.get_target_type(vector_func_code));
+            }
+
             _vectorizer.add_vector_function_version(
                     func_sym,
-                    vector_func_code, _device_name, 
+                    vector_func_sym, _device_name, 
                     function_environment._vectorization_factor
                     * function_return_type_size,
                     function_return_type,
@@ -1311,7 +1467,7 @@ namespace TL {
                     TL::Vectorization::SIMD_FUNC_PRIORITY, false);
 
 
-            _vectorizer.vectorize_function_header(vector_func_code,
+            _vectorizer.vectorize_function_header(vector_func_sym,
                     function_environment,
                     uniform_symbols,
                     linear_symbols,
@@ -1350,6 +1506,8 @@ namespace TL {
             }
             function_environment._vectorized_classes.clear();
 
+            // Remove SimdFunction node
+            Nodecl::Utils::remove_from_enclosing_list(simd_node);
 // 
             // Free analysis
             //_vectorizer.finalize_analysis();
@@ -1357,222 +1515,240 @@ namespace TL {
             // Prostprocess code
         }
 
+
+        void SimdPreregisterVisitor::common_simd_function_preregister(
+                const Nodecl::OpenMP::SimdFunction& simd_node,
+                const bool masked_version)
+        {
+            TL::Symbol func_sym = simd_node.get_symbol();
+
+            if (func_sym.get_function_code().is_null())
+            {
+                // Preprocess SimdFunction
+                _vectorizer.preprocess_code(simd_node);
+                _vectorizer.initialize_analysis(simd_node);
+
+                simd_function_decl_preregister(simd_node, masked_version);
+            }
+            else
+            {
+                // Preprocess SimdFunction
+                _vectorizer.preprocess_code(func_sym.get_function_code());
+                _vectorizer.initialize_analysis(func_sym.get_function_code());
+
+                simd_function_def_preregister(simd_node, masked_version);
+            }
+        }
+
+
         void SimdVisitor::common_simd_function(
                 const Nodecl::OpenMP::SimdFunction& simd_node,
                 const bool masked_version)
         {
-            Nodecl::FunctionCode function_code = simd_node.get_statement()
-                .as<Nodecl::FunctionCode>();
-
             // // Clone SimdFunction
-            TL::Symbol func_sym = function_code.get_symbol();
-            // std::string orig_func_name = func_sym.get_name();
-
-            // // Set new vector function symbol
-            // std::stringstream vector_func_name;
-
-            // TL::Counter &counter = TL::CounterManager::get_counter("simd-function");
-            // vector_func_name <<"__"
-            //     << orig_func_name
-            //     << "_" << (int)counter
-            //     << "_"
-            //     << _device_name
-            //     << "_"
-            //     << _vector_length
-            //     ;
-            // counter++;
-
-            // if (masked_version)
-            // {
-            //     vector_func_name << "_mask";
-            // }
-
-            // // Remove template parameters, if any
-            // decl_context_t *new_func_decl_context = 
-            //     decl_context_clone(
-            //             func_sym.get_scope().get_decl_context()
-            //             );
-            // new_func_decl_context->template_parameters = NULL;
-
-            // TL::Symbol new_func_sym = TL::Scope(new_func_decl_context).
-            //     new_symbol(vector_func_name.str());
-            // new_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
-
-            // Nodecl::Utils::SimpleSymbolMap func_sym_map;
-            // func_sym_map.add_map(func_sym, new_func_sym);
-
-            // Nodecl::OpenMP::SimdFunction simd_node_copy =
-            //     Nodecl::Utils::deep_copy(simd_node, simd_node,
-            //             func_sym_map).as<Nodecl::OpenMP::SimdFunction>();
-
-            // Process clauses FROM THE COPY
-            Nodecl::FunctionCode vector_func_code;
+            TL::Symbol func_sym = simd_node.get_symbol();
+            
+            if (!func_sym.get_function_code().is_null())
             {
-                VectorizerTargetTypeHeuristic target_type_heuristic;
-                TL::Type target_type = target_type_heuristic.get_target_type(function_code);
+                Nodecl::FunctionCode function_code =
+                    func_sym.get_function_code().as<Nodecl::FunctionCode>();
+
+                // Initialize Analysis
+                _vectorizer.initialize_analysis(function_code);
+
+                // std::string orig_func_name = func_sym.get_name();
+
+                // // Set new vector function symbol
+                // std::stringstream vector_func_name;
+
+                // TL::Counter &counter = TL::CounterManager::get_counter("simd-function");
+                // vector_func_name <<"__"
+                //     << orig_func_name
+                //     << "_" << (int)counter
+                //     << "_"
+                //     << _device_name
+                //     << "_"
+                //     << _vector_length
+                //     ;
+                // counter++;
+
+                // if (masked_version)
+                // {
+                //     vector_func_name << "_mask";
+                // }
+
+                // // Remove template parameters, if any
+                // decl_context_t *new_func_decl_context = 
+                //     decl_context_clone(
+                //             func_sym.get_scope().get_decl_context()
+                //             );
+                // new_func_decl_context->template_parameters = NULL;
+
+                // TL::Symbol new_func_sym = TL::Scope(new_func_decl_context).
+                //     new_symbol(vector_func_name.str());
+                // new_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
+
+                // Nodecl::Utils::SimpleSymbolMap func_sym_map;
+                // func_sym_map.add_map(func_sym, new_func_sym);
+
+                // Nodecl::OpenMP::SimdFunction simd_node_copy =
+                //     Nodecl::Utils::deep_copy(simd_node, simd_node,
+                //             func_sym_map).as<Nodecl::OpenMP::SimdFunction>();
+
+                // TODO
+                //Nodecl::NodeclBase simd_node_copy = vector_func_code.get_parent();
+                //ERROR_CONDITION(simd_node_copy.is_null()
+                //        || !simd_node_copy.is<Nodecl::OpenMP::SimdFunction>(),
+                //        "Invalid node, expecting a Nodecl::OpenMP::SimdFunction", 0);
+
+                // Process clauses FROM THE COPY
+                Nodecl::List omp_environment =
+                    simd_node.get_environment().as<Nodecl::List>();
+                    //simd_node_copy.as<Nodecl::OpenMP::SimdFunction>().get_environment().as<Nodecl::List>();
+
+                map_tlsym_int_t aligned_expressions;
+                map_tlsym_int_t linear_symbols;
+                objlist_tlsym_t uniform_symbols;
+                objlist_nodecl_t suitable_expressions;
+                map_tlsym_objlist_t nontemporal_expressions;
+                map_tlsym_objlist_int_t overlap_symbols;
+                prefetch_info_t prefetch_info;
+                TL::Type vectorlengthfor_type;
+
+                process_func_simd_clause(omp_environment,
+                        aligned_expressions,
+                        linear_symbols,
+                        uniform_symbols,
+                        suitable_expressions,
+                        nontemporal_expressions,
+                        overlap_symbols,
+                        prefetch_info,
+                        vectorlengthfor_type);
+
+                TL::Type target_type;
+                if (vectorlengthfor_type.is_valid())
+                {
+                    target_type = vectorlengthfor_type;
+                }
+                else
+                {
+                    VectorizerTargetTypeHeuristic target_type_heuristic;
+                    target_type = target_type_heuristic.get_target_type(function_code);
+                }
 
                 int _vectorization_factor =
                     _vector_length/target_type.get_size();
 
                 TL::Type function_return_type = func_sym.get_type().returns();
-                vector_func_code = Vectorizer::_function_versioning.get_best_version(
-                            func_sym,
-                            _device_name,
-                            _vectorization_factor * 
-                            (function_return_type.is_void() ? 1 : function_return_type.get_size()),
-                            function_return_type,
-                            masked_version).as<Nodecl::FunctionCode>();
+                Nodecl::FunctionCode vector_func_code = Vectorizer::_function_versioning.get_best_version(
+                        func_sym,
+                        _device_name,
+                        _vectorization_factor * 
+                        (function_return_type.is_void() ? 1 : function_return_type.get_size()),
+                        function_return_type,
+                        masked_version).get_function_code().as<Nodecl::FunctionCode>();
 
                 ERROR_CONDITION(vector_func_code.is_null()
                         || !vector_func_code.is<Nodecl::FunctionCode>(),
                         "This code must be a FunctionCode", 0);
-            }
-
-            Nodecl::NodeclBase simd_node_copy = vector_func_code.get_parent();
-            ERROR_CONDITION(simd_node_copy.is_null()
-                    || !simd_node_copy.is<Nodecl::OpenMP::SimdFunction>(),
-                    "Invalid node, expecting a Nodecl::OpenMP::SimdFunction", 0);
-
-            Nodecl::List omp_environment =
-                simd_node_copy.as<Nodecl::OpenMP::SimdFunction>().get_environment().as<Nodecl::List>();
-
-            // Aligned clause
-            map_tlsym_int_t aligned_expressions;
-            process_aligned_clause(omp_environment, aligned_expressions);
-
-            // Linear clause
-            map_tlsym_int_t linear_symbols;
-            process_linear_clause(omp_environment, linear_symbols);
-
-            // Uniform clause
-            objlist_tlsym_t uniform_symbols;
-            process_uniform_clause(omp_environment, uniform_symbols);
-
-            // Suitable clause
-            objlist_nodecl_t suitable_expressions;
-            process_suitable_clause(omp_environment, suitable_expressions);
-
-            // Nontemporal clause
-            map_tlsym_objlist_t nontemporal_expressions;
-            process_nontemporal_clause(omp_environment, nontemporal_expressions);
-
-            // Overlap clause
-            map_tlsym_objlist_int_t overlap_symbols;
-            process_overlap_clause(omp_environment, overlap_symbols);
-//            VectorizerOverlap vectorizer_overlap(overlap_symbols);
-
-            // Prefetch clause
-            prefetch_info_t prefetch_info;
-            process_prefetch_clause(omp_environment, prefetch_info);
 
 
-            // Vectorlengthfor clause
-            TL::Type vectorlengthfor_type;
-            process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
+                // Vectorizer Environment
+                VectorizerEnvironment function_environment(
+                        _device_name,
+                        _vector_length,
+                        _fixed_vectorization_factor,
+                        _support_masking,
+                        _mask_size,
+                        _fast_math_enabled,
+                        target_type,
+                        aligned_expressions,
+                        linear_symbols,
+                        uniform_symbols,
+                        suitable_expressions,
+                        nontemporal_expressions,
+                        overlap_symbols,
+                        NULL,
+                        NULL);
 
-            // Vectorizer Environment
-            VectorizerEnvironment function_environment(
-                    _device_name,
-                    _vector_length,
-                    _fixed_vectorization_factor,
-                    _support_masking,
-                    _mask_size,
-                    _fast_math_enabled,
-                    vectorlengthfor_type,
-                    aligned_expressions,
-                    linear_symbols,
-                    uniform_symbols,
-                    suitable_expressions,
-                    nontemporal_expressions,
-                    overlap_symbols,
-                    NULL,
-                    NULL);
+                // Set target type
+                //if (!function_environment._target_type.is_valid())
+                //{
+                //    //VectorizerTargetTypeHeuristic target_type_heuristic;
+                //    function_environment.set_target_type(target_type);
+                //    //        target_type_heuristic.get_target_type(function_code));
+                //}
 
-            // Set target type
-            if (!function_environment._target_type.is_valid())
-            {
-                VectorizerTargetTypeHeuristic target_type_heuristic;
-                function_environment.set_target_type(
-                        target_type_heuristic.get_target_type(function_code));
-            }
+                function_environment.load_environment(vector_func_code);
 
-            function_environment.load_environment(vector_func_code);
+                // Register new simd nodes in analysis
+                //Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
+                //        function_code, vector_func_code);
 
-            // Register new simd nodes in analysis
-            Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
-                    function_code, vector_func_code);
+                // Append vectorized function code to scalar function
+                //simd_node.append_sibling(vector_func_code);
 
-            // Append vectorized function code to scalar function
-            simd_node.append_sibling(vector_func_code);
+                // // Add SIMD version to vector function versioning
+                // TL::Type function_return_type = func_sym.get_type().returns();
+                // _vectorizer.add_vector_function_version(
+                //         func_sym,
+                //         vector_func_code, _device_name, 
+                //         function_return_type.get_size() * 
+                //         function_environment._vectorization_factor, 
+                //         function_return_type, masked_version,
+                //         TL::Vectorization::SIMD_FUNC_PRIORITY, false);
 
-            // // Set target type
-            // if (!function_environment._target_type.is_valid())
-            // {
-            //     VectorizerTargetTypeHeuristic target_type_heuristic;
-            //     function_environment.set_target_type(
-            //             target_type_heuristic.get_target_type(vector_func_code));
-            // }
+                _vectorizer.vectorize_function(vector_func_code,
+                        function_environment, masked_version);
 
-            // // Add SIMD version to vector function versioning
-            // TL::Type function_return_type = func_sym.get_type().returns();
-            // _vectorizer.add_vector_function_version(
-            //         func_sym,
-            //         vector_func_code, _device_name, 
-            //         function_return_type.get_size() * 
-            //         function_environment._vectorization_factor, 
-            //         function_return_type, masked_version,
-            //         TL::Vectorization::SIMD_FUNC_PRIORITY, false);
+                function_environment.unload_environment();
+                _vectorizer.postprocess_code(simd_node);
 
-            _vectorizer.vectorize_function(vector_func_code,
-                    function_environment, masked_version);
-
-            function_environment.unload_environment();
-            _vectorizer.postprocess_code(simd_node);
-
-            if (IS_CXX_LANGUAGE
-                    && CURRENT_CONFIGURATION->explicit_instantiation)
-            {
-                // This is a specialization
-                if (func_sym.get_type().is_template_specialized_type())
+                if (IS_CXX_LANGUAGE
+                        && CURRENT_CONFIGURATION->explicit_instantiation)
                 {
-                    TL::Symbol vector_func_sym = vector_func_code.get_symbol();
-                    // Make sure we add an extra declaration
-                    Nodecl::NodeclBase translation_unit = CURRENT_COMPILED_FILE->nodecl;
-                    Nodecl::List top_level = translation_unit
-                        .as<Nodecl::TopLevel>()
-                        .get_top_level()
-                        .as<Nodecl::List>();
-
-                    bool found = false;
-                    for (Nodecl::List::iterator it = top_level.begin();
-                            it != top_level.end() && !found;
-                            it++)
+                    // This is a specialization
+                    if (func_sym.get_type().is_template_specialized_type())
                     {
-                        if (it->is<Nodecl::CxxDecl>()
-                                && it->get_symbol() == func_sym)
+                        TL::Symbol vector_func_sym = vector_func_code.get_symbol();
+                        // Make sure we add an extra declaration
+                        Nodecl::NodeclBase translation_unit = CURRENT_COMPILED_FILE->nodecl;
+                        Nodecl::List top_level = translation_unit
+                            .as<Nodecl::TopLevel>()
+                            .get_top_level()
+                            .as<Nodecl::List>();
+
+                        bool found = false;
+                        for (Nodecl::List::iterator it = top_level.begin();
+                                it != top_level.end() && !found;
+                                it++)
                         {
-                            it->append_sibling(
-                                    Nodecl::CxxDecl::make(
-                                        Nodecl::Context::make(
-                                            Nodecl::NodeclBase::null(),
-                                            func_sym.get_scope(),
-                                            it->get_locus()),
-                                        vector_func_sym,
-                                        it->get_locus()));
-                            found = true;
+                            if (it->is<Nodecl::CxxDecl>()
+                                    && it->get_symbol() == func_sym)
+                            {
+                                it->append_sibling(
+                                        Nodecl::CxxDecl::make(
+                                            Nodecl::Context::make(
+                                                Nodecl::NodeclBase::null(),
+                                                func_sym.get_scope(),
+                                                it->get_locus()),
+                                            vector_func_sym,
+                                            it->get_locus()));
+                                found = true;
+                            }
+                        }
+                        if (!found)
+                        {
+                            // std::cerr << "Hmmm, I did not find " << func_sym.get_qualified_name() << " anywhere in the top level..." << std::endl;
                         }
                     }
-                    if (!found)
-                    {
-                        // std::cerr << "Hmmm, I did not find " << func_sym.get_qualified_name() << " anywhere in the top level..." << std::endl;
-                    }
                 }
-            }
-// 
-            // Free analysis
-            //_vectorizer.finalize_analysis();
+                // 
+                // Free analysis
+                //_vectorizer.finalize_analysis();
 
-            // Prostprocess code
+                // Prostprocess code
+            }
         }
 
         SimdSPMLVisitor::SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
@@ -1745,6 +1921,34 @@ namespace TL {
 
             // Free analysis
             //_vectorizer.finalize_analysis();
+        }
+
+        void SimdProcessingBase::process_func_simd_clause(const Nodecl::List& omp_environment,
+                map_tlsym_int_t& aligned_expressions,
+                map_tlsym_int_t& linear_symbols,
+                objlist_tlsym_t& uniform_symbols,
+                objlist_nodecl_t& suitable_expressions,
+                map_tlsym_objlist_t& nontemporal_expressions,
+                map_tlsym_objlist_int_t& overlap_symbols,
+                prefetch_info_t& prefetch_info,
+                TL::Type& vectorlengthfor_type)
+        {
+            // Aligned clause
+            process_aligned_clause(omp_environment, aligned_expressions);
+            // Linear clause
+            process_linear_clause(omp_environment, linear_symbols);
+            // Uniform clause
+            process_uniform_clause(omp_environment, uniform_symbols);
+            // Suitable clause
+            process_suitable_clause(omp_environment, suitable_expressions);
+            // Nontemporal clause
+            process_nontemporal_clause(omp_environment, nontemporal_expressions);
+            // Overlap clause
+            process_overlap_clause(omp_environment, overlap_symbols);
+            // Prefetch clause
+            process_prefetch_clause(omp_environment, prefetch_info);
+            // Vectorlengthfor clause
+            process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
         }
 
         void SimdProcessingBase::process_aligned_clause(const Nodecl::List& environment,

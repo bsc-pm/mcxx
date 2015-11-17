@@ -24,30 +24,30 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-vectorization-utils.hpp"
 
 #include "tl-function-versioning.hpp"
+#include "tl-vectorization-utils.hpp"
 
 namespace TL
 {
     namespace Vectorization
     {
-        VectorFunctionVersion::VectorFunctionVersion(const Nodecl::NodeclBase& func_version,
+        VectorFunctionVersion::VectorFunctionVersion(const TL::Symbol& func_symbol,
                 const std::string& device,
                 const unsigned int vector_length,
                 const TL::Type& target_type,
                 const bool masked,
                 const FunctionPriority priority,
                 const bool is_svml) :
-            _func_version(func_version), _priority(priority), _device(device),
+            _func_symbol(func_symbol), _priority(priority), _device(device),
             _vector_length(vector_length), _target_type(target_type), _masked(masked),
             _is_svml(is_svml)
         {
         }
 
-        const Nodecl::NodeclBase VectorFunctionVersion::get_version() const
+        const TL::Symbol VectorFunctionVersion::get_version() const
         {
-            return _func_version;
+            return _func_symbol;
         }
 
         bool VectorFunctionVersion::has_kind(const std::string& device,
@@ -178,30 +178,30 @@ namespace TL
             return &best_version->second;
         }
 
-        const Nodecl::NodeclBase FunctionVersioning::get_best_version(TL::Symbol func_name,
+        const TL::Symbol FunctionVersioning::get_best_version(TL::Symbol func_symbol,
                 const std::string& device,
                 const unsigned int vector_length,
                 const Type& target_type,
                 const bool masked) const
         {
-            const VectorFunctionVersion* best_func = get_best_function_version(func_name,
+            const VectorFunctionVersion* best_func = get_best_function_version(func_symbol,
                     device, vector_length,
                     target_type, masked);
 
             if (best_func == NULL)
-                return Nodecl::NodeclBase::null();
+                return TL::Symbol(); // invalid symbol
             else
                 return best_func->get_version();
         }
 
-        bool FunctionVersioning::is_svml_function(TL::Symbol func_name,
+        bool FunctionVersioning::is_svml_function(TL::Symbol func_symbol,
                 const std::string& device,
                 const unsigned int vector_length,
                 const Type& target_type,
                 const bool masked) const
         {
             versions_map_t::const_iterator best_version = 
-                find_best_function(func_name, device, 
+                find_best_function(func_symbol, device, 
                     vector_length, target_type, masked);
 
             if (best_version == _versions.end())

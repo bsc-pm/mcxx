@@ -40,7 +40,7 @@ namespace TL
         class VectorFunctionVersion
         {
             private:
-                const Nodecl::NodeclBase _func_version;
+                const TL::Symbol _func_symbol;
                 const FunctionPriority _priority;
                 const std::string _device;
                 const unsigned int _vector_length;
@@ -49,7 +49,7 @@ namespace TL
                 const bool _is_svml;
 
             public:
-                VectorFunctionVersion(const Nodecl::NodeclBase& func_version, 
+                VectorFunctionVersion(const TL::Symbol& func_symbol, 
                         const std::string& device, 
                         const unsigned int vector_length, 
                         const TL::Type& _target_type,
@@ -57,7 +57,7 @@ namespace TL
                         const FunctionPriority priority,
                         const bool is_svml);
 
-                const Nodecl::NodeclBase get_version() const;
+                const TL::Symbol get_version() const;
                 bool has_kind(const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& target_type,
@@ -90,7 +90,7 @@ namespace TL
 
                 void clear();
                 void add_version(TL::Symbol func_name, const VectorFunctionVersion& func_version);
-                const Nodecl::NodeclBase get_best_version(TL::Symbol func_name, 
+                const TL::Symbol get_best_version(TL::Symbol func_symbol, 
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& _target_type,

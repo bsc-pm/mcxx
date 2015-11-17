@@ -392,20 +392,16 @@ namespace Vectorization
                 int function_target_type_size = function_target_type.is_void() ? 1 : function_target_type.get_size();
 
                 // Get the best vector version of the function available
-                Nodecl::NodeclBase best_version_node;
+                TL::Symbol vector_function;
                 if (n.get_called().is<Nodecl::Symbol>())
                 {
-                    best_version_node = Vectorizer::_function_versioning.get_best_version(
+                    vector_function = Vectorizer::_function_versioning.get_best_version(
                             n.get_called().get_symbol(),
                             _environment._device,
                             _environment._vectorization_factor * function_target_type_size,
                             function_target_type,
                             /* mask */ false);
                 }
-
-                TL::Symbol vector_function;
-                if (!best_version_node.is_null())
-                    vector_function = best_version_node.get_symbol();
 
                 bool result = false;
                 for (;
