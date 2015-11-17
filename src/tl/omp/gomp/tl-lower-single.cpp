@@ -65,7 +65,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Single& construct)
                 .get_symbols()
                 .as<Nodecl::List>()
                 .to_object_list()
-                .map(&Nodecl::NodeclBase::get_symbol));
+                .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
     }
     if (!firstprivate.is_null())
     {
@@ -73,12 +73,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Single& construct)
                 .get_symbols()
                 .as<Nodecl::List>()
                 .to_object_list()
-                .map(&Nodecl::NodeclBase::get_symbol));
+                .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
         firstprivate_symbols.insert(firstprivate
                 .get_symbols()
                 .as<Nodecl::List>()
                 .to_object_list()
-                .map(&Nodecl::NodeclBase::get_symbol));
+                .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
     }
 
     if (!barrier_at_end.is_null())

@@ -324,11 +324,6 @@ namespace Vectorization
         return true;
     }
 
-    // bool ExpressionEvolutionVisitor::visit( const Nodecl::Cast& n )
-    // {
-    //     return walk( n.get_rhs( ) );
-    // }
-
     bool ExpressionEvolutionVisitor::visit( const Nodecl::ComplexLiteral& n )
     {
         return true;

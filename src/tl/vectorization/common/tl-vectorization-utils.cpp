@@ -487,9 +487,6 @@ namespace Utils
 
         if (no_conv.is<Nodecl::Symbol>())
             return no_conv.as<Nodecl::Symbol>().get_symbol();
-        // else if (no_conv.is<Nodecl::Cast>())
-        //     return get_subscripted_symbol(no_conv.as<Nodecl::Cast>().
-        //             get_rhs().no_conv());
                 
         internal_error("Invalid subscripted node\n", 0);
     }

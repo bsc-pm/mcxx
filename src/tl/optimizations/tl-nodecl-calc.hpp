@@ -70,7 +70,6 @@ namespace Optimizations {
         Ret visit(const Nodecl::Dereference& n);
         Ret visit(const Nodecl::ArraySubscript& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);
-        // Ret visit(const Nodecl::Cast& n);
         Ret visit(const Nodecl::FunctionCall& n);
         Ret visit(const Nodecl::VirtualFunctionCall& n);
         Ret visit(const Nodecl::Equal& n);

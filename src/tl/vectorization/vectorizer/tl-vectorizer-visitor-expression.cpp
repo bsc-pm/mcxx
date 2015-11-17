@@ -612,12 +612,6 @@ namespace Vectorization
                     "Vectorizer: ArraySubscript has not been linearized: %s",
                     n.prettyprint().c_str());
 
-            // if (subscripted.is<Nodecl::Cast>())
-            // {
-            //     subscripted = Nodecl::Utils::advance_conversions(
-            //             subscripted.as<Nodecl::Cast>().get_rhs());
-            // }
-
             // Get a scatter for real scatter or unaligned store extra flag
             gather_copy = Vectorizer::_vectorizer_analysis->shallow_copy(array);
             base = gather_copy.as<Nodecl::ArraySubscript>().get_subscripted();
@@ -809,12 +803,6 @@ namespace Vectorization
                     get_subscripts().as<Nodecl::List>().size() > 1,
                     "Vectorizer: ArraySubscript has not been linearized: %s",
                     lhs.prettyprint().c_str());
-
-            // if (subscripted.is<Nodecl::Cast>())
-            // {
-            //     subscripted = Nodecl::Utils::advance_conversions(
-            //             subscripted.as<Nodecl::Cast>().get_rhs());
-            // }
 
             ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
                     "Vectorizer: ArraySubscript form not supported yet: %s",
@@ -1415,35 +1403,6 @@ namespace Vectorization
             }
         }
     }
-
-#if 0
-    void VectorizerVisitorExpression::visit(const Nodecl::Cast& n)
-    {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        Nodecl::NodeclBase rhs = n.get_rhs();
-        walk(rhs);
-
-        Nodecl::VectorConversion vector_conv =
-            Nodecl::VectorConversion::make(
-                    rhs.shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._vectorization_factor),
-                    n.get_locus());
-
-        if(rhs.is_constant())
-            vector_conv.set_constant(rhs.get_constant());
-
-        /*
-           printf("Casting %s %s\n",
-           Utils::get_qualified_vector_to(n.get_type(), _environment._vectorization_factor).get_simple_declaration(n.retrieve_context(), "").c_str(),
-           n.get_rhs().get_type().get_simple_declaration(n.retrieve_context(), "").c_str());
-         */
-        n.replace(vector_conv);
-    }
-#endif
 
     void VectorizerVisitorExpression::visit(const Nodecl::ArraySubscript& n)
     {

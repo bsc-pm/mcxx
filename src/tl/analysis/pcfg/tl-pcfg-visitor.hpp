@@ -282,7 +282,6 @@ namespace Analysis {
         Ret visit( const Nodecl::BooleanLiteral& n );
         Ret visit( const Nodecl::BreakStatement& n );
         Ret visit( const Nodecl::CaseStatement& n );
-        // Ret visit( const Nodecl::Cast& n );
         Ret visit( const Nodecl::CatchHandler& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::Comma& n );

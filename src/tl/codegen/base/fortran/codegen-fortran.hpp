@@ -137,7 +137,6 @@ namespace Codegen
             void visit(const Nodecl::PragmaCustomDirective& node);
             void visit(const Nodecl::PragmaClauseArg& node);
             void visit(const Nodecl::SourceComment& node);
-            // void visit(const Nodecl::Cast& node);
             void visit(const Nodecl::Sizeof& node);
             void visit(const Nodecl::Alignof& node);
 

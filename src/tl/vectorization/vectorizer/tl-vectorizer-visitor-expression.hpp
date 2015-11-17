@@ -83,7 +83,6 @@ namespace TL
 
                 virtual void visit(const Nodecl::Assignment& n);
                 virtual void visit(const Nodecl::Conversion& n);
-                // virtual void visit(const Nodecl::Cast& n);
                 virtual void visit(const Nodecl::ArraySubscript& n);
                 virtual void visit(const Nodecl::FunctionCall& n);
                 virtual void visit(const Nodecl::Symbol& n);

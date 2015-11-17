@@ -12086,9 +12086,9 @@ static void check_nodecl_explicit_type_conversion(
         nodecl_t nodecl_expr_list = nodecl_get_child(nodecl_explicit_initializer, 0);
 
         // T(e) behaves like (T)e but we have to be careful to avoid
-        // constructing NODECL_CAST nodes when type_info is a dependent or
+        // constructing NODECL_CONVERSION nodes when type_info is a dependent or
         // when n is type-dependent (if n is only value-dependent then it is fine
-        // to have a NODECL_CAST)
+        // to have a NODECL_CONVERSION)
         nodecl_t n = nodecl_null();
         if (nodecl_list_length(nodecl_expr_list) == 1)
         {
@@ -12106,7 +12106,7 @@ static void check_nodecl_explicit_type_conversion(
                     locus,
                     nodecl_output);
 
-            // Nothing else to do here, this NODECL_CAST is sensible
+            // Nothing else to do here, this NODECL_CONVERSION is sensible
             return;
         }
         else

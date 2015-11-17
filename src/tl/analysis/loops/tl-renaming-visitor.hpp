@@ -108,7 +108,6 @@ namespace Analysis {
         Ret visit( const Nodecl::BitwiseXor& n );
         Ret visit( const Nodecl::BitwiseXorAssignment& n );
         Ret visit( const Nodecl::BooleanLiteral& n );
-        // Ret visit( const Nodecl::Cast& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::ComplexLiteral& n );
         Ret visit( const Nodecl::ConditionalExpression& n );

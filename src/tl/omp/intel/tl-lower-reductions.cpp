@@ -570,16 +570,18 @@ namespace TL
                 it != pairs.end();
                 it++)
         {
+            Nodecl::NodeclBase cast;
             initializers.append(
-                    Nodecl::Cast::make(
+                    cast = Nodecl::Conversion::make(
                         it->vertical_combiner.make_nodecl(),
-                        ptr_fun_type,
-                        /* cast_type */ "C"));
+                        ptr_fun_type));
+            cast.set_text("C");
+
             initializers.append(
-                    Nodecl::Cast::make(
+                    cast = Nodecl::Conversion::make(
                         it->horizontal_combiner.make_nodecl(),
-                        ptr_fun_type,
-                        /* cast_type */ "C"));
+                        ptr_fun_type));
+            cast.set_text("C");
         }
 
         Nodecl::NodeclBase array_initializer =
