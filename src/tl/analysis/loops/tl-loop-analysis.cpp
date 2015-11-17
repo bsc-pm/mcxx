@@ -30,7 +30,6 @@
 #include "cxx-utils.h"
 
 #include "tl-expression-reduction.hpp"
-#include "tl-renaming-visitor.hpp"
 #include "tl-loop-analysis.hpp"
 
 namespace TL {

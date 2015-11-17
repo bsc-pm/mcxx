@@ -1343,7 +1343,6 @@ src_tl_analysis_loops_libloops_analysis_la_SOURCES = src/tl/analysis/loops/tl-iv
                                src/tl/analysis/loops/tl-iv-analysis.cpp \
                                src/tl/analysis/loops/tl-loop-analysis.hpp \
                                src/tl/analysis/loops/tl-loop-analysis.cpp \
-                               src/tl/analysis/loops/tl-renaming-visitor.hpp \
                                $(END)
 
 ##########################################################################
