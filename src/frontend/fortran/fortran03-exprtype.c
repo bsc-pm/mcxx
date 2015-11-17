@@ -5379,7 +5379,7 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
                 && !is_target)
         {
             // If the variable is not a POINTER, not a TARGET or not a subobject of a TARGET, error
-            error_printf_at(ast_get_locus(expr), "symbol name in right hand side f pointer assignment is not a POINTER or TARGET data-reference\n");
+            error_printf_at(ast_get_locus(expr), "symbol name in right hand side of pointer assignment is not a POINTER or TARGET data-reference\n");
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
         }

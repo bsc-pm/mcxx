@@ -407,6 +407,7 @@ namespace Codegen
 
             bool is_fortran_representable_pointer(TL::Type t);
 
+            bool requires_explicit_cast(const Nodecl::Conversion& node);
             void codegen_casting(
                     TL::Type dest_type, 
                     TL::Type source_type, 
