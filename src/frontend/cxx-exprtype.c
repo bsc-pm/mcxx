@@ -25256,7 +25256,7 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type,
                 && is_pointer_type(dest_type)
                 && !standard_conversion_between_types(&scs_dummy, expr_type, dest_type, locus))
         {
-            warn_printf_at(locus, "conversion from pointer type '%s' to different pointer types '%s'\n",
+            warn_printf_at(locus, "conversion from pointer type '%s' to unrelated pointer type '%s'\n",
                     print_type_str(expr_type, decl_context),
                     print_type_str(dest_type, decl_context));
         }
