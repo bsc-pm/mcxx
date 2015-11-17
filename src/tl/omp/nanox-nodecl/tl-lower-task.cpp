@@ -2809,6 +2809,10 @@ void LoweringVisitor::fortran_dependence_extra_check(
         {
             n = n.as<Nodecl::Dereference>().get_rhs();
         }
+        else if (n.is<Nodecl::Conversion>())
+        {
+            n = n.as<Nodecl::Conversion>().get_nest();
+        }
         else
         {
             break;
@@ -2948,6 +2952,11 @@ void LoweringVisitor::handle_dependency_item(
         Nodecl::NodeclBase n = dep_expr;
         if (n.is<Nodecl::ArraySubscript>())
             n = n.as<Nodecl::ArraySubscript>().get_subscripted();
+
+        n = n.no_conv();
+        ERROR_CONDITION(!n.is<Nodecl::Dereference>(), "Invalid node", 0);
+        n = n.as<Nodecl::Dereference>().get_rhs();
+
         n = n.shallow_copy();
 
         Source check_for_allocated_src;
