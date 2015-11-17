@@ -393,7 +393,7 @@ static void check_ac_value_list(
             if (stride != NULL)
             {
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
-                nodecl_stride = fortran_expression_as_variable(nodecl_stride);
+                nodecl_stride = fortran_expression_as_value(nodecl_stride);
             }
             else
             {
