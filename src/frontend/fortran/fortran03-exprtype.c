@@ -1838,7 +1838,6 @@ static void check_component_ref_(AST expr,
     }
     else
     {
-        // Redundant: here for the sake of clarity
         synthesized_type = rhs_type;
     }
 
