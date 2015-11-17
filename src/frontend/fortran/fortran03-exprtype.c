@@ -1900,6 +1900,11 @@ static void check_component_ref_(AST expr,
         if (fortran_is_array_type(component_type)
                 || fortran_is_pointer_to_array_type(component_type))
         {
+            if (is_any_reference_type(synthesized_type)
+                    && fortran_is_pointer_to_array_type(no_ref(synthesized_type)))
+            {
+                *nodecl_output = fortran_expression_as_variable(*nodecl_output);
+            }
             check_array_ref_(rhs, decl_context, *nodecl_output, *nodecl_output, nodecl_output,
                     do_complete_array_ranks, require_lower_bound);
 
@@ -1928,6 +1933,11 @@ static void check_component_ref_(AST expr,
         else if (fortran_is_character_type(no_ref(component_type))
                 || fortran_is_pointer_to_character_type(no_ref(component_type)))
         {
+            if (is_any_reference_type(synthesized_type)
+                    && fortran_is_pointer_to_character_type(no_ref(synthesized_type)))
+            {
+                *nodecl_output = fortran_expression_as_variable(*nodecl_output);
+            }
             check_substring(rhs, decl_context, *nodecl_output, nodecl_output);
         }
         else
