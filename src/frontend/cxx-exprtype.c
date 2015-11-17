@@ -12029,11 +12029,13 @@ static void check_nodecl_cast_expr(
         }
     }
 
+    diagnostic_context_push_buffered();
     *nodecl_output = cxx_nodecl_make_conversion(
             nodecl_casted_expr,
             declarator_type,
             decl_context,
             locus);
+    diagnostic_context_pop_and_discard();
 
     if (nodecl_get_kind(*nodecl_output) != NODECL_CONVERSION
             || nodecl_get_text(*nodecl_output) != NULL)
