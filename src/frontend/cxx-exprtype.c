@@ -11526,17 +11526,20 @@ static char conversion_is_valid_reinterpret_cast(
 
     // reinterpret_cast<T&>(x) is valid if reinterpret_cast<T*>(&x) is valid
     // reinterpret_cast<T&&>(x) is valid if reinterpret_cast<T*>(&x) is valid
-    nodecl_t n = nodecl_make_type(get_pointer_type(orig_type), NULL);
     if (is_any_reference_type(dest_type)
-            && conversion_is_valid_reinterpret_cast(
-                &n,
-                get_pointer_type(dest_type),
-                decl_context))
+            && is_lvalue_reference_type(orig_type))
     {
+        nodecl_t n = nodecl_make_type(get_pointer_type(no_ref(orig_type)), NULL);
+        if (conversion_is_valid_reinterpret_cast(
+                    &n,
+                    get_pointer_type(dest_type),
+                    decl_context))
+        {
+            nodecl_free(n);
+            RETURN(1);
+        }
         nodecl_free(n);
-        RETURN(1);
     }
-    nodecl_free(n);
 
     RETURN(0);
 
