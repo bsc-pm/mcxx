@@ -523,7 +523,8 @@ namespace Vectorization
 
             CXX_LANGUAGE()
             {
-                result_stmt_list.append(
+                Nodecl::Utils::add_statements_at_beginning_of_function(
+                        loop_statement,
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             mask_nodecl_sym.get_symbol(),

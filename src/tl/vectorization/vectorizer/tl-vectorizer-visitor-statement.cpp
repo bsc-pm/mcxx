@@ -203,7 +203,8 @@ namespace Vectorization
             main_loop_control.set_init(Nodecl::NodeclBase::null());
             CXX_LANGUAGE()
             {
-                n.prepend_sibling(
+                Nodecl::Utils::add_statements_at_beginning_of_function(
+                        n,
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             mask_condition_symbol.get_symbol(),
@@ -371,7 +372,8 @@ namespace Vectorization
 
             CXX_LANGUAGE()
             {
-                list.append(
+                Nodecl::Utils::add_statements_at_beginning_of_function(
+                        n,
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             mask_condition_symbol.get_symbol(),
@@ -421,7 +423,8 @@ namespace Vectorization
             // Add masks to the source code
             CXX_LANGUAGE()
             {
-                list.append(
+                Nodecl::Utils::add_statements_at_beginning_of_function(
+                        n,
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             if_mask_symbol.get_symbol(),
@@ -467,7 +470,8 @@ namespace Vectorization
             // Add masks to the source code
             CXX_LANGUAGE()
             {
-                list.append(
+                Nodecl::Utils::add_statements_at_beginning_of_function(
+                        n,
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             else_mask_symbol.get_symbol(),
@@ -604,7 +608,8 @@ namespace Vectorization
 
                 CXX_LANGUAGE()
                 {
-                    list.append(
+                    Nodecl::Utils::add_statements_at_beginning_of_function(
+                            n,
                             Nodecl::CxxDef::make(
                                 Nodecl::NodeclBase::null(),
                                 new_exit_mask.get_symbol(),
