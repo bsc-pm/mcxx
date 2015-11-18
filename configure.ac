@@ -2364,6 +2364,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-parallel-simd-avx2
            tests/config/mercurium-serial-simd-mic
            tests/config/mercurium-parallel-simd-mic
+           tests/config/mercurium-serial-simd-romol
            tests/config/mercurium-cuda
            tests/config/mercurium-opencl
            tests/config/mercurium-analysis

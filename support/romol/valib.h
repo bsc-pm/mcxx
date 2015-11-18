@@ -4,30 +4,37 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Vector registers
+#define MAX_VECTOR_LENGTH 64
+
 typedef
-enum VRegId_tag
+union valib_vector_t {
+#define INTVEC(bytes) \
+    int##bytes##_t int##bytes[MAX_VECTOR_LENGTH]; \
+    uint##bytes##_t uint##bytes[MAX_VECTOR_LENGTH];
+    INTVEC(8)
+    INTVEC(16)
+    INTVEC(32)
+    INTVEC(64)
+#undef INTVEC
+
+    float fl[MAX_VECTOR_LENGTH];
+    double db[MAX_VECTOR_LENGTH];
+} valib_vector_t;
+
+typedef union valib_mask_t
 {
-    V_0,  V_1,  V_2,  V_3,  V_4,  V_5,  V_6,  V_7,
-    V_8,  V_9,  V_10, V_11, V_12, V_13, V_14, V_15,
-    V_16, V_17, V_18, V_19, V_20, V_21, V_22, V_23,
-    V_24, V_25, V_26, V_27, V_28, V_29, V_30, V_31
-};
+    char m[MAX_VECTOR_LENGTH / 8 + !!(MAX_VECTOR_LENGTH % 8)];
+} valib_mask_t;
 
+// FIXME - Temporary workaround until we implement the missing bits in vector lowering
+static valib_vector_t _force_vector_to_appear;
+static valib_mask_t _force_mask_to_appear;
 
-// Mask registers
-typedef
-enum MaskRegId_tag
-{
-    M_0, M_1, M_2, M_3, M_4, M_5, M_6, M_7
-};
-
-// These aliases will be internally used by Mercurium
-// Make sure you tag the intrinsic with the proper directionality
-typedef enum VRegId_tag VDestRegId;
-typedef enum VRegId_tag VSrcRegId;
-typedef enum MaskRegId_tag MaskDestRegId;
-typedef enum MaskRegId_tag MaskSrcRegId;
+// Aliases to document the directionality
+typedef valib_vector_t VDestRegId;
+typedef valib_vector_t VSrcRegId;
+typedef valib_mask_t MaskDestRegId;
+typedef valib_mask_t MaskSrcRegId;
 
 // -------------------------------------------------------
 // Vector arithmetic (unmasked)
@@ -53,6 +60,8 @@ void valib_##op##_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, VSrcRegId 
 ARITH_BINOP(add)
 ARITH_BINOP(sub)
 ARITH_BINOP(mul)
+ARITH_BINOP(div)
+ARITH_BINOP(mod)
 
 #define ARITH_UNOP(op) \
 void valib_##op##_db_db (VDestRegId dest, VSrcRegId src); \
@@ -98,6 +107,8 @@ void valib_##op##m_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, VSrcRegId
 ARITH_BINOP_MASK(add)
 ARITH_BINOP_MASK(sub)
 ARITH_BINOP_MASK(mul)
+ARITH_BINOP_MASK(div)
+ARITH_BINOP_MASK(mod)
 
 #define ARITH_UNOP_MASK(op) \
 void valib_##op##m_db_db (VDestRegId dest, VSrcRegId src, MaskSrcRegId mr); \
@@ -141,6 +152,8 @@ void valib_##op##s_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, int8_t sr
 ARITH_BINOP_SCALAR(add)
 ARITH_BINOP_SCALAR(sub)
 ARITH_BINOP_SCALAR(mul)
+ARITH_BINOP_SCALAR(div)
+ARITH_BINOP_SCALAR(mod)
 
 // -------------------------------------------------------
 // Mixed vector/scalar arithmetic (masked)
@@ -167,6 +180,8 @@ void valib_##op##sm_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, int8_t s
 ARITH_BINOP_SCALAR_MASK(add)
 ARITH_BINOP_SCALAR_MASK(sub)
 ARITH_BINOP_SCALAR_MASK(mul)
+ARITH_BINOP_SCALAR_MASK(div)
+ARITH_BINOP_SCALAR_MASK(mod)
 
 // -------------------------------------------------------
 // Bitwise operations (vector)
@@ -242,6 +257,13 @@ void valib_ld_int32 ( VDestRegId dest, int32_t * address);
 void valib_ld_int16 ( VDestRegId dest, int16_t * address);
 void valib_ld_int8 ( VDestRegId dest, int8_t * address);
 
+void valib_ldm_db ( VDestRegId dest, double * address, MaskSrcRegId msrc);
+void valib_ldm_fl ( VDestRegId dest, float * address, MaskSrcRegId msrc);
+void valib_ldm_int64 ( VDestRegId dest, int64_t * address, MaskSrcRegId msrc);
+void valib_ldm_int32 ( VDestRegId dest, int32_t * address, MaskSrcRegId msrc);
+void valib_ldm_int16 ( VDestRegId dest, int16_t * address, MaskSrcRegId msrc);
+void valib_ldm_int8 ( VDestRegId dest, int8_t * address, MaskSrcRegId msrc);
+
 // *ADDRESS <- SRC
 void valib_st_db ( VSrcRegId src, double * address);
 void valib_st_fl ( VSrcRegId src, float * address);
@@ -249,6 +271,13 @@ void valib_st_int64 ( VSrcRegId src, int64_t * address);
 void valib_st_int32 ( VSrcRegId src, int32_t * address);
 void valib_st_int16 ( VSrcRegId src, int16_t * address);
 void valib_st_int8 ( VSrcRegId src, int8_t * address);
+
+void valib_stm_db ( VSrcRegId src, double * address, MaskSrcRegId msrc);
+void valib_stm_fl ( VSrcRegId src, float * address, MaskSrcRegId msrc);
+void valib_stm_int64 ( VSrcRegId src, int64_t * address, MaskSrcRegId msrc);
+void valib_stm_int32 ( VSrcRegId src, int32_t * address, MaskSrcRegId msrc);
+void valib_stm_int16 ( VSrcRegId src, int16_t * address, MaskSrcRegId msrc);
+void valib_stm_int8 ( VSrcRegId src, int8_t * address, MaskSrcRegId msrc);
 
 // -------------------------------------------------------
 // Gather/Scatter
@@ -313,8 +342,242 @@ void valib_set_int8 (VDestRegId dest, int8_t src);
 void valib_set_uint8 (VDestRegId dest, uint8_t src);
 
 // -------------------------------------------------------
+// Vector conversions (unmasked)
+// -------------------------------------------------------
+// valib_cvm_SRC_DEST
+
+// Integer conversions/promotions
+
+void valib_cv_int8_int16(VDestRegId dest, VDestRegId src);
+void valib_cv_int8_int32(VDestRegId dest, VDestRegId src);
+void valib_cv_int8_int64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_int16_int8(VDestRegId dest, VDestRegId src);
+void valib_cv_int16_int32(VDestRegId dest, VDestRegId src);
+void valib_cv_int16_int64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_int32_int8(VDestRegId dest, VDestRegId src);
+void valib_cv_int32_int16(VDestRegId dest, VDestRegId src);
+void valib_cv_int32_int64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_int64_int8(VDestRegId dest, VDestRegId src);
+void valib_cv_int64_int16(VDestRegId dest, VDestRegId src);
+void valib_cv_int64_int32(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint8_uint16(VDestRegId dest, VDestRegId src);
+void valib_cv_uint8_uint32(VDestRegId dest, VDestRegId src);
+void valib_cv_uint8_uint64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint16_uint8(VDestRegId dest, VDestRegId src);
+void valib_cv_uint16_uint32(VDestRegId dest, VDestRegId src);
+void valib_cv_uint16_uint64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint32_uint8(VDestRegId dest, VDestRegId src);
+void valib_cv_uint32_uint16(VDestRegId dest, VDestRegId src);
+void valib_cv_uint32_uint64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint64_uint8(VDestRegId dest, VDestRegId src);
+void valib_cv_uint64_uint16(VDestRegId dest, VDestRegId src);
+void valib_cv_uint64_uint32(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint8_int16(VDestRegId dest, VDestRegId src);
+void valib_cv_uint8_int32(VDestRegId dest, VDestRegId src);
+void valib_cv_uint8_int64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint16_int8(VDestRegId dest, VDestRegId src);
+void valib_cv_uint16_int32(VDestRegId dest, VDestRegId src);
+void valib_cv_uint16_int64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint32_int8(VDestRegId dest, VDestRegId src);
+void valib_cv_uint32_int16(VDestRegId dest, VDestRegId src);
+void valib_cv_uint32_int64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint64_int8(VDestRegId dest, VDestRegId src);
+void valib_cv_uint64_int16(VDestRegId dest, VDestRegId src);
+void valib_cv_uint64_int32(VDestRegId dest, VDestRegId src);
+
+void valib_cv_int8_uint16(VDestRegId dest, VDestRegId src);
+void valib_cv_int8_uint32(VDestRegId dest, VDestRegId src);
+void valib_cv_int8_uint64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_int16_uint8(VDestRegId dest, VDestRegId src);
+void valib_cv_int16_uint32(VDestRegId dest, VDestRegId src);
+void valib_cv_int16_uint64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_int32_uint8(VDestRegId dest, VDestRegId src);
+void valib_cv_int32_uint16(VDestRegId dest, VDestRegId src);
+void valib_cv_int32_uint64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_int64_uint8(VDestRegId dest, VDestRegId src);
+void valib_cv_int64_uint16(VDestRegId dest, VDestRegId src);
+void valib_cv_int64_uint32(VDestRegId dest, VDestRegId src);
+
+// Floating conversions/promotions
+
+void valib_cv_int8_fl(VDestRegId dest, VDestRegId src);
+void valib_cv_int16_fl(VDestRegId dest, VDestRegId src);
+void valib_cv_int32_fl(VDestRegId dest, VDestRegId src);
+void valib_cv_int64_fl(VDestRegId dest, VDestRegId src);
+
+void valib_cv_int8_db(VDestRegId dest, VDestRegId src);
+void valib_cv_int16_db(VDestRegId dest, VDestRegId src);
+void valib_cv_int32_db(VDestRegId dest, VDestRegId src);
+void valib_cv_int64_db(VDestRegId dest, VDestRegId src);
+
+void valib_cv_fl_int8(VDestRegId dest, VDestRegId src);
+void valib_cv_fl_int16(VDestRegId dest, VDestRegId src);
+void valib_cv_fl_int32(VDestRegId dest, VDestRegId src);
+void valib_cv_fl_int64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_db_int8(VDestRegId dest, VDestRegId src);
+void valib_cv_db_int16(VDestRegId dest, VDestRegId src);
+void valib_cv_db_int32(VDestRegId dest, VDestRegId src);
+void valib_cv_db_int64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint8_fl(VDestRegId dest, VDestRegId src);
+void valib_cv_uint16_fl(VDestRegId dest, VDestRegId src);
+void valib_cv_uint32_fl(VDestRegId dest, VDestRegId src);
+void valib_cv_uint64_fl(VDestRegId dest, VDestRegId src);
+
+void valib_cv_uint8_db(VDestRegId dest, VDestRegId src);
+void valib_cv_uint16_db(VDestRegId dest, VDestRegId src);
+void valib_cv_uint32_db(VDestRegId dest, VDestRegId src);
+void valib_cv_uint64_db(VDestRegId dest, VDestRegId src);
+
+void valib_cv_fl_uint8(VDestRegId dest, VDestRegId src);
+void valib_cv_fl_uint16(VDestRegId dest, VDestRegId src);
+void valib_cv_fl_uint32(VDestRegId dest, VDestRegId src);
+void valib_cv_fl_uint64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_db_uint8(VDestRegId dest, VDestRegId src);
+void valib_cv_db_uint16(VDestRegId dest, VDestRegId src);
+void valib_cv_db_uint32(VDestRegId dest, VDestRegId src);
+void valib_cv_db_uint64(VDestRegId dest, VDestRegId src);
+
+void valib_cv_db_fl(VDestRegId dest, VDestRegId src);
+void valib_cv_fl_db(VDestRegId dest, VDestRegId src);
+
+// -------------------------------------------------------
+// Vector conversions (masked)
+// -------------------------------------------------------
+// valib_cvm_SRC_DEST
+
+// Integer conversions/promotions
+
+void valib_cvm_int8_int16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int8_int32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int8_int64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_int16_int8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int16_int32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int16_int64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_int32_int8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int32_int16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int32_int64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_int64_int8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int64_int16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int64_int32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint8_uint16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint8_uint32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint8_uint64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint16_uint8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint16_uint32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint16_uint64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint32_uint8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint32_uint16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint32_uint64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint64_uint8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint64_uint16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint64_uint32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint8_int16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint8_int32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint8_int64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint16_int8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint16_int32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint16_int64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint32_int8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint32_int16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint32_int64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint64_int8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint64_int16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint64_int32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_int8_uint16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int8_uint32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int8_uint64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_int16_uint8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int16_uint32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int16_uint64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_int32_uint8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int32_uint16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int32_uint64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_int64_uint8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int64_uint16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int64_uint32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+// Floating conversions/promotions
+
+void valib_cvm_int8_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int16_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int32_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int64_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_int8_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int16_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int32_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_int64_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_fl_int8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_fl_int16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_fl_int32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_fl_int64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_db_int8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_db_int16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_db_int32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_db_int64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint8_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint16_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint32_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint64_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_uint8_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint16_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint32_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_uint64_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_fl_uint8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_fl_uint16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_fl_uint32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_fl_uint64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_db_uint8(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_db_uint16(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_db_uint32(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_db_uint64(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+void valib_cvm_db_fl(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+void valib_cvm_fl_db(VDestRegId dest, VDestRegId src, MaskSrcRegId mask);
+
+// -------------------------------------------------------
 // Mask operations
 // -------------------------------------------------------
+
+void valib_mask_mov(MaskDestRegId dest, MaskSrcRegId src);
 
 void valib_mask_all(MaskDestRegId dest);
 void valib_mask_none(MaskDestRegId dest);
@@ -324,10 +587,29 @@ bool valib_mask_is_zero(MaskSrcRegId src);
 void valib_mask_or(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
 void valib_mask_and(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
 void valib_mask_xor(MaskDestRegId dest, MaskSrcRegId src1, MaskSrcRegId src2);
+void valib_mask_not(MaskDestRegId dest, MaskSrcRegId src);
 
 int32_t valib_mask_clz(MaskSrcRegId src); // count leading zeros
 int32_t valib_mask_ctz(MaskSrcRegId src); // count trailing zeros
 int32_t valib_mask_popcount(MaskSrcRegId src);
+
+// -------------------------------------------------------
+// Selection
+// -------------------------------------------------------
+// dest is formed by elements of src2 where src1 is 1, src3 otherwise
+
+void valib_select_int8 (VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int16(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int32(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int64(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+
+void valib_select_int8 (VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int16(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int32(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_int64(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+
+void valib_select_fl(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
+void valib_select_db(VDestRegId dest, MaskSrcRegId src1, VSrcRegId src2, VSrcRegId src3);
 
 // -------------------------------------------------------
 // Insert/extract

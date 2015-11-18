@@ -333,18 +333,22 @@ namespace Utils
     Nodecl::MaskLiteral get_contiguous_mask_literal(const int size,
             const int num_active_lanes)
     {
+        int bytes = size / 8;
+        if (bytes == 0) bytes = 1;
+
         if (num_active_lanes == 0)
         {
+
             return Nodecl::MaskLiteral::make(
                     TL::Type::get_mask_type(/* bits */ size),
-                    const_value_get_zero(/*bytes */ size * 8, /* sign */ 0));
+                    const_value_get_zero(bytes, /* sign */ 0));
         }
 
         if ( size == num_active_lanes)
         {
             return Nodecl::MaskLiteral::make(
                     TL::Type::get_mask_type(/* bits */ size),
-                    const_value_get_minus_one(/* bytes */ size * 8, /* sign */ 0));
+                    const_value_get_minus_one(bytes, /* sign */ 0));
         }
 
         const_value_t* mask_value;
@@ -354,7 +358,7 @@ namespace Utils
         value <<= num_active_lanes;
         value = ~value;
 
-        mask_value = const_value_get_integer(value, size * 8, 0);
+        mask_value = const_value_get_integer(value, bytes, 0);
 
 #if 0
         if (size == 16)

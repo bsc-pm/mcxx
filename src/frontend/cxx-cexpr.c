@@ -798,6 +798,7 @@ uint64_t const_value_cast_to_8(const_value_t* val)
     switch (val->kind)
     {
         case CVK_INTEGER:
+        case CVK_MASK:
             return val->value.i;
         case CVK_FLOAT:
             return val->value.f;
@@ -819,6 +820,7 @@ unsigned __int128 const_value_cast_to_16(const_value_t* val)
     switch (val->kind)
     {
         case CVK_INTEGER:
+        case CVK_MASK:
             return val->value.i;
         case CVK_FLOAT:
             return val->value.f;
@@ -840,6 +842,7 @@ uint32_t const_value_cast_to_4(const_value_t* val)
     switch (val->kind)
     {
         case CVK_INTEGER:
+        case CVK_MASK:
             return val->value.i;
         case CVK_FLOAT:
             return val->value.f;
@@ -860,6 +863,7 @@ uint16_t const_value_cast_to_2(const_value_t* val)
     switch (val->kind)
     {
         case CVK_INTEGER:
+        case CVK_MASK:
             return val->value.i;
         case CVK_FLOAT:
             return val->value.f;
@@ -880,6 +884,7 @@ uint8_t const_value_cast_to_1(const_value_t* val)
     switch (val->kind)
     {
         case CVK_INTEGER:
+        case CVK_MASK:
             return val->value.i;
         case CVK_FLOAT:
             return val->value.f;
@@ -909,6 +914,7 @@ type const_value_cast_to_##typename(const_value_t* val) \
     switch (val->kind) \
     { \
         case CVK_INTEGER: \
+        case CVK_MASK: \
             return val->value.i; \
         case CVK_FLOAT: \
             return val->value.f; \

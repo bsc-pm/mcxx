@@ -37,19 +37,34 @@ namespace TL
         {
         }
 
+        namespace
+        {
+            std::string canonicalize_reduction_name(const std::string& red_name)
+            {
+                if (IS_C_LANGUAGE)
+                    return red_name;
+
+                // C++
+                std::string operator_ = "operator ";
+                if (red_name.substr(0, operator_.size()) == operator_)
+                {
+                    // "operator #" -> "#"
+                    return red_name.substr(operator_.size());
+                }
+                else
+                {
+                    return red_name;
+                }
+            }
+        }
+
         bool VectorizerVectorReduction::is_supported_reduction(bool is_builtin,
                 const std::string& reduction_name,
                 const TL::Type& reduction_type)
         {
             if(is_builtin)
             {
-                std::string red_name = reduction_name;
-                std::string operator_ = "operator ";
-                if (red_name.substr(0, operator_.size()) == operator_)
-                {
-                    // "operator #" -> "#"
-                    red_name = red_name.substr(operator_.size());
-                }
+                std::string red_name = canonicalize_reduction_name(reduction_name);
 
                 if(_environment._device.compare("smp") == 0)
                 {
@@ -152,9 +167,10 @@ namespace TL
 
             pre_nodecls.append(reduction_object_init);
 
+            std::string red_name = canonicalize_reduction_name(reduction_name);
 
             // Step2: ADD VECTOR REDUCTION INSTRUCTIONS
-            if(reduction_name.compare("+") == 0)
+            if(red_name.compare("+") == 0)
             {
                 Nodecl::ExpressionStatement post_reduction_stmt =
                     Nodecl::ExpressionStatement::make(
@@ -168,7 +184,7 @@ namespace TL
 
                 post_nodecls.append(post_reduction_stmt);
             }
-            else if (reduction_name.compare("-") == 0)
+            else if (red_name.compare("-") == 0)
             {
                 Nodecl::ExpressionStatement post_reduction_stmt =
                     Nodecl::ExpressionStatement::make(
@@ -181,6 +197,10 @@ namespace TL
                                 scalar_symbol.get_type()));
 
                 post_nodecls.append(post_reduction_stmt);
+            }
+            else
+            {
+                internal_error("Code unreachable reduction_name='%s'", reduction_name.c_str());
             }
         }
     }

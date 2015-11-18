@@ -147,9 +147,11 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: ----- Vectorizing main ForStatement -----\n");
-                fprintf(stderr, "Target type size: %d bytes. Vectorization factor: %d\n",
-                       environment._target_type.get_size(), 
-                       environment._vectorization_factor);
+                if (environment._target_type.is_valid())
+                {
+                    fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
+                }
+                fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
             }
 
             VectorizerVisitorLoop visitor_for(environment);
@@ -163,11 +165,13 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: ----- Vectorizing main WhileStatement -----\n");
-                fprintf(stderr, "Target type size: %d bytes. Vectorization factor: %d\n",
-                       environment._target_type.get_size(),
-                       environment._vectorization_factor);
+                if (environment._target_type.is_valid())
+                {
+                    fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
+                }
+                fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
             }
-            
+
             VectorizerVisitorLoop visitor_for(environment);
             visitor_for.walk(loop_statement.as<Nodecl::ForStatement>());
         }
@@ -192,9 +196,11 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing function HEADER -----\n");
-            fprintf(stderr, "Target type size: %d bytes. Vectorization factor: %d\n",
-                    environment._target_type.get_size(), 
-                    environment._vectorization_factor);
+            if (environment._target_type.is_valid())
+            {
+                fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
+            }
+            fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
         }
 
         VectorizerVisitorFunctionHeader visitor_function_header(environment,
@@ -217,9 +223,11 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing function CODE -----\n");
-            fprintf(stderr, "Target type size: %d bytes. Vectorization factor: %d\n",
-                    environment._target_type.get_size(), 
-                    environment._vectorization_factor);
+            if (environment._target_type.is_valid())
+            {
+                fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
+            }
+            fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
         }
 
         VectorizerVisitorFunction visitor_function(environment, masked_version);
@@ -240,9 +248,11 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing Parallel -----\n");
-            fprintf(stderr, "Target type size: %d bytes. Vectorization factor: %d\n",
-                    environment._target_type.get_size(), 
-                    environment._vectorization_factor);
+            if (environment._target_type.is_valid())
+            {
+                fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
+            }
+            fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
         }
 
         SPMLVectorizerVisitorStatement spml_visitor_stmt(environment);
@@ -306,9 +316,11 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing epilog -----\n");
-            fprintf(stderr, "Target type size: %d bytes. Vectorization factor: %d\n",
-                    environment._target_type.get_size(), 
-                    environment._vectorization_factor);
+            if (environment._target_type.is_valid())
+            {
+                fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
+            }
+            fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
         }
 
         VectorizerVisitorLoopEpilog visitor_epilog(environment,

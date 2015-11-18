@@ -196,6 +196,8 @@ namespace Codegen
             Ret visit(const Nodecl::Typeid &);
             Ret visit(const Nodecl::Unknown &);
             Ret visit(const Nodecl::VirtualFunctionCall &);
+
+#if 0
             Ret visit(const Nodecl::VectorAdd &);
             Ret visit(const Nodecl::VectorAlignRight &);
             Ret visit(const Nodecl::VectorArithmeticShr &);
@@ -223,7 +225,9 @@ namespace Codegen
             Ret visit(const Nodecl::VectorMod &);
             Ret visit(const Nodecl::VectorMul &);
             Ret visit(const Nodecl::VectorPromotion &);
+#endif
             Ret visit(const Nodecl::VectorSubscript &);
+
             Ret visit(const Nodecl::WhileStatement &);
 
             Ret visit(const Nodecl::AsmDefinition& node);

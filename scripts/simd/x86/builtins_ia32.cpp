@@ -23,7 +23,7 @@ struct generate_type<__attribute__((vector_size(N))) T>\
     {\
         std::stringstream ss;\
 \
-        ss << "get_vector_type(" << generate_type<element_type>::g() << ", " << N << ")";\
+        ss << "get_vector_type_by_bytes(" << generate_type<element_type>::g() << ", " << N << ")";\
 \
         return ss.str();\
     }\

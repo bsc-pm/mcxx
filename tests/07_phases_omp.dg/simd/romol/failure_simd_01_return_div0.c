@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2014 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,42 +24,44 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef ROMOL_VECTOR_LEGALIZATION_HPP
-#define ROMOL_VECTOR_LEGALIZATION_HPP
+/*
+<testinfo>
+test_generator=config/mercurium-serial-simd-romol
+test_exec_fail=yes
+</testinfo>
+*/
 
-#include "tl-vectorization-analysis-interface.hpp"
 
-#include "tl-nodecl-base.hpp"
-#include "tl-nodecl-visitor.hpp"
-
-namespace TL
+#pragma omp simd linear(n)
+int foo(int n)
 {
-    namespace Vectorization
+    if (n > 2)
     {
-        class RomolVectorLegalization : public Nodecl::ExhaustiveVisitor<void>
+        if (n < 100)
         {
-            private:
-                VectorizationAnalysisInterface* _analysis;
+            if (n > 50)
+                return 33;
+            return 2;
+        }
+        else
+        {
+            n = n / 0;
+        }
 
-            public:
+        n = n / 0;
+    }
 
-                RomolVectorLegalization();
+    return n;
+}
 
-                virtual void visit(const Nodecl::FunctionCode& n);
+int main()
+{
+    int i;
 
-                virtual void visit(const Nodecl::ObjectInit& n);
-
-                virtual void visit(const Nodecl::VectorConversion& n);
-
-                virtual void visit(const Nodecl::VectorAssignment& n);
-                virtual void visit(const Nodecl::VectorLoad& n);
-                virtual void visit(const Nodecl::VectorStore& n);
-
-                virtual void visit(const Nodecl::VectorMaskAnd1Not& n);
-                virtual void visit(const Nodecl::VectorMaskAnd2Not& n);
-        };
-
+#pragma omp simd
+    for (i=0; i<101; i++)
+    {
+        foo(i);
     }
 }
 
-#endif // ROMOL_VECTOR_LEGALIZATION_HPP

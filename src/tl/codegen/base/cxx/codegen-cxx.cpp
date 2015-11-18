@@ -172,6 +172,10 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(Offset, ".*") \
     BINARY_EXPRESSION(CxxDotPtrMember, ".*") \
     BINARY_EXPRESSION(CxxArrowPtrMember, "->*") \
+
+
+
+#if 0
     BINARY_EXPRESSION(VectorAdd, " + ") \
     BINARY_EXPRESSION(VectorMul, " * ") \
     BINARY_EXPRESSION(VectorDiv, " / ") \
@@ -193,6 +197,8 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
     BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
     BINARY_EXPRESSION_ASSIG(VectorMaskAssignment, " = ") \
+
+#endif
  
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
@@ -4464,6 +4470,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ true);
 }
 
+#if 0
 CxxBase::Ret CxxBase::visit(const Nodecl::VectorAlignRight& node)
 {
     indent();
@@ -4529,6 +4536,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VectorPromotion& node)
     walk(node.get_rhs());
     *(file) << "}";
 }
+#endif
 
 // Bug in GCC 4.4
 template CxxBase::Ret CxxBase::visit_function_call<Nodecl::VirtualFunctionCall>(const Nodecl::VirtualFunctionCall& node, bool is_virtual_call);

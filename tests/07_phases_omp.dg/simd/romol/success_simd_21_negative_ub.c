@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2014 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,42 +24,72 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef ROMOL_VECTOR_LEGALIZATION_HPP
-#define ROMOL_VECTOR_LEGALIZATION_HPP
+/*
+<testinfo>
+test_CFLAGS=--only-adjacent-accesses
+test_generator=config/mercurium-serial-simd-romol
+</testinfo>
+*/
 
-#include "tl-vectorization-analysis-interface.hpp"
+#include <stdio.h>
 
-#include "tl-nodecl-base.hpp"
-#include "tl-nodecl-visitor.hpp"
-
-namespace TL
+int __attribute__((noinline)) test (int sizey,
+        int *u)
 {
-    namespace Vectorization
-    {
-        class RomolVectorLegalization : public Nodecl::ExhaustiveVisitor<void>
-        {
-            private:
-                VectorizationAnalysisInterface* _analysis;
+    int sum =0;
+    int j;
 
-            public:
+#pragma omp simd reduction(+:sum) suitable(sizey)
+                for (j=1; j <= sizey-2; j++)
+                {
+                    sum += u[j];
+                }
 
-                RomolVectorLegalization();
-
-                virtual void visit(const Nodecl::FunctionCode& n);
-
-                virtual void visit(const Nodecl::ObjectInit& n);
-
-                virtual void visit(const Nodecl::VectorConversion& n);
-
-                virtual void visit(const Nodecl::VectorAssignment& n);
-                virtual void visit(const Nodecl::VectorLoad& n);
-                virtual void visit(const Nodecl::VectorStore& n);
-
-                virtual void visit(const Nodecl::VectorMaskAnd1Not& n);
-                virtual void visit(const Nodecl::VectorMaskAnd2Not& n);
-        };
-
-    }
+    return sum;
 }
 
-#endif // ROMOL_VECTOR_LEGALIZATION_HPP
+
+int main( int argc, char *argv[] )
+{
+    int i, result;
+    int a[101];
+
+    for(i=0; i<101; i++)
+    {
+        a[i] = 1;
+    }
+
+    result = test(96, a);
+
+    if (result != 94)
+    {
+        fprintf(stderr, "Error: result %d != 96\n", result);
+        return 1;
+    }
+
+    result = test(64, a);
+
+    if (result != 62)
+    {
+        fprintf(stderr, "Error: result %d != 62\n", result);
+        return 1;
+    }
+
+    result = test(16, a);
+
+    if (result != 14)
+    {
+        fprintf(stderr, "Error: result %d != 14\n", result);
+        return 1;
+    }
+
+    result = test(32, a);
+
+    if (result != 30)
+    {
+        fprintf(stderr, "Error: result %d != 30\n", result);
+        return 1;
+    }
+
+    return 0;
+}

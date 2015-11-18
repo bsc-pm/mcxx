@@ -54,12 +54,22 @@ namespace TL
                 template <typename Node>
                 void visit_relational_expression(const Node& n, const std::string& name);
 
+                template <typename Node>
+                void visit_mask_binary_expression(const Node& n, const std::string& name);
+
+                template <typename Node>
+                void visit_mask_unary_expression(const Node& n, const std::string& name);
+
                 void emit_mask_is_nonzero(Nodecl::NodeclBase n, Nodecl::NodeclBase mask_tmp);
                 void emit_mask_is_zero(Nodecl::NodeclBase n, Nodecl::NodeclBase mask_tmp);
 
                 template <typename Node>
                 void emit_mask_comparison(const Node& n,
                         void (RomolVectorBackend::* emit_cmp_fun)(Nodecl::NodeclBase, Nodecl::NodeclBase));
+
+                bool does_not_have_side_effects(const Nodecl::NodeclBase& n);
+
+                bool contains_vector_nodes(Nodecl::NodeclBase n);
             public:
                 RomolVectorBackend();
 
@@ -69,6 +79,7 @@ namespace TL
                 virtual void visit(const Nodecl::ObjectInit& n);
                 virtual void visit(const Nodecl::Different& n);
                 virtual void visit(const Nodecl::Equal& n);
+                virtual void visit(const Nodecl::Symbol& n);
 
                 // Vector specific
                 virtual void visit(const Nodecl::VectorAdd& n);
@@ -111,20 +122,17 @@ namespace TL
                 // virtual void visit(const Nodecl::VectorSincos& n);
                 // virtual void visit(const Nodecl::ParenthesizedExpression& n);
                 virtual void visit(const Nodecl::VectorReductionAdd& n);
-                // virtual void visit(const Nodecl::VectorReductionMinus& n);
+                virtual void visit(const Nodecl::VectorReductionMinus& n);
                 virtual void visit(const Nodecl::VectorMaskAssignment& n);
                 // virtual void visit(const Nodecl::VectorMaskConversion& n);
-                // virtual void visit(const Nodecl::VectorMaskOr& n);
-                // virtual void visit(const Nodecl::VectorMaskAnd& n);
-                // virtual void visit(const Nodecl::VectorMaskNot& n);
+                virtual void visit(const Nodecl::VectorMaskOr& n);
+                virtual void visit(const Nodecl::VectorMaskAnd& n);
+                virtual void visit(const Nodecl::VectorMaskNot& n);
+                virtual void visit(const Nodecl::VectorMaskXor& n);
                 // virtual void visit(const Nodecl::VectorMaskAnd1Not& n);
                 // virtual void visit(const Nodecl::VectorMaskAnd2Not& n);
-                // virtual void visit(const Nodecl::VectorMaskXor& n);
 
-                // virtual void visit(const Nodecl::MaskLiteral& n);
-
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(
-                        const Nodecl::NodeclBase& n);
+                virtual void visit(const Nodecl::MaskLiteral& n);
         };
     }
 }

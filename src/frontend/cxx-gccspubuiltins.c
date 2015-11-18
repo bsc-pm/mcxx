@@ -116,7 +116,7 @@ static type_t* spu_builtin_types[SPU_BTI_MAX];
 #define unsigned_intSI_type_node (get_unsigned_int_type())
 #define unsigned_intDI_type_node (get_unsigned_long_long_int_type())
 
-#define build_vector_type get_vector_type
+#define build_vector_type get_vector_type_by_bytes
 
 static void init_spu_types(void)
 {
