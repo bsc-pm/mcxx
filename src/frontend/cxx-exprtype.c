@@ -11845,6 +11845,7 @@ static void check_nodecl_cast_expr(
     } while (0)
 
     char is_dynamic_cast = 0;
+    char is_reinterpret_cast = 0;
 
     if (strcmp(cast_kind, "C") == 0)
     {
@@ -11893,10 +11894,13 @@ static void check_nodecl_cast_expr(
                     else if (conversion_funs[i] == conversion_is_valid_static_cast)
                         cast_name = "static_cast";
                     else if (conversion_funs[i] == conversion_is_valid_reinterpret_cast)
+                    {
                         cast_name = "reinterpret_cast";
+                    }
 
                     fprintf(stderr, "EXPRTYPE: '%s' allows this C-style cast\n", cast_name);
                 }
+                is_reinterpret_cast = (conversion_funs[i] == conversion_is_valid_reinterpret_cast);
                 break;
             }
 
@@ -11967,7 +11971,7 @@ static void check_nodecl_cast_expr(
             CONVERSION_ERROR;
         }
     }
-    else if (strcmp(cast_kind, "reinterpret_cast") == 0)
+    else if ((is_reinterpret_cast = strcmp(cast_kind, "reinterpret_cast") == 0))
     {
         if (check_expr_flags.must_be_constant)
         {
@@ -12039,6 +12043,13 @@ static void check_nodecl_cast_expr(
             decl_context,
             locus);
     diagnostic_context_pop_and_discard();
+
+    if (is_reinterpret_cast
+            || is_dynamic_cast)
+    {
+        // Do not propagate constants for reinterpret and dynamic
+        nodecl_set_constant(*nodecl_output, NULL);
+    }
 
     if (nodecl_get_kind(*nodecl_output) != NODECL_CONVERSION
             || nodecl_get_text(*nodecl_output) != NULL)
