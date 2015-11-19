@@ -4012,47 +4012,76 @@ static const_value_t* const_value_generalized_add(const_value_t* lhs, const_valu
             offset = lhs;
         }
 
-        const_value_t* object = const_value_address_dereference(addr);
-        scope_entry_t* base = const_value_object_get_base(object);
-
-        if (is_array_type(no_ref(base->type_information)))
+        const_value_t* pointed = const_value_address_dereference(addr);
+        if (const_value_is_object(pointed))
         {
-            int num_accessors = const_value_object_get_num_accessors(object);
-            ERROR_CONDITION(num_accessors == 0, "Invalid number of accessors for an array", 0);
+            const_value_t* object = pointed;
+            scope_entry_t* base = const_value_object_get_base(object);
 
-            subobject_accessor_t accessors[num_accessors];
-            const_value_object_get_all_accessors(object, accessors);
+            if (is_array_type(no_ref(base->type_information)))
+            {
+                int num_accessors = const_value_object_get_num_accessors(object);
+                ERROR_CONDITION(num_accessors == 0, "Invalid number of accessors for an array", 0);
 
-            accessors[num_accessors - 1].index = const_value_add(
-                    accessors[num_accessors - 1].index,
-                    offset);
-            addr = const_value_make_address(
-                    const_value_make_object(
-                        base,
-                        num_accessors,
-                        accessors));
+                subobject_accessor_t accessors[num_accessors];
+                const_value_object_get_all_accessors(object, accessors);
+
+                accessors[num_accessors - 1].index = const_value_add(
+                        accessors[num_accessors - 1].index,
+                        offset);
+                addr = const_value_make_address(
+                        const_value_make_object(
+                            base,
+                            num_accessors,
+                            accessors));
+            }
+            else
+            {
+                // Weird stuff going on like "int x; &x + 1;"
+                // Just append the offset so the comparison works
+                // Technically this address is only valid if offset == 1,
+                // but let's leave this unconstrained for the moment
+                int num_accessors = const_value_object_get_num_accessors(object);
+
+                subobject_accessor_t accessors[num_accessors + 1];
+                const_value_object_get_all_accessors(object, accessors);
+
+                accessors[num_accessors].index = offset;
+
+                addr = const_value_make_address(
+                        const_value_make_object(
+                            base,
+                            num_accessors + 1,
+                            accessors));
+            }
+
+            return addr;
+        }
+        else if (const_value_is_string(pointed))
+        {
+            int idx = const_value_cast_to_signed_int(offset);
+            int nels = const_value_get_num_elements(pointed);
+            if (idx < nels)
+            {
+                // Build a new string, starting from idx
+                int newlen = nels - idx;
+                const_value_t* values[newlen];
+                int i;
+                for (i = 0; i < newlen; i++)
+                {
+                    values[i] = const_value_get_element_num(pointed, idx + i);
+                }
+                return const_value_make_address(const_value_make_string_from_values(newlen, values));
+            }
+            else
+            {
+                return NULL;
+            }
         }
         else
         {
-            // Weird stuff going on like "int x; &x + 1;"
-            // Just append the offset so the comparison works
-            // Technically this address is only valid if offset == 1,
-            // but let's leave this unconstrained for the moment
-            int num_accessors = const_value_object_get_num_accessors(object);
-
-            subobject_accessor_t accessors[num_accessors + 1];
-            const_value_object_get_all_accessors(object, accessors);
-
-            accessors[num_accessors].index = offset;
-            
-            addr = const_value_make_address(
-                    const_value_make_object(
-                        base,
-                        num_accessors + 1,
-                        accessors));
+            return NULL;
         }
-
-        return addr;
     }
     // a normal arithmetic add
     else return const_value_add(lhs, rhs);
@@ -4410,48 +4439,56 @@ static const_value_t* const_value_generalized_sub(const_value_t* lhs, const_valu
         const_value_t* addr = lhs;
         const_value_t* offset = rhs;
 
-        const_value_t* object = const_value_address_dereference(addr);
-        scope_entry_t* base = const_value_object_get_base(object);
-
-        if (is_array_type(no_ref(base->type_information)))
+        const_value_t* pointed = const_value_address_dereference(addr);
+        if (const_value_is_object(pointed))
         {
-            int num_accessors = const_value_object_get_num_accessors(object);
-            ERROR_CONDITION(num_accessors == 0, "Invalid number of accessors for an array", 0);
+            const_value_t* object = pointed;
+            scope_entry_t* base = const_value_object_get_base(object);
 
-            subobject_accessor_t accessors[num_accessors];
-            const_value_object_get_all_accessors(object, accessors);
+            if (is_array_type(no_ref(base->type_information)))
+            {
+                int num_accessors = const_value_object_get_num_accessors(object);
+                ERROR_CONDITION(num_accessors == 0, "Invalid number of accessors for an array", 0);
 
-            accessors[num_accessors - 1].index = const_value_sub(
-                    accessors[num_accessors - 1].index,
-                    offset);
+                subobject_accessor_t accessors[num_accessors];
+                const_value_object_get_all_accessors(object, accessors);
 
-            addr = const_value_make_address(
-                    const_value_make_object(
-                        base,
-                        num_accessors,
-                        accessors));
+                accessors[num_accessors - 1].index = const_value_sub(
+                        accessors[num_accessors - 1].index,
+                        offset);
+
+                addr = const_value_make_address(
+                        const_value_make_object(
+                            base,
+                            num_accessors,
+                            accessors));
+            }
+            else
+            {
+                // Weird stuff going on like "int x; &x - 1;"
+                // Just append the offset so the comparison works
+                // Technically this address is only valid if offset == 1,
+                // but let's leave this unconstrained for the moment
+                int num_accessors = const_value_object_get_num_accessors(object);
+
+                subobject_accessor_t accessors[num_accessors + 1];
+                const_value_object_get_all_accessors(object, accessors);
+
+                accessors[num_accessors].index = const_value_neg(offset);
+
+                addr = const_value_make_address(
+                        const_value_make_object(
+                            base,
+                            num_accessors + 1,
+                            accessors));
+            }
+
+            return addr;
         }
         else
         {
-            // Weird stuff going on like "int x; &x - 1;"
-            // Just append the offset so the comparison works
-            // Technically this address is only valid if offset == 1,
-            // but let's leave this unconstrained for the moment
-            int num_accessors = const_value_object_get_num_accessors(object);
-
-            subobject_accessor_t accessors[num_accessors + 1];
-            const_value_object_get_all_accessors(object, accessors);
-
-            accessors[num_accessors].index = const_value_neg(offset);
-            
-            addr = const_value_make_address(
-                    const_value_make_object(
-                        base,
-                        num_accessors + 1,
-                        accessors));
+            return NULL;
         }
-
-        return addr;
     }
     else if (const_value_is_address(lhs)
                 && const_value_is_address(rhs))
@@ -7272,13 +7309,37 @@ static void check_expression_strict_operator(
     check_expression_impl_(rhs, decl_context, output);
 }
 
+static const_value_t* compute_value_of_object_subobject(const_value_t* current_object_value,
+        const_value_t* subobject);
+
+static char cxx_const_value_is_zero(const_value_t* t)
+{
+    if (const_value_is_object(t))
+    {
+        scope_entry_t* entry = const_value_object_get_base(t);
+        const_value_t* result = compute_value_of_symbol(entry, entry->locus);
+        const_value_t* val = compute_value_of_object_subobject(result, t);
+        if (val != NULL)
+            return cxx_const_value_is_zero(val);
+        else
+            return 0;
+    }
+    else
+        return const_value_is_zero(t);
+}
+
+static char cxx_const_value_is_nonzero(const_value_t* t)
+{
+    return !cxx_const_value_is_zero(t);
+}
+
 // e1 || e2
 static void check_expression_eval_rhs_if_lhs_is_zero(
         nodecl_t lhs,
         AST rhs, const decl_context_t* decl_context, nodecl_t* output)
 {
     if (nodecl_is_constant(lhs)
-            && const_value_is_zero(nodecl_get_constant(lhs)))
+            && cxx_const_value_is_zero(nodecl_get_constant(lhs)))
     {
         // 0 || e2
         // We evaluate e2 normally
@@ -7316,7 +7377,7 @@ static void check_expression_eval_rhs_if_lhs_is_nonzero(
         AST rhs, const decl_context_t* decl_context, nodecl_t* output)
 {
     if (nodecl_is_constant(lhs)
-            && const_value_is_nonzero(nodecl_get_constant(lhs)))
+            && cxx_const_value_is_nonzero(nodecl_get_constant(lhs)))
     {
         // 1 && e2
         // We evaluate e2 normally
@@ -23178,6 +23239,7 @@ static void check_gcc_alignof_type(type_t* t,
         if (nodecl_expr_is_value_dependent(symbol_alignment_attr))
         {
             *nodecl_output = nodecl_make_cxx_alignof(nodecl_expr, get_size_t_type(), locus);
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             return;
         }
         else if (!nodecl_is_constant(symbol_alignment_attr))
@@ -23259,6 +23321,7 @@ static void check_nodecl_gcc_alignof_expr(
     if (nodecl_expr_is_type_dependent(nodecl_expr))
     {
         *nodecl_output = nodecl_make_cxx_alignof(nodecl_expr, get_size_t_type(), locus);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
     }
 

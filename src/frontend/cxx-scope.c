@@ -5959,7 +5959,11 @@ scope_entry_t* lookup_of_template_parameter(const decl_context_t* context,
     }
 
     template_parameter_t** current_nesting = levels[j - template_parameter_nesting];
-    ERROR_CONDITION(current_nesting == NULL, "Invalid nesting", 0);
+    if (current_nesting == NULL)
+    {
+        // Should not happen
+        return NULL;
+    }
 
     template_parameter_value_t** current_values = value_levels[j - template_parameter_nesting];
     int current_num_items = num_items[j - template_parameter_nesting];

@@ -3249,7 +3249,9 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                 if (nodecl_is_err_expr(nodecl_alignas_expr))
                     break;
 
-                if (!is_integral_type(no_ref(nodecl_get_type(nodecl_alignas_expr))))
+                type_t* alignas_type_expr = nodecl_get_type(nodecl_alignas_expr);
+                if (!is_dependent_type(alignas_type_expr)
+                        && !is_integral_type(no_ref(alignas_type_expr)))
                 {
                     error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
                             "alignment-specifier expression does not have integral type");
