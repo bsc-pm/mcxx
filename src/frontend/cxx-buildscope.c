@@ -4700,6 +4700,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             template_specialized_type_update_template_parameters(
                     class_entry->type_information,
                     decl_context->template_parameters);
+            template_specialized_type_update_template_parameters(
+                    class_symbol_get_canonical_symbol(class_entry)->type_information,
+                    decl_context->template_parameters);
 
             // Update the template_scope
             DEBUG_CODE()
@@ -4709,6 +4712,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             decl_context_t *adjusted_decl_context = decl_context_clone(decl_context);
             adjusted_decl_context->template_parameters = adjusted_decl_context->template_parameters;
             class_entry->decl_context = adjusted_decl_context;
+            class_symbol_get_canonical_symbol(class_entry)->decl_context = adjusted_decl_context;
         }
     }
 
@@ -4721,12 +4725,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         symbol_entity_specs_set_is_user_declared(class_entry, 1);
         symbol_entity_specs_set_is_instantiable(class_entry, 1);
 
-        scope_entry_t* aliased_type = symbol_entity_specs_get_alias_to(class_entry);
-        if (aliased_type != NULL)
-        {
-            symbol_entity_specs_set_is_user_declared(aliased_type, 1);
-            symbol_entity_specs_set_is_instantiable(aliased_type, 1);
-        }
+        symbol_entity_specs_set_is_user_declared(class_symbol_get_canonical_symbol(class_entry), 1);
+        symbol_entity_specs_set_is_instantiable(class_symbol_get_canonical_symbol(class_entry), 1);
     }
 
     keep_gcc_attributes_in_symbol(class_entry, &class_gather_info);
@@ -9733,6 +9733,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 {
                     template_specialized_type_update_template_parameters(class_entry->type_information,
                             decl_context->template_parameters);
+                    template_specialized_type_update_template_parameters(
+                            class_symbol_get_canonical_symbol(class_entry)->type_information,
+                            decl_context->template_parameters);
                 }
             }
 
@@ -10086,9 +10089,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     //
 
     symbol_entity_specs_set_is_instantiable(class_entry, 1);
-    scope_entry_t* aliased_type = symbol_entity_specs_get_alias_to(class_entry);
-    if (aliased_type != NULL)
-        symbol_entity_specs_set_is_instantiable(aliased_type, 1);
+    symbol_entity_specs_set_is_instantiable(class_symbol_get_canonical_symbol(class_entry), 1);
 
     keep_gcc_attributes_in_symbol(class_entry, gather_info);
     keep_ms_declspecs_in_symbol(class_entry, gather_info);

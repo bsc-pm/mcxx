@@ -662,17 +662,22 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                     context_of_being_instantiated,
                                     member_of_template->locus);
 
+                        scope_entry_t* specialized_class_sym = 
+                                named_type_get_symbol(new_template_specialized_type);
                         template_specialized_type_update_template_parameters(
-                                named_type_get_symbol(new_template_specialized_type)->type_information,
+                                specialized_class_sym->type_information,
+                                template_params);
+                        template_specialized_type_update_template_parameters(
+                                class_symbol_get_canonical_symbol(specialized_class_sym)->type_information,
                                 template_params);
 
-                        symbol_entity_specs_set_is_instantiable(named_type_get_symbol(new_template_specialized_type), 1);
-                        symbol_entity_specs_set_is_user_declared(named_type_get_symbol(new_template_specialized_type), 0);
+                        symbol_entity_specs_set_is_instantiable(specialized_class_sym, 1);
+                        symbol_entity_specs_set_is_user_declared(specialized_class_sym, 0);
 
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
-                                named_type_get_symbol(new_template_specialized_type),
-                                named_type_get_symbol(new_template_specialized_type)->defined
+                                specialized_class_sym,
+                                specialized_class_sym->defined
                                 );
                     }
                 }
@@ -1748,6 +1753,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     instantiation_context->template_parameters = template_arguments;
 
     template_specialized_type_update_template_parameters(being_instantiated_sym->type_information,
+            instantiation_context->template_parameters);
+    template_specialized_type_update_template_parameters(
+            class_symbol_get_canonical_symbol(being_instantiated_sym)->type_information,
             instantiation_context->template_parameters);
 
     const decl_context_t* inner_decl_context = new_class_context(instantiation_context, 
