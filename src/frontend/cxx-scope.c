@@ -5041,6 +5041,10 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     free_template_parameter_list(result);
                     return NULL;
                 }
+
+                // Recall that this was implicit added in this list
+                v->is_implicit = 1;
+
                 result->arguments[i] = v;
             }
         }
@@ -5368,6 +5372,10 @@ static const char* template_arguments_to_str_ex(
     for (i = first_argument_to_be_printed; i < template_parameters->num_parameters; i++, print_comma = 1)
     {
         template_parameter_value_t* current_argument = template_parameters->arguments[i];
+
+        if (current_argument != NULL
+                && current_argument->is_implicit)
+            continue;
 
         if (print_comma)
         {
