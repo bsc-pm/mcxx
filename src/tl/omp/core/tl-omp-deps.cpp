@@ -286,34 +286,51 @@ namespace TL { namespace OpenMP {
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
+        get_dependences_info(pragma_line, /* parsing context */ pragma_line,
+                data_sharing_environment, default_data_attr, extra_symbols);
+    }
+
+    void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
+            Nodecl::NodeclBase parsing_context,
+            DataEnvironment& data_sharing_environment,
+            DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
+    {
         // Ompss clauses
         PragmaCustomClause input_clause = pragma_line.get_clause("in",/* deprecated */ "input");
-        get_dependences_ompss_info_clause(input_clause, pragma_line, data_sharing_environment, DEP_DIR_IN,
-                default_data_attr, "in", extra_symbols);
+        get_dependences_ompss_info_clause(input_clause, parsing_context,
+                data_sharing_environment, DEP_DIR_IN, default_data_attr, "in",
+                extra_symbols);
 
         PragmaCustomClause input_private_clause = pragma_line.get_clause("inprivate");
-        get_dependences_ompss_info_clause(input_private_clause, pragma_line, data_sharing_environment, DEP_OMPSS_DIR_IN_PRIVATE,
-                default_data_attr, "inprivate", extra_symbols);
+        get_dependences_ompss_info_clause(input_private_clause,
+                parsing_context, data_sharing_environment,
+                DEP_OMPSS_DIR_IN_PRIVATE, default_data_attr, "inprivate",
+                extra_symbols);
 
         PragmaCustomClause output_clause = pragma_line.get_clause("out", /* deprecated */ "output");
-        get_dependences_ompss_info_clause(output_clause, pragma_line, data_sharing_environment, DEP_DIR_OUT,
-                default_data_attr, "out", extra_symbols);
+        get_dependences_ompss_info_clause(output_clause, parsing_context,
+                data_sharing_environment, DEP_DIR_OUT, default_data_attr,
+                "out", extra_symbols);
 
         PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
-        get_dependences_ompss_info_clause(inout_clause, pragma_line, data_sharing_environment, DEP_DIR_INOUT,
-                default_data_attr, "inout", extra_symbols);
+        get_dependences_ompss_info_clause(inout_clause, parsing_context,
+                data_sharing_environment, DEP_DIR_INOUT, default_data_attr,
+                "inout", extra_symbols);
 
         PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
-        get_dependences_ompss_info_clause(concurrent_clause, pragma_line, data_sharing_environment, DEP_OMPSS_CONCURRENT,
+        get_dependences_ompss_info_clause(concurrent_clause, parsing_context,
+                data_sharing_environment, DEP_OMPSS_CONCURRENT,
                 default_data_attr, "concurrent", extra_symbols);
 
         PragmaCustomClause commutative_clause = pragma_line.get_clause("commutative");
-        get_dependences_ompss_info_clause(commutative_clause, pragma_line, data_sharing_environment, DEP_OMPSS_COMMUTATIVE,
+        get_dependences_ompss_info_clause(commutative_clause, parsing_context,
+                data_sharing_environment, DEP_OMPSS_COMMUTATIVE,
                 default_data_attr, "commutative", extra_symbols);
 
         // OpenMP standard clauses
         PragmaCustomClause depends = pragma_line.get_clause("depend");
-        get_dependences_openmp(depends, pragma_line, data_sharing_environment,
+        get_dependences_openmp(depends, parsing_context, data_sharing_environment,
                 default_data_attr, extra_symbols);
     }
 
