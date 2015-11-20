@@ -28,6 +28,7 @@
 #include "codegen-prune.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-type.hpp"
+#include "tl-member-decl.hpp"
 #include "cxx-cexpr.h"
 #include "cxx-entrylist.h"
 #include "string_utils.h"
@@ -5489,6 +5490,7 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
             it++)
     {
         TL::Symbol member(it->get_symbol());
+        TL::Scope member_decl_scope(it->get_scope());
         // Note that declaration_is_definition is only used for classes and enums
         bool declaration_is_definition = it->get_is_definition();
         access_specifier_t access_spec = member.get_access_specifier();
@@ -5555,14 +5557,10 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
 
                 if (!declaration_is_definition)
                 {
-                    // This prevents emitting template arguments
-                    state.in_forwarded_member_declaration = true;
-
                     do_declare_symbol(member,
                             &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
-
-                    state.in_forwarded_member_declaration = false;
+                            &CxxBase::define_symbol_always,
+                            &member_decl_scope);
                 }
                 else
                 {
