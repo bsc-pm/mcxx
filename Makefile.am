@@ -978,6 +978,7 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-type-fwd.hpp \
     src/tl/tl-type.hpp \
     src/tl/tl-type.cpp \
+    src/tl/tl-member-decl.hpp \
     src/tl/tl-objectlist.hpp \
     src/tl/tl-objectlist.cpp \
     src/tl/tl-externalvars.hpp \

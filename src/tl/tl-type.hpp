@@ -111,27 +111,6 @@ namespace TL
             bool get_is_explicit_instantiation() const;
     };
 
-    struct LIBTL_CLASS MemberDeclarationInfo
-    {
-        private:
-            TL::Symbol _entry;
-            bool _is_definition;
-        public:
-            MemberDeclarationInfo(TL::Symbol entry, bool is_definition)
-                : _entry(entry), _is_definition(is_definition)
-            {
-            }
-
-            TL::Symbol get_symbol() const
-            {
-                return _entry;
-            }
-
-            bool get_is_definition() const
-            {
-                return _is_definition;
-            }
-    };
 
     //! This class wraps a type in the compiler type system
     class LIBTL_CLASS Type : public Object
