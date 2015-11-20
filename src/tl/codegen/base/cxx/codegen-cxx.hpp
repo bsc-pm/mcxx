@@ -379,10 +379,7 @@ namespace Codegen
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
                     int level,
                     TL::Scope* scope = NULL);
-            void old_define_class_symbol_aux(TL::Symbol symbol,
-                    TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
-                    int level,
-                    TL::Scope* scope);
+
             void define_class_symbol_using_member_declarations_aux(TL::Symbol symbol,
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
                     int level,
@@ -654,10 +651,6 @@ namespace Codegen
             std::string _prune_saved_variables_str;
             bool _prune_saved_variables;
             void set_prune_saved_variables(const std::string& str);
-
-            std::string _use_old_method_for_class_definitions_str;
-            bool _use_old_method_for_class_definitions;
-            void set_old_method_for_class_definitions(const std::string& str);
     };
 }
 
