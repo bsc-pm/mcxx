@@ -651,6 +651,7 @@ namespace Utils
 
             class_type_add_member(new_class_type,
                     field.get_internal_symbol(),
+                    field.get_scope().get_decl_context(),
                     /* is_definition */ 1);
 
             field_map[*it] = field;

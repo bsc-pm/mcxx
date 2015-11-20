@@ -86,6 +86,7 @@ static scope_entry_t* add_duplicate_member_to_class(
     }
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member,
+            member_of_template->decl_context,
             /* is_definition */ member_of_template->defined);
 
     return new_member;
@@ -217,7 +218,9 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
     class_type_add_member(
             get_actual_class_type(being_instantiated),
-            new_primary_symbol, /* is_definition */ 1);
+            new_primary_symbol,
+            new_primary_symbol->decl_context,
+            /* is_definition */ 1);
 
     if (is_class)
     {
@@ -472,7 +475,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         // This is an unscoped enumerator
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
-                                new_enumerator, /* is_definition */ 1);
+                                new_enumerator,
+                                new_enumerator->decl_context,
+                                /* is_definition */ 1);
 
                         symbol_entity_specs_set_is_member(new_enumerator, 1);
                         symbol_entity_specs_set_access(new_enumerator, symbol_entity_specs_get_access(enumerator));
@@ -594,7 +599,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         symbol_entity_specs_set_access(anon_member, symbol_entity_specs_get_access(new_member));
                         symbol_entity_specs_set_class_type(anon_member, get_user_defined_type(new_member));
 
-                        class_type_add_member(being_instantiated, anon_member, /* is_definition */ 1);
+                        class_type_add_member(being_instantiated, anon_member,
+                                anon_member->decl_context, /* is_definition */ 1);
                     }
 
                     instantiation_symbol_map_add(instantiation_symbol_map,
@@ -677,6 +683,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
                                 specialized_class_sym,
+                                specialized_class_sym->decl_context,
                                 specialized_class_sym->defined
                                 );
                     }

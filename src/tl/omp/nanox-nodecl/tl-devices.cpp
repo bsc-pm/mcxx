@@ -354,6 +354,7 @@ namespace TL { namespace Nanox {
 
             ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
                     new_function_sym,
+                    new_function_sym->decl_context,
                     /* is_definition */ 0);
         }
 
@@ -1208,6 +1209,7 @@ namespace TL { namespace Nanox {
 
             ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
                     new_function_sym,
+                    new_function_sym->decl_context,
                     /* is_definition */ 0);
         }
 

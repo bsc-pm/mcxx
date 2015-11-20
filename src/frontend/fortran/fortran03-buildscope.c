@@ -5881,7 +5881,7 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                     }
                 }
 
-                class_type_add_member(class_name->type_information, entry, /* is_definition */ 1);
+                class_type_add_member(class_name->type_information, entry, entry->decl_context, /* is_definition */ 1);
             }
         }
     }

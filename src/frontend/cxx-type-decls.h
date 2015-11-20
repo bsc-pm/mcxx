@@ -72,6 +72,7 @@ typedef
 struct member_declaration_info_tag
 {
     scope_entry_t* entry;
+    const decl_context_t* decl_context;
     char is_definition:1;
 } member_declaration_info_t;
 

@@ -14461,7 +14461,7 @@ static void implement_nongeneric_lambda_expression(
                 constructor_function_code);
         push_extra_declaration_symbol(constructor);
 
-        class_type_add_member(lambda_class->type_information, constructor, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, constructor, inner_class_context, /* is_definition */ 1);
 
         // emit a conversion from the class to the pointer type of the function
         // first use a typedef otherwise this function cannot be declared
@@ -14476,7 +14476,7 @@ static void implement_nongeneric_lambda_expression(
         symbol_entity_specs_set_is_user_declared(typedef_function, 1);
         symbol_entity_specs_set_class_type(typedef_function, get_user_defined_type(lambda_class));
         symbol_entity_specs_set_access(typedef_function, AS_PRIVATE);
-        class_type_add_member(lambda_class->type_information, typedef_function, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, typedef_function, inner_class_context, /* is_definition */ 1);
 
         // now emit the conversion
         conversion = new_symbol(inner_class_context, inner_class_context->current_scope,
@@ -14493,7 +14493,7 @@ static void implement_nongeneric_lambda_expression(
         symbol_entity_specs_set_is_conversion(conversion, 1);
         symbol_entity_specs_set_access(conversion, AS_PUBLIC);
 
-        class_type_add_member(lambda_class->type_information, conversion, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, conversion, inner_class_context, /* is_definition */ 1);
 
         // now emit an ancillary static member function with the same prototype as the lambda type
         ancillary = new_symbol(inner_class_context, inner_class_context->current_scope,
@@ -14508,7 +14508,7 @@ static void implement_nongeneric_lambda_expression(
         ancillary->type_information = lambda_function_type;
         symbol_entity_specs_set_access(ancillary, AS_PRIVATE);
 
-        class_type_add_member(lambda_class->type_information, ancillary, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, ancillary, inner_class_context, /* is_definition */ 1);
 
         // we will emit ancillary and conversion once the class has been completed
     }
@@ -14606,7 +14606,7 @@ static void implement_nongeneric_lambda_expression(
             symbol_entity_specs_set_class_type(field, get_user_defined_type(lambda_class));
             symbol_entity_specs_set_access(field, AS_PRIVATE);
 
-            class_type_add_member(lambda_class->type_information, field, /* is_definition */ 1);
+            class_type_add_member(lambda_class->type_information, field, inner_class_context, /* is_definition */ 1);
 
             instantiation_symbol_map_add(instantiation_symbol_map, sym, field);
             instantiation_symbol_map_add(initializers_map, sym, parameter);
@@ -14691,7 +14691,7 @@ static void implement_nongeneric_lambda_expression(
                 constructor_function_code);
         push_extra_declaration_symbol(constructor);
 
-        class_type_add_member(lambda_class->type_information, constructor, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, constructor, inner_class_context, /* is_definition */ 1);
     }
 
     // create operator()
@@ -14778,7 +14778,7 @@ static void implement_nongeneric_lambda_expression(
     push_extra_declaration_symbol(operator_call);
 
     class_type_add_member(lambda_class->type_information, operator_call,
-            /* is_definition */ 1);
+            inner_class_context, /* is_definition */ 1);
 
     // complete the class
     set_is_complete_type(lambda_class->type_information, 1);
@@ -15120,7 +15120,8 @@ static void implement_generic_lambda_expression(
                 constructor_function_code);
         push_extra_declaration_symbol(constructor);
 
-        class_type_add_member(lambda_class->type_information, constructor, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, constructor,
+                inner_class_context, /* is_definition */ 1);
 
         // emit a conversion from the class to the pointer type of the function
         // first use a typedef otherwise this function cannot be declared
@@ -15145,7 +15146,8 @@ static void implement_generic_lambda_expression(
                     template_type_get_primary_type(
                         ptr_fun_template->type_information));
         symbol_entity_specs_set_access(ptr_fun_template_alias, AS_PRIVATE);
-        class_type_add_member(lambda_class->type_information, ptr_fun_template_alias, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, ptr_fun_template_alias,
+                inner_class_context, /* is_definition */ 1);
 
         // conversion template
         scope_entry_t* conversion_template = new_symbol(inner_class_context,
@@ -15179,7 +15181,8 @@ static void implement_generic_lambda_expression(
         symbol_entity_specs_set_class_type(conversion, get_user_defined_type(lambda_class));
         symbol_entity_specs_set_access(conversion, AS_PUBLIC);
 
-        class_type_add_member(lambda_class->type_information, conversion, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, conversion,
+                inner_class_context, /* is_definition */ 1);
 
         // now emit an ancillary static member function with the same prototype as the lambda type
         scope_entry_t* ancillary_template = new_symbol(inner_class_context, inner_class_context->current_scope,
@@ -15207,7 +15210,8 @@ static void implement_generic_lambda_expression(
         symbol_entity_specs_set_access(ancillary, AS_PRIVATE);
         symbol_entity_specs_set_is_static(ancillary, 1);
 
-        class_type_add_member(lambda_class->type_information, ancillary, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, ancillary,
+                inner_class_context, /* is_definition */ 1);
 
         // we will emit ancillary and conversion once the class has been completed
     }
@@ -15303,7 +15307,8 @@ static void implement_generic_lambda_expression(
             symbol_entity_specs_set_class_type(field, get_user_defined_type(lambda_class));
             symbol_entity_specs_set_access(field, AS_PRIVATE);
 
-            class_type_add_member(lambda_class->type_information, field, /* is_definition */ 1);
+            class_type_add_member(lambda_class->type_information, field,
+                    inner_class_context, /* is_definition */ 1);
 
             instantiation_symbol_map_add(instantiation_symbol_map, sym, field);
             instantiation_symbol_map_add(initializers_map, sym, parameter);
@@ -15388,7 +15393,8 @@ static void implement_generic_lambda_expression(
                 constructor_function_code);
         push_extra_declaration_symbol(constructor);
 
-        class_type_add_member(lambda_class->type_information, constructor, /* is_definition */ 1);
+        class_type_add_member(lambda_class->type_information, constructor,
+                inner_class_context, /* is_definition */ 1);
     }
 
     // create operator()
@@ -15490,7 +15496,7 @@ static void implement_generic_lambda_expression(
     push_extra_declaration_symbol(operator_call);
 
     class_type_add_member(lambda_class->type_information, operator_call,
-            /* is_definition */ 1);
+            inner_class_context, /* is_definition */ 1);
 
     // complete the class
     set_is_complete_type(lambda_class->type_information, 1);

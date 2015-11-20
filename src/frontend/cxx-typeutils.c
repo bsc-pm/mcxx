@@ -6342,6 +6342,7 @@ static char is_same_member_declaration(member_declaration_info_t mdi1,
 
 extern inline void class_type_add_member(type_t* class_type,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6351,7 +6352,7 @@ extern inline void class_type_add_member(type_t* class_type,
     class_type->type->class_info->members = entry_list_add_once(class_type->type->class_info->members, entry);
 
     // Keep the declaration list
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD_ONCE_FUN(class_type->type->class_info->member_declarations,
         class_type->type->class_info->num_member_declarations,
         mdi, is_same_member_declaration);
@@ -6361,6 +6362,7 @@ extern inline void class_type_add_member_after(
         type_t* class_type,
         scope_entry_t* position,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6381,7 +6383,7 @@ extern inline void class_type_add_member_after(
         }
     }
 
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD(class_type->type->class_info->member_declarations,
             class_type->type->class_info->num_member_declarations,
             mdi);
@@ -6404,6 +6406,7 @@ extern inline void class_type_add_member_after(
 extern inline void class_type_add_member_before(type_t* class_type,
         scope_entry_t* position,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6423,7 +6426,7 @@ extern inline void class_type_add_member_before(type_t* class_type,
         }
     }
 
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD(class_type->type->class_info->member_declarations,
             class_type->type->class_info->num_member_declarations,
             mdi);
@@ -15465,6 +15468,7 @@ static inline type_t* type_deep_copy_class(
             class_type_get_class_kind(orig));
 
     // Duplicate all members
+    // FIXME: duplicate them in declaration order!
     scope_entry_list_t* entry_list = class_type_get_members(orig);
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(entry_list);
@@ -15477,7 +15481,9 @@ static inline type_t* type_deep_copy_class(
         ERROR_CONDITION(member == new_member, "Member '%s' not mapped\n",
                 get_qualified_symbol_name(member, member->decl_context));
 
-        class_type_add_member(dest->type_information, new_member, /* is_definition */ 1);
+        class_type_add_member(dest->type_information, new_member,
+                new_member->decl_context,
+                /* is_definition */ 1);
     }
     entry_list_iterator_free(it);
     entry_list_free(entry_list);

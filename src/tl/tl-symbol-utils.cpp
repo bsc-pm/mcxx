@@ -168,7 +168,8 @@ namespace
 
             symbol_entity_specs_set_access(new_function_sym, AS_PUBLIC);
 
-            ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym), new_function_sym,
+            ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
+                    new_function_sym, new_function_sym->decl_context,
                     /* is_declaration */ 1);
 
             symbol_entity_specs_set_is_defined_inside_class_specifier(new_function_sym,

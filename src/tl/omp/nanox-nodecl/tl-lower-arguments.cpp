@@ -73,6 +73,7 @@ namespace TL { namespace Nanox {
 
         class_type_add_member(new_class_type.get_internal_type(),
                 field.get_internal_symbol(),
+                field.get_internal_symbol()->decl_context,
                 /* is_definition */ 1);
         return field;
     }
@@ -244,6 +245,7 @@ namespace TL { namespace Nanox {
                     related_symbol.get_class_type().get_internal_type(), 
                     related_symbol.get_internal_symbol(),
                     new_class_symbol.get_internal_symbol(),
+                    new_class_symbol.get_internal_symbol()->decl_context,
                     /* is_definition */
                     symbol_entity_specs_get_is_defined_inside_class_specifier(new_class_symbol.get_internal_symbol())
                     );

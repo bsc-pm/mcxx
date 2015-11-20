@@ -87,7 +87,8 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = ::get_user_defined_type(base_class.get_internal_symbol());
-            class_type_add_member(new_class_type, field.get_internal_symbol(), /* is_definition */ 1);
+            class_type_add_member(new_class_type, field.get_internal_symbol(),
+                   field.get_internal_symbol()->decl_context, /* is_definition */ 1);
         }
 
         {
@@ -113,7 +114,10 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
                         const_value_to_nodecl( const_value_get_signed_int(num_implementations)),
                         class_scope.get_decl_context());
 
-            class_type_add_member(new_class_type, field.get_internal_symbol(), /* is_definition */ 1);
+            class_type_add_member(new_class_type,
+                    field.get_internal_symbol(),
+                    field.get_internal_symbol()->decl_context,
+                    /* is_definition */ 1);
         }
 
         nodecl_t nodecl_output = nodecl_null();
