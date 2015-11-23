@@ -215,6 +215,9 @@ LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type,
         const decl_context_t* decl_context,
         const locus_t* locus);
+LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion_to_logical(nodecl_t expr, type_t* dest_type,
+        const decl_context_t* decl_context,
+        const locus_t* locus);
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_wrap_in_parentheses(nodecl_t n);
 
 LIBMCXX_EXTERN scope_entry_t* resolve_symbol_this(const decl_context_t* decl_context);

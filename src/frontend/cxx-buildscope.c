@@ -18709,7 +18709,7 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
 
         if (!equivalent_types(orig_type, get_signed_int_type()))
         {
-            nodecl_expr = cxx_nodecl_make_conversion(
+            nodecl_expr = cxx_nodecl_make_conversion_to_logical(
                     nodecl_expr,
                     get_signed_int_type(),
                     decl_context,
@@ -20478,7 +20478,7 @@ static void build_scope_nodecl_do_statement(
             return;
         }
 
-        nodecl_expr =  cxx_nodecl_make_conversion(
+        nodecl_expr =  cxx_nodecl_make_conversion_to_logical(
                 nodecl_expr,
                 get_signed_int_type(),
                 decl_context,

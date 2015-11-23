@@ -5536,7 +5536,23 @@ static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs,
         }
         else
         {
-            binary_record_conversion_to_result(conversion_type, lhs, rhs, decl_context);
+            C_LANGUAGE()
+            {
+                *lhs = cxx_nodecl_make_conversion_to_logical(
+                        *lhs,
+                        conversion_type,
+                        decl_context,
+                        nodecl_get_locus(*lhs));
+                *rhs = cxx_nodecl_make_conversion_to_logical(
+                        *rhs,
+                        conversion_type,
+                        decl_context,
+                        nodecl_get_locus(*rhs));
+            }
+            CXX_LANGUAGE()
+            {
+                binary_record_conversion_to_result(conversion_type, lhs, rhs, decl_context);
+            }
 
             return conversion_type;
         }
@@ -6883,14 +6899,16 @@ static type_t* compute_type_no_overload_logical_not(nodecl_t *op,
         C_LANGUAGE()
         {
             result = get_signed_int_type();
+            *op = cxx_nodecl_make_conversion_to_logical(*op, result,
+                    decl_context,
+                    nodecl_get_locus(*op));
         }
         CXX_LANGUAGE()
         {
             result = get_bool_type();
+            unary_record_conversion_to_result(result, op, decl_context);
         }
-        ERROR_CONDITION(result == NULL, "Invalid type", 0);
 
-        unary_record_conversion_to_result(result, op, decl_context);
 
         return result;
     }
@@ -10133,7 +10151,7 @@ static void check_conditional_expression_condition_nodecl(
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(conditional_expr));
             return;
         }
-        *nodecl_output = cxx_nodecl_make_conversion(
+        *nodecl_output = cxx_nodecl_make_conversion_to_logical(
                 conditional_expr,
                 get_signed_int_type(),
                 decl_context,
@@ -25248,6 +25266,69 @@ static nodecl_t cxx_nodecl_bind_reference(nodecl_t expr,
     return result;
 }
 
+static nodecl_t cxx_nodecl_make_conversion_on_rvalue(
+        type_t* dest_type,
+        type_t* expr_type,
+        nodecl_t expr,
+        const_value_t* value,
+        char is_value_dep,
+        const decl_context_t* decl_context,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(is_any_reference_type(dest_type)
+            || is_any_reference_type(expr_type),
+            "Invalid reference types at this point", 0);
+    // T1 -> T2
+    if (is_pointer_type(expr_type)
+            && is_any_int_type(dest_type))
+    {
+        warn_printf_at(locus, "conversion from pointer type to integer type\n");
+    }
+    if (is_any_int_type(expr_type)
+            && !is_zero_type(expr_type)
+            && is_pointer_type(dest_type))
+    {
+        warn_printf_at(locus, "conversion from integer type to pointer type\n");
+    }
+    standard_conversion_t scs_dummy;
+    if (is_pointer_type(expr_type)
+            && is_pointer_type(dest_type)
+            && !standard_conversion_between_types(&scs_dummy, expr_type, dest_type, locus))
+    {
+        warn_printf_at(locus, "conversion from pointer type '%s' to unrelated pointer type '%s'\n",
+                print_type_str(expr_type, decl_context),
+                print_type_str(dest_type, decl_context));
+    }
+
+    nodecl_t result = nodecl_make_conversion(expr, dest_type, locus);
+
+    if (value != NULL)
+    {
+        value = cxx_nodecl_make_value_conversion(
+                no_ref(expr_type),
+                dest_type,
+                value);
+    }
+    nodecl_set_constant(result, value);
+
+    nodecl_expr_set_is_value_dependent(result, is_value_dep);
+
+    DEBUG_CODE()
+    {
+        if (value != NULL)
+        {
+            fprintf(stderr, "EXPRTYPE: Conversion of '%s' from '%s' to '%s' at '%s' has constant value '%s'\n",
+                    codegen_to_str(expr, decl_context),
+                    print_type_str(expr_type, decl_context),
+                    print_type_str(dest_type, decl_context),
+                    locus_to_str(locus),
+                    const_value_to_str(value));
+        }
+    }
+
+    return result;
+}
+
 nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type,
         const decl_context_t* decl_context, const locus_t* locus)
 {
@@ -25269,7 +25350,6 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type,
                 print_type_str(dest_type, decl_context),
                 locus_to_str(locus));
     }
-    standard_conversion_t scs_dummy;
     if ((is_lvalue_reference_type(expr_type)
                 || is_rvalue_reference_type(expr_type))
             && !is_any_reference_type(dest_type))
@@ -25294,89 +25374,91 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type,
             value = compute_value_of_regular_glvalue(expr, decl_context, locus);
         }
 
-        if (value != NULL)
-        {
-            value = cxx_nodecl_make_value_conversion(
-                    no_ref(expr_type),
-                    dest_type,
-                    value);
-        }
-
-        nodecl_t result = nodecl_make_conversion(expr, dest_type, locus);
-
-        nodecl_set_constant(result, value);
-        nodecl_expr_set_is_value_dependent(result, is_value_dep);
-
-        DEBUG_CODE()
-        {
-            if (value != NULL)
-            {
-                fprintf(stderr, "EXPRTYPE: Conversion of '%s' from '%s' to '%s' at '%s' has constant value '%s'\n",
-                        codegen_to_str(expr, decl_context),
-                        print_type_str(expr_type, decl_context),
-                        print_type_str(dest_type, decl_context),
-                        locus_to_str(locus),
-                        const_value_to_str(value));
-            }
-        }
-
-        return result;
+        return cxx_nodecl_make_conversion_on_rvalue(
+                dest_type,
+                no_ref(expr_type),
+                expr,
+                value,
+                is_value_dep,
+                decl_context,
+                locus);
     }
     else if (!is_any_reference_type(expr_type)
             && !is_any_reference_type(dest_type))
     {
-        // T1 -> T2
-        if (is_pointer_type(expr_type)
-                && is_any_int_type(dest_type))
-        {
-            warn_printf_at(locus, "conversion from pointer type to integer type\n");
-        }
-        if (is_any_int_type(expr_type)
-                && !is_zero_type(expr_type)
-                && is_pointer_type(dest_type))
-        {
-            warn_printf_at(locus, "conversion from integer type to pointer type\n");
-        }
-        if (is_pointer_type(expr_type)
-                && is_pointer_type(dest_type)
-                && !standard_conversion_between_types(&scs_dummy, expr_type, dest_type, locus))
-        {
-            warn_printf_at(locus, "conversion from pointer type '%s' to unrelated pointer type '%s'\n",
-                    print_type_str(expr_type, decl_context),
-                    print_type_str(dest_type, decl_context));
-        }
-
-        const_value_t* value = NULL;
-        if (nodecl_is_constant(expr))
-        {
-            value = cxx_nodecl_make_value_conversion(
-                    expr_type,
-                    dest_type,
-                    nodecl_get_constant(expr));
-        }
-        nodecl_t result = nodecl_make_conversion(expr, dest_type, locus);
-
-        nodecl_set_constant(result, value);
-        nodecl_expr_set_is_value_dependent(result, is_value_dep);
-
-        DEBUG_CODE()
-        {
-            if (value != NULL)
-            {
-                fprintf(stderr, "EXPRTYPE: Conversion of '%s' from '%s' to '%s' at '%s' has constant value '%s'\n",
-                        codegen_to_str(expr, decl_context),
-                        print_type_str(expr_type, decl_context),
-                        print_type_str(dest_type, decl_context),
-                        locus_to_str(locus),
-                        const_value_to_str(value));
-            }
-        }
-
-        return result;
+        return cxx_nodecl_make_conversion_on_rvalue(
+                dest_type,
+                expr_type,
+                expr,
+                /* value */ nodecl_get_constant(expr),
+                is_value_dep,
+                decl_context,
+                locus);
     }
 
     internal_error("Code unreachable", 0);
     return nodecl_null();
+}
+
+// Special case for logical values in C
+nodecl_t cxx_nodecl_make_conversion_to_logical(nodecl_t expr,
+        type_t* dest_type,
+        const decl_context_t* decl_context UNUSED_PARAMETER, const locus_t* locus)
+{
+    ERROR_CONDITION(!IS_C_LANGUAGE, "This function is only for C", 0);
+    ERROR_CONDITION(!equivalent_types(get_signed_int_type(), dest_type),
+            "Destination type must be 'signed int'", 0);
+
+    type_t* expr_type = nodecl_get_type(expr);
+
+    if (equivalent_types(expr_type, get_signed_int_type()))
+        return expr;
+
+    const_value_t* value = NULL;
+    if ((is_lvalue_reference_type(expr_type)
+                || is_rvalue_reference_type(expr_type)))
+    {
+        // Some cases must be handled with extra care here
+        if (is_array_type(no_ref(expr_type))
+                && is_pointer_type(dest_type))
+        {
+            value = compute_value_of_array_lvalue(expr, decl_context);
+        }
+        else if (is_function_type(no_ref(expr_type))
+                && is_pointer_type(dest_type))
+        {
+            value = compute_value_of_function_lvalue(expr, decl_context);
+        }
+        else
+        {
+            value = compute_value_of_regular_glvalue(expr, decl_context, locus);
+        }
+    }
+    else if (!is_any_reference_type(expr_type))
+    {
+        value = nodecl_get_constant(expr);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    if (value != NULL)
+    {
+        value = cxx_nodecl_make_value_conversion(
+                no_ref(expr_type),
+                dest_type,
+                nodecl_get_constant(expr));
+        if (value != NULL)
+        {
+            value = const_value_get_signed_int(!!const_value_is_nonzero(value));
+        }
+    }
+
+    nodecl_t result = nodecl_make_conversion(expr, dest_type, locus);
+    nodecl_set_constant(result, value);
+
+    return result;
 }
 
 static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_function_code)
