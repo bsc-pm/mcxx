@@ -30218,21 +30218,28 @@ static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_
     }
     else
     {
+        type_t* conversion_type = update_type_for_instantiation(
+                nodecl_get_type(node),
+                v->decl_context,
+                nodecl_get_locus(node),
+                v->instantiation_symbol_map,
+                v->pack_index);
+
         v->nodecl_result = cxx_nodecl_make_conversion(
                 nodecl_expr,
-                nodecl_get_type(node),
+                conversion_type,
                 v->decl_context,
                 nodecl_get_locus(node));
 
         if (text != NULL)
         {
             if (nodecl_get_kind(v->nodecl_result) != NODECL_CONVERSION
-                    || nodecl_get_type(v->nodecl_result) != NULL)
+                    || nodecl_get_text(v->nodecl_result) != NULL)
             {
                 const_value_t* cval = nodecl_get_constant(v->nodecl_result);
                 v->nodecl_result = nodecl_make_conversion(
                         v->nodecl_result,
-                        nodecl_get_type(node),
+                        conversion_type,
                         nodecl_get_locus(node));
                 nodecl_set_constant(v->nodecl_result, cval);
             }
