@@ -1056,7 +1056,7 @@ namespace TL {
 
                         omp_for_appendix_environment.append(
                                 Nodecl::OpenMP::PrivateInit::make(
-                                    vector_tl_symbol.get_value(),
+                                    Nodecl::NodeclBase::null(),
                                     vector_tl_symbol));
                     }
 

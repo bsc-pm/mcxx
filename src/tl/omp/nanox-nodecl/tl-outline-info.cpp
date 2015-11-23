@@ -1370,7 +1370,15 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OpenMP::PrivateInit& private_init)
             {
                 TL::Symbol sym = private_init.get_symbol();
-                add_private_with_init(sym, private_init.get_value());
+
+                if (private_init.get_value().is_null())
+                {
+                    add_private_with_init(sym, sym.get_value());
+                }
+                else
+                {
+                    add_private_with_init(sym, private_init.get_value());
+                }
             }
 
             void visit(const Nodecl::OpenMP::Threadprivate& threadprivate)
