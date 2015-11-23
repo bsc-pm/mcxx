@@ -27565,26 +27565,25 @@ nodecl_t cxx_nodecl_make_function_call(
         {
             type_t* param_type = function_type_get_parameter_type_num(function_type, j);
 
-#if 0
-            char verify_conversion = 1;
+            char compute_conversion = 1;
             C_LANGUAGE()
             {
-                // Do not verify functions lacking prototype or parameter types that
-                // are transparent unions, their validity has been verified elsewhere
-                // and do not fit the regular SCS code
-                verify_conversion = !(
-                        function_type_get_lacking_prototype(function_type)
-                        || (is_class_type(param_type)
-                            && (is_transparent_union(param_type)
-                                || is_transparent_union(get_actual_class_type(param_type))))
+                // Do not verify parameter types that are transparent unions,
+                // their validity has been verified elsewhere
+                compute_conversion = !(
+                        is_class_type(param_type)
+                        && (is_transparent_union(param_type)
+                            || is_transparent_union(get_actual_class_type(param_type)))
                         );
             }
-#endif
 
-            list[i] = cxx_nodecl_make_conversion(list[i],
-                    param_type,
-                    decl_context,
-                    nodecl_get_locus(list[i]));
+            if (compute_conversion)
+            {
+                list[i] = cxx_nodecl_make_conversion(list[i],
+                        param_type,
+                        decl_context,
+                        nodecl_get_locus(list[i]));
+            }
         }
         else
         {
