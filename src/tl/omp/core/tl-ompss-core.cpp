@@ -360,8 +360,6 @@ namespace TL { namespace OpenMP {
 
         TL::OmpSs::RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
 
-        TL::Scope scope = construct.retrieve_context();
-
         Symbol function_sym = construct.get_symbol();
 
         if (!function_sym.is_function())

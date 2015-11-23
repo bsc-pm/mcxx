@@ -154,15 +154,26 @@ namespace TL
                         DataEnvironment& data_environment,
                         ObjectList<TL::Symbol>& nonlocal_symbols);
 
+                // This function is basically a wrapper that calls to the other
+                // 'get_dependences_info' function using the pragma_line as parsing_context
                 void get_dependences_info(
-                        PragmaCustomLine construct,
+                        PragmaCustomLine pragma_line,
+                        DataEnvironment& data_environment,
+                        DataSharingAttribute default_data_attr,
+                        ObjectList<Symbol>& extra_symbols);
+
+                // This function handles the dependences of a contruct, adding
+                // new information to the data_environment
+                void get_dependences_info(
+                        PragmaCustomLine pragma_line,
+                        Nodecl::NodeclBase parsing_context,
                         DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
                 void get_dependences_ompss_info_clause(
                         PragmaCustomClause clause,
-                        Nodecl::NodeclBase construct,
+                        Nodecl::NodeclBase parsing_context,
                         DataEnvironment& data_environment,
                         DependencyDirection dep_attr,
                         DataSharingAttribute default_data_attr,
@@ -174,8 +185,8 @@ namespace TL
                         TL::ReferenceScope parsing_scope);
 
                 void get_dependences_openmp(
-                        TL::PragmaCustomLine construct,
                         TL::PragmaCustomClause clause,
+                        Nodecl::NodeclBase parsing_context,
                         DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);

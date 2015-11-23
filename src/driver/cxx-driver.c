@@ -147,11 +147,13 @@
 "                           This flag is only meaningful for Fortran\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
-"                           Flags is a sequence of 'p', 'n', 's', or 'l'\n" \
+"                           Flags is a sequence of\n"\
 "                              p: preprocessor\n"  \
 "                              s: Fortran prescanner\n" \
 "                              n: native compiler\n" \
 "                              l: linker\n" \
+"                              r: linker (beginning of the linker command)\n" \
+"                              L: linker (end of the linker command)\n" \
 "  --Wx:<profile>:<flags>,<options>\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
@@ -2451,6 +2453,8 @@ static void parse_subcommand_arguments(const char* arguments)
     char prepro_flag = 0;
     char native_flag = 0;
     char linker_flag = 0;
+    char linker_flag_pre = 0;
+    char linker_flag_post = 0;
     char prescanner_flag = 0;
 
     compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
@@ -2512,20 +2516,26 @@ static void parse_subcommand_arguments(const char* arguments)
     {
         switch (*p)
         {
-            case 'p' : 
+            case 'p' :
                 prepro_flag = 1;
                 break;
-            case 'n' : 
+            case 'n' :
                 native_flag = 1;
                 break;
-            case 'l' : 
+            case 'l' :
                 linker_flag = 1;
                 break;
             case 's':
                 prescanner_flag = 1;
                 break;
+            case 'r' :
+                linker_flag_pre = 1;
+                break;
+            case 'L' :
+                linker_flag_post = 1;
+                break;
             default:
-                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's' or 'l' are allowed, ignoring\n",
+                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's', 'l', 'r', 'L' are allowed, ignoring\n",
                         compilation_process.exec_basename,
                         *p);
                 break;
@@ -2607,6 +2617,18 @@ static void parse_subcommand_arguments(const char* arguments)
         {
             add_to_linker_command_configuration(uniquestr(parameters[i]), NULL, configuration);
         }
+    }
+    if (linker_flag_pre)
+    {
+        add_to_parameter_list(
+                &configuration->linker_options_pre,
+                parameters, num_parameters);
+    }
+    if (linker_flag_post)
+    {
+        add_to_parameter_list(
+                &configuration->linker_options_post,
+                parameters, num_parameters);
     }
     if (prescanner_flag)
         add_to_parameter_list(
@@ -4491,22 +4513,27 @@ static void link_files(const char** file_list, int num_files,
         const char* linked_output_filename,
         compilation_configuration_t* compilation_configuration)
 {
-    int num_args_linker = 
+    int num_args_linker =
         count_null_ended_array((void**)compilation_configuration->linker_options);
-    int num_args_linker_options_pre = 
+    int num_args_linker_options_pre =
         count_null_ended_array((void**)compilation_configuration->linker_options_pre);
-    int num_args_linker_command = 
+    int num_args_linker_options_post =
+        count_null_ended_array((void**)compilation_configuration->linker_options_post);
+    int num_args_linker_command =
         compilation_configuration->num_args_linker_command;
-    
-    int num_arguments = num_args_linker_options_pre + num_args_linker_command + 
-        num_args_linker + num_files;
+
+    int num_arguments = num_args_linker_options_pre
+        + num_args_linker_options_post
+        + num_args_linker_command
+        + num_args_linker
+        + num_files;
 
     if (linked_output_filename != NULL)
     {
         // -o output
         num_arguments += 2;
     }
-    
+
     // NULL
     num_arguments += 1;
 
@@ -4525,9 +4552,9 @@ static void link_files(const char** file_list, int num_files,
     }
 
     //Adding linker options pre
-    for(j = 0; j < num_args_linker_options_pre; j++, i++) 
+    for(j = 0; j < num_args_linker_options_pre; j++, i++)
     {
-        linker_args[i] = compilation_configuration->linker_options[j];
+        linker_args[i] = compilation_configuration->linker_options_pre[j];
     }
 
     //Adding linker command arguments
@@ -4536,11 +4563,11 @@ static void link_files(const char** file_list, int num_files,
         // This is a file
         if (compilation_configuration->linker_command[j]->translation_unit != NULL)
         {
-            translation_unit_t* current_translation_unit = 
+            translation_unit_t* current_translation_unit =
                 compilation_configuration->linker_command[j]->translation_unit;
             const char* extension =
                 get_extension_filename(current_translation_unit->input_filename);
-            struct extensions_table_t* current_extension = 
+            struct extensions_table_t* current_extension =
                 fileextensions_lookup(extension, strlen(extension));
 
             if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
@@ -4558,22 +4585,28 @@ static void link_files(const char** file_list, int num_files,
         // This is another sort of command-line parameter
         else
         {
-            linker_args[i] = compilation_configuration->linker_command[j]->argument;    
+            linker_args[i] = compilation_configuration->linker_command[j]->argument;
         }
         i++;
     }
-    //Adding multifile list or additional file list 
+    //Adding multifile list or additional file list
     for (j = 0; j < num_files; j++, i++)
     {
         linker_args[i] = file_list[j];
     }
 
-    //Adding linker options arguments 
+    //Adding linker options arguments
     for (j = 0; j < num_args_linker; j++, i++)
     {
         linker_args[i] = compilation_configuration->linker_options[j];
     }
-      
+
+    //Adding linker options post
+    for(j = 0; j < num_args_linker_options_post; j++, i++)
+    {
+        linker_args[i] = compilation_configuration->linker_options_post[j];
+    }
+
     timing_t timing_link;
     timing_start(&timing_link);
     if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
@@ -4584,7 +4617,7 @@ static void link_files(const char** file_list, int num_files,
 
     if (compilation_configuration->verbose)
     {
-        fprintf(stderr, "Link performed in %.2f seconds\n", 
+        fprintf(stderr, "Link performed in %.2f seconds\n",
                 timing_elapsed(&timing_link));
     }
 }

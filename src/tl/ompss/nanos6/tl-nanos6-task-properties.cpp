@@ -307,6 +307,7 @@ namespace TL { namespace Nanos6 {
         symbol_entity_specs_set_is_user_declared(
                 task_info.get_internal_symbol(), 1);
         task_info.set_type(task_info_struct.get_user_defined_type());
+        symbol_entity_specs_set_is_static(task_info.get_internal_symbol(), 1);
 
         TL::ObjectList<TL::Symbol> fields = task_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field(fields);
@@ -446,7 +447,7 @@ namespace TL { namespace Nanos6 {
         symbol_entity_specs_set_is_user_declared(
                 task_invocation_info.get_internal_symbol(), 1);
         task_invocation_info.set_type(task_invocation_info_struct.get_user_defined_type());
-
+        symbol_entity_specs_set_is_static(task_invocation_info.get_internal_symbol(), 1);
 
         TL::ObjectList<TL::Symbol> task_invocation_fields = task_invocation_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field_task_invocation_info(task_invocation_fields);

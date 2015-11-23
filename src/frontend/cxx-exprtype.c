@@ -17502,9 +17502,11 @@ static char update_stack_to_designator(type_t* declared_type,
 
             (*type_stack_idx)++;
             ERROR_CONDITION(*type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
-            type_stack[*type_stack_idx].item = 0;
             if (*type_stack_idx > orig_type_stack_idx)
-                type_stack[*type_stack_idx].max_item = 0;
+            {
+                memset(&type_stack[*type_stack_idx], 0, sizeof(type_stack[*type_stack_idx]));
+            }
+            type_stack[*type_stack_idx].item = 0;
             type_stack[*type_stack_idx].type = next_type;
             type_stack[*type_stack_idx].fields = NULL;
 
@@ -17528,6 +17530,10 @@ static char update_stack_to_designator(type_t* declared_type,
 
             (*type_stack_idx)++;
             ERROR_CONDITION(*type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
+            if (*type_stack_idx > orig_type_stack_idx)
+            {
+                memset(&type_stack[*type_stack_idx], 0, sizeof(type_stack[*type_stack_idx]));
+            }
             type_stack[*type_stack_idx].item = 0;
             type_stack[*type_stack_idx].type = next_type;
             scope_entry_list_t* fields = class_type_get_nonstatic_data_members(next_type);
@@ -17670,6 +17676,7 @@ static char update_stack_to_designator(type_t* declared_type,
                         designator_list_length = num_items_reversed_list;
 
                         // Restart this type again
+                        DELETE(type_stack[*type_stack_idx].fields);
                         (*type_stack_idx)--;
 
                         // Note that we have not consumed any designator here
@@ -18208,11 +18215,6 @@ static const_value_t* generate_aggregate_constant(struct type_init_stack_t *type
                 {
                     type_stack[type_stack_idx].values[j] = get_zero_value_of_type(sub_type);
                 }
-                else
-                {
-                    // Inactive members of a union have an unknown constant value
-                    type_stack[type_stack_idx].values[j] = const_value_get_unknown();
-                }
             }
         }
 
@@ -18258,13 +18260,38 @@ static const_value_t* generate_aggregate_constant(struct type_init_stack_t *type
             int num_items = entry_list_size(fields);
             entry_list_free(fields);
 
-            ERROR_CONDITION(type_stack[type_stack_idx].num_values != num_items,
-                    "Inconsistency %d != %d",
-                    type_stack[type_stack_idx].num_values,
-                    num_items);
-            braced_constant_value = const_value_make_struct(num_items,
-                    type_stack[type_stack_idx].values,
-                    initializer_type);
+            if (!is_union_type(initializer_type))
+            {
+                ERROR_CONDITION(type_stack[type_stack_idx].num_values != num_items,
+                        "Inconsistency %d != %d",
+                        type_stack[type_stack_idx].num_values,
+                        num_items);
+                braced_constant_value = const_value_make_struct(num_items,
+                        type_stack[type_stack_idx].values,
+                        initializer_type);
+            }
+            else
+            {
+                const_value_t** values = NEW_VEC0(const_value_t*, num_items);
+                int i;
+                int item_id = type_stack[type_stack_idx].item - 1;
+                for (i = 0; i < num_items; i++)
+                {
+                    if (i == item_id)
+                    {
+                        // There is only a single value
+                        values[i] = type_stack[type_stack_idx].values[i];
+                    }
+                    else
+                    {
+                        values[i] = const_value_get_unknown();
+                    }
+                }
+                braced_constant_value = const_value_make_struct(num_items,
+                        values,
+                        initializer_type);
+                DELETE(values);
+            }
         }
         else
         {
@@ -18734,16 +18761,19 @@ void check_nodecl_braced_initializer(
                     i++;
                     type_stack[type_stack_idx].item++;
 
+                    char union_is_complete = 0;
                     if (is_union_type(current_type))
                     {
-                        type_stack[type_stack_idx].item = type_stack[type_stack_idx].num_items;
+                        union_is_complete = 1;
                     }
 
                     // Now pop stacks as needed
                     while (type_stack_idx > 0
                             && type_stack[type_stack_idx].num_items != -1
-                            && type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_items)
+                            && (union_is_complete ||
+                                type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_items))
                     {
+                        union_is_complete = 0; // Use this flag just once
                         DEBUG_CODE()
                         {
                             fprintf(stderr, "EXPRTYPE: Type %s if fully initialized now\n",

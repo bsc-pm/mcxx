@@ -281,39 +281,56 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Core::get_dependences_info(TL::PragmaCustomLine construct,
+    void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
+            DataEnvironment& data_sharing_environment,
+            DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        get_dependences_info(pragma_line, /* parsing context */ pragma_line,
+                data_sharing_environment, default_data_attr, extra_symbols);
+    }
+
+    void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
+            Nodecl::NodeclBase parsing_context,
             DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
         // Ompss clauses
-        PragmaCustomClause input_clause = construct.get_clause("in",/* deprecated */ "input");
-        get_dependences_ompss_info_clause(input_clause, construct, data_sharing_environment, DEP_DIR_IN,
-                default_data_attr, "in", extra_symbols);
+        PragmaCustomClause input_clause = pragma_line.get_clause("in",/* deprecated */ "input");
+        get_dependences_ompss_info_clause(input_clause, parsing_context,
+                data_sharing_environment, DEP_DIR_IN, default_data_attr, "in",
+                extra_symbols);
 
-        PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
-        get_dependences_ompss_info_clause(input_private_clause, construct, data_sharing_environment, DEP_OMPSS_DIR_IN_PRIVATE,
-                default_data_attr, "inprivate", extra_symbols);
+        PragmaCustomClause input_private_clause = pragma_line.get_clause("inprivate");
+        get_dependences_ompss_info_clause(input_private_clause,
+                parsing_context, data_sharing_environment,
+                DEP_OMPSS_DIR_IN_PRIVATE, default_data_attr, "inprivate",
+                extra_symbols);
 
-        PragmaCustomClause output_clause = construct.get_clause("out", /* deprecated */ "output");
-        get_dependences_ompss_info_clause(output_clause, construct, data_sharing_environment, DEP_DIR_OUT,
-                default_data_attr, "out", extra_symbols);
+        PragmaCustomClause output_clause = pragma_line.get_clause("out", /* deprecated */ "output");
+        get_dependences_ompss_info_clause(output_clause, parsing_context,
+                data_sharing_environment, DEP_DIR_OUT, default_data_attr,
+                "out", extra_symbols);
 
-        PragmaCustomClause inout_clause = construct.get_clause("inout");
-        get_dependences_ompss_info_clause(inout_clause, construct, data_sharing_environment, DEP_DIR_INOUT,
-                default_data_attr, "inout", extra_symbols);
+        PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
+        get_dependences_ompss_info_clause(inout_clause, parsing_context,
+                data_sharing_environment, DEP_DIR_INOUT, default_data_attr,
+                "inout", extra_symbols);
 
-        PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
-        get_dependences_ompss_info_clause(concurrent_clause, construct, data_sharing_environment, DEP_OMPSS_CONCURRENT,
+        PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
+        get_dependences_ompss_info_clause(concurrent_clause, parsing_context,
+                data_sharing_environment, DEP_OMPSS_CONCURRENT,
                 default_data_attr, "concurrent", extra_symbols);
 
-        PragmaCustomClause commutative_clause = construct.get_clause("commutative");
-        get_dependences_ompss_info_clause(commutative_clause, construct, data_sharing_environment, DEP_OMPSS_COMMUTATIVE,
+        PragmaCustomClause commutative_clause = pragma_line.get_clause("commutative");
+        get_dependences_ompss_info_clause(commutative_clause, parsing_context,
+                data_sharing_environment, DEP_OMPSS_COMMUTATIVE,
                 default_data_attr, "commutative", extra_symbols);
 
         // OpenMP standard clauses
-        PragmaCustomClause depends = construct.get_clause("depend");
-        get_dependences_openmp(construct, depends, data_sharing_environment,
+        PragmaCustomClause depends = pragma_line.get_clause("depend");
+        get_dependences_openmp(depends, parsing_context, data_sharing_environment,
                 default_data_attr, extra_symbols);
     }
 
@@ -450,20 +467,20 @@ namespace TL { namespace OpenMP {
     }
 
     void Core::get_dependences_openmp(
-            TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
+            Nodecl::NodeclBase parsing_context,
             DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
             TL::ObjectList<Nodecl::NodeclBase> in, out, inout;
             parse_dependences_openmp_clause(
-                    construct,
+                    parsing_context,
                     clause,
                     in,
                     out,
                     inout,
-                    construct.get_locus());
+                    clause.get_locus());
 
             add_data_sharings(in, data_sharing_environment,
                     DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in:)", extra_symbols);
@@ -531,7 +548,7 @@ namespace TL { namespace OpenMP {
     }
 
     void Core::get_dependences_ompss_info_clause(PragmaCustomClause clause,
-            Nodecl::NodeclBase construct,
+            Nodecl::NodeclBase parsing_context,
             DataEnvironment& data_sharing_environment,
             DependencyDirection dep_attr,
             DataSharingAttribute default_data_attr,
@@ -540,7 +557,7 @@ namespace TL { namespace OpenMP {
     {
         if (clause.is_defined())
         {
-            ObjectList<Nodecl::NodeclBase> expr_list = parse_dependences_ompss_clause(clause, construct);
+            ObjectList<Nodecl::NodeclBase> expr_list = parse_dependences_ompss_clause(clause, parsing_context);
             add_data_sharings(expr_list, data_sharing_environment,
                     dep_attr, default_data_attr, this->in_ompss_mode(), clause_name, extra_symbols);
         }

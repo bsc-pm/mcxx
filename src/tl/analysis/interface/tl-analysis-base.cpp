@@ -94,7 +94,7 @@ namespace Analysis {
     {
         if (!_pcfg)
         {
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -209,7 +209,7 @@ namespace Analysis {
             // Required previous analysis
             parallel_control_flow_graph(ast);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -240,7 +240,7 @@ namespace Analysis {
             // FIXME Do we need to passa the \p propagate_graph_nodes parameter here too?
             use_def(ast, propagate_graph_nodes);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -267,7 +267,7 @@ namespace Analysis {
             // Required previous analysis
             liveness(ast, propagate_graph_nodes);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -294,7 +294,7 @@ namespace Analysis {
             // Required previous analysis
             reaching_definitions(ast, propagate_graph_nodes);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -331,7 +331,7 @@ namespace Analysis {
             // Required previous analysis
             reaching_definitions(ast, /*propagate_graph_nodes*/ false);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -359,7 +359,7 @@ namespace Analysis {
             // Required previous analysis
             parallel_control_flow_graph(ast);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -388,7 +388,7 @@ namespace Analysis {
             // Required previous analysis
             parallel_control_flow_graph(ast);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -419,7 +419,7 @@ namespace Analysis {
             // Required previous analysis
             tune_task_synchronizations(ast);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 
@@ -450,7 +450,7 @@ namespace Analysis {
             range_analysis(ast);
             tune_task_synchronizations(ast);
 
-            double init;
+            double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
                 init = time_nsec();
 

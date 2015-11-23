@@ -39,18 +39,22 @@ int main(int argc, char* argv[])
 {
     for (int x = 1; x <= MAX_GRAINSIZE; ++x)
     {
-        int a[N] = {0};
-        #pragma omp taskloop grainsize(x) shared(a)
+        int a[N];
+        for (int i = 0; i < N; ++i) a[i] = -1;
+
+        #pragma omp taskloop grainsize(x) out(a[i]) nogroup
         for (int i = 0; i < N; ++i)
+            a[i] = 0;
+
+        #pragma omp taskloop grainsize(x) inout(a[i])
+        for (int i = 0; i < N; ++i)
+        {
+            assert(a[i] == 0);
             a[i]++;
-
-        int j;
-        #pragma omp taskloop grainsize(x) shared(a)
-        for (j = 0; j < N; ++j)
-            a[j]++;
+        }
 
         for (int i = 0; i < N; ++i)
-            assert(a[i] == 2);
+            assert(a[i] == 1);
     }
     return 0;
 }

@@ -1713,7 +1713,8 @@ void LoweringVisitor::visit_task_call_fortran(
 
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
-    ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
+    ss << called_task_function.get_name() << "_ad_"
+        << (int)adapter_counter << "_" << simple_hash_str(construct.get_filename().c_str());
     adapter_counter++;
 
     TL::ObjectList<Symbol> save_expressions;

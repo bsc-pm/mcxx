@@ -1894,8 +1894,34 @@ namespace TL { namespace OpenMP {
 
     void Core::taskloop_handler_pre(TL::PragmaCustomStatement construct)
     {
+        TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
         Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
-        loop_handler_pre(construct, loop, &Core::common_for_handler);
+
+        DataEnvironment& data_environment =
+            _openmp_info->get_new_data_environment(construct);
+        _openmp_info->push_current_data_environment(data_environment);
+
+        ObjectList<Symbol> extra_symbols;
+        common_for_handler(construct, loop, data_environment, extra_symbols);
+
+        get_data_explicit_attributes(pragma_line, loop,
+                data_environment,
+                extra_symbols);
+
+        bool there_is_default_clause = false;
+        DataSharingAttribute default_data_attr = get_default_data_sharing(
+                pragma_line,
+                /* fallback */ DS_UNDEFINED,
+                there_is_default_clause,
+                /*allow_default_auto*/ true);
+
+        get_dependences_info(pragma_line, /* parsing_context */ loop,
+                data_environment, default_data_attr, extra_symbols);
+
+        get_data_implicit_attributes_task(construct, data_environment,
+                default_data_attr, there_is_default_clause);
+
+        get_data_extra_symbols(data_environment, extra_symbols);
     }
 
     void Core::taskloop_handler_post(TL::PragmaCustomStatement construct)
