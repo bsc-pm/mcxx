@@ -45,14 +45,10 @@ namespace Vectorization
             void visit_vector_unary(const Nodecl::NodeclBase& n);
             void visit_vector_binary(const Nodecl::NodeclBase& n);
             void visit_vector_ternary(const Nodecl::NodeclBase& n);
-
-            TL::Scope _function_scope;
-            Nodecl::NodeclBase _first_statement;
  
         public:
             VectorizationThreeAddresses();
 
-            void visit(const Nodecl::FunctionCode& n);
             void visit(const Nodecl::ObjectInit& n);
 
             void visit(const Nodecl::VectorAdd& n);
