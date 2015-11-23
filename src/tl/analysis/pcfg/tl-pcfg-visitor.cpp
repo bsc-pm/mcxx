@@ -2450,6 +2450,13 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::PrivateInit& n )
+    {
+        _utils->_pragma_nodes.top( )._clauses.append(n);
+        return ObjectList<Node*>( );
+    }
+
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
     {
         walk( n.get_reductions( ) );
