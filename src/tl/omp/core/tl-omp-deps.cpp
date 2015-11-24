@@ -254,15 +254,13 @@ namespace TL { namespace OpenMP {
                     data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
                 }
-                else if (sym.get_type().is_array()
-                        || (sym.get_type().is_any_reference()
-                            && sym.get_type().references_to().is_array()))
+                else if (sym.get_type().no_ref().is_array())
                 {
                     data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "the variable is an array mentioned in a non-trivial dependence "
                             "and it did not have an explicit data-sharing");
                 }
-                else if (sym.get_type().is_class())
+                else if (sym.get_type().no_ref().is_class())
                 {
                     data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "the variable is an object mentioned in a non-trivial dependence "
