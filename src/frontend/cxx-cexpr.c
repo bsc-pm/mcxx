@@ -416,6 +416,7 @@ const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sig
     switch (val->kind)
     {
         case CVK_INTEGER:
+        case CVK_MASK:
             return const_value_get_integer(val->value.i, bytes, sign);
         case CVK_FLOAT:
             CAST_FLOAT_POINT_TO_INT(f);
