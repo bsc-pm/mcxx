@@ -284,7 +284,14 @@ namespace Vectorization
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorFunctionCall& n)
     {
-        visit_vector_unary(n);
+        ERROR_CONDITION(!n.get_function_call().is<Nodecl::FunctionCall>(), "Invalid node", 0);
+        Nodecl::FunctionCall call = n.get_function_call().as<Nodecl::FunctionCall>();
+
+        Nodecl::List args = call.get_arguments().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = args.begin(); it != args.end(); it++)
+        {
+            visit_expression(*it);
+        }
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorAlignRight& n)
     {
@@ -474,6 +481,20 @@ namespace Vectorization
         else
         {
             // Otherwise replace it
+            // Force a side effect
+            if (!n.get_type().is_void())
+            {
+                Nodecl::NodeclBase last_stmt = new_list.back();
+                if (last_stmt.is<Nodecl::ExpressionStatement>())
+                {
+                    Nodecl::NodeclBase last_expr =
+                        last_stmt.as<Nodecl::ExpressionStatement>().get_nest();
+                    if (needs_decomposition(last_expr))
+                    {
+                        decomp(last_expr);
+                    }
+                }
+            }
             n.replace(compound_expr);
         }
     }
