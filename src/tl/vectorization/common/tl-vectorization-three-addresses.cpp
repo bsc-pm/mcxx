@@ -322,6 +322,10 @@ namespace Vectorization
     {
         visit_vector_binary(n);
     }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseShl& n)
+    {
+        visit_vector_binary(n);
+    }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorReductionAdd& n)
     {
         visit_vector_binary(n);
