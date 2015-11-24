@@ -28,6 +28,7 @@
 <testinfo>
 test_CFLAGS=--only-adjacent-accesses
 test_generator=config/mercurium-serial-simd-romol
+test_ignore=yes
 </testinfo>
 */
 
