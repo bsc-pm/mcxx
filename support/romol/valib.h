@@ -178,25 +178,10 @@ ARITH_BINOP_SCALAR_MASK(div)
 ARITH_BINOP_SCALAR_MASK(mod)
 
 // -------------------------------------------------------
-// Bitwise operations (vector)
+// Vector bitwise operations
 // -------------------------------------------------------
-
-#define ELEMENTWISE_BIT_BINOP(op) \
-void valib_##op##_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
-void valib_##op##_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
-\
-void valib_##op##_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
-void valib_##op##_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
-\
-void valib_##op##_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
-void valib_##op##_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
-\
-void valib_##op##_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
-void valib_##op##_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2);
-
-ELEMENTWISE_BIT_BINOP(lsl)
-ELEMENTWISE_BIT_BINOP(lsr)
-ELEMENTWISE_BIT_BINOP(asr)
+//
+// The whole vector is handled like a big integer
 
 #define BITWISE_BINOP(op) \
 void valib_##op(VDestRegId dest, VSrcRegId src1, VSrcRegId src2);
@@ -212,6 +197,87 @@ BITWISE_BINOP(asr)
 void valib_##op##b (VDestRegId dest, VSrcRegId src1, VSrcRegId src2);
 
 BITWISE_UNOP(not)
+
+// -------------------------------------------------------
+// Element bitwise operations
+// -------------------------------------------------------
+//
+// Note that for "or, and, xor, not" these operations are functionally
+// equivalent to the BITWISE_BINOP and BITWISE_UNOP defined above
+
+#define ELEMENTWISE_BIT_BINOP(op) \
+void valib_##op##_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+\
+void valib_##op##_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+\
+void valib_##op##_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+\
+void valib_##op##_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2); \
+void valib_##op##_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2);
+
+ELEMENTWISE_BIT_BINOP(or)
+ELEMENTWISE_BIT_BINOP(and)
+ELEMENTWISE_BIT_BINOP(xor)
+ELEMENTWISE_BIT_BINOP(lsl)
+ELEMENTWISE_BIT_BINOP(lsr)
+ELEMENTWISE_BIT_BINOP(asr)
+
+#define ELEMENTWISE_BIT_UNOP(op) \
+void valib_##op##_int64_int64_int64 (VDestRegId dest, VSrcRegId src1); \
+void valib_##op##_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1); \
+\
+void valib_##op##_int32_int32_int32 (VDestRegId dest, VSrcRegId src1); \
+void valib_##op##_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1); \
+\
+void valib_##op##_int16_int16_int16 (VDestRegId dest, VSrcRegId src1); \
+void valib_##op##_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1); \
+\
+void valib_##op##_int8_int8_int8 (VDestRegId dest, VSrcRegId src1); \
+void valib_##op##_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1);
+
+ELEMENTWISE_BIT_UNOP(not)
+
+// -------------------------------------------------------
+// Element bitwise operations (masked)
+// -------------------------------------------------------
+
+#define ELEMENTWISE_BIT_BINOP_MASK(op) \
+void valib_##op##m_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+\
+void valib_##op##m_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+\
+void valib_##op##m_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+\
+void valib_##op##m_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr); \
+void valib_##op##m_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, VSrcRegId src2, MaskSrcRegId mr);
+
+ELEMENTWISE_BIT_BINOP_MASK(or)
+ELEMENTWISE_BIT_BINOP_MASK(and)
+ELEMENTWISE_BIT_BINOP_MASK(xor)
+ELEMENTWISE_BIT_BINOP_MASK(lsl)
+ELEMENTWISE_BIT_BINOP_MASK(lsr)
+ELEMENTWISE_BIT_BINOP_MASK(asr)
+
+#define ELEMENTWISE_BIT_UNOP_MASK(op) \
+void valib_##op##m_int64_int64_int64 (VDestRegId dest, VSrcRegId src1, MaskSrcRegId mr); \
+void valib_##op##m_uint64_uint64_uint64 (VDestRegId dest, VSrcRegId src1, MaskSrcRegId mr); \
+\
+void valib_##op##m_int32_int32_int32 (VDestRegId dest, VSrcRegId src1, MaskSrcRegId mr); \
+void valib_##op##m_uint32_uint32_uint32 (VDestRegId dest, VSrcRegId src1, MaskSrcRegId mr); \
+\
+void valib_##op##m_int16_int16_int16 (VDestRegId dest, VSrcRegId src1, MaskSrcRegId mr); \
+void valib_##op##m_uint16_uint16_uint16 (VDestRegId dest, VSrcRegId src1, MaskSrcRegId mr); \
+\
+void valib_##op##m_int8_int8_int8 (VDestRegId dest, VSrcRegId src1, MaskSrcRegId mr); \
+void valib_##op##m_uint8_uint8_uint8 (VDestRegId dest, VSrcRegId src1, MaskSrcRegId mr);
+
+ELEMENTWISE_BIT_UNOP_MASK(not)
 
 // -------------------------------------------------------
 // Relational operators
