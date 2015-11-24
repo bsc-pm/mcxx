@@ -685,6 +685,44 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorGather& n)
     {
+        if (does_not_have_side_effects(n))
+            return;
+
+        TL::Type t = n.get_type().no_ref();
+        ERROR_CONDITION(!t.is_vector(), "Invalid type '%s'", print_declarator(t.get_internal_type()));
+        TL::Type element_type = t.vector_element();
+
+        Nodecl::NodeclBase mask = n.get_mask();
+
+        std::string gather_name;
+        if (mask.is_null())
+            gather_name = "valib_gather_offset_" + type_name(element_type);
+        else
+            gather_name = "valib_gather_offset_mask_" + type_name(element_type);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(gather_name);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", gather_name.c_str());
+
+        Nodecl::List args = Nodecl::List::make(
+                assig_get_lhs(current_assig),
+                n.get_base(),
+                n.get_strides());
+
+        if (!mask.is_null())
+        {
+            args.append(mask);
+        }
+
+        current_assig.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    args,
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
+                );
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorGreaterOrEqualThan& n)
@@ -881,6 +919,41 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorScatter& n)
     {
+        TL::Type t = n.get_type().no_ref();
+        ERROR_CONDITION(!t.is_vector(), "Invalid type '%s'", print_declarator(t.get_internal_type()));
+        TL::Type element_type = t.vector_element();
+
+        Nodecl::NodeclBase mask = n.get_mask();
+
+        std::string scatter_name;
+        if (mask.is_null())
+            scatter_name = "valib_scatter_offset_" + type_name(element_type);
+        else
+            scatter_name = "valib_scatter_offset_mask_" + type_name(element_type);
+
+        TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(scatter_name);
+        ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s'", scatter_name.c_str());
+
+        Nodecl::List args = Nodecl::List::make(
+                n.get_source(),
+                n.get_base(),
+                n.get_strides());
+
+        if (!mask.is_null())
+        {
+            args.append(mask);
+        }
+
+        n.replace(
+                Nodecl::FunctionCall::make(
+                    builtin_fun.make_nodecl(/* set_ref_type */ true),
+                    args,
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    n.get_type(),
+                    n.get_locus()
+                    )
+                );
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorSqrt& n)

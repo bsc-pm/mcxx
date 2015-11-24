@@ -343,7 +343,65 @@ void valib_stm_int8 ( VSrcRegId src, int8_t * address, MaskSrcRegId msrc);
 // Gather/Scatter
 // -------------------------------------------------------
 
-/* TBD */
+// src[:] = base[ offset[:] ]
+void valib_gather_offset_db(VDestRegId dest, void *base, VSrcRegId offset);
+void valib_gather_offset_fl(VDestRegId dest, void *base, VSrcRegId offset);
+void valib_gather_offset_int64(VDestRegId dest, void *base, VSrcRegId offset);
+void valib_gather_offset_int32(VDestRegId dest, void *base, VSrcRegId offset);
+void valib_gather_offset_int16(VDestRegId dest, void *base, VSrcRegId offset);
+void valib_gather_offset_int8 (VDestRegId dest, void *base, VSrcRegId offset);
+
+void valib_gather_offset_mask_db(VDestRegId dest, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_gather_offset_mask_fl(VDestRegId dest, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_gather_offset_mask_int64(VDestRegId dest, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_gather_offset_mask_int32(VDestRegId dest, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_gather_offset_mask_int16(VDestRegId dest, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_gather_offset_mask_int8 (VDestRegId dest, void *base, VSrcRegId offset, MaskSrcRegId mr);
+
+// base[ offset[:] ] = src[:]
+void valib_scatter_offset_db(VSrcRegId src, void *base, VSrcRegId offset);
+void valib_scatter_offset_fl(VSrcRegId src, void *base, VSrcRegId offset);
+void valib_scatter_offset_int64(VSrcRegId src, void *base, VSrcRegId offset);
+void valib_scatter_offset_int32(VSrcRegId src, void *base, VSrcRegId offset);
+void valib_scatter_offset_int16(VSrcRegId src, void *base, VSrcRegId offset);
+void valib_scatter_offset_int8 (VSrcRegId src, void *base, VSrcRegId offset);
+
+void valib_scatter_offset_mask_db(VSrcRegId src, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_scatter_offset_mask_fl(VSrcRegId src, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_scatter_offset_mask_int64(VSrcRegId src, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_scatter_offset_mask_int32(VSrcRegId src, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_scatter_offset_mask_int16(VSrcRegId src, void *base, VSrcRegId offset, MaskSrcRegId mr);
+void valib_scatter_offset_mask_int8 (VSrcRegId src, void *base, VSrcRegId offset, MaskSrcRegId mr);
+
+// src[:] = *(addr[:])
+void valib_gather_db(VDestRegId dest, VSrcRegId addr);
+void valib_gather_fl(VDestRegId dest, VSrcRegId addr);
+void valib_gather_int64(VDestRegId dest, VSrcRegId addr);
+void valib_gather_int32(VDestRegId dest, VSrcRegId addr);
+void valib_gather_int16(VDestRegId dest, VSrcRegId addr);
+void valib_gather_int8 (VDestRegId dest, VSrcRegId addr);
+
+void valib_gather_mask_db(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_gather_mask_fl(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_gather_mask_int64(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_gather_mask_int32(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_gather_mask_int16(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_gather_mask_int8 (VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+
+// *(addr[:]) = src[:]
+void valib_scatter_db(VDestRegId dest, VSrcRegId addr);
+void valib_scatter_fl(VDestRegId dest, VSrcRegId addr);
+void valib_scatter_int64(VDestRegId dest, VSrcRegId addr);
+void valib_scatter_int32(VDestRegId dest, VSrcRegId addr);
+void valib_scatter_int16(VDestRegId dest, VSrcRegId addr);
+void valib_scatter_int8 (VDestRegId dest, VSrcRegId addr);
+
+void valib_scatter_mask_db(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_scatter_mask_fl(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_scatter_mask_int64(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_scatter_mask_int32(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_scatter_mask_int16(VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
+void valib_scatter_mask_int8 (VDestRegId dest, VSrcRegId addr, MaskSrcRegId mr);
 
 // -------------------------------------------------------
 // Vector reductions
