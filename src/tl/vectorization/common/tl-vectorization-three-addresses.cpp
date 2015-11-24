@@ -424,15 +424,58 @@ namespace Vectorization
     {
         visit_vector_ternary(n);
     }
-    void VectorizationThreeAddresses::visit(const Nodecl::ForStatement& n)
+    void VectorizationThreeAddresses::visit(const Nodecl::LoopControl& n)
     {
-        // Do not walk through LoopHeader!
-        walk(n.get_statement());
+        // The vectorizer may add vector code in the condition but does not
+        // seem to ever do this in the other bits of the loop control
+        visit_expression(n.get_next());
     }
     void VectorizationThreeAddresses::visit(const Nodecl::WhileStatement& n)
     {
-        // Do not walk through LoopHeader!
+        visit_expression(n.get_condition());
         walk(n.get_statement());
+    }
+
+    void VectorizationThreeAddresses::visit_expression(const Nodecl::NodeclBase &n)
+    {
+        // Wrap the expression inside a new CompoundExpression and walk it
+        TL::Scope sc = n.retrieve_context();
+        TL::Scope new_scope = new_block_context(sc.get_decl_context());
+        Nodecl::NodeclBase new_expr = n.shallow_copy();
+        Nodecl::NodeclBase compound_expr =
+            Nodecl::CompoundExpression::make(
+                    Nodecl::Context::make(
+                        Nodecl::List::make(
+                            Nodecl::CompoundStatement::make(
+                                Nodecl::List::make(
+                                    Nodecl::ExpressionStatement::make(new_expr, n.get_locus())
+                                    ),
+                                Nodecl::NodeclBase::null(),
+                                n.get_locus())),
+                        new_scope,
+                        n.get_locus()),
+                    n.get_type(),
+                    n.get_locus());
+        compound_expr.set_constant(n.get_constant());
+
+        walk(new_expr);
+
+        Nodecl::List new_list = compound_expr
+            .as<Nodecl::CompoundExpression>().get_nest()
+            .as<Nodecl::Context>().get_in_context().as<Nodecl::List>()[0]
+            .as<Nodecl::CompoundStatement>().get_statements()
+            .as<Nodecl::List>();
+
+        // Leave this expression alone
+        if (new_list.size() == 1)
+        {
+            nodecl_free(compound_expr.get_internal_nodecl());
+        }
+        else
+        {
+            // Otherwise replace it
+            n.replace(compound_expr);
+        }
     }
 }
 }
