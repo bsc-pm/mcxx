@@ -679,6 +679,7 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorFunctionCall& n)
     {
+        walk(n.get_function_call());
         n.replace(n.get_function_call());
     }
 
