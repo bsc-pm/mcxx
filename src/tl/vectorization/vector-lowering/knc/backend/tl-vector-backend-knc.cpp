@@ -162,7 +162,7 @@ namespace Vectorization
             {
                 old << "("
                     << print_type_str(
-                            type.get_vector_of_elements(_vector_length).get_internal_type(),
+                            type.get_vector_of_bytes(_vector_length).get_internal_type(),
                             mask.retrieve_context().get_decl_context())
                     << ")"
                     << as_expression(_old_m512.back());
@@ -968,7 +968,7 @@ namespace Vectorization
         if (type.is_float())
         {
             TL::Type vector_int_type =
-                TL::Type::get_int_type().get_vector_of_elements(_vector_length);
+                TL::Type::get_int_type().get_vector_of_bytes(_vector_length);
 
             Nodecl::VectorBitwiseXor vector_xor =
                 Nodecl::VectorBitwiseXor::make(
@@ -992,7 +992,7 @@ namespace Vectorization
         else if (type.is_double())
         {
             TL::Type vector_int_type =
-                TL::Type::get_long_long_int_type().get_vector_of_elements(_vector_length);
+                TL::Type::get_long_long_int_type().get_vector_of_bytes(_vector_length);
 
             Nodecl::VectorBitwiseXor vector_xor =
                 Nodecl::VectorBitwiseXor::make(
@@ -1017,7 +1017,7 @@ namespace Vectorization
                 type.is_unsigned_int())
         {
             TL::Type vector_int_type =
-                TL::Type::get_int_type().get_vector_of_elements(_vector_length);
+                TL::Type::get_int_type().get_vector_of_bytes(_vector_length);
 
             Nodecl::VectorMinus vector_minus =
                 Nodecl::VectorMinus::make(
