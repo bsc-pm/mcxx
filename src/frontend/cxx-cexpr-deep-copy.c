@@ -33,6 +33,9 @@
 const_value_t* const_value_deep_copy(const_value_t* source,
         symbol_map_t* symbol_map)
 {
+    if (source == NULL)
+        return NULL;
+
     if (const_value_is_address(source))
     {
         return const_value_make_address(
