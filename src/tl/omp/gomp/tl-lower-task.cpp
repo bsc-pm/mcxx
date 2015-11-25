@@ -57,11 +57,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     {
         TL::ObjectList<Symbol> tmp =
             shared_list  // TL::ObjectList<OpenMP::Shared>
-            .map(&Nodecl::OpenMP::Shared::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Shared::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         shared_symbols.insert(tmp);
@@ -71,11 +71,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     {
         TL::ObjectList<Symbol> tmp =
             private_list  // TL::ObjectList<OpenMP::Private>
-            .map(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         private_symbols.insert(tmp);
@@ -84,11 +84,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     {
         TL::ObjectList<Symbol> tmp =
             firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-            .map(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         private_symbols.insert(tmp);
@@ -119,14 +119,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     if (!reduction_list.empty())
     {
         reduction_items = reduction_list
-            .map(&Nodecl::OpenMP::Reduction::get_reductions)
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>)
-            .map(&Nodecl::List::to_object_list)
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Reduction::get_reductions)
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list)
             .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
-            .map(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
+            .map<Nodecl::OpenMP::ReductionItem>(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
         all_symbols_passed.insert(reduction_symbols);
     }
 
@@ -346,8 +346,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     {
         set_task_flags << " |= GOMP_TASK_DEPEND;"
             ;
-        error_printf("%s: sorry: TASK dependences not yet implemented\n",
-                construct.get_locus_str().c_str());
+        sorry_printf_at(construct.get_locus(), "TASK dependences not yet implemented\n");
     }
 
     Source dependence_addresses;

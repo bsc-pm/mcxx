@@ -241,8 +241,11 @@ struct template_parameter_value_tag
     // This tree is owned by this structure
     nodecl_t value;
 
-    // Template, states that this is a default argument of a template parameter
-    char is_default;
+    // States that this is a default argument of a template parameter
+    char is_default:1;
+    // States that this argument was not present in the original template argument
+    // but was added when completing them
+    char is_implicit:1;
 
     // This symbol is null until lookup finds a template parameter and
     // discovers it has this value. Then a fake symbol is created to represent

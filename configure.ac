@@ -69,6 +69,11 @@ AC_PATH_PROG([BASH], [bash], [])
 
 dnl Check python 2.4
 AM_PATH_PYTHON2([2.4],, [:])
+
+if test "$PYTHON" = ":"; then
+   AC_MSG_ERROR([Python 2.x not found (note that Python 3 can't be used)])
+fi
+
 if test x$BASH = x; then
   # If GNU Bash isn't available, use the current shell and hope for
   # the best.

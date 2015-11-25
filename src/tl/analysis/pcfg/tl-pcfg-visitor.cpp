@@ -898,11 +898,6 @@ next_it:    ;
         return visit_case_or_default( n.get_statement( ), n.get_case( ).as<Nodecl::List>() );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Cast& n )
-    {
-        return visit_unary_node( n, n.get_rhs( ) );
-    }
-
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CatchHandler& n )
     {
         PCFGTryBlock* current_tryblock = _utils->_tryblock_nodes.back( );
@@ -2449,6 +2444,13 @@ next_it:    ;
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::PrivateInit& n )
+    {
+        _utils->_pragma_nodes.top( )._clauses.append(n);
+        return ObjectList<Node*>( );
+    }
+
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
     {

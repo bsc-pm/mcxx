@@ -45,14 +45,10 @@ namespace Vectorization
             void visit_vector_unary(const Nodecl::NodeclBase& n);
             void visit_vector_binary(const Nodecl::NodeclBase& n);
             void visit_vector_ternary(const Nodecl::NodeclBase& n);
-
-            TL::Scope _function_scope;
-            Nodecl::NodeclBase _first_statement;
  
         public:
             VectorizationThreeAddresses();
 
-            void visit(const Nodecl::FunctionCode& n);
             void visit(const Nodecl::ObjectInit& n);
 
             void visit(const Nodecl::VectorAdd& n);
@@ -75,6 +71,7 @@ namespace Vectorization
             void visit(const Nodecl::VectorFmminus& n);
             void visit(const Nodecl::VectorArithmeticShr& n);
             void visit(const Nodecl::VectorBitwiseShr& n);
+            void visit(const Nodecl::VectorBitwiseShl& n);
             void visit(const Nodecl::VectorReductionAdd& n);
             void visit(const Nodecl::VectorReductionMinus& n);
             void visit(const Nodecl::VectorReductionMul& n);
@@ -101,8 +98,11 @@ namespace Vectorization
 
             void visit(const Nodecl::VectorConversion& n);
             void visit(const Nodecl::VectorConditionalExpression& n);
-            void visit(const Nodecl::ForStatement& n);
             void visit(const Nodecl::WhileStatement& n);
+            void visit(const Nodecl::LoopControl& n);
+
+        private:
+            void visit_expression(const Nodecl::NodeclBase &n);
     };
 }
 }

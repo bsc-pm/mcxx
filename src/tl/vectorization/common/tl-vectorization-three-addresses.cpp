@@ -91,11 +91,13 @@ namespace Vectorization
     TL::Symbol VectorizationThreeAddresses::get_temporal_symbol(
             const Nodecl::NodeclBase& reference)
     {
+        TL::Scope scope = _object_init.is_null() ? 
+            reference.retrieve_context() : _object_init.retrieve_context();
+
         std::stringstream new_sym_name;
         new_sym_name << "_v3atmp" << sym_counter;
 
-        ERROR_CONDITION(!_function_scope.is_valid(), "Invalid function scope", 0);
-        TL::Symbol tl_sym = _function_scope.new_symbol(new_sym_name.str());
+        TL::Symbol tl_sym = scope.new_symbol(new_sym_name.str());
         tl_sym.get_internal_symbol()->kind = SK_VARIABLE;
         symbol_entity_specs_set_is_user_declared(tl_sym.get_internal_symbol(), 1);
         tl_sym.set_type(reference.get_type().no_ref().get_unqualified_type());
@@ -145,7 +147,7 @@ namespace Vectorization
         {
             if (IS_CXX_LANGUAGE)
             {
-                Nodecl::Utils::prepend_sibling_statement(_first_statement, cxx_def);
+                Nodecl::Utils::prepend_sibling_statement(_object_init, cxx_def);
             }
             Nodecl::Utils::prepend_sibling_statement(_object_init, new_stmt);
         }
@@ -153,7 +155,7 @@ namespace Vectorization
         {
             if (IS_CXX_LANGUAGE)
             {
-                Nodecl::Utils::prepend_sibling_statement(_first_statement, cxx_def);
+                Nodecl::Utils::prepend_sibling_statement(n, cxx_def);
             }
             Nodecl::Utils::prepend_sibling_statement(n, new_stmt);
         }
@@ -225,42 +227,6 @@ namespace Vectorization
         }
     }
 
-    void VectorizationThreeAddresses::visit(const Nodecl::FunctionCode& n)
-    {
-        _function_scope = nodecl_get_decl_context(
-                n.get_statements().get_internal_nodecl()
-                );
-
-        Nodecl::NodeclBase stmts = n.get_statements().as<Nodecl::Context>().get_in_context();
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            if (!stmts.is_null())
-            {
-                ERROR_CONDITION(stmts.as<Nodecl::List>().size() > 1,
-                        "Too many items in list", 0);
-
-                Nodecl::NodeclBase compound = n.as<Nodecl::List>()[0];
-                ERROR_CONDITION(!compound.is<Nodecl::CompoundStatement>(), "Invalid statement", 0);
-
-                _first_statement = compound.as<Nodecl::CompoundStatement>().get_statements();
-                if (!_first_statement.is_null())
-                {
-                    _first_statement = _first_statement.as<Nodecl::List>()[0];
-                }
-            }
-        }
-        else
-        {
-            if (!stmts.is_null())
-            {
-                _first_statement = stmts.as<Nodecl::List>()[0];
-            }
-        }
-
-        walk(n.get_statements());
-    }
-
     void VectorizationThreeAddresses::visit(const Nodecl::ObjectInit& n)
     {
         _object_init = n;
@@ -318,7 +284,14 @@ namespace Vectorization
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorFunctionCall& n)
     {
-        visit_vector_unary(n);
+        ERROR_CONDITION(!n.get_function_call().is<Nodecl::FunctionCall>(), "Invalid node", 0);
+        Nodecl::FunctionCall call = n.get_function_call().as<Nodecl::FunctionCall>();
+
+        Nodecl::List args = call.get_arguments().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = args.begin(); it != args.end(); it++)
+        {
+            visit_expression(*it);
+        }
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorAlignRight& n)
     {
@@ -353,6 +326,10 @@ namespace Vectorization
         visit_vector_binary(n);
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseShr& n)
+    {
+        visit_vector_binary(n);
+    }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseShl& n)
     {
         visit_vector_binary(n);
     }
@@ -454,15 +431,72 @@ namespace Vectorization
     {
         visit_vector_ternary(n);
     }
-    void VectorizationThreeAddresses::visit(const Nodecl::ForStatement& n)
+    void VectorizationThreeAddresses::visit(const Nodecl::LoopControl& n)
     {
-        // Do not walk through LoopHeader!
-        walk(n.get_statement());
+        // The vectorizer may add vector code in the condition but does not
+        // seem to ever do this in the other bits of the loop control
+        visit_expression(n.get_next());
     }
     void VectorizationThreeAddresses::visit(const Nodecl::WhileStatement& n)
     {
-        // Do not walk through LoopHeader!
+        visit_expression(n.get_condition());
         walk(n.get_statement());
+    }
+
+    void VectorizationThreeAddresses::visit_expression(const Nodecl::NodeclBase &n)
+    {
+        // Wrap the expression inside a new CompoundExpression and walk it
+        TL::Scope sc = n.retrieve_context();
+        TL::Scope new_scope = new_block_context(sc.get_decl_context());
+        Nodecl::NodeclBase new_expr = n.shallow_copy();
+        Nodecl::NodeclBase compound_expr =
+            Nodecl::CompoundExpression::make(
+                    Nodecl::Context::make(
+                        Nodecl::List::make(
+                            Nodecl::CompoundStatement::make(
+                                Nodecl::List::make(
+                                    Nodecl::ExpressionStatement::make(new_expr, n.get_locus())
+                                    ),
+                                Nodecl::NodeclBase::null(),
+                                n.get_locus())),
+                        new_scope,
+                        n.get_locus()),
+                    n.get_type(),
+                    n.get_locus());
+        compound_expr.set_constant(n.get_constant());
+
+        walk(new_expr);
+
+        Nodecl::List new_list = compound_expr
+            .as<Nodecl::CompoundExpression>().get_nest()
+            .as<Nodecl::Context>().get_in_context().as<Nodecl::List>()[0]
+            .as<Nodecl::CompoundStatement>().get_statements()
+            .as<Nodecl::List>();
+
+        // Leave this expression alone
+        if (new_list.size() == 1)
+        {
+            nodecl_free(compound_expr.get_internal_nodecl());
+        }
+        else
+        {
+            // Otherwise replace it
+            // Force a side effect
+            if (!n.get_type().is_void())
+            {
+                Nodecl::NodeclBase last_stmt = new_list.back();
+                if (last_stmt.is<Nodecl::ExpressionStatement>())
+                {
+                    Nodecl::NodeclBase last_expr =
+                        last_stmt.as<Nodecl::ExpressionStatement>().get_nest();
+                    if (needs_decomposition(last_expr))
+                    {
+                        decomp(last_expr);
+                    }
+                }
+            }
+            n.replace(compound_expr);
+        }
     }
 }
 }

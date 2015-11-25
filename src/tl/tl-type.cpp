@@ -31,6 +31,7 @@
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
 #include "tl-nodecl.hpp"
+#include "tl-member-decl.hpp"
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
@@ -1107,7 +1108,7 @@ namespace TL
         for (i = 0; i < num_decls; i++)
         {
             result.push_back(
-                    MemberDeclarationInfo(mdi[i].entry, mdi[i].is_definition)
+                    MemberDeclarationInfo(mdi[i].entry, mdi[i].decl_context, mdi[i].is_definition)
                     );
         }
 
@@ -1587,5 +1588,4 @@ namespace TL
         access_specifier(_access_specifier)
     {
     }
-
 }

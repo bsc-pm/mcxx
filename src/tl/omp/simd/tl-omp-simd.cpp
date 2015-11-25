@@ -975,7 +975,7 @@ namespace TL {
                         only_epilog,
                         true /*parallel loop*/);
 
-                single_stmts_list.append(net_epilog_node.shallow_copy());
+                single_stmts_list.append(net_epilog_node);
 
                 for_environment.unload_environment();
 
@@ -1055,7 +1055,7 @@ namespace TL {
 
                         omp_for_appendix_environment.append(
                                 Nodecl::OpenMP::PrivateInit::make(
-                                    vector_tl_symbol.get_value(),
+                                    Nodecl::NodeclBase::null(),
                                     vector_tl_symbol));
                     }
 

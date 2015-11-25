@@ -1,38 +1,29 @@
 [mpimcc_mcc_base : mcc]
 language = C
 options= --variable=nanos_main_enabled:1
-preprocessor_name = @MPICC@
 preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h
 {!mmic} preprocessor_options = -DX86_ARCH
 {mmic} preprocessor_options = -DMIC_ARCH
-compiler_name = @MPICC@
-linker_name = @MPICXX@
+linker_name = @G++@
 linker_options = -lstdc++
 compiler_phase = libtlnanox-mpi.so
 
 [mpimcxx_mcc_base : mcxx]
 language = C++
 options= --variable=nanos_main_enabled:1
-preprocessor_name = @MPICXX@
 preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DMPICH_IGNORE_CXX_SEEK
 {!mmic} preprocessor_options = -DX86_ARCH
 {mmic} preprocessor_options = -DMIC_ARCH
-compiler_name = @MPICXX@
-linker_name = @MPICXX@
 compiler_phase = libtlnanox-mpi.so
 
 [mpimfc_mcc_base : mfc]
 language = Fortran
 options = --variable=nanos_main_enabled:1
-preprocessor_name = @MPICC@
 preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h
 {!mmic} preprocessor_options = -DX86_ARCH
 {mmic} preprocessor_options = -DMIC_ARCH
-fortran_preprocessor_name = @MPIFORT@
 fortran_preprocessor_options = -cpp -P -D_MERCURIUM_MPI_
 {!mmic} fortran_preprocessor_options = -DX86_ARCH
 {mmic} fortran_preprocessor_options = -DMIC_ARCH
-compiler_name = @MPIFORT@
-linker_name = @MPICXX@
-linker_options = -lstdc++
+linker_name = @G++@
 compiler_phase = libtlnanox-mpi.so

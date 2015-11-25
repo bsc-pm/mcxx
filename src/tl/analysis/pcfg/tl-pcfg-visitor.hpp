@@ -282,7 +282,6 @@ namespace Analysis {
         Ret visit( const Nodecl::BooleanLiteral& n );
         Ret visit( const Nodecl::BreakStatement& n );
         Ret visit( const Nodecl::CaseStatement& n );
-        Ret visit( const Nodecl::Cast& n );
         Ret visit( const Nodecl::CatchHandler& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::Comma& n );
@@ -385,6 +384,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Prefetch& n );
         Ret visit( const Nodecl::OpenMP::Priority& n );
         Ret visit( const Nodecl::OpenMP::Private& n );
+        Ret visit( const Nodecl::OpenMP::PrivateInit& n );
         Ret visit( const Nodecl::OpenMP::Reduction& n );
         Ret visit( const Nodecl::OpenMP::ReductionItem& n );
         Ret visit( const Nodecl::OpenMP::Schedule& n );

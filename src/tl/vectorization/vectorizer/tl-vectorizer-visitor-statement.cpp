@@ -203,8 +203,7 @@ namespace Vectorization
             main_loop_control.set_init(Nodecl::NodeclBase::null());
             CXX_LANGUAGE()
             {
-                Nodecl::Utils::add_statements_at_beginning_of_function(
-                        n,
+                n.prepend_sibling(
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             mask_condition_symbol.get_symbol(),
@@ -372,8 +371,7 @@ namespace Vectorization
 
             CXX_LANGUAGE()
             {
-                Nodecl::Utils::add_statements_at_beginning_of_function(
-                        n,
+                list.append(
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             mask_condition_symbol.get_symbol(),
@@ -423,8 +421,7 @@ namespace Vectorization
             // Add masks to the source code
             CXX_LANGUAGE()
             {
-                Nodecl::Utils::add_statements_at_beginning_of_function(
-                        n,
+                list.append(
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             if_mask_symbol.get_symbol(),
@@ -470,8 +467,7 @@ namespace Vectorization
             // Add masks to the source code
             CXX_LANGUAGE()
             {
-                Nodecl::Utils::add_statements_at_beginning_of_function(
-                        n,
+                list.append(
                         Nodecl::CxxDef::make(
                             Nodecl::NodeclBase::null(),
                             else_mask_symbol.get_symbol(),
@@ -608,8 +604,7 @@ namespace Vectorization
 
                 CXX_LANGUAGE()
                 {
-                    Nodecl::Utils::add_statements_at_beginning_of_function(
-                            n,
+                    list.append(
                             Nodecl::CxxDef::make(
                                 Nodecl::NodeclBase::null(),
                                 new_exit_mask.get_symbol(),
@@ -773,7 +768,7 @@ namespace Vectorization
                                 mask.shallow_copy(),
                                 Nodecl::MaskLiteral::make(
                                     mask.get_type().no_ref(),
-                                    const_value_get_mask(0, mask.get_type().no_ref().get_mask_num_elements()),
+                                    const_value_get_signed_int(0),
                                     n.get_locus()),
                                 mask.get_type(),
                                 make_locus("", 0, 0)));

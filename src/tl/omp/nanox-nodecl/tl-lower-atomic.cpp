@@ -44,6 +44,13 @@ namespace TL { namespace Nanox {
                     != Nodecl::Utils::structurally_equal_nodecls(lhs_assig, rhs, /* skip_conversion_nodecls */ true));
         }
 
+        bool is_valid_type_fortran(TL::Type t)
+        {
+            return (!t.no_ref().is_fortran_array()
+                    && !(t.no_ref().is_pointer()
+                        && t.no_ref().points_to().is_fortran_array()));
+        }
+
         bool allowed_expressions_critical_fortran(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
         {
             if (!expr.is<Nodecl::Assignment>())
@@ -54,6 +61,10 @@ namespace TL { namespace Nanox {
 
             Nodecl::NodeclBase lhs_assig = expr.as<Nodecl::Assignment>().get_lhs();
             Nodecl::NodeclBase rhs_assig = expr.as<Nodecl::Assignment>().get_rhs();
+
+            if (!is_valid_type_fortran(lhs_assig.get_type())
+                    || !is_valid_type_fortran(rhs_assig.get_type()))
+                return false;
 
             node_t op_kind = rhs_assig.get_kind();
 
@@ -138,6 +149,10 @@ namespace TL { namespace Nanox {
                             // std::cerr << " ARGS1 -> " << arg_1.prettyprint() << std::endl;
                             return false;
                         }
+
+                        if (!is_valid_type_fortran(arg_0.get_type())
+                                || !is_valid_type_fortran(arg_1.get_type()))
+                            return false;
                     }
                     break;
                 default:
@@ -652,7 +667,7 @@ namespace TL { namespace Nanox {
                 bool using_nanos_api = false;
                 if (!allowed_expressions_critical(expr, using_builtin, using_nanos_api))
                 {
-                    warn_printf_at(expr.get_locus(), "'atomic' expression cannot be implemented efficiently\n");
+                    warn_printf_at(expr.get_locus(), "'atomic' expression cannot be implemented efficiently: a critical region will be used instead\n");
                     std::string lock_name = "nanos_default_critical_lock";
                     atomic_tree = emit_critical_region(lock_name, construct, statements);
                 }

@@ -307,6 +307,7 @@ namespace TL { namespace Nanos6 {
         symbol_entity_specs_set_is_user_declared(
                 task_info.get_internal_symbol(), 1);
         task_info.set_type(task_info_struct.get_user_defined_type());
+        symbol_entity_specs_set_is_static(task_info.get_internal_symbol(), 1);
 
         TL::ObjectList<TL::Symbol> fields = task_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field(fields);
@@ -325,10 +326,10 @@ namespace TL { namespace Nanos6 {
         TL::Type run_type = TL::Type::get_void_type().get_function_returning(
                 TL::ObjectList<TL::Type>(1, TL::Type::get_void_type().get_pointer_to()))
             .get_pointer_to();
-        init_run = Nodecl::Cast::make(
+        init_run = Nodecl::Conversion::make(
                 init_run,
-                run_type,
-                "C");
+                run_type);
+        init_run.set_text("C");
 
         Nodecl::NodeclBase field_register_depinfo = get_field("register_depinfo");
         Nodecl::NodeclBase init_register_depinfo;
@@ -345,10 +346,10 @@ namespace TL { namespace Nanos6 {
             {
                 init_register_depinfo = dependences_function.make_nodecl(/* set_ref_type */ true);
             }
-            init_register_depinfo = Nodecl::Cast::make(
+            init_register_depinfo = Nodecl::Conversion::make(
                     init_register_depinfo,
-                    dep_or_copies_fun_type,
-                    "C");
+                    dep_or_copies_fun_type);
+            init_register_depinfo.set_text("C");
         }
         else
         {
@@ -367,10 +368,10 @@ namespace TL { namespace Nanos6 {
             {
                 init_register_copies = copies_function.make_nodecl(/* set_ref_type */ true);
             }
-            init_register_copies = Nodecl::Cast::make(
+            init_register_copies = Nodecl::Conversion::make(
                     init_register_copies,
-                    run_type,
-                    "C");
+                    run_type);
+            init_register_copies.set_text("C");
         }
         else
         {
@@ -446,7 +447,7 @@ namespace TL { namespace Nanos6 {
         symbol_entity_specs_set_is_user_declared(
                 task_invocation_info.get_internal_symbol(), 1);
         task_invocation_info.set_type(task_invocation_info_struct.get_user_defined_type());
-
+        symbol_entity_specs_set_is_static(task_invocation_info.get_internal_symbol(), 1);
 
         TL::ObjectList<TL::Symbol> task_invocation_fields = task_invocation_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field_task_invocation_info(task_invocation_fields);
@@ -552,6 +553,7 @@ namespace TL { namespace Nanos6 {
         class_type_add_member(
                 new_class_type.get_internal_type(),
                 field.get_internal_symbol(),
+                field.get_internal_symbol()->decl_context,
                 /* is_definition */ 1);
 
         field_map[var] = field;
@@ -1030,9 +1032,10 @@ namespace TL { namespace Nanos6 {
                                 it->get_type().no_ref()
                                 );
 
+                        Nodecl::NodeclBase cast;
                         args.append(
                                 Nodecl::Dereference::make(
-                                    Nodecl::Cast::make(
+                                    cast = Nodecl::Conversion::make(
                                         Nodecl::Reference::make(
                                             Nodecl::ClassMemberAccess::make(
                                                 arg.make_nodecl(/* set_ref_type */ true),
@@ -1040,11 +1043,11 @@ namespace TL { namespace Nanos6 {
                                                 /* member_literal */ Nodecl::NodeclBase::null(),
                                                 field_map[*it].get_type().get_lvalue_reference_to()),
                                             field_map[*it].get_type().get_pointer_to()),
-                                        param_type.get_pointer_to(),
-                                        "C"),
+                                        param_type.get_pointer_to()),
                                     param_type.get_lvalue_reference_to()
                                     )
                                 );
+                        cast.set_text("C");
                     }
                 }
                 else
@@ -1081,16 +1084,17 @@ namespace TL { namespace Nanos6 {
                         // The field is void*, cast it to the type of the
                         // pointer (coming from array-to-pointer) type of the
                         // outline
+                        Nodecl::NodeclBase cast;
                         args.append(
-                                Nodecl::Cast::make(
+                                cast = Nodecl::Conversion::make(
                                     Nodecl::ClassMemberAccess::make(
                                         arg.make_nodecl(/* set_ref_type */ true),
                                         field_map[*it].make_nodecl(),
                                         /* member_literal */ Nodecl::NodeclBase::null(),
                                         field_map[*it].get_type().get_lvalue_reference_to()),
-                                    pointer_type,
-                                    "C")
+                                    pointer_type)
                                 );
+                        cast.set_text("C");
                     }
                     else
                     {
@@ -1103,19 +1107,20 @@ namespace TL { namespace Nanos6 {
 
                         // The field is void*, cast it to the type of the
                         // argument and then derreference
+                        Nodecl::NodeclBase cast;
                         args.append(
                                 Nodecl::Dereference::make(
-                                    Nodecl::Cast::make(
+                                    cast = Nodecl::Conversion::make(
                                         Nodecl::ClassMemberAccess::make(
                                             arg.make_nodecl(/* set_ref_type */ true),
                                             field_map[*it].make_nodecl(),
                                             /* member_literal */ Nodecl::NodeclBase::null(),
                                             field_map[*it].get_type().get_lvalue_reference_to()),
-                                        pointer_type,
-                                        "C"),
+                                        pointer_type),
                                     arg_type
                                     )
                                 );
+                        cast.set_text("C");
                     }
 
                 }

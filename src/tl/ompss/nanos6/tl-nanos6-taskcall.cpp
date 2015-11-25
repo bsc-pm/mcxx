@@ -74,6 +74,53 @@ namespace TL { namespace Nanos6 {
                             walk(*it);
                         }
                     }
+                    // FIXME: turn this class into a visitor
+                    else if (n.is<Nodecl::OpenMP::Shared>())
+                    {
+                        Nodecl::List sym_list = n.as<Nodecl::OpenMP::Shared>()
+                            .get_symbols().as<Nodecl::List>();
+                        TL::ObjectList<Nodecl::NodeclBase> pruned_list;
+                        TL::ObjectList<Nodecl::NodeclBase> captured_arguments;
+                        for (Nodecl::List::iterator it = sym_list.begin();
+                                it != sym_list.end();
+                                it++)
+                        {
+                            TL::Symbol sym = it->get_symbol();
+                            if (!sym.is_parameter()
+                                    || sym.get_parameter_position() >= (int)_argument_captures_syms.size())
+                            {
+                                pruned_list.append(sym.make_nodecl());
+                            }
+                            else
+                            {
+                                // In Nanos6 we have to capture the arguments of the task call
+                                captured_arguments.append(sym.make_nodecl());
+                            }
+                        }
+                        if (!captured_arguments.empty())
+                        {
+                            // Capture arguments
+                            Nodecl::NodeclBase captured_arg_list =
+                                    Nodecl::OpenMP::Firstprivate::make(
+                                        Nodecl::List::make(captured_arguments),
+                                        n.get_locus());
+                            walk(captured_arg_list);
+                            n.prepend_sibling(captured_arg_list);
+                        }
+                        if (pruned_list.empty())
+                        {
+                            Nodecl::Utils::remove_from_enclosing_list(n);
+                        }
+                        else
+                        {
+                            // FIXME: this is probably unlikely
+                            n.replace(
+                                    Nodecl::OpenMP::Shared::make(
+                                        Nodecl::List::make(pruned_list),
+                                        n.get_locus())
+                                    );
+                        }
+                    }
                     else
                     {
                         if (n.get_symbol().is_valid())
@@ -177,6 +224,7 @@ namespace TL { namespace Nanos6 {
                     it_args->get_locus());
             Nodecl::NodeclBase new_arg = ::cxx_nodecl_make_conversion(symbol_ref.get_internal_nodecl(),
                     it_params->get_type().get_internal_type(),
+                    TL::Scope::get_global_scope().get_decl_context(),
                     symbol_ref.get_locus());
             new_args.append(new_arg);
 

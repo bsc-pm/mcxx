@@ -86,6 +86,7 @@ static scope_entry_t* add_duplicate_member_to_class(
     }
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member,
+            member_of_template->decl_context,
             /* is_definition */ member_of_template->defined);
 
     return new_member;
@@ -217,7 +218,9 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
     class_type_add_member(
             get_actual_class_type(being_instantiated),
-            new_primary_symbol, /* is_definition */ 1);
+            new_primary_symbol,
+            new_primary_symbol->decl_context,
+            /* is_definition */ 1);
 
     if (is_class)
     {
@@ -450,6 +453,15 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             instantiation_symbol_map,
                             /* pack_index */ -1);
 
+                    if (is_any_reference_type(nodecl_get_type(new_enumerator->value)))
+                    {
+                        new_enumerator->value =
+                            cxx_nodecl_make_conversion(new_enumerator->value,
+                                    no_ref(nodecl_get_type(new_enumerator->value)),
+                                    new_enumerator_context,
+                                    enumerator->locus);
+                    }
+
                     ERROR_CONDITION(
                             !nodecl_is_constant(new_enumerator->value),
                             "This enumerator is not constant", 0);
@@ -463,7 +475,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         // This is an unscoped enumerator
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
-                                new_enumerator, /* is_definition */ 1);
+                                new_enumerator,
+                                new_enumerator->decl_context,
+                                /* is_definition */ 1);
 
                         symbol_entity_specs_set_is_member(new_enumerator, 1);
                         symbol_entity_specs_set_access(new_enumerator, symbol_entity_specs_get_access(enumerator));
@@ -585,7 +599,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         symbol_entity_specs_set_access(anon_member, symbol_entity_specs_get_access(new_member));
                         symbol_entity_specs_set_class_type(anon_member, get_user_defined_type(new_member));
 
-                        class_type_add_member(being_instantiated, anon_member, /* is_definition */ 1);
+                        class_type_add_member(being_instantiated, anon_member,
+                                anon_member->decl_context, /* is_definition */ 1);
                     }
 
                     instantiation_symbol_map_add(instantiation_symbol_map,
@@ -653,17 +668,23 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                     context_of_being_instantiated,
                                     member_of_template->locus);
 
+                        scope_entry_t* specialized_class_sym = 
+                                named_type_get_symbol(new_template_specialized_type);
                         template_specialized_type_update_template_parameters(
-                                named_type_get_symbol(new_template_specialized_type)->type_information,
+                                specialized_class_sym->type_information,
+                                template_params);
+                        template_specialized_type_update_template_parameters(
+                                class_symbol_get_canonical_symbol(specialized_class_sym)->type_information,
                                 template_params);
 
-                        symbol_entity_specs_set_is_instantiable(named_type_get_symbol(new_template_specialized_type), 1);
-                        symbol_entity_specs_set_is_user_declared(named_type_get_symbol(new_template_specialized_type), 0);
+                        symbol_entity_specs_set_is_instantiable(specialized_class_sym, 1);
+                        symbol_entity_specs_set_is_user_declared(specialized_class_sym, 0);
 
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
-                                named_type_get_symbol(new_template_specialized_type),
-                                named_type_get_symbol(new_template_specialized_type)->defined
+                                specialized_class_sym,
+                                specialized_class_sym->decl_context,
+                                specialized_class_sym->defined
                                 );
                     }
                 }
@@ -1739,6 +1760,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     instantiation_context->template_parameters = template_arguments;
 
     template_specialized_type_update_template_parameters(being_instantiated_sym->type_information,
+            instantiation_context->template_parameters);
+    template_specialized_type_update_template_parameters(
+            class_symbol_get_canonical_symbol(being_instantiated_sym)->type_information,
             instantiation_context->template_parameters);
 
     const decl_context_t* inner_decl_context = new_class_context(instantiation_context, 
