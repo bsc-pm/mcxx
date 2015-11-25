@@ -329,8 +329,10 @@ struct simple_type_tag {
     // Complex types, base type of the complex type (STK_COMPLEX)
     type_t* complex_element;
 
-    // Vector types, element type and vector size
-    // if vector_size == 0 then this is a generic vector
+    // STK_VECTOR
+    // STK_MASK
+    // For a mask vector_size is the number of bits of the mask
+    // and vector_element is the underlying integer backing it (if any)
     type_t* vector_element;
     unsigned int vector_size;
 } simple_type_t;
@@ -15894,6 +15896,41 @@ extern inline int generic_type_get_num(type_t* t)
     return -1;
 }
 
+static void mask_type_compute_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(!is_mask_type(t),
+            "This is not a mask type", 0);
+    t = advance_over_typedefs(t);
+
+    type_t* unsigned_integers[] = {
+        get_unsigned_char_type(),
+        get_unsigned_short_int_type(),
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+        NULL,
+    };
+
+    type_t** it = &unsigned_integers[0];
+    unsigned int num_bits = mask_type_get_num_bits(t);
+
+    while (*it != NULL)
+    {
+        if ((8 * type_get_size(*it)) == num_bits)
+        {
+            t->type->vector_element = *it;
+
+            // Share the sizing info with the underlying type
+            DELETE(t->info);
+            t->info = t->type->vector_element->info;
+
+            break;
+        }
+
+        it++;
+    }
+}
+
 extern inline type_t* get_mask_type(unsigned int mask_size_bits)
 {
     static rb_red_blk_tree *_mask_hash = NULL;
@@ -15914,6 +15951,8 @@ extern inline type_t* get_mask_type(unsigned int mask_size_bits)
         int *k = NEW(int);
         *k = mask_size_bits;
 
+        mask_type_compute_underlying_type(result);
+
         rb_tree_insert(_mask_hash, k, result);
     }
 
@@ -15929,34 +15968,20 @@ extern inline char is_mask_type(type_t* t)
             && t->type->kind == STK_MASK);
 }
 
+
 extern inline type_t* mask_type_get_underlying_type(type_t* t)
 {
     ERROR_CONDITION(!is_mask_type(t),
             "This is not a mask type", 0);
+    t = advance_over_typedefs(t);
 
+    unsigned int num_bits = t->type->vector_size;
 
-    type_t* unsigned_integers[] = {
-        get_unsigned_char_type(),
-        get_unsigned_short_int_type(),
-        get_unsigned_int_type(),
-        get_unsigned_long_int_type(),
-        get_unsigned_long_long_int_type(),
-        NULL,
-    };
-
-    type_t** it = &unsigned_integers[0];
-    unsigned int num_bits = mask_type_get_num_bits(t);
-
-    while (*it != NULL)
-    {
-        if ((8 * type_get_size(*it)) == num_bits)
-            return *it;
-
-        it++;
-    }
-
-    internal_error("Not found a suitable unsigned integer type for a mask of '%d' bits\n",
+    ERROR_CONDITION(t->type->vector_element == NULL,
+            "Not found a suitable unsigned integer type for a mask of '%d' bits\n",
             num_bits);
+
+    return t->type->vector_element;
 }
 
 unsigned int mask_type_get_num_bits(type_t* t)
