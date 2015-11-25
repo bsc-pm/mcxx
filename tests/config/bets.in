@@ -380,6 +380,40 @@ runner_sde ()
    return $ret
 }
 
+runner_taskset ()
+{
+   local tmpdir
+   local exe
+   local args
+   local env
+
+   tmpdir="$1"
+   exe="$2"
+   args="$3"
+   env="$4"
+
+   echo "ENV ==> " $env >> $logfile
+
+   # Truncate the file
+   cat /dev/null > $tmpfile
+   (
+      # We need to evaluate ENV to pass ${TASKSET_NUMCPUS}
+      echo set -x >> $tmpfile
+      eval $env;
+      echo $env taskset -c 0-$((${TASKSET_NUM_CPUS}-1)) $tmpdir/$exec $args >> $tmpfile
+      echo set +x >> $tmpfile
+   )
+
+   echo "=== TMPFILE ========" >> $logfile
+   cat $tmpfile >> $logfile
+   echo "=== End of TMPFILE ========" >> $logfile
+
+   log sh $tmpfile
+   sh $tmpfile >> $logfile
+   local ret=$?
+
+   return $ret
+}
 
 execute ()
 {

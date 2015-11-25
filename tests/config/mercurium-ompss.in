@@ -1,3 +1,31 @@
 #!/usr/bin/env bash
 
-exec @abs_builddir@/mercurium-nanox ompss $1
+# Check if there is some OmpSs implementation
+if [ "@NANOX_ENABLED@" = "no" -a  "@NANOS6_ENABLED@" = "yes" ];
+then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="neither Nanos++ or Nanos6 have been configured"
+EOF
+
+exit
+
+fi
+
+# ----------------------------------------------
+
+if [ "@NANOS6_ENABLED@" = "yes" ];
+then
+   @abs_builddir@/mercurium-nanos6 $1
+fi
+
+# ----------------------------------------------
+
+if [ "@NANOX_ENABLED@" = "yes" ];
+then
+
+@abs_builddir@/mercurium-nanox ompss $1
+
+fi
+

@@ -2345,6 +2345,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-fe-only
            tests/config/mercurium-hlt
            tests/config/mercurium-nanox
+           tests/config/mercurium-nanos6
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
            tests/config/mercurium-serial-simd
