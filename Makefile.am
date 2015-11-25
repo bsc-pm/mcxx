@@ -291,6 +291,8 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-cexpr.h \
   src/frontend/cxx-cexpr-fwd.h \
   src/frontend/cxx-cexpr-decls.h \
+  src/frontend/cxx-cexpr-deep-copy.h \
+  src/frontend/cxx-cexpr-deep-copy.c \
   src/frontend/cxx-ambiguity.c \
   src/frontend/cxx-ambiguity.h \
   src/frontend/cxx-solvetemplate.h \
