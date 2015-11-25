@@ -1346,6 +1346,7 @@ def generate_c_deep_copy_def(rule_map):
     print "#include \"cxx-nodecl.h\""
     print "#include \"cxx-nodecl-deep-copy.h\""
     print "#include \"cxx-symbol-deep-copy.h\""
+    print "#include \"cxx-cexpr-deep-copy.h\""
     print "#include \"cxx-nodecl-output.h\""
     print "#include \"cxx-scope.h\""
     print "#include \"cxx-typeutils.h\""
@@ -1459,7 +1460,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, const decl_context_t* new_decl_context
             factory_arguments.append("text")
 
         if has_attr("cval"):
-            print "const_value_t* cval = nodecl_get_constant(n);"
+            print "const_value_t* cval = const_value_deep_copy(nodecl_get_constant(n), *synth_symbol_map);"
         if needs_attr("cval"):
             factory_arguments.append("cval")
 
