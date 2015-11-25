@@ -251,8 +251,8 @@ namespace TL
             TL::Symbol reduction_pack_symbol)
     {
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
 
         UpdateReductionUses update(reduction_pack_symbol, reduction_symbols);
         update.walk(node);
@@ -399,6 +399,7 @@ namespace TL
 
         struct SIMDizeHorizontalCombiner : SIMDizeCombiner
         {
+#if 0
             virtual void visit(const Nodecl::ExpressionStatement& node)
             {
                 walk(node.get_nest());
@@ -425,6 +426,7 @@ namespace TL
 
                 node.replace(vector_reduction_add);
             }
+#endif
 
             virtual void unhandled_node(const Nodecl::NodeclBase& n)
             {
@@ -550,19 +552,21 @@ namespace TL
         symbol_entity_specs_set_is_user_declared(array_of_pf.get_internal_symbol(), 1);
         array_of_pf.set_type(array_2_ptr_fun_type);
 
-        Nodecl::NodeclBase array_initializer = 
+        Nodecl::NodeclBase cast1, cast2;
+        Nodecl::NodeclBase array_initializer =
             Nodecl::StructuredValue::make(
                     Nodecl::List::make(
-                        Nodecl::Cast::make(
+                        cast1 = Nodecl::Conversion::make(
                             vertical_combiner.make_nodecl(),
-                            ptr_fun_type,
-                            /* cast_type */ "C"),
-                        Nodecl::Cast::make(
+                            ptr_fun_type),
+                        cast2 = Nodecl::Conversion::make(
                             horizontal_combiner.make_nodecl(),
-                            ptr_fun_type,
-                            /* cast_type */ "C")),
+                            ptr_fun_type)),
                     Nodecl::StructuredValueBracedImplicit::make(),
                     array_of_pf.get_type());
+        cast1.set_text("C");
+        cast2.set_text("C");
+
         array_of_pf.set_value(array_initializer);
 
         Nodecl::NodeclBase object_init = Nodecl::ObjectInit::make(array_of_pf);

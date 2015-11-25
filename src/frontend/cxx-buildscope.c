@@ -1605,6 +1605,7 @@ void introduce_using_entities_in_class(
 
     class_type_add_member(current_class->type_information,
             used_hub_symbol,
+            decl_context,
             /* is_definition */ 1);
 }
 
@@ -1773,6 +1774,16 @@ void build_scope_nodecl_static_assert(nodecl_t nodecl_predicate,
         const decl_context_t* decl_context,
         nodecl_t *nodecl_single_assert)
 {
+    check_contextual_conversion(
+            nodecl_predicate,
+            get_bool_type(),
+            decl_context,
+            &nodecl_predicate);
+    if (nodecl_is_err_expr(nodecl_predicate))
+    {
+        *nodecl_single_assert = nodecl_make_err_statement(nodecl_get_locus(nodecl_predicate));
+    }
+
     if (!nodecl_expr_is_value_dependent(nodecl_predicate))
     {
         if (!nodecl_is_constant(nodecl_predicate))
@@ -1930,7 +1941,7 @@ static void build_scope_common_template_alias_declaration(AST a,
         symbol_entity_specs_set_class_type(primary_symbol, class_info);
         symbol_entity_specs_set_access(primary_symbol, access_specifier);
 
-        class_type_add_member(class_info, primary_symbol, /* is_definition */ 1);
+        class_type_add_member(class_info, primary_symbol, decl_context, /* is_definition */ 1);
     }
 }
 
@@ -1981,7 +1992,7 @@ static void build_scope_nontemplate_alias_declaration(AST a, const decl_context_
         symbol_entity_specs_set_is_member(entry, 1);
         symbol_entity_specs_set_class_type(entry, class_info);
         symbol_entity_specs_set_access(entry, access_specifier);
-        class_type_add_member(class_info, entry, /* is_definition */ 1);
+        class_type_add_member(class_info, entry, decl_context, /* is_definition */ 1);
     }
 }
 
@@ -3238,6 +3249,24 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
 
                 if (nodecl_is_err_expr(nodecl_alignas_expr))
                     break;
+
+                type_t* alignas_type_expr = nodecl_get_type(nodecl_alignas_expr);
+                if (!is_dependent_type(alignas_type_expr)
+                        && !is_integral_type(no_ref(alignas_type_expr)))
+                {
+                    error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
+                            "alignment-specifier expression does not have integral type");
+                    break;
+                }
+
+                nodecl_alignas_expr = nodecl_expression_make_rvalue(nodecl_alignas_expr, decl_context);
+                if (!nodecl_expr_is_value_dependent(nodecl_alignas_expr)
+                        && !nodecl_is_constant(nodecl_alignas_expr))
+                {
+                    error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
+                            "alignment-specifier expression is not an integral constant expression\n");
+                    break;
+                }
 
                 gather_info->alignas_list = nodecl_append_to_list(
                         gather_info->alignas_list,
@@ -4557,7 +4586,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             scope_entry_t* enclosing_class_symbol = decl_context->current_scope->related_entry;
             type_t* enclosing_class_type = enclosing_class_symbol->type_information;
             class_type_add_member(enclosing_class_type, class_entry,
-                    /* is_definition */ 0);
+                    decl_context, /* is_definition */ 0);
 
             CXX_LANGUAGE()
             {
@@ -4672,6 +4701,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             template_specialized_type_update_template_parameters(
                     class_entry->type_information,
                     decl_context->template_parameters);
+            template_specialized_type_update_template_parameters(
+                    class_symbol_get_canonical_symbol(class_entry)->type_information,
+                    decl_context->template_parameters);
 
             // Update the template_scope
             DEBUG_CODE()
@@ -4681,6 +4713,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             decl_context_t *adjusted_decl_context = decl_context_clone(decl_context);
             adjusted_decl_context->template_parameters = adjusted_decl_context->template_parameters;
             class_entry->decl_context = adjusted_decl_context;
+            class_symbol_get_canonical_symbol(class_entry)->decl_context = adjusted_decl_context;
         }
     }
 
@@ -4692,6 +4725,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         // State this symbol has been created by the code and not by the type system
         symbol_entity_specs_set_is_user_declared(class_entry, 1);
         symbol_entity_specs_set_is_instantiable(class_entry, 1);
+
+        symbol_entity_specs_set_is_user_declared(class_symbol_get_canonical_symbol(class_entry), 1);
+        symbol_entity_specs_set_is_instantiable(class_symbol_get_canonical_symbol(class_entry), 1);
     }
 
     keep_gcc_attributes_in_symbol(class_entry, &class_gather_info);
@@ -4878,7 +4914,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
                 scope_entry_t* class_symbol = new_decl_context->current_scope->related_entry;
                 type_t* class_type = class_symbol->type_information;
                 class_type_add_member(get_actual_class_type(class_type), new_enum,
-                        /* is_definition */ 0);
+                        new_enum->decl_context, /* is_definition */ 0);
 
                 CXX_LANGUAGE()
                 {
@@ -5371,7 +5407,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         scope_entry_t* class_symbol = decl_context->current_scope->related_entry;
         type_t* class_type = class_symbol->type_information;
         class_type_add_member(get_actual_class_type(class_type), new_enum,
-                /* is_definition */ 1);
+                decl_context, /* is_definition */ 1);
         CXX_LANGUAGE()
         {
             symbol_entity_specs_set_is_member(new_enum, 1);
@@ -5482,7 +5518,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 {
                     scope_entry_t* enclosing_class_symbol = decl_context->current_scope->related_entry;
                     type_t* enclosing_class_type = enclosing_class_symbol->type_information;
-                    class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item,
+                    class_type_add_member(get_actual_class_type(enclosing_class_type),
+                            enumeration_item,
+                            decl_context,
                             /* is_definition */ 1);
 
                     symbol_entity_specs_set_is_member(enumeration_item, 1);
@@ -5505,7 +5543,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     {
                         scope_entry_t* enclosing_class_symbol = decl_context->current_scope->related_entry;
                         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
-                        class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item,
+                        class_type_add_member(get_actual_class_type(enclosing_class_type),
+                                enumeration_item,
+                                decl_context,
                                 /* is_definition */ 1);
 
                         symbol_entity_specs_set_is_member(enumeration_item, 1);
@@ -5528,6 +5568,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 }
                 else
                 {
+                    nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
+
                     if (nodecl_is_constant(nodecl_expr))
                     {
                         enumeration_item->type_information = nodecl_get_type(nodecl_expr);
@@ -7481,7 +7523,7 @@ static void declare_constructors_for_candidate_constructor(
     // Let's remember where we inherit from
     symbol_entity_specs_set_alias_to(new_inherited_constructor, inherited_constructor);
 
-    class_type_add_member(class_type, new_inherited_constructor, /* is_definition */ 1);
+    class_type_add_member(class_type, new_inherited_constructor, class_context, /* is_definition */ 1);
 
     if (exists_constructor_with_same_characteristics(
                 *inherited_constructors,
@@ -7922,7 +7964,7 @@ static void finish_class_type_cxx(type_t* class_type,
 
         implicit_default_constructor->defined = 1;
 
-        class_type_add_member(class_type, implicit_default_constructor, /* is_definition */ 0);
+        class_type_add_member(class_type, implicit_default_constructor, class_context, /* is_definition */ 0);
         class_type_set_default_constructor(class_type, implicit_default_constructor);
 
         // Now check if the implicitly declared constructor is deleted
@@ -8277,7 +8319,7 @@ static void finish_class_type_cxx(type_t* class_type,
 
         symbol_entity_specs_reserve_default_argument_info(implicit_copy_constructor, 1);
 
-        class_type_add_member(class_type, implicit_copy_constructor, /* is_definition */ 1);
+        class_type_add_member(class_type, implicit_copy_constructor, class_context, /* is_definition */ 1);
 
         // We have to see whether this copy constructor is trivial
         copy_constructor_determine_if_trivial(
@@ -8499,7 +8541,7 @@ static void finish_class_type_cxx(type_t* class_type,
 
             symbol_entity_specs_reserve_default_argument_info(implicit_move_constructor, 1);
 
-            class_type_add_member(class_type, implicit_move_constructor, /* is_definition */ 1);
+            class_type_add_member(class_type, implicit_move_constructor, class_context, /* is_definition */ 1);
 
             // If it is not deleted we still have to figure if it is trivial
             move_constructor_determine_if_trivial(
@@ -8610,7 +8652,7 @@ static void finish_class_type_cxx(type_t* class_type,
 
         symbol_entity_specs_set_is_copy_assignment_operator(implicit_copy_assignment_function, 1);
 
-        class_type_add_member(class_type, implicit_copy_assignment_function, /* is_definition */ 1);
+        class_type_add_member(class_type, implicit_copy_assignment_function, class_context, /* is_definition */ 1);
 
         char union_has_member_with_nontrivial_copy_assignment = 0;
         if (is_union_type(class_type)
@@ -8913,7 +8955,7 @@ static void finish_class_type_cxx(type_t* class_type,
 
             symbol_entity_specs_set_is_move_assignment_operator(implicit_move_assignment_function, 1);
 
-            class_type_add_member(class_type, implicit_move_assignment_function, /* is_definition */ 1);
+            class_type_add_member(class_type, implicit_move_assignment_function, class_context, /* is_definition */ 1);
 
             move_assignment_operator_determine_if_trivial(
                     implicit_move_assignment_function,
@@ -8978,7 +9020,7 @@ static void finish_class_type_cxx(type_t* class_type,
         implicit_destructor->defined = 1;
         symbol_entity_specs_set_is_defaulted(implicit_destructor, 1);
 
-        class_type_add_member(class_type, implicit_destructor, /* is_definition */ 1);
+        class_type_add_member(class_type, implicit_destructor, class_context, /* is_definition */ 1);
         class_type_set_destructor(class_type, implicit_destructor);
         if (is_virtual_destructor(class_type))
         {
@@ -9696,6 +9738,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 {
                     template_specialized_type_update_template_parameters(class_entry->type_information,
                             decl_context->template_parameters);
+                    template_specialized_type_update_template_parameters(
+                            class_symbol_get_canonical_symbol(class_entry)->type_information,
+                            decl_context->template_parameters);
                 }
             }
 
@@ -9915,7 +9960,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         scope_entry_t* enclosing_class_symbol = decl_context->current_scope->related_entry;
         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
 
-        class_type_add_member(enclosing_class_type, class_entry, /* is_definition */ 1);
+        class_type_add_member(enclosing_class_type, class_entry, decl_context, /* is_definition */ 1);
 
         CXX_LANGUAGE()
         {
@@ -10049,6 +10094,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     //
 
     symbol_entity_specs_set_is_instantiable(class_entry, 1);
+    symbol_entity_specs_set_is_instantiable(class_symbol_get_canonical_symbol(class_entry), 1);
 
     keep_gcc_attributes_in_symbol(class_entry, gather_info);
     keep_ms_declspecs_in_symbol(class_entry, gather_info);
@@ -10555,6 +10601,8 @@ static void set_array_type(type_t** declarator_type,
             *declarator_type = get_error_type();
             return;
         }
+
+        nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
 
         if (!nodecl_expr_is_value_dependent(nodecl_expr)
                 && !nodecl_is_constant(nodecl_expr))
@@ -11697,7 +11745,8 @@ static void update_function_specifiers(scope_entry_t* entry,
     if (!symbol_entity_specs_get_is_constructor(entry)
             && symbol_entity_specs_get_is_member(entry)
             && !symbol_entity_specs_get_is_static(entry)
-            && symbol_entity_specs_get_is_constexpr(entry))
+            && symbol_entity_specs_get_is_constexpr(entry)
+            && !is_any_reference_type(entry->type_information))
     {
         entry->type_information = get_const_qualified_type(entry->type_information);
     }
@@ -12548,7 +12597,8 @@ static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* de
         symbol_entity_specs_set_is_thread(entry, gather_info->is_thread);
         symbol_entity_specs_set_is_thread_local(entry, gather_info->is_thread_local);
         symbol_entity_specs_set_is_constexpr(entry, gather_info->is_constexpr);
-        if (symbol_entity_specs_get_is_constexpr(entry))
+        if (symbol_entity_specs_get_is_constexpr(entry)
+                && !is_any_reference_type(entry->type_information))
         {
             entry->type_information = get_const_qualified_type(entry->type_information);
         }
@@ -12816,7 +12866,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
             if (!symbol_entity_specs_get_is_constructor(new_entry)
                     && !symbol_entity_specs_get_is_static(new_entry)
-                    && symbol_entity_specs_get_is_constexpr(new_entry))
+                    && symbol_entity_specs_get_is_constexpr(new_entry)
+                    && !is_any_reference_type(new_entry->type_information))
             {
                 new_entry->type_information = get_const_qualified_type(new_entry->type_information);
             }
@@ -14781,9 +14832,6 @@ static void build_scope_template_template_parameter(AST a,
     AST id_expr = ASTSon2(a);
     if (id_expr != NULL)
     {
-        // This might be ambiguous
-        // check_expression(id_expr, template_context);
-
         scope_entry_list_t* entry_list = query_id_expression(template_context, id_expr, NULL);
 
         enum cxx_symbol_kind valid_templates_arguments[] = 
@@ -16343,7 +16391,8 @@ static scope_entry_t* build_scope_function_definition_declarator(
     if (!symbol_entity_specs_get_is_constructor(entry)
             && symbol_entity_specs_get_is_member(entry)
             && !symbol_entity_specs_get_is_static(entry)
-            && symbol_entity_specs_get_is_constexpr(entry))
+            && symbol_entity_specs_get_is_constexpr(entry)
+            && !is_any_reference_type(entry->type_information))
     {
         entry->type_information = get_const_qualified_type(entry->type_information);
     }
@@ -16894,7 +16943,8 @@ static void build_scope_member_declaration(const decl_context_t* inner_decl_cont
                     member_static_assert->kind = SK_MEMBER_STATIC_ASSERT;
                     member_static_assert->value = nodecl_single_assert;
                     symbol_entity_specs_set_access(member_static_assert, current_access);
-                    class_type_add_member(get_actual_class_type(class_info), member_static_assert, /* is_definition */ 1);
+                    class_type_add_member(get_actual_class_type(class_info), member_static_assert,
+                            inner_decl_context, /* is_definition */ 1);
                 }
                 break;
             }
@@ -17447,7 +17497,7 @@ static scope_entry_t* build_scope_member_function_definition(
     else
     {
         // Otherwise, we add this symbol as a member of the class
-        class_type_add_member(get_actual_class_type(class_info), entry, /* is_definition */ 1);
+        class_type_add_member(get_actual_class_type(class_info), entry, decl_context, /* is_definition */ 1);
     }
 
     build_scope_delayed_add_delayed_function_def(function_definition, entry, block_context, gather_info);
@@ -17488,12 +17538,10 @@ static void build_scope_default_or_delete_member_function_definition(
 
     type_t* member_type = NULL;
 
-    const decl_context_t* new_decl_context = decl_context;
-
     if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
-                &member_type, new_decl_context, nodecl_output);
+                &member_type, decl_context, nodecl_output);
     }
 
     AST declarator_name = get_declarator_name(declarator, decl_context);
@@ -17502,11 +17550,11 @@ static void build_scope_default_or_delete_member_function_definition(
 
     compute_declarator_type(declarator, &gather_info,
             member_type, &declarator_type,
-            new_decl_context, nodecl_output);
+            decl_context, nodecl_output);
     scope_entry_t *entry =
         build_scope_declarator_name(declarator,
                 member_type, declarator_type,
-                &gather_info, new_decl_context);
+                &gather_info, decl_context);
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
@@ -17543,7 +17591,7 @@ static void build_scope_default_or_delete_member_function_definition(
     symbol_entity_specs_set_gcc_extension(entry, gcc_extension);
 
     // Add definition as a member
-    class_type_add_member(get_actual_class_type(class_info), entry, /* is_definition */ 1);
+    class_type_add_member(get_actual_class_type(class_info), entry, decl_context, /* is_definition */ 1);
 }
 
 void build_scope_friend_declarator(const decl_context_t* decl_context, 
@@ -17825,7 +17873,7 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
                         symbol_entity_specs_set_access(bitfield_symbol, current_access);
                         symbol_entity_specs_set_is_member(bitfield_symbol, 1);
                         symbol_entity_specs_set_class_type(bitfield_symbol, class_info);
-                        class_type_add_member(get_actual_class_type(class_type), bitfield_symbol, /* is_definition */ 1);
+                        class_type_add_member(get_actual_class_type(class_type), bitfield_symbol, decl_context, /* is_definition */ 1);
 
                         if (current_gather_info.is_static)
                         {
@@ -17835,11 +17883,13 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
 
                         AST expression = ASTSon1(declarator);
                         nodecl_t nodecl_bit_size = nodecl_null();
-                        if (!check_expression(expression, decl_context, &nodecl_bit_size))
+                        if (!check_expression_must_be_constant(expression, decl_context, &nodecl_bit_size))
                         {
                             error_printf_at(ast_get_locus(expression), "invalid bitfield size '%s'\n",
                                     prettyprint_in_buffer(expression));
                         }
+
+                        nodecl_bit_size = nodecl_expression_make_rvalue(nodecl_bit_size, decl_context);
 
                         if (!nodecl_is_constant(nodecl_bit_size))
                         {
@@ -17969,7 +18019,7 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
                         {
                             // Do nothing
                         }
-                        class_type_add_member(get_actual_class_type(class_type), entry, entry->defined);
+                        class_type_add_member(get_actual_class_type(class_type), entry, decl_context, entry->defined);
 
                         if (!current_gather_info.is_static
                                 && current_gather_info.is_auto_type)
@@ -18102,7 +18152,7 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
             symbol_entity_specs_set_access(new_member, current_access);
             symbol_entity_specs_set_class_type(new_member, class_info);
 
-            class_type_add_member(class_type, new_member, /* is_definition */ 1);
+            class_type_add_member(class_type, new_member, decl_context, /* is_definition */ 1);
         }
         else if (gather_info.is_friend
                 && (ASTKind(type_specifier) != AST_ELABORATED_TYPE_CLASS_SPEC))
@@ -18265,6 +18315,8 @@ static void check_nodecl_noexcept_spec(nodecl_t nodecl_expr,
         *nodecl_output = nodecl_expr;
         return;
     }
+
+    nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
 
     if (!nodecl_is_constant(nodecl_expr)
             && !nodecl_expr_is_value_dependent(nodecl_expr)
@@ -18657,9 +18709,10 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
 
         if (!equivalent_types(orig_type, get_signed_int_type()))
         {
-            nodecl_expr = cxx_nodecl_make_conversion(
+            nodecl_expr = cxx_nodecl_make_conversion_to_logical(
                     nodecl_expr,
                     get_signed_int_type(),
+                    decl_context,
                     locus);
         }
     }
@@ -18671,6 +18724,87 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
             check_contextual_conversion(
                     nodecl_expr,
                     get_bool_type(),
+                    decl_context,
+                    &nodecl_expr);
+
+            if (nodecl_is_err_expr(nodecl_expr))
+                return;
+        }
+    }
+
+    if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+    {
+        nodecl_get_symbol(nodecl_condition)->value = nodecl_expr;
+    }
+    else
+    {
+        *nodecl_output = nodecl_expr;
+    }
+}
+
+static void build_scope_nodecl_condition_for_switch(nodecl_t nodecl_condition,
+        const decl_context_t* decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_expr = nodecl_null();
+    type_t* orig_type = NULL;
+
+    if (nodecl_is_null(nodecl_condition))
+    {
+        *nodecl_output = nodecl_null();
+        return;
+    }
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_condition;
+        return;
+    }
+    else if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+    {
+        orig_type = lvalue_ref(
+                nodecl_get_symbol(nodecl_condition)->type_information
+                );
+        nodecl_expr = nodecl_get_symbol(nodecl_condition)->value;
+    }
+    else
+    {
+        orig_type = nodecl_get_type(nodecl_condition);
+        nodecl_expr = nodecl_condition;
+    }
+
+    C_LANGUAGE()
+    {
+        standard_conversion_t scs;
+        if (!standard_conversion_between_types(&scs,
+                    orig_type,
+                    get_signed_int_type(),
+                    locus))
+        {
+            error_printf_at(locus, "expression of type '%s' is not valid in this context\n",
+                    print_type_str(orig_type, decl_context));
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
+
+        if (!equivalent_types(orig_type, get_signed_int_type()))
+        {
+            nodecl_expr = cxx_nodecl_make_conversion(
+                    nodecl_expr,
+                    get_signed_int_type(),
+                    decl_context,
+                    locus);
+        }
+    }
+
+    CXX_LANGUAGE()
+    {
+        // FIXME - C++11 states that it should be convertible to enum or integral
+        if (!nodecl_expr_is_type_dependent(nodecl_expr))
+        {
+            check_contextual_conversion(
+                    nodecl_expr,
+                    get_signed_int_type(),
                     decl_context,
                     &nodecl_expr);
 
@@ -19688,7 +19822,7 @@ static void build_scope_nodecl_switch_statement(
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    build_scope_nodecl_condition(
+    build_scope_nodecl_condition_for_switch(
             nodecl_condition,
             decl_context,
             locus,
@@ -19929,6 +20063,8 @@ static void build_scope_case_statement(AST a,
                 nodecl_make_err_statement(ast_get_locus(a)));
         return;
     }
+
+    nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
 
     if (!nodecl_expr_is_value_dependent(nodecl_expr)
             && !nodecl_is_constant(nodecl_expr))
@@ -20342,9 +20478,10 @@ static void build_scope_nodecl_do_statement(
             return;
         }
 
-        nodecl_expr =  nodecl_make_conversion(
-                nodecl_shallow_copy(nodecl_expr),
-                get_bool_type(),
+        nodecl_expr =  cxx_nodecl_make_conversion_to_logical(
+                nodecl_expr,
+                get_signed_int_type(),
+                decl_context,
                 locus);
     }
     CXX_LANGUAGE()

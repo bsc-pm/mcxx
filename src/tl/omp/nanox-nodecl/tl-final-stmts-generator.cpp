@@ -268,6 +268,7 @@ namespace TL { namespace Nanox {
                                symbol_entity_specs_get_class_type(
                                   new_function_sym.get_internal_symbol()),
                                new_function_sym.get_internal_symbol(),
+                               new_function_sym.get_internal_symbol()->decl_context,
                                /* is_definition */ 1);
                       }
                       else

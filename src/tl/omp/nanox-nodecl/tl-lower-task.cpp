@@ -87,7 +87,8 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = ::get_user_defined_type(base_class.get_internal_symbol());
-            class_type_add_member(new_class_type, field.get_internal_symbol(), /* is_definition */ 1);
+            class_type_add_member(new_class_type, field.get_internal_symbol(),
+                   field.get_internal_symbol()->decl_context, /* is_definition */ 1);
         }
 
         {
@@ -113,7 +114,10 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
                         const_value_to_nodecl( const_value_get_signed_int(num_implementations)),
                         class_scope.get_decl_context());
 
-            class_type_add_member(new_class_type, field.get_internal_symbol(), /* is_definition */ 1);
+            class_type_add_member(new_class_type,
+                    field.get_internal_symbol(),
+                    field.get_internal_symbol()->decl_context,
+                    /* is_definition */ 1);
         }
 
         nodecl_t nodecl_output = nodecl_null();
@@ -2809,6 +2813,10 @@ void LoweringVisitor::fortran_dependence_extra_check(
         {
             n = n.as<Nodecl::Dereference>().get_rhs();
         }
+        else if (n.is<Nodecl::Conversion>())
+        {
+            n = n.as<Nodecl::Conversion>().get_nest();
+        }
         else
         {
             break;
@@ -2948,6 +2956,11 @@ void LoweringVisitor::handle_dependency_item(
         Nodecl::NodeclBase n = dep_expr;
         if (n.is<Nodecl::ArraySubscript>())
             n = n.as<Nodecl::ArraySubscript>().get_subscripted();
+
+        n = n.no_conv();
+        ERROR_CONDITION(!n.is<Nodecl::Dereference>(), "Invalid node", 0);
+        n = n.as<Nodecl::Dereference>().get_rhs();
+
         n = n.shallow_copy();
 
         Source check_for_allocated_src;

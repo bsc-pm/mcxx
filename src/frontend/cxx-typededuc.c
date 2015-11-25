@@ -1167,13 +1167,20 @@ static deduction_result_t deduce_template_arguments_from_a_value(
                 codegen_to_str(argument, decl_context));
     }
 
+    const_value_t* param_const = NULL;
+    const_value_t* arg_const = NULL;
     if (nodecl_is_constant(parameter)
-            && nodecl_is_constant(argument))
+            && nodecl_is_constant(argument)
+
+            && !const_value_is_object((param_const = nodecl_get_constant(parameter)))
+            && !const_value_is_address(param_const)
+            && !const_value_is_object((arg_const = nodecl_get_constant(argument)))
+            && !const_value_is_address(arg_const))
     {
         if (const_value_is_nonzero(
                     const_value_eq(
-                        nodecl_get_constant(parameter),
-                        nodecl_get_constant(argument))))
+                        param_const,
+                        arg_const)))
         {
             DEBUG_CODE()
             {

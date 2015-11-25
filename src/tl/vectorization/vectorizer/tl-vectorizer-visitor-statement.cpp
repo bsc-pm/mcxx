@@ -768,7 +768,7 @@ namespace Vectorization
                                 mask.shallow_copy(),
                                 Nodecl::MaskLiteral::make(
                                     mask.get_type().no_ref(),
-                                    const_value_get_mask(0, mask.get_type().no_ref().get_mask_num_elements()),
+                                    const_value_get_signed_int(0),
                                     n.get_locus()),
                                 mask.get_type(),
                                 make_locus("", 0, 0)));

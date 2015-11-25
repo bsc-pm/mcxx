@@ -81,7 +81,6 @@ namespace Codegen
             Ret visit(const Nodecl::C99FieldDesignator &);
             Ret visit(const Nodecl::C99IndexDesignator &);
             Ret visit(const Nodecl::CaseStatement &);
-            Ret visit(const Nodecl::Cast &);
             Ret visit(const Nodecl::CatchHandler &);
             Ret visit(const Nodecl::ClassMemberAccess &);
             Ret visit(const Nodecl::Comma &);
@@ -92,6 +91,7 @@ namespace Codegen
             Ret visit(const Nodecl::Context &);
             Ret visit(const Nodecl::ContinueStatement &);
             Ret visit(const Nodecl::Conversion &);
+            Ret visit(const Nodecl::CxxCast &);
             Ret visit(const Nodecl::CxxClassMemberAccess &);
             Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxArrowPtrMember& node);
@@ -383,10 +383,7 @@ namespace Codegen
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
                     int level,
                     TL::Scope* scope = NULL);
-            void old_define_class_symbol_aux(TL::Symbol symbol,
-                    TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
-                    int level,
-                    TL::Scope* scope);
+
             void define_class_symbol_using_member_declarations_aux(TL::Symbol symbol,
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
                     int level,
@@ -624,6 +621,8 @@ namespace Codegen
             void emit_saved_locus();
 
             bool looks_like_braced_list(Nodecl::NodeclBase n);
+
+            void emit_explicit_cast(Nodecl::NodeclBase node, Nodecl::NodeclBase nest);
         protected:
 
             void walk_list(const Nodecl::List&,
@@ -656,10 +655,6 @@ namespace Codegen
             std::string _prune_saved_variables_str;
             bool _prune_saved_variables;
             void set_prune_saved_variables(const std::string& str);
-
-            std::string _use_old_method_for_class_definitions_str;
-            bool _use_old_method_for_class_definitions;
-            void set_old_method_for_class_definitions(const std::string& str);
     };
 }
 

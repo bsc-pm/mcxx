@@ -354,6 +354,7 @@ namespace TL { namespace Nanox {
 
             ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
                     new_function_sym,
+                    new_function_sym->decl_context,
                     /* is_definition */ 0);
         }
 
@@ -682,13 +683,15 @@ namespace TL { namespace Nanox {
                                 function_context,
                                 symbol_map->get_symbol_map());
 
+                            Nodecl::NodeclBase cast;
                             initial_statements << as_statement(
                                     Nodecl::ExpressionStatement::make(
                                         Nodecl::Assignment::make(
                                             TL::Symbol(vla_private_sym).make_nodecl(true),
-                                            Nodecl::Cast::make(
-                                                TL::Symbol(private_sym).make_nodecl(true), updated_vla_type, "C"),
+                                            cast = Nodecl::Conversion::make(
+                                                TL::Symbol(private_sym).make_nodecl(true), updated_vla_type),
                                             lvalue_ref(updated_vla_type.get_internal_type()))));
+                            cast.set_text("C");
 
                             symbol_map->add_map(sym, vla_private_sym);
                         }
@@ -1211,6 +1214,7 @@ namespace TL { namespace Nanox {
 
             ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
                     new_function_sym,
+                    new_function_sym->decl_context,
                     /* is_definition */ 0);
         }
 

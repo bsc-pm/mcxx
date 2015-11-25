@@ -1537,16 +1537,8 @@ OPERATOR_TABLE
         if (t.is_any_reference())
             t = t.references_to();
 
-        Nodecl::NodeclBase n = node.get_rhs();
-        while (n.is<Nodecl::Conversion>())
-        {
-            n = n.as<Nodecl::Conversion>().get_nest();
-        }
-        n = advance_parenthesized_expression(n);
-        while (n.is<Nodecl::Conversion>())
-        {
-            n = n.as<Nodecl::Conversion>().get_nest();
-        }
+        Nodecl::NodeclBase n = node.get_rhs().no_conv();
+        n = advance_parenthesized_expression(n).no_conv();
 
         if (is_fortran_representable_pointer(t))
         {
@@ -1624,22 +1616,7 @@ OPERATOR_TABLE
         // because this node was created in C
         subscripted = advance_parenthesized_expression(subscripted);
 
-        while (subscripted.is<Nodecl::Conversion>())
-        {
-            // Skip this conversion that may arise when we convert from
-            // T (&)[10][20] to T (*)[20] because of C
-            subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
-        }
-
-        TL::Symbol array_symbol;
-        if (subscripted.is<Nodecl::Symbol>())
-        {
-            array_symbol = subscripted.get_symbol();
-        }
-        else if (subscripted.is<Nodecl::Dereference>())
-        {
-            array_symbol = subscripted.as<Nodecl::Dereference>().get_rhs().get_symbol();
-        }
+        subscripted = subscripted.no_conv();
 
         TL::Symbol subscripted_symbol =
             ::fortran_data_ref_get_symbol(subscripted.get_internal_nodecl());
@@ -1700,7 +1677,18 @@ OPERATOR_TABLE
                 }
             }
 
-            walk(arg);
+            if (arg.is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion conv = arg.as<Nodecl::Conversion>();
+                codegen_casting(
+                        conv.get_type(),
+                        conv.get_nest().get_type(),
+                        conv.get_nest());
+            }
+            else
+            {
+                walk(arg);
+            }
         }
     }
 
@@ -2682,12 +2670,33 @@ OPERATOR_TABLE
         walk(initializer);
     }
 
+    bool FortranBase::requires_explicit_cast(const Nodecl::Conversion& node)
+    {
+        if (node.get_type().is_pointer()
+                && node.get_nest().get_type().no_ref().is_function())
+            return true;
+
+        if (node.get_type().is_pointer()
+                && node.get_nest().get_type().no_ref().is_array())
+            return true;
+
+        return false;
+    }
+
     void FortranBase::visit(const Nodecl::Conversion& node)
     {
-        codegen_casting(
-                /* dest_type */ node.get_type(),
-                /* source_type */ node.get_nest().get_type(),
-                node.get_nest());
+        if (node.get_text() != ""
+                || requires_explicit_cast(node))
+        {
+            codegen_casting(
+                    node.get_type(),
+                    node.get_nest().get_type(),
+                    node.get_nest());
+        }
+        else
+        {
+            walk(node.get_nest());
+        }
     }
 
     void FortranBase::visit(const Nodecl::UnknownPragma& node)
@@ -2915,14 +2924,6 @@ OPERATOR_TABLE
             // Best effort: Not a known conversion, ignore it
             walk(nest);
         }
-    }
-
-    void FortranBase::visit(const Nodecl::Cast& node)
-    {
-        codegen_casting(
-                /* dest_type */ node.get_type(),
-                /* source_type */ node.get_rhs().get_type(),
-                node.get_rhs());
     }
 
     void FortranBase::visit(const Nodecl::Sizeof& node)

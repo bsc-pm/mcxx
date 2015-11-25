@@ -521,9 +521,7 @@ namespace TL { namespace Nanox {
                 sym_ref.set_type(t.get_lvalue_reference_to());
 
                 Nodecl::NodeclBase value =
-                    Nodecl::Dereference::make(
-                            Nodecl::Reference::make(sym_ref, t.get_pointer_to()),
-                            t.get_lvalue_reference_to());
+                    Nodecl::Reference::make(sym_ref, t.get_pointer_to());
 
                 this->add_capture_with_value(
                         new_addr_symbol,
@@ -999,11 +997,9 @@ namespace TL { namespace Nanox {
                 {
                     // Capture the address of the function
                     // NOTE: we are mimicking what MERCURIUM_LOC does
-                    value = Nodecl::Dereference::make(
-                            Nodecl::Reference::make(
-                                sym.make_nodecl(/* set_ref_type */ true),
-                                pointer_type),
-                            pointer_type.get_lvalue_reference_to());
+                    value = Nodecl::Reference::make(
+                            sym.make_nodecl(/* set_ref_type */ true),
+                            pointer_type);
                 }
             }
             else

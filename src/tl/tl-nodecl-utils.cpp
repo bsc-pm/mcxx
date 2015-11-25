@@ -340,8 +340,24 @@ namespace Nodecl
 
                 if  (n1_symbol == n2_symbol) // symbol
                 {
-                    const const_value_t * const n1_constant = nodecl_get_constant(n1);
-                    const const_value_t * const n2_constant = nodecl_get_constant(n2);
+                    const_value_t * n1_constant = nodecl_get_constant(n1);
+                    const_value_t * n2_constant = nodecl_get_constant(n2);
+
+                    // FIXME - Remove this special case when we quit comparing trees
+                    if (n1_constant != NULL
+                            && (const_value_is_object(n1_constant)
+                                || const_value_is_address(n1_constant)))
+                    {
+                        // std::cerr << "(1.1) REMOVING " << const_value_to_str(n1_constant) << std::endl;
+                        n1_constant = NULL;
+                    }
+                    if (n2_constant != NULL
+                            && (const_value_is_object(n2_constant)
+                                || const_value_is_address(n2_constant)))
+                    {
+                        // std::cerr << "(1.2) REMOVING " << const_value_to_str(n2_constant) << std::endl;
+                        n2_constant = NULL;
+                    }
 
                     if (n1_constant == n2_constant) // constant
                     {
@@ -430,8 +446,24 @@ namespace Nodecl
 
                 if  (n1_symbol == n2_symbol) // symbol
                 {
-                    const const_value_t * const n1_constant = nodecl_get_constant(n1);
-                    const const_value_t * const n2_constant = nodecl_get_constant(n2);
+                    const_value_t * n1_constant = nodecl_get_constant(n1);
+                    const_value_t * n2_constant = nodecl_get_constant(n2);
+
+                    // FIXME - Remove this special case when we quit comparing trees
+                    if (n1_constant != NULL
+                            && (const_value_is_object(n1_constant)
+                                || const_value_is_address(n1_constant)))
+                    {
+                        // std::cerr << "(2.1) REMOVING " << const_value_to_str(n1_constant) << std::endl;
+                        n1_constant = NULL;
+                    }
+                    if (n2_constant != NULL
+                            && (const_value_is_object(n2_constant)
+                                || const_value_is_address(n2_constant)))
+                    {
+                        // std::cerr << "(2.2) REMOVING " << const_value_to_str(n2_constant) << std::endl;
+                        n2_constant = NULL;
+                    }
 
                     if (n1_constant == n2_constant) // constant
                     {
@@ -1728,10 +1760,10 @@ namespace Nodecl
         TL::Type deref_type = new_subscripted.get_type().basic_type().
             get_pointer_to();
 
-        new_subscripted = Nodecl::Cast::make(
+        new_subscripted = Nodecl::Conversion::make(
                 new_subscripted.shallow_copy(),
-                deref_type,
-                "C");
+                deref_type);
+        new_subscripted.set_text("C");
 
         Nodecl::ArraySubscript result_array =
             ArraySubscript::make(new_subscripted.shallow_copy(),

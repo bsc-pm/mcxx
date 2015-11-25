@@ -329,8 +329,10 @@ struct simple_type_tag {
     // Complex types, base type of the complex type (STK_COMPLEX)
     type_t* complex_element;
 
-    // Vector types, element type and vector size
-    // if vector_size == 0 then this is a generic vector
+    // STK_VECTOR
+    // STK_MASK
+    // For a mask vector_size is the number of bits of the mask
+    // and vector_element is the underlying integer backing it (if any)
     type_t* vector_element;
     unsigned int vector_size;
 } simple_type_t;
@@ -1898,11 +1900,15 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
                                 && nodecl_is_constant(result->arguments[i]->value)
                                 && !is_dependent_type(result->parameters[i]->entry->type_information))
                         {
-                            if (!is_enum_type(result->parameters[i]->entry->type_information))
+                            const_value_t* value = nodecl_get_constant(result->arguments[i]->value);
+                            if (!is_enum_type(result->parameters[i]->entry->type_information)
+                                    // We are not ready to handle these yet
+                                    && !const_value_is_object(value)
+                                    && !const_value_is_address(value))
                             {
                                 result->arguments[i]->value =
                                     const_value_to_nodecl_with_basic_type(
-                                            nodecl_get_constant(result->arguments[i]->value),
+                                            value,
                                             simplify_types_template_arguments(
                                                 result->parameters[i]->entry->type_information
                                                 ));
@@ -2415,6 +2421,17 @@ static int template_arg_value_type_identical_compare(nodecl_t n1, nodecl_t n2)
 
     const_value_t* cv1 = nodecl_get_constant(n1);
     const_value_t* cv2 = nodecl_get_constant(n2);
+
+    // Ignore these as constants
+    if (cv1 != NULL
+            && (const_value_is_object(cv1)
+                || const_value_is_address(cv1)))
+        cv1 = NULL;
+    if (cv2 != NULL
+            && (const_value_is_object(cv2)
+                || const_value_is_address(cv2)))
+        cv2 = NULL;
+
     if (cv1 == NULL
             && cv2 != NULL)
         return -1;
@@ -6327,6 +6344,7 @@ static char is_same_member_declaration(member_declaration_info_t mdi1,
 
 extern inline void class_type_add_member(type_t* class_type,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6336,7 +6354,7 @@ extern inline void class_type_add_member(type_t* class_type,
     class_type->type->class_info->members = entry_list_add_once(class_type->type->class_info->members, entry);
 
     // Keep the declaration list
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD_ONCE_FUN(class_type->type->class_info->member_declarations,
         class_type->type->class_info->num_member_declarations,
         mdi, is_same_member_declaration);
@@ -6346,6 +6364,7 @@ extern inline void class_type_add_member_after(
         type_t* class_type,
         scope_entry_t* position,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6366,7 +6385,7 @@ extern inline void class_type_add_member_after(
         }
     }
 
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD(class_type->type->class_info->member_declarations,
             class_type->type->class_info->num_member_declarations,
             mdi);
@@ -6389,6 +6408,7 @@ extern inline void class_type_add_member_after(
 extern inline void class_type_add_member_before(type_t* class_type,
         scope_entry_t* position,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6408,7 +6428,7 @@ extern inline void class_type_add_member_before(type_t* class_type,
         }
     }
 
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD(class_type->type->class_info->member_declarations,
             class_type->type->class_info->num_member_declarations,
             mdi);
@@ -15529,6 +15549,7 @@ static inline type_t* type_deep_copy_class(
             class_type_get_class_kind(orig));
 
     // Duplicate all members
+    // FIXME: duplicate them in declaration order!
     scope_entry_list_t* entry_list = class_type_get_members(orig);
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(entry_list);
@@ -15541,7 +15562,9 @@ static inline type_t* type_deep_copy_class(
         ERROR_CONDITION(member == new_member, "Member '%s' not mapped\n",
                 get_qualified_symbol_name(member, member->decl_context));
 
-        class_type_add_member(dest->type_information, new_member, /* is_definition */ 1);
+        class_type_add_member(dest->type_information, new_member,
+                new_member->decl_context,
+                /* is_definition */ 1);
     }
     entry_list_iterator_free(it);
     entry_list_free(entry_list);
@@ -15952,6 +15975,41 @@ extern inline int generic_type_get_num(type_t* t)
     return -1;
 }
 
+static void mask_type_compute_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(!is_mask_type(t),
+            "This is not a mask type", 0);
+    t = advance_over_typedefs(t);
+
+    type_t* unsigned_integers[] = {
+        get_unsigned_char_type(),
+        get_unsigned_short_int_type(),
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+        NULL,
+    };
+
+    type_t** it = &unsigned_integers[0];
+    unsigned int num_bits = mask_type_get_num_bits(t);
+
+    while (*it != NULL)
+    {
+        if ((8 * type_get_size(*it)) == num_bits)
+        {
+            t->type->vector_element = *it;
+
+            // Share the sizing info with the underlying type
+            DELETE(t->info);
+            t->info = t->type->vector_element->info;
+
+            break;
+        }
+
+        it++;
+    }
+}
+
 extern inline type_t* get_mask_type(unsigned int mask_size_bits)
 {
     static rb_red_blk_tree *_mask_hash = NULL;
@@ -15972,6 +16030,8 @@ extern inline type_t* get_mask_type(unsigned int mask_size_bits)
         int *k = NEW(int);
         *k = mask_size_bits;
 
+        mask_type_compute_underlying_type(result);
+
         rb_tree_insert(_mask_hash, k, result);
     }
 
@@ -15987,37 +16047,20 @@ extern inline char is_mask_type(type_t* t)
             && t->type->kind == STK_MASK);
 }
 
+
 extern inline type_t* mask_type_get_underlying_type(type_t* t)
 {
     ERROR_CONDITION(!is_mask_type(t),
             "This is not a mask type", 0);
+    t = advance_over_typedefs(t);
 
+    unsigned int num_bits = t->type->vector_size;
 
-    type_t* unsigned_integers[] = {
-        get_unsigned_char_type(),
-        get_unsigned_short_int_type(),
-        get_unsigned_int_type(),
-        get_unsigned_long_int_type(),
-        get_unsigned_long_long_int_type(),
-        NULL,
-    };
-
-    type_t** it = &unsigned_integers[0];
-    unsigned int num_bits = mask_type_get_num_bits(t);
-
-    if (num_bits < 8)
-        return get_unsigned_char_type();
-
-    while (*it != NULL)
-    {
-        if ((8 * type_get_size(*it)) == num_bits)
-            return *it;
-
-        it++;
-    }
-
-    internal_error("Not found a suitable unsigned integer type for a mask of '%d' bits\n",
+    ERROR_CONDITION(t->type->vector_element == NULL,
+            "Not found a suitable unsigned integer type for a mask of '%d' bits\n",
             num_bits);
+
+    return t->type->vector_element;
 }
 
 unsigned int mask_type_get_num_bits(type_t* t)

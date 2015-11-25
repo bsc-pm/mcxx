@@ -1160,23 +1160,27 @@ namespace TL
         else if (expr.is<Nodecl::ClassMemberAccess>())
         {
             // a.b
+            Nodecl::NodeclBase cast1, cast2;
             Nodecl::NodeclBase result = Nodecl::Minus::make(
-                    Nodecl::Cast::make(
+                    cast1 = Nodecl::Conversion::make(
                         Nodecl::Reference::make(
                             expr,
                             expr.get_type().get_pointer_to(),
                             expr.get_locus()),
                         get_ptrdiff_t_type(),
-                        "C", expr.get_locus()),
-                    Nodecl::Cast::make(
+                        expr.get_locus()),
+                    cast2 = Nodecl::Conversion::make(
                         Nodecl::Reference::make(
                             expr.as<Nodecl::ClassMemberAccess>().get_lhs(),
                             expr.as<Nodecl::ClassMemberAccess>().get_lhs().get_type().get_pointer_to(),
                             expr.get_locus()),
                         get_ptrdiff_t_type(),
-                        "C", expr.get_locus()),
+                        expr.get_locus()),
                     get_ptrdiff_t_type(),
                     expr.get_locus());
+
+            cast1.set_text("C");
+            cast2.set_text("C");
 
             return result;
         }

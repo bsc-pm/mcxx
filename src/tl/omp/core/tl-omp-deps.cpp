@@ -498,6 +498,12 @@ namespace TL { namespace OpenMP {
         void fortran_ompss_dep_expression(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
         {
             Source::fortran_check_expression_adapter(a, decl_context, nodecl_output);
+            if (!nodecl_is_null(*nodecl_output)
+                    && !nodecl_is_err_expr(*nodecl_output))
+            {
+                // Make sure this is a variable
+                *nodecl_output = ::fortran_expression_as_variable(*nodecl_output);
+            }
         }
     }
 

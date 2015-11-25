@@ -2700,7 +2700,9 @@ static int get_type(void *datum,
                 scope_entry_t* member = load_symbol(handle, safe_atoull(field));
 
                 ERROR_CONDITION(member == NULL, "Invalid member!\n", 0);
-                class_type_add_member(*pt, member, /* is_definition */ 1); // This mutates *pt
+                class_type_add_member(*pt, member,
+                        member->decl_context,
+                        /* is_definition */ 1); // This mutates *pt
 
                 field = strtok_r(NULL, ",", &context);
             }
