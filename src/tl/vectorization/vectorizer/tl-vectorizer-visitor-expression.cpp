@@ -1464,7 +1464,6 @@ namespace Vectorization
 
         TL::Type basic_type = n.get_type().no_ref();
 
-        const_value_t* const_value = n.get_constant();
 
         // Computing new vector type
         TL::Type vector_type = Utils::get_qualified_vector_to(basic_type,
@@ -1484,6 +1483,8 @@ namespace Vectorization
             while (!encapsulated_symbol.get_parent().is_null() &&
                     encapsulated_symbol.get_parent().is<Nodecl::Conversion>())
                 encapsulated_symbol = encapsulated_symbol.get_parent();
+
+            const_value_t* const_value = encapsulated_symbol.get_constant();
 
             TL::Type encapsulated_symbol_type = encapsulated_symbol.get_type();
 
