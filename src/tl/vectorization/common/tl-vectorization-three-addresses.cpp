@@ -291,7 +291,8 @@ namespace Vectorization
         Nodecl::List args = call.get_arguments().as<Nodecl::List>();
         for (Nodecl::List::iterator it = args.begin(); it != args.end(); it++)
         {
-            visit_expression(*it);
+            if (TL::Vectorization::Utils::contains_vector_nodes(*it))
+                visit_expression(*it);
         }
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorAlignRight& n)
