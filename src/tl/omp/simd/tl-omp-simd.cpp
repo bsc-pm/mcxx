@@ -992,7 +992,7 @@ namespace TL {
                         only_epilog,
                         true /*parallel loop*/);
 
-                single_stmts_list.append(net_epilog_node);
+                single_stmts_list.append(net_epilog_node.shallow_copy());
 
                 for_environment.unload_environment();
 
