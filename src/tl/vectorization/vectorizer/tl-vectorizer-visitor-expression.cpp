@@ -1820,20 +1820,18 @@ namespace Vectorization
                             "version in function versioning: %s", func_sym.get_name().c_str());
                 }
 
-                // Vectorizing arguments
-                Nodecl::List vector_arguments = n.get_arguments().as<Nodecl::List>();
-                walk(vector_arguments);
+                Nodecl::List arguments = n.get_arguments().as<Nodecl::List>();
 
                 if (!mask.is_null())
                 {
-                    vector_arguments.append(mask.shallow_copy());
+                    arguments.append(mask.shallow_copy());
                     if (is_svml)
                     {
                         VECTORIZATION_DEBUG()
                         {
                             std::cerr << "SPECIAL CASE FOR SVML"  << new_called.prettyprint() << std::endl;
                         }
-                        vector_arguments.append(vector_arguments[0].shallow_copy());
+                        arguments.append(arguments[0].shallow_copy());
                     }
                 }
 
@@ -1841,7 +1839,7 @@ namespace Vectorization
                     Nodecl::VectorFunctionCall::make(
                             Nodecl::FunctionCall::make(
                                 new_called,
-                                vector_arguments,
+                                arguments,
                                 n.get_alternate_name().shallow_copy(),
                                 n.get_function_form().shallow_copy(),
                                 Utils::get_qualified_vector_to(call_type,
