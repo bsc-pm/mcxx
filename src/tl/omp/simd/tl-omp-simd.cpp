@@ -669,10 +669,27 @@ namespace TL {
                         only_epilog,
                         false /*parallel loop*/);
 
+                loop_environment.unload_environment();
+
+                // Prevent the vectorization of the epilogue code
+                if (net_epilog_node.is<Nodecl::ForStatement>())
+                {
+                    std::cerr << "Epilogue loop!! Add novector!!" << std::endl;
+                    std::stringstream novector_pragma_strm;
+                    novector_pragma_strm << "novector";
+
+                    Nodecl::UnknownPragma novector_pragma =
+                        Nodecl::UnknownPragma::make(novector_pragma_strm.str());
+
+                    net_epilog_node.prepend_sibling(novector_pragma);
+
+                    std::cerr << net_epilog_node.get_parent().get_parent().get_parent().
+                        get_parent().prettyprint()
+                        << std::endl;
+                }
+
                 // Remove Simd node from epilog
                 simd_node_epilog.replace(simd_node_epilog.get_statement());
-
-                loop_environment.unload_environment();
             }
             else // Remove epilog
             {
