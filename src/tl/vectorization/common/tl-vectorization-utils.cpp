@@ -35,6 +35,96 @@ namespace Vectorization
 {
 namespace Utils
 {
+    bool is_vector_node(Nodecl::NodeclBase n)
+    {
+        switch (n.get_kind())
+        {
+            // FIXME - Make this list automatic
+            case NODECL_VECTOR_ADD :
+            case NODECL_VECTOR_ALIGN_RIGHT :
+            case NODECL_VECTOR_ARITHMETIC_SHR :
+            case NODECL_VECTOR_ASSIGNMENT :
+            case NODECL_VECTOR_BITWISE_AND :
+            case NODECL_VECTOR_BITWISE_NOT :
+            case NODECL_VECTOR_BITWISE_OR :
+            case NODECL_VECTOR_BITWISE_SHL :
+            case NODECL_VECTOR_BITWISE_SHR :
+            case NODECL_VECTOR_BITWISE_XOR :
+            case NODECL_VECTOR_CAST :
+            case NODECL_VECTOR_CONDITIONAL_EXPRESSION :
+            case NODECL_VECTOR_CONVERSION :
+            case NODECL_VECTOR_DIFFERENT :
+            case NODECL_VECTOR_DIV :
+            case NODECL_VECTOR_EQUAL :
+            case NODECL_VECTOR_FABS :
+            case NODECL_VECTOR_FMADD :
+            case NODECL_VECTOR_FMMINUS :
+            case NODECL_VECTOR_FUNCTION_CALL :
+            case NODECL_VECTOR_FUNCTION_CODE :
+            case NODECL_VECTOR_GATHER :
+            case NODECL_VECTOR_GREATER_OR_EQUAL_THAN :
+            case NODECL_VECTOR_GREATER_THAN :
+            case NODECL_VECTOR_LANE_ID :
+            case NODECL_VECTOR_LITERAL :
+            case NODECL_VECTOR_LOAD :
+            case NODECL_VECTOR_LOGICAL_AND :
+            case NODECL_VECTOR_LOGICAL_NOT :
+            case NODECL_VECTOR_LOGICAL_OR :
+            case NODECL_VECTOR_LOOP :
+            case NODECL_VECTOR_LOWER_OR_EQUAL_THAN :
+            case NODECL_VECTOR_LOWER_THAN :
+            case NODECL_VECTOR_MASK_AND :
+            case NODECL_VECTOR_MASK_AND_1_NOT :
+            case NODECL_VECTOR_MASK_AND_2_NOT :
+            case NODECL_VECTOR_MASK_ASSIGNMENT :
+            case NODECL_VECTOR_MASK_CONVERSION :
+            case NODECL_VECTOR_MASK_NOT :
+            case NODECL_VECTOR_MASK_OR :
+            case NODECL_VECTOR_MASK_XOR :
+            case NODECL_VECTOR_MINUS :
+            case NODECL_VECTOR_MOD :
+            case NODECL_VECTOR_MUL :
+            case NODECL_VECTOR_NEG :
+            case NODECL_VECTOR_PREFETCH :
+            case NODECL_VECTOR_PROMOTION :
+            case NODECL_VECTOR_RCP :
+            case NODECL_VECTOR_REDUCTION_ADD :
+            case NODECL_VECTOR_REDUCTION_MINUS :
+            case NODECL_VECTOR_REDUCTION_MUL :
+            case NODECL_VECTOR_RSQRT :
+            case NODECL_VECTOR_SCATTER :
+            case NODECL_VECTOR_SINCOS :
+            case NODECL_VECTOR_SQRT :
+            case NODECL_VECTOR_STORE :
+            case NODECL_VECTOR_SUBSCRIPT :
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool contains_vector_nodes(Nodecl::NodeclBase n)
+    {
+        if (n.is_null())
+            return false;
+
+        if (is_vector_node(n))
+            return true;
+        else
+        {
+            Nodecl::NodeclBase::Children c = n.children();
+            for (Nodecl::NodeclBase::Children::iterator it = c.begin();
+                    it != c.end();
+                    it++)
+            {
+                if (contains_vector_nodes(*it))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     static unsigned int _var_counter = 0;
 
     MaskCheckCostEstimation::MaskCheckCostEstimation()

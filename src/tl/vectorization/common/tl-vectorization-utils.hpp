@@ -38,6 +38,9 @@ namespace TL
     {
         namespace Utils
         {
+            bool is_vector_node(Nodecl::NodeclBase n);
+            bool contains_vector_nodes(Nodecl::NodeclBase n);
+
             class MaskCheckCostEstimation : public Nodecl::ExhaustiveVisitor<void>
             {
                 private:

@@ -25,6 +25,7 @@
   --------------------------------------------------------------------*/
 
 #include "tl-vector-backend-romol.hpp"
+#include "tl-vectorization-utils.hpp"
 #include "tl-counters.hpp"
 
 #include "tl-source.hpp"
@@ -173,24 +174,7 @@ namespace TL { namespace Vectorization {
 
     bool RomolVectorBackend::contains_vector_nodes(Nodecl::NodeclBase n)
     {
-        // TODO: Do it more efficiently!
-        bool result =
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAssignment>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAdd>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMul>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConversion>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLiteral>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCode>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMaskAssignment>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLoad>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorStore>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorReductionAdd>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorReductionMinus>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConditionalExpression>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCall>(n);
-
-        return result;
+        return TL::Vectorization::Utils::contains_vector_nodes(n);
     }
 
     void RomolVectorBackend::visit(const Nodecl::FunctionCode& n)
