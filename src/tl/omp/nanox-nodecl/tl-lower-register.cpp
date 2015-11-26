@@ -87,12 +87,12 @@ void LoweringVisitor::visit(const Nodecl::OmpSs::Register& construct)
             copy_imm_setup);
 
     Source src;
-    src 
+    src
         << "{"
-        << copy_imm_setup
-        << "nanos_err_t nanos_err;"
-        << "nanos_err = nanos_register_object(" << num_copies << ", imm_copy_data);"
-        << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+        <<     copy_imm_setup
+        <<     "nanos_err_t nanos_err;"
+        <<     "nanos_err = nanos_register_object(" << num_copies << ", imm_copy_data);"
+        <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
         << "}";
 
     FORTRAN_LANGUAGE()

@@ -2760,7 +2760,7 @@ namespace TL { namespace OpenMP {
         ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
         if (expr_list.empty())
         {
-            warn_printf_at(directive.get_locus(), "ignoring empty '#pragma omp register\n");
+            warn_printf_at(directive.get_locus(), "ignoring empty '#pragma omp register'\n");
             return;
         }
 
