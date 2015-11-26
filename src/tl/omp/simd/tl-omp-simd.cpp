@@ -346,6 +346,30 @@ namespace TL {
             }
         }
 
+        Nodecl::UnknownPragma get_epilogue_loop_count_pragma(
+                int epilogue_iterations,
+                int vec_factor)
+        {
+            std::stringstream loop_count_pragma_strm;
+            loop_count_pragma_strm << "loop_count";
+
+            if (epilogue_iterations < 0)
+            {
+                loop_count_pragma_strm << " min(0) max(" 
+                    << vec_factor-1
+                    << ")";
+            }
+            else
+            {
+                loop_count_pragma_strm << "("
+                    << epilogue_iterations
+                    << ")";
+            }
+
+            return Nodecl::UnknownPragma::make(loop_count_pragma_strm.str());
+        }
+
+
         SimdPreregisterVisitor::SimdPreregisterVisitor(Vectorization::SIMDInstructionSet simd_isa,
                 bool fast_math_enabled, bool svml_enabled,
                 bool only_adjacent_accesses, bool overlap_in_place)
@@ -435,9 +459,9 @@ namespace TL {
             process_nontemporal_clause(simd_environment, nontemporal_expressions);
 
             // Vectorlengthfor clause
-            TL::Type vectorlengthfor_type;
+            TL::Type target_type;
             process_vectorlengthfor_clause(simd_environment,
-                    vectorlengthfor_type);
+                    target_type);
 
             // Overlap clause
             map_tlsym_objlist_int_t overlap_symbols;
@@ -470,7 +494,7 @@ namespace TL {
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
-                    vectorlengthfor_type,
+                    target_type,
                     aligned_expressions,
                     linear_symbols,
                     uniform_symbols,
@@ -487,8 +511,8 @@ namespace TL {
                     && !loop_environment._target_type.is_valid())
             {
                 VectorizerTargetTypeHeuristic target_type_heuristic;
-                loop_environment.set_target_type(
-                        target_type_heuristic.get_target_type(loop_statement));
+                target_type = target_type_heuristic.get_target_type(loop_statement);
+                loop_environment.set_target_type(target_type);
             }
 
             // Add epilog before vectorization
@@ -671,14 +695,16 @@ namespace TL {
 
                 loop_environment.unload_environment();
 
-                // Prevent the vectorization of the epilogue code
+                // Prevent the vectorization/unrolling of the epilogue code
+                // by the native compiler
                 if (net_epilog_node.is<Nodecl::ForStatement>())
                 {
-                    // std::cerr << "Epilogue loop!! Add novector!!" << std::endl;
-                    Nodecl::UnknownPragma novector_pragma =
-                        Nodecl::UnknownPragma::make("novector");
+                    Nodecl::UnknownPragma loop_count_pragma = 
+                        get_epilogue_loop_count_pragma(
+                                epilog_iterations /*aprox iterations*/,
+                                _vector_length/target_type.get_size() /*VF*/);
 
-                    net_epilog_node.prepend_sibling(novector_pragma);
+                    net_epilog_node.prepend_sibling(loop_count_pragma);
                 }
 
                 // Remove Simd node from epilog
@@ -788,8 +814,8 @@ namespace TL {
             process_prefetch_clause(omp_simd_for_environment, prefetch_info);
 
             // Vectorlengthfor clause
-            TL::Type vectorlengthfor_type;
-            process_vectorlengthfor_clause(omp_simd_for_environment, vectorlengthfor_type);
+            TL::Type target_type;
+            process_vectorlengthfor_clause(omp_simd_for_environment, target_type);
 
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
@@ -809,7 +835,7 @@ namespace TL {
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
-                    vectorlengthfor_type,
+                    target_type,
                     aligned_expressions,
                     linear_symbols,
                     uniform_symbols,
@@ -828,8 +854,8 @@ namespace TL {
             if (!for_environment._target_type.is_valid())
             {
                 VectorizerTargetTypeHeuristic target_type_heuristic;
-                for_environment.set_target_type(
-                        target_type_heuristic.get_target_type(for_statement));
+                target_type = target_type_heuristic.get_target_type(for_statement);
+                for_environment.set_target_type(target_type);
             }
 
             // Add epilog before vectorization
@@ -985,7 +1011,20 @@ namespace TL {
                         only_epilog,
                         true /*parallel loop*/);
 
-                single_stmts_list.append(net_epilog_node.shallow_copy());
+                // Prevent the vectorization/unrolling of the epilogue code
+                // by the native compiler
+                if (net_epilog_node.is<Nodecl::ForStatement>())
+                {
+                    Nodecl::UnknownPragma loop_count_pragma = 
+                        get_epilogue_loop_count_pragma(
+                                epilog_iterations /*aprox iterations*/,
+                                _vector_length/target_type.get_size() /*VF*/);
+
+                    single_stmts_list.append(loop_count_pragma);
+                }
+
+                // This shallow copy is needed!
+                single_stmts_list.append(net_epilog_node.shallow_copy()); 
 
                 for_environment.unload_environment();
 
@@ -1260,7 +1299,7 @@ namespace TL {
             map_tlsym_objlist_t nontemporal_expressions;
             map_tlsym_objlist_int_t overlap_symbols;
             prefetch_info_t prefetch_info;
-            TL::Type vectorlengthfor_type;
+            TL::Type target_type;
 
             process_func_simd_clause(omp_environment,
                     aligned_expressions,
@@ -1270,7 +1309,7 @@ namespace TL {
                     nontemporal_expressions,
                     overlap_symbols,
                     prefetch_info,
-                    vectorlengthfor_type);
+                    target_type);
 
 
             // Vectorizer Environment
@@ -1281,7 +1320,7 @@ namespace TL {
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
-                    vectorlengthfor_type,
+                    target_type,
                     aligned_expressions,
                     linear_symbols,
                     uniform_symbols,
