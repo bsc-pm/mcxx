@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorization-three-addresses.hpp"
+#include "tl-vectorization-utils.hpp"
 #include "tl-nodecl-utils.hpp"
 
 namespace TL
@@ -435,11 +436,14 @@ namespace Vectorization
     {
         // The vectorizer may add vector code in the condition but does not
         // seem to ever do this in the other bits of the loop control
-        visit_expression(n.get_next());
+        if (TL::Vectorization::Utils::contains_vector_nodes(n.get_next()))
+            visit_expression(n.get_next());
     }
     void VectorizationThreeAddresses::visit(const Nodecl::WhileStatement& n)
     {
-        visit_expression(n.get_condition());
+        if (TL::Vectorization::Utils::contains_vector_nodes(n.get_condition()))
+            visit_expression(n.get_condition());
+
         walk(n.get_statement());
     }
 
