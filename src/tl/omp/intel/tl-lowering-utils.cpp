@@ -204,13 +204,13 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
 
         CXX_LANGUAGE()
         {
-            Nodecl::NodeclBase cxx_decl = Nodecl::CxxDecl::make(
+            Nodecl::NodeclBase cxx_def = Nodecl::CxxDef::make(
                     Nodecl::NodeclBase::null(),
                     result,
                     location.get_locus());
 
             Nodecl::Utils::prepend_to_enclosing_top_level_location(location,
-                    cxx_decl);
+                    cxx_def);
         }
     }
     else
