@@ -111,4 +111,64 @@ void LoweringVisitor::visit(const Nodecl::OmpSs::Register& construct)
     construct.replace(new_stmt);
 }
 
+
+void LoweringVisitor::visit(const Nodecl::OmpSs::Unregister& construct)
+{
+    if (!Nanos::Version::interface_is_at_least("copies_api", 1005))
+    {
+        error_printf_at(
+                construct.get_locus(),
+                "'#pragma omp unregister' requires a newer Nanos++ library with 'copies_api' >= 1005\n");
+        return;
+    }
+
+   Nodecl::List list_expr = construct.get_unregistered_set().as<Nodecl::List>();
+
+   std::string array_name = "nanos_base_addresses";
+
+   int i = 0;
+   TL::Source initialize_array;
+   for (Nodecl::List::iterator it = list_expr.begin();
+         it != list_expr.end();
+         it++, i++)
+   {
+      if (!it->is<Nodecl::Symbol>())
+      {
+         error_printf_at(
+               construct.get_locus(),
+               "Invalid expression in '#pragma omp unregister' directive\n");
+      }
+      TL::DataReference data_ref(*it);
+      Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
+
+      initialize_array
+         << array_name << "["  << i << "] = "
+         <<       as_expression(address_of_object) << ";"
+         ;
+   }
+
+    Source src;
+    src
+        << "{"
+        <<     "nanos_err_t nanos_err;"
+        <<     "void* " << array_name << "[" << list_expr.size() << "];"
+        <<     initialize_array
+        <<     "nanos_err = nanos_unregister_object(" << list_expr.size() << ", " << array_name << ");"
+        <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+        << "}";
+
+    FORTRAN_LANGUAGE()
+    {
+        // Parse in C
+        Source::source_language = SourceLanguage::C;
+    }
+
+    Nodecl::NodeclBase new_stmt = src.parse_statement(construct);
+
+    FORTRAN_LANGUAGE()
+    {
+        Source::source_language = SourceLanguage::Current;
+    }
+    construct.replace(new_stmt);
+}
 } }

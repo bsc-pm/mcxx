@@ -68,6 +68,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
         virtual void visit(const Nodecl::OmpSs::WaitOnDependences& construct);
         virtual void visit(const Nodecl::OmpSs::Register& construct);
+        virtual void visit(const Nodecl::OmpSs::Unregister& construct);
 
 
         // This typedef should be public because It's used by some local functions
