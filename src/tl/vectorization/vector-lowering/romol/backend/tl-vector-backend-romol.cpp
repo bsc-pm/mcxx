@@ -663,8 +663,76 @@ namespace TL { namespace Vectorization {
 
     void RomolVectorBackend::visit(const Nodecl::VectorFunctionCall& n)
     {
-        walk(n.get_function_call());
-        n.replace(n.get_function_call());
+        Nodecl::FunctionCall function_call = n.get_function_call().as<Nodecl::FunctionCall>();
+        ERROR_CONDITION(!function_call.is<Nodecl::FunctionCall>(), "Invalid node", 0);
+
+        Nodecl::List call_args = function_call.get_arguments().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = call_args.begin(); it != call_args.end(); it++)
+        {
+            if (contains_vector_nodes(*it))
+            {
+                // Remove the current assignment LHS, otherwise we will try to assign the argument to it
+                AssignAndKeep k(current_assig, Nodecl::NodeclBase::null());
+                walk(*it);
+            }
+        }
+
+        if (current_assig.is_null())
+        {
+            n.replace(n.get_function_call());
+        }
+        else
+        {
+            if (current_assig.is<Nodecl::VectorAssignment>()
+                    || (current_assig.is<Nodecl::Assignment>()
+                        && n.get_type().no_ref().is_vector()))
+            {
+                Nodecl::NodeclBase mask;
+
+                if (current_assig.is<Nodecl::VectorAssignment>())
+                {
+                    Nodecl::VectorAssignment assig = current_assig.as<Nodecl::VectorAssignment>();
+                    mask = assig.get_mask();
+                }
+
+                std::string builtin_name;
+                if (mask.is_null())
+                    builtin_name = "valib_mov";
+                else
+                    builtin_name = "valib_movm";
+
+                TL::Symbol builtin_fun = TL::Scope::get_global_scope().get_symbol_from_name(builtin_name);
+                ERROR_CONDITION(!builtin_fun.is_valid(), "Symbol not found '%s", builtin_name.c_str());
+
+                Nodecl::List args = Nodecl::List::make(
+                        assig_get_lhs(current_assig),
+                        n.get_function_call());
+
+                if (!mask.is_null())
+                    args.append(mask);
+
+                current_assig.replace(
+                        Nodecl::FunctionCall::make(
+                            builtin_fun.make_nodecl(/* set_ref_type */ true),
+                            args,
+                            /* alternate-name */ Nodecl::NodeclBase::null(),
+                            /* function-form */ Nodecl::NodeclBase::null(),
+                            TL::Type::get_void_type(),
+                            n.get_locus()
+                            )
+                        );
+            }
+            else if (current_assig.is<Nodecl::Assignment>())
+            {
+                // Leave it as is
+            }
+            else
+            {
+                internal_error("Invalid node '%s' at '%s'\n",
+                        ast_print_node_type(current_assig.get_kind()),
+                        current_assig.get_locus_str().c_str());
+            }
+        }
     }
 
     void RomolVectorBackend::visit(const Nodecl::VectorGather& n)
@@ -1085,7 +1153,9 @@ namespace TL { namespace Vectorization {
         }
         else
         {
-            internal_error("Invalid node '%s'\n", ast_print_node_type(current_assig.get_kind()));
+            internal_error("Invalid node '%s' at '%s'\n",
+                    ast_print_node_type(current_assig.get_kind()),
+                    current_assig.get_locus_str().c_str());
         }
     }
 
