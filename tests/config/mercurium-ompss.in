@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Check if there is some OmpSs implementation
-if [ "@NANOX_ENABLED@" = "no" -a  "@NANOS6_ENABLED@" = "yes" ];
+if [ "@NANOX_ENABLED@" = "no" -a  "@NANOS6_ENABLED@" = "no" ];
 then
 
 cat <<EOF
@@ -24,7 +24,20 @@ fi
 
 if [ "@NANOS6_ENABLED@" = "yes" -a "$nanos6_test_disabled" != "yes" ];
 then
-   @abs_builddir@/mercurium-nanos6 $1
+    if [ "$nanos6_test_disabled" != "yes" ];
+    then
+        @abs_builddir@/mercurium-nanos6 $1;
+    elif [ "@NANOX_ENABLED@" != "yes" ];
+    then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="test is not run under Nanos6"
+EOF
+
+exit
+
+    fi
 fi
 
 # ----------------------------------------------
