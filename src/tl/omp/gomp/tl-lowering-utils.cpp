@@ -157,6 +157,7 @@ TL::Type GOMP::create_outline_struct(
 
         class_type_add_member(new_class_type,
                 field.get_internal_symbol(),
+                class_scope.get_decl_context(),
                 /* is_definition */ 1);
     }
 
@@ -236,6 +237,7 @@ TL::Type GOMP::create_outline_struct_task(
 
         class_type_add_member(new_class_type,
                 field.get_internal_symbol(),
+                class_scope.get_decl_context(),
                 /* is_definition */ 1);
     }
 
