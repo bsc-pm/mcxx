@@ -13,9 +13,16 @@ exit
 
 fi
 
+nanos6_test_disabled=""
+if [ "$1" == "no-nanos6" ];
+then
+    nanos6_test_disabled="yes"
+    shift
+fi
+
 # ----------------------------------------------
 
-if [ "@NANOS6_ENABLED@" = "yes" ];
+if [ "@NANOS6_ENABLED@" = "yes" -a "$nanos6_test_disabled" != "yes" ];
 then
    @abs_builddir@/mercurium-nanos6 $1
 fi
@@ -24,8 +31,46 @@ fi
 
 if [ "@NANOX_ENABLED@" = "yes" ];
 then
-
-@abs_builddir@/mercurium-nanox ompss $1
-
+   @abs_builddir@/mercurium-nanox ompss $1
 fi
 
+# ----------------------------------------------
+
+cat <<EOF
+
+filter_test_versions=filter_nanox_nanos6
+
+filter_nanox_nanos6()
+{
+    local v=\$1
+    local e=\$2
+
+    case \$v in
+        nanox*)
+            case \$e in
+                nanox*)
+                    return 0;
+                    ;;
+                *)
+                    return 1;
+                    ;;
+            esac
+            ;;
+        nanos6*)
+            case \$e in
+                nanos6*)
+                    return 0;
+                    ;;
+                *)
+                    return 1;
+                    ;;
+            esac
+            ;;
+        *)
+            ;;
+    esac
+
+    return 0
+}
+
+EOF

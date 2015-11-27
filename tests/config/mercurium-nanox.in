@@ -200,9 +200,9 @@ EOF
 fi
 
 cat <<EOF
-exec_versions="\${exec_versions} 1thread 2thread 4thread"
+exec_versions="\${exec_versions} nanox_1thread nanox_2thread nanox_4thread"
 
-test_ENV_1thread="OMP_NUM_THREADS='1'"
-test_ENV_2thread="OMP_NUM_THREADS='2'"
-test_ENV_4thread="OMP_NUM_THREADS='4'"
+test_ENV_nanox_1thread="OMP_NUM_THREADS='1'"
+test_ENV_nanox_2thread="OMP_NUM_THREADS='2'"
+test_ENV_nanox_4thread="OMP_NUM_THREADS='4'"
 EOF

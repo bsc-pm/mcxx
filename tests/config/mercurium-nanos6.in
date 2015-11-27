@@ -65,6 +65,7 @@ fi
 
 cat <<EOF
 compile_versions="\${compile_versions} nanos6_mercurium"
+runner_nanos6_mercurium=runner_taskset
 
 test_CC_nanos6_mercurium="\${NANOS6_CC}"
 test_CXX_nanos6_mercurium="\${NANOS6_CXX}"
@@ -87,6 +88,7 @@ then
 cat <<EOF
 NANOS6_IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanos6_imcc"
+runner_nanos6_imcc=runner_taskset
 test_CC_nanos6_imcc="\${NANOS6_IMCC}"
 test_CFLAGS_nanos6_imcc=" ${COMMON_NANOS6_CFLAGS} "
 test_LDFLAGS_nanos6_imcc="@abs_top_builddir@/lib/perish.o"
@@ -98,6 +100,7 @@ EOF
 cat <<EOF
 NANOS6_XLMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmcc --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanos6_xlmcc"
+runner_nanos6_xlmcc=runner_taskset
 test_CC_nanos6_xlmcc="\${NANOS6_XLMCC}"
 test_CFLAGS_nanos6_xlmcc=" ${COMMON_NANOS6_CFLAGS} "
 test_LDFLAGS_nanos6_xlmcc="@abs_top_builddir@/lib/perish.o"
@@ -112,6 +115,7 @@ then
 cat <<EOF
 NANOS6_IMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcxx --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanos6_imcxx"
+runner_nanos6_imcxx=runner_taskset
 test_CXX_nanos6_imcxx="\${NANOS6_IMCXX}"
 test_CXXFLAGS_nanos6_imcxx=" ${COMMON_NANOS6_CFLAGS} "
 test_LDFLAGS_nanos6_imcxx="@abs_top_builddir@/lib/perish.o"
@@ -123,6 +127,7 @@ EOF
 cat <<EOF
 NANOS6_XLMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmcxx --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanos6_xlmcxx"
+runner_nanos6_xlmcxx=runner_taskset
 test_CXX_nanos6_xlmcxx="\${NANOS6_XLMCXX}"
 test_CXXFLAGS_nanos6_xlmcxx=" ${COMMON_NANOS6_CFLAGS} "
 test_LDFLAGS_nanos6_xlmcxx="@abs_top_builddir@/lib/perish.o"
@@ -137,6 +142,7 @@ then
 cat <<EOF
 NANOS6_IMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanos6_imfc"
+runner_nanos6_imfc=runner_taskset
 test_FC_nanos6_imfc="\${NANOS6_IMFC}"
 test_FFLAGS_nanos6_imfc=" "
 test_LDFLAGS_nanos6_imfc="@abs_top_builddir@/lib/perish.o"
@@ -149,6 +155,7 @@ EOF
 cat <<EOF
 NANOS6_XLMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanos6_xlmfc"
+runner_nanos6_xlmfc=runner_taskset
 test_FC_nanos6_xlmfc="\${NANOS6_XLMFC}"
 test_FFLAGS_nanos6_xlmfc=" "
 test_LDFLAGS_nanos6_xlmfc="@abs_top_builddir@/lib/perish.o"
@@ -160,10 +167,13 @@ fi
 # for nanos6_variant in @NANOS6_VARIANTS@;
 for nanos6_variant in optimized;
 do
+    for threads in 1 2 4;
+    do
+        vername=nanos6_${nanos6_variant}_${threads}threads
 cat <<EOF
-runner=taskset
-exec_versions="\${exec_versions} nanos6_${nanos6_variant}"
-test_ENV_nanos6_${nanos6_variant}="NANOS6_LOADER_VERBOSE=1 NANOS6='${nanos6_variant}'"
+exec_versions="\${exec_versions} $vername"
+test_ENV_$vername="NANOS6_LOADER_VERBOSE=1 NANOS6='${nanos6_variant}' TASKSET_NUM_CPUS='$threads'"
 EOF
-
+        unset vername
+    done
 done
