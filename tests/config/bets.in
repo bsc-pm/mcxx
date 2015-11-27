@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #constants
-readonly bets_version=0.9.5
+readonly bets_version=0.9.7
 
 #color constants
 
@@ -192,11 +192,14 @@ compile_c ()
    #test values
    cc=${test_CC:-$cc}
    cflags=${test_CFLAGS:-$CFLAGS}
+   cppflags=${test_CPPFLAGS:-$CPPFLAGS}
    ldflags=${test_LDFLAGS:-$LDFLAGS}
 
    #version values
    eval tmp=\${test_CC_$version}
    cc=${tmp:-$cc}
+   eval tmp=\"\${test_CPPFLAGS_$version}\"
+   cppflags="$tmp $cppflags"
    eval tmp=\"\${test_CFLAGS_$version}\"
    cflags="$tmp $cflags"
    out_param=""
@@ -212,7 +215,7 @@ compile_c ()
    unset current_test_nolink
 
    pushd $tmpdir
-   logcmd $cc $cflags $out_param $srcdir/$source $ldflags 
+   logcmd $cc $cppflags $cflags $out_param $srcdir/$source $ldflags 
    local ret=$?
    popd
 
@@ -236,12 +239,15 @@ compile_cpp ()
 
    #test values
    cxx=${test_CXX:-$cxx}
+   cppflags=${test_CPPFLAGS:-$CPPFLAGS}
    cxxflags=${test_CXXFLAGS:-$CXXFLAGS}
    ldflags=${test_LDFLAGS:-$LDFLAGS}
 
    #version values
    eval tmp=\${test_CXX_$version}
    cxx=${tmp:-$cxx}
+   eval tmp=\"\${test_CPPFLAGS_$version}\"
+   cppflags="$tmp $cppflags"
    eval tmp=\"\${test_CXXFLAGS_$version}\"
    cxxflags="$tmp $cxxflags"
    out_param=""
@@ -257,7 +263,7 @@ compile_cpp ()
    unset current_test_nolink
 
    pushd $tmpdir
-   logcmd $cxx $cxxflags $out_param $srcdir/$source $ldflags 
+   logcmd $cxx $cppflags $cxxflags $out_param $srcdir/$source $ldflags 
    local ret=$?
    popd
 
@@ -323,7 +329,7 @@ runner_local ()
    env="$4"
 
    echo > $tmpfile
-   echo $env $tmpdir/$exec $args >> $tmpfile
+   echo $env $test_exec_command $tmpdir/$exec $args >> $tmpfile
 
    log sh $tmpfile
    sh $tmpfile >> $logfile
@@ -348,7 +354,7 @@ runner_ssh()
    echo > $tmpfile
 
    echo $ssh_remote_commands >> $tmpfile
-   echo $env $tmpdir/$exec $args >> $tmpfile
+   echo $env $test_exec_command $tmpdir/$exec $args >> $tmpfile
 
    log ssh -oBatchMode=yes ${ssh_user:-$(whoami)}@$ssh_host "sh $tmpfile"
    ssh -oBatchMode=yes ${ssh_user:-$(whoami)}@$ssh_host "sh $tmpfile" >> $logfile
@@ -446,6 +452,7 @@ merge_common_compile_vars ()
 merge_c_compile_vars ()
 {
    eval test_CC_$1="\${test_CC_$2:=\$test_CC_$3}"
+   eval test_CPPFLAGS_$1=\"\${test_CPPFLAGS_$2} \${test_CPPFLAGS_$3}\"
    eval test_CFLAGS_$1=\"\${test_CFLAGS_$2} \${test_CFLAGS_$3}\"
    eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"
 }
@@ -460,6 +467,7 @@ merge_fortran_compile_vars ()
 merge_cpp_compile_vars ()
 {
    eval test_CXX_$1="\${test_CXX_$2:=\$test_CXX_$3}"
+   eval test_CPPFLAGS_$1=\"\${test_CPPFLAGS_$2} \${test_CPPFLAGS_$3}\"
    eval test_CXXFLAGS_$1=\"\${test_CXXFLAGS_$2} \${test_CXXFLAGS_$3}\"
    eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"
 }
@@ -474,6 +482,7 @@ merge_exec_vars ()
 clean_c_compile_vars ()
 {
    unset test_CC
+   unset test_CPPFLAGS
    unset test_CFLAGS
    unset test_LDFLAGS
 }
@@ -488,6 +497,7 @@ clean_fortran_compile_vars ()
 clean_cpp_compile_vars ()
 {
    unset test_CXX
+   unset test_CPPFLAGS
    unset test_CXXFLAGS
    unset test_LDFLAGS
 }
@@ -500,6 +510,7 @@ clean_common_compile_version_vars ()
 clean_c_compile_version_vars ()
 {
    unset test_CC_$1
+   unset test_CPPFLAGS_$1
    unset test_CFLAGS_$1
    unset test_LDFLAGS_$1
    unset test_compile_fail_$1
@@ -518,6 +529,7 @@ clean_fortran_compile_version_vars ()
 clean_cpp_compile_version_vars ()
 {
    unset test_CXX_$1
+   unset test_CPPFLAGS_$1
    unset test_CXXFLAGS_$1
    unset test_LDFLAGS_$1
    unset test_compile_fail_$1
@@ -552,6 +564,7 @@ clean_test_vars ()
    unset test_compile_faulty
    unset test_exec_fail
    unset test_exec_faulty
+   unset test_exec_command
    unset test_nolink
    unset test_noexec
    unset test_ignore
@@ -746,6 +759,7 @@ run_gen_test ()
                  eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
                  test_faulty=${test_faulty:-$test_exec_faulty}
                  eval test_ignore_fail=\${test_ignore_fail}
+                 eval test_exec_command=\${test_exec_command}
                  passfail "$name-$v-$e" execute $e $name $v
                  log "***End execute test $name-$v-$e"
              fi
@@ -995,8 +1009,11 @@ define_colors
 START_TIME=$SECONDS
 
 do_$mode $*
+bets_exit_code=$?
 
 END_TIME=$SECONDS
 ELAPSED_TIME=$(($END_TIME - $START_TIME))
 
 echo Duration: $(($ELAPSED_TIME / 60))min $(($ELAPSED_TIME % 60))sec
+
+exit $bets_exit_code
