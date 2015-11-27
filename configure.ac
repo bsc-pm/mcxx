@@ -988,19 +988,24 @@ AC_ARG_ENABLE([tl-openmp-gomp],
   ]
 )
 
+GOMP_OMP_LIB="gomp-dir-not-specified"
+
+AC_ARG_WITH([gomp-lib],
+            AS_HELP_STRING([--with-gomp-lib=dir], [Directory of GNU GOMP library]),
+            [
+             GOMP_OMP_LIB="${withval}"
+            ]
+            )
+
 if test x$is_enabled_tl_omp_gomp = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} gomp-mcc gomp-mcxx gomp-mfc"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.gomp-omp-base 50.config.omp.gomp-rtl"
 fi
 
-# FIXME
-GOMP_OMP_INCLUDE=""
-GOMP_OMP_LIB=""
 
 AM_CONDITIONAL([BUILD_OMP_GOMP], test x$is_enabled_tl_omp_gomp = xyes)
 
-AC_SUBST([GOMP_OMP_INCLUDE])
 AC_SUBST([GOMP_OMP_LIB])
 dnl --------------------- End of Support for GOMP ---------------------------
 
