@@ -397,7 +397,7 @@ runner_taskset ()
    # Truncate the file
    cat /dev/null > $tmpfile
    (
-      # We need to evaluate ENV to pass ${TASKSET_NUMCPUS}
+      # We need to evaluate ENV to pass ${TASKSET_NUM_CPUS}
       echo set -x >> $tmpfile
       eval $env;
       echo $env taskset -c 0-$((${TASKSET_NUM_CPUS}-1)) $tmpdir/$exec $args >> $tmpfile
@@ -428,7 +428,9 @@ execute ()
 
    log $env ./$exec $args
 
-   ${runner:-runner_local} "$tmpdir" "$exe" "$args" "$env"
+   eval local runner_used=\${runner_$cversion:-\${runner:-runner_local}}
+
+   ${runner_used} "$tmpdir" "$exe" "$args" "$env"
    local ret=$?
 
    return $ret
@@ -558,6 +560,11 @@ clean_test_vars ()
    unset runner
 }
 
+allow_all_versions()
+{
+    return 0
+}
+
 # run functions
 
 run_gen_test ()
@@ -593,13 +600,6 @@ run_gen_test ()
    clean_test_vars
    clean_${type}_compile_vars
    clean_exec_vars
-
-   # get file options
-   # This ! is for Fortran
-   local start=$(egrep -n "(\![[:blank:]]*)?<testinfo>" $srcdir/$source | cut -d: -f1)
-   let start=start+1
-   local end=$(egrep -n "(\![[:blank:]]*)?</testinfo>" $srcdir/$source | cut -d: -f1)
-   let end=end-1
 
    SED_SCRIPT='/<testinfo>/,/<\/testinfo>/{
        /<testinfo>/d
@@ -701,6 +701,8 @@ run_gen_test ()
        all_exec_versions="default"
    fi
 
+   filter_test_versions=${filter_test_versions:-allow_all_versions}
+
    if [ "$test_ignore" ]; then
       junit_log "<testcase name=\"${name}\"><skipped>Ignored test</skipped></testcase>"
       local test_ignore_message="${YELLOW}ignored${NORMAL}"
@@ -723,6 +725,11 @@ run_gen_test ()
         log "***End compile test $name-$v"
         if [ "$ok" -eq "0" ]; then
           for e in $all_exec_versions; do
+
+             if ! $filter_test_versions $v $e;
+             then
+                 continue
+             fi
 
              current_test_noexec=${test_noexec:-${test_nolink}}
              eval current_test_noexec=\${current_test_noexec:-\${test_noexec_$e}}
