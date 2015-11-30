@@ -33,6 +33,7 @@
 
 #include "hlt-loop-unroll.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-symbol-utils.hpp"
 #include "cxx-cexpr.h"
 
 using namespace TL::Vectorization;
@@ -1371,6 +1372,7 @@ namespace TL {
             function_environment.unload_environment();
             //_vectorizer.postprocess_code(simd_node);
 
+
             // Add extra CxxDef that may have been required during vectorization
             // std::cerr << "(2) ENV = " << &function_environment << std::endl;
             for (TL::ObjectList<VectorizerEnvironment::VectorizedClass>::iterator
@@ -1384,9 +1386,8 @@ namespace TL {
                     .get_top_level()
                     .as<Nodecl::List>();
 
-                bool found = false;
                 for (Nodecl::List::iterator it_nodes = top_level.begin();
-                        it_nodes != top_level.end() && !found;
+                        it_nodes != top_level.end();
                         it_nodes++)
                 {
                     if (it_nodes->is<Nodecl::CxxDef>()
@@ -1440,10 +1441,25 @@ namespace TL {
                 decl_context_clone(func_sym.get_scope().get_decl_context());
             new_func_decl_context->template_parameters = NULL;
 
-            TL::Symbol vector_func_sym = TL::Scope(new_func_decl_context).
-                new_symbol(vector_func_name.str());
-            vector_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
-            vector_func_sym.set_type(func_sym.get_type());
+            auto related_symbols = func_sym.get_related_symbols();
+            TL::ObjectList<std::string> related_symbols_name;
+            TL::ObjectList<TL::Type> related_symbols_type;
+            for (const auto& param : related_symbols)
+            {
+                related_symbols_name.push_back(param.get_name());
+                related_symbols_type.push_back(param.get_type());
+            }
+
+            TL::Symbol vector_func_sym = SymbolUtils::new_function_symbol(
+                    func_sym,
+                    vector_func_name.str(),
+                    func_sym.get_type().returns(),
+                    related_symbols_name,
+                    related_symbols_type);
+            symbol_entity_specs_set_is_user_declared(vector_func_sym.get_internal_symbol(), 1);
+            symbol_entity_specs_set_is_static(vector_func_sym.get_internal_symbol(),
+                    symbol_entity_specs_get_is_static(func_sym.get_internal_symbol()));
+
 
             //Necessary??
             // Register new simd nodes in analysis
@@ -1533,6 +1549,13 @@ namespace TL {
             function_environment.unload_environment();
             _vectorizer.postprocess_code(simd_node);
 
+            
+            Nodecl::NodeclBase translation_unit = CURRENT_COMPILED_FILE->nodecl;
+            Nodecl::List top_level = translation_unit
+                .as<Nodecl::TopLevel>()
+                .get_top_level()
+                .as<Nodecl::List>();
+
             // Add extra CxxDef that may have been required during vectorization
             // std::cerr << "(2) ENV = " << &function_environment << std::endl;
             for (TL::ObjectList<VectorizerEnvironment::VectorizedClass>::iterator
@@ -1540,15 +1563,8 @@ namespace TL {
                     it_classes != function_environment._vectorized_classes.end();
                     it_classes++)
             {
-                Nodecl::NodeclBase translation_unit = CURRENT_COMPILED_FILE->nodecl;
-                Nodecl::List top_level = translation_unit
-                    .as<Nodecl::TopLevel>()
-                    .get_top_level()
-                    .as<Nodecl::List>();
-
-                bool found = false;
                 for (Nodecl::List::iterator it_nodes = top_level.begin();
-                        it_nodes != top_level.end() && !found;
+                        it_nodes != top_level.end();
                         it_nodes++)
                 {
                     if (it_nodes->is<Nodecl::CxxDef>()
@@ -1558,10 +1574,33 @@ namespace TL {
                                 Nodecl::CxxDef::make(
                                     Nodecl::NodeclBase::null(),
                                     it_classes->second.get_symbol()));
+
+                        break;
                     }
                 }
             }
             function_environment._vectorized_classes.clear();
+
+            // Add CxxDecl of the SIMD function
+            if (IS_CXX_LANGUAGE)
+            {
+                for (const auto& tl_node : top_level)
+                {
+                    if (tl_node.is<Nodecl::CxxDecl>()
+                            && tl_node.get_symbol() == func_sym)
+                    {
+                        tl_node.append_sibling(
+                                Nodecl::CxxDecl::make(
+                                    Nodecl::Context::make(
+                                        Nodecl::NodeclBase::null(),
+                                        func_sym.get_scope(),
+                                        tl_node.get_locus()),
+                                    vector_func_sym,
+                                    tl_node.get_locus()));
+                        break;
+                    }
+                }
+            }
 
             // Remove SimdFunction node
             Nodecl::Utils::remove_from_enclosing_list(simd_node);
@@ -1778,9 +1817,8 @@ namespace TL {
                             .get_top_level()
                             .as<Nodecl::List>();
 
-                        bool found = false;
                         for (Nodecl::List::iterator it = top_level.begin();
-                                it != top_level.end() && !found;
+                                it != top_level.end();
                                 it++)
                         {
                             if (it->is<Nodecl::CxxDecl>()
@@ -1794,12 +1832,8 @@ namespace TL {
                                                 it->get_locus()),
                                             vector_func_sym,
                                             it->get_locus()));
-                                found = true;
+                                break;
                             }
-                        }
-                        if (!found)
-                        {
-                            // std::cerr << "Hmmm, I did not find " << func_sym.get_qualified_name() << " anywhere in the top level..." << std::endl;
                         }
                     }
                 }

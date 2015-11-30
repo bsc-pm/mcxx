@@ -195,7 +195,8 @@ namespace Vectorization
     {
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr, "VECTORIZER: ----- Vectorizing function HEADER -----\n");
+            fprintf(stderr, "VECTORIZER: ----- Vectorizing function '%s' HEADER -----\n",
+                    func_sym.get_name().c_str());
             if (environment._target_type.is_valid())
             {
                 fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
@@ -222,7 +223,8 @@ namespace Vectorization
     {
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr, "VECTORIZER: ----- Vectorizing function CODE -----\n");
+            fprintf(stderr, "VECTORIZER: ----- Vectorizing function '%s' CODE -----\n",
+                    func_code.get_symbol().get_name().c_str());
             if (environment._target_type.is_valid())
             {
                 fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
