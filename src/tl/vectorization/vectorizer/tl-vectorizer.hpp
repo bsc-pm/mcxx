@@ -42,6 +42,14 @@ namespace TL
 {
     namespace Vectorization
     {
+        struct register_functions_info
+        {
+            const char* scalar_function;
+            const char* vector_function;
+            TL::Type return_type;
+            bool masked;
+        };
+
         class Vectorizer
         {
             public:
@@ -125,6 +133,11 @@ namespace TL
                         Nodecl::List& pre_nodecls,
                         Nodecl::List& post_nodecls);
 
+                void register_svml_functions(const register_functions_info* functions,
+                        std::string device,
+                        int vec_factor,
+                        const TL::Scope& scope,
+                        const std::string& vtype_str);
                 void add_vector_function_version(TL::Symbol symbol,
                         const TL::Symbol& vec_func_symbol, const std::string& device,
                         const unsigned int vector_length, const TL::Type& target_type,
