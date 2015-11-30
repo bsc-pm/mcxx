@@ -38,6 +38,7 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-fortran
 	chmod +x config/mercurium-nanox
+	chmod +x config/mercurium-nanos6
 	chmod +x config/mercurium-hlt
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ompss

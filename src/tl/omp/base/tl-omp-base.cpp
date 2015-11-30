@@ -2742,6 +2742,61 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(directive);
     }
 
+    void Base::unregister_handler_pre(TL::PragmaCustomDirective) { }
+    void Base::unregister_handler_post(TL::PragmaCustomDirective directive)
+    {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomParameter parameter = pragma_line.get_parameter();
+
+        if (!parameter.is_defined())
+        {
+            error_printf_at(directive.get_locus(),
+                    "missing parameter clause in '#pragma omp unregister'\n");
+            return;
+        }
+
+        ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
+        if (expr_list.empty())
+        {
+            warn_printf_at(directive.get_locus(), "ignoring empty '#pragma omp unregister\n");
+            return;
+        }
+
+        ObjectList<Nodecl::NodeclBase> valid_expr_list;
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
+                it != expr_list.end();
+                it++)
+        {
+            // We only support symbols
+            if (it->is<Nodecl::Symbol>())
+            {
+                valid_expr_list.append(*it);
+            }
+            else
+            {
+                error_printf_at(
+                        directive.get_locus(),
+                        "object specification '%s' in '#pragma omp unregister' "
+                        "must be a variable-name\n",
+                        it->prettyprint().c_str());
+            }
+        }
+
+        if (valid_expr_list.empty())
+            return;
+
+        Nodecl::List list_expr = Nodecl::List::make(valid_expr_list);
+
+        Nodecl::OmpSs::Unregister new_unregister_directive =
+            Nodecl::OmpSs::Unregister::make(
+                    list_expr,
+                    directive.get_locus());
+
+        pragma_line.diagnostic_unused_clauses();
+        directive.replace(new_unregister_directive);
+    }
+
     void Base::register_handler_pre(TL::PragmaCustomDirective) { }
     void Base::register_handler_post(TL::PragmaCustomDirective directive)
     {
@@ -2758,7 +2813,7 @@ namespace TL { namespace OpenMP {
         ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
         if (expr_list.empty())
         {
-            warn_printf_at(directive.get_locus(), "ignoring empty '#pragma omp register\n");
+            warn_printf_at(directive.get_locus(), "ignoring empty '#pragma omp register'\n");
             return;
         }
 
@@ -2789,7 +2844,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List list_expr = Nodecl::List::make(valid_expr_list);
 
-        Nodecl::OmpSs::Register new_register_directive = 
+        Nodecl::OmpSs::Register new_register_directive =
             Nodecl::OmpSs::Register::make(
                     list_expr,
                     directive.get_locus());
