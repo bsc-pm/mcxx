@@ -3257,6 +3257,7 @@ config_edit = \
      -e 's|@NANOS6_GATE[@]|$(NANOS6_GATE)|g' \
      -e 's|@NANOS6_INCLUDES[@]|$(NANOS6_INCLUDES)|g' \
      -e 's|@NANOS6_LIB[@]|$(NANOS6_LIB)|g' \
+     -e 's|@GOMP_OMP_LIB[@]|$(GOMP_OMP_LIB)|g' \
     $(END)
 
 # Cross compiler profile names

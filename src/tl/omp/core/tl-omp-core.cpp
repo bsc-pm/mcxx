@@ -2542,6 +2542,7 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_DIRECTIVE(barrier)
         EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_DIRECTIVE(register)
+        EMPTY_HANDLERS_DIRECTIVE(unregister)
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         UNIMPLEMENTED_HANDLER_STATEMENT(ordered)

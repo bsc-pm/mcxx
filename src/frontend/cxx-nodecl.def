@@ -706,6 +706,7 @@ parallel-statements: data-coordination
 
 # register
 data-coordination : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
+                | NODECL_OMP_SS*UNREGISTER([unregistered_set]expression-seq)
 
 omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*CONCURRENT([inout_deps]expression-seq)

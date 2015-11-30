@@ -57,6 +57,7 @@ OMP_DIRECTIVE("declare|reduction", declare_reduction, true)
 // OmpSs
 OMP_CONSTRUCT_NOEND("target", target, true)
 OMP_DIRECTIVE("register", register, true)
+OMP_DIRECTIVE("unregister", unregister, true)
 
 OMP_CONSTRUCT_NOEND("parallel|do", parallel_do, IS_FORTRAN_LANGUAGE)
 OMP_CONSTRUCT_NOEND("do", do, IS_FORTRAN_LANGUAGE)
