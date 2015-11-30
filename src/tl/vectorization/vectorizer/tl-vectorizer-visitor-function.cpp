@@ -60,7 +60,6 @@ namespace TL
             objlist_tlsym_t parameters = func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_vector_type;
 
-            TL::ObjectList<TL::Symbol> used_symbols;
             if (!func_code.is_null())
                 Nodecl::Utils::get_all_symbols(func_code.
                         as<Nodecl::FunctionCode>().get_statements());
@@ -69,10 +68,8 @@ namespace TL
                     it != parameters.end();
                     it ++)
             {
-                // If the symbol is not used we do not bother to touch it
-                if (used_symbols.contains(*it)
-                        // If not uniform or linear, vectorize the parameter
-                        && !_uniform_symbols.contains(*it)
+                // If not uniform or linear, vectorize the parameter
+                if (!_uniform_symbols.contains(*it)
                         && (_linear_symbols.find(*it) == _linear_symbols.end()))
                 {
                     TL::Type vector_type;

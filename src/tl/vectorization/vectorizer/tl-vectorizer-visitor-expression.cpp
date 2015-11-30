@@ -799,10 +799,16 @@ namespace Vectorization
                     lhs_type.get_pointer_to(),
                     lhs.get_locus());
 
-            ERROR_CONDITION(lhs.as<Nodecl::ArraySubscript>().
-                    get_subscripts().as<Nodecl::List>().size() > 1,
+            ERROR_CONDITION(array.get_subscripts().as<Nodecl::List>().size() > 1,
                     "Vectorizer: ArraySubscript has not been linearized: %s",
                     lhs.prettyprint().c_str());
+
+
+            while (subscripted.is<Nodecl::ArraySubscript>())
+            {
+                subscripted = subscripted.as<Nodecl::ArraySubscript>().
+                    get_subscripted().no_conv();
+            }
 
             ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
                     "Vectorizer: ArraySubscript form not supported yet: %s",
