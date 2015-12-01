@@ -1388,13 +1388,13 @@ namespace TL { namespace Nanox {
                 {
                     Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
 
-                    TL::Symbol reduction_sym = red_item.get_reductor().get_symbol();
-                    TL::Symbol symbol = red_item.get_reduced_symbol().get_symbol();
+                    TL::Symbol reductor_sym = red_item.get_reductor().get_symbol();
+                    TL::Symbol reduction_symbol = red_item.get_reduced_symbol().get_symbol();
                     TL::Type reduction_type = red_item.get_reduction_type().get_type();
 
-                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
+                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
                     ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
-                    add_reduction(symbol, reduction_type, red, OutlineDataItem::SHARING_REDUCTION);
+                    add_reduction(reduction_symbol, reduction_type, red, OutlineDataItem::SHARING_REDUCTION);
                 }
             }
 
@@ -1407,21 +1407,15 @@ namespace TL { namespace Nanox {
                 {
                     Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
 
-                    TL::Symbol reduction_sym = red_item.get_reductor().get_symbol();
-                    TL::Symbol symbol = red_item.get_reduced_symbol().get_symbol();
+                    TL::Symbol reductor_sym = red_item.get_reductor().get_symbol();
+                    TL::Symbol reduction_symbol = red_item.get_reduced_symbol().get_symbol();
                     TL::Type reduction_type = red_item.get_reduction_type().get_type();
 
-                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
+                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
                     ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
-                    add_reduction(symbol, reduction_type, red, OutlineDataItem::SHARING_TASK_REDUCTION);
 
-
-                    // Now, we have to define a concurrent dependence over the reduction symbol
-                    OutlineDataItem &outline_data_item = _outline_info.get_entity_for_symbol(symbol);
-
-                    TL::DataReference data_ref(red_item.get_reduced_symbol());
-                    outline_data_item.get_dependences().append(
-                            OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_CONCURRENT));
+                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(reduction_symbol);
+                    outline_info.set_reduction_info(red, reduction_type);
                 }
             }
 

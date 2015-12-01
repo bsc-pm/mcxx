@@ -73,7 +73,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         // This typedef should be public because It's used by some local functions
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
-        typedef std::map<OpenMP::Reduction*, std::pair<TL::Symbol, TL::Symbol> > reduction_task_map_t;
     private:
 
         Lowering* _lowering;
@@ -442,8 +441,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         reduction_map_t _reduction_map_ompss;
 
-        reduction_task_map_t _reduction_on_tasks_red_map;
-        reduction_map_t _reduction_on_tasks_ini_map;
+        struct TaskReductionsInfo
+        {
+            TL::Symbol _reducer,
+               _reducer_orig_var,
+               _initializer;
+
+           TaskReductionsInfo(TL::Symbol red, TL::Symbol red_orig_var, TL::Symbol init)
+              : _reducer(red),_reducer_orig_var(red_orig_var), _initializer(init) {}
+        };
+        typedef std::map<OpenMP::Reduction*, TaskReductionsInfo> reduction_task_map_t;
+        reduction_task_map_t _task_reductions_map;
+
 
         void create_reduction_function(OpenMP::Reduction* red,
                 Nodecl::NodeclBase construct,

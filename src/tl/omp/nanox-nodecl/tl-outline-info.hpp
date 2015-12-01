@@ -63,8 +63,6 @@ namespace TL
                     SHARING_PRIVATE,
                     // Only used in worksharing & parallel reductions
                     SHARING_REDUCTION,
-                    // Only used in task reductions
-                    SHARING_TASK_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
                     // the symbol but of the _base_address_expression
                     // This is used for dependences in function tasks
@@ -328,9 +326,11 @@ namespace TL
                     _reduction_type = reduction_type;
                 }
 
+                // States whether the current oultine item is a worksharing,
+                // parallel or task reduction or not
                 bool is_reduction() const
                 {
-                    return _sharing == SHARING_REDUCTION;
+                   return _reduction != NULL;
                 }
 
                 std::pair<OpenMP::Reduction*, TL::Type> get_reduction_info() const
