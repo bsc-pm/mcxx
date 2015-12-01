@@ -2347,6 +2347,14 @@ static char check_argument_association(
         return 1;
     }
 
+    // If the actual argument is not a pointer type,
+    // the pointer type itself is not relevant anymore
+    if (is_pointer_type(real_type)
+            && !is_pointer_type(formal_type))
+    {
+        real_type = pointer_type_get_pointee_type(real_type);
+    }
+
     if (is_function_type(formal_type)
             && is_function_type(real_type))
     {
@@ -2382,7 +2390,7 @@ static char check_argument_association(
             ((is_pointer_type(formal_type)
               && is_pointer_type(real_type))
              // ... the dummy argument is an array requiring descriptor ...
-             || (is_array_type(formal_type) 
+             || (fortran_is_array_type(formal_type)
                  && array_type_with_descriptor(formal_type))
              // Or we explicitly need ranks to agree
              || ranks_must_agree
