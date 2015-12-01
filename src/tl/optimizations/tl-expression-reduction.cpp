@@ -1399,14 +1399,14 @@ namespace Optimizations {
         {
             // Nullify nodecl from lhs (visitor)
             n.replace(const_value_to_nodecl(
-                        const_value_get_zero(1, 4)));
+                        const_value_get_zero(4, 1)));
 
             // Nullify nodecl from rhs (list)
             Nodecl::NodeclBase rhs_it = *it;
             _unitary_rhss.erase(it);
 
             rhs_it.replace(const_value_to_nodecl(
-                        const_value_get_zero(1, 4)));
+                        const_value_get_zero(4, 1)));
 
             Nodecl::NodeclBase rhs_it_parent = rhs_it.get_parent();
 

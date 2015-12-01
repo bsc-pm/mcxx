@@ -105,7 +105,7 @@ namespace Vectorization
                 std::cerr << "Difference: " << vl_subscripts.prettyprint()
                     << " MINUS " << it_subscripts.prettyprint()
                     << " = "
-                    << minus.prettyprint()
+                    << minus.prettyprint() << " DIFFERENCE IS" << (minus.is_constant() ? " " : " NOT ") << "CONSTANT"
                     << std::endl;
             }
 
