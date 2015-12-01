@@ -391,7 +391,7 @@ namespace TL
 
         void Core::ompss_target_handler_post(TL::PragmaCustomStatement)
         {
-            // It might be empty due to early exits in the preorder routine
+            // It can already be empty if it has been consumed by a task
             if (!_target_context.empty())
             {
                 _target_context.pop();

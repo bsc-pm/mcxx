@@ -755,6 +755,13 @@ namespace TL { namespace OpenMP {
                 }
             }
         }
+
+        // The target context has been fully consumed by this function task,
+        // this prevents from it leaking to other tasks (see ticket #2564)
+        //
+        // Recall that std::stack does not have a clear operation so we assign
+        // to it a new std::stack
+        _target_context = std::stack<TL::OmpSs::TargetContext>();
     }
 
     void Core::task_inline_handler_pre(TL::PragmaCustomStatement construct)

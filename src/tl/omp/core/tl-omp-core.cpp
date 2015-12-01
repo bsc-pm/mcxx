@@ -2049,11 +2049,7 @@ namespace TL { namespace OpenMP {
     }
     void Core::task_handler_post(TL::PragmaCustomStatement construct)
     {
-        if (!_target_context.empty()
-                && _target_context.top().is_implicit)
-        {
-            _target_context.pop();
-        }
+        ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
         _openmp_info->pop_current_data_environment();
     }
 
@@ -2066,11 +2062,7 @@ namespace TL { namespace OpenMP {
     void Core::task_handler_post(TL::PragmaCustomDeclaration construct)
     {
         // Do nothing
-        if (!_target_context.empty()
-                && _target_context.top().is_implicit)
-        {
-            _target_context.pop();
-        }
+        ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
     }
 
     void Core::taskwait_handler_pre(TL::PragmaCustomDirective construct)
