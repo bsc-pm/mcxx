@@ -25448,7 +25448,7 @@ nodecl_t cxx_nodecl_make_conversion_to_logical(nodecl_t expr,
         value = cxx_nodecl_make_value_conversion(
                 no_ref(expr_type),
                 dest_type,
-                nodecl_get_constant(expr));
+                value);
         if (value != NULL)
         {
             value = const_value_get_signed_int(!!const_value_is_nonzero(value));
