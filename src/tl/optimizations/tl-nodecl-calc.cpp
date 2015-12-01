@@ -57,7 +57,9 @@ namespace Optimizations {
     
     Calculator::Ret Calculator::visit(const Nodecl::Symbol& n)
     {
-        if (n.is_constant())
+        if (n.is_constant()
+                && !const_value_is_object(n.get_constant())
+                && !const_value_is_address(n.get_constant()))
         {
             return TL::ObjectList<const_value_t*>(1, n.get_constant());
         }
