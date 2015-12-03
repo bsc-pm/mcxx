@@ -4334,8 +4334,11 @@ OPERATOR_TABLE
                 }
             }
 
+
+            bool keep_emit_interop = state.emit_interoperable_types;
             if (entry.is_bind_c())
             {
+                state.emit_interoperable_types = true;
                 Nodecl::NodeclBase bind_name = entry.get_bind_c_name();
                 if (bind_name.is_null())
                 {
@@ -4437,6 +4440,8 @@ OPERATOR_TABLE
 
             dec_indent();
             pop_declaring_entity();
+
+            state.emit_interoperable_types = keep_emit_interop;
 
             indent();
             *(file) << "END TYPE " << real_name << "\n";
@@ -5627,7 +5632,8 @@ OPERATOR_TABLE
         if (t.is_any_reference())
             t = t.references_to();
 
-        bool is_fortran_pointer = is_fortran_representable_pointer(t);
+        bool is_fortran_pointer = !state.emit_interoperable_types
+            && is_fortran_representable_pointer(t);
         if (is_fortran_pointer)
         {
             t = t.points_to();
@@ -5853,7 +5859,8 @@ OPERATOR_TABLE
                 type_specifier = "TYPE(" + real_name + ")";
             }
         }
-        else if (fortran_is_character_type(t.get_internal_type()))
+        else if (fortran_is_character_type(t.get_internal_type())
+                && !state.emit_interoperable_types)
         {
             std::stringstream ss;
             if (!array_type_is_unknown_size(t.get_internal_type()))
@@ -5868,38 +5875,22 @@ OPERATOR_TABLE
                     declare_everything_needed(string_size);
                 }
 
-                if (state.emit_interoperable_types)
-                {
-                    ss << "CHARACTER(KIND=C_CHAR,LEN=" 
-                        << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(string_size, string_size.retrieve_context()))
-                        << ")";
-                }
-                else
-                {
-                    ss << "CHARACTER(LEN=" 
-                        << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(string_size, string_size.retrieve_context()))
-                        << ")";
-                }
+                ss << "CHARACTER(LEN=" 
+                    << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
+                            this->codegen_to_str(string_size, string_size.retrieve_context()))
+                    << ")";
             }
             else
             {
-                if (state.emit_interoperable_types)
-                {
-                    ss << "CHARACTER(KIND=C_CHAR,LEN=*)";
-                }
-                else
-                {
-                    ss << "CHARACTER(LEN=*)";
-                }
+                ss << "CHARACTER(LEN=*)";
             }
 
             type_specifier = ss.str();
         }
         // Special case for char* / const char*
         else if (t.is_pointer()
-                && t.points_to().is_char())
+                && t.points_to().is_char()
+                && !state.emit_interoperable_types)
         {
             type_specifier = "CHARACTER(LEN=*)";
         }
@@ -5907,9 +5898,17 @@ OPERATOR_TABLE
         // their basic type simplified at this point
         else if (t.is_pointer())
         {
-            // Non Fortran pointer, use an INTEGER of size the pointer size
             std::stringstream ss;
-            ss << "INTEGER(" << CURRENT_CONFIGURATION->type_environment->sizeof_pointer << ")";
+            if (state.emit_interoperable_types)
+            {
+                // Non Fortran pointer, use an interoperable object pointer
+                ss << "INTEGER(C_INTPTR_T)";
+            }
+            else
+            {
+                // Non Fortran pointer, use an INTEGER of size the pointer size
+                ss << "INTEGER(" << CURRENT_CONFIGURATION->type_environment->sizeof_pointer << ")";
+            }
             type_specifier = ss.str();
         }
         else 
