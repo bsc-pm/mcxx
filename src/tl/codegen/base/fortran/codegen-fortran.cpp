@@ -5859,8 +5859,7 @@ OPERATOR_TABLE
                 type_specifier = "TYPE(" + real_name + ")";
             }
         }
-        else if (fortran_is_character_type(t.get_internal_type())
-                && !state.emit_interoperable_types)
+        else if (fortran_is_character_type(t.get_internal_type()))
         {
             std::stringstream ss;
             if (!array_type_is_unknown_size(t.get_internal_type()))
@@ -5875,10 +5874,12 @@ OPERATOR_TABLE
                     declare_everything_needed(string_size);
                 }
 
-                ss << "CHARACTER(LEN=" 
-                    << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                            this->codegen_to_str(string_size, string_size.retrieve_context()))
-                    << ")";
+                    ss << "CHARACTER("
+                        << ((!state.emit_interoperable_types) ? "" : "KIND=C_SIGNED_CHAR,")
+                        << "LEN="
+                        << (array_type_is_unknown_size(t.get_internal_type()) ? "*" :
+                                this->codegen_to_str(string_size, string_size.retrieve_context()))
+                        << ")";
             }
             else
             {

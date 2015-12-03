@@ -94,6 +94,21 @@ namespace TL { namespace Nanos6 {
                 _task_properties.dep_inout.append(n.get_inout_deps().as<Nodecl::List>().to_object_list());
             }
 
+            virtual void visit(const Nodecl::OmpSs::DepWeakIn& n)
+            {
+                _task_properties.dep_weakin.append(n.get_weakin_deps().as<Nodecl::List>().to_object_list());
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepWeakOut& n)
+            {
+                _task_properties.dep_weakout.append(n.get_weakout_deps().as<Nodecl::List>().to_object_list());
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepWeakInout& n)
+            {
+                _task_properties.dep_weakinout.append(n.get_weakinout_deps().as<Nodecl::List>().to_object_list());
+            }
+
             virtual void visit(const Nodecl::OpenMP::Final& n)
             {
                 _task_properties.final_ = n.get_condition();
@@ -1491,31 +1506,36 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
 
         TL::Scope global_context = TL::Scope::get_global_scope();
-        TL::Symbol register_dep_in = global_context.get_symbol_from_name("nanos_register_read_depinfo");
-        ERROR_CONDITION(!register_dep_in.is_valid(), "Invalid symbol", 0);
-
-        TL::Symbol register_dep_out = global_context.get_symbol_from_name("nanos_register_write_depinfo");
-        ERROR_CONDITION(!register_dep_out.is_valid(), "Invalid symbol", 0);
-
-        TL::Symbol register_dep_inout = global_context.get_symbol_from_name("nanos_register_readwrite_depinfo");
-        ERROR_CONDITION(!register_dep_inout.is_valid(), "Invalid symbol", 0);
 
         struct DependencesSet
         {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
-            TL::Symbol register_fun;
+            std::string func_name;
         } deps[] = {
-            { dep_in, register_dep_in },
-            { dep_out, register_dep_out },
-            { dep_inout, register_dep_inout },
-        };
+            { dep_in, "nanos_register_read_depinfo" },
+            { dep_out, "nanos_register_write_depinfo" },
+            { dep_inout, "nanos_register_readwrite_depinfo" },
 
+            { dep_weakin, "nanos_register_weak_read_depinfo" },
+            { dep_weakout, "nanos_register_weak_write_depinfo" },
+            { dep_weakinout, "nanos_register_weak_readwrite_depinfo" },
+        };
 
         for (DependencesSet *dep_set = deps;
                 dep_set != (DependencesSet*)(&deps + 1);
                 dep_set++)
         {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
+
+            if (dep_list.empty())
+                continue;
+
+            TL::Symbol register_fun = global_context.get_symbol_from_name(dep_set->func_name);
+            if (!register_fun.is_valid())
+            {
+                fatal_error("Function '%s' not found while trying to register dependences of its kind\n",
+                        dep_set->func_name.c_str());
+            }
 
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator
                     it = dep_list.begin();
@@ -1532,7 +1552,7 @@ namespace TL { namespace Nanos6 {
                             data_ref,
                             handler,
                             arg,
-                            dep_set->register_fun,
+                            register_fun,
                             register_statements);
                 }
                 else
@@ -1541,7 +1561,7 @@ namespace TL { namespace Nanos6 {
                             data_ref,
                             handler,
                             arg,
-                            dep_set->register_fun,
+                            register_fun,
                             register_statements);
                 }
 
