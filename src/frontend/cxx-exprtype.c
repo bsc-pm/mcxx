@@ -4170,11 +4170,25 @@ void compute_bin_operator_pow_type(nodecl_t* lhs, nodecl_t* rhs, const decl_cont
             nodecl_output);
 }
 
+static const_value_t* compute_value_of_object_subobject(const_value_t* current_object_value,
+        const_value_t* subobject);
+
 static
 char value_not_valid_for_divisor(const_value_t* v)
 {
-    if (const_value_is_zero(v))
-        return 1;
+    if (const_value_is_address(v))
+        return 0;
+
+    if (const_value_is_object(v))
+    {
+        scope_entry_t* entry = const_value_object_get_base(v);
+        const_value_t* result = compute_value_of_symbol(entry, entry->locus);
+        const_value_t* val = compute_value_of_object_subobject(result, v);
+        if (val != NULL)
+            return value_not_valid_for_divisor(val);
+        else
+            return 0;
+    }
 
     if (const_value_is_vector(v))
     {
@@ -4182,10 +4196,14 @@ char value_not_valid_for_divisor(const_value_t* v)
         int i;
         for (i = 0; i < num_elems; i++)
         {
-            if (const_value_is_zero(const_value_get_element_num(v, i)))
+            if (value_not_valid_for_divisor(const_value_get_element_num(v, i)))
                 return 1;
         }
+        return 0;
     }
+
+    if (const_value_is_zero(v))
+        return 1;
 
     return 0;
 }
@@ -7326,9 +7344,6 @@ static void check_expression_strict_operator(
 {
     check_expression_impl_(rhs, decl_context, output);
 }
-
-static const_value_t* compute_value_of_object_subobject(const_value_t* current_object_value,
-        const_value_t* subobject);
 
 static char cxx_const_value_is_zero(const_value_t* t)
 {
@@ -25464,7 +25479,7 @@ nodecl_t cxx_nodecl_make_conversion_to_logical(nodecl_t expr,
         value = cxx_nodecl_make_value_conversion(
                 no_ref(expr_type),
                 dest_type,
-                nodecl_get_constant(expr));
+                value);
         if (value != NULL)
         {
             value = const_value_get_signed_int(!!const_value_is_nonzero(value));

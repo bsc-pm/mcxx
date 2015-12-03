@@ -1520,12 +1520,7 @@ if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_ompss_nanos6 = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
-fi
 
-dnl -- Only Nanox
-if test x$is_enabled_tl_omp_nanox = xyes \
-      -o x$is_enabled_tl_omp_profile = xyes;
-then
    if test x$is_enabled_tl_omp_profile = xyes;
    then
        COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"

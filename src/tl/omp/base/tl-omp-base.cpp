@@ -3372,9 +3372,16 @@ namespace TL { namespace OpenMP {
                     ;
             }
         }
+
         make_dependency_list<Nodecl::OpenMP::DepIn>(
                 dependences,
                 OpenMP::DEP_DIR_IN,
+                locus,
+                result_list);
+
+        make_dependency_list<Nodecl::OmpSs::DepWeakIn>(
+                dependences,
+                OpenMP::DEP_OMPSS_WEAK_IN,
                 locus,
                 result_list);
 
@@ -3390,8 +3397,20 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_dependency_list<Nodecl::OmpSs::DepWeakOut>(
+                dependences,
+                OpenMP::DEP_OMPSS_WEAK_OUT,
+                locus,
+                result_list);
+
         make_dependency_list<Nodecl::OpenMP::DepInout>(
                 dependences, OpenMP::DEP_DIR_INOUT,
+                locus,
+                result_list);
+
+        make_dependency_list<Nodecl::OmpSs::DepWeakInout>(
+                dependences,
+                OpenMP::DEP_OMPSS_WEAK_INOUT,
                 locus,
                 result_list);
 

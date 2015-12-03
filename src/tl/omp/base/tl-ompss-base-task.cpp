@@ -417,6 +417,12 @@ namespace TL { namespace OmpSs {
                 locus,
                 result_list);
 
+        _base->make_dependency_list<Nodecl::OmpSs::DepWeakIn>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_IN,
+                locus,
+                result_list);
+
         _base->make_dependency_list<Nodecl::OmpSs::DepInPrivate>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_DIR_IN_PRIVATE,
@@ -428,15 +434,28 @@ namespace TL { namespace OmpSs {
                 OpenMP::DEP_OMPSS_DIR_IN_VALUE,
                 locus,
                 result_list);
+
         _base->make_dependency_list<Nodecl::OpenMP::DepOut>(
                 task_dependences,
                 OpenMP::DEP_DIR_OUT,
                 locus,
                 result_list);
 
+        _base->make_dependency_list<Nodecl::OmpSs::DepWeakOut>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_OUT,
+                locus,
+                result_list);
+
         _base->make_dependency_list<Nodecl::OpenMP::DepInout>(
                 task_dependences,
                 OpenMP::DEP_DIR_INOUT,
+                locus,
+                result_list);
+
+        _base->make_dependency_list<Nodecl::OmpSs::DepWeakInout>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_INOUT,
                 locus,
                 result_list);
 
@@ -709,12 +728,27 @@ namespace TL { namespace OmpSs {
             there_are_dependences = true;
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakIn& dep_in)
+        {
+            there_are_dependences = true;
+        }
+
         void visit(const Nodecl::OpenMP::DepOut& dep_out)
         {
             there_are_dependences = true;
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakOut& dep_out)
+        {
+            there_are_dependences = true;
+        }
+
         void visit(const Nodecl::OpenMP::DepInout& dep_inout)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OmpSs::DepWeakInout& dep_inout)
         {
             there_are_dependences = true;
         }
@@ -800,14 +834,29 @@ namespace TL { namespace OmpSs {
             report_dep(dep_in.get_in_deps(), OpenMP::DEP_DIR_IN);
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakIn& dep_in)
+        {
+            report_dep(dep_in.get_weakin_deps(), OpenMP::DEP_OMPSS_WEAK_IN);
+        }
+
         void visit(const Nodecl::OpenMP::DepOut& dep_out)
         {
             report_dep(dep_out.get_out_deps(), OpenMP::DEP_DIR_OUT);
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakOut& dep_in)
+        {
+            report_dep(dep_in.get_weakout_deps(), OpenMP::DEP_OMPSS_WEAK_OUT);
+        }
+
         void visit(const Nodecl::OpenMP::DepInout& dep_inout)
         {
             report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_DIR_INOUT);
+        }
+
+        void visit(const Nodecl::OmpSs::DepWeakInout& dep_in)
+        {
+            report_dep(dep_in.get_weakinout_deps(), OpenMP::DEP_OMPSS_WEAK_INOUT);
         }
 
         void visit(const Nodecl::OmpSs::DepInPrivate& dep_in)

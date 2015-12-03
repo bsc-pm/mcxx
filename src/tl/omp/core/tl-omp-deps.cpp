@@ -274,6 +274,56 @@ namespace TL { namespace OpenMP {
                 }
             }
 
+            // Verify that we are not mixing strong and weak dependences
+            TL::ObjectList<DependencyItem> all_deps;
+            data_sharing_environment.get_all_dependences(all_deps);
+            for (TL::ObjectList<DependencyItem>::iterator existing_dep = all_deps.begin();
+                    existing_dep != all_deps.end();
+                    existing_dep++)
+            {
+                Nodecl::NodeclBase existing_dep_expr = existing_dep->get_dependency_expression();
+                // We only check symbols here because some testcases exists where the
+                // user does inout(a[i][j]) and concurrent(a[0][0]) at the same time
+                if (!expr.is<Nodecl::Symbol>()
+                        || !existing_dep_expr.is<Nodecl::Symbol>())
+                    continue;
+
+                if (existing_dep_expr.get_symbol() == expr.get_symbol())
+                {
+                    DependencyDirection existing_dep_attr = existing_dep->get_kind();
+                    if (existing_dep_attr == DEP_OMPSS_CONCURRENT
+                            || existing_dep_attr == DEP_OMPSS_COMMUTATIVE)
+                    {
+                        if (dep_attr != existing_dep_attr)
+                        {
+                            error_printf_at(it->get_locus(),
+                                    "cannot override '%s' directionality of symbol '%s'\n",
+                                    get_dependency_direction_name(existing_dep_attr).c_str(),
+                                    expr.get_base_symbol().get_name().c_str());
+                        }
+                        else
+                        {
+                            warn_printf_at(it->get_locus(),
+                                    "redundant '%s' directionality clause for symbol '%s'\n",
+                                    get_dependency_direction_name(existing_dep_attr).c_str(),
+                                    expr.get_base_symbol().get_name().c_str()
+                                    );
+                        }
+                    }
+                    else if ((is_strict_dependency(existing_dep_attr)
+                                && !is_strict_dependency(dep_attr))
+                            || (is_weak_dependency(existing_dep_attr)
+                                && !is_weak_dependency(dep_attr)))
+                    {
+                        error_printf_at(it->get_locus(),
+                                "cannot override '%s' directionality of symbol '%s' with directionality '%s'\n",
+                                get_dependency_direction_name(existing_dep_attr).c_str(),
+                                expr.get_base_symbol().get_name().c_str(),
+                                get_dependency_direction_name(dep_attr).c_str());
+                    }
+                }
+            }
+
             data_sharing_environment.add_dependence(dep_item);
             add_extra_symbols(expr, data_sharing_environment, extra_symbols);
         }
@@ -300,6 +350,11 @@ namespace TL { namespace OpenMP {
                 data_sharing_environment, DEP_DIR_IN, default_data_attr, "in",
                 extra_symbols);
 
+        PragmaCustomClause weak_input_clause = pragma_line.get_clause("weakin");
+        get_dependences_ompss_info_clause(weak_input_clause, parsing_context,
+                data_sharing_environment, DEP_OMPSS_WEAK_IN, default_data_attr, "weakin",
+                extra_symbols);
+
         PragmaCustomClause input_private_clause = pragma_line.get_clause("inprivate");
         get_dependences_ompss_info_clause(input_private_clause,
                 parsing_context, data_sharing_environment,
@@ -311,10 +366,20 @@ namespace TL { namespace OpenMP {
                 data_sharing_environment, DEP_DIR_OUT, default_data_attr,
                 "out", extra_symbols);
 
+        PragmaCustomClause weak_output_clause = pragma_line.get_clause("weakout");
+        get_dependences_ompss_info_clause(weak_output_clause, parsing_context,
+                data_sharing_environment, DEP_OMPSS_WEAK_OUT, default_data_attr, "weakout",
+                extra_symbols);
+
         PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
         get_dependences_ompss_info_clause(inout_clause, parsing_context,
                 data_sharing_environment, DEP_DIR_INOUT, default_data_attr,
                 "inout", extra_symbols);
+
+        PragmaCustomClause weak_inout_clause = pragma_line.get_clause("weakinout");
+        get_dependences_ompss_info_clause(weak_inout_clause, parsing_context,
+                data_sharing_environment, DEP_OMPSS_WEAK_INOUT, default_data_attr, "weakinout",
+                extra_symbols);
 
         PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
         get_dependences_ompss_info_clause(concurrent_clause, parsing_context,
@@ -567,6 +632,34 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    bool is_strict_dependency(DependencyDirection dir)
+    {
+        switch (dir)
+        {
+            case DEP_DIR_IN:
+            case DEP_DIR_OUT:
+            case DEP_DIR_INOUT:
+            case DEP_OMPSS_DIR_IN_PRIVATE:
+            case DEP_OMPSS_DIR_IN_VALUE:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool is_weak_dependency(DependencyDirection dir)
+    {
+        switch (dir)
+        {
+            case DEP_OMPSS_WEAK_IN:
+            case DEP_OMPSS_WEAK_OUT:
+            case DEP_OMPSS_WEAK_INOUT:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     std::string get_dependency_direction_name(DependencyDirection d)
     {
         switch (d)
@@ -584,6 +677,12 @@ namespace TL { namespace OpenMP {
                 return "concurrent";
             case DEP_OMPSS_COMMUTATIVE:
                 return "commutative";
+            case DEP_OMPSS_WEAK_IN:
+                return "weakin";
+            case DEP_OMPSS_WEAK_OUT:
+                return "weakout";
+            case DEP_OMPSS_WEAK_INOUT:
+                return "weakinout";
             default:
                 return "<<unknown-dependence-kind?>>";
         }

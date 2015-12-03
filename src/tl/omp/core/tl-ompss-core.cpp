@@ -112,7 +112,8 @@ namespace TL { namespace OpenMP {
                         // Copy semantics of values in C/C++ lead to this fact
                         // If the dependence is output (or inout) this should
                         // be regarded as an error
-                        if ((_direction & TL::OpenMP::DEP_DIR_OUT) == TL::OpenMP::DEP_DIR_OUT)
+                        if ((_direction & TL::OpenMP::DEP_DIR_OUT) == TL::OpenMP::DEP_DIR_OUT
+                                || (_direction & TL::OpenMP::DEP_OMPSS_WEAK_OUT) == TL::OpenMP::DEP_OMPSS_WEAK_OUT)
                         {
                             error_printf_at(
                                     expr.get_locus(),
@@ -389,6 +390,14 @@ namespace TL { namespace OpenMP {
                     input_value_arguments);
         }
 
+        ObjectList<Nodecl::NodeclBase> weakinput_arguments;
+        PragmaCustomClause weakinput_clause = pragma_line.get_clause("weakin");
+        if (weakinput_clause.is_defined())
+        {
+            weakinput_arguments = parse_dependences_ompss_clause(weakinput_clause, parsing_scope);
+            weakinput_arguments = update_clauses(weakinput_arguments, function_sym);
+        }
+
         TL::ObjectList<std::string> input_private_names;
         input_private_names.append("inprivate");
         PragmaCustomClause input_private_clause = pragma_line.get_clause(input_private_names);
@@ -408,12 +417,28 @@ namespace TL { namespace OpenMP {
             output_arguments = update_clauses(output_arguments, function_sym);
         }
 
+        ObjectList<Nodecl::NodeclBase> weakoutput_arguments;
+        PragmaCustomClause weakoutput_clause = pragma_line.get_clause("weakout");
+        if (weakoutput_clause.is_defined())
+        {
+            weakoutput_arguments = parse_dependences_ompss_clause(weakoutput_clause, parsing_scope);
+            weakoutput_arguments = update_clauses(weakoutput_arguments, function_sym);
+        }
+
         PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
         ObjectList<Nodecl::NodeclBase> inout_arguments;
         if (inout_clause.is_defined())
         {
             inout_arguments = parse_dependences_ompss_clause(inout_clause, parsing_scope);
             inout_arguments = update_clauses(inout_arguments, function_sym);
+        }
+
+        ObjectList<Nodecl::NodeclBase> weakinout_arguments;
+        PragmaCustomClause weakinout_clause = pragma_line.get_clause("weakinout");
+        if (weakinout_clause.is_defined())
+        {
+            weakinout_arguments = parse_dependences_ompss_clause(weakinout_clause, parsing_scope);
+            weakinout_arguments = update_clauses(weakinout_arguments, function_sym);
         }
 
         {
@@ -520,6 +545,11 @@ namespace TL { namespace OpenMP {
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_IN))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
+        dependence_list_check(weakinput_arguments, DEP_OMPSS_WEAK_IN, function_sym);
+        dependence_list.append(weakinput_arguments
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_IN))
+                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+
         dependence_list_check(input_value_arguments, DEP_OMPSS_DIR_IN_VALUE, function_sym);
         dependence_list.append(input_value_arguments
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_VALUE)));
@@ -534,9 +564,19 @@ namespace TL { namespace OpenMP {
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
+        dependence_list_check(weakoutput_arguments, DEP_OMPSS_WEAK_OUT, function_sym);
+        dependence_list.append(weakoutput_arguments
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_OUT))
+                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+
         dependence_list_check(inout_arguments, DEP_DIR_INOUT, function_sym);
         dependence_list.append(inout_arguments
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
+                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+
+        dependence_list_check(weakinout_arguments, DEP_OMPSS_WEAK_INOUT, function_sym);
+        dependence_list.append(weakinout_arguments
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_INOUT))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         dependence_list_check(concurrent_arguments, DEP_OMPSS_CONCURRENT, function_sym);
@@ -755,6 +795,13 @@ namespace TL { namespace OpenMP {
                 }
             }
         }
+
+        // The target context has been fully consumed by this function task,
+        // this prevents from it leaking to other tasks (see ticket #2564)
+        //
+        // Recall that std::stack does not have a clear operation so we assign
+        // to it a new std::stack
+        _target_context = std::stack<TL::OmpSs::TargetContext>();
     }
 
     void Core::task_inline_handler_pre(TL::PragmaCustomStatement construct)
