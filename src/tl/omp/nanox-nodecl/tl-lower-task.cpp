@@ -1904,7 +1904,8 @@ Nodecl::NodeclBase LoweringVisitor::count_copies_dimensions(OutlineInfo& outline
             }
             else
             {
-                if (result.is_constant())
+                if (result.is_constant()
+                        && current_value.is_constant())
                 {
                     result = const_value_to_nodecl(
                             const_value_add(
