@@ -55,65 +55,54 @@ void DeviceCUDA::generate_ndrange_additional_code(
         const TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
         TL::Source& code_ndrange)
 {
-    ERROR_CONDITION(!new_ndrange_args[0].is_constant(), "The first argument of the 'ndrange' clause must be a literal", 0);
+    Nodecl::NodeclBase num_dims_expr = new_ndrange_args[0];
+    if (!num_dims_expr.get_type().is_integral()
+            || !nodecl_is_constant(num_dims_expr.is_constant()))
+    {
+        fatal_printf_at(num_dims_expr.get_locus(), "first argument of 'ndrange' clause must be an integer constant");
+    }
 
     int num_args_ndrange = new_ndrange_args.size();
-    int num_dim = const_value_cast_to_4(new_ndrange_args[0].get_constant());
-
-    ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
+    int num_dim = const_value_cast_to_4(num_dims_expr.get_constant());
 
     char is_null_ended = 0;
-    bool check_dim = !(new_ndrange_args[num_args_ndrange - 1].is_constant()
-            && const_value_is_string(new_ndrange_args[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange_args[num_args_ndrange-1].get_constant(), &is_null_ended),
-                    "noCheckDim") == 0));
 
-    ERROR_CONDITION(((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
+    if (num_dim * 2 != num_args_ndrange)
+    {
+        fatal_printf_at(num_dims_expr.get_locus(),
+                "a 'ndrange(%d, argument-list)' clause requires %d arguments in argument-list\n",
+                num_dims,
+                num_dims * 2);
+    }
 
     code_ndrange << "dim3 dimGrid;";
     code_ndrange << "dim3 dimBlock;";
     const char* field[3] = { "x", "y", "z"};
     for (int i = 1; i <= 3; ++i)
     {
-        if (check_dim)
+        if (i <= num_dim)
         {
-            if (i <= num_dim)
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = "
-                    << "(("
-                    << as_expression(new_ndrange_args[i])
-                    << " < " << as_expression(new_ndrange_args[num_dim + i])
-                    << ") ? (" << as_expression(new_ndrange_args[i])
-                    << ") : (" << as_expression(new_ndrange_args[num_dim + i])
-                    << "));";
+            code_ndrange << "dimBlock." << field[i-1] << " = "
+                << "(("
+                << as_expression(new_ndrange_args[i])
+                << " < " << as_expression(new_ndrange_args[num_dim + i])
+                << ") ? (" << as_expression(new_ndrange_args[i])
+                << ") : (" << as_expression(new_ndrange_args[num_dim + i])
+                << "));";
 
-                code_ndrange << "dimGrid."  << field[i-1] << " = "
-                    << "(("
-                    << as_expression(new_ndrange_args[i])
-                    << " < " << as_expression(new_ndrange_args[num_dim + i])
-                    << ") ? 1 : (("
-                    << as_expression(new_ndrange_args[i]) << "/" << as_expression(new_ndrange_args[num_dim + i])
-                    << ") + ((" << as_expression(new_ndrange_args[i]) << " %  " << as_expression(new_ndrange_args[num_dim + i])
-                    << " == 0) ? 0 : 1)));";
-            }
-            else
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = 1;";
-                code_ndrange << "dimGrid."  << field[i-1] << " = 1;";
-            }
+            code_ndrange << "dimGrid."  << field[i-1] << " = "
+                << "(("
+                << as_expression(new_ndrange_args[i])
+                << " < " << as_expression(new_ndrange_args[num_dim + i])
+                << ") ? 1 : (("
+                << as_expression(new_ndrange_args[i]) << "/" << as_expression(new_ndrange_args[num_dim + i])
+                << ") + ((" << as_expression(new_ndrange_args[i]) << " %  " << as_expression(new_ndrange_args[num_dim + i])
+                << " == 0) ? 0 : 1)));";
         }
         else
         {
-            if (i <= num_dim)
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange_args[num_dim + i]) << ";";
-                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange_args[i]) << "/" << as_expression(new_ndrange_args[num_dim + i]) << ";";
-            }
-            else
-            {
-                code_ndrange << "dimBlock." << field[i-1] << " = 1;";
-                code_ndrange << "dimGrid."  << field[i-1] << " = 1;";
-            }
+            code_ndrange << "dimBlock." << field[i-1] << " = 1;";
+            code_ndrange << "dimGrid."  << field[i-1] << " = 1;";
         }
     }
 }

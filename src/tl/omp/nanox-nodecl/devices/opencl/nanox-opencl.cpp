@@ -74,8 +74,7 @@ void DeviceOpenCL::generate_ndrange_code(
             new_ndrange,
             new_shmem);
 
-    int num_args_ndrange = new_ndrange.size();
-
+    // Prepare mapping for the call to the kernel
     TL::Source code_ndrange_aux;
     Nodecl::Utils::SimpleSymbolMap called_fun_to_unpacked_fun_map;
 
@@ -90,41 +89,57 @@ void DeviceOpenCL::generate_ndrange_code(
         called_fun_to_unpacked_fun_map.add_map(key, value);
     }
 
-    bool dim_const = new_ndrange[0].is_constant();
+    // The syntax of ndrange is
+    //
+    //     ndrange(N, [offset-list,] global-list, local-list)
+    //
+    // Each X-list has as much as N elements
 
-    char is_null_ended = 0;
-    bool check_dim = !(new_ndrange[num_args_ndrange - 1].is_constant()
-            && const_value_is_string(new_ndrange[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant(), &is_null_ended),
-                    "noCheckDim") == 0));
+    Nodecl::NodeclBase num_dims_expr = new_ndrange[0];
+    bool num_dims_is_constant = num_dims_expr.is_constant();
 
-    int num_dim = 0;
-    if (dim_const)
+    // pop_front
+    new_ndrange.erase(new_ndrange.begin()); // remove "N"
+
+    TL::ObjectList<Nodecl::NodeclBase> offset_list;
+    TL::ObjectList<Nodecl::NodeclBase> global_list;
+    TL::ObjectList<Nodecl::NodeclBase> local_list;
+
+    int num_dims = -1;
+    if (num_dims_is_constant)
     {
-        num_dim = const_value_cast_to_4(new_ndrange[0].get_constant());
+        num_dims = const_value_cast_to_signed_int(num_dims_expr.get_constant());
+        if (num_dims < 1 || num_dims > 3)
+        {
+            fatal_printf_at(num_dims_expr.get_locus(),
+                    "number of dimensions for 'ndrange' clause is not 1, 2 or 3\n");
+        }
 
-        ERROR_CONDITION(num_dim < 1 || num_dim > 3,
-                "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
-
-        ERROR_CONDITION((((num_dim * 3) + 1 + !check_dim) != num_args_ndrange)
-                && (((num_dim * 2) + 1 + !check_dim) != num_args_ndrange),
-                "invalid number of arguments for 'ndrange' clause", 0);
+        if ((num_dims * 2) != (int)new_ndrange.size()
+                && (num_dims * 3) != (int)new_ndrange.size())
+        {
+            fatal_printf_at(num_dims_expr.get_locus(),
+                    "a 'ndrange(%d, argument-list)' clause requires %d or %d arguments in argument-list\n",
+                    num_dims,
+                    num_dims * 2,
+                    num_dims * 3);
+        }
     }
 
-    std::string compiler_opts;
+    std::string compiler_options;
     if (CURRENT_CONFIGURATION->opencl_build_options != NULL)
     {
-        compiler_opts = std::string(CURRENT_CONFIGURATION->opencl_build_options);
+        compiler_options = std::string(CURRENT_CONFIGURATION->opencl_build_options);
     }
 
-    //Create OCL Kernel
+    // Create OpenCL kernel
     code_ndrange_aux << "nanos_err_t nanos_err;"
                      << "void* ompss_kernel_ocl = nanos_create_current_kernel(\""
                      <<         kernel_name << "\",\""
-                     <<         filename << "\",\""
-                     <<         compiler_opts << "\");";
+                     <<         filename << "\","
+                     <<         "\"" << compiler_options << "\");";
 
-    //Prepare setArgs
+    // Prepare setArgs
     unsigned int index_local = 0;
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
     for (unsigned int i = 0; i < parameters_called.size(); ++i)
@@ -200,192 +215,118 @@ void DeviceOpenCL::generate_ndrange_code(
 
 
     //Build arrays with information from ndrange clause or pointing to the ndrange pointers
-    if (!dim_const)
+    if (!num_dims_is_constant)
     {
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            internal_error("The number of dimensions is non-constant. This feature is not implemented yet in Fortran.", 0);
-        }
-
-        //Prepare ndrange calc pointers and arrays
-        code_ndrange_aux
-            << "int num_dim = " << as_expression(new_ndrange[0]) <<";"
-            << "size_t offset_tmp[num_dim];"
-            << "size_t offset_arr[num_dim];"
-            << "size_t local_size_arr[num_dim];"
-            << "size_t global_size_arr[num_dim];"
-            << "size_t* local_size_ptr;"
-            << "size_t* offset_ptr;"
-            << "size_t* global_size_ptr;"
-            << "size_t* final_local_size_ptr;"
-            << as_type(TL::Type::get_bool_type()) << " local_size_zero = 0;"
-            << "int i = 0;"
-            ;
-        if (num_args_ndrange == 3)
-        {
-            code_ndrange_aux
-                << "for (i = 0; i < num_dim; ++i)"
-                << "{"
-                <<     "offset_tmp[i] = 0;"
-                << "}"
-                << "offset_ptr = offset_tmp;"
-                << "global_size_ptr = " << as_expression(new_ndrange[1]) << ";"
-                << "local_size_ptr = " << as_expression(new_ndrange[2]) << ";"
-                ;
-        }
-        else if (num_args_ndrange == 4)
-        {
-            code_ndrange_aux
-                << "offset_ptr = " << as_expression(new_ndrange[1]) << ";"
-                << "global_size_ptr = " << as_expression(new_ndrange[2]) << ";"
-                << "local_size_ptr = " << as_expression(new_ndrange[3]) << ";"
-                ;
-        }
-        else
-        {
-            WARNING_MESSAGE("Invalid number of parameters for ndrange, when number of dimensions is not const, it must be 3 or 4",0);
-        }
-
-        //Check if local_size has zeros
-        code_ndrange_aux
-            << "for (i = 0; i < num_dim; ++i)"
-            << "{"
-            <<     "if (local_size_ptr[i] == 0)"
-            <<     "{"
-            <<         "local_size_zero = 1;"
-            <<     "}"
-            << " }"
-            << "if (local_size_zero)"
-            << "{"
-            <<     "for (i = 0; i < num_dim; ++i)"
-            <<     "{"
-            <<         "local_size_ptr[i] = 1;"
-            <<     "}"
-            << "}"
-            ;
-
-        //Now do the rounding
-        if (check_dim)
-        {
-            code_ndrange_aux
-                << "for (i = 0; i < num_dim; ++i)"
-                << "{"
-                <<     "offset_arr[i] = offset_ptr[i];"
-
-                <<     "local_size_arr[i] = (global_size_ptr[i] < local_size_ptr[i]) ? "
-                <<         "global_size_ptr[i] : local_size_ptr[i];"
-
-                <<     "global_size_arr[i] = (global_size_ptr[i] < local_size_ptr[i]) ? "
-                <<         "global_size_ptr[i] : global_size_ptr[i] + ("
-                <<             "(global_size_ptr[i] % local_size_ptr[i] == 0) ? "
-                <<                  "0 : (local_size_ptr[i] - global_size_ptr[i] % local_size_ptr[i]));"
-                << "}"
-                ;
-        }
-
-        if (check_dim)
-        {
-            code_ndrange_aux
-                << "if (local_size_zero)"
-                << "{"
-                <<     "final_local_size_ptr = 0;"
-                << "}"
-                << "else"
-                << "{"
-                <<     "final_local_size_ptr = local_size_arr;"
-                << "}"
-                //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
-                << "nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, final_local_size_ptr, global_size_arr);";
-            ;
-        }
-        else
-        {
-            code_ndrange_aux
-                << "if (local_size_zero)"
-                << "{"
-                <<     "final_local_size_ptr = 0;"
-                << "}"
-                << "else"
-                << "{"
-                <<     "final_local_size_ptr = local_size_ptr;"
-                << "}"
-                << "nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_ptr, final_local_size_ptr, global_size_ptr);"
-                ;
-        }
+        fatal_printf_at(num_dims_expr.get_locus(),
+                "first argument in 'ndrange' clause must be constant\n");
     }
     else
     {
-        int num_dim_offset = num_dim;
+        if (num_dims * 2 == (int)new_ndrange.size())
+        {
+            // ndrange(global-list, local-list)
+            int i = 0;
+            for (int k = 0; k < num_dims; k++, i++)
+            {
+                global_list.append(new_ndrange[i + k]);
+            }
+            for (int k = 0; k < num_dims; k++, i++)
+            {
+                local_list.append(new_ndrange[i + k]);
+            }
+        }
+        else if (num_dims * 3 == (int)new_ndrange.size())
+        {
+            // ndrange(offset-list, global-list, local-list)
+            int i = 0;
+            for (int k = 0; k < num_dims; k++, i++)
+            {
+                offset_list.append(new_ndrange[i + k]);
+            }
+            for (int k = 0; k < num_dims; k++, i++)
+            {
+                global_list.append(new_ndrange[i + k]);
+            }
+            for (int k = 0; k < num_dims; k++, i++)
+            {
+                local_list.append(new_ndrange[i + k]);
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
 
         //Prepare ndrange calc pointers and arrays
         code_ndrange_aux
-            << "int num_dim = " << as_expression(new_ndrange[0]) <<";"
-            << "size_t offset_arr[num_dim];"
-            << "size_t local_size_arr[num_dim];"
-            << "size_t global_size_arr[num_dim];"
+            << "size_t offset_arr[" << num_dims << "];"
+            << "size_t local_size_arr[" << num_dims << "];"
+            << "size_t global_size_arr[" << num_dims << "];"
             << as_type(TL::Type::get_bool_type()) << " local_size_zero;"
-            << "local_size_zero = 0;"
+            << "local_size_zero = (" << as_type(TL::Type::get_bool_type()) << ")0;"
             ;
 
-        for (int i = 1; i <= num_dim; ++i)
+        for (int i = 0; i < num_dims; i++)
         {
-            if (((num_dim * 3) + 1 + !check_dim) != num_args_ndrange)
+            code_ndrange_aux << "offset_arr[" << i << "] = ";
+            if (i < (int)offset_list.size())
             {
-                num_dim_offset = 0;
-                code_ndrange_aux << "offset_arr[" << i-1 << "] = 0;";
+                code_ndrange_aux << as_expression(offset_list[i]);
             }
             else
             {
-                code_ndrange_aux
-                    << "offset_arr[" << i-1 << "] = " << as_expression(new_ndrange[i]) << ";";
+                code_ndrange_aux << 0;
             }
+            code_ndrange_aux << ";"
+                ;
 
             code_ndrange_aux
-                << "local_size_arr[" << i-1 << "] = " << as_expression(new_ndrange[num_dim + num_dim_offset + i]) << ";"
-                << "if (local_size_arr[" << i - 1 << "] == 0)"
+                << "local_size_arr[" << i << "] = " << as_expression(local_list[i]) << ";"
+                << "if (local_size_arr[" << i  << "] == 0)"
                 << "{"
-                <<      "local_size_zero = 1;"
+                        // Recall if any of the local sizes was zero
+                <<      "local_size_zero = (" << as_type(TL::Type::get_bool_type()) << ")1;"
                 << "}"
-                << "global_size_arr[" << i-1 << "] = " << as_expression(new_ndrange[num_dim_offset + i]) << ";"
+                << "global_size_arr[" << i << "] = " << as_expression(global_list[i]) << ";"
                 ;
         }
 
-        //Now do the rounding
-        if (check_dim)
-        {
-            code_ndrange_aux
-                << "if (!local_size_zero)"
-                << "{"
-                <<      "int i;"
-                <<      "for (i = 0; i < num_dim; i = i + 1)"
-                <<      "{"
-                <<           "if (global_size_arr[i] < local_size_arr[i])"
-                <<           "{"
-                <<               "local_size_arr[i] = global_size_arr[i];"
-                <<           "}"
-                <<           "else"
-                <<           "{"
-                <<               "if (global_size_arr[i] % local_size_arr[i] != 0)"
-                <<               "{"
-                <<                   "global_size_arr[i] = global_size_arr[i]"
-                <<                       " + (local_size_arr[i] - global_size_arr[i] % local_size_arr[i]);"
-                <<               "}"
-                <<           "}"
-                <<      "}"
-                << "}"
-                ;
-        }
+
+        code_ndrange_aux
+            << "if (!local_size_zero)"
+            << "{"
+                    // If no local_size is zero, then perform some adjustments
+            <<      "int i;"
+            <<      "for (i = 0; i < " << num_dims << "; i = i + 1)"
+            <<      "{"
+            <<           "if (global_size_arr[i] < local_size_arr[i])"
+            <<           "{"
+                             // local_size_arr[i] = min(global_size_arr[i], local_size_arr[i])
+            <<               "local_size_arr[i] = global_size_arr[i];"
+            <<           "}"
+            <<           "else"
+            <<           "{"
+            <<               "if (global_size_arr[i] % local_size_arr[i] != 0)"
+            <<               "{"
+                                 // Make global_size_arr[i] a multiple of local_size_arr[i]
+            <<                   "global_size_arr[i] = global_size_arr[i]"
+            <<                       " + (local_size_arr[i] - global_size_arr[i] % local_size_arr[i]);"
+            <<               "}"
+            <<           "}"
+            <<      "}"
+            << "}"
+            ;
 
         code_ndrange_aux
             << "if (local_size_zero)"
             << "{"
-            //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
-            <<      "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, 0, global_size_arr);"
+                    // Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
+            <<      "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, " << num_dims << ", offset_arr, 0, global_size_arr);"
             << "}"
             << "else"
             << "{"
-            //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
-            <<      "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, local_size_arr, global_size_arr);"
+                    // Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
+            <<      "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, " << num_dims << ", offset_arr, local_size_arr, global_size_arr);"
             << "}"
             ;
     }
