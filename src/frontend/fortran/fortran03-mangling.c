@@ -70,7 +70,8 @@ const char* fortran_mangle_symbol(scope_entry_t* entry)
     ERROR_CONDITION(entry->kind != SK_VARIABLE
             && entry->kind != SK_FUNCTION,
             "Cannot mangle symbol of kind '%s'\n", symbol_kind_name(entry));
-    ERROR_CONDITION(entry->decl_context->current_scope->kind == BLOCK_SCOPE,
+    ERROR_CONDITION(entry->decl_context->current_scope->kind == BLOCK_SCOPE
+            && entry->decl_context->current_scope->related_entry->kind == SK_FUNCTION,
             "Cannot mangle local entity '%s' (%s)\n",
             entry->symbol_name, locus_to_str(entry->locus));
     ERROR_CONDITION(symbol_entity_specs_get_is_intrinsic_subroutine(entry)

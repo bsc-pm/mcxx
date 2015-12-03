@@ -34,6 +34,7 @@
 #include "cxx-diagnostic.h"
 
 #include "fortran03-mangling.h"
+#include "fortran03-typeutils.h"
 
 #include <algorithm>
 
@@ -278,21 +279,6 @@ namespace TL { namespace Nanos6 {
                     || task_info_struct.is_class()),
                 "Invalid symbol", 0);
 
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            // Force this symbol to be BIND(C)
-            // FIXME: we want to be able to do this from the C FE
-            TL::Symbol sym = task_info_struct.get_type().advance_over_typedefs().get_symbol();
-            if (!sym.is_bind_c())
-            {
-                symbol_entity_specs_set_bind_info(
-                        sym.get_internal_symbol(),
-                        Nodecl::FortranBindC::make(
-                            Nodecl::NodeclBase::null()
-                            ).get_internal_nodecl());
-            }
-        }
-
         std::string task_info_name;
         {
             std::stringstream ss;
@@ -494,6 +480,44 @@ namespace TL { namespace Nanos6 {
         {
             phase->get_extra_c_code().append(Nodecl::ObjectInit::make(task_info));
             phase->get_extra_c_code().append(Nodecl::ObjectInit::make(task_invocation_info));
+
+            // Create a detached symbol with the same name as the real one
+            // We need to do that otherwise Fortran codegen attempts to initialize this symbol
+            // (We may want to fix this somehow)
+            symbol_entity_specs_set_is_static(task_info.get_internal_symbol(), 0);
+            //
+            scope_entry_t* task_info_shim = NEW0(scope_entry_t);
+            task_info_shim->symbol_name = task_info.get_internal_symbol()->symbol_name;
+            task_info_shim->kind = task_info.get_internal_symbol()->kind;
+            task_info_shim->decl_context = task_info.get_internal_symbol()->decl_context;
+            symbol_entity_specs_set_is_user_declared(task_info_shim, 1);
+            // Fake the structure size
+            const int size_of_ptr = TL::Type::get_void_type().get_pointer_to().get_size();
+            ERROR_CONDITION(task_info.get_type().get_size() % size_of_ptr != 0,
+                    "Struct size does not divide the size of a pointer", 0);
+            int num_elements = task_info.get_type().get_size() / size_of_ptr;
+            task_info_shim->type_information = TL::Type(fortran_choose_int_type_from_kind(size_of_ptr))
+                .get_array_to(const_value_to_nodecl(const_value_get_signed_int(num_elements)),
+                        TL::Scope::get_global_scope()).get_internal_type();
+
+            task_info = task_info_shim;
+
+            // Ditto for task_invocation_info
+            symbol_entity_specs_set_is_static(task_invocation_info.get_internal_symbol(), 0);
+            //
+            scope_entry_t* task_invocation_info_shim = NEW0(scope_entry_t);
+            task_invocation_info_shim->symbol_name = task_invocation_info.get_internal_symbol()->symbol_name;
+            task_invocation_info_shim->kind = task_invocation_info.get_internal_symbol()->kind;
+            task_invocation_info_shim->decl_context = task_invocation_info.get_internal_symbol()->decl_context;
+            symbol_entity_specs_set_is_user_declared(task_invocation_info_shim, 1);
+            ERROR_CONDITION(task_invocation_info.get_type().get_size() % size_of_ptr != 0,
+                    "Struct size does not divide the size of a pointer", 0);
+            num_elements = task_invocation_info.get_type().get_size() / size_of_ptr;
+            task_invocation_info_shim->type_information = TL::Type(fortran_choose_int_type_from_kind(size_of_ptr))
+                .get_array_to(const_value_to_nodecl(const_value_get_signed_int(num_elements)),
+                        TL::Scope::get_global_scope()).get_internal_type();
+
+            task_invocation_info = task_invocation_info_shim;
         }
         else
         {
@@ -1187,8 +1211,8 @@ namespace TL { namespace Nanos6 {
 
             args.append(
                     Nodecl::Reference::make(
-                        outline_function.make_nodecl(/* set_ref_type */ true),
-                        outline_function.get_type().get_pointer_to()));
+                        unpacked_function.make_nodecl(/* set_ref_type */ true),
+                        unpacked_function.get_type().get_pointer_to()));
 
             for (TL::ObjectList<TL::Symbol>::iterator it = captured_value.begin();
                     it != captured_value.end();
@@ -1218,7 +1242,7 @@ namespace TL { namespace Nanos6 {
                 TL::Symbol field = field_map[*it];
 
                 forwarded_parameter_names.append(field.get_name());
-                forwarded_parameter_types.append(field.get_type().get_lvalue_reference_to());
+                forwarded_parameter_types.append(field.get_type());
 
                 args.append(
                             Nodecl::ClassMemberAccess::make(
@@ -1236,6 +1260,8 @@ namespace TL { namespace Nanos6 {
                     TL::Type::get_void_type(),
                     forwarded_parameter_names,
                     forwarded_parameter_types);
+            // Make this symbol global
+            symbol_entity_specs_set_is_static(forwarded_function.get_internal_symbol(), 0);
 
             Nodecl::NodeclBase call_to_forward =
                 Nodecl::ExpressionStatement::make(
@@ -1273,6 +1299,7 @@ namespace TL { namespace Nanos6 {
                     TL::Type::get_void_type(),
                     c_forwarded_parameter_names,
                     c_forwarded_parameter_types);
+            symbol_entity_specs_set_is_static(c_forwarded_function.get_internal_symbol(), 0);
 
             Nodecl::NodeclBase c_forwarded_function_code, c_forwarded_empty_stmt;
             SymbolUtils::build_empty_body_for_function(
@@ -1346,6 +1373,7 @@ namespace TL { namespace Nanos6 {
                 Nodecl::Conversion::make(
                     base_addr,
                     TL::Type::get_void_type().get_pointer_to()));
+
         // length
         if (data_type.depends_on_nonconstant_values())
         {
@@ -1570,8 +1598,8 @@ namespace TL { namespace Nanos6 {
                             node.get_locus());
 
                 // FIXME: what about Fortran?
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
+                // if (IS_C_LANGUAGE
+                //         || IS_CXX_LANGUAGE)
                 {
                     if (shared.contains(sym)
                             && !sym.get_type().no_ref().is_array())
@@ -1582,10 +1610,10 @@ namespace TL { namespace Nanos6 {
                                 new_expr.get_locus());
                     }
                 }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    internal_error("Not yet implemented", 0);
-                }
+                // else if (IS_FORTRAN_LANGUAGE)
+                // {
+                //     // internal_error("Not yet implemented", 0);
+                // }
 
                 node.replace(new_expr);
             }
