@@ -2249,9 +2249,11 @@ void LoweringVisitor::fill_copies_region(
             ctr.prepend_sibling(def);
         }
 
-        copy_ol_setup << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
+        copy_ol_setup << as_symbol(dyn_copy_idx) << " = " << current_copy_idx << ";"
+                      << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
             ;
-        copy_imm_setup << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
+        copy_imm_setup << as_symbol(dyn_copy_idx) << " = " << current_copy_idx << ";"
+                       << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
             ;
 
         // Dynamic copies second
