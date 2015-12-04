@@ -6605,6 +6605,48 @@ type_t* compute_type_no_overload_deref(nodecl_t *nodecl_op,
     return computed_type;
 }
 
+// This function creates a symbol for those kind of constants that
+// can't be rvalues in C/C++
+static scope_entry_t* create_symbol_for_value_object(const_value_t* value)
+{
+    ERROR_CONDITION(!const_value_is_array(value)
+            && !const_value_is_structured(value)
+            && !const_value_is_string(value), "Invalid constant", 0);
+
+    static dhash_ptr_t *hash_of_constants = NULL;
+    if (hash_of_constants == NULL)
+        hash_of_constants = dhash_ptr_new(31);
+
+    scope_entry_t* entry = (scope_entry_t*)dhash_ptr_query(hash_of_constants, (const char*)value);
+
+    if (entry == NULL)
+    {
+        entry = NEW0(scope_entry_t);
+
+        static int const_obj_num = 0;
+        uniquestr_sprintf(&entry->symbol_name,
+                ".const_obj_%d", const_obj_num++);
+
+        entry->kind = SK_VARIABLE;
+        entry->decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+        entry->value = const_value_to_nodecl(value);
+        entry->type_information = get_const_qualified_type(nodecl_get_type(entry->value));
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Created symbol '%s' for constant '%s' with type '%s'\n",
+                    entry->symbol_name,
+                    const_value_to_str(value),
+                    print_declarator(entry->type_information));
+        }
+
+        dhash_ptr_insert(hash_of_constants, (const char*)value, entry);
+    }
+
+    return entry;
+}
+
+
 static void compute_operator_dereference_type(
         nodecl_t *op, const decl_context_t* decl_context,
         const locus_t* locus,
@@ -6636,6 +6678,15 @@ static void compute_operator_dereference_type(
                 && const_value_is_address(value))
         {
             value = const_value_address_dereference(value);
+
+            if (const_value_is_array(value)
+                    || const_value_is_string(value))
+            {
+                scope_entry_t* sym = create_symbol_for_value_object(value);
+
+                value = const_value_make_object(sym, 0, NULL);
+            }
+
             nodecl_set_constant(*nodecl_output, value);
         }
     }
@@ -7324,6 +7375,14 @@ static void compute_operator_reference_type(nodecl_t* op,
             }
             if (val != NULL)
             {
+                if (const_value_is_string(val)
+                        || const_value_is_array(val))
+                {
+                    scope_entry_t* sym = create_symbol_for_value_object(val);
+
+                    val = const_value_make_object(sym, 0, NULL);
+                }
+
                 val = const_value_make_address(val);
                 nodecl_set_constant(*nodecl_output, val);
             }
@@ -8492,7 +8551,7 @@ static const_value_t* compute_subconstant_of_vector_subscript(
 
     int idx = const_value_cast_to_signed_int(nodecl_get_constant(subscript));
 
-    if (idx < 0 
+    if (idx < 0
             || idx >= const_value_get_num_elements(cval))
         return NULL;
 
@@ -8519,8 +8578,23 @@ static const_value_t* compute_subconstant_of_array_subscript(
         value = const_value_address_dereference(value);
         if (const_value_is_object(value)
                 || const_value_is_object(value))
+        if (const_value_is_array(value)
+                || const_value_is_string(value))
         {
+            scope_entry_t* sym = create_symbol_for_value_object(value);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: During computation of array subconstant, the constant cannot be an lvalue in C/C++. "
+                        " Making an object of it '%s'\n", const_value_to_str(value));
+            }
 
+            subobject_accessor_t zero_accessor[1];
+            zero_accessor[0].kind = SUBOBJ_ELEMENT;
+            zero_accessor[0].index = const_value_get_zero(
+                    type_get_size(get_ptrdiff_t_type()),
+                    /* signed */ 1);
+            value = const_value_make_object(sym, 1, zero_accessor);
+        }
             int num_subscripts = 0;
             nodecl_t* list = nodecl_unpack_list(nodecl_subscript_list, &num_subscripts);
             ERROR_CONDITION(num_subscripts == 0, "Invalid number of subscripts", 0);
@@ -8629,7 +8703,7 @@ static const_value_t* compute_subconstant_of_array_subscript(
             DEBUG_CODE()
             {
                 fprintf(stderr, "EXPRTYPE: During computation of array subconstant of '%s',"
-                        " the const-value is an address but not an array or object. Giving up\n",
+                        " the const-value is an address but not an object. Giving up\n",
                         const_value_to_str(value));
             }
         }
