@@ -4057,27 +4057,6 @@ static const_value_t* const_value_generalized_add(const_value_t* lhs, const_valu
 
             return addr;
         }
-        else if (const_value_is_string(pointed))
-        {
-            int idx = const_value_cast_to_signed_int(offset);
-            int nels = const_value_get_num_elements(pointed);
-            if (idx < nels)
-            {
-                // Build a new string, starting from idx
-                int newlen = nels - idx;
-                const_value_t* values[newlen];
-                int i;
-                for (i = 0; i < newlen; i++)
-                {
-                    values[i] = const_value_get_element_num(pointed, idx + i);
-                }
-                return const_value_make_address(const_value_make_string_from_values(newlen, values));
-            }
-            else
-            {
-                return NULL;
-            }
-        }
         else
         {
             return NULL;
@@ -6684,7 +6663,12 @@ static void compute_operator_dereference_type(
             {
                 scope_entry_t* sym = create_symbol_for_value_object(value);
 
-                value = const_value_make_object(sym, 0, NULL);
+                subobject_accessor_t zero_accessor[1];
+                zero_accessor[0].kind = SUBOBJ_ELEMENT;
+                zero_accessor[0].index = const_value_get_zero(
+                        type_get_size(get_ptrdiff_t_type()),
+                        /* signed */ 1);
+                value = const_value_make_object(sym, 1, zero_accessor);
             }
 
             nodecl_set_constant(*nodecl_output, value);
@@ -7375,12 +7359,17 @@ static void compute_operator_reference_type(nodecl_t* op,
             }
             if (val != NULL)
             {
-                if (const_value_is_string(val)
-                        || const_value_is_array(val))
+                if (const_value_is_array(val)
+                        || const_value_is_string(val))
                 {
                     scope_entry_t* sym = create_symbol_for_value_object(val);
 
-                    val = const_value_make_object(sym, 0, NULL);
+                    subobject_accessor_t zero_accessor[1];
+                    zero_accessor[0].kind = SUBOBJ_ELEMENT;
+                    zero_accessor[0].index = const_value_get_zero(
+                            type_get_size(get_ptrdiff_t_type()),
+                            /* signed */ 1);
+                    val = const_value_make_object(sym, 1, zero_accessor);
                 }
 
                 val = const_value_make_address(val);
@@ -8576,15 +8565,13 @@ static const_value_t* compute_subconstant_of_array_subscript(
     if (const_value_is_address(value))
     {
         value = const_value_address_dereference(value);
-        if (const_value_is_object(value)
-                || const_value_is_object(value))
         if (const_value_is_array(value)
                 || const_value_is_string(value))
         {
             scope_entry_t* sym = create_symbol_for_value_object(value);
             DEBUG_CODE()
             {
-                fprintf(stderr, "EXPRTYPE: During computation of array subconstant, the constant cannot be an lvalue in C/C++. "
+                fprintf(stderr, "EXPRTYPE: During computation of array subconstant, the constant cannot be an rvalue in C/C++. "
                         " Making an object of it '%s'\n", const_value_to_str(value));
             }
 
@@ -8595,6 +8582,9 @@ static const_value_t* compute_subconstant_of_array_subscript(
                     /* signed */ 1);
             value = const_value_make_object(sym, 1, zero_accessor);
         }
+
+        if (const_value_is_object(value))
+        {
             int num_subscripts = 0;
             nodecl_t* list = nodecl_unpack_list(nodecl_subscript_list, &num_subscripts);
             ERROR_CONDITION(num_subscripts == 0, "Invalid number of subscripts", 0);
@@ -10141,6 +10131,16 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             return;
         }
 
+        check_nodecl_expr_initializer(*nodecl_conditional[1],
+                decl_context, final_type,
+                /* disallow_narrowing */ 0,
+                IK_DIRECT_INITIALIZATION,
+                nodecl_conditional[1]);
+        check_nodecl_expr_initializer(*nodecl_conditional[2],
+                decl_context, final_type,
+                /* disallow_narrowing */ 0,
+                IK_DIRECT_INITIALIZATION,
+                nodecl_conditional[2]);
     }
 
     *nodecl_output = nodecl_make_conditional_expression(
@@ -10149,6 +10149,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             *nodecl_conditional[2],
             final_type, locus);
 }
+
+static const_value_t* compute_glvalue_constant(nodecl_t expr,
+        const decl_context_t* decl_context);
 
 static void check_conditional_expression_impl_nodecl(nodecl_t first_op, 
         nodecl_t second_op, 
@@ -10206,14 +10209,27 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
     {
         if (nodecl_is_constant(first_op))
         {
+            nodecl_t nodecl_final_expr = nodecl_null();
             if (const_value_is_nonzero(nodecl_get_constant(first_op)))
             {
-                nodecl_set_constant(*nodecl_output, nodecl_get_constant(second_op));
+                nodecl_final_expr = second_op;
             }
             else
             {
-                nodecl_set_constant(*nodecl_output, nodecl_get_constant(third_op));
+                nodecl_final_expr = third_op;
             }
+
+            const_value_t* final_value = NULL;
+            if (is_any_reference_type(nodecl_get_type(*nodecl_output)))
+            {
+                final_value = compute_glvalue_constant(nodecl_final_expr, decl_context);
+            }
+            else
+            {
+                final_value = nodecl_get_constant(nodecl_final_expr);
+            }
+
+            nodecl_set_constant(*nodecl_output, final_value);
         }
 
         if (nodecl_expr_is_value_dependent(first_op)
@@ -11006,8 +11022,29 @@ static const_value_t* cxx_nodecl_make_value_conversion(
 
     // lvalue conversions
     if (is_array_type(orig_type)
-                && is_pointer_type(dest_type))
+            && is_pointer_type(dest_type))
     {
+        if (const_value_is_array(value)
+                || const_value_is_string(value))
+        {
+            scope_entry_t* sym = create_symbol_for_value_object(value);
+
+            subobject_accessor_t zero_accessor[1];
+            zero_accessor[0].kind = SUBOBJ_ELEMENT;
+            zero_accessor[0].index = const_value_get_zero(
+                    type_get_size(get_ptrdiff_t_type()),
+                    /* signed */ 1);
+            value = const_value_make_object(sym, 1, zero_accessor);
+        }
+        else if (const_value_is_object(value))
+        {
+            // do nothing
+        }
+        else
+        {
+            internal_error("Unexpected constant '%s'\n", const_value_to_str(value));
+        }
+
         value = const_value_make_address(value);
     }
     else if (is_function_type(orig_type)
