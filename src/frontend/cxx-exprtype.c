@@ -25739,7 +25739,7 @@ constexpr_function_set_constants_of_arguments(
             // Bind it to a temporary
             {
                 static int tmp_ref_num = 0;
-                scope_entry_t* new_temporary = NEW(scope_entry_t);
+                scope_entry_t* new_temporary = NEW0(scope_entry_t);
                 uniquestr_sprintf(&new_temporary->symbol_name,
                         ".tmp_ref_%d", tmp_ref_num++);
                 new_temporary->decl_context = decl_context;
