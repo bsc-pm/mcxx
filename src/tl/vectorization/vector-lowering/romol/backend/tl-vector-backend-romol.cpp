@@ -34,7 +34,6 @@
 #include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 
-
 namespace TL { namespace Vectorization {
 
     // Use RAII to restore the old value of a variable
@@ -271,7 +270,7 @@ namespace TL { namespace Vectorization {
             n = n.no_conv();
 
             return n.is<Nodecl::Symbol>()
-                && n.get_symbol().get_type().is_mask();
+                && n.get_type().no_ref().is_mask();
         }
 
         bool is_constant_zero(Nodecl::NodeclBase n)
