@@ -37,6 +37,7 @@
 #include "tl-vector-backend-neon.hpp"
 #include "tl-vector-legalization-romol.hpp"
 #include "tl-vector-backend-romol.hpp"
+#include "tl-vector-romol-regalloc.hpp"
 #include "tl-vectorization-three-addresses.hpp"
 
 
@@ -229,6 +230,9 @@ namespace TL
 
                 VectorizationThreeAddresses three_addresses_visitor;
                 three_addresses_visitor.walk(translation_unit);
+
+                RomolVectorRegAlloc romol_vector_ra;
+                romol_vector_ra.walk(translation_unit);
 
                 RomolVectorBackend romol_vector_backend;
                 romol_vector_backend.walk(translation_unit);

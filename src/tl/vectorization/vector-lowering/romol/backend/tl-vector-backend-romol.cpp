@@ -797,32 +797,41 @@ namespace TL { namespace Vectorization {
         ss << "_vliteral_" << (int)(counter);
         counter++;
 
-        // FIXME - Cache these in a literal pool
-        TL::Symbol sym = TL::Scope::get_global_scope().new_symbol(ss.str());
-        sym.get_internal_symbol()->kind = SK_VARIABLE;
-        sym.get_internal_symbol()->type_information = get_array_of_vector(n.get_type()).get_internal_type();
-        symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
-        symbol_entity_specs_set_is_static(sym.get_internal_symbol(), 1);
+        TL::Symbol sym;
+        vector_literal_pool_t::iterator vpool_it = vector_literal_pool.find(n.get_constant());
+        if (vpool_it == vector_literal_pool.end())
+        {
+            sym = TL::Scope::get_global_scope().new_symbol(ss.str());
+            sym.get_internal_symbol()->kind = SK_VARIABLE;
+            sym.get_internal_symbol()->type_information = get_array_of_vector(n.get_type()).get_internal_type();
+            symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
+            symbol_entity_specs_set_is_static(sym.get_internal_symbol(), 1);
 
-        Nodecl::NodeclBase scalar_values = n.get_scalar_values().shallow_copy();
+            Nodecl::NodeclBase scalar_values = n.get_scalar_values().shallow_copy();
 
-        // Get the appropiate field
-        TL::Symbol valib_vector_type = TL::Scope::get_global_scope().get_symbol_from_name("valib_vector_t");
-        ERROR_CONDITION(!valib_vector_type.is_valid(), "valib_vector_t not found", 0);
+            // Get the appropiate field
+            TL::Symbol valib_vector_type = TL::Scope::get_global_scope().get_symbol_from_name("valib_vector_t");
+            ERROR_CONDITION(!valib_vector_type.is_valid(), "valib_vector_t not found", 0);
 
-        Nodecl::NodeclBase value =
-            Nodecl::StructuredValue::make(
-                    scalar_values,
-                    Nodecl::StructuredValueBracedTypecast::make(),
-                    sym.get_type(),
-                    n.get_locus());
-        value.set_constant(n.get_constant());
-        sym.set_value(value);
+            Nodecl::NodeclBase value =
+                Nodecl::StructuredValue::make(
+                        scalar_values,
+                        Nodecl::StructuredValueBracedTypecast::make(),
+                        sym.get_type(),
+                        n.get_locus());
+            value.set_constant(n.get_constant());
+            sym.set_value(value);
 
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                n,
-                Nodecl::ObjectInit::make(sym, n.get_locus())
-                );
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    n,
+                    Nodecl::ObjectInit::make(sym, n.get_locus())
+                    );
+            vector_literal_pool.insert(std::make_pair(n.get_constant(), sym));
+        }
+        else
+        {
+            sym = vpool_it->second;
+        }
 
         // Refer the symbol
         Nodecl::NodeclBase ref_to_literal =

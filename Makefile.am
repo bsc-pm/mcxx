@@ -2631,6 +2631,8 @@ src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_SOURCES
      src/tl/vectorization/vector-lowering/romol/legalization/tl-vector-legalization-romol.cpp \
      src/tl/vectorization/vector-lowering/romol/backend/tl-vector-backend-romol.hpp \
      src/tl/vectorization/vector-lowering/romol/backend/tl-vector-backend-romol.cpp \
+     src/tl/vectorization/vector-lowering/romol/regalloc/tl-vector-romol-regalloc.hpp \
+     src/tl/vectorization/vector-lowering/romol/regalloc/tl-vector-romol-regalloc.cpp \
      $(END)
 endif
 
@@ -2663,6 +2665,7 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_c
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/ \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/legalization \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/backend \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/regalloc \
                  $(END)
 
 src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)

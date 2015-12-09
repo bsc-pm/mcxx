@@ -70,6 +70,9 @@ namespace TL
                 bool does_not_have_side_effects(const Nodecl::NodeclBase& n);
 
                 bool contains_vector_nodes(Nodecl::NodeclBase n);
+
+                typedef std::map<const_value_t*, TL::Symbol> vector_literal_pool_t;
+                std::map<const_value_t*, TL::Symbol> vector_literal_pool;
             public:
                 RomolVectorBackend();
 
