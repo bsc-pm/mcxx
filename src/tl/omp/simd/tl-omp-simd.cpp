@@ -448,7 +448,7 @@ namespace TL {
                 as<Nodecl::List>();
 
             // Aligned clause
-            map_tlsym_int_t aligned_expressions;
+            map_nodecl_int_t aligned_expressions;
             process_aligned_clause(simd_environment, aligned_expressions);
 
             // Linear clause
@@ -791,7 +791,7 @@ namespace TL {
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
             // Aligned clause
-            map_tlsym_int_t aligned_expressions;
+            map_nodecl_int_t aligned_expressions;
             process_aligned_clause(omp_simd_for_environment, aligned_expressions);
 
             // Linear clause
@@ -1301,7 +1301,7 @@ namespace TL {
             Nodecl::List omp_environment = simd_node_copy.
                 get_environment().as<Nodecl::List>();
 
-            map_tlsym_int_t aligned_expressions;
+            map_nodecl_int_t aligned_expressions;
             map_tlsym_int_t linear_symbols;
             objlist_tlsym_t uniform_symbols;
             objlist_nodecl_t suitable_expressions;
@@ -1470,7 +1470,7 @@ namespace TL {
 
             Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
 
-            map_tlsym_int_t aligned_expressions;
+            map_nodecl_int_t aligned_expressions;
             map_tlsym_int_t linear_symbols;
             objlist_tlsym_t uniform_symbols;
             objlist_nodecl_t suitable_expressions;
@@ -1702,7 +1702,7 @@ namespace TL {
                     simd_node.get_environment().as<Nodecl::List>();
                     //simd_node_copy.as<Nodecl::OpenMP::SimdFunction>().get_environment().as<Nodecl::List>();
 
-                map_tlsym_int_t aligned_expressions;
+                map_nodecl_int_t aligned_expressions;
                 map_tlsym_int_t linear_symbols;
                 objlist_tlsym_t uniform_symbols;
                 objlist_nodecl_t suitable_expressions;
@@ -1870,7 +1870,7 @@ namespace TL {
             walk(parallel_statements);
 
             // Aligned clause
-            map_tlsym_int_t aligned_expressions;
+            map_nodecl_int_t aligned_expressions;
             process_aligned_clause(omp_simd_parallel_environment, aligned_expressions);
 
             // Linear clause
@@ -2018,7 +2018,7 @@ namespace TL {
         }
 
         void SimdProcessingBase::process_func_simd_clause(const Nodecl::List& omp_environment,
-                map_tlsym_int_t& aligned_expressions,
+                map_nodecl_int_t& aligned_expressions,
                 map_tlsym_int_t& linear_symbols,
                 objlist_tlsym_t& uniform_symbols,
                 objlist_nodecl_t& suitable_expressions,
@@ -2046,7 +2046,7 @@ namespace TL {
         }
 
         void SimdProcessingBase::process_aligned_clause(const Nodecl::List& environment,
-                map_tlsym_int_t& aligned_expressions_map)
+                map_nodecl_int_t& aligned_expressions_map)
         {
             TL::ObjectList<Nodecl::OpenMP::Aligned> omp_aligned_list =
                 environment.find_all<Nodecl::OpenMP::Aligned>();
@@ -2063,13 +2063,10 @@ namespace TL {
                 int alignment = const_value_cast_to_signed_int(
                         omp_aligned.get_alignment().as<Nodecl::IntegerLiteral>().get_constant());
 
-                for(objlist_nodecl_t::iterator it2 = aligned_expressions_list.begin();
-                        it2 != aligned_expressions_list.end();
-                        it2++)
+                for(const auto& it2 : aligned_expressions_list)
                 {
-
-                    if(!aligned_expressions_map.insert(std::pair<TL::Symbol, int>(
-                                    it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
+                    if(!aligned_expressions_map.insert(std::pair<Nodecl::NodeclBase, int>(
+                                    it2, alignment)).second)
                     {
                         fatal_error("SIMD: multiple instances of the same variable in the 'aligned' clause detected\n");
                     }

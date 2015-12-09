@@ -100,7 +100,7 @@ namespace TL
                 bool _overlap_in_place;
 
                 void process_func_simd_clause(const Nodecl::List& omp_environment,
-                        Vectorization::map_tlsym_int_t& aligned_expressions,
+                        Vectorization::map_nodecl_int_t& aligned_expressions,
                         Vectorization::map_tlsym_int_t& linear_symbols,
                         Vectorization::objlist_tlsym_t& uniform_symbols,
                         Vectorization::objlist_nodecl_t& suitable_expressions,
@@ -110,7 +110,7 @@ namespace TL
                         TL::Type& vectorlengthfor_type);
 
                 void process_aligned_clause(const Nodecl::List& environment,
-                        TL::Vectorization::map_tlsym_int_t& aligned_expressions_map);
+                        TL::Vectorization::map_nodecl_int_t& aligned_expressions_map);
                 void process_linear_clause(const Nodecl::List& environment,
                         TL::Vectorization::map_tlsym_int_t& linear_symbols_map);
                 void process_uniform_clause(const Nodecl::List& environment,

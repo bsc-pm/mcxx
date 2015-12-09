@@ -41,7 +41,7 @@ namespace Vectorization
             const unsigned int mask_size,
             const bool fast_math,
             const TL::Type& target_type,
-            const map_tlsym_int_t& aligned_symbols_map,
+            const map_nodecl_int_t& aligned_symbols_map,
             const map_tlsym_int_t& linear_symbols_map,
             const objlist_tlsym_t& uniform_symbols_list,
             const objlist_nodecl_t& suitable_exprs_list,
