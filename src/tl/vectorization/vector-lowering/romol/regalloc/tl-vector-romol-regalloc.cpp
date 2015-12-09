@@ -141,12 +141,21 @@ namespace TL { namespace Vectorization {
             public:
                 LiveRangeMap() { }
 
-                std::shared_ptr<LiveRange> get_range(TL::Symbol sym, int lower, int upper)
+                std::shared_ptr<LiveRange> get_range(TL::Symbol sym)
                 {
                     live_range_map_t::iterator it = _live_range_map.find(sym);
                     if (it != _live_range_map.end())
                         return it->second;
                     else
+                    {
+                        return nullptr;
+                    }
+                }
+
+                std::shared_ptr<LiveRange> get_range(TL::Symbol sym, int lower, int upper)
+                {
+                    std::shared_ptr<LiveRange> ret = get_range(sym);
+                    if (ret.get() == nullptr)
                     {
                         // Insert a "singleton" range [x, x]
                         std::pair<live_range_map_t::iterator, bool> p =
@@ -155,6 +164,10 @@ namespace TL { namespace Vectorization {
                                         std::make_shared<LiveRange>(sym, lower, upper)));
 
                         return p.first->second;
+                    }
+                    else
+                    {
+                        return ret;
                     }
                 }
 
@@ -190,9 +203,31 @@ namespace TL { namespace Vectorization {
             return s.get_type().is_vector();
         }
 
+        TL::Symbol get_register_symbol(int regid, const std::string& prefix)
+        {
+            std::stringstream ss;
+            ss << prefix << regid;
+            TL::Symbol reg_sym = TL::Scope::get_global_scope().get_symbol_from_name(ss.str());
+            ERROR_CONDITION(!reg_sym.is_valid(), "Symbol '%s' not found for register '%d'\n",
+                    ss.str().c_str(),
+                    regid);
+
+            return reg_sym;
+        }
+
+        TL::Symbol get_vector_register_symbol(int regid)
+        {
+            return get_register_symbol(regid, "VR");
+        }
+
         bool variable_is_mask(TL::Symbol s)
         {
             return s.get_type().is_mask();
+        }
+
+        TL::Symbol get_mask_register_symbol(int regid)
+        {
+            return get_register_symbol(regid, "MR");
         }
 
         void compute_live_ranges_rec(Analysis::Node* n,
@@ -461,6 +496,94 @@ namespace TL { namespace Vectorization {
                     num_registers,
                     pool_of_free_registers);
         }
+
+        struct RewriteVariables : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                LiveRangeMap& live_range_map;
+                bool (*relevant_symbol)(TL::Symbol);
+                TL::Symbol (*get_register_symbol)(int regid);
+
+            public:
+
+                RewriteVariables(LiveRangeMap& live_range_map_,
+                        bool (*relevant_symbol_)(TL::Symbol),
+                        TL::Symbol (*get_register_symbol_)(int))
+                    : live_range_map(live_range_map_),
+                      relevant_symbol(relevant_symbol_),
+                      get_register_symbol(get_register_symbol_)
+                {
+                }
+
+                virtual void visit(const Nodecl::Symbol& node)
+                {
+                    TL::Symbol sym = node.get_symbol();
+                    if (!relevant_symbol(node.get_symbol()))
+                        return;
+
+                    std::shared_ptr<LiveRange> range = live_range_map.get_range(sym);
+
+                    ERROR_CONDITION(range.get() == nullptr,
+                            "Invalid range for symbol '%s'\n",
+                            sym.get_name().c_str());
+
+                    if (range->register_number < 0)
+                    {
+                        // FIXME: We need to introduce a reload here
+                        internal_error("Not yet implemented", 0);
+                    }
+                    else
+                    {
+                        // FIXME: this is ugly
+                        // Just switch the symbol but leave the type as is
+                        const_cast<Nodecl::Symbol&>(node)
+                            .set_symbol(get_register_symbol(range->register_number));
+                    }
+                }
+
+                virtual void visit(const Nodecl::ObjectInit& node)
+                {
+                    TL::Symbol sym = node.get_symbol();
+                    if (!relevant_symbol(sym))
+                        return;
+
+                    std::shared_ptr<LiveRange> range = live_range_map.get_range(sym);
+
+                    ERROR_CONDITION(range.get() == nullptr,
+                            "Invalid range for symbol '%s'\n",
+                            sym.get_name().c_str());
+
+                    if (range->register_number < 0)
+                    {
+                        // FIXME: We need to introduce a reload here
+                        internal_error("Not yet implemented", 0);
+                    }
+                    else
+                    {
+                        // FIXME: this is ugly
+                        // Just switch the symbol but leave the type as is
+                        const_cast<Nodecl::ObjectInit&>(node)
+                            .set_symbol(get_register_symbol(range->register_number));
+                    }
+
+                    // Initialization
+                    walk(sym.get_value());
+                }
+        };
+
+        void rewrite_temporaries_as_registers(
+                Nodecl::NodeclBase n,
+                LiveRangeMap& live_range_map,
+                bool (*relevant_symbol)(TL::Symbol),
+                TL::Symbol (*get_register_symbol)(int))
+        {
+            RewriteVariables rewrite_vars(
+                    live_range_map,
+                    relevant_symbol,
+                    get_register_symbol);
+
+            rewrite_vars.walk(n);
+        }
     }
 
     void RomolVectorRegAlloc::visit(const Nodecl::FunctionCode& node)
@@ -502,57 +625,68 @@ namespace TL { namespace Vectorization {
         // --------------------------------
         // Vector temporaries
         // --------------------------------
+        {
 #ifdef DEBUG_RA
-        std::cerr << "*****************************************\n";
-        std::cerr << "************** VECTORS ******************\n";
-        std::cerr << "*****************************************\n";
+            std::cerr << "*****************************************\n";
+            std::cerr << "************** VECTORS ******************\n";
+            std::cerr << "*****************************************\n";
 #endif
-        LiveRangeMap live_range_map_vectors;
-        compute_live_ranges(g, live_range_map_vectors, upper_dfo, variable_is_vector);
+            LiveRangeMap live_range_map_vectors;
+            compute_live_ranges(g, live_range_map_vectors, upper_dfo, variable_is_vector);
 
 #ifdef DEBUG_RA
-        print_live_ranges(live_range_map_vectors, upper_dfo);
+            print_live_ranges(live_range_map_vectors, upper_dfo);
 #endif
 
-        // In RoMoL we have 32 registers of vector type, we reserve 3 of them
-        // for spilling purposes
-        const int num_vector_registers = 32 - 3;
+            // In RoMoL we have 32 registers of vector type, we reserve 3 of them
+            // for spilling purposes
+            const int num_vector_registers = 32 - 3;
 #ifdef DEBUG_RA
-        std::cerr << "Assigning vector registers" << std::endl;
+            std::cerr << "Assigning vector registers" << std::endl;
 #endif
-        linear_scan_register_allocation(live_range_map_vectors, num_vector_registers);
+            linear_scan_register_allocation(live_range_map_vectors, num_vector_registers);
 
 #ifdef DEBUG_RA
-        print_register_assignments(live_range_map_vectors, "V");
+            print_register_assignments(live_range_map_vectors, "V");
 #endif
 
-#if 0
+            rewrite_temporaries_as_registers(node,
+                    live_range_map_vectors,
+                    variable_is_vector,
+                    get_vector_register_symbol);
+        }
+
         // --------------------------------
         // Mask temporaries
         // --------------------------------
+        {
 #ifdef DEBUG_RA
-        std::cerr << "*****************************************\n";
-        std::cerr << "************** MASKS ********************\n";
-        std::cerr << "*****************************************\n";
+            std::cerr << "*****************************************\n";
+            std::cerr << "************** MASKS ********************\n";
+            std::cerr << "*****************************************\n";
 #endif
-        LiveRangeMap live_range_map_masks;
-        compute_live_ranges(g, live_range_map_masks, upper_dfo, variable_is_mask);
+            LiveRangeMap live_range_map_masks;
+            compute_live_ranges(g, live_range_map_masks, upper_dfo, variable_is_mask);
 
 #ifdef DEBUG_RA
-        print_live_ranges(live_range_map_masks, upper_dfo);
+            print_live_ranges(live_range_map_masks, upper_dfo);
 #endif
-        // In RoMoL we have 7 registers of mask type, we reserve 3 of them
-        // for spilling purposes
-        const int num_mask_registers = 7 - 3;
+            // In RoMoL we have 7 registers of mask type, we reserve 3 of them
+            // for spilling purposes
+            const int num_mask_registers = 7 - 3;
 #ifdef DEBUG_RA
-        std::cerr << "Assigning mask registers" << std::endl;
+            std::cerr << "Assigning mask registers" << std::endl;
 #endif
-        linear_scan_register_allocation(live_range_map_masks, num_mask_registers);
+            linear_scan_register_allocation(live_range_map_masks, num_mask_registers);
 
 #ifdef DEBUG_RA
-        print_register_assignments(live_range_map_masks, "M");
+            print_register_assignments(live_range_map_masks, "M");
 #endif
-#endif
+            rewrite_temporaries_as_registers(node,
+                    live_range_map_masks,
+                    variable_is_mask,
+                    get_mask_register_symbol);
+        }
     }
 
 } }
