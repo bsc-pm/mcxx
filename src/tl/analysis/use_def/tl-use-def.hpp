@@ -161,7 +161,6 @@ namespace Analysis {
         void visit_vector_load(const NBase& rhs, const NBase& mask);
         void visit_vector_store(const NBase& lhs, const NBase& rhs, const NBase& mask);
         
-        
         // ********************** Private modifiers ********************** //
         
         //!Prevents copy construction.

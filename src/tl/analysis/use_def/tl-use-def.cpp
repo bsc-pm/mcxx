@@ -554,7 +554,7 @@ namespace {
         _current_nodecl = current_nodecl;
         _define = false;
     }
-    
+
     void UsageVisitor::visit_vector_load(const NBase& rhs, const NBase& mask)
     {
         if (rhs.is<Nodecl::Reference>())
@@ -790,10 +790,22 @@ namespace {
     // It is used: the base, the strides (if variables) and the memory positions formed by base+stride_i
     void UsageVisitor::visit(const Nodecl::VectorGather& n)
     {
-        if (VERBOSE)
+        NBase base = n.get_base();
+        NBase strides = n.get_strides();
+        NBase mask = n.get_mask();
+
+        if (base.no_conv().is<Nodecl::Reference>())
         {
-            WARNING_MESSAGE("Usage of VectorGather nodes is not yet implemented. Analysis results may be wrong.\n", 0);
+            _node->add_used_address(base.no_conv());
+            walk(base.no_conv().as<Nodecl::Reference>().get_rhs());
         }
+        else if (VERBOSE)
+        {
+            WARNING_MESSAGE("Unexpected node type '%s' in the base of a vector gather. Reference expected." 
+                            "Analysis result may be wrong", ast_print_node_type(base.no_conv().get_kind()));
+        }
+        walk(strides);
+        walk(mask);
     }
     
     void UsageVisitor::visit(const Nodecl::VectorLoad& n)
@@ -809,10 +821,28 @@ namespace {
     // It is used: the strides (if variables). It is defined the memory positions formed by base+stride_i
     void UsageVisitor::visit(const Nodecl::VectorScatter& n)
     {
-        if (VERBOSE)
+        NBase base = n.get_base();
+        NBase strides = n.get_strides();
+        NBase source = n.get_source();
+        NBase mask = n.get_mask();
+
+        if (base.no_conv().is<Nodecl::Reference>())
         {
-            WARNING_MESSAGE("Usage of VectorScatter nodes is not yet implemented. Analysis results may be wrong.\n", 0);
+            _node->add_used_address(base.no_conv());
+            bool define = _define;
+            _define = true;
+            walk(base.no_conv().as<Nodecl::Reference>().get_rhs());
+            _define = define;
         }
+        else if (VERBOSE)
+        {
+            WARNING_MESSAGE("Unexpected node type '%s' in the base of a vector gather. Reference expected." 
+                            "Analysis result may be wrong", ast_print_node_type(base.no_conv().get_kind()));
+        }
+
+        walk(strides);
+        walk(source);
+        walk(mask);
     }
 
     void UsageVisitor::visit(const Nodecl::VectorSincos& n)
