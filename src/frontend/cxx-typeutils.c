@@ -7828,7 +7828,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
+                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s' (%s)\n", name, symbol_kind_name(member));
             }
             return get_dependent_typename_type_from_parts(current_member, 
                     nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
@@ -7913,6 +7913,41 @@ static type_t* advance_dependent_typename_aux(
                 fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", name);
             }
             type_t* advanced_type = advance_over_typedefs(member->type_information);
+
+            if (is_dependent_typename_type(advanced_type))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Got a dependent typename when looking up dependent-part '%s' '%s'\n",
+                            name,
+                            print_declarator(advanced_type));
+                }
+                scope_entry_t* new_dependent_entry = NULL;
+                nodecl_t nodecl_dependent_parts = nodecl_null();
+
+                dependent_typename_get_components(advanced_type, &new_dependent_entry, &nodecl_dependent_parts);
+
+                nodecl_t nodecl_new_parts = nodecl_shallow_copy(nodecl_get_child(nodecl_dependent_parts, 0));
+
+                int j;
+                for (j = 1; j < num_items; j++)
+                {
+                    nodecl_new_parts = nodecl_append_to_list(nodecl_new_parts,
+                            nodecl_shallow_copy(dep_parts[j]));
+                }
+
+                DELETE(dep_parts);
+
+                type_t* result = get_dependent_typename_type_from_parts(
+                        new_dependent_entry,
+                        nodecl_make_cxx_dep_name_nested(nodecl_new_parts, NULL));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Advanced to '%s'\n",
+                            print_declarator(result));
+                }
+                return result;
+            }
 
             if (is_named_class_type(advanced_type))
             {
@@ -8018,7 +8053,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
+                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s' (%s)\n", name, symbol_kind_name(member));
             }
 
             type_t* result = rebuild_advanced_dependent_typename(original_type, 
