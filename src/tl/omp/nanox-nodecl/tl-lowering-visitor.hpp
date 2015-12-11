@@ -481,6 +481,20 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 bool &is_fortran_allocatable_dependence,
                 bool &is_fortran_pointer_dependence);
+
+        void initialize_multicopies_index(
+                OutlineInfo& outline_info,
+                // out
+                Source& fill_outline_arguments,
+                Source& fill_immediate_arguments);
+
+        Source compute_num_refs_in_multiref(DataReference& data_ref);
+
+        void translate_single_item(
+                Source &translations,
+                Nodecl::NodeclBase ctr,
+                OutlineDataItem* item,
+                Nodecl::NodeclBase copy_num);
 };
 
 } }

@@ -1122,7 +1122,7 @@ namespace TL { namespace Nanox {
         _outline_info.add_copy_of_outline_data_item(data_item);
     }
 
-    class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, OutlineInfoRegisterEntities
+    class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, public OutlineInfoRegisterEntities
     {
         private:
             OutlineInfo& _outline_info;
@@ -1485,7 +1485,80 @@ namespace TL { namespace Nanox {
 
         setup_visitor.purge_saved_expressions();
 
+        // OutlineInfoSetupVisitor inherits also from OutlineInfoRegisterEntities as well
+        // make it obvious here
+        OutlineInfoRegisterEntities &ol_register = setup_visitor;
+        // Multicopies may require extra information captured
+        finish_multicopies(ol_register, sc);
+
         reset_array_counters();
+    }
+
+    void OutlineInfo::finish_multicopies(OutlineInfoRegisterEntities& ol_register, TL::Scope sc)
+    {
+        int num_dynamic_copies_without_static_copies = 0;
+
+        TL::ObjectList<OutlineDataItem*> data_items = this->get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            bool has_static = false;
+            bool has_dynamic = false;
+            const TL::ObjectList<OutlineDataItem::CopyItem> &items = (*it)->get_copies();
+            for (TL::ObjectList<OutlineDataItem::CopyItem>::const_iterator it_items = items.begin();
+                    it_items != items.end() && !has_static;
+                    it_items++)
+            {
+                DataReference data_ref(it_items->expression);
+                if (data_ref.is_multireference())
+                {
+                    has_dynamic = true;
+                }
+                else
+                {
+                    has_static = true;
+                }
+            }
+            if (has_dynamic && !has_static)
+            {
+                num_dynamic_copies_without_static_copies++;
+            }
+        }
+
+        // If just 0 or 1 multicopies we do not need anything special
+        if (num_dynamic_copies_without_static_copies <= 1)
+            return;
+
+        // Otherwise create an array with num_multicopies - 1 integers
+        Counter& counter_multicopies_array = CounterManager::get_counter("multicopies-array-size");
+        std::stringstream ss;
+        ss << "multicopies_index_" << (int)counter_multicopies_array << "__";
+        counter_multicopies_array++;
+
+        TL::Symbol multicopies_index = sc.new_symbol(ss.str());
+        multicopies_index.get_internal_symbol()->kind = SK_VARIABLE;
+        multicopies_index.get_internal_symbol()->type_information =
+            TL::Type::get_int_type().get_array_to(
+                    const_value_to_nodecl(
+                        const_value_get_signed_int(num_dynamic_copies_without_static_copies - 1)
+                        ),
+                    TL::Scope::get_global_scope()).get_internal_type();
+        symbol_entity_specs_set_is_user_declared(multicopies_index.get_internal_symbol(), 1);
+
+        ol_register.add_capture(multicopies_index);
+
+        set_multicopies_index_symbol(multicopies_index);
+    }
+
+    TL::Symbol OutlineInfo::get_multicopies_index_symbol() const
+    {
+        return _multicopies_index_symbol;
+    }
+
+    void OutlineInfo::set_multicopies_index_symbol(TL::Symbol sym)
+    {
+        _multicopies_index_symbol = sym;
     }
 
     // Sometimes we know that something is a VLA but it does not have any data
