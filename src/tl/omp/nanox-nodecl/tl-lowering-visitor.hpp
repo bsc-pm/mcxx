@@ -483,6 +483,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool &is_fortran_pointer_dependence);
 
         void initialize_multicopies_index(
+                Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 // out
                 Source& fill_outline_arguments,

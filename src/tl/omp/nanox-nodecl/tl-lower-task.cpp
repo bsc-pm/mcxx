@@ -1105,6 +1105,7 @@ Source LoweringVisitor::compute_num_refs_in_multiref(DataReference& data_ref)
 }
 
 void LoweringVisitor::initialize_multicopies_index(
+        Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
         // out
         Source& fill_outline_arguments,
@@ -1113,6 +1114,14 @@ void LoweringVisitor::initialize_multicopies_index(
 {
     if (!outline_info.get_multicopies_index_symbol().is_valid())
         return;
+
+    if (IS_CXX_LANGUAGE)
+    {
+        Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                outline_info.get_multicopies_index_symbol(),
+                ctr.get_locus());
+        ctr.prepend_sibling(def);
+    }
 
     Source src;
 
@@ -1211,7 +1220,7 @@ void LoweringVisitor::fill_arguments(
         )
 {
     // Multicopies may require extra information
-    initialize_multicopies_index(outline_info, fill_outline_arguments, fill_immediate_arguments);
+    initialize_multicopies_index(ctr, outline_info, fill_outline_arguments, fill_immediate_arguments);
 
     // We overallocate with an alignment of 8
     const int overallocation_alignment = 8;
