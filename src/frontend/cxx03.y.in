@@ -2546,7 +2546,7 @@ nonglobal_functional_main_declarator_not_started_with_attributes : nonglobal_fun
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| ptr_operator functional_main_declarator
+| nonglobal_ptr_operator functional_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
