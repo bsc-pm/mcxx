@@ -21623,9 +21623,12 @@ static char check_vector_type_initialization(
     {
         expr_elem_type = vector_type_get_element_type(no_ref(expr_elem_type));
 
+        cv_qualifier_t cv_expr_elem_type = CV_NONE;
+        advance_over_typedefs_with_cv_qualif(no_ref(expr_elem_type), &cv_expr_elem_type);
+
         expr_elem_type = get_cv_qualified_type(
                 expr_elem_type,
-                get_cv_qualifier(expr_elem_type)
+                cv_expr_elem_type
                 | get_cv_qualifier(expr_type));
 
         if (is_lvalue_reference_type(expr_type))
@@ -21639,9 +21642,13 @@ static char check_vector_type_initialization(
     }
 
     type_t* initialized_elem_type = vector_type_get_element_type(no_ref(initialized_vec_type));
+
+    cv_qualifier_t cv_initialized_vec_type = CV_NONE;
+    advance_over_typedefs_with_cv_qualif(no_ref(initialized_vec_type), &cv_initialized_vec_type);
+
     initialized_elem_type = get_cv_qualified_type(
             initialized_elem_type,
-            get_cv_qualifier(initialized_vec_type)
+            cv_initialized_vec_type
             | get_cv_qualifier(initialized_elem_type));
 
     if (is_lvalue_reference_type(initialized_vec_type))
