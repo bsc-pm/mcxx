@@ -23346,6 +23346,20 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
     }
 
     *nodecl_output = fun(nodecl_expr, result_type, locus);
+
+    if (nodecl_is_constant(nodecl_expr))
+    {
+        if (is_real)
+        {
+            nodecl_set_constant(*nodecl_output,
+                    const_value_complex_get_real_part(nodecl_get_constant(nodecl_expr)));
+        }
+        else
+        {
+            nodecl_set_constant(*nodecl_output,
+                    const_value_complex_get_imag_part(nodecl_get_constant(nodecl_expr)));
+        }
+    }
 }
 
 static void check_gcc_real_or_imag_part(AST expression, 
@@ -30614,6 +30628,28 @@ static void instantiate_intel_assume_aligned(nodecl_instantiate_expr_visitor_t* 
             &v->nodecl_result);
 }
 
+static void instantiate_real_part(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr = instantiate_expr_walk(
+            v, nodecl_get_child(node, 0));
+
+    check_nodecl_gcc_real_or_imag_part(nodecl_expr, 
+            v->decl_context, /* is_real */ 1,
+            nodecl_get_locus(nodecl_expr),
+            &v->nodecl_result);
+}
+
+static void instantiate_imag_part(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr = instantiate_expr_walk(
+            v, nodecl_get_child(node, 0));
+
+    check_nodecl_gcc_real_or_imag_part(nodecl_expr, 
+            v->decl_context, /* is_real */ 0,
+            nodecl_get_locus(nodecl_expr),
+            &v->nodecl_result);
+}
+
 // Initialization
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, const decl_context_t* decl_context)
 {
@@ -30768,6 +30804,11 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     // Extensions
     NODECL_VISITOR(v)->visit_intel_assume = instantiate_expr_visitor_fun(instantiate_intel_assume);
     NODECL_VISITOR(v)->visit_intel_assume_aligned = instantiate_expr_visitor_fun(instantiate_intel_assume_aligned);
+
+    // __real__
+    NODECL_VISITOR(v)->visit_real_part = instantiate_expr_visitor_fun(instantiate_real_part);
+    // __imag__
+    NODECL_VISITOR(v)->visit_imag_part = instantiate_expr_visitor_fun(instantiate_imag_part);
 }
 
 
