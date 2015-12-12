@@ -23347,7 +23347,9 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
 
     *nodecl_output = fun(nodecl_expr, result_type, locus);
 
-    if (nodecl_is_constant(nodecl_expr))
+#if 0
+    if (nodecl_is_constant(nodecl_expr)
+            && const_value_is_complex(nodecl_get_constant(nodecl_expr)))
     {
         if (is_real)
         {
@@ -23360,6 +23362,7 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
                     const_value_complex_get_imag_part(nodecl_get_constant(nodecl_expr)));
         }
     }
+#endif
 }
 
 static void check_gcc_real_or_imag_part(AST expression, 
