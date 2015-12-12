@@ -349,6 +349,8 @@ binprefix   0[bB]
 newline ([\n]|[\r]|([\r][\n]))
 notnewline ([^\n\r])
 
+whitespace  (([\n]|[\r]|([\r][\n]))|([ \t\v\f]))
+
  /* C99 additional */
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
 binary_exponent_part ([pP]([+-])?{digit}+)
@@ -1906,13 +1908,13 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 "*"         { parse_token_text(); update_location(); return '*'; }
  /*!if CPLUSPLUS*/
 "::"        { parse_token_text(); update_location(); return TWO_COLONS; }
+"::"{whitespace}*"*"  { parse_token_text(); update_location(); return TWO_COLONS_AND_STAR; }
  /*!endif*/
 "..."       { parse_token_text(); update_location(); return ELLIPSIS; }
 
 ".."        { parse_token_text(); update_location(); return TWO_DOTS; }
 
-{newline}   { update_location(); }
-[ \t\v\f]   { update_location(); }
+{whitespace}+ { update_location(); }
 <*>.           { 
     /* ignore bad characters */ 
     if (isgraph(*yytext))

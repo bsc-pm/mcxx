@@ -105,6 +105,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> DIV_ASSIGN "/="
 %token<token_atrib> DO "do"
 %token<token_atrib> TWO_COLONS "::"
+%token<token_atrib> TWO_COLONS_AND_STAR ":: *"
 %token<token_atrib> TOKEN_DOUBLE "double"
 %token<token_atrib> DYNAMIC_CAST "dynamic_cast"
 %token<token_atrib> ELSE "else"
@@ -2277,13 +2278,13 @@ nonglobal_ptr_operator : '*'
 {
 	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
-| nonglobal_id_type_expr TWO_COLONS '*'
+| nonglobal_id_type_expr TWO_COLONS_AND_STAR
 {
 	$$ = ASTMake2(AST_POINTER_SPEC, $1, NULL, ast_get_locus($1), NULL);
 }
-| nonglobal_id_type_expr TWO_COLONS '*' cv_qualifier_seq
+| nonglobal_id_type_expr TWO_COLONS_AND_STAR cv_qualifier_seq
 {
-	$$ = ASTMake2(AST_POINTER_SPEC, $1, $4, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, $1, $3, ast_get_locus($1), NULL);
 }
 | '&'
 {
@@ -2314,13 +2315,13 @@ ptr_operator : '*'
 {
 	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
-| id_type_expr TWO_COLONS '*'
+| id_type_expr TWO_COLONS_AND_STAR
 {
 	$$ = ASTMake2(AST_POINTER_SPEC, $1, NULL, ast_get_locus($1), NULL);
 }
-| id_type_expr TWO_COLONS '*' cv_qualifier_seq
+| id_type_expr TWO_COLONS_AND_STAR cv_qualifier_seq
 {
-	$$ = ASTMake2(AST_POINTER_SPEC, $1, $4, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, $1, $3, ast_get_locus($1), NULL);
 }
 | '&'
 {
