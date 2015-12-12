@@ -3830,7 +3830,7 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
     if (is_qualified_id_expression(id_expression)
             || ASTKind(id_expression) == AST_TEMPLATE_ID)
     {
-        scope_entry_list_t* result_list = NULL;
+        scope_entry_list_t* entry_list = NULL;
 
         if (is_dependent_context)
         {
@@ -3840,19 +3840,9 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
             decl_flags |= DF_DEPENDENT_TYPENAME;
         }
         
-        result_list = query_id_expression_flags(
+        entry_list = query_id_expression_flags(
                 decl_context,
                 id_expression, NULL, decl_flags);
-        enum cxx_symbol_kind filter_classes[] =
-        {
-            SK_CLASS,
-            SK_TEMPLATE,
-            SK_DEPENDENT_ENTITY,
-        };
-
-        scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list,
-                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
-
         if (entry_list == NULL)
         {
             error_printf_at(ast_get_locus(id_expression), "class name '%s' not found\n",
@@ -3862,6 +3852,20 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
         }
 
         entry = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        entry = entry_advance_aliases(entry);
+
+        if (entry->kind != SK_CLASS
+                && (entry->kind != SK_TEMPLATE
+                    || !is_class_type(template_type_get_primary_type(entry->type_information)))
+                && entry->kind != SK_DEPENDENT_ENTITY)
+        {
+            error_printf_at(ast_get_locus(id_expression), "'%s' is not a class name\n",
+                    prettyprint_in_buffer(id_expression));
+            *type_info = get_error_type();
+            return;
+        }
     }
 
     if (entry == NULL)
