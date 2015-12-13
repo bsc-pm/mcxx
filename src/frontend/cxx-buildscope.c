@@ -15124,8 +15124,9 @@ static void build_scope_nontype_template_parameter(AST a,
         template_parameter_name = uniquestr(prettyprint_in_buffer(declarator_name));
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Registering '%s' as a non-type template parameter at position %d\n", 
+            fprintf(stderr, "BUILDSCOPE: Registering '%s' as a non-type template parameter with nesting %d and position %d\n",
                     template_parameter_name,
+                    nesting,
                     template_parameters->num_parameters);
         }
     }
