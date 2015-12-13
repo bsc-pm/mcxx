@@ -10207,6 +10207,10 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
     }
     else
     {
+        first_op = nodecl_get_child(*nodecl_output, 0);
+        second_op = nodecl_get_child(*nodecl_output, 1);
+        third_op = nodecl_get_child(*nodecl_output, 2);
+
         if (nodecl_is_constant(first_op))
         {
             nodecl_t nodecl_final_expr = nodecl_null();
