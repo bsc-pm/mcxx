@@ -13680,6 +13680,7 @@ static char find_function_declaration(AST declarator_id,
             }
 
             type_t* considered_type = considered_symbol->type_information;
+            type_t* considered_type_advanced_to_context = considered_type;
             type_t* function_type_being_declared_advanced_to_context = function_type_being_declared;
 
             if (IS_CXX_LANGUAGE
@@ -13719,13 +13720,13 @@ static char find_function_declaration(AST declarator_id,
                 // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [before] -> %s\n",
                 //         ast_location(declarator_id),
                 //         print_declarator(considered_type));
-                considered_type =
+                considered_type_advanced_to_context =
                     fix_dependent_typenames_in_context(considered_type,
                             entry->decl_context,
                             ast_get_locus(declarator_id));
                 // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [after] -> %s\n",
                 //         ast_location(declarator_id),
-                //         print_declarator(considered_type));
+                //         print_declarator(fixed_considered_type));
 
                 // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [before] -> %s\n",
                 //         ast_location(declarator_id),
@@ -13748,6 +13749,11 @@ static char find_function_declaration(AST declarator_id,
                         locus_to_str(considered_symbol->locus),
                         print_declarator(considered_symbol->type_information)
                        );
+                fprintf(stderr, "BUILDSCOPE: Types used for comparison will be\n"
+                                "BUILDSCOPE:    existing '%s'\n"
+                                "BUILDSCOPE:    current  '%s'\n",
+                        print_declarator(considered_type_advanced_to_context),
+                        print_declarator(function_type_being_declared_advanced_to_context));
             }
 
             if (entry->kind == SK_TEMPLATE)
@@ -13766,7 +13772,7 @@ static char find_function_declaration(AST declarator_id,
                 // {
                 // }
                 //
-                if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type))
+                if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type_advanced_to_context))
                 {
                     template_parameter_list_t* decl_template_parameters = decl_context->template_parameters;
 
@@ -13832,11 +13838,11 @@ static char find_function_declaration(AST declarator_id,
                 // Just attempt a match by type
                 function_matches = equivalent_function_types_may_differ_ref_qualifier(
                         function_type_being_declared_advanced_to_context,
-                        considered_type);
+                        considered_type_advanced_to_context);
 
                 CXX11_LANGUAGE()
                 {
-                    if ((function_type_get_ref_qualifier(function_type_being_declared_advanced_to_context) != REF_QUALIFIER_NONE)
+                    if ((function_type_get_ref_qualifier(function_type_being_declared) != REF_QUALIFIER_NONE)
                             != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
                     {
                         error_printf_at(ast_get_locus(declarator_id), "declaration cannot overload '%s'\n",

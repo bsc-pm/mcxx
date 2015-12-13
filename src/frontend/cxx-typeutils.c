@@ -8165,12 +8165,10 @@ static inline char type_contains_a_dependent_typename(type_t* t)
         return 1;
     }
     else if (is_named_type(t)
-        && is_template_specialized_type(named_type_get_symbol(t)->type_information))
+            && is_template_specialized_type(named_type_get_symbol(t)->type_information))
     {
-        return type_contains_a_dependent_typename(named_type_get_symbol(t)->type_information);
-    }
-    else if (is_template_specialized_type(t))
-    {
+        t = named_type_get_symbol(t)->type_information;
+
         template_parameter_list_t* tpl = template_specialized_type_get_template_arguments(t);
 
         int i;
@@ -8327,12 +8325,8 @@ static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
     else if (is_named_type(t)
         && is_template_specialized_type(named_type_get_symbol(t)->type_information))
     {
-        result = rebuild_type_advancing_dependent_typenames(
-            named_type_get_symbol(t)->type_information,
-                decl_context, locus);
-    }
-    else if (is_template_specialized_type(t))
-    {
+        t = named_type_get_symbol(t)->type_information;
+
         template_parameter_list_t *fixed_tpl = rebuild_template_arguments_advancing_dependent_typenames(
                 template_specialized_type_get_template_arguments(t),
                 decl_context,
