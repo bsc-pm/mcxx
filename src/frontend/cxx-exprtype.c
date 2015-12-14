@@ -23358,22 +23358,52 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
 
     *nodecl_output = fun(nodecl_expr, result_type, locus);
 
-#if 0
-    if (nodecl_is_constant(nodecl_expr)
-            && const_value_is_complex(nodecl_get_constant(nodecl_expr)))
+    if (is_lvalue_reference_type(result_type))
     {
-        if (is_real)
+        const_value_t* cval = compute_glvalue_constant(nodecl_expr, decl_context);
+        if (cval != NULL
+                && const_value_is_object(cval))
         {
-            nodecl_set_constant(*nodecl_output,
-                    const_value_complex_get_real_part(nodecl_get_constant(nodecl_expr)));
-        }
-        else
-        {
-            nodecl_set_constant(*nodecl_output,
-                    const_value_complex_get_imag_part(nodecl_get_constant(nodecl_expr)));
+            int num_accessors = const_value_object_get_num_accessors(cval) + 1;
+
+            subobject_accessor_t accessors[num_accessors];
+            scope_entry_t* base = const_value_object_get_base(cval);
+            const_value_object_get_all_accessors(cval, accessors);
+
+            // gcc represents _Complex like if they were a struct, so
+            // SUBOBJ_MEMBER seems appropiate here
+            accessors[num_accessors - 1].kind = SUBOBJ_MEMBER;
+            if (is_real)
+            {
+                accessors[num_accessors - 1].index = const_value_get_signed_int(0);
+            }
+            else
+            {
+                accessors[num_accessors - 1].index = const_value_get_signed_int(1);
+            }
+
+            cval = const_value_make_object(base, num_accessors, accessors);
+
+            nodecl_set_constant(*nodecl_output, cval);
         }
     }
-#endif
+    else
+    {
+        if (nodecl_is_constant(nodecl_expr)
+                && const_value_is_complex(nodecl_get_constant(nodecl_expr)))
+        {
+            const_value_t* cval = nodecl_get_constant(nodecl_expr);
+            if (is_real)
+            {
+                cval = const_value_complex_get_real_part(cval);
+            }
+            else
+            {
+                cval = const_value_complex_get_imag_part(cval);
+            }
+            nodecl_set_constant(*nodecl_output, cval);
+        }
+    }
 }
 
 static void check_gcc_real_or_imag_part(AST expression, 
@@ -24926,7 +24956,8 @@ static const_value_t* compute_value_of_object_subobject(const_value_t* current_o
             current_object_value = const_value_get_element_num(current_object_value, idx);
         }
         else if (accessors[i].kind == SUBOBJ_MEMBER
-                && const_value_is_structured(current_object_value))
+                && (const_value_is_structured(current_object_value)
+                    || const_value_is_complex(current_object_value)))
         {
             int num_elements = const_value_get_num_elements(current_object_value);
             int idx = const_value_cast_to_signed_int(accessors[i].index);
