@@ -10281,6 +10281,101 @@ void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
             /* prototype_context */ NULL, nodecl_output);
 }
 
+static template_parameter_list_t* duplicate_template_parameter_list(
+        template_parameter_list_t* orig_tpl_list)
+{
+    template_parameter_list_t *current_tpl_list = NEW(template_parameter_list_t);
+    *current_tpl_list = *orig_tpl_list;
+    current_tpl_list->parameters = NEW_VEC(template_parameter_t*, current_tpl_list->num_parameters);
+    memcpy(current_tpl_list->parameters,
+            orig_tpl_list->parameters,
+            sizeof(*orig_tpl_list->parameters) * orig_tpl_list->num_parameters);
+
+    return current_tpl_list;
+}
+
+static template_parameter_list_t* hide_template_parameters_because_of_members(
+        const decl_context_t* decl_context,
+        scope_entry_t* member,
+        template_parameter_list_t* orig_tpl_list)
+{
+    if (orig_tpl_list == NULL)
+        return NULL;
+
+    template_parameter_list_t* enclosing = hide_template_parameters_because_of_members(
+            decl_context,
+            member,
+            orig_tpl_list->enclosing);
+
+    template_parameter_list_t* current_tpl_list = orig_tpl_list;
+
+    if (enclosing != orig_tpl_list->enclosing)
+    {
+        // Duplicate the list if the enclosing list has changed
+        current_tpl_list = duplicate_template_parameter_list(orig_tpl_list);
+        current_tpl_list->enclosing = enclosing;
+    }
+
+    int i;
+    for (i = 0; i < current_tpl_list->num_parameters; i++)
+    {
+        template_parameter_t* current_tpl = current_tpl_list->parameters[i];
+
+        if (current_tpl == NULL
+                || current_tpl->entry == NULL
+                || current_tpl->entry->symbol_name == NULL)
+            continue;
+
+
+        nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(
+                current_tpl->entry->symbol_name,
+                current_tpl->entry->locus);
+
+        scope_entry_list_t *entry_list = query_nodecl_name_in_class(
+                decl_context,
+                member,
+                nodecl_name,
+                /* field_path */ NULL);
+
+        nodecl_free(nodecl_name);
+
+        char hidden_by_class = (entry_list != NULL);
+        entry_list_free(entry_list);
+
+        if (hidden_by_class)
+        {
+            if (current_tpl_list == orig_tpl_list)
+            {
+                // Duplicate the list if it has to change
+                current_tpl_list = duplicate_template_parameter_list(orig_tpl_list);
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "BUILDSCOPE: Hiding template parameter '%s' (%d, %d)\n",
+                        current_tpl->entry->symbol_name,
+                        symbol_entity_specs_get_template_parameter_nesting(current_tpl->entry),
+                        symbol_entity_specs_get_template_parameter_position(current_tpl->entry));
+            }
+
+            template_parameter_t* new_tpl = NEW(template_parameter_t);
+            *new_tpl = *current_tpl;
+
+            // Make a clone here
+            new_tpl->entry = NEW0(scope_entry_t);
+            *new_tpl->entry = *current_tpl->entry;
+            symbol_entity_specs_copy_from(new_tpl->entry, current_tpl->entry);
+            uniquestr_sprintf(&new_tpl->entry->symbol_name, "__hidden_tpl__param_%d_%d__",
+                    symbol_entity_specs_get_template_parameter_nesting(current_tpl->entry),
+                    symbol_entity_specs_get_template_parameter_position(current_tpl->entry));
+
+            current_tpl_list->parameters[i] = new_tpl;
+        }
+    }
+
+    return current_tpl_list;
+}
+
 /*
  * This is the actual implementation of 'compute_declarator_type'
  */
@@ -10381,7 +10476,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
                 name = ASTSon0(name);
             }
 
-            scope_entry_list_t* symbols = query_nested_name(decl_context, 
+            scope_entry_list_t* symbols = query_nested_name(decl_context,
                     global_op, nested_name, name, NULL);
 
             if (symbols == NULL)
@@ -10397,13 +10492,39 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
 
             // Update the entity context, inheriting the template_scope
             decl_context_t* updated_entity_context = decl_context_clone(first_symbol->decl_context);
-            updated_entity_context->template_parameters = decl_context->template_parameters;
+            if (symbol_entity_specs_get_is_member(first_symbol))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "BUILDSCOPE: The qualified symbol is a member, checking if we have to hide template parameters\n");
+                }
+                updated_entity_context->template_parameters =
+                    hide_template_parameters_because_of_members(decl_context,
+                            named_type_get_symbol(symbol_entity_specs_get_class_type(first_symbol)),
+                            decl_context->template_parameters);
+                DEBUG_CODE()
+                {
+                    if (updated_entity_context->template_parameters == decl_context->template_parameters)
+                    {
+                        fprintf(stderr, "BUILDSCOPE: No template parameter was hidden\n");
+                    }
+                    else
+                    {
+                        fprintf(stderr, "BUILDSCOPE: Some template parameters were hidden\n");
+                    }
+                }
+            }
+            else
+            {
+                updated_entity_context->template_parameters = decl_context->template_parameters;
+            }
 
             entity_context = updated_entity_context;
 
             if (prototype_context != NULL)
             {
                 decl_context_t* updated_prototype_context = decl_context_clone(*prototype_context);
+                updated_prototype_context->template_parameters = entity_context->template_parameters;
                 updated_prototype_context->current_scope->contained_in = first_symbol->decl_context->current_scope;
                 updated_prototype_context->namespace_scope = first_symbol->decl_context->namespace_scope;
                 updated_prototype_context->class_scope = first_symbol->decl_context->class_scope;
