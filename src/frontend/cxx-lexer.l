@@ -1155,7 +1155,7 @@ type {
 
  /* escaped new line does not end comment */
 <linecomment>\\\n   { update_location(); }
-<linecomment>.*      { update_location(); }
+<linecomment>(([^\])|([\][^\n]))+      { update_location(); }
 <linecomment>\n     { update_location(); BEGIN(INITIAL); }
 
  /* long C comments. tags can be splitted across diferent lines */
@@ -1165,7 +1165,7 @@ type {
     BEGIN(longcomment); 
 }
 <longcomment>\n             { update_location(); }
-<longcomment>.*              { update_location(); }
+<longcomment>(([^*])|("*"(\\\n)*[^/]))+  { update_location(); }
 <longcomment>"*"(\\\n)*"/"  { 
     update_location();
     BEGIN(INITIAL); 
