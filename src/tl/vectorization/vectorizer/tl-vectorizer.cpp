@@ -52,6 +52,7 @@ namespace Vectorization
     FunctionVersioning Vectorizer::_function_versioning;
     VectorizationAnalysisInterface *Vectorizer::_vectorizer_analysis = 0;
     bool Vectorizer::_gathers_scatters_disabled(false);
+    bool Vectorizer::_unaligned_accesses_disabled(false);
     TL::Symbol Vectorizer::_analysis_func;
 
 
@@ -734,6 +735,11 @@ namespace Vectorization
     void Vectorizer::disable_gathers_scatters()
     {
         _gathers_scatters_disabled = true;
+    }
+
+    void Vectorizer::disable_unaligned_accesses()
+    {
+        _unaligned_accesses_disabled = true;
     }
 }
 }

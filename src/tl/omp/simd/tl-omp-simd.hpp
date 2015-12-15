@@ -59,6 +59,7 @@ namespace TL
                 std::string _knl_enabled_str;
                 std::string _spml_enabled_str;
                 std::string _only_adjacent_accesses_str;
+                std::string _only_aligned_accesses_str;
                 std::string _overlap_in_place_str;
 
                 bool _simd_enabled;
@@ -71,6 +72,7 @@ namespace TL
                 bool _knl_enabled;
                 bool _spml_enabled;
                 bool _only_adjacent_accesses_enabled;
+                bool _only_aligned_accesses_enabled;
                 bool _overlap_in_place;
 
                 void set_simd(const std::string simd_enabled_str);
@@ -83,6 +85,7 @@ namespace TL
                 void set_knl(const std::string knl_enabled_str);
                 void set_spml(const std::string spml_enabled_str);
                 void set_only_adjcent_accesses(const std::string only_adjacent_accesses_str);
+                void set_only_aligned_accesses(const std::string only_aligned_accesses_str);
                 void set_overlap_in_place(const std::string overlap_in_place_str);
         };
 
@@ -136,6 +139,7 @@ namespace TL
                 SimdProcessingBase(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses,
+                        bool only_aligned_accesses,
                         bool overlap_in_place);
         };
 
@@ -151,6 +155,7 @@ namespace TL
                 SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses,
+                        bool only_aligned_accesses,
                         bool overlap_in_place);
                 ~SimdVisitor();
 
@@ -181,6 +186,7 @@ namespace TL
                 SimdPreregisterVisitor(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses,
+                        bool only_aligned_accesses,
                         bool overlap_in_place);
                 ~SimdPreregisterVisitor();
 
@@ -191,8 +197,11 @@ namespace TL
         {
             public:
                 SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled,
-                        bool only_adjacent_accesses, bool overlap_in_place);
+                        bool fast_math_enabled,
+                        bool svml_enabled,
+                        bool only_adjacent_accesses,
+                        bool only_aligned_accesses,
+                        bool overlap_in_place);
 
                 using SimdVisitor::visit;
                 virtual void visit(const Nodecl::OpenMP::SimdParallel& simd_node);
