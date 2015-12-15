@@ -199,7 +199,7 @@ Source LoweringVisitor::fill_const_wd_info(
                 num_copies << num_static_copies << " + ";
             }
 
-            num_copies << as_expression(count_dynamic_dependences(outline_info));
+            num_copies << as_expression(count_dynamic_copies(outline_info));
         }
         else
         {
