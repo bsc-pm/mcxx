@@ -290,15 +290,42 @@ namespace Vectorization
         }
         else if (n.is<Nodecl::ArraySubscript>())
         {
+            Nodecl::ArraySubscript n_array = n.as<Nodecl::ArraySubscript>();
+            
+            Nodecl::NodeclBase n_subscripted = n_array.get_subscripted();
+            Nodecl::NodeclBase n_subscripts = n_array.get_subscripts();
+
             for(const auto& aligned_expr : _aligned_expressions)
             {
                 if (aligned_expr.first.is<Nodecl::ArraySubscript>())
                 {
-                    // TODO!!!
+                    Nodecl::ArraySubscript aligned_expr_array = aligned_expr.first.as<Nodecl::ArraySubscript>();
 
-                    return aligned_expr.second;
+                    Nodecl::NodeclBase ae_subscripted = aligned_expr_array.get_subscripted();
+                    Nodecl::List ae_subscripts_list = aligned_expr_array.get_subscripts().as<Nodecl::List>();
+
+                    ERROR_CONDITION(ae_subscripts_list.size() != 1, "Unsupported aligned expression range: %s. Size != 1",
+                            aligned_expr_array.prettyprint().c_str());
+                    ERROR_CONDITION(!ae_subscripts_list.front().is<Nodecl::Range>(), "Unsupported aligned expression: %s. Range expected",
+                            aligned_expr_array.prettyprint().c_str());
+                    ERROR_CONDITION(!ae_subscripted.is<Nodecl::Symbol>(), "Unsupported aligned expression: %s. Symbol expected",
+                            aligned_expr_array.prettyprint().c_str());
+
+                    Nodecl::Range ae_range = ae_subscripts_list.front().as<Nodecl::Range>();
+                    ERROR_CONDITION(!ae_range.get_lower().is_constant(), "Unsupported aligned expression range (lower): %s",
+                            ae_range.prettyprint().c_str());
+                    ERROR_CONDITION(!ae_range.get_upper().is_null(), "Unsupported aligned expression range (upper): %s",
+                            ae_range.prettyprint().c_str());
+
+                    if (Nodecl::Utils::structurally_equal_nodecls(
+                                ae_subscripted, n_subscripted, true))
+                    {
+                        return aligned_expr.second;
+                    }
                 }
             }
+
+            return -1; // Unaligned
         }
 
         internal_error("Unexpected expression as aligned expression", 0);
