@@ -16909,6 +16909,7 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
 
     if (is_named_type(orig))
     {
+
         if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
                 && named_type_get_symbol(orig)->decl_context->current_scope != NULL
                 && named_type_get_symbol(orig)->decl_context->current_scope->kind == BLOCK_SCOPE)
@@ -16919,8 +16920,22 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
         else if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
                 && !is_dependent_type(named_type_get_symbol(orig)->type_information))
         {
+            // Avoid advancing typedefs that point to unqualified vector types
+            // because gcc does not handle them very well
+            type_t* dest = named_type_get_symbol(orig)->type_information;
+            if (!is_named_type(dest)
+                    && is_vector_type(dest)
+                    && !is_named_type(vector_type_get_element_type(dest))
+                    && get_cv_qualifier(dest) == CV_NONE
+                    // Maybe the next one is checking too much
+                    && get_cv_qualifier(vector_type_get_element_type(dest)) == CV_NONE)
+            {
+                // bail out, this is likely __m128 or something similar
+                return orig;
+            }
+
             // typedefs that are not local but are not dependent either
-            result = rewrite_redundant_typedefs(named_type_get_symbol(orig)->type_information);
+            result = rewrite_redundant_typedefs(dest);
         }
         else
         {

@@ -2162,6 +2162,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
     parameter = advance_over_typedefs_with_cv_qualif(parameter, &cv_qualif_param);
 
     cv_qualifier_t cv_qualif_argument = CV_NONE;
+    type_t* orig_argument = argument;
     argument = advance_over_typedefs_with_cv_qualif(argument, &cv_qualif_argument);
 
     if (is_named_type(parameter)
@@ -2219,7 +2220,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
 
             deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
             new_deduced_argument->type =
-                get_cv_qualified_type(argument, new_cv_qualifier);
+                get_cv_qualified_type(orig_argument, new_cv_qualifier);
             new_deduction->deduced_parameters[pack_index] = new_deduced_argument;
 
             DEBUG_CODE()
@@ -2234,7 +2235,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         else
         {
             deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
-            new_deduced_argument->type = get_cv_qualified_type(argument, new_cv_qualifier);
+            new_deduced_argument->type = get_cv_qualified_type(orig_argument, new_cv_qualifier);
             P_LIST_ADD(new_deduction->deduced_parameters,
                     new_deduction->num_deduced_parameters,
                     new_deduced_argument);
