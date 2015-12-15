@@ -59,6 +59,7 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
                 static bool _gathers_scatters_disabled;
+                static bool _unaligned_accesses_disabled;
                 static TL::Symbol _analysis_func;
 
                 bool _svml_sse_enabled;
@@ -155,6 +156,7 @@ namespace TL
                 void enable_svml_knl();
                 void enable_fast_math();
                 void disable_gathers_scatters();
+                void disable_unaligned_accesses();
         };
    }
 }

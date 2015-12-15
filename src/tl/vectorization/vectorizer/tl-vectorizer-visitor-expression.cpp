@@ -726,15 +726,21 @@ namespace Vectorization
                 }
 
             }
-            else if (alignment_output != -1)
+            else
             {
-                load_flags.append(Nodecl::AlignmentInfo::make(
-                            const_value_get_signed_int(alignment_output)));
-
-                VECTORIZATION_DEBUG()
+                ERROR_CONDITION(Vectorizer::_unaligned_accesses_disabled,
+                        "%s is an unaligned vector load. Unaligned accesses are disabled",
+                        n.prettyprint().c_str());
+                if (alignment_output != -1) // a known unaligned load
                 {
-                    fprintf(stderr, " (alignment info = %d)",
-                            alignment_output);
+                    load_flags.append(Nodecl::AlignmentInfo::make(
+                                const_value_get_signed_int(alignment_output)));
+
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr, " (alignment info = %d)",
+                                alignment_output);
+                    }
                 }
             }
 
@@ -992,15 +998,21 @@ namespace Vectorization
                     fprintf(stderr, " (aligned)");
                 }
             }
-            else if (alignment_output != -1)
+            else
             {
-                store_flags.append(Nodecl::AlignmentInfo::make(
-                            const_value_get_signed_int(alignment_output)));
-
-                VECTORIZATION_DEBUG()
+                ERROR_CONDITION(Vectorizer::_unaligned_accesses_disabled,
+                        "%s is an unaligned vector store. Unaligned accesses are disabled",
+                        lhs.prettyprint().c_str());
+                if (alignment_output != -1) // a known unaligned store
                 {
-                    fprintf(stderr, " (alignment info = %d)",
-                            alignment_output);
+                    store_flags.append(Nodecl::AlignmentInfo::make(
+                                const_value_get_signed_int(alignment_output)));
+
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr, " (alignment info = %d)",
+                                alignment_output);
+                    }
                 }
             }
 

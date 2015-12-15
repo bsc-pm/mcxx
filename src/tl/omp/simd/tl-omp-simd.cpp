@@ -53,6 +53,7 @@ namespace TL {
             _knl_enabled(false),
             _spml_enabled(false),
             _only_adjacent_accesses_enabled(false),
+            _only_aligned_accesses_enabled(false),
             _overlap_in_place(false)
         {
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
@@ -106,6 +107,11 @@ namespace TL {
                     "If set to '1' disables emission of gather/scatter vector instructions",
                     _only_adjacent_accesses_str,
                     "0").connect(std::bind(&Simd::set_only_adjcent_accesses, this, std::placeholders::_1));
+
+            register_parameter("only_aligned_accesses",
+                    "If set to '1' disables emission of unaligned memory accesses",
+                    _only_aligned_accesses_str,
+                    "0").connect(std::bind(&Simd::set_only_aligned_accesses, this, std::placeholders::_1));
 
             register_parameter("overlap_in_place",
                     "Enables overlap register cache update in place and not at the beginning of the BB",
@@ -162,10 +168,19 @@ namespace TL {
         void Simd::set_only_adjcent_accesses(
                 const std::string only_adjacent_accesses_str)
         {
-            if (only_adjacent_accesses_str == "1")
-            {
-                _only_adjacent_accesses_enabled = true;
-            }
+            parse_boolean_option("only_adjacent_accesses",
+                    only_adjacent_accesses_str,
+                    _only_adjacent_accesses_enabled,
+                    "Invalid only_adjacent_accesses value");
+        }
+
+        void Simd::set_only_aligned_accesses(
+                const std::string only_aligned_accesses_str)
+        {
+            parse_boolean_option("only_aligned_accesses",
+                    only_aligned_accesses_str,
+                    _only_aligned_accesses_enabled,
+                    "Invalid only_aligned_accesses value");
         }
 
         void Simd::set_overlap_in_place(const std::string overlap_in_place_str)
@@ -250,17 +265,23 @@ namespace TL {
                     fprintf(stderr, " -- SPML OpenMP enabled -- \n");
                     SimdSPMLVisitor spml_visitor(
                             simd_isa, _fast_math_enabled, _svml_enabled,
-                            _only_adjacent_accesses_enabled, _overlap_in_place);
+                            _only_adjacent_accesses_enabled,
+                            _only_aligned_accesses_enabled,
+                            _overlap_in_place);
                     spml_visitor.walk(translation_unit);
                 }
                 else
                 {
                     SimdPreregisterVisitor simd_preregister_visitor(simd_isa, _fast_math_enabled, _svml_enabled,
-                            _only_adjacent_accesses_enabled, _overlap_in_place);
+                            _only_adjacent_accesses_enabled,
+                            _only_aligned_accesses_enabled,
+                            _overlap_in_place);
                     simd_preregister_visitor.walk(translation_unit);
 
                     SimdVisitor simd_visitor(simd_isa, _fast_math_enabled, _svml_enabled,
-                            _only_adjacent_accesses_enabled, _overlap_in_place);
+                            _only_adjacent_accesses_enabled,
+                            _only_aligned_accesses_enabled,
+                            _overlap_in_place);
                     simd_visitor.walk(translation_unit);
                 }
             }
@@ -271,8 +292,10 @@ namespace TL {
         }
 
         SimdProcessingBase::SimdProcessingBase(Vectorization::SIMDInstructionSet simd_isa,
-                bool fast_math_enabled, bool svml_enabled,
+                bool fast_math_enabled,
+                bool svml_enabled,
                 bool only_adjacent_accesses,
+                bool only_aligned_accesses,
                 bool overlap_in_place)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer()), _fast_math_enabled(fast_math_enabled),
                     _overlap_in_place(overlap_in_place)
@@ -285,6 +308,11 @@ namespace TL {
             if (only_adjacent_accesses)
             {
                 _vectorizer.disable_gathers_scatters();
+            }
+
+            if (only_aligned_accesses)
+            {
+                _vectorizer.disable_unaligned_accesses();
             }
 
             _fixed_vectorization_factor = 0;
@@ -380,9 +408,17 @@ namespace TL {
 
 
         SimdPreregisterVisitor::SimdPreregisterVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                bool fast_math_enabled, bool svml_enabled,
-                bool only_adjacent_accesses, bool overlap_in_place)
-            : SimdProcessingBase(simd_isa, fast_math_enabled, svml_enabled, only_adjacent_accesses, overlap_in_place)
+                bool fast_math_enabled,
+                bool svml_enabled,
+                bool only_adjacent_accesses,
+                bool only_aligned_accesses,
+                bool overlap_in_place)
+            : SimdProcessingBase(simd_isa,
+                    fast_math_enabled,
+                    svml_enabled,
+                    only_adjacent_accesses,
+                    only_aligned_accesses,
+                    overlap_in_place)
         {
         }
 
@@ -392,9 +428,17 @@ namespace TL {
         }
 
         SimdVisitor::SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                bool fast_math_enabled, bool svml_enabled,
-                bool only_adjacent_accesses, bool overlap_in_place)
-            : SimdProcessingBase(simd_isa, fast_math_enabled, svml_enabled, only_adjacent_accesses, overlap_in_place)
+                bool fast_math_enabled,
+                bool svml_enabled,
+                bool only_adjacent_accesses,
+                bool only_aligned_accesses,
+                bool overlap_in_place)
+            : SimdProcessingBase(simd_isa,
+                    fast_math_enabled,
+                    svml_enabled,
+                    only_adjacent_accesses,
+                    only_aligned_accesses,
+                    overlap_in_place)
         {
         }
 
@@ -1846,13 +1890,20 @@ namespace TL {
         }
 
         SimdSPMLVisitor::SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                bool fast_math_enabled, bool svml_enabled,
-                bool only_adjacent_accesses, bool overlap_in_place)
-            : SimdVisitor(simd_isa, fast_math_enabled, svml_enabled,
-                    only_adjacent_accesses, overlap_in_place)
+                bool fast_math_enabled,
+                bool svml_enabled,
+                bool only_adjacent_accesses,
+                bool only_aligned_accesses,
+                bool overlap_in_place)
+            : SimdVisitor(simd_isa,
+                    fast_math_enabled,
+                    svml_enabled,
+                    only_adjacent_accesses,
+                    only_aligned_accesses,
+                    overlap_in_place)
         {
         }
-        
+
         void SimdSPMLVisitor::visit(const Nodecl::OpenMP::SimdParallel& simd_node)
         {
             Nodecl::OpenMP::Parallel omp_parallel = simd_node.
