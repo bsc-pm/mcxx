@@ -91,7 +91,7 @@ void DeviceOpenCL::generate_ndrange_code(
 
     // The syntax of ndrange is
     //
-    //     ndrange(N, [offset-list,] global-list, local-list)
+    //     ndrange(N, global-list [, local-list])
     //
     // Each X-list has as much as N elements
 
@@ -101,7 +101,6 @@ void DeviceOpenCL::generate_ndrange_code(
     // pop_front
     new_ndrange.erase(new_ndrange.begin()); // remove "N"
 
-    TL::ObjectList<Nodecl::NodeclBase> offset_list;
     TL::ObjectList<Nodecl::NodeclBase> global_list;
     TL::ObjectList<Nodecl::NodeclBase> local_list;
 
@@ -115,14 +114,14 @@ void DeviceOpenCL::generate_ndrange_code(
                     "number of dimensions for 'ndrange' clause is not 1, 2 or 3\n");
         }
 
-        if ((num_dims * 2) != (int)new_ndrange.size()
-                && (num_dims * 3) != (int)new_ndrange.size())
+        if (num_dims != (int)new_ndrange.size()
+                && (num_dims * 2) != (int)new_ndrange.size())
         {
             fatal_printf_at(num_dims_expr.get_locus(),
                     "a 'ndrange(%d, argument-list)' clause requires %d or %d arguments in argument-list\n",
                     num_dims,
-                    num_dims * 2,
-                    num_dims * 3);
+                    num_dims ,
+                    num_dims * 2);
         }
     }
 
@@ -226,30 +225,23 @@ void DeviceOpenCL::generate_ndrange_code(
         {
             // ndrange(global-list, local-list)
             int i = 0;
-            for (int k = 0; k < num_dims; k++, i++)
+            for (; i < num_dims; i++)
             {
-                global_list.append(new_ndrange[i + k]);
+                global_list.append(new_ndrange[i]);
             }
-            for (int k = 0; k < num_dims; k++, i++)
+            for (; i < num_dims*2; i++)
             {
-                local_list.append(new_ndrange[i + k]);
+                local_list.append(new_ndrange[i]);
             }
         }
-        else if (num_dims * 3 == (int)new_ndrange.size())
+        // locals are not specified here
+        else if (num_dims == (int)new_ndrange.size())
         {
-            // ndrange(offset-list, global-list, local-list)
+            // ndrange(global-list)
             int i = 0;
             for (int k = 0; k < num_dims; k++, i++)
             {
-                offset_list.append(new_ndrange[i + k]);
-            }
-            for (int k = 0; k < num_dims; k++, i++)
-            {
-                global_list.append(new_ndrange[i + k]);
-            }
-            for (int k = 0; k < num_dims; k++, i++)
-            {
-                local_list.append(new_ndrange[i + k]);
+                global_list.append(new_ndrange[i]);
             }
         }
         else
@@ -257,78 +249,44 @@ void DeviceOpenCL::generate_ndrange_code(
             internal_error("Code unreachable", 0);
         }
 
-        //Prepare ndrange calc pointers and arrays
+        bool there_is_local_size = !local_list.empty();
+
+        // Prepare ndrange calc pointers and arrays
+        if (there_is_local_size)
+        {
+            code_ndrange_aux
+                << "size_t local_size_arr[" << num_dims << "];"
+                ;
+        }
         code_ndrange_aux
-            << "size_t offset_arr[" << num_dims << "];"
-            << "size_t local_size_arr[" << num_dims << "];"
             << "size_t global_size_arr[" << num_dims << "];"
-            << as_type(TL::Type::get_bool_type()) << " local_size_zero;"
-            << "local_size_zero = (" << as_type(TL::Type::get_bool_type()) << ")0;"
             ;
 
         for (int i = 0; i < num_dims; i++)
         {
-            code_ndrange_aux << "offset_arr[" << i << "] = ";
-            if (i < (int)offset_list.size())
+            if (there_is_local_size)
             {
-                code_ndrange_aux << as_expression(offset_list[i]);
+                code_ndrange_aux
+                    << "local_size_arr[" << i << "] = " << as_expression(local_list[i]) << ";"
+                    ;
             }
-            else
-            {
-                code_ndrange_aux << 0;
-            }
-            code_ndrange_aux << ";"
-                ;
-
             code_ndrange_aux
-                << "local_size_arr[" << i << "] = " << as_expression(local_list[i]) << ";"
-                << "if (local_size_arr[" << i  << "] == 0)"
-                << "{"
-                        // Recall if any of the local sizes was zero
-                <<      "local_size_zero = (" << as_type(TL::Type::get_bool_type()) << ")1;"
-                << "}"
                 << "global_size_arr[" << i << "] = " << as_expression(global_list[i]) << ";"
                 ;
         }
 
-
-        code_ndrange_aux
-            << "if (!local_size_zero)"
-            << "{"
-                    // If no local_size is zero, then perform some adjustments
-            <<      "int i;"
-            <<      "for (i = 0; i < " << num_dims << "; i = i + 1)"
-            <<      "{"
-            <<           "if (global_size_arr[i] < local_size_arr[i])"
-            <<           "{"
-                             // local_size_arr[i] = min(global_size_arr[i], local_size_arr[i])
-            <<               "local_size_arr[i] = global_size_arr[i];"
-            <<           "}"
-            <<           "else"
-            <<           "{"
-            <<               "if (global_size_arr[i] % local_size_arr[i] != 0)"
-            <<               "{"
-                                 // Make global_size_arr[i] a multiple of local_size_arr[i]
-            <<                   "global_size_arr[i] = global_size_arr[i]"
-            <<                       " + (local_size_arr[i] - global_size_arr[i] % local_size_arr[i]);"
-            <<               "}"
-            <<           "}"
-            <<      "}"
-            << "}"
-            ;
-
-        code_ndrange_aux
-            << "if (local_size_zero)"
-            << "{"
-                    // Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
-            <<      "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, " << num_dims << ", offset_arr, 0, global_size_arr);"
-            << "}"
-            << "else"
-            << "{"
-                    // Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
-            <<      "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, " << num_dims << ", offset_arr, local_size_arr, global_size_arr);"
-            << "}"
-            ;
+        if (there_is_local_size)
+        {
+            // Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
+            code_ndrange_aux << "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, " << num_dims << ", local_size_arr, global_size_arr);"
+                ;
+        }
+        else
+        {
+            // Let the runtime choose the best local size
+            code_ndrange_aux << "nanos_err = nanos_profile_exec_kernel(ompss_kernel_ocl, " << num_dims << ", global_size_arr);"
+                ;
+        }
     }
 
     if (IS_FORTRAN_LANGUAGE)
