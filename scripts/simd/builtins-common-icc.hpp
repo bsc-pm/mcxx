@@ -29,6 +29,22 @@ GENERATE_VECTOR(m512)
 GENERATE_VECTOR(m512i)
 GENERATE_VECTOR(m512d)
 
+struct generate_type__int64
+{
+    static std::string g()
+    {
+        return "(type_get_size(get_signed_long_int_type()) == 8 ? get_signed_long_int_type() : get_signed_long_long_int_type())";
+    }
+};
+
+struct generate_type__uint64
+{
+    static std::string g()
+    {
+        return "(type_get_size(get_unsigned_long_int_type()) == 8 ? get_unsigned_long_int_type() : get_unsigned_long_long_int_type())";
+    }
+};
+
 // HACK HACK HACK
 // Welcome to the hell of typesystems.
 // You are not expected to understand this
@@ -41,7 +57,7 @@ struct Extract1<R(T)> { typedef T type; };
 template <typename P> struct Extract1<P*> : Extract1<P> { };
 
 template <>
-struct generate_type<Extract1<decltype(_bswap64)>::type > : generate_type<long long> { };
+struct generate_type<Extract1<decltype(_bswap64)>::type > : generate_type__int64 { };
 
 template <typename T>
 struct Extract0;
@@ -51,7 +67,7 @@ template <typename P>
 struct Extract0<P*> : Extract0<P> { };
 
 template <>
-struct generate_type<Extract1<decltype(_castu64_f64)>::type > : generate_type<unsigned long long> { };
+struct generate_type<Extract1<decltype(_castu64_f64)>::type > : generate_type__uint64 { };
 // End of HACK HACK HACK
 
 #endif // BUILTINS_COMMON_ICC_HPP
