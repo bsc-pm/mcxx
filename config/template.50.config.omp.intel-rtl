@@ -1,6 +1,7 @@
 [intel-mcc : intel-omp-base]
 language = C
 options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+{!disable-intel-intrinsics} options = --enable-intel-intrinsics
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
@@ -17,6 +18,7 @@ linker_name = @ICC@
 language = C++
 {openmp} preprocessor_options = -include new 
 options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
+{!disable-intel-intrinsics} options = --enable-intel-intrinsics
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@

@@ -502,6 +502,9 @@ typedef struct compilation_configuration_tag
     // Enable Intel C/C++ builtins syntax
     char enable_intel_builtins_syntax;
 
+    // Enable Intel C/C++ builtin intrinsics
+    char enable_intel_intrinsics;
+
     // Enable special vector types for Intel SSE/AVX
     // struct __m128, struct __m256
     char enable_intel_vector_types;

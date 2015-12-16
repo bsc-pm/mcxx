@@ -387,6 +387,7 @@ typedef enum
     OPTION_EMPTY_SENTINELS,
     OPTION_ENABLE_CUDA,
     OPTION_ENABLE_INTEL_BUILTINS_SYNTAX,
+    OPTION_ENABLE_INTEL_INTRINSICS,
     OPTION_ENABLE_INTEL_VECTOR_TYPES,
     OPTION_ENABLE_MS_BUILTIN,
     OPTION_ENABLE_OPENCL,
@@ -519,6 +520,7 @@ struct command_line_long_options command_line_long_options[] =
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
     {"enable-intel-builtins-syntax", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_BUILTINS_SYNTAX },
+    {"enable-intel-intrinsics", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_INTRINSICS },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
@@ -1367,6 +1369,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_ENABLE_INTEL_VECTOR_TYPES:
                     {
                         CURRENT_CONFIGURATION->enable_intel_vector_types = 1;
+                        break;
+                    }
+                case OPTION_ENABLE_INTEL_INTRINSICS:
+                    {
+                        CURRENT_CONFIGURATION->enable_intel_intrinsics = 1;
                         break;
                     }
                 case OPTION_PASS_THROUGH:
