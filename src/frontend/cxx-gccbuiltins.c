@@ -3539,7 +3539,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
 
 // MMX registers. Completely untyped
 static type_t* __m64_struct_type = NULL;
-type_t* get_m64_struct(void)
+type_t* get_m64_struct_type(void)
 {
     return __m64_struct_type;
 }
