@@ -13995,10 +13995,15 @@ static char find_function_declaration(AST declarator_id,
                     if (!function_type_get_lacking_prototype(function_type_being_declared)
                             && !function_type_get_lacking_prototype(considered_type))
                     {
-                        error_printf_at(ast_get_locus(declarator_id), "function '%s' has been declared with different prototype (see '%s')\n",
-                                ASTText(declarator_id),
-                                locus_to_str(entry->locus)
-                                );
+                        error_printf_at(ast_get_locus(declarator_id),
+                                "function '%s' has been declared with different prototype\n",
+                                ASTText(declarator_id));
+                        info_printf_at(entry->locus,
+                                "previous declaration is '%s'\n",
+                                print_decl_type_str(considered_type, decl_context, entry->symbol_name));
+                        info_printf_at(ast_get_locus(declarator_id),
+                                "current declaration is '%s'\n",
+                                print_decl_type_str(function_type_being_declared, decl_context, entry->symbol_name));
                         return 0;
                     }
                     result_function_list = entry_list_add(result_function_list, considered_symbol);
