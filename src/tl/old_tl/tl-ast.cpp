@@ -128,7 +128,7 @@ namespace TL
         FILE *file = fopen(compiled_file.get_filename().c_str(), "a");
         if (file == NULL)
         {
-            running_error("Could not open output file '%s' (%s)\n", 
+            fatal_error("Could not open output file '%s' (%s)\n", 
                     compiled_file.get_filename().c_str(), 
                     strerror(errno));
         }

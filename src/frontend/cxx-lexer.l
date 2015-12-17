@@ -94,6 +94,9 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_union", GXX_IS_UNION },
     { "__is_final", GXX_IS_FINAL },
     { "__underlying_type", GXX_UNDERLYING_TYPE },
+    { "__is_trivially_assignable", GXX_IS_TRIVIALLY_ASSIGNABLE },
+    { "__is_trivially_constructible", GXX_IS_TRIVIALLY_CONSTRUCTIBLE },
+    { "__is_trivially_copyable", GXX_IS_TRIVIALLY_COPYABLE },
     // Sentinel
     { NULL, 0 },
 };
@@ -153,7 +156,7 @@ static lexer_keyword_t ms_builtin_types[] =
     { NULL, 0 }
 };
 
-static lexer_keyword_t intel_builtins[] =
+static lexer_keyword_t intel_builtins_syntax[] =
 {
     {"__assume", INTEL_ASSUME},
     {"__assume_aligned", INTEL_ASSUME_ALIGNED},
@@ -310,16 +313,16 @@ longlongsuffix [lL][lL]
 complexsuffix [ji]
 
  /* A.2.28 */
-cchar       ([^\\'\n]|{escape_seq}|(\\[']))
+cchar       (([^'\\\n])|(\\['])|(\\\\)|(\\[^'\\\n]+))
 
-universal4 (\\u[0-9a-fA-F]{4})
-universal8 (\\U[0-9a-fA-F]{8})
+ /* universal4 (\\u[0-9a-fA-F]{4}) */
+ /* universal8 (\\U[0-9a-fA-F]{8}) */
 
-universal ({universal4}|{universal8})
+ /* universal ({universal4}|{universal8}) */
 
  /* A.2.29 */
  /* \e is a GNU extension */
-escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+)|{universal})
+ /* escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+)|{universal}) */
  /* A.2.34 */
 fractconst  (({digit}*\.{digit}+)|({digit}+(\.)?))
  /* A.2.35 */
@@ -334,7 +337,7 @@ floatingsuffix_all ({floatingsuffix_std}|{floatingsuffix_nonstd})
  /* GNU extension for complex floating suffix */
 floatingsuffix  ({floatingsuffix_all}|{floatingsuffix_all}{complexsuffix}|{complexsuffix}{floatingsuffix_all}|{complexsuffix})
  /* A.2.40 */
-schar       ([^\\"\n]|{escape_seq}|(\\["]))
+schar       (([^"\\\n])|(\\["])|(\\\\)|(\\[^"\\\n]+))
 
 dchar [^ ()\n\v\t\r]
 rchar [^)]
@@ -345,6 +348,10 @@ binprefix   0[bB]
 
 newline ([\n]|[\r]|([\r][\n]))
 notnewline ([^\n\r])
+
+blanksinline [ \t\v\f]
+
+whitespace  (({newline})|({blanksinline}))
 
  /* C99 additional */
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
@@ -527,10 +534,11 @@ type {
 
 		if (!found)
 		{
-			warn_printf("%s:%d:%d: warning: unknown '#pragma %s'\n", 
+			warn_printf_at(make_locus(
 					scanning_now.current_filename,
 					scanning_now.line_number,
-					scanning_now.column_number,
+					scanning_now.column_number),
+                    "unknown '#pragma %s'\n", 
 					yytext);
 			BEGIN(unknown_pragma);
 			// Ignore this prefix as an unknown pragma
@@ -675,10 +683,12 @@ type {
             }
         case PDK_NONE :
             {
-                running_error("%s:%d:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
-                        scanning_now.current_filename, 
-                        line_number,
-                        column_number,
+                fatal_printf_at(
+                        make_locus(
+                            scanning_now.current_filename,
+                            line_number,
+                            column_number),
+                        "unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
                         yytext,
                         current_pragma_prefix);
             }
@@ -826,10 +836,11 @@ type {
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        warn_printf("%s:%d:%d: warning: unended custom clause. Skipping.\n",
+        warn_printf_at(make_locus(
                 scanning_now.current_filename,
                 scanning_now.line_number,
-                scanning_now.column_number);
+                scanning_now.column_number),
+                "unended custom clause. Skipping.\n");
     }
     // Head back to initial state and finish this pragma
     BEGIN(INITIAL);
@@ -1075,10 +1086,12 @@ type {
     {
         if (extern_c_block)
         {
-            warn_printf("%s:%d:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+            warn_printf(
+                    make_locus(
                     scanning_now.current_filename,
                     scanning_now.line_number,
-                    scanning_now.column_number);
+                    scanning_now.column_number),
+                    "preprocessor line marking an implicit 'extern C' block. This is not fully supported\n");
         }
     }
 #endif
@@ -1144,7 +1157,7 @@ type {
 
  /* escaped new line does not end comment */
 <linecomment>\\\n   { update_location(); }
-<linecomment>.      { update_location(); }
+<linecomment>(([^\])|([\][^\n]))+      { update_location(); }
 <linecomment>\n     { update_location(); BEGIN(INITIAL); }
 
  /* long C comments. tags can be splitted across diferent lines */
@@ -1154,7 +1167,7 @@ type {
     BEGIN(longcomment); 
 }
 <longcomment>\n             { update_location(); }
-<longcomment>.              { update_location(); }
+<longcomment>(([^*])|("*"(\\\n)*[^/]))+  { update_location(); }
 <longcomment>"*"(\\\n)*"/"  { 
     update_location();
     BEGIN(INITIAL); 
@@ -1370,7 +1383,10 @@ type {
 "__is_trivial" |
 "__is_union" |
 "__is_final" |
-"__underlying_type" {
+"__underlying_type" |
+"__is_trivially_assignable" |
+"__is_trivially_constructible" |
+"__is_trivially_copyable" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }
  /*!endif*/
@@ -1418,7 +1434,7 @@ type {
 
 "__assume" |
 "__assume_aligned" {
-    return lookup_keyword_in_table(intel_builtins, yytext, CURRENT_CONFIGURATION->enable_intel_builtins);
+    return lookup_keyword_in_table(intel_builtins_syntax, yytext, CURRENT_CONFIGURATION->enable_intel_builtins_syntax);
 }
 
 "__int128" {
@@ -1539,10 +1555,10 @@ type {
 
  /* A.2.26 */
  /*!if CPLUSPLUS*/
-[LUu]?'{cchar}*'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
+[LUu]?'{cchar}'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
  /*!endif*/
  /*!if C99*/
-L?'{cchar}*'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
+L?'{cchar}'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
  /*!endif*/
 
  /* A.2.33 */
@@ -1828,10 +1844,7 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 ">>"        { parse_token_text(); update_location(); return RIGHT; }
  /*!endif*/
 "<="        { parse_token_text(); update_location(); return LESS_OR_EQUAL; }
- /* There is no '>=' token in C++11 but AB2 followed by '=', see below */
- /*!if C99*/
 ">="        { parse_token_text(); update_location(); return GREATER_OR_EQUAL; }
- /*!endif*/
 "=="        { parse_token_text(); update_location(); return EQUAL; }
 "!="        { parse_token_text(); update_location(); return NOT_EQUAL; }
 "^"         { parse_token_text(); update_location(); return '^'; }
@@ -1845,10 +1858,7 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 "+="        { parse_token_text(); update_location(); return ADD_ASSIGN; }
 "-="        { parse_token_text(); update_location(); return SUB_ASSIGN; }
 "<<="       { parse_token_text(); update_location(); return LEFT_ASSIGN; }
- /* There is no '>>=' in C++11 but AB1 followed by 'AB2' and '=', see below */
- /*!if C99*/
 ">>="       { parse_token_text(); update_location(); return RIGHT_ASSIGN; }
- /*!endif*/
 "&="        { parse_token_text(); update_location(); return AND_ASSIGN; }
 "^="        { parse_token_text(); update_location(); return XOR_ASSIGN; }
 "|="        { parse_token_text(); update_location(); return OR_ASSIGN; }
@@ -1878,71 +1888,56 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
               }
               REJECT;
             }
->>          {
-              if (IS_CXX03_LANGUAGE)
-              {
-                parse_token_text();
-                update_location();
-                return RIGHT;
-              }
-              REJECT;
-            }
->>=         {
-              if (IS_CXX03_LANGUAGE)
-              {
-                parse_token_text();
-                update_location();
-                return RIGHT_ASSIGN;
-              }
-              REJECT;
-            }
->=          {
-              if (IS_CXX03_LANGUAGE)
-              {
-                  parse_token_text();
-                  update_location();
-                  return GREATER_OR_EQUAL;
-              }
-              REJECT;
-            }
- /* In C++2011 these three tokens behave different */
->/>         { parse_token_text(); update_location(); return AB1; }
->/=         { parse_token_text(); update_location(); return AB2; }
->/[^>=]     { parse_token_text(); update_location(); return '>'; }
- /* Pathological case (EOF and such) */
+>>=         { parse_token_text(); update_location(); return RIGHT_ASSIGN; }
+ /* In C++2011 >> is decomposed first into AB1 '>' */
+>/>[^=]     { if (!IS_CXX11_LANGUAGE)
+              { REJECT; }
+              else
+              { parse_token_text(); update_location(); return AB1; } }
+ /* Pathological case for EOF */
+>/>         { if (!IS_CXX11_LANGUAGE)
+              { REJECT; }
+              else
+              { parse_token_text(); update_location(); return AB1; } }
+>>          { parse_token_text(); update_location(); return RIGHT; }
+>=          { parse_token_text(); update_location(); return GREATER_OR_EQUAL; }
 >           { parse_token_text(); update_location(); return '>'; }
  /*!endif*/
  /*!if C99*/
-">"         { parse_token_text(); update_location(); return '>'; } 
+">"         { parse_token_text(); update_location(); return '>'; }
  /*!endif*/
 "&"         { parse_token_text(); update_location(); return '&'; }
 "*"         { parse_token_text(); update_location(); return '*'; }
-"\""        { parse_token_text(); update_location(); return '"'; }
  /*!if CPLUSPLUS*/
 "::"        { parse_token_text(); update_location(); return TWO_COLONS; }
+"::"{whitespace}*"*"  { parse_token_text(); update_location(); return TWO_COLONS_AND_STAR; }
  /*!endif*/
 "..."       { parse_token_text(); update_location(); return ELLIPSIS; }
 
 ".."        { parse_token_text(); update_location(); return TWO_DOTS; }
 
-{newline}   { update_location(); }
-[ \t\v\f]   { update_location(); }
+{newline}+        { update_location(); }
+{blanksinline}+   { update_location(); }
 <*>.           { 
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        error_printf("%s:%d:%d: error: invalid character '%c' (%#x)\n", 
-				scanning_now.current_filename,
-                scanning_now.line_number,
-                scanning_now.column_number,
+        error_printf_at(
+                make_locus(
+                    scanning_now.current_filename,
+                    scanning_now.line_number,
+                    scanning_now.column_number),
+                "invalid character '%c' (%#x)\n",
                 *yytext, *yytext);
     }
     else
     {
-        error_printf("%s:%d:%d: error: invalid character %#x\n", 
-				scanning_now.current_filename,
-                scanning_now.line_number,
-                scanning_now.column_number,
+        error_printf_at(
+                make_locus(
+                    scanning_now.current_filename,
+                    scanning_now.line_number,
+                    scanning_now.column_number),
+                "invalid character %#x\n", 
                 *yytext);
     }
     update_location();
@@ -2071,7 +2066,7 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 
 	if (file == NULL)
 	{
-		running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+		fatal_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
 	}
 
 	memset(&scanning_now, 0, sizeof(scanning_now));
@@ -2167,7 +2162,7 @@ void register_new_directive(compilation_configuration_t* configuration,
             {
                 if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
                 {
-                    warn_printf("Warning, directive or construct "
+                    warn_printf_at(NULL, "Warning, directive or construct "
                             "'%s' already registered for pragma '%s'"
                             ", ignoring additional registrations\n",
                             directive, prefix);

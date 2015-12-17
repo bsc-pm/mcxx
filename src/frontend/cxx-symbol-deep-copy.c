@@ -45,9 +45,6 @@ void symbol_deep_copy_compute_maps(scope_entry_t* dest,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map)
 {
-    ERROR_CONDITION(source->kind == SK_CLASS
-            && symbol_entity_specs_get_from_module(source) == NULL,
-            "Local class replication not implemented yet", 0);
     ERROR_CONDITION(source->kind == SK_NAMESPACE, "Namespaces should not be replicated!", 0);
 
     // Note that context is not copied, thus this symbol should already have a
@@ -58,6 +55,7 @@ void symbol_deep_copy_compute_maps(scope_entry_t* dest,
 
     dest->type_information = type_deep_copy_compute_maps(
             source->type_information,
+            dest,
             new_decl_context,
             symbol_map,
             nodecl_deep_copy_map,
@@ -93,8 +91,6 @@ void symbol_deep_copy_compute_maps(scope_entry_t* dest,
                     symbol_get_parameter_position_in_function(symbol_entity_specs_get_related_symbols_num(source, i), source));
         }
     }
-
-    // FIXME - Not copying extended data. There is no way to reliably copy such information
 }
 
 void symbol_deep_copy(scope_entry_t* dest, 

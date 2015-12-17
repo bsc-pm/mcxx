@@ -417,7 +417,7 @@ namespace Vectorization
     stride_splitter_ret_t StrideSplitterVisitor::visit(
             const Nodecl::Neg& n)
     {
-        running_error("NEG");
+        fatal_error("NEG");
         stride_splitter_ret_t rhs_ret = walk(n.get_rhs());
 
         // Base

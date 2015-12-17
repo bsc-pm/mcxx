@@ -231,6 +231,11 @@ void build_scope_nodecl_compound_statement(
         const locus_t* locus,
         nodecl_t* nodecl_output);
 
+void build_scope_nodecl_static_assert(nodecl_t nodecl_predicate,
+        nodecl_t nodecl_message,
+        const decl_context_t* decl_context,
+        nodecl_t *nodecl_single_assert);
+
 scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, const decl_context_t* block_context);
 
 MCXX_END_DECLS

@@ -41,56 +41,47 @@ LoweringVisitor::~LoweringVisitor()
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Atomic& construct)
 {
-    error_printf("%s: error: OpenMP Atomic construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), "OpenMP Atomic construct not yet implemented\n");
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
 {
-    error_printf("%s: error: OpenMP Critical construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), " OpenMP Critical construct not yet implemented\n");
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::FlushMemory& construct)
 {
-    error_printf("%s: error: OpenMP FlushMemory construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), " OpenMP FlushMemory construct not yet implemented\n");
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Sections& construct)
 {
-    error_printf("%s: error: OpenMP Sections construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), " OpenMP Sections construct not yet implemented\n");
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Workshare& construct)
 {
-    error_printf("%s: error: OpenMP Workshare construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), " OpenMP Workshare construct not yet implemented\n");
 }
 
 void LoweringVisitor::visit(const Nodecl::OmpSs::TargetDeclaration& construct)
 {
-    error_printf("%s: error: OmpSs TargetDeclaration construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), " OmpSs TargetDeclaration construct not yet implemented\n");
 }
 
 void LoweringVisitor::visit(const Nodecl::OmpSs::TaskCall& construct)
 {
-    error_printf("%s: error: OmpSs TaskCall construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), " OmpSs TaskCall construct not yet implemented\n");
 }
 
 void LoweringVisitor::visit(const Nodecl::OmpSs::TaskExpression& construct)
 {
-    error_printf("%s: error: OmpSs TaskExpression construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), " OmpSs TaskExpression construct not yet implemented\n");
 }
 
 void LoweringVisitor::visit(const Nodecl::OmpSs::WaitOnDependences& construct)
 {
-    error_printf("%s: error: OmpSs WaitOnDependences construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
+    error_printf_at(construct.get_locus(), " OmpSs WaitOnDependences construct not yet implemented\n");
 }
 
 } }

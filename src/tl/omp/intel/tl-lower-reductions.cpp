@@ -288,8 +288,8 @@ namespace TL
             TL::Symbol reduction_pack_symbol)
     {
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
 
         UpdateReductionUses update(reduction_pack_symbol, reduction_symbols);
         update.walk(node);
@@ -570,16 +570,18 @@ namespace TL
                 it != pairs.end();
                 it++)
         {
+            Nodecl::NodeclBase cast;
             initializers.append(
-                    Nodecl::Cast::make(
+                    cast = Nodecl::Conversion::make(
                         it->vertical_combiner.make_nodecl(),
-                        ptr_fun_type,
-                        /* cast_type */ "C"));
+                        ptr_fun_type));
+            cast.set_text("C");
+
             initializers.append(
-                    Nodecl::Cast::make(
+                    cast = Nodecl::Conversion::make(
                         it->horizontal_combiner.make_nodecl(),
-                        ptr_fun_type,
-                        /* cast_type */ "C"));
+                        ptr_fun_type));
+            cast.set_text("C");
         }
 
         Nodecl::NodeclBase array_initializer =

@@ -297,6 +297,11 @@ namespace TL
         return symbol_entity_specs_get_is_injected_class_name(this->_symbol);
     }
 
+    bool Symbol::is_member_static_assert() const
+    {
+        return (this->_symbol->kind == SK_MEMBER_STATIC_ASSERT);
+    }
+
     bool Symbol::is_fortran_main_program() const
     {
         return (this->_symbol->kind == SK_PROGRAM);
@@ -892,6 +897,11 @@ namespace TL
         return symbol_entity_specs_get_gcc_extension(_symbol);
     }
 
+    bool Symbol::has_alignas() const
+    {
+        return !nodecl_is_null(symbol_entity_specs_get_alignas_value(_symbol));
+    }
+
     ObjectList<GCCAttribute> Symbol::get_gcc_attributes() const
     {
         ObjectList<GCCAttribute> result;
@@ -905,6 +915,11 @@ namespace TL
     bool Symbol::has_ms_attributes() const
     {
         return (symbol_entity_specs_get_num_ms_attributes(_symbol) > 0);
+    }
+
+    Nodecl::NodeclBase Symbol::get_alignas() const
+    {
+        return symbol_entity_specs_get_alignas_value(_symbol);
     }
 
     ObjectList<MSAttribute> Symbol::get_ms_attributes() const

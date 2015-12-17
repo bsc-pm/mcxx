@@ -87,7 +87,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
 
     if (execute_program(CURRENT_CONFIGURATION->target_objcopy, arguments_objcopy) != 0)
     {
-        running_error("Error when extracting the object file data");
+        fatal_error("Error when extracting the object file data");
     }
 
     // Now extract the tar
@@ -103,13 +103,13 @@ static void multifile_extract_extended_info_single_object(const char* filename)
 
     if (execute_program("tar", arguments_tar) != 0)
     {
-        running_error("Error when extracting the object file tar");
+        fatal_error("Error when extracting the object file tar");
     }
 
     // Now remove the file
     if (remove(output_filename) < 0)
     {
-        running_error("Error when removing temporal file '%s'. %s\n", 
+        fatal_error("Error when removing temporal file '%s'. %s\n", 
                 output_filename,
                 strerror(errno));
     }
@@ -135,7 +135,7 @@ void multifile_extract_extended_info(const char* filename)
         int r = chdir(temporal_dir->name);
         if (r < 0)
         {
-            running_error("Error during chdir to '%s'. %s\n",
+            fatal_error("Error during chdir to '%s'. %s\n",
                     temporal_dir->name,
                     strerror(errno));
         }
@@ -148,7 +148,7 @@ void multifile_extract_extended_info(const char* filename)
 
         if (execute_program(CURRENT_CONFIGURATION->target_ar, list_arguments) != 0)
         {
-            running_error("Error while extracting members of archive");
+            fatal_error("Error while extracting members of archive");
         }
         DELETE(full_path);
 
@@ -156,7 +156,7 @@ void multifile_extract_extended_info(const char* filename)
         r = chdir(current_directory);
         if (r < 0)
         {
-            running_error("Error during chdir to '%s'. %s\n",
+            fatal_error("Error during chdir to '%s'. %s\n",
                     temporal_dir->name,
                     strerror(errno));
         }
@@ -219,14 +219,14 @@ char multifile_object_has_extended_info(const char* filename)
     if (execute_program_flags(CURRENT_CONFIGURATION->target_objdump,
                 arguments, /* stdout_f */ temp->name, /* stderr_f */ NULL) != 0)
     {
-        running_error("Error when identifying object file '%s'", filename);
+        fatal_error("Error when identifying object file '%s'", filename);
     }
 
     FILE* stdout_file = fopen(temp->name, "r");
 
     if (stdout_file == NULL)
     {
-        running_error("Error when examining output of 'objdump' of file '%s'", filename);
+        fatal_error("Error when examining output of 'objdump' of file '%s'", filename);
     }
 
     char line[256];
@@ -295,7 +295,9 @@ char multifile_object_has_extended_info(const char* filename)
 }
 
 
-void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num_multifile_profiles)
+void multifile_get_extracted_profiles(
+        multifile_extracted_profile_t** multifile_extracted_profile,
+        int *num_multifile_profiles)
 {
     // Profiles are stored in get_multifile_dir()/<directory>, each directory being a profile
     DIR* multifile_dir = opendir(get_multifile_dir());
@@ -304,7 +306,7 @@ void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num
         if (errno != ENOENT)
         {
             // Only give an error if it does exist
-            running_error("Cannot open multifile directory '%s'", get_multifile_dir());
+            fatal_error("Cannot open multifile directory '%s'", get_multifile_dir());
         }
     }
     else
@@ -327,8 +329,41 @@ void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num
                 if (S_ISDIR(buf.st_mode)
                         && dir_entry->d_name[0] != '.')
                 {
-                    const char* profile_name = uniquestr(dir_entry->d_name);
-                    P_LIST_ADD(*multifile_profiles, *num_multifile_profiles, profile_name);
+                    multifile_extracted_profile_t new_extracted_profile;
+                    memset(&new_extracted_profile, 0, sizeof(new_extracted_profile));
+
+                    if (strncmp(dir_entry->d_name, "tag.", strlen("tag.")) == 0)
+                    {
+                        // Now extract the tag number and then the profile name
+                        const char* p = dir_entry->d_name + strlen("tag.");
+                        int tag = 0;
+                        while (*p >= '0'
+                                && *p <= '9')
+                        {
+                            tag += 10*tag + (*p - '0');
+                            p++;
+                        }
+                        // We only create tagged directories for nonzero tags
+                        ERROR_CONDITION (tag == 0,
+                                "Invalid tag extracted from multifile directory '%s'\n",
+                                dir_entry->d_name);
+
+                        // We expect a dot here
+                        ERROR_CONDITION(*p != '.',
+                                "Malformed multifile directory '%s'\n",
+                                dir_entry->d_name);
+                        p++;
+
+                        new_extracted_profile.name = uniquestr(p);
+                        new_extracted_profile.tag = tag;
+                    }
+                    else
+                    {
+                        new_extracted_profile.name = uniquestr(dir_entry->d_name);
+                    }
+                    P_LIST_ADD(*multifile_extracted_profile,
+                            *num_multifile_profiles,
+                            new_extracted_profile);
                 }
             }
 
@@ -339,13 +374,30 @@ void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num
     }
 }
 
-void multifile_get_profile_file_list(const char* profile_name,
+void multifile_get_profile_file_list(
+        const multifile_extracted_profile_t* multifile_extracted_profile,
         const char*** multifile_file_list,
         int *num_multifile_files)
 {
     char profile_dir[1024];
 
-    snprintf(profile_dir, 1023, "%s%s%s", get_multifile_dir(), DIR_SEPARATOR, profile_name);
+    if (multifile_extracted_profile->tag == 0)
+    {
+        snprintf(profile_dir, 1023,
+                "%s%s%s",
+                get_multifile_dir(),
+                DIR_SEPARATOR,
+                multifile_extracted_profile->name);
+    }
+    else
+    {
+        snprintf(profile_dir, 1023,
+                "%s%stag.%d.%s",
+                get_multifile_dir(),
+                DIR_SEPARATOR,
+                multifile_extracted_profile->tag,
+                multifile_extracted_profile->name);
+    }
     profile_dir[1023] = '\0';
 
     DIR* multifile_dir = opendir(profile_dir);
@@ -354,7 +406,7 @@ void multifile_get_profile_file_list(const char* profile_name,
         if (errno != ENOENT)
         {
             // Only give an error if it does exist
-            running_error("Cannot open multifile profile directory '%s'", profile_dir);
+            fatal_error("Cannot open multifile profile directory '%s'", profile_dir);
         }
     }
     else
@@ -415,11 +467,24 @@ void multifile_embed_bfd_single(void** data, compilation_file_process_t* seconda
     translation_unit_t* current_secondary = secondary_compilation_file->translation_unit;
     compilation_configuration_t* secondary_configuration = secondary_compilation_file->compilation_configuration;
 
+    int tag = secondary_compilation_file->tag;
+
     char dir_path[1024];
-    snprintf(dir_path, 1023, "%s%s%s", 
-            embed_data->temp_dir->name, 
-            DIR_SEPARATOR, 
-            secondary_configuration->configuration_name);
+    if (tag == 0)
+    {
+        snprintf(dir_path, 1023, "%s%s%s",
+                embed_data->temp_dir->name,
+                DIR_SEPARATOR,
+                secondary_configuration->configuration_name);
+    }
+    else
+    {
+        snprintf(dir_path, 1023, "%s%stag.%d.%s",
+                embed_data->temp_dir->name,
+                DIR_SEPARATOR,
+                tag,
+                secondary_configuration->configuration_name);
+    }
     dir_path[1023] = '\0';
 
     struct stat buf;
@@ -432,14 +497,14 @@ void multifile_embed_bfd_single(void** data, compilation_file_process_t* seconda
             // Create the directory if it does not exist
             if (mkdir(dir_path, 0700) != 0)
             {
-                running_error("When creating multifile archive, cannot create directory '%s': %s\n",
+                fatal_error("When creating multifile archive, cannot create directory '%s': %s\n",
                         dir_path,
                         strerror(errno));
             }
         }
         else
         {
-            running_error("Stat failed on '%s': %s\n",
+            fatal_error("Stat failed on '%s': %s\n",
                     dir_path,
                     strerror(errno));
         }
@@ -448,7 +513,7 @@ void multifile_embed_bfd_single(void** data, compilation_file_process_t* seconda
     {
         if (!S_ISDIR(buf.st_mode))
         {
-            running_error("When creating multifile archive, path '%s' is not a directory\n",
+            fatal_error("When creating multifile archive, path '%s' is not a directory\n",
                     dir_path);
         }
     }
@@ -463,7 +528,7 @@ void multifile_embed_bfd_single(void** data, compilation_file_process_t* seconda
 
     if (move_file(current_secondary->output_filename, dest_path) != 0)
     {
-        running_error("When creating multifile archive, file '%s' could not be moved to '%s'\n",
+        fatal_error("When creating multifile archive, file '%s' could not be moved to '%s'\n",
                 current_secondary->output_filename,
                 dest_path);
     }
@@ -487,7 +552,7 @@ void multifile_embed_bfd_collective(void **data, const char* output_filename)
 
     if (execute_program("tar", tar_args) != 0)
     {
-        running_error("When creating multifile archive, 'tar' failed\n");
+        fatal_error("When creating multifile archive, 'tar' failed\n");
     }
 
     // Now we have tar that we are going to embed into the .o file
@@ -514,7 +579,7 @@ void multifile_embed_bfd_collective(void **data, const char* output_filename)
 
     if (execute_program(CURRENT_CONFIGURATION->target_objcopy, objcopy_args) != 0)
     {
-        running_error("When creating multifile archive, 'objcopy' failed, if compiling for MIC, set MIC_TOOLS configure flag correctly\n");
+        fatal_error("When creating multifile archive, 'objcopy' failed, if compiling for MIC, set MIC_TOOLS configure flag correctly\n");
     }
 
     if (CURRENT_CONFIGURATION->verbose)

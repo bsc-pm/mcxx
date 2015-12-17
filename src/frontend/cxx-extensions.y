@@ -5,6 +5,14 @@
 %type<ast> noshape_cast_expression
 %type<ast> mercurium_extended_type_specifiers
 
+%type<ast> multiexpression
+%type<ast> multiexpression_body
+%type<ast> multiexpression_iterator
+%type<ast> multiexpression_range
+%type<ast> multiexpression_range_size
+%type<ast> multiexpression_range_section
+%type<ast> multiexpression_range_discrete
+
 %token<token_atrib> MCC_BYTE "<byte-type-spec>"
 %token<token_atrib> MCC_BOOL "<bool-type-spec>"
 %token<token_atrib> MCC_MASK "<mask-type-spec>"
@@ -107,5 +115,69 @@ mercurium_extended_type_specifiers : MCC_BOOL
 	$$ = ASTLeaf(AST_MCC_MASK, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
+
+primary_expression : multiexpression;
+
+multiexpression : '{' '/' multiexpression_body '/' '}'
+{
+    $$ = $3;
+}
+;
+
+multiexpression_body : assignment_expression ',' multiexpression_iterator
+{
+    $$ = ASTMake2(AST_MULTIEXPRESSION, $1, $3, ast_get_locus($1), NULL);
+}
+| multiexpression_body ',' multiexpression_iterator
+{
+    $$ = ASTMake2(AST_MULTIEXPRESSION, $1, $3, ast_get_locus($1), NULL);
+}
+;
+
+multiexpression_iterator : identifier_token '=' multiexpression_range
+{
+    AST symbol = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+    $$ = ASTMake2(AST_MULTIEXPRESSION_ITERATOR, symbol, $3, ast_get_locus(symbol), NULL);
+}
+;
+
+multiexpression_range : multiexpression_range_size
+{
+    $$ = $1;
+}
+| multiexpression_range_section
+{
+    $$ = $1;
+}
+| multiexpression_range_discrete
+{
+    $$ = $1;
+}
+;
+
+multiexpression_range_section : assignment_expression ':' assignment_expression
+{
+    $$ = ASTMake3(AST_MULTIEXPRESSION_RANGE_SECTION, $1, $3, NULL, ast_get_locus($1), NULL);
+}
+| assignment_expression ':' assignment_expression ':' assignment_expression
+{
+    $$ = ASTMake3(AST_MULTIEXPRESSION_RANGE_SECTION, $1, $3, $5, ast_get_locus($1), NULL);
+}
+;
+
+multiexpression_range_size : assignment_expression ';' assignment_expression
+{
+    $$ = ASTMake3(AST_MULTIEXPRESSION_RANGE_SIZE, $1, $3, NULL, ast_get_locus($1), NULL);
+}
+| assignment_expression ';' assignment_expression ':' assignment_expression
+{
+    $$ = ASTMake3(AST_MULTIEXPRESSION_RANGE_SIZE, $1, $3, $5, ast_get_locus($1), NULL);
+}
+;
+
+multiexpression_range_discrete : '{' expression_list '}'
+{
+    $$ = ASTMake1(AST_MULTIEXPRESSION_RANGE_DISCRETE, $2, ast_get_locus($2), NULL);
+}
 
 /*!endif*/

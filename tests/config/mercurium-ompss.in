@@ -1,3 +1,89 @@
 #!/usr/bin/env bash
 
-exec @abs_builddir@/mercurium-nanox ompss $1
+# Check if there is some OmpSs implementation
+if [ "@NANOX_ENABLED@" = "no" -a  "@NANOS6_ENABLED@" = "no" ];
+then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="neither Nanos++ or Nanos6 have been configured"
+EOF
+
+exit
+
+fi
+
+nanos6_test_disabled=""
+if [ "$1" == "no-nanos6" ];
+then
+    nanos6_test_disabled="yes"
+    shift
+fi
+
+# ----------------------------------------------
+
+if [ "@NANOS6_ENABLED@" = "yes" -a "$nanos6_test_disabled" != "yes" ];
+then
+    if [ "$nanos6_test_disabled" != "yes" ];
+    then
+        @abs_builddir@/mercurium-nanos6 $1;
+    elif [ "@NANOX_ENABLED@" != "yes" ];
+    then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="test is not run under Nanos6"
+EOF
+
+exit
+
+    fi
+fi
+
+# ----------------------------------------------
+
+if [ "@NANOX_ENABLED@" = "yes" ];
+then
+   @abs_builddir@/mercurium-nanox ompss $1
+fi
+
+# ----------------------------------------------
+
+cat <<EOF
+
+filter_test_versions=filter_nanox_nanos6
+
+filter_nanox_nanos6()
+{
+    local v=\$1
+    local e=\$2
+
+    case \$v in
+        nanox*)
+            case \$e in
+                nanox*)
+                    return 0;
+                    ;;
+                *)
+                    return 1;
+                    ;;
+            esac
+            ;;
+        nanos6*)
+            case \$e in
+                nanos6*)
+                    return 0;
+                    ;;
+                *)
+                    return 1;
+                    ;;
+            esac
+            ;;
+        *)
+            ;;
+    esac
+
+    return 0
+}
+
+EOF

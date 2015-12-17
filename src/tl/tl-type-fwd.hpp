@@ -32,6 +32,8 @@ namespace TL
     class TemplateArgument;
     class TemplateParameters;
     class Type;
+
+    struct MemberDeclarationInfo;
 }
 
 #endif // TL_TYPE_FWD_HPP

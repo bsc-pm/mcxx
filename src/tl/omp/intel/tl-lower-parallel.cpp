@@ -29,7 +29,11 @@
 #include "tl-lowering-visitor.hpp"
 #include "tl-lowering-utils.hpp"
 #include "tl-symbol-utils.hpp"
+#include "tl-symbol-utils.hpp"
+
 #include "tl-lower-reductions.hpp"
+
+#include "cxx-cexpr.h"
 
 #include <numeric>
 
@@ -101,11 +105,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         TL::ObjectList<Symbol> tmp =
             shared_list  // TL::ObjectList<OpenMP::Shared>
-            .map(&Nodecl::OpenMP::Shared::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Shared::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         shared_symbols.insert(tmp);
@@ -115,11 +119,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         TL::ObjectList<Symbol> tmp =
             private_list  // TL::ObjectList<OpenMP::Private>
-            .map(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         private_symbols.insert(tmp);
@@ -128,11 +132,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         TL::ObjectList<Symbol> tmp =
             firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-            .map(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
         private_symbols.insert(tmp);
@@ -163,14 +167,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     if (!reduction_list.empty())
     {
         reduction_items = reduction_list
-            .map(&Nodecl::OpenMP::Reduction::get_reductions)
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>)
-            .map(&Nodecl::List::to_object_list)
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Reduction::get_reductions)
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list)
             .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
-            .map(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
+            .map<Nodecl::OpenMP::ReductionItem>(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
         all_symbols_passed.insert(reduction_symbols);
     }
 
@@ -316,8 +320,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     if (!reduction_items.empty())
     {
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
 
         TL::Symbol reduction_pack_type = declare_reduction_pack(reduction_symbols, construct);
         reduction_pack_symbol = Intel::new_private_symbol(
@@ -355,9 +359,25 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         }
     }
 
+    // We do not want to replace reductions in the body
+    Nodecl::Utils::SimpleSymbolMap symbol_map_fixed(&symbol_map);
+    if (!reduction_items.empty())
+    {
+        TL::ObjectList<Symbol> reduction_symbols = reduction_items
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+        for (TL::ObjectList<Symbol>::iterator it = reduction_symbols.begin();
+                it != reduction_symbols.end();
+                it++)
+        {
+            // We can't actually remove but we can remap to itself
+            symbol_map_fixed.add_map(*it, *it);
+        }
+    }
+
     Nodecl::NodeclBase parallel_body = Nodecl::Utils::deep_copy(statements,
             outline_function_stmt,
-            symbol_map);
+            symbol_map_fixed);
     if (!reduction_items.empty())
     {
         update_reduction_uses(parallel_body, reduction_items, reduction_pack_symbol);
@@ -395,20 +415,103 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
                 ReplaceInOutMaster replace_inout(
                         *it_fields,
                         reduction->get_omp_in(), reduction_pack_symbol,
-                        reduction->get_omp_out(), reduced_symbol);
+                        reduction->get_omp_out(), symbol_map.map(reduced_symbol));
                 replace_inout.walk(combiner_expr);
 
                 master_combiner << as_expression(combiner_expr) << ";"
                     ;
             }
 
+            Source reduction_size;
+            Source reduction_data;
+            Source reduction_extra_pre;
+
+            if (!_lowering->simd_reductions_knc())
+            {
+                reduction_size << "sizeof(" << as_type(reduction_pack_symbol.get_type()) << ")";
+                reduction_data << "&" << as_symbol(reduction_pack_symbol);
+            }
+            else
+            {
+                TL::Symbol array_of_sizes = Intel::new_private_symbol("red_sizes",
+                        TL::Type::get_size_t_type().get_array_to(
+                            const_value_to_nodecl(
+                                const_value_get_signed_int(reduction_items.size())
+                                ),
+                            block_scope),
+                        SK_VARIABLE,
+                        block_scope);
+
+                TL::Symbol array_of_data = Intel::new_private_symbol("red_data",
+                        TL::Type::get_void_type()
+                            .get_pointer_to()
+                            .get_array_to(
+                                const_value_to_nodecl(
+                                    const_value_get_signed_int(reduction_items.size())
+                                    ),
+                                block_scope),
+                        SK_VARIABLE,
+                        block_scope);
+
+                reduction_size << as_symbol(array_of_sizes);
+                // Huh, we are passing a pointer as an integer (a size_t)
+                reduction_data << as_symbol(array_of_data);
+
+                // Initialize both arrays
+                TL::ObjectList<Nodecl::NodeclBase> reduction_data_items;
+                TL::ObjectList<Nodecl::NodeclBase> reduction_sizes;
+
+                for (TL::ObjectList<TL::Symbol>::iterator it = reduction_fields.begin();
+                        it != reduction_fields.end();
+                        it++)
+                {
+                    reduction_sizes.append(
+                            const_value_to_nodecl_with_basic_type(
+                                const_value_get_integer(
+                                    it->get_type().get_size(),
+                                    TL::Type::get_size_t_type().get_size(),
+                                    /* sign */ 0),
+                                TL::Type::get_size_t_type().get_internal_type()));
+                    reduction_data_items.append(
+                            Nodecl::Reference::make(
+                                Nodecl::ClassMemberAccess::make(
+                                    reduction_pack_symbol.make_nodecl(/* set_ref_type */ true),
+                                    it->make_nodecl(),
+                                    Nodecl::NodeclBase::null(),
+                                    it->get_type().no_ref().get_lvalue_reference_to()),
+                                it->get_type().no_ref().get_pointer_to())
+                            );
+                }
+
+                Nodecl::NodeclBase array_of_sizes_initializer =
+                    Nodecl::StructuredValue::make(
+                            Nodecl::List::make(reduction_sizes),
+                            Nodecl::StructuredValueBracedImplicit::make(),
+                            array_of_sizes.get_type());
+                array_of_sizes.set_value(array_of_sizes_initializer);
+
+                Nodecl::NodeclBase array_of_data_initializer =
+                    Nodecl::StructuredValue::make(
+                            Nodecl::List::make(reduction_data_items),
+                            Nodecl::StructuredValueBracedImplicit::make(),
+                            array_of_data.get_type());
+                array_of_data.set_value(array_of_data_initializer);
+
+                reduction_extra_pre
+                    << as_statement(
+                            Nodecl::ObjectInit::make(array_of_sizes))
+                    << as_statement(
+                            Nodecl::ObjectInit::make(array_of_data));
+            }
+
             Source reduction_src;
             reduction_src
+                << reduction_extra_pre
                 << "switch (__kmpc_reduce_nowait(&" << as_symbol(ident_symbol)
                 <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
                 <<               ", " << reduction_items.size()
-                <<               ", sizeof(" << as_type(reduction_pack_symbol.get_type()) << ")"
-                <<               ", &" << as_symbol(reduction_pack_symbol)
+                <<               ", " << reduction_size
+                <<               ", " << reduction_data 
                 <<               ", (void(*)(void*,void*))" << as_symbol(callback)
                 <<               ", &" << as_symbol(Intel::get_global_lock_symbol(construct)) << "))"
                 << "{"
@@ -457,7 +560,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         {
             AccountReductions::reduction_list_t &current(*it);
 
-            TL::ObjectList<unsigned int> sizes = current.map(&TL::Type::get_size);
+            TL::ObjectList<unsigned int> sizes = current.map<unsigned int>(&TL::Type::get_size);
 
             int sum = std::accumulate(sizes.begin(), sizes.end(), 0);
 

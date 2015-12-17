@@ -171,7 +171,7 @@ static void lock_module_name_using_ancillary(const char* module_name, int *fd, c
         const char* home = getenv("HOME");
         if (home == NULL)
         {
-            running_error("Error: $HOME not defined\n");
+            fatal_error("Error: $HOME not defined\n");
         }
 
         CURRENT_CONFIGURATION->lock_dir = strappend(home, "/.mercurium_locks");
@@ -181,7 +181,7 @@ static void lock_module_name_using_ancillary(const char* module_name, int *fd, c
         {
             if (errno != EEXIST)
             {
-                running_error("Error: cannot create lock dir '%s'. Reason: %s\n",
+                fatal_error("Error: cannot create lock dir '%s'. Reason: %s\n",
                         CURRENT_CONFIGURATION->lock_dir,
                         strerror(errno));
             }
@@ -455,7 +455,7 @@ static const char* unwrap_module(const char* wrap_module, const char* module_nam
 
     if (execute_program("tar", arguments) != 0)
     {
-        running_error("Error when unwrapping module. tar failed");
+        fatal_error("Error when unwrapping module. tar failed");
     }
 
     if (CURRENT_CONFIGURATION->verbose)
@@ -524,7 +524,7 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
             give_basename(module_to_wrap->native_file));
     if (move_file(module_to_wrap->native_file, temp_native) != 0)
     {
-        running_error("Error when wrapping a module: move_file '%s' -> '%s' failed. %s\n",
+        fatal_error("Error when wrapping a module: move_file '%s' -> '%s' failed. %s\n",
                 module_to_wrap->native_file, temp_native, strerror(errno));
     }
 
@@ -533,7 +533,7 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
             give_basename(module_to_wrap->mercurium_file));
     if (move_file(module_to_wrap->mercurium_file, temp_mercurium) != 0)
     {
-        running_error("Error when wrapping a module: move_file '%s' -> '%s' failed. %s\n",
+        fatal_error("Error when wrapping a module: move_file '%s' -> '%s' failed. %s\n",
                 module_to_wrap->mercurium_file, temp_mercurium, strerror(errno));
     }
 
@@ -541,7 +541,7 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
     FILE* f = fopen(id_filename, "w");
     if (f == NULL)
     {
-        running_error("Error when wrapping a module: creation of ID file failed. %s\n", strerror(errno));
+        fatal_error("Error when wrapping a module: creation of ID file failed. %s\n", strerror(errno));
     }
     fclose(f);
 
@@ -557,7 +557,7 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
 
     if (execute_program("tar", arguments) != 0)
     {
-        running_error("Error when wrapping a module: tar failed\n");
+        fatal_error("Error when wrapping a module: tar failed\n");
     }
 
     unlock_modules(lock_fd, lock_filename);
@@ -571,7 +571,7 @@ static void hide_mercurium_module(const char* filename)
 
     if (move_file(filename, hidden_filename) != 0)
     {
-        running_error("Could not hide mercurium module '%s' -> '%s'. %s\n", filename, hidden_filename, strerror(errno));
+        fatal_error("Could not hide mercurium module '%s' -> '%s'. %s\n", filename, hidden_filename, strerror(errno));
     }
 }
 
@@ -581,7 +581,7 @@ static void restore_mercurium_module(const char* filename)
 
     if (move_file(hidden_filename, filename) != 0)
     {
-        running_error("Could not restore mercurium module '%s' -> '%s'. %s\n", hidden_filename, filename, strerror(errno));
+        fatal_error("Could not restore mercurium module '%s' -> '%s'. %s\n", hidden_filename, filename, strerror(errno));
     }
 }
 

@@ -521,7 +521,7 @@ namespace TL { namespace Nanox {
     bool LoweringVisitor::there_are_reductions(OutlineInfo& outline_info)
     {
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
+                lift_pointer<bool, OutlineDataItem>(&OutlineDataItem::is_reduction));
         return !reduction_items.empty();
     }
 
@@ -534,12 +534,12 @@ namespace TL { namespace Nanox {
 
         if (!Nanos::Version::interface_is_at_least("master", 5023))
         {
-            running_error("%s: error: a newer version of Nanos++ (>=5023) is required for reductions support\n",
-                    construct.get_locus_str().c_str());
+            fatal_printf_at(construct.get_locus(),
+                    "a newer version of Nanos++ (>=5023) is required for reductions support\n");
         }
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
+                lift_pointer<bool, OutlineDataItem>(&OutlineDataItem::is_reduction));
         ERROR_CONDITION (reduction_items.empty(), "No reductions to process", 0);
 
         Source result;
@@ -787,7 +787,7 @@ namespace TL { namespace Nanox {
         Source reduction_code;
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
+                lift_pointer<bool, OutlineDataItem>(&OutlineDataItem::is_reduction));
         if (!reduction_items.empty())
         {
             for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();

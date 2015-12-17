@@ -34,6 +34,8 @@
 #include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
 
+#include "fortran03-typeutils.h"
+
 #include <algorithm>
 
 namespace TL { namespace OpenMP {
@@ -46,18 +48,20 @@ namespace TL { namespace OpenMP {
     Core::reduction_map_info_t Core::reduction_map_info;
 
     Core::Core()
-        : PragmaCustomCompilerPhase("omp"),
+        : PragmaCustomCompilerPhase(),
         _discard_unused_data_sharings(false),
         _allow_shared_without_copies(false),
         _allow_array_reductions(true),
         _ompss_mode(false),
-        _copy_deps_by_default(true)
+        _copy_deps_by_default(true),
+        _inside_declare_target(false)
     {
         set_phase_name("OpenMP Core Analysis");
         set_phase_description("This phase is required for any other phase implementing OpenMP. "
                 "It performs the common analysis part required by OpenMP");
 
         register_omp_constructs();
+        register_oss_constructs();
     }
 
     void Core::pre_run(TL::DTO& dto)
@@ -129,6 +133,13 @@ namespace TL { namespace OpenMP {
 
         PragmaCustomCompilerPhase::run(dto);
 
+        if (_inside_declare_target)
+        {
+            error_printf_at(translation_unit.get_locus(),
+                    "missing '#pragma omp end declare target'\n");
+            _inside_declare_target = false;
+        }
+
         _function_task_set->emit_module_info();
     }
 
@@ -140,9 +151,9 @@ namespace TL { namespace OpenMP {
     void Core::register_omp_constructs()
     {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
-        if (_pred) register_directive(_directive); 
+        if (_pred) register_directive("omp", _directive); 
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
-        if (_pred) register_construct(_directive, _noend); 
+        if (_pred) register_construct("omp", _directive, _noend); 
 
         // Register pragmas
         if (!_constructs_already_registered)
@@ -163,16 +174,16 @@ namespace TL { namespace OpenMP {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
         if (_pred) { \
             std::string directive_name = remove_separators_of_directive(_directive); \
-            dispatcher().directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
         }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
         if (_pred) { \
             std::string directive_name = remove_separators_of_directive(_directive); \
-            dispatcher().declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
-            dispatcher().statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher().statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher("omp").statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher("omp").statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
         }
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
@@ -183,6 +194,32 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
+    }
+
+    void Core::register_oss_constructs()
+    {
+        register_directive("oss", "taskwait");
+        register_construct("oss", "task");
+        register_construct("oss", "critical");
+
+        // OSS constructs
+        dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Core::taskwait_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Core::taskwait_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").declaration.pre["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::task_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").declaration.post["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["task"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["critical"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["critical"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_post, this, std::placeholders::_1));
     }
 
     void Core::phase_cleanup(DTO& data_flow)
@@ -240,17 +277,20 @@ namespace TL { namespace OpenMP {
 
                 if (!data_ref.is_valid())
                 {
-                    std::cerr << data_ref.get_error_log();
-                    std::cerr << data_ref.get_locus_str() << ": warning: '" << data_ref.prettyprint()
-                        << "' is not a valid name for data sharing" << std::endl;
+                    data_ref.commit_diagnostic();
+                    warn_printf_at(data_ref.get_locus(),
+                            "'%s' is not a valid name for data sharing\n",
+                            data_ref.prettyprint().c_str());
                 }
                 else
                 {
                     if (!data_ref.is<Nodecl::Symbol>()
                             && !it_is_a_special_case_of_data_sharing(data_ref))
                     {
-                        error_printf("%s: error: '%s' is not a valid name for data sharing\n",
-                                data_ref.get_locus_str().c_str(), data_ref.prettyprint().c_str());
+                        error_printf_at(
+                                data_ref.get_locus(),
+                                "'%s' is not a valid name for data sharing\n",
+                                data_ref.prettyprint().c_str());
                         continue;
                     }
 
@@ -258,32 +298,41 @@ namespace TL { namespace OpenMP {
                     if (_discard_unused_data_sharings
                             && !symbols_in_construct.contains(base_sym))
                     {
-                        std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                            << "' since it does not appear in the construct" << std::endl;
+                        warn_printf_at(
+                                data_ref.get_locus(),
+                                "ignoring '%s' since it does not appear in the construct\n",
+                                data_ref.prettyprint().c_str());
                         continue;
                     }
 
                     if (base_sym.is_member()
                             && !base_sym.is_static())
                     {
-                        std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                            << "' since nonstatic data members cannot appear in data-sharing clauses" << std::endl;
+                        warn_printf_at(
+                                data_ref.get_locus(),
+                                "ignoring '%s' since nonstatic data members cannot appear in data-sharing clauses\n",
+                                data_ref.prettyprint().c_str());
                         continue;
                     }
 
                     if (base_sym.is_cray_pointee())
                     {
-                        std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                            << "' since a cray pointee cannot appear in data-sharing clauses" << std::endl;
+                        warn_printf_at(
+                                data_ref.get_locus(),
+                                "ignoring '%s' since a cray pointee cannot appear in data-sharing clauses\n",
+                                data_ref.prettyprint().c_str());
                         continue;
                     }
 
                     if (base_sym.is_thread()
                             || base_sym.is_thread_local())
                     {
-                        std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                            << "' since " << (base_sym.is_thread() ? "__thread" : "thread_local")
-                            <<  " variables cannot appear in data-sharing clauses" << std::endl;
+
+                        warn_printf_at(
+                                data_ref.get_locus(),
+                                "ignoring '%s' since '%s' variables cannot appear in data-sharing clauses\n",
+                                data_ref.prettyprint().c_str(),
+                                (base_sym.is_thread() ? "__thread" : "thread_local"));
                         continue;
                     }
 
@@ -322,8 +371,8 @@ namespace TL { namespace OpenMP {
                 if (previous_datasharing.kind == DSK_PREDETERMINED_INDUCTION_VAR
                         && ((_data_attrib & DS_PRIVATE) != DS_PRIVATE))
                 {
-                    error_printf("%s: error: data sharing of induction variable '%s' cannot be shared\n",
-                            _ref_tree.get_locus_str().c_str(),
+                    error_printf_at(_ref_tree.get_locus(),
+                            "data sharing of induction variable '%s' cannot be shared\n",
                             data_ref.prettyprint().c_str());
                     return;
                 }
@@ -331,8 +380,9 @@ namespace TL { namespace OpenMP {
                 if (previous_datasharing.kind == DSK_PREDETERMINED_INDUCTION_VAR
                         && ((_data_attrib & DS_FIRSTPRIVATE) == DS_FIRSTPRIVATE))
                 {
-                    error_printf("%s: error: data sharing of induction variable '%s' cannot be firstprivate\n",
-                            _ref_tree.get_locus_str().c_str(),
+                    error_printf_at(
+                            _ref_tree.get_locus(),
+                            "data sharing of induction variable '%s' cannot be firstprivate\n",
                             data_ref.prettyprint().c_str());
                     return;
                 }
@@ -340,17 +390,19 @@ namespace TL { namespace OpenMP {
                 if ((previous_datasharing.attr == DS_SHARED)
                         && (_data_attrib & DS_PRIVATE))
                 {
-                    std::cerr << _ref_tree.get_locus_str() << ": warning: data sharing of '" 
-                        << data_ref.prettyprint() 
-                        << "' was shared but now it is being overriden as private" 
-                        << std::endl;
+                    warn_printf_at(
+                            _ref_tree.get_locus(),
+                            "data sharing of '%s' was shared but now it is being overriden as private\n",
+                            data_ref.prettyprint().c_str());
                 }
 
                 if (IS_CXX_LANGUAGE
                         && sym.get_name() == "this"
                         && (_data_attrib & DS_PRIVATE))
                 {
-                    std::cerr << _ref_tree.get_locus_str() << ": warning: 'this' will be shared" << std::endl;
+                    warn_printf_at(
+                            _ref_tree.get_locus(),
+                            "'this' will be shared\n");
                     return;
                 }
 
@@ -358,8 +410,10 @@ namespace TL { namespace OpenMP {
                         && (_data_attrib & DS_PRIVATE)
                         && data_ref.is_assumed_size_array())
                 {
-                    std::cerr << _ref_tree.get_locus_str()
-                        << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized" << std::endl;
+                    warn_printf_at(
+                            _ref_tree.get_locus(),
+                            "assumed-size array '%s' cannot be privatized\n",
+                            sym.get_name().c_str());
                     return;
                 }
 
@@ -410,7 +464,7 @@ namespace TL { namespace OpenMP {
 
         bool operator()(DataReference t) const
         {
-            return !_ref_list.contains(t, &DataReference::get_base_symbol);
+            return !_ref_list.contains<TL::Symbol>(t, &DataReference::get_base_symbol);
         }
     };
 
@@ -423,7 +477,7 @@ namespace TL { namespace OpenMP {
                 it != firstprivate.end();
                 it++)
         {
-            if (lastprivate.contains(*it, std::function<TL::Symbol(DataReference)>(&DataReference::get_base_symbol)))
+            if (lastprivate.contains<TL::Symbol>(*it, std::function<TL::Symbol(DataReference)>(&DataReference::get_base_symbol)))
             {
                 result.append(*it);
             }
@@ -519,7 +573,7 @@ namespace TL { namespace OpenMP {
             ObjectList<std::string> args = default_clause.get_tokenized_arguments();
 
             if(!allow_default_auto && args[0] == std::string("auto"))
-                error_printf("directives other than tasks do not allow the clause default(auto)");
+                error_printf_at(construct.get_locus(), "directives other than tasks do not allow the clause default(auto)\n");
 
             struct pairs_t
             {
@@ -550,10 +604,11 @@ namespace TL { namespace OpenMP {
                 }
             }
 
-            std::cerr << default_clause.get_locus_str()
-                << ": warning: data sharing '" << args[0] << "' is not valid in 'default' clause" << std::endl;
-            std::cerr << default_clause.get_locus_str()
-                << ": warning: assuming 'shared'" << std::endl;
+            warn_printf_at(default_clause.get_locus(),
+                    "data sharing '%s' is not valid in 'default' clause\n",
+                    args[0].c_str());
+            warn_printf_at(default_clause.get_locus(),
+                    "assuming 'shared'\n");
 
             return DS_SHARED;
         }
@@ -900,7 +955,7 @@ namespace TL { namespace OpenMP {
 
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         ObjectList<Symbol> already_nagged;
 
@@ -970,10 +1025,9 @@ namespace TL { namespace OpenMP {
                 {
                     if (!already_nagged.contains(sym))
                     {
-                        std::cerr << it->get_locus_str()
-                            << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope())
-                            << "' does not have data sharing and 'default(none)' was specified. Assuming shared "
-                            << std::endl;
+                        warn_printf_at(it->get_locus(),
+                                "symbol '%s' does not have data sharing and 'default(none)' was specified. Assuming shared\n",
+                                sym.get_qualified_name(sym.get_scope()).c_str());
 
                         // Maybe we do not want to assume always shared?
                         data_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
@@ -1039,8 +1093,8 @@ namespace TL { namespace OpenMP {
                     || !first.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().is<Nodecl::CompoundStatement>())
             {
                 std::cerr << ast_print_node_type(nodecl_get_kind(l[0].get_internal_nodecl())) << std::endl;
-                running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
-                        construct.get_locus_str().c_str(),
+                fatal_printf_at(construct.get_locus(),
+                        "'#pragma omp %s' must be followed by a compound statement\n",
                         pragma_name.c_str());
             }
             else
@@ -1056,8 +1110,8 @@ namespace TL { namespace OpenMP {
 
             if (l.empty())
             {
-                running_error("%s: error: '#pragma omp %s' cannot have an empty compound statement\n",
-                        construct.get_locus_str().c_str(),
+                fatal_printf_at(construct.get_locus(),
+                        "'#pragma omp %s' cannot have an empty compound statement\n",
                         pragma_name.c_str());
             }
 
@@ -1110,11 +1164,11 @@ namespace TL { namespace OpenMP {
                 {
                     if (next_must_be_omp_section)
                     {
-                        running_error("%s: error: expecting a '#pragma omp section'\n", it->get_locus_str().c_str());
+                        fatal_printf_at(it->get_locus(), "expecting a '#pragma omp section'\n");
                     }
                     else
                     {
-                        running_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus_str().c_str());
+                        fatal_printf_at(it->get_locus(), "a '#pragma omp section' cannot appear here\n");
                     }
                 }
                 else if (next_must_be_omp_section)
@@ -1122,7 +1176,7 @@ namespace TL { namespace OpenMP {
                     // Is it the last statement a #pragma omp section?
                     if ((it+1) == l.end())
                     {
-                        running_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus_str().c_str());
+                        fatal_printf_at(it->get_locus(), "a '#pragma omp section' cannot appear here\n");
                     }
                     current_pragma = *it;
                 }
@@ -1144,8 +1198,8 @@ namespace TL { namespace OpenMP {
             // In fortran we do not allow two consecutive sections
             if (l.empty())
             {
-                running_error("%s: error: '!$OMP %s' cannot have an empty block\n",
-                        construct.get_locus_str().c_str(),
+                fatal_printf_at(construct.get_locus(),
+                        "'!$OMP %s' cannot have an empty block\n",
                         strtoupper(pragma_name.c_str()));
             }
 
@@ -1195,13 +1249,13 @@ namespace TL { namespace OpenMP {
                 bool current_is_section = PragmaUtils::is_pragma_construct("omp", "section", *it);
                 bool current_is_the_last = ((it + 1) == l.end());
 
-                if (current_is_section 
+                if (current_is_section
                         && (previous_was_section
                             // Or it is the last
                             || current_is_the_last))
                 {
-                    running_error("%s: error: misplaced '!$OMP SECTION'\n", 
-                            it->get_locus_str().c_str());
+                    fatal_printf_at(it->get_locus(),
+                            "misplaced '!$OMP SECTION'\n");
                 }
 
                 if (!current_is_section)
@@ -1251,13 +1305,13 @@ namespace TL { namespace OpenMP {
         {
             if (IS_FORTRAN_LANGUAGE)
             {
-                running_error("%s: error: a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'",
-                        statement.get_locus_str().c_str());
+                fatal_printf_at(statement.get_locus(),
+                        "a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'");
             }
             else
             {
-                running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
-                        statement.get_locus_str().c_str());
+                fatal_printf_at(statement.get_locus(),
+                        "a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'");
             }
         }
 
@@ -1283,10 +1337,9 @@ namespace TL { namespace OpenMP {
                         && sym_data_sharing.attr != DS_LASTPRIVATE
                         && sym_data_sharing.attr != DS_NONE)
                 {
-                    running_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
-                            statement.get_locus_str().c_str(),
-                            sym.get_name().c_str()
-                            );
+                    fatal_printf_at(statement.get_locus(),
+                            "induction variable '%s' has predetermined private data-sharing\n",
+                            sym.get_name().c_str());
                 }
 
                 data_environment.set_data_sharing(sym, DS_PRIVATE, DSK_PREDETERMINED_INDUCTION_VAR,
@@ -1299,14 +1352,13 @@ namespace TL { namespace OpenMP {
         {
             if (IS_FORTRAN_LANGUAGE)
             {
-                running_error("%s: error: DO-statement in !$OMP DO directive is not valid",
-                        statement.get_locus_str().c_str());
+                fatal_printf_at(statement.get_locus(), "DO-statement in !$OMP DO directive is not valid");
             }
             else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for'"
-                        " is not in OpenMP canonical form",
-                        statement.get_locus_str().c_str());
+                fatal_printf_at(statement.get_locus(),
+                        "for-statement in '#pragma omp for' or '#pragma omp parallel for'"
+                        " is not in OpenMP canonical form");
             }
             else
             {
@@ -1323,18 +1375,8 @@ namespace TL { namespace OpenMP {
     {
         if (!statement.is<Nodecl::WhileStatement>())
         {
-            /*
-               if (IS_FORTRAN_LANGUAGE)
-               {
-               running_error("%s: error: a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'",
-               statement.get_locus_str().c_str());
-               }
-               else
-               */
-            {
-                running_error("%s: error: a while-statement is required for '#pragma omp simd'",
-                        statement.get_locus_str().c_str());
-            }
+            fatal_printf_at(statement.get_locus(),
+                    "a while-statement is required for '#pragma omp simd'");
         }
     }
 
@@ -1398,7 +1440,7 @@ namespace TL { namespace OpenMP {
 
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         if (!_ompss_mode)
         {
@@ -1487,10 +1529,9 @@ namespace TL { namespace OpenMP {
 
                 if (default_data_attr == DS_NONE)
                 {
-                    std::cerr << it->get_locus_str() 
-                        << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope()) 
-                        << "' does not have data sharing and 'default(none)' was specified. Assuming firstprivate "
-                        << std::endl;
+                    warn_printf_at(it->get_locus(),
+                            "symbol '%s' does not have data sharing and 'default(none)' was specified. Assuming firstprivate.\n",
+                            sym.get_qualified_name(sym.get_scope()).c_str());
 
                     implicit_data_attr = DS_FIRSTPRIVATE;
                     reason =
@@ -1582,8 +1623,9 @@ namespace TL { namespace OpenMP {
                     && !sym.get_type().no_ref().array_requires_descriptor()
                     && sym.get_type().no_ref().array_get_size().is_null())
             {
-                std::cerr << it->get_locus_str()
-                    << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized. Assuming shared" << std::endl;
+                warn_printf_at(it->get_locus(),
+                        "assumed-size array '%s' cannot be privatized. Assuming shared\n",
+                        sym.get_name().c_str());
                 data_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                         "this is an assumed size array that was attempted to be privatized");
             }
@@ -1852,8 +1894,37 @@ namespace TL { namespace OpenMP {
 
     void Core::taskloop_handler_pre(TL::PragmaCustomStatement construct)
     {
+        TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
         Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
-        loop_handler_pre(construct, loop, &Core::common_for_handler);
+
+        DataEnvironment& data_environment =
+            _openmp_info->get_new_data_environment(construct);
+        _openmp_info->push_current_data_environment(data_environment);
+
+        ObjectList<Symbol> extra_symbols;
+        common_for_handler(construct, loop, data_environment, extra_symbols);
+
+        get_data_explicit_attributes(pragma_line, loop,
+                data_environment,
+                extra_symbols);
+
+        bool there_is_default_clause = false;
+        DataSharingAttribute default_data_attr = get_default_data_sharing(
+                pragma_line,
+                /* fallback */ DS_UNDEFINED,
+                there_is_default_clause,
+                /*allow_default_auto*/ true);
+
+        get_dependences_info(pragma_line, /* parsing_context */ loop,
+                data_environment, default_data_attr, extra_symbols);
+
+        get_dependences_info_from_reductions(pragma_line, data_environment,
+                default_data_attr, extra_symbols);
+
+        get_data_implicit_attributes_task(construct, data_environment,
+                default_data_attr, there_is_default_clause);
+
+        get_data_extra_symbols(data_environment, extra_symbols);
     }
 
     void Core::taskloop_handler_post(TL::PragmaCustomStatement construct)
@@ -1935,11 +2006,9 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase& expr(*it);
             if (!expr.has_symbol())
             {
-                std::cerr << expr.get_locus_str()
-                    << ": warning: '"
-                    << expr.prettyprint()
-                    << "' cannot be used in this clause, skipping"
-                    << std::endl;
+                warn_printf_at(expr.get_locus(),
+                        "invalid expression '%s', skipping\n",
+                        expr.prettyprint().c_str());
             }
             else
             {
@@ -1953,23 +2022,18 @@ namespace TL { namespace OpenMP {
                     if (sym.is_member()
                             && !sym.is_static())
                     {
-                        std::cerr << expr.get_locus_str()
-                            << ": warning: '"
-                            << expr.prettyprint()
-                            << "' is a nonstatic-member, skipping"
-                            << std::endl;
+                        warn_printf_at(expr.get_locus(),
+                                "nonstatic data-member '%s' cannot be threadprivate, skipping\n",
+                                sym.get_qualified_name().c_str());
                         continue;
                     }
                 }
                 else
                 {
-                    std::cerr << expr.get_locus_str()
-                        << ": warning: '"
-                        << expr.prettyprint()
-                        << "' is not a variable"
-                        << (IS_FORTRAN_LANGUAGE ? " nor a COMMON name" : "")
-                        <<", skipping"
-                        << std::endl;
+                    warn_printf_at(expr.get_locus(),
+                            "entity '%s' is not a variable%s, skipping\n",
+                            sym.get_qualified_name().c_str(),
+                            (IS_FORTRAN_LANGUAGE ? " nor a COMMON name" : ""));
                     continue;
                 }
 
@@ -1988,11 +2052,7 @@ namespace TL { namespace OpenMP {
     }
     void Core::task_handler_post(TL::PragmaCustomStatement construct)
     {
-        if (!_target_context.empty()
-                && _target_context.top().is_implicit)
-        {
-            _target_context.pop();
-        }
+        ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
         _openmp_info->pop_current_data_environment();
     }
 
@@ -2005,11 +2065,7 @@ namespace TL { namespace OpenMP {
     void Core::task_handler_post(TL::PragmaCustomDeclaration construct)
     {
         // Do nothing
-        if (!_target_context.empty()
-                && _target_context.top().is_implicit)
-        {
-            _target_context.pop();
-        }
+        ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
     }
 
     void Core::taskwait_handler_pre(TL::PragmaCustomDirective construct)
@@ -2039,8 +2095,7 @@ namespace TL { namespace OpenMP {
     {
         if (!this->in_ompss_mode())
         {
-            warn_printf("%s: warning: this form '#pragma omp target' is ignored in OpenMP mode\n",
-                    ctr.get_locus_str().c_str());
+            warn_printf_at(ctr.get_locus(), "this form '#pragma omp target' is ignored in OpenMP mode\n");
         }
         else
         {
@@ -2099,10 +2154,10 @@ namespace TL { namespace OpenMP {
             {
                 loop_handler_pre(construct, stmt, &Core::common_while_handler);
             }
-            else 
+            else
             {
-                running_error("%s: error: '#pragma omp simd' must be followed by a for or while statement\n",
-                        construct.get_locus_str().c_str());
+                fatal_printf_at(construct.get_locus(),
+                        "'#pragma omp simd' must be followed by a for or while statement\n");
             }
         }
         else if (IS_FORTRAN_LANGUAGE)
@@ -2226,13 +2281,13 @@ namespace TL { namespace OpenMP {
         // but we may encounter them in invalid input
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            error_printf("%s: error: stray '#pragma omp section' not enclosed in a '#pragma omp sections' or '#pragma omp parallel sections'\n",
-                    directive.get_locus_str().c_str());
+            error_printf_at(directive.get_locus(),
+                    "stray '#pragma omp section' not enclosed in a '#pragma omp sections' or '#pragma omp parallel sections'\n");
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            error_printf("%s: error: stray '!$OMP SECTION' not enclosed in a '!$OMP SECTIONS' or a '!$OMP PARALLEL SECTIONS'\n",
-                    directive.get_locus_str().c_str());
+            error_printf_at(directive.get_locus(),
+                    "stray '!$OMP SECTION' not enclosed in a '!$OMP SECTIONS' or a '!$OMP PARALLEL SECTIONS'\n");
         }
         else
         {
@@ -2345,8 +2400,7 @@ namespace TL { namespace OpenMP {
                                 && !stack_of_labels.contains(name))
                         {
                             // We are doing a CYCLE of a loop not currently nested
-                            error_printf("%s: error: invalid 'CYCLE' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
-                                    n.get_locus_str().c_str());
+                            error_printf_at(n.get_locus(), "invalid 'CYCLE' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n");
                         }
                     }
                 }
@@ -2358,16 +2412,14 @@ namespace TL { namespace OpenMP {
                 {
                     if (nest_of_break == 0)
                     {
-                        error_printf("%s: error: invalid 'break' inside '#pragma omp for' or '#pragma omp parallel for'\n",
-                                n.get_locus_str().c_str());
+                        error_printf_at(n.get_locus(), "invalid 'break' inside '#pragma omp for' or '#pragma omp parallel for'\n");
                     }
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     if (n.get_construct_name().is_null() && nest_of_break == 0)
                     {
-                        error_printf("%s: error: invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
-                                n.get_locus_str().c_str());
+                        error_printf_at(n.get_locus(), "invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n");
                     }
                     else if (!n.get_construct_name().is_null())
                     {
@@ -2376,8 +2428,7 @@ namespace TL { namespace OpenMP {
                                 || !stack_of_labels.contains(name))
                         {
                             // We are doing an EXIT of the whole loop or a loop not nested
-                            error_printf("%s: error: invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
-                                    n.get_locus_str().c_str());
+                            error_printf_at(n.get_locus(), "invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n");
                         }
                     }
                 }
@@ -2409,8 +2460,7 @@ namespace TL { namespace OpenMP {
 
 #define INVALID_STATEMENT_HANDLER(_name) \
     void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
-        error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                ctr.get_locus_str().c_str(), \
+        error_printf_at(ctr.get_locus(), "invalid '#pragma %s %s'\n",  \
                 ctr.get_text().c_str(), \
                 ctr.get_pragma_line().get_text().c_str()); \
     } \
@@ -2418,8 +2468,7 @@ namespace TL { namespace OpenMP {
 
 #define INVALID_DECLARATION_HANDLER(_name) \
     void Core::_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
-        error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                ctr.get_locus_str().c_str(), \
+        error_printf_at(ctr.get_locus(), "invalid '#pragma %s %s'\n",  \
                 ctr.get_text().c_str(), \
                 ctr.get_pragma_line().get_text().c_str()); \
     } \
@@ -2473,7 +2522,7 @@ namespace TL { namespace OpenMP {
 
 #define UNIMPLEMENTED_HANDLER_STATEMENT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
-            error_printf("%s: error: OpenMP construct not implemented\n", ctr.get_locus_str().c_str());\
+            error_printf_at(ctr.get_locus(), "OpenMP construct not implemented\n");\
         } \
         void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
 
@@ -2488,6 +2537,7 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_DIRECTIVE(barrier)
         EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_DIRECTIVE(register)
+        EMPTY_HANDLERS_DIRECTIVE(unregister)
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         UNIMPLEMENTED_HANDLER_STATEMENT(ordered)
@@ -2508,6 +2558,22 @@ namespace TL { namespace OpenMP {
 
             return stmt;
         }
+
+    bool is_scalar_type(TL::Type t)
+    {
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            return ::is_scalar_type(t.get_internal_type());
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            return ::fortran_is_scalar_type(t.no_ref().get_internal_type());
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
 
     void openmp_core_run_next_time(DTO& dto)
     {

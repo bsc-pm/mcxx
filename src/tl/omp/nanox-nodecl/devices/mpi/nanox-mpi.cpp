@@ -233,8 +233,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function()) {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            running_error("%s: error: nested functions are not supported\n",
-                original_statements.get_locus_str().c_str());        
+            fatal_printf_at(original_statements.get_locus(), "nested functions are not supported\n");
     }
 
     Source unpacked_arguments, fortran_allocatable_translation, cleanup_code;
@@ -343,7 +342,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             case OutlineDataItem::SHARING_SHARED:   
             case OutlineDataItem::SHARING_CAPTURE:   
                 //If it's firstprivate (sharing capture), copy input and change address to the global/private var
-                if ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope()){
+                if ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope()){
                    std::string symbol_name=(*it)->get_symbol().get_name();
                    if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE && !(*it)->get_symbol().get_type().is_const()){
                         //Copy value of the captured to the global (aka initialize the global)
@@ -363,7 +362,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                             //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
                             //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
                             if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
                                 TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
                                         info._original_statements.retrieve_context());
 
@@ -372,7 +371,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         } else {
 
                             if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_in_module() ||(*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
                                 std::string symbol_name=(*it)->get_symbol().get_name();
                                 TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
                                             info._original_statements.retrieve_context());
@@ -387,7 +386,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
 
                     //Copy and swap addresses
                     if (!(*it)->get_symbol().get_type().is_const() && !(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                            ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
+                            ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
 
                         if (!(*it)->get_copies().empty())
@@ -485,7 +484,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
                         bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
 
-                        if (((*it)->get_symbol().is_from_module() && is_allocatable)
+                        if ((((*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module()) && is_allocatable)
                                 || is_pointer)
                         {
                             cleanup_code
@@ -1140,7 +1139,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         FILE* ancillary_file = fopen(new_filename.c_str(), "w");
         if (ancillary_file == NULL)
         {
-            running_error("%s: error: cannot open file '%s'. %s\n",
+            fatal_error("%s: error: cannot open file '%s'. %s\n",
                     original_filename.c_str(),
                     new_filename.c_str(),
                     strerror(errno));

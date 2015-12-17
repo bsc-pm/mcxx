@@ -137,7 +137,6 @@ namespace Codegen
             void visit(const Nodecl::PragmaCustomDirective& node);
             void visit(const Nodecl::PragmaClauseArg& node);
             void visit(const Nodecl::SourceComment& node);
-            void visit(const Nodecl::Cast& node);
             void visit(const Nodecl::Sizeof& node);
             void visit(const Nodecl::Alignof& node);
 
@@ -407,6 +406,7 @@ namespace Codegen
 
             bool is_fortran_representable_pointer(TL::Type t);
 
+            bool requires_explicit_cast(const Nodecl::Conversion& node);
             void codegen_casting(
                     TL::Type dest_type, 
                     TL::Type source_type, 

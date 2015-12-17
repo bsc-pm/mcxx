@@ -43,7 +43,8 @@ namespace TL { namespace OpenMP {
             const std::string &combiner)
     {
         parse_declare_reduction(ref_sc,
-                name + ":" + typenames + ":" + combiner + ":" + initializer);
+                name + ":" + typenames + ":" + combiner + ":" + initializer,
+                /* is_builtin */ false);
     }
 
     void Core::parse_builtin_reduction(ReferenceScope ref_sc,
@@ -55,7 +56,8 @@ namespace TL { namespace OpenMP {
 
         parse_declare_reduction(ref_sc,
                 "#line 0 \"<openmp-builtin-reductions>\"\n" +
-                name + ":" + typenames + ":" + combiner + ":" + initializer);
+                name + ":" + typenames + ":" + combiner + ":" + initializer,
+                /* is_builtin */ true);
     }
 
     static std::string as_constant_expression(std::string symbol_name)

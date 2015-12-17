@@ -43,11 +43,12 @@ namespace Codegen
         walk(n.get_symbol().get_value());
     }
 
-    void PruneVLAVisitor::visit(const Nodecl::Cast& n)
+    void PruneVLAVisitor::visit(const Nodecl::Conversion& n)
     {
         // This type is explicitly emitted
-        walk_type(n.get_type());
-        walk(n.get_rhs());
+        if (n.get_text() != "")
+            walk_type(n.get_type());
+        walk(n.get_nest());
     }
 
     void PruneVLAVisitor::visit(const Nodecl::FunctionCode& function_code)

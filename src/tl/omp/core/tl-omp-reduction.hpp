@@ -84,6 +84,8 @@ namespace TL { namespace OpenMP {
 
             static ObjectList<Reduction*> lookup(TL::Scope, Nodecl::NodeclBase id_expression, TL::Type t,
                     bool disable_koenig, bool allow_array_types);
+
+            bool _is_builtin;
         public:
             //! Factory of a reduction in a given scope
             /*!
@@ -183,12 +185,25 @@ namespace TL { namespace OpenMP {
                 _locus = locus;
             }
 
+            const locus_t* get_locus() const
+            {
+                return _locus;
+            }
+
             std::string get_locus_str() const
             {
                 return ::locus_to_str(_locus);
             }
 
-            static bool is_builtin(const std::string& op_name);
+            void set_is_builtin(bool b)
+            {
+                this->_is_builtin = b;
+            }
+
+            bool is_builtin() const
+            {
+                return this->_is_builtin;
+            }
 
             bool get_is_initialization() const
             {

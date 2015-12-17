@@ -11,15 +11,15 @@ preprocessor_options = -qsuppress=1506-224
 compiler_name = @XLC@
 linker_name = @XLC@
 #cuda
-@DISABLE_CUDA@options = --cuda
-@DISABLE_CUDA@{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
-@DISABLE_CUDA@{openmp} linker_options = -lnanox-gpu-api
-@DISABLE_CUDA@{openmp} compiler_phase = libtlnanox-cuda.so
+{@ENABLE_CUDA@} options = --cuda
+{@NANOX_GATE@,@ENABLE_CUDA@,openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,openmp} linker_options = -lnanox-gpu-api
+{@NANOX_GATE@,@ENABLE_CUDA@,openmp} compiler_phase = libtlnanox-cuda.so
 #opencl
-@DISABLE_OPENCL@options = --opencl
-@DISABLE_OPENCL@{openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
-@DISABLE_OPENCL@{openmp} compiler_phase = libtlnanox-opencl.so
-@DISABLE_OPENCL@{openmp} linker_options = -lnanox-opencl-api
+{@ENABLE_OPENCL@} options = --opencl
+{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} compiler_phase = libtlnanox-opencl.so
+{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} linker_options = -lnanox-opencl-api
 
 [xlmcxx : omp-base-ibm]
 language = C++
@@ -32,15 +32,15 @@ preprocessor_uses_stdout = yes
 compiler_name = @XLCXX@
 linker_name = @XLCXX@
 #cuda
-@DISABLE_CUDA@options = --cuda
-@DISABLE_CUDA@{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -qinclude=nanos-gpu.h
-@DISABLE_CUDA@{openmp} linker_options = -lnanox-gpu-api
-@DISABLE_CUDA@{openmp} compiler_phase = libtlnanox-cuda.so
+{@ENABLE_CUDA@} options = --cuda
+{@NANOX_GATE@,@ENABLE_CUDA@,openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -qinclude=nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,openmp} linker_options = -lnanox-gpu-api
+{@NANOX_GATE@,@ENABLE_CUDA@,openmp} compiler_phase = libtlnanox-cuda.so
 #opencl
-@DISABLE_OPENCL@options = --opencl
-@DISABLE_OPENCL@{openmp} preprocessor_options = -qinclude=nanos-opencl.h -D_MERCURIUM_OPENCL_
-@DISABLE_OPENCL@{openmp} compiler_phase = libtlnanox-opencl.so
-@DISABLE_OPENCL@{openmp} linker_options = -lnanox-opencl-api
+{@ENABLE_OPENCL@} options = --opencl
+{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} preprocessor_options = -qinclude=nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} compiler_phase = libtlnanox-opencl.so
+{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} linker_options = -lnanox-opencl-api
 
 # IBM XL
 [xlmfc : omp-base]

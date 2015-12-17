@@ -105,7 +105,7 @@ namespace Vectorization
                 std::cerr << "Difference: " << vl_subscripts.prettyprint()
                     << " MINUS " << it_subscripts.prettyprint()
                     << " = "
-                    << minus.prettyprint()
+                    << minus.prettyprint() << " DIFFERENCE IS" << (minus.is_constant() ? " " : " NOT ") << "CONSTANT"
                     << std::endl;
             }
 
@@ -224,7 +224,7 @@ namespace Vectorization
             {
                 Nodecl::NodeclBase alignment_node = flags.find_first<Nodecl::AlignmentInfo>();
                 if (alignment_node.is_null())
-                    running_error("Overlap error (MIN): There is no alignment info for %s",
+                    fatal_error("Overlap error (MIN): There is no alignment info for %s",
                             min_vload.prettyprint().c_str());
 
                 int alignment = const_value_cast_to_signed_int(alignment_node.get_constant());
@@ -306,7 +306,7 @@ namespace Vectorization
             {
                 Nodecl::NodeclBase alignment_node = flags.find_first<Nodecl::AlignmentInfo>();
                 if (alignment_node.is_null())
-                    running_error("Overlap error (MAX): There is no alignment info for %s",
+                    fatal_error("Overlap error (MAX): There is no alignment info for %s",
                             max_vload.prettyprint().c_str());
 
                 int alignment = const_value_cast_to_signed_int(alignment_node.get_constant());

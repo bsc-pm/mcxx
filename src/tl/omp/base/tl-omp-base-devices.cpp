@@ -54,24 +54,24 @@ namespace TL { namespace OpenMP {
                 device_id_expr = const_value_to_nodecl(const_value_get_signed_int(0));
                 if (device.is_defined())
                 {
-                    error_printf("%s: error: empty 'device' clause\n", locus_to_str(locus));
+                    error_printf_at(locus, "empty 'device' clause\n");
                 }
             }
-            else 
+            else
             {
                 device_id_expr = expr_list[0];
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expressions in 'device' clause\n",
-                            expr_list[1].get_locus_str().c_str());
+                    error_printf_at(expr_list[1].get_locus(),
+                            "too many expressions in 'device' clause\n");
                 }
             }
             ERROR_CONDITION(device_id_expr.is_null(), "Expecting a valid device id here", 0);
-            
+
             if (!::is_integer_type(no_ref(device_id_expr.get_type().get_internal_type())))
             {
-                error_printf("%s: error: expression of 'device' must be an integer-expression\n",
-                        device_id_expr.get_locus_str().c_str());
+                error_printf_at(device_id_expr.get_locus(),
+                        "expression of 'device' must be an integer-expression\n");
             }
 
             return Nodecl::OpenMP::Device::make(device_id_expr, device_id_expr.get_locus());
@@ -94,15 +94,13 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase result;
             if (expr_list.empty())
             {
-                error_printf("%s: error: expecting expression in 'if' clause\n",
-                        locus_to_str(locus));
+                error_printf_at(locus, "expecting expression in 'if' clause\n");
             }
             else
             {
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expressions in 'if' clause\n",
-                            expr_list[1].get_locus_str().c_str());
+                    error_printf_at(expr_list[1].get_locus(), "too many expressions in 'if' clause\n");
                 }
                 result = Nodecl::OpenMP::If::make(
                         expr_list[0],
@@ -268,8 +266,21 @@ namespace TL { namespace OpenMP {
             device_data_environment.append(if_clause);
         }
 
-        Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
+        TL::PragmaCustomClause nowait = pragma_line.get_clause("nowait");
+        if (!nowait.is_defined())
+        {
+            device_data_environment.append(
+                    Nodecl::OpenMP::TargetTaskUndeferred::make()
+                    );
+        }
 
+        Nodecl::NodeclBase dependences = make_execution_environment(data_environment,
+                pragma_line,
+                /* ignore_target_info */ true,
+                /* is_inline_task */ true);
+        device_data_environment.append(dependences);
+
+        Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
         device_data_environment.append(map_clause);
 
         Nodecl::OpenMP::Target target_data =
@@ -414,16 +425,14 @@ namespace TL { namespace OpenMP {
 
             if (expr_list.empty())
             {
-                error_printf("%s: error: empty 'num_teams' clause\n",
-                        pragma_line.get_locus_str().c_str());
+                error_printf_at(pragma_line.get_locus(), "empty 'num_teams' clause\n");
                 return Nodecl::NodeclBase::null();
             }
             else
             {
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expressions in 'num_teams' clause\n",
-                            pragma_line.get_locus_str().c_str());
+                    error_printf_at(pragma_line.get_locus(), "too many expressions in 'num_teams' clause\n");
                 }
                 return Nodecl::OpenMP::NumTeams::make(
                         expr_list[0],
@@ -442,16 +451,14 @@ namespace TL { namespace OpenMP {
 
             if (expr_list.empty())
             {
-                error_printf("%s: error: empty 'thread_limit' clause\n",
-                        pragma_line.get_locus_str().c_str());
+                error_printf_at(pragma_line.get_locus(), "empty 'thread_limit' clause\n");
                 return Nodecl::NodeclBase::null();
             }
             else
             {
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expressions in 'thread_limit' clause\n",
-                            pragma_line.get_locus_str().c_str());
+                    error_printf_at(pragma_line.get_locus(), "too many expressions in 'thread_limit' clause\n");
                 }
                 return Nodecl::OpenMP::ThreadLimit::make(
                         expr_list[0],
@@ -521,8 +528,7 @@ namespace TL { namespace OpenMP {
 
                 if (arguments.empty())
                 {
-                    error_printf("%s: error: empty 'dist_schedule'\n",
-                            pragma_line.get_locus_str().c_str());
+                    error_printf_at(pragma_line.get_locus(), "empty 'dist_schedule'\n");
                 }
                 else
                 {
@@ -531,8 +537,7 @@ namespace TL { namespace OpenMP {
 
                     if (schedule != "static")
                     {
-                        error_printf("%s: error: invalid schedule kind in 'dist_schedule', only 'static' is allowed\n",
-                            pragma_line.get_locus_str().c_str());
+                        error_printf_at(pragma_line.get_locus(), "invalid schedule kind in 'dist_schedule', only 'static' is allowed\n");
                     }
                     else if (arguments.size() >= 2)
                     {
@@ -540,8 +545,7 @@ namespace TL { namespace OpenMP {
 
                         if (arguments.size() > 2)
                         {
-                            error_printf("%s: error: too many arguments in 'dist_schedule' clause\n",
-                                    pragma_line.get_locus_str().c_str());
+                            error_printf_at(pragma_line.get_locus(), "too many arguments in 'dist_schedule' clause\n");
                         }
                     }
 
@@ -611,6 +615,90 @@ namespace TL { namespace OpenMP {
 
         pragma_line.diagnostic_unused_clauses();
         ctr.replace(distribute);
+    }
+
+    void Base::declare_target_handler_pre(TL::PragmaCustomDirective ctr)
+    {
+        _start_declare_target = ctr;
+    }
+    void Base::declare_target_handler_post(TL::PragmaCustomDirective ctr) { }
+
+    void Base::end_declare_target_handler_pre(TL::PragmaCustomDirective ctr) { }
+    void Base::end_declare_target_handler_post(TL::PragmaCustomDirective ctr)
+    {
+
+        Nodecl::NodeclBase n = _start_declare_target.get_parent();
+        ERROR_CONDITION(!n.is<Nodecl::List>(), "Invalid node", 0);
+
+        // FIXME: this way of traversing a list bounded by two nodes can be
+        // vastly improved
+        // Skip the starting node
+        n = n.get_parent();
+
+        TL::ObjectList<TL::Symbol> symbol_set;
+
+        for(;;)
+        {
+            // Something is amiss here
+            if (n.is_null()
+                    || !n.is<Nodecl::List>())
+                break;
+
+            Nodecl::NodeclBase::Children c = n.children();
+            Nodecl::NodeclBase current = c[1];
+
+            // We reached the end
+            if (current == ctr)
+                break;
+
+            if (current.is<Nodecl::ObjectInit>())
+            {
+                info_printf_at(current.get_locus(), "target declaration of '%s'\n",
+                        current.get_symbol().get_qualified_name().c_str());
+                symbol_set.insert(current.get_symbol());
+            }
+            else if (current.is<Nodecl::FunctionCode>())
+            {
+                info_printf_at(current.get_locus(), "target declaration of function '%s'\n",
+                        current.get_symbol().get_qualified_name().c_str());
+                symbol_set.insert(current.get_symbol());
+            }
+            // else if (current.is<Nodecl::CxxDecl>())
+            // {
+            // }
+            // else if (current.is<Nodecl::CxxDef>())
+            // {
+            // }
+            else
+            {
+                // Ignore any other node for now
+            }
+
+            n = n.get_parent();
+        }
+
+        // Now remove start
+        Nodecl::Utils::remove_from_enclosing_list(_start_declare_target);
+        _start_declare_target = Nodecl::NodeclBase::null();
+
+        struct MakeSymbol
+        {
+            static Nodecl::NodeclBase make(const TL::Symbol &sym, const locus_t* locus)
+            {
+                return sym.make_nodecl(locus);
+            }
+        };
+
+        // And replace the current node
+        TL::ObjectList<Nodecl::NodeclBase> nodecl_sym_list =
+            symbol_set.map<Nodecl::NodeclBase>(std::bind(MakeSymbol::make, std::placeholders::_1, ctr.get_locus()));
+
+        Nodecl::NodeclBase declare_target =
+            Nodecl::OpenMP::DeclareTarget::make(
+                    Nodecl::List::make(nodecl_sym_list),
+                    ctr.get_locus());
+
+        ctr.replace(declare_target);
     }
 
 } }

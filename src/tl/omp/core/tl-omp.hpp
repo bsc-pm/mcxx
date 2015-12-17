@@ -153,20 +153,24 @@ namespace OpenMP
     class LIBTL_CLASS ReductionSymbol
     {
         private:
-            Symbol _symbol;
+            Symbol _base_symbol;
+            Nodecl::NodeclBase _reduction_expr;
             TL::Type _reduction_type;
             Reduction *_reduction;
 
         public:
-            ReductionSymbol(Symbol s, TL::Type t, Reduction *reduction)
-                : _symbol(s),
+            ReductionSymbol(Symbol s, Nodecl::NodeclBase _expr,
+                    TL::Type t, Reduction *reduction) :
+                _base_symbol(s),
+                _reduction_expr(_expr),
                 _reduction_type(t),
                 _reduction(reduction)
             {
             }
 
-            ReductionSymbol(const ReductionSymbol& red_sym)
-                : _symbol(red_sym._symbol),
+            ReductionSymbol(const ReductionSymbol& red_sym) :
+                _base_symbol(red_sym._base_symbol),
+                _reduction_expr(red_sym._reduction_expr),
                 _reduction_type(red_sym._reduction_type),
                 _reduction(red_sym._reduction)
             {
@@ -174,7 +178,7 @@ namespace OpenMP
 
             Symbol get_symbol() const
             {
-                return _symbol;
+                return _base_symbol;
             }
 
             Reduction* get_reduction() const
@@ -185,6 +189,11 @@ namespace OpenMP
             Type get_reduction_type() const
             {
                 return _reduction_type;
+            }
+
+            Nodecl::NodeclBase get_reduction_expression() const
+            {
+                return _reduction_expr;
             }
     };
 
@@ -444,7 +453,7 @@ namespace OpenMP
                 virtual void init(DTO& data_flow);
 
                 OpenMPPhase()
-                    : PragmaCustomCompilerPhase("omp"),
+                    : PragmaCustomCompilerPhase(),
                     _disable_clause_warnings(false)
                 {
                 }

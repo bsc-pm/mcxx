@@ -33,6 +33,8 @@
 #include "tl-source.hpp"
 #include "tl-type.hpp"
 #include "tl-modules.hpp"
+#include "cxx-diagnostic.h"
+
 #include <sstream>
 
 namespace TL
@@ -60,7 +62,7 @@ namespace TL
     class DataReference : public Nodecl::NodeclBase
     {
         public:
-            DataReference() : _is_valid(false) { }
+            DataReference() : _is_valid(false), _diagnostic_context(NULL) { }
 
             //! Constructors of a DataReference
             /*! 
@@ -82,12 +84,6 @@ namespace TL
              */
             bool is_assumed_size_array() const;
 
-            //! Returns the warning log
-            /*!
-              This is the same message as is_valid(std::string&) stores in its first parameter
-              */
-            std::string get_error_log() const;
-
             //! Gets the base symbol
             /*!
               The base symbol is the entity to which we know we are expressing
@@ -102,9 +98,6 @@ namespace TL
             /*!
               This function returns a type which represents the data covered
               by the data reference.
-
-              \note The type returned may not be fully valid if it contains arrays
-              as this function uses Type::get_array_to(const std::string&)
              */
             Type get_data_type() const;
 
@@ -143,23 +136,41 @@ namespace TL
 
             friend struct DataReferenceVisitor;
 
+            void commit_diagnostic();
+
             ~DataReference();
+
+            DataReference(const DataReference& data_ref)
+                : Nodecl::NodeclBase(data_ref),
+                _base_address(data_ref._base_address),
+                _is_valid(data_ref._is_valid),
+                _is_assumed_size(data_ref._is_assumed_size),
+                _base_symbol(data_ref._base_symbol),
+                _data_type(data_ref._data_type),
+                _iterators(data_ref._iterators),
+                _diagnostic_context(NULL) // diagnostics cannot be copied
+            {
+            }
+
+            DataReference& operator=(const DataReference& data_ref)
+            {
+                if (this != &data_ref)
+                {
+                    Nodecl::NodeclBase::operator=(data_ref);
+                    _base_address = data_ref._base_address;
+                    _is_valid = data_ref._is_valid;
+                    _is_assumed_size = data_ref._is_assumed_size;
+                    _base_symbol = data_ref._base_symbol;
+                    _data_type = data_ref._data_type;
+                    _iterators = data_ref._iterators;
+                    _diagnostic_context = NULL; // diagnostics cannot be copied
+                }
+                return *this;
+            }
 
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mw);
         private:
-            bool _is_valid;
-            bool _is_assumed_size;
-
-            TL::Symbol _base_symbol;
-            TL::Type _data_type;
-
-            TL::ObjectList<MultiRefIterator> _iterators;
-
-            // Error log
-            std::string _error_log;
-
-            Nodecl::NodeclBase _base_address;
 
             Nodecl::NodeclBase compute_sizeof_of_type(TL::Type relevant_type, bool ignore_regions = false) const;
 
@@ -174,6 +185,20 @@ namespace TL
                     TL::Scope sc) const;
 
             Nodecl::NodeclBase get_address_of_symbol_helper(Nodecl::NodeclBase expr, bool reference) const;
+
+            /* data members */
+            Nodecl::NodeclBase _base_address;
+
+            bool _is_valid;
+            bool _is_assumed_size;
+
+            TL::Symbol _base_symbol;
+            TL::Type _data_type;
+
+            TL::ObjectList<MultiRefIterator> _iterators;
+
+            // Error log
+            diagnostic_context_t* _diagnostic_context;
     };
 }
 

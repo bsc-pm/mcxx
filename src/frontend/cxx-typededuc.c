@@ -1167,13 +1167,20 @@ static deduction_result_t deduce_template_arguments_from_a_value(
                 codegen_to_str(argument, decl_context));
     }
 
+    const_value_t* param_const = NULL;
+    const_value_t* arg_const = NULL;
     if (nodecl_is_constant(parameter)
-            && nodecl_is_constant(argument))
+            && nodecl_is_constant(argument)
+
+            && !const_value_is_object((param_const = nodecl_get_constant(parameter)))
+            && !const_value_is_address(param_const)
+            && !const_value_is_object((arg_const = nodecl_get_constant(argument)))
+            && !const_value_is_address(arg_const))
     {
         if (const_value_is_nonzero(
                     const_value_eq(
-                        nodecl_get_constant(parameter),
-                        nodecl_get_constant(argument))))
+                        param_const,
+                        arg_const)))
         {
             DEBUG_CODE()
             {
@@ -3301,6 +3308,13 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                     return DEDUCTION_OK;
                 }
 
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEDEDUC: Deduction fails because deduced argument type '%s' "
+                            "cannot be matched to the argument type '%s'\n",
+                            print_declarator(deduced_argument),
+                            print_declarator(argument));
+                }
                 deduction_result_value = DEDUCTION_FAILURE;
             }
         }
@@ -3512,7 +3526,7 @@ deduction_result_t handle_explicit_template_arguments(
                     diagnostic_context_push_buffered();
                     type_t* template_argument_type =
                         update_type(
-                                raw_explicit_template_arguments->arguments[current_arg]->type,
+                                template_parameters->parameters[current_param]->entry->type_information,
                                 context_for_updating,
                                 locus);
                     diagnostic_context_pop_and_discard();
@@ -3589,6 +3603,7 @@ deduction_result_t handle_explicit_template_arguments(
             new_template_argument->type = raw_explicit_template_arguments->arguments[current_arg]->type;
             if (new_template_argument->kind == TPK_NONTYPE)
             {
+                new_template_argument->type = template_parameters->parameters[current_param]->entry->type_information;
                 diagnostic_context_push_buffered();
                 new_template_argument->type = update_type(
                         new_template_argument->type,
@@ -3606,6 +3621,7 @@ deduction_result_t handle_explicit_template_arguments(
                     free_template_parameter_list((*explicit_template_arguments));
                     return DEDUCTION_FAILURE;
                 }
+
                 if (!check_nontype_template_argument_type(new_template_argument->type))
                 {
                     DEBUG_CODE()
@@ -3811,7 +3827,6 @@ deduction_result_t finish_deduced_template_arguments(
                         nodecl_t list[num_deduced + 1];
                         memset(list, 0, sizeof(list));
 
-                        j = 0;
                         if (explicit_list != NULL)
                         {
                             for (j = 0; j < num_explicit_list; j++)

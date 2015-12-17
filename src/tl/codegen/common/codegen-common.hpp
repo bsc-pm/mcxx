@@ -44,7 +44,7 @@ namespace Codegen
 
     class CodegenModuleVisitor;
 
-    class CodegenVisitor : public Nodecl::ModularVisitor<void>
+    class CodegenVisitor : public Nodecl::NodeclVisitor<void>
     {
         private:
             bool _is_file_output;
@@ -79,20 +79,39 @@ namespace Codegen
             virtual void push_scope(TL::Scope sc) { }
             virtual void pop_scope() { }
 
-            friend class CodegenModuleVisitor;
     };
 
-    class CodegenModuleVisitor : public Nodecl::ModuleVisitor<void>
+    // Inspired from an example in http://wordaligned.org/articles/cpp-streambufs
+    template <typename char_type,
+             typename traits = std::char_traits<char_type> >
+                 class CodegenStreambuf:
+                     public std::basic_streambuf<char_type, traits>
     {
         public:
-            CodegenModuleVisitor(CodegenVisitor* codegen_visitor)
-                : Nodecl::ModuleVisitor<void>(codegen_visitor),
-                file(codegen_visitor->file)
-        {
-        }
+            typedef typename traits::int_type int_type;
 
-        protected:
-            std::ostream* file;
+            CodegenStreambuf(std::basic_streambuf<char_type, traits> * sb, CodegenVisitor* v)
+                : _sb(sb), _v(v) { }
+
+        private:
+            virtual int_type overflow(int_type c)
+            {
+                if (c == '\n')
+                {
+                    _v->set_current_line(_v->get_current_line() + 1);
+                }
+                _v->set_last_is_newline(c == '\n');
+                return _sb->sputc(c);
+            }
+
+            virtual int sync()
+            {
+                return _sb->pubsync();
+            }
+
+        private:
+            std::basic_streambuf<char_type, traits> * _sb;
+            CodegenVisitor* _v;
     };
 }
 

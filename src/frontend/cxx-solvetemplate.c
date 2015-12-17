@@ -74,38 +74,36 @@ type_t* solve_class_template(type_t* template_type,
     for (i = 0; i < num_specializations; i++)
     {
         type_t* current_specialized_type = specializations[i];
+        scope_entry_t* current_specialized_class = named_type_get_symbol(current_specialized_type);
 
         DEBUG_CODE()
         {
-            scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
             fprintf(stderr, "SOLVETEMPLATE: Checking with specialization defined in '%s' (%s)\n",
                     print_declarator(current_specialized_type),
-                    locus_to_str(entry->locus));
+                    locus_to_str(current_specialized_class->locus));
         }
 
-        // We do not want these for instantiation purposes
-        if (!symbol_entity_specs_get_is_instantiable(named_type_get_symbol(current_specialized_type)))
+        // We do not want aliases for instantiation purposes either
+        if (symbol_entity_specs_get_alias_to(current_specialized_class) != NULL)
         {
             DEBUG_CODE()
             {
-                scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
-                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it has been created by the typesystem\n",
+                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it is actually "
+                        "an alias to another specialized type\n",
                         print_declarator(current_specialized_type),
-                        locus_to_str(entry->locus));
+                        locus_to_str(current_specialized_class->locus));
             }
             continue;
         }
 
-        // We do not want aliases for instantiation purposes either
-        if (symbol_entity_specs_get_alias_to(named_type_get_symbol(current_specialized_type)) != NULL)
+        // We do not want these for instantiation purposes
+        if (!symbol_entity_specs_get_is_instantiable(current_specialized_class))
         {
             DEBUG_CODE()
             {
-                scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
-                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it is actually "
-                        "an alias to another specialized type\n",
+                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it has been created by the typesystem\n",
                         print_declarator(current_specialized_type),
-                        locus_to_str(entry->locus));
+                        locus_to_str(current_specialized_class->locus));
             }
             continue;
         }
@@ -128,7 +126,7 @@ type_t* solve_class_template(type_t* template_type,
         if (class_template_specialization_matches(
                     specialized_type,
                     current_specialized_type,
-                    named_type_get_symbol(current_specialized_type)->decl_context,
+                    current_specialized_class->decl_context,
                     locus,
                     &current_deduced_template_arguments))
         {
@@ -158,7 +156,7 @@ type_t* solve_class_template(type_t* template_type,
 
         if (is_unresolved_overloaded_type(more_specialized))
         {
-            info_printf("%s: note: template specialization candidate list\n", locus_to_str(locus));
+            info_printf_at(locus, "template specialization candidate list\n");
 
             scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(more_specialized);
 
@@ -168,15 +166,13 @@ type_t* solve_class_template(type_t* template_type,
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                info_printf("%s: note:   %s\n",
-                        locus_to_str(entry->locus),
+                info_printf_at(entry->locus, "%s\n",
                         print_type_str(get_user_defined_type(entry), entry->decl_context));
             }
             entry_list_iterator_free(it);
             entry_list_free(entry_list);
 
-            error_printf("%s: error: ambiguous template type for '%s'\n", 
-                    locus_to_str(locus),
+            error_printf_at(locus, "ambiguous template type for '%s'\n",
                     print_type_str(specialized_type, named_type_get_symbol(specialized_type)->decl_context));
 
             DELETE(matching_set);

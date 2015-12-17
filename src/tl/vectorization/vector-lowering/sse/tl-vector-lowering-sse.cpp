@@ -80,7 +80,7 @@ namespace TL
             }
             else
             {            
-                running_error("SSE Lowering: casting intrinsic not supported");
+                fatal_error("SSE Lowering: casting intrinsic not supported");
             }
 
             return result.str(); 
@@ -138,7 +138,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -194,7 +194,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -258,7 +258,7 @@ namespace TL
              */ 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -308,7 +308,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -360,7 +360,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -412,7 +412,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -464,7 +464,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -516,7 +516,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -568,7 +568,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -620,7 +620,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -660,7 +660,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -700,7 +700,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -740,7 +740,7 @@ namespace TL
             }
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -830,7 +830,7 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorLogicalOr& node) 
         { 
-            running_error("SSE Lowering %s: 'logical or' operation (i.e., operator '||') is not supported in SSE. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
+            fatal_error("SSE Lowering %s: 'logical or' operation (i.e., operator '||') is not supported in SSE. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
                     locus_to_str(node.get_locus()));
         }                                                 
 
@@ -866,7 +866,7 @@ namespace TL
             }
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             } 
@@ -1060,7 +1060,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1113,7 +1113,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1194,7 +1194,7 @@ namespace TL
             }
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1237,12 +1237,10 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorLoad& node) 
         { 
-            TL::ObjectList<Nodecl::NodeclBase> flags = 
-                node.get_flags().as<Nodecl::List>().to_object_list();
+            Nodecl::List flags = node.get_flags().as<Nodecl::List>();
 
-            bool aligned =
-                Nodecl::Utils::list_contains_nodecl_by_structure(
-                    flags, Nodecl::AlignedFlag());
+            bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
+                is_null();
 
             if (aligned)
                 visit_aligned_vector_load(node);
@@ -1280,7 +1278,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1326,7 +1324,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1344,12 +1342,10 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorStore& node) 
         {
-            TL::ObjectList<Nodecl::NodeclBase> flags = 
-                node.get_flags().as<Nodecl::List>().to_object_list();
+            Nodecl::List flags = node.get_flags().as<Nodecl::List>();
 
-            bool aligned = 
-                Nodecl::Utils::list_contains_nodecl_by_structure(
-                    flags, Nodecl::AlignedFlag());
+            bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
+                is_null();
 
             if (aligned)
                 visit_aligned_vector_store(node);
@@ -1386,7 +1382,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1434,7 +1430,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1484,7 +1480,7 @@ namespace TL
             }
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1504,7 +1500,7 @@ namespace TL
             }
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1576,7 +1572,7 @@ namespace TL
             }
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported index type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported index type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1600,7 +1596,7 @@ namespace TL
             }
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported source type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported source type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1696,7 +1692,7 @@ namespace TL
                 else
                 {
                 */
-                    running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                    fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                             ast_print_node_type(node.get_kind()),
                             locus_to_str(node.get_locus()));
                 //}
@@ -1753,7 +1749,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                fatal_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1783,12 +1779,12 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
         {
-            running_error("SSE Lowering: Vector masks are not supported in SSE.");
+            fatal_error("SSE Lowering: Vector masks are not supported in SSE.");
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorMaskNot& node)
         {
-            running_error("SSE Lowering: Vector masks are not supported in SSE.");
+            fatal_error("SSE Lowering: Vector masks are not supported in SSE.");
 /*            Nodecl::NodeclBase mask = node.get_rhs();
 
             walk(mask);
@@ -1809,7 +1805,7 @@ namespace TL
 
         Nodecl::ExhaustiveVisitor<void>::Ret SSEVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
-            running_error("SSE Lowering: Unknown node %s at %s.",
+            fatal_error("SSE Lowering: Unknown node %s at %s.",
                     ast_print_node_type(n.get_kind()),
                     locus_to_str(n.get_locus())); 
 

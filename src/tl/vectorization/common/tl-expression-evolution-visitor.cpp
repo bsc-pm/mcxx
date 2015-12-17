@@ -225,8 +225,6 @@ namespace Vectorization
 
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_uniform )
-                           || ( lhs_is_uniform && rhs_is_adjacent_access )
-                           || ( lhs_is_adjacent_access && rhs_is_uniform )
                            || ( lhs_is_uniform && rhs_is_adjacent_access );
 
         return ( rhs_is_uniform && lhs_is_uniform );
@@ -324,11 +322,6 @@ namespace Vectorization
     bool ExpressionEvolutionVisitor::visit( const Nodecl::BooleanLiteral& n )
     {
         return true;
-    }
-
-    bool ExpressionEvolutionVisitor::visit( const Nodecl::Cast& n )
-    {
-        return walk( n.get_rhs( ) );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::ComplexLiteral& n )

@@ -11,7 +11,7 @@ exit
 
 fi
 
-# if [ -n "@ICC@" -a -n "@NANOX_INCLUDES@" ];
+# if [ -n "@ICC@" -a "@NANOX_ENABLED@" = "yes" ];
 # then
 # cat <<EOF
 # 
@@ -55,14 +55,20 @@ fi
 # 
 # fi
 
-
 if [ ! -z "@ICC@" -a ! -z "@INTEL_OMP_LIB@" ];
 then
+
+DISABLE_INTEL_INTRINSICS=""
+ICC_VERSION=$(icc -v 2>&1 | sed -e "s/^icc version \([0-9]\+\)\(\.[0-9]\+\)*.*$/\1/i")
+if [ -n "$ICC_VERSION" -o "$ICC_VERSION" -le 15 ];
+then
+    DISABLE_INTEL_INTRINSICS="--disable-intel-intrinsics"
+fi
+
 cat <<EOF
 
 INTEL_RTL_CC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=intel-mcc --config-dir=@abs_top_builddir@/config --verbose"
 INTEL_RTL_CXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=intel-mcxx --config-dir=@abs_top_builddir@/config --verbose"
-c
 compile_versions="\${compile_versions} intel_rtl"
 test_CC_intel_rtl="\${INTEL_RTL_CC}"
 test_CXX_intel_rtl="\${INTEL_RTL_CXX}"
@@ -73,8 +79,8 @@ then
 SVML="--svml --fast-math"
 fi
 
-test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic \${SVML} -std=gnu99 --enable-ms-builtins   ${PROGRAMMING_MODEL}"
-test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic \${SVML} -std=gnu99 --enable-ms-builtins ${PROGRAMMING_MODEL}"
+test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic \${SVML} ${DISABLE_INTEL_INTRINSICS} -std=gnu99 --enable-ms-builtins   ${PROGRAMMING_MODEL}"
+test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic \${SVML} ${DISABLE_INTEL_INTRINSICS} -std=gnu99 --enable-ms-builtins ${PROGRAMMING_MODEL}"
 
 
 test_LDFLAGS_intel_rtl="-L@abs_top_builddir@/lib"

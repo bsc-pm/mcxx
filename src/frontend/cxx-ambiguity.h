@@ -67,6 +67,7 @@ LIBMCXX_EXTERN void solve_ambiguous_function_header(AST function_header, const d
 LIBMCXX_EXTERN void solve_ambiguous_nested_part(AST a, const decl_context_t* decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_parameter_clause(AST parameter_clause, const decl_context_t* decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_condition(AST a, const decl_context_t* decl_context);
+LIBMCXX_EXTERN void solve_ambiguous_decl_specifier(AST a, const decl_context_t* decl_context);
 
 // To be deprecated
 LIBMCXX_EXTERN char check_type_id_tree(AST type_id, const decl_context_t* decl_context);
@@ -82,9 +83,8 @@ LIBMCXX_EXTERN char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_li
 
 LIBMCXX_EXTERN int either_type(AST t1, AST t2, node_t n1, node_t n2);
 
-// States if we are checking ambiguities
-LIBMCXX_EXTERN DEPRECATED void enter_test_expression(void);
-LIBMCXX_EXTERN DEPRECATED void leave_test_expression(void);
+// Used by the driver for a final test
+LIBMCXX_EXTERN AST find_ambiguity(AST a);
 
 MCXX_END_DECLS
 

@@ -122,8 +122,8 @@ namespace TL
     }
 
     // Initialize here the warnings to the dispatcher
-    PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
-        : _pragma_handled(pragma_handled), _ignore_template_functions(false)
+    PragmaCustomCompilerPhase::PragmaCustomCompilerPhase()
+          : _ignore_template_functions(false)
     {
     }
 
@@ -141,24 +141,29 @@ namespace TL
 
     void PragmaCustomCompilerPhase::walk(Nodecl::NodeclBase& node)
     {
-        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher, _ignore_template_functions);
+        PragmaVisitor visitor(_pragma_map_dispatcher, _ignore_template_functions);
         visitor.walk(node);
     }
 
-    void PragmaCustomCompilerPhase::register_directive(const std::string& str)
+    void PragmaCustomCompilerPhase::register_directive(
+            const std::string& pragma_handled,
+            const std::string& str)
     {
-        register_new_directive(CURRENT_CONFIGURATION, _pragma_handled.c_str(), str.c_str(), 0, 0);
+        register_new_directive(CURRENT_CONFIGURATION, pragma_handled.c_str(), str.c_str(), 0, 0);
     }
 
-    void PragmaCustomCompilerPhase::register_construct(const std::string& str, bool bound_to_statement)
+    void PragmaCustomCompilerPhase::register_construct(
+            const std::string& pragma_handled,
+            const std::string& str,
+            bool bound_to_statement)
     {
         if (IS_FORTRAN_LANGUAGE)
         {
-            register_new_directive(CURRENT_CONFIGURATION, _pragma_handled.c_str(), str.c_str(), 1, bound_to_statement);
+            register_new_directive(CURRENT_CONFIGURATION, pragma_handled.c_str(), str.c_str(), 1, bound_to_statement);
         }
         else
         {
-            register_new_directive(CURRENT_CONFIGURATION, _pragma_handled.c_str(), str.c_str(), 1, 0);
+            register_new_directive(CURRENT_CONFIGURATION, pragma_handled.c_str(), str.c_str(), 1, 0);
         }
     }
 
@@ -176,9 +181,9 @@ namespace TL
         return result;
     }
 
-    PragmaMapDispatcher& PragmaCustomCompilerPhase::dispatcher()
+    SinglePragmaMapDispatcher& PragmaCustomCompilerPhase::dispatcher(const std::string &pragma_handled)
     {
-        return _pragma_map_dispatcher;
+        return _pragma_map_dispatcher[pragma_handled];
     }
 
     std::string PragmaClauseArgList::get_raw_arguments() const
@@ -387,6 +392,11 @@ namespace TL
         return _pragma_line.get_locus_str();
     }
 
+    const locus_t* PragmaCustomClause::get_locus() const
+    {
+        return _pragma_line.get_locus();
+    }
+
     ObjectList<Nodecl::NodeclBase> PragmaCustomClause::get_arguments_as_expressions(const ClauseTokenizer& tokenizer) const
     {
         return this->get_arguments_as_expressions(_pragma_line.retrieve_context(), tokenizer);
@@ -411,8 +421,8 @@ namespace TL
             }
             if (deprecated_names.contains(clause.get_text()))
             {
-                warn_printf("%s: warning: clause '%s' is deprecated. Instead use '%s'\n",
-                        clause.get_locus_str().c_str(),
+                warn_printf_at(clause.get_locus(),
+                        "clause '%s' is deprecated. Instead use '%s'\n",
                         clause.get_text().c_str(),
                         aliased_names[0].c_str());
             }
@@ -490,7 +500,7 @@ namespace TL
         ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
 
         ObjectList<std::string> clauses_strings = nodes
-            .map(&Nodecl::NodeclBase::get_text);
+            .map<std::string>(&Nodecl::NodeclBase::get_text);
 
         return clauses_strings;
     }
@@ -510,8 +520,8 @@ namespace TL
         PragmaCustomParameter param = this->get_parameter_no_mark_used();
         if (param.is_marked_as_unused())
         {
-            warn_printf("%s: warning: ignoring parameter '%s' of this pragma\n",
-                    param.get_locus_str().c_str(),
+            warn_printf_at(param.get_locus(),
+                    "ignoring parameter '%s' of this pragma\n",
                     param.get_raw_arguments().c_str());
         }
 
@@ -524,8 +534,8 @@ namespace TL
 
             if (current_clause.is_marked_as_unused())
             {
-                warn_printf("%s: warning: ignoring clause '%s'\n",
-                        it->get_locus_str().c_str(),
+                warn_printf_at(it->get_locus(),
+                        "ignoring clause '%s'\n",
                         current_clause.get_text().c_str());
             }
         }

@@ -68,11 +68,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
         virtual void visit(const Nodecl::OmpSs::WaitOnDependences& construct);
         virtual void visit(const Nodecl::OmpSs::Register& construct);
+        virtual void visit(const Nodecl::OmpSs::Unregister& construct);
 
 
         // This typedef should be public because It's used by some local functions
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
-        typedef std::map<OpenMP::Reduction*, std::pair<TL::Symbol, TL::Symbol> > reduction_task_map_t;
     private:
 
         Lowering* _lowering;
@@ -353,6 +353,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& reduction_initialization,
                 Nodecl::NodeclBase& reduction_code);
         void lower_for_slicer(const Nodecl::OpenMP::For& construct);
+
         void loop_spawn_slicer(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
@@ -361,7 +362,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
                 TL::Symbol slicer_descriptor,
-                Nodecl::NodeclBase task_label);
+                Nodecl::NodeclBase task_label,
+                Nodecl::NodeclBase final_clause);
 
         static bool there_are_reductions(OutlineInfo& outline_info);
 
@@ -439,8 +441,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         reduction_map_t _reduction_map_ompss;
 
-        reduction_task_map_t _reduction_on_tasks_red_map;
-        reduction_map_t _reduction_on_tasks_ini_map;
+        struct TaskReductionsInfo
+        {
+            TL::Symbol _reducer,
+               _reducer_orig_var,
+               _initializer;
+
+           TaskReductionsInfo(TL::Symbol red, TL::Symbol red_orig_var, TL::Symbol init)
+              : _reducer(red),_reducer_orig_var(red_orig_var), _initializer(init) {}
+        };
+        typedef std::map<OpenMP::Reduction*, TaskReductionsInfo> reduction_task_map_t;
+        reduction_task_map_t _task_reductions_map;
+
 
         void create_reduction_function(OpenMP::Reduction* red,
                 Nodecl::NodeclBase construct,
@@ -472,6 +484,27 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
+
+        void fortran_dependence_extra_check(
+                const TL::DataReference& dep_expr,
+                // out
+                bool &is_fortran_allocatable_dependence,
+                bool &is_fortran_pointer_dependence);
+
+        void initialize_multicopies_index(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                // out
+                Source& fill_outline_arguments,
+                Source& fill_immediate_arguments);
+
+        Source compute_num_refs_in_multiref(DataReference& data_ref);
+
+        void translate_single_item(
+                Source &translations,
+                Nodecl::NodeclBase ctr,
+                OutlineDataItem* item,
+                Nodecl::NodeclBase copy_num);
 };
 
 } }

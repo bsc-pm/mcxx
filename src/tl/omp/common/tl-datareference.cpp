@@ -38,6 +38,12 @@ namespace TL
             DataReferenceVisitor(DataReference& data_ref)
                 : _data_ref(data_ref)
             {
+                _data_ref._diagnostic_context = diagnostic_context_push_buffered();
+            }
+
+            ~DataReferenceVisitor()
+            {
+                diagnostic_context_pop();
             }
 
         private:
@@ -46,8 +52,8 @@ namespace TL
             virtual void unhandled_node(const Nodecl::NodeclBase & tree) 
             { 
                 _data_ref._is_valid = false;
-                _data_ref._error_log = 
-                    tree.get_locus_str() + ": error: expression '" + tree.prettyprint() + "' not allowed in data-reference\n";
+                error_printf_at(tree.get_locus(), "expression '%s' not allowed in data-reference\n",
+                        tree.prettyprint().c_str());
             }
 
             // Symbol
@@ -71,10 +77,25 @@ namespace TL
 
                 _data_ref._data_type = t;
 
-                Nodecl::NodeclBase reference = Nodecl::Reference::make(
-                        n.shallow_copy(),
-                        t.get_pointer_to(),
-                        n.get_locus());
+                Nodecl::NodeclBase reference;
+
+                if ((IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                        && t.is_array())
+                {
+                    // Array to pointer
+                    reference = Nodecl::Conversion::make(
+                            n.shallow_copy(),
+                            t.array_element().get_pointer_to(),
+                            n.get_locus());
+                }
+                else
+                {
+                    reference = Nodecl::Reference::make(
+                            n.shallow_copy(),
+                            t.get_pointer_to(),
+                            n.get_locus());
+                }
 
                 // We need to propagate some flags from the symbol to the new reference node
                 nodecl_expr_set_is_type_dependent(
@@ -232,6 +253,8 @@ namespace TL
                 {
                     // Anything else cannot be accepted here
                     _data_ref._is_valid = false;
+                    error_printf_at(array.get_locus(),
+                            "invalid array-subscript\n");
                     return;
                 }
             }
@@ -411,14 +434,14 @@ namespace TL
                 return rebuilt_type;
             }
 
-            virtual void visit(const Nodecl::MultiReference& multi_deps)
+            virtual void visit(const Nodecl::MultiExpression& multi_deps)
             {
                 TL::Symbol sym = multi_deps.get_symbol();
                 Nodecl::NodeclBase range = multi_deps.get_range();
 
                 _data_ref._iterators.append(std::make_pair(sym, range));
 
-                walk(multi_deps.get_dependence());
+                walk(multi_deps.get_base());
 
                 if (!_data_ref._is_valid)
                 {
@@ -434,8 +457,9 @@ namespace TL
         _is_assumed_size(false),
         _base_symbol(NULL),
         _data_type(NULL),
-        _error_log("")
+        _diagnostic_context(NULL)
     {
+
         if (expr.is_null()
                 || expr.is<Nodecl::ErrExpr>()
                 || !expr.get_type().is_valid()
@@ -462,15 +486,6 @@ namespace TL
     bool DataReference::is_assumed_size_array() const
     {
         return _is_assumed_size;
-    }
-
-    //! Returns the warning log
-    /*!
-      This is the same message as is_valid(std::string&) stores in its first parameter
-      */
-    std::string DataReference::get_error_log() const
-    {
-        return _error_log;
     }
 
     //! Gets the base symbol
@@ -1145,23 +1160,27 @@ namespace TL
         else if (expr.is<Nodecl::ClassMemberAccess>())
         {
             // a.b
+            Nodecl::NodeclBase cast1, cast2;
             Nodecl::NodeclBase result = Nodecl::Minus::make(
-                    Nodecl::Cast::make(
+                    cast1 = Nodecl::Conversion::make(
                         Nodecl::Reference::make(
                             expr,
                             expr.get_type().get_pointer_to(),
                             expr.get_locus()),
                         get_ptrdiff_t_type(),
-                        "C", expr.get_locus()),
-                    Nodecl::Cast::make(
+                        expr.get_locus()),
+                    cast2 = Nodecl::Conversion::make(
                         Nodecl::Reference::make(
                             expr.as<Nodecl::ClassMemberAccess>().get_lhs(),
                             expr.as<Nodecl::ClassMemberAccess>().get_lhs().get_type().get_pointer_to(),
                             expr.get_locus()),
                         get_ptrdiff_t_type(),
-                        "C", expr.get_locus()),
+                        expr.get_locus()),
                     get_ptrdiff_t_type(),
                     expr.get_locus());
+
+            cast1.set_text("C");
+            cast2.set_text("C");
 
             return result;
         }
@@ -1202,6 +1221,19 @@ namespace TL
 
     DataReference::~DataReference()
     {
+        if (_diagnostic_context != NULL)
+        {
+            diagnostic_context_discard(_diagnostic_context);
+        }
+    }
+
+    void DataReference::commit_diagnostic()
+    {
+        if (_diagnostic_context != NULL)
+        {
+            diagnostic_context_commit(_diagnostic_context);
+            _diagnostic_context = NULL;
+        }
     }
 
     void DataReference::module_write(ModuleWriter& mw)
@@ -1212,7 +1244,9 @@ namespace TL
         mw.write(_base_symbol);
         mw.write(_data_type);
 
-        mw.write(_error_log);
+        // The old error_log, cannot remove it here for compatibility
+        std::string dummy_error_log;
+        mw.write(dummy_error_log);
 
         mw.write(_base_address);
     }
@@ -1225,7 +1259,9 @@ namespace TL
         mr.read(_base_symbol);
         mr.read(_data_type);
 
-        mr.read(_error_log);
+        // The old error_log, cannot remove it here for compatibility
+        std::string dummy_error_log;
+        mr.read(dummy_error_log);
 
         mr.read(_base_address);
     }

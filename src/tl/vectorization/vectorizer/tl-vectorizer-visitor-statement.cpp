@@ -833,13 +833,13 @@ namespace Vectorization
         }
         else
         {
-            running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
+            fatal_error("Vectorizer: The code is not vectorizable. Break statement detected.");
         }
     }
 
     void VectorizerVisitorStatement::visit(const Nodecl::ContinueStatement& n)
     {
-        running_error("Vectorizer: Target loop contains a 'continue' statement. Unsupported.");
+        fatal_error("Vectorizer: Target loop contains a 'continue' statement. Unsupported.");
     }
 
     void VectorizerVisitorStatement::visit(const Nodecl::UnknownPragma& n)

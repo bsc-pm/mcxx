@@ -42,7 +42,6 @@ top-level : function-code
           | pragma-directive
           | compatibility
           | cxx-decl
-          | simd-func-construct
 
 name : NODECL_SYMBOL() symbol type-opt const-value-opt
 type : NODECL_TYPE() type
@@ -89,7 +88,6 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | pragma-statement
           | c-cxx-only-statements
           | fortran-only-statements
-          | parallel-statements
           | compatibility
           | NODECL_ERR_STATEMENT()
           | assert-construct
@@ -124,6 +122,8 @@ c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handle
     | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
 # This one should only appear inside a NODECL_TRY_BLOCK
     | NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
+# C++2011: dependent static asserts
+    | NODECL_CXX_STATIC_ASSERT([predicate]expression, [message]expression-opt)
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value
@@ -179,7 +179,6 @@ expression : literal
            | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type const-value-opt
            | NODECL_DEREFERENCE([rhs]expression) type const-value-opt
-           | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
            | NODECL_VECTOR_SUBSCRIPT([subscripted] expression, [subscript]expression) type const-value-opt
            | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
@@ -242,7 +241,7 @@ expression : literal
            | compatibility
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
-           | NODECL_CONVERSION([nest] expression) type const-value-opt
+           | NODECL_CONVERSION([nest] expression) type const-value-opt text-opt
 # This one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
@@ -314,7 +313,6 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
-                  | NODECL_VALUE_INITIALIZATION() symbol type
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
@@ -387,6 +385,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_ALIGNOF([expr] expression) type const-value-opt
 # (type) { ... }
     | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type const-value-opt
+# dependent-cast
+    | NODECL_CXX_CAST([rhs]expression) type text const-value-opt
 # T(expr-list)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const-value-opt
 # T(expr-list) (T being an expression)
@@ -396,6 +396,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
 # [dependent] C+11 lambdas
     | NODECL_CXX_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
+# [dependent] alignas
+    | NODECL_CXX_ALIGNAS([values]expression-seq) type
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
@@ -405,6 +407,8 @@ function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
     | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
+    | NODECL_CXX_FUNCTION_FORM_DEFAULT_INIT()
+    | NODECL_CXX_FUNCTION_FORM_DEFAULT_INIT_BRACED()
 
 type-or-expr : type
              | expression
@@ -494,11 +498,22 @@ text : NODECL_TEXT() text
 intel-expressions : NODECL_INTEL_ASSUME_ALIGNED([pointer] expression, [alignment] expression) type const-value-opt
                   | NODECL_INTEL_ASSUME([assumed] expression) type const-value-opt
 
+# extension used for multidependences/multicopies and other places where we
+# want a range expression
+expression : NODECL_MULTI_EXPRESSION([range]multi-expr-range-expression, [base]expression) symbol type const-value-opt
+
+multi-expr-range-expression : range-expression
+                            | range-discrete
+
+range-discrete : NODECL_RANGE_DISCRETE([discrete_seq]expression-seq-opt)
+
 ##############################
 # OpenMP                     #
 ##############################
-
 # Note that we use OPEN_M_P as we want nice names (OpenMP instead of Openmp) in the C++ part
+
+top-level : device-constructs-top-level
+statement-but-object-init: parallel-statements
 
 parallel-statements : parallel-execution
                     | synchronization
@@ -636,6 +651,7 @@ omp-device-info: NODECL_OPEN_M_P*DEVICE([device_id] expression)
                | NODECL_OPEN_M_P*MOTION_FROM([map_from] expression-seq)
                | NODECL_OPEN_M_P*NUM_TEAMS([num_teams] expression)
                | NODECL_OPEN_M_P*THREAD_LIMIT([thread_limit] expression)
+               | NODECL_OPEN_M_P*TARGET_TASK_UNDEFERRED()
 
 device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
                   | NODECL_OPEN_M_P*TARGET([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
@@ -643,13 +659,13 @@ device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environmen
                   | NODECL_OPEN_M_P*TEAMS([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
                   | NODECL_OPEN_M_P*DISTRIBUTE([environment]omp-exec-environment-seq-opt, [loop]statement)
 
-
-# extension used for multidependences/multicopies
-expression : NODECL_MULTI_REFERENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
+device-constructs-top-level : NODECL_OPEN_M_P*DECLARE_TARGET([declarations]name-seq)
 
 ##############################
 # OpenMP SIMD                #
 ##############################
+top-level : simd-func-construct
+
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
@@ -691,11 +707,15 @@ parallel-statements: data-coordination
 
 # register
 data-coordination : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
+                | NODECL_OMP_SS*UNREGISTER([unregistered_set]expression-seq)
 
 omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*CONCURRENT([inout_deps]expression-seq)
                 | NODECL_OMP_SS*COMMUTATIVE([inout_deps]expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_IN([weakin_deps]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_OUT([weakout_deps]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_INOUT([weakinout_deps]expression-seq)
 
 omp-exec-environment : ompss-device-info
 

@@ -38,7 +38,7 @@ namespace OpenMP {
     // *************** Phase for Automatic Data-Sharing computation ***************** //
 
     AutoScopePhase::AutoScopePhase( )
-        : PragmaCustomCompilerPhase("omp-auto-scope"), _auto_scope_enabled( false )
+        : PragmaCustomCompilerPhase(), _auto_scope_enabled( false )
     {
         set_phase_name( "Automatically compute the scope of variables in OpenMP tasks");
         set_phase_description( "This phase transforms the default(AUTO) clause in the proper data-sharing \n"\

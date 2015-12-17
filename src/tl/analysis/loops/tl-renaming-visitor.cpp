@@ -982,21 +982,6 @@ namespace Analysis {
         return ObjectList<Nodecl::NodeclBase>();
     }
 
-    RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Cast& n)
-    {
-        Nodecl::NodeclBase rhs = n.get_rhs();
-        ObjectList<Nodecl::NodeclBase> renamed_rhs = walk(rhs);
-
-        if (!renamed_rhs.empty())
-        {
-            rhs =renamed_rhs[0];
-            Nodecl::NodeclBase renamed = Nodecl::Cast::make(rhs, n.get_type(), n.get_text(), _filename, _line);
-            return ObjectList<Nodecl::NodeclBase>(1, renamed);
-        }
-
-        return ObjectList<Nodecl::NodeclBase>();
-    }
-
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::ClassMemberAccess& n)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();

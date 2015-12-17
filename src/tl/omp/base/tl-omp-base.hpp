@@ -175,11 +175,37 @@ namespace TL
                         Nodecl::NodeclBase execution_environment,
                         Nodecl::NodeclBase num_blocks);
 
-                void taskloop_extend_dependences(
+                void taskloop_update_environment_renaming_induction_variable(
                         Nodecl::NodeclBase execution_environment,
-                        TL::Symbol orig_induction_var,
-                        TL::Symbol new_induction_var,
-                        TL::Symbol block_extent_var);
+                        TL::Symbol ori_induction_var,
+                        TL::Symbol new_induction_var);
+
+                // void taskloop_extend_dependences(
+                //         Nodecl::NodeclBase execution_environment,
+                //         TL::Symbol new_induction_var,
+                //         TL::Symbol block_extent_var);
+
+                void handle_task_if_clause(
+                        const TL::PragmaCustomStatement& directive,
+                        Nodecl::NodeclBase parsing_context,
+                        Nodecl::List& execution_environment);
+
+                void handle_task_final_clause(
+                        const TL::PragmaCustomStatement& directive,
+                        Nodecl::NodeclBase parsing_context,
+                        Nodecl::List& execution_environment);
+
+                void handle_task_priority_clause(
+                        const TL::PragmaCustomStatement& directive,
+                        Nodecl::NodeclBase parsing_context,
+                        Nodecl::List& execution_environment);
+
+                void handle_label_clause(
+                        const TL::PragmaCustomStatement& directive,
+                        Nodecl::List& execution_environment);
+
+                void register_omp();
+                void register_ompss();
 
 #ifndef VECTORIZATION_DISABLED
                 void register_simd_function(
@@ -232,6 +258,8 @@ namespace TL
                 {
                     _omp_report = b;
                 }
+
+                Nodecl::NodeclBase _start_declare_target;
         };
 
         namespace Report

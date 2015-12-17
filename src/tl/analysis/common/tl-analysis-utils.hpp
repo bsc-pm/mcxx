@@ -33,7 +33,6 @@
 
 #include <set>
 #include <map>
-#include <time.h>
 
 #define VERBOSE (CURRENT_CONFIGURATION->debug_options.analysis_verbose || \
                  CURRENT_CONFIGURATION->debug_options.enable_debug_code)
@@ -45,12 +44,7 @@
 namespace TL {
 namespace Analysis {
 
-    static inline double time_nsec()
-    {
-        struct timespec tp;
-        clock_gettime(CLOCK_MONOTONIC, &tp);
-        return (tp.tv_sec * 1e9 + tp.tv_nsec);
-    }
+    double time_nsec();
 
     typedef Nodecl::NodeclBase NBase;
     typedef ObjectList<NBase> NodeclList;

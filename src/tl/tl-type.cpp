@@ -31,6 +31,7 @@
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
 #include "tl-nodecl.hpp"
+#include "tl-member-decl.hpp"
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
@@ -104,8 +105,10 @@ namespace TL
         {
             TL::Type fixed = this->points_to().fix_references_().get_pointer_to();
 
-            fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
-                    get_cv_qualifier(this->get_internal_type()));
+            cv_qualifier_t cv_qualif = CV_NONE;
+            ::advance_over_typedefs_with_cv_qualif(this->get_internal_type(), &cv_qualif);
+
+            fixed = ::get_cv_qualified_type(fixed.get_internal_type(), cv_qualif);
 
             return fixed;
         }
@@ -115,7 +118,9 @@ namespace TL
             if (this->lacks_prototype())
                 return (*this);
 
-            cv_qualifier_t cv_qualif = get_cv_qualifier(this->get_internal_type());
+            cv_qualifier_t cv_qualif = CV_NONE;
+            ::advance_over_typedefs_with_cv_qualif(this->get_internal_type(), &cv_qualif);
+
             ref_qualifier_t ref_qualifier = function_type_get_ref_qualifier(this->get_internal_type());
             TL::Type fixed_result = this->returns().fix_references_();
             bool has_ellipsis = 0;
@@ -225,7 +230,7 @@ namespace TL
     {
         if (!IS_FORTRAN_LANGUAGE)
         {
-            running_error("This function cannot be called if we are not in Fortran");
+            fatal_error("This function cannot be called if we are not in Fortran");
         }
 
         Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());
@@ -1107,7 +1112,7 @@ namespace TL
         for (i = 0; i < num_decls; i++)
         {
             result.push_back(
-                    MemberDeclarationInfo(mdi[i].entry, mdi[i].is_definition)
+                    MemberDeclarationInfo(mdi[i].entry, mdi[i].decl_context, mdi[i].is_definition)
                     );
         }
 
@@ -1587,5 +1592,4 @@ namespace TL
         access_specifier(_access_specifier)
     {
     }
-
 }

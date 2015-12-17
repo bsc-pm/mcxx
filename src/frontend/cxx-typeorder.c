@@ -379,6 +379,21 @@ static specialization_comparison_t compare_type_specialization(
         // out
         deduction_set_t* deduction_set)
 {
+    // See 14.8.2.4 temp.deduct.partial
+
+    if (is_any_reference_type(parameter))
+    {
+        parameter = no_ref(parameter);
+    }
+
+    if (is_any_reference_type(argument))
+    {
+        argument = no_ref(argument);
+    }
+
+    parameter = get_unqualified_type(parameter);
+    argument = get_unqualified_type(argument);
+
     // If A was transformed from a function parameter pack and P is not a
     // parameter pack, type deduction fails
     if (is_overload
@@ -387,18 +402,6 @@ static specialization_comparison_t compare_type_specialization(
     {
         return COMPARISON_NONE;
     }
-
-    if (is_any_reference_type(parameter))
-    {
-        parameter = no_ref(parameter);
-    }
-    if (is_any_reference_type(argument))
-    {
-        argument = no_ref(argument);
-    }
-
-    parameter = get_unqualified_type(parameter);
-    argument = get_unqualified_type(argument);
 
     deduction_set_t* deduction_set_current = NEW0(deduction_set_t);
     deduction_result_t deduction_result =
@@ -450,13 +453,14 @@ static specialization_comparison_t break_tie(
 
     if (both_references)
     {
+        cmp = COMPARISON_NONE;
         if (lvalue_argument && !lvalue_parameter)
         {
-            cmp = COMPARISON_NONE;
+            cmp = COMPARISON_AT_LEAST_AS_SPECIALIZED;
         }
         else if (argument_is_more_cv_qualified)
         {
-            cmp = COMPARISON_NONE;
+            cmp = COMPARISON_AT_LEAST_AS_SPECIALIZED;
         }
     }
 
@@ -723,9 +727,11 @@ char is_more_specialized_template_function(
 
     specialization_comparison_t cmp_1[num_types];
     comparison_extra_t cmp_1_extra[num_types];
+    memset(cmp_1_extra, 0, sizeof(cmp_1_extra));
 
     specialization_comparison_t cmp_2[num_types];
     comparison_extra_t cmp_2_extra[num_types];
+    memset(cmp_2_extra, 0, sizeof(cmp_2_extra));
 
     int i;
     for (i = 0; i < num_types; i++)
@@ -780,6 +786,10 @@ char is_more_specialized_template_function(
         if (cmp_1[i] == COMPARISON_AT_LEAST_AS_SPECIALIZED
                 && cmp_2[i] == COMPARISON_AT_LEAST_AS_SPECIALIZED)
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEORDER: Trying to break tie because both return at least as specialized\n");
+            }
             cmp_1[i] = break_tie(
                     !!(cmp_1_extra[i] & COMPARISON_EXTRA_BOTH_REFERENCES),
                     !!(cmp_1_extra[i] & COMPARISON_EXTRA_LVALUE_ARGUMENT),
@@ -790,6 +800,13 @@ char is_more_specialized_template_function(
                     !!(cmp_2_extra[i] & COMPARISON_EXTRA_LVALUE_ARGUMENT),
                     !!(cmp_2_extra[i] & COMPARISON_EXTRA_LVALUE_PARAMETER),
                     !!(cmp_2_extra[i] & COMPARISON_EXTRA_ARG_IS_MORE_CV));
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEORDER: After break, first comparison returns '%s'\n",
+                        cmp_1[i] == COMPARISON_AT_LEAST_AS_SPECIALIZED ? "at least specialized" : "not comparable");
+                fprintf(stderr, "TYPEORDER: After break, second comparison returns '%s'\n",
+                        cmp_2[i] == COMPARISON_AT_LEAST_AS_SPECIALIZED ? "at least specialized" : "not comparable");
+            }
         }
     }
 

@@ -32,6 +32,7 @@
 #include "cxx-cexpr.h"
 #include "tl-predicateutils.hpp"
 #include "tl-devices.hpp"
+#include "tl-nanos.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -77,7 +78,69 @@ namespace TL { namespace Nanox {
 
         if (is_ompss_schedule)
         {
-            lower_for_slicer(construct);
+           Nodecl::NodeclBase new_construct = construct;
+
+           bool generate_final_stmts =
+              Nanos::Version::interface_is_at_least("master", 5024) &&
+              !_lowering->final_clause_transformation_disabled();
+
+           // If the current programming model is OmpSs and the support to the
+           // final clause is not disabled
+           if (_lowering->in_ompss_mode() && generate_final_stmts)
+           {
+              // We create a new Node OpenMP::For with the same childs as the
+              // original construct. Another solution is shallow copy all the
+              // construct (less efficient)
+              new_construct =
+                 Nodecl::OpenMP::For::make(distribute_environment, construct.get_loop());
+
+              Nodecl::NodeclBase copied_statements_placeholder;
+              TL::Source code;
+              code
+                 << "{"
+                 <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
+                 <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+                 <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
+                 <<      "if (mcc_is_in_final)"
+                 <<      "{"
+                 <<          statement_placeholder(copied_statements_placeholder)
+                 <<      "}"
+                 <<      "else"
+                 <<      "{"
+                 <<          as_statement(new_construct)
+                 <<      "}"
+                 << "}"
+                 ;
+
+              if (IS_FORTRAN_LANGUAGE)
+                 Source::source_language = SourceLanguage::C;
+
+              Nodecl::NodeclBase if_else_tree = code.parse_statement(construct);
+
+              if (IS_FORTRAN_LANGUAGE)
+                 Source::source_language = SourceLanguage::Current;
+
+              construct.replace(if_else_tree);
+
+              // We obtain the list node which contains the placeholder used to store
+              // the final stmts. This must be done before the replace because at
+              // this point the parent of the copied_statements_placeholder is the
+              // first (and the unique) list node
+              Nodecl::NodeclBase final_stmt_list = copied_statements_placeholder.get_parent();
+
+              std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+
+              ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
+              // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
+              copied_statements_placeholder.replace(it->second);
+
+              ERROR_CONDITION(!copied_statements_placeholder.is_in_list(), "Unreachable code\n", 0);
+
+              // Walk over the tree transforming OpenMP/OmpSs non-task pragmas
+              walk(final_stmt_list);
+           }
+           lower_for_slicer(new_construct.as<Nodecl::OpenMP::For>());
         }
         else
         {

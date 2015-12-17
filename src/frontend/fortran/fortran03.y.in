@@ -953,6 +953,7 @@ static const char* safe_asttext(AST a)
 /*!include cxx-literal-nodes.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-placeholders.y*/
+/*!include fortran03-extensions.y*/
 /*!include fortran03-omp.y*/
 /*!include fortran03-ompss.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
@@ -2630,16 +2631,14 @@ add_operand : add_operand_strict
     AST parenthesized = ASTMake1(AST_PARENTHESIZED_EXPRESSION, $3, ast_get_locus($3), NULL);
 
     $$ = ASTMake2(AST_MUL, $1, parenthesized, ast_get_locus($1), NULL);
-    warn_printf("%s: warning: unary operator following a multiplication operator should be enclosed in parentheses\n", 
-        locus_to_str(ast_get_locus($3)));
+    warn_printf_at(ast_get_locus($3), "unary operator following a multiplication operator should be enclosed in parentheses\n");
 }
 | add_operand '/' unary_add_operand
 {
     AST parenthesized = ASTMake1(AST_PARENTHESIZED_EXPRESSION, $3, ast_get_locus($3), NULL);
 
     $$ = ASTMake2(AST_DIV, $1, parenthesized, ast_get_locus($1), NULL);
-    warn_printf("%s: warning: unary operator following a division operator should be enclosed in parentheses\n", 
-        locus_to_str(ast_get_locus($3)));
+    warn_printf_at(ast_get_locus($3), "unary operator following a division operator should be enclosed in parentheses\n");
 }
 ;
 unary_add_operand : '+' add_operand
@@ -3229,7 +3228,7 @@ nonlabel_do_stmt : labeldef name_colon_opt TOKEN_DO loop_control eos
 }
 | labeldef name_colon_opt TOKEN_DO concurrent_loop_control eos
 {
-    running_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
+    sorry_printf_at(make_locus(@3.first_filename, @3.first_line, @3.first_column), "DO CONCURRENT not supported\n");
 }
 | labeldef name_colon_opt TOKEN_DO eos
 {
@@ -3247,7 +3246,7 @@ label_do_stmt : labeldef name_colon_opt TOKEN_DO label loop_control eos
 }
 | labeldef name_colon_opt TOKEN_DO label concurrent_loop_control eos
 {
-    running_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
+    sorry_printf_at(make_locus(@3.first_filename, @3.first_line, @3.first_column), "DO CONCURRENT not supported\n");
 }
 | labeldef name_colon_opt TOKEN_DO label eos
 {
@@ -3264,7 +3263,7 @@ label_do_shared_stmt : labeldef name_colon_opt TOKEN_DO do_shared_label loop_con
 }
 | labeldef name_colon_opt TOKEN_DO do_shared_label concurrent_loop_control eos
 {
-    running_error("%s:%d:%d: sorry: DO CONCURRENT not supported\n", @3.first_filename, @3.first_line, @3.first_column);
+    sorry_printf_at(make_locus(@3.first_filename, @3.first_line, @3.first_column), "DO CONCURRENT not supported\n");
 }
 | labeldef name_colon_opt TOKEN_DO do_shared_label eos
 {
@@ -3985,18 +3984,17 @@ invalid_comma_io_opt : /* empty */
 }
 | ','
 {
-    warn_printf(
-#ifdef FORTRAN_NEW_SCANNER
-        "%s:%d:%d: "
-#else
-        "%s:%d: "
-#endif
-        "warning: extra comma between control-spec-list and item-list\n",
+    warn_printf_at(
+        make_locus(
             @1.first_filename,
             @1.first_line
 #ifdef FORTRAN_NEW_SCANNER
             , @1.first_column
+#else
+            , 0
 #endif
+        ),
+        "extra comma between control-spec-list and item-list\n"
         );
 }
 ;
@@ -6322,6 +6320,7 @@ labeldef : label
 /*!include cxx-literal-nodes.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-placeholders.y*/
+/*!include fortran03-extensions.y*/
 /*!include fortran03-omp.y*/
 /*!include fortran03-ompss.y*/
 /*!undefine GRAMMAR_RULES*/
@@ -6336,15 +6335,20 @@ extern char* actual_line;
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
 #ifdef FORTRAN_NEW_SCANNER
-	fprintf(stderr, "%s:%d:%d: error: %s\n",
-            mf03lloc.first_filename,
-            mf03lloc.first_line,
-            mf03lloc.first_column,
-            c);
+    error_printf_at(
+        make_locus(
+                    mf03lloc.first_filename,
+                    mf03lloc.first_line,
+                    mf03lloc.first_column),
+        "%s\n",
+        c);
 #else
-	fprintf(stderr, "%s:%d: error: %s\n",
-            mf03lloc.first_filename,
-            mf03lloc.first_line,
-            c);
+    error_printf_at(
+        make_locus(
+                    mf03lloc.first_filename,
+                    mf03lloc.first_line,
+                    0),
+        "%s\n",
+        c);
 #endif
 }

@@ -10,7 +10,7 @@
 ! </testinfo>
 
 #ifdef __GNUC__
-#if defined(__GNUC_MINOR__) && (__GNUC_MINOR__ >= 7)
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))
 
 #ifdef WRITE_MOD
 module fragel

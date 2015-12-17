@@ -128,12 +128,6 @@ namespace {
         }
     }
 
-    void ConstraintReplacement::visit(const Nodecl::Cast& n)
-    {   // Remove casts from the constraints
-        n.replace(n.get_rhs());
-        walk(n);
-    }
-
     void ConstraintReplacement::visit(const Nodecl::ClassMemberAccess& n)
     {
         if (_input_constraints->find(n) != _input_constraints->end())
@@ -2287,6 +2281,7 @@ namespace {
     }
 
     // Utility method: for printing the constraints map if debugging is necessary
+    UNUSED_FUNCTION
     void print_var_to_constraint_map(const VarToConstraintMap& constrs)
     {
         for (VarToConstraintMap::const_iterator it = constrs.begin(); it != constrs.end(); ++it)

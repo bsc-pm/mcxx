@@ -37,6 +37,8 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void gcc_sign_in_builtins(const decl_context_t* global_context);
 
+LIBMCXX_EXTERN type_t* get_m64_struct_type(void);
+
 LIBMCXX_EXTERN type_t* get_m128_struct_type(void);
 LIBMCXX_EXTERN type_t* get_m128d_struct_type(void);
 LIBMCXX_EXTERN type_t* get_m128i_struct_type(void);
@@ -48,6 +50,8 @@ LIBMCXX_EXTERN type_t* get_m256i_struct_type(void);
 LIBMCXX_EXTERN type_t* get_m512_struct_type(void);
 LIBMCXX_EXTERN type_t* get_m512d_struct_type(void);
 LIBMCXX_EXTERN type_t* get_m512i_struct_type(void);
+
+LIBMCXX_EXTERN scope_entry_t* get_m64_typedef(void);
 
 LIBMCXX_EXTERN scope_entry_t* get_m128_typedef(void);
 LIBMCXX_EXTERN scope_entry_t* get_m128d_typedef(void);
@@ -73,6 +77,11 @@ LIBMCXX_EXTERN type_t* vector_type_get_intel_vector_struct_type(type_t* vector_t
 LIBMCXX_EXTERN type_t* intel_vector_struct_type_get_vector_type(type_t* vector_type);
 
 LIBMCXX_EXTERN void prepend_intel_vector_typedefs(nodecl_t* nodecl_output);
+
+LIBMCXX_EXTERN void gcc_builtins_i386(const decl_context_t* global_context);
+LIBMCXX_EXTERN void gcc_builtins_x86_64(const decl_context_t* global_context);
+LIBMCXX_EXTERN void gcc_builtins_arm(const decl_context_t* global_context);
+LIBMCXX_EXTERN void gcc_builtins_arm64(const decl_context_t* global_context);
 
 MCXX_END_DECLS
 

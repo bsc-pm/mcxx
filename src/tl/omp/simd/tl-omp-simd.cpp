@@ -42,7 +42,7 @@ namespace TL {
     namespace OpenMP {
 
         Simd::Simd()
-            : PragmaCustomCompilerPhase("omp-simd"),
+            : PragmaCustomCompilerPhase(),
             _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false),
             _avx2_enabled(false), _knc_enabled(false), _knl_enabled(false),
             _spml_enabled(false), _only_adjacent_accesses_enabled(false), _overlap_in_place(false)
@@ -79,6 +79,11 @@ namespace TL {
                     _avx2_enabled_str,
                     "0").connect(std::bind(&Simd::set_avx2, this, std::placeholders::_1));
 
+            register_parameter("neon_enabled",
+                    "If set to '1' enables compilation for NEON instruction set, otherwise it is disabled",
+                    _neon_enabled_str,
+                    "0").connect(std::bind(&Simd::set_neon, this, std::placeholders::_1));
+
             register_parameter("spml_enabled",
                     "If set to '1' enables SPML OpenMP mode, otherwise it is disabled",
                     _spml_enabled_str,
@@ -98,58 +103,42 @@ namespace TL {
 
         void Simd::set_simd(const std::string simd_enabled_str)
         {
-            if (simd_enabled_str == "1")
-            {
-                _simd_enabled = true;
-            }
+            parse_boolean_option("simd_enabled", simd_enabled_str, _simd_enabled, "Invalid simd_enabled value");
         }
 
         void Simd::set_svml(const std::string svml_enabled_str)
         {
-            if (svml_enabled_str == "1")
-            {
-                _svml_enabled = true;
-            }
+            parse_boolean_option("svml_enabled", svml_enabled_str, _svml_enabled, "Invalid svml_enabled value");
         }
 
         void Simd::set_fast_math(const std::string fast_math_enabled_str)
         {
-            if (fast_math_enabled_str == "1")
-            {
-                _fast_math_enabled = true;
-            }
+            parse_boolean_option("fast_math_enabled", fast_math_enabled_str, _fast_math_enabled, "Invalid fast_math_enabled value");
         }
 
         void Simd::set_knc(const std::string knc_enabled_str)
         {
-            if (knc_enabled_str == "1")
-            {
-                _knc_enabled = true;
-            }
+            parse_boolean_option("knc_enabled", knc_enabled_str, _knc_enabled, "Invalid knc_enabled value");
         }
 
         void Simd::set_knl(const std::string knl_enabled_str)
         {
-            if (knl_enabled_str == "1")
-            {
-                _knl_enabled = true;
-            }
+            parse_boolean_option("knl_enabled", knl_enabled_str, _knl_enabled, "Invalid knl_enabled value");
         }
 
         void Simd::set_avx2(const std::string avx2_enabled_str)
         {
-            if (avx2_enabled_str == "1")
-            {
-                _avx2_enabled = true;
-            }
+            parse_boolean_option("avx2_enabled", avx2_enabled_str, _avx2_enabled, "Invalid avx2_enabled value");
+        }
+
+        void Simd::set_neon(const std::string neon_enabled_str)
+        {
+            parse_boolean_option("neon_enabled", neon_enabled_str, _neon_enabled, "Invalid neon_enabled value");
         }
 
         void Simd::set_spml(const std::string spml_enabled_str)
         {
-            if (spml_enabled_str == "1")
-            {
-                _spml_enabled = true;
-            }
+            parse_boolean_option("spml_enabled", spml_enabled_str, _spml_enabled, "Invalid spml_enabled value");
         }
 
         void Simd::set_only_adjcent_accesses(
@@ -184,39 +173,52 @@ namespace TL {
             {
                 TL::Vectorization::SIMDInstructionSet simd_isa;
 
-                if(_avx2_enabled)
+                struct isa_flag_t
                 {
-                    simd_isa = AVX2_ISA;
-                }
-                else if (_knc_enabled)
+                    bool flag;
+                    const char* name;
+                    Vectorization::SIMDInstructionSet isa;
+                } isa_flag[] =
                 {
-                    simd_isa = KNC_ISA;
-                }
-                else if (_knl_enabled)
+                    { _avx2_enabled, "AVX2", AVX2_ISA, },
+                    { _knc_enabled,  "KNC",  KNC_ISA, },
+                    { _knl_enabled,  "KNL",  KNL_ISA, },
+                    { _neon_enabled, "NEON", NEON_ISA },
+                };
+
+                simd_isa = SSE4_2_ISA; // Default ISA is SSE 4.2
+
+                const int N = sizeof(isa_flag) / sizeof(*isa_flag);
+                for (int i = 0; i < N; i++)
                 {
-                    simd_isa = KNL_ISA;
-                }
-                else
-                {
-                    simd_isa = SSE4_2_ISA;
+                    if (isa_flag[i].flag)
+                    {
+                        simd_isa = isa_flag[i].isa;
+                        for (int j = i + 1; j < N; j++)
+                        {
+                            if ((isa_flag[i].flag)
+                                    && (isa_flag[j].flag))
+                            {
+                                fatal_error("SIMD: requesting '%s' and '%s' SIMD instruction sets at the same time\n",
+                                        isa_flag[i].name,
+                                        isa_flag[j].name);
+                            }
+                        }
+                    }
                 }
 
-                if (_avx2_enabled && _knc_enabled)
+                if (_svml_enabled && _neon_enabled)
                 {
-                    running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
+                    fatal_error("SVML cannot be used with NEON\n");
                 }
-                else if (_knl_enabled && _knc_enabled)
-                {
-                    running_error("SIMD: KNL and KNC SIMD instruction sets enabled at the same time");
-                }
-                else if (_avx2_enabled && _knl_enabled)
-                {
-                    running_error("SIMD: AVX2 and KNL SIMD instruction sets enabled at the same time");
-                }
-
 
                 if (_spml_enabled)
                 {
+                    if (_neon_enabled)
+                    {
+                        fatal_error("SPML cannot be used with NEON\n");
+                    }
+
                     fprintf(stderr, " -- SPML OpenMP enabled -- \n");
                     SimdSPMLVisitor spml_visitor(
                             simd_isa, _fast_math_enabled, _svml_enabled,
@@ -289,6 +291,14 @@ namespace TL {
                         _vectorizer.enable_svml_avx2();
                     break;
 
+                case NEON_ISA:
+                    _vector_length = 16;
+                    _device_name = "neon";
+                    _support_masking = false;
+                    _mask_size = 0;
+
+                    break;
+
                 case SSE4_2_ISA:
                     _vector_length = 16;
                     _device_name = "smp";
@@ -299,9 +309,8 @@ namespace TL {
                         _vectorizer.enable_svml_sse();
 
                     break;
-
                 default:
-                    running_error("SIMD: Unsupported SIMD ISA: %d",
+                    fatal_error("SIMD: Unsupported SIMD ISA: %d",
                             simd_isa);
 
             }
@@ -556,7 +565,7 @@ namespace TL {
 
                     // Vectorize reductions
                     if(_vectorizer.is_supported_reduction(
-                                omp_red.is_builtin(reduction_name),
+                                omp_red.is_builtin(),
                                 reduction_name,
                                 reduction_type,
                                 loop_environment))
@@ -572,7 +581,7 @@ namespace TL {
                     }
                     else
                     {
-                        running_error("SIMD: reduction '%s:%s' is not supported",
+                        fatal_error("SIMD: reduction '%s:%s' is not supported",
                                 reduction_name.c_str(), scalar_tl_symbol.get_name().c_str());
                     }
                 }
@@ -627,7 +636,7 @@ namespace TL {
                         loop_environment,
                         epilog_iterations,
                         only_epilog,
-                        true /*parallel loop*/);
+                        false /*parallel loop*/);
 
                 // Remove Simd node from epilog
                 simd_node_epilog.replace(simd_node_epilog.get_statement());
@@ -861,7 +870,7 @@ namespace TL {
 
                     // Vectorize reductions
                     if(_vectorizer.is_supported_reduction(
-                                omp_red.is_builtin(reduction_name),
+                                omp_red.is_builtin(),
                                 reduction_name,
                                 reduction_type,
                                 for_environment))
@@ -877,7 +886,7 @@ namespace TL {
                     }
                     else
                     {
-                        running_error("SIMD: reduction '%s:%s' (%s) is not supported",
+                        fatal_error("SIMD: reduction '%s:%s' (%s) is not supported",
                                 reduction_name.c_str(), scalar_tl_symbol.get_name().c_str(),
                                 reduction_type.get_simple_declaration(
                                     simd_enclosing_node.retrieve_context(), "").c_str());
@@ -1043,12 +1052,12 @@ namespace TL {
 
             if((!omp_mask.is_null()) && (!omp_nomask.is_null()))
             {
-                running_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
+                fatal_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
             }
 
             if((!omp_mask.is_null()) && (!_support_masking))
             {
-                running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
+                fatal_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             }
 
            // Mask Version
@@ -1080,12 +1089,12 @@ namespace TL {
 
             if((!omp_mask.is_null()) && (!omp_nomask.is_null()))
             {
-                running_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
+                fatal_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
             }
 
             if((!omp_mask.is_null()) && (!_support_masking))
             {
-                running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
+                fatal_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             }
 
            // Mask Version
@@ -1639,7 +1648,7 @@ namespace TL {
 
                     // Vectorize reductions
                     if(_vectorizer.is_supported_reduction(
-                                omp_red.is_builtin(reduction_name),
+                                omp_red.is_builtin(),
                                 reduction_name,
                                 reduction_type,
                                 parallel_environment))
@@ -1655,7 +1664,7 @@ namespace TL {
                     }
                     else
                     {
-                        running_error("SIMD: reduction '%s:%s' (%s) is not supported",
+                        fatal_error("SIMD: reduction '%s:%s' (%s) is not supported",
                                 reduction_name.c_str(), scalar_tl_symbol.get_name().c_str(),
                                 reduction_type.get_simple_declaration(
                                     parallel_statements.retrieve_context(), "").c_str());
@@ -1702,7 +1711,7 @@ namespace TL {
                     if(!aligned_expressions_map.insert(std::pair<TL::Symbol, int>(
                                     it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detected\n");
+                        fatal_error("SIMD: multiple instances of the same variable in the 'aligned' clause detected\n");
                     }
                 }
             }
@@ -1734,7 +1743,7 @@ namespace TL {
                     if(!linear_symbols_map.insert(std::pair<TL::Symbol, int>(
                                     it2->as<Nodecl::Symbol>().get_symbol(), step)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable "\
+                        fatal_error("SIMD: multiple instances of the same variable "\
                                 "in the 'linear' clause detected\n");
                     }
                 }
@@ -1797,7 +1806,7 @@ namespace TL {
                     if(!nontemporal_expressions.insert(std::make_pair(
                                     it2->as<Nodecl::Symbol>().get_symbol(), nontemporal_flags)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
+                        fatal_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
                     }
                 }
             }
@@ -1887,7 +1896,7 @@ namespace TL {
                                     it2->as<Nodecl::Symbol>().get_symbol(),
                                     overlap_params)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable in the 'overlap' clause detected\n");
+                        fatal_error("SIMD: multiple instances of the same variable in the 'overlap' clause detected\n");
                     }
                 }
             }

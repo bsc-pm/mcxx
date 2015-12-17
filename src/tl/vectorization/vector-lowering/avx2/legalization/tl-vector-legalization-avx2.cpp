@@ -176,7 +176,7 @@ namespace TL
 
         Nodecl::NodeclVisitor<void>::Ret AVX2VectorLegalization::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
-            running_error("AVX2 Legalization: Unknown node %s at %s.",
+            fatal_error("AVX2 Legalization: Unknown node %s at %s.",
                     ast_print_node_type(n.get_kind()),
                     locus_to_str(n.get_locus())); 
 

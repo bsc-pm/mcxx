@@ -142,7 +142,7 @@ static void open_files(prescanner_t* prescanner)
 
         if (prescanner->input_file == NULL)
         {
-            running_error("Cannot open input file '%s' (%s)\n", prescanner->input_filename,
+            fatal_error("Cannot open input file '%s' (%s)\n", prescanner->input_filename,
                     strerror(errno));
         }
     }
@@ -158,7 +158,7 @@ static void open_files(prescanner_t* prescanner)
 
         if (prescanner->output_file == NULL)
         {
-            running_error("Cannot open output file '%s' (%s)\n", prescanner->output_filename,
+            fatal_error("Cannot open output file '%s' (%s)\n", prescanner->output_filename,
                     strerror(errno));
         }
     }
@@ -206,7 +206,7 @@ static void handle_include_line(
 
     if (maximum_nesting_level > 99)
     {
-        running_error("%s:%d: error: too many levels of nesting (> %d)",
+        fatal_error("%s:%d: error: too many levels of nesting (> %d)",
                 prescanner->input_filename,
                 iter->line_number,
                 maximum_nesting_level);
@@ -233,7 +233,7 @@ static void handle_include_line(
 
     if (prescanner->input_file == NULL)
     {
-        running_error("%s:%d: error: cannot open included file '%s' (%s)\n",
+        fatal_error("%s:%d: error: cannot open included file '%s' (%s)\n",
                 prescanner->input_filename,
                 iter->line_number,
                 included_filename,
@@ -357,7 +357,7 @@ static void join_continuated_lines(prescanner_t* prescanner)
         {
             if (previous_line == NULL)
             {
-                running_error("%s:%d: error: cannot continuate the first non-comment line", 
+                fatal_error("%s:%d: error: cannot continuate the first non-comment line", 
                         prescanner->input_filename,
                         iter->line_number);
             }
@@ -568,7 +568,7 @@ static void remove_inlined_comments(void)
 
         if (unended_string != 0)
         {
-            running_error("%s:%d: error: unended string at line %d !\n", 
+            fatal_error("%s:%d: error: unended string at line %d !\n", 
                     prescanner->input_filename,
                     iter->line_number);
         }
@@ -674,7 +674,7 @@ static void read_lines(prescanner_t* prescanner)
         {
             if (ferror(prescanner->input_file))
             {
-                running_error("error while reading line");
+                fatal_error("error while reading line");
             }
         }
 
@@ -700,7 +700,7 @@ static void read_lines(prescanner_t* prescanner)
             {
                 if (ferror(prescanner->input_file))
                 {
-                    running_error("error while reading line");
+                    fatal_error("error while reading line");
                 }
             }
             
@@ -1008,7 +1008,7 @@ static void manage_included_file(
 
             if (handle_output == NULL)
             {
-                running_error("Cannot open output of included file '%s' (%s)\n", 
+                fatal_error("Cannot open output of included file '%s' (%s)\n", 
                         full_output_name, strerror(errno));
             }
 

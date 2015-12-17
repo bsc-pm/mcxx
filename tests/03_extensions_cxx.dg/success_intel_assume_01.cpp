@@ -1,7 +1,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-extensions
-test_CXXFLAGS=--enable-intel-builtins
+test_CXXFLAGS=--enable-intel-builtins-syntax
 </testinfo>
 */
 

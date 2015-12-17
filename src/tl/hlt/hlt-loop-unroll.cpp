@@ -120,6 +120,11 @@ namespace TL { namespace HLT {
                 walk(nest);
             }
         }
+
+        virtual void visit(const Nodecl::ObjectInit& node)
+        {
+            walk(node.get_symbol().get_value());
+        }
     };
 
     }
@@ -191,16 +196,34 @@ namespace TL { namespace HLT {
                     const_value_to_nodecl(
                             const_value_sub(
                                 orig_loop_upper_bound.get_constant(),
-                                const_value_get_signed_int(this->_unroll_factor - 1)));
+                                const_value_mul(
+                                    orig_loop_step.get_constant(),
+                                    const_value_get_signed_int(this->_unroll_factor - 1))));
             }
             else
             {
-                unrolled_upper_bound =
-                    Nodecl::Minus::make(
-                            orig_loop_upper_bound.shallow_copy(),
-                            const_value_to_nodecl(
-                                const_value_get_signed_int(this->_unroll_factor - 1)),
-                            orig_loop_upper_bound.get_type().no_ref());
+                if (const_value_is_one(orig_loop_step.get_constant()))
+                {
+                    // Avoid creating a 1*x tree
+                    unrolled_upper_bound =
+                        Nodecl::Minus::make(
+                                orig_loop_upper_bound.shallow_copy(),
+                                const_value_to_nodecl(
+                                    const_value_get_signed_int(this->_unroll_factor - 1)),
+                                orig_loop_upper_bound.get_type().no_ref());
+                }
+                else
+                {
+                    unrolled_upper_bound =
+                        Nodecl::Minus::make(
+                                orig_loop_upper_bound.shallow_copy(),
+                                Nodecl::Mul::make(
+                                    orig_loop_step.shallow_copy(),
+                                    const_value_to_nodecl(
+                                        const_value_get_signed_int(this->_unroll_factor - 1)),
+                                    orig_loop_upper_bound.get_type().no_ref()),
+                                orig_loop_upper_bound.get_type().no_ref());
+                }
             }
         }
         else if (const_value_is_negative(orig_loop_step.get_constant()))
@@ -209,17 +232,22 @@ namespace TL { namespace HLT {
             {
                 unrolled_upper_bound =
                     const_value_to_nodecl(
-                            const_value_add(
+                            const_value_sub(
                                 orig_loop_upper_bound.get_constant(),
-                                const_value_get_signed_int(this->_unroll_factor - 1)));
+                                const_value_mul(
+                                    orig_loop_step.get_constant(),
+                                    const_value_get_signed_int(this->_unroll_factor - 1))));
             }
             else
             {
                 unrolled_upper_bound =
-                    Nodecl::Add::make(
-                            const_value_to_nodecl(
-                                const_value_get_signed_int(this->_unroll_factor - 1)),
+                    Nodecl::Minus::make(
                             orig_loop_upper_bound.shallow_copy(),
+                            Nodecl::Mul::make(
+                                orig_loop_step.shallow_copy(),
+                                const_value_to_nodecl(
+                                    const_value_get_signed_int(this->_unroll_factor - 1)),
+                                orig_loop_upper_bound.get_type().no_ref()),
                             orig_loop_upper_bound.get_type().no_ref());
             }
         }

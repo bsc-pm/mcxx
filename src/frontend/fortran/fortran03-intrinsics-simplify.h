@@ -537,9 +537,12 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
         kind_ = const_value_cast_to_4(nodecl_get_constant(kind));
     }
 
+    type_t* t = no_ref(nodecl_get_type(array));
+    if (fortran_is_pointer_to_array_type(t))
+        return nodecl_null();
+
     if (nodecl_is_null(dim))
     {
-        type_t* t = no_ref(nodecl_get_type(array));
         int i, rank = fortran_get_rank_of_type(t);
         nodecl_t nodecl_list = nodecl_null();
         for (i = 0; i < rank; i++)
@@ -591,7 +594,6 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     {
         if (nodecl_is_constant(dim))
         {
-            type_t* t = no_ref(nodecl_get_type(array));
             int dim_ = const_value_cast_to_4(nodecl_get_constant(dim));
 
             int rank = fortran_get_rank_of_type(t);
@@ -650,9 +652,12 @@ static nodecl_t simplify_size(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
         kind_ = const_value_cast_to_4(nodecl_get_constant(kind));
     }
 
+    type_t* t = no_ref(nodecl_get_type(array));
+    if (fortran_is_pointer_to_array_type(t))
+        return nodecl_null();
+
     if (nodecl_is_null(dim))
     {
-        type_t* t = no_ref(nodecl_get_type(array));
         int value = fortran_array_type_get_total_number_of_elements(t);
         if (value == -1)
         {
@@ -670,7 +675,6 @@ static nodecl_t simplify_size(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
     {
         if (nodecl_is_constant(dim))
         {
-            type_t* t = no_ref(nodecl_get_type(array));
             int dim_ = const_value_cast_to_4(nodecl_get_constant(dim));
 
             int rank = fortran_get_rank_of_type(t);
@@ -713,6 +717,9 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     nodecl_t nodecl_list = nodecl_null();
 
     type_t* t = no_ref(nodecl_get_type(array));
+    if (fortran_is_pointer_to_array_type(t))
+        return nodecl_null();
+
     int i, rank = fortran_get_rank_of_type(t);
     for (i = 0; i < rank; i++)
     {
@@ -734,7 +741,7 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
         t = array_type_get_element_type(t);
     }
 
-    nodecl_t result = nodecl_null();
+    nodecl_t result;
     if (rank > 0)
     {
         result = nodecl_make_structured_value(
@@ -976,7 +983,7 @@ static nodecl_t simplify_real(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
         }
         else
         {
-            running_error("Invalid floating type");
+            fatal_error("Invalid floating type");
         }
     }
 
@@ -1049,7 +1056,7 @@ static nodecl_t simplify_cmplx(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
         }
         else
         {
-            running_error("Invalid floating type");
+            fatal_error("Invalid floating type");
         }
     }
 
@@ -1596,12 +1603,13 @@ static nodecl_t simplify_maxminval(scope_entry_t* entry UNUSED_PARAMETER, int nu
         const_value_t* neuter
         )
 {
-    nodecl_t array = nodecl_null();
-    nodecl_t dim = nodecl_null();
-    nodecl_t mask = nodecl_null();
+    nodecl_t array;
+    nodecl_t dim;
+    nodecl_t mask;
     if (num_arguments == 2)
     {
         array = arguments[0];
+        dim = nodecl_null();
         mask = arguments[1];
     }
     else if (num_arguments == 3)
@@ -2867,18 +2875,12 @@ static nodecl_t simplify_mcc_loc(scope_entry_t* entry UNUSED_PARAMETER, int num_
 {
     nodecl_t arg = arguments[0];
 
-    if (nodecl_get_kind(arg) == NODECL_DEREFERENCE)
-    {
-        arg = nodecl_get_child(arg, 0);
-    }
+    arg = fortran_expression_as_variable(nodecl_shallow_copy(arg));
 
-    return nodecl_make_dereference(
-            nodecl_make_reference(
-                nodecl_shallow_copy(arg),
+    return nodecl_make_reference(
+                arg,
                 get_pointer_type(get_void_type()),
-                nodecl_get_locus(arguments[0])),
-            get_lvalue_reference_type(get_void_type()),
-            nodecl_get_locus(arguments[0]));
+                nodecl_get_locus(arguments[0]));
 }
 
 static nodecl_t simplify_mcc_null(scope_entry_t* entry UNUSED_PARAMETER,

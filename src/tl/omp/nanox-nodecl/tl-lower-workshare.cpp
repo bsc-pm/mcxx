@@ -34,8 +34,7 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::Workshare& construct)
     {
-        warn_printf("%s: warning: !$OMP WORKSHARE is implemented as !$OMP SINGLE\n",
-                construct.get_locus_str().c_str());
+        warn_printf_at(construct.get_locus(), "!$OMP WORKSHARE is implemented as !$OMP SINGLE\n");
 
         Nodecl::List environment = construct.get_environment().as<Nodecl::List>();
         Nodecl::NodeclBase statements = construct.get_statements();

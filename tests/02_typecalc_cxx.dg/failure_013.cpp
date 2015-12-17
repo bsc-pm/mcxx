@@ -35,7 +35,7 @@ test_ignore_reason="convoluted friend declarations"
 </testinfo>
 */
 
-#if __GNUC__ == 4 && __GNUC_MINOR__ < 6
+#if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 6)
 
 #error "This compiler is too old, fail the compilation
 

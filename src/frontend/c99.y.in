@@ -2629,9 +2629,11 @@ identifier_token : IDENTIFIER
 
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
-	fprintf(stderr, "%s:%d:%d: error: %s\n",
-            mc99lloc.first_filename,
-            mc99lloc.first_line,
-            mc99lloc.first_column,
-            c);
+    error_printf_at(
+        make_locus(
+                    mc99lloc.first_filename,
+                    mc99lloc.first_line,
+                    mc99lloc.first_column),
+        "%s\n",
+        c);
 }

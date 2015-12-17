@@ -282,7 +282,6 @@ namespace Analysis {
         Ret visit( const Nodecl::BooleanLiteral& n );
         Ret visit( const Nodecl::BreakStatement& n );
         Ret visit( const Nodecl::CaseStatement& n );
-        Ret visit( const Nodecl::Cast& n );
         Ret visit( const Nodecl::CatchHandler& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::Comma& n );
@@ -441,7 +440,6 @@ namespace Analysis {
         Ret visit( const Nodecl::Type& n );
         Ret visit( const Nodecl::Typeid& n );
         Ret visit( const Nodecl::UnknownPragma& n );
-        Ret visit( const Nodecl::ValueInitialization& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );
         Ret visit( const Nodecl::VectorArithmeticShr& n );

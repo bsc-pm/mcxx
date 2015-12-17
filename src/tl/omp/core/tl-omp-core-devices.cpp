@@ -58,8 +58,8 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<std::string> arguments = map_clause.get_tokenized_arguments();
         if (arguments.empty())
         {
-            error_printf("%s: error: empty 'map' clause\n",
-                    pragma_line.get_locus_str().c_str());
+            error_printf_at(pragma_line.get_locus(),
+                    "empty 'map' clause\n");
             return;
         }
 
@@ -134,8 +134,9 @@ namespace TL { namespace OpenMP {
             {
                 if (map_set == NULL)
                 {
-                    error_printf("%s: error: skipping item '%s' in 'map' clause because it lacks map-kind\n",
-                            pragma_line.get_locus_str().c_str(),
+                    error_printf_at(
+                            pragma_line.get_locus(),
+                            "skipping item '%s' in 'map' clause because it lacks map-kind\n",
                             current_map_expr.c_str());
                     continue;
                 }
@@ -212,20 +213,22 @@ namespace TL { namespace OpenMP {
                 }
                 else
                 {
-                    error_printf("%s: error: invalid expression '%s' in 'map' clause\n",
-                            it->get_locus_str().c_str(),
+                    error_printf_at(it->get_locus(),
+                            "invalid expression '%s' in 'map' clause\n",
                             it->prettyprint().c_str());
                 }
             }
         }
     }
 
-    void Core::compute_implicit_device_mappings(Nodecl::NodeclBase stmt,
-            DataEnvironment& data_environment)
+    void Core::compute_implicit_device_mappings(
+            Nodecl::NodeclBase stmt,
+            DataEnvironment& data_environment,
+            DefaultMapValue defaultmap_value)
     {
         ObjectList<TL::Symbol> nonlocal_symbols =
             Nodecl::Utils::get_nonlocal_symbols_first_occurrence(stmt)
-            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         for (TL::ObjectList<TL::Symbol>::iterator it = nonlocal_symbols.begin();
                 it != nonlocal_symbols.end();
@@ -264,7 +267,8 @@ namespace TL { namespace OpenMP {
                 data_environment.set_device_mapping(
                         sym,
                         map_value,
-                        "implicitly mapped because symbol is used inside data device environment");
+                        "implicitly mapped tofrom because "
+                        "is used inside the data device environment");
             }
         }
 
@@ -276,8 +280,53 @@ namespace TL { namespace OpenMP {
         DataEnvironment& data_environment = _openmp_info->get_new_data_environment(ctr);
         _openmp_info->push_current_data_environment(data_environment);
 
-        handle_map_clause(ctr.get_pragma_line(), data_environment);
-        compute_implicit_device_mappings(ctr.get_statements(), data_environment);
+        TL::PragmaCustomLine pragma_line = ctr.get_pragma_line();
+
+        // map
+        handle_map_clause(pragma_line, data_environment);
+
+        TL::ObjectList<Symbol> extra_symbols;
+        // private | firstprivate
+        get_data_explicit_attributes(
+                pragma_line,
+                ctr.get_statements(),
+                data_environment,
+                extra_symbols);
+        get_data_implicit_attributes(ctr,
+                DS_SHARED,
+                data_environment,
+                /* there_is_default_clause */ false);
+
+        PragmaCustomClause depend_clause = pragma_line.get_clause("depend");
+        // depend
+        get_dependences_openmp(
+                depend_clause,
+                pragma_line,
+                data_environment,
+                /* default-data-sharing */ DS_NONE,
+                extra_symbols);
+        get_data_extra_symbols(data_environment, extra_symbols);
+
+        DefaultMapValue defaultmap_value = DEFAULTMAP_NONE;
+        TL::PragmaCustomClause defaultmap_clause = pragma_line.get_clause("defaultmap");
+        if (defaultmap_clause.is_defined())
+        {
+            TL::ObjectList<std::string> defaultmap_args = defaultmap_clause.get_tokenized_arguments();
+            if (defaultmap_args.size() == 1
+                    && defaultmap_args[0] == "tofrom:scalar")
+            {
+                defaultmap_value = DEFAULTMAP_SCALAR;
+            }
+            else
+            {
+                error_printf_at(
+                        ctr.get_locus(),
+                        "invalid argument '%s' for clause 'defaultmap', it should be 'tofrom:scalar'\n",
+                        concat_strings(defaultmap_clause.get_raw_arguments()).c_str());
+            }
+        }
+
+        compute_implicit_device_mappings(ctr.get_statements(), data_environment, defaultmap_value);
     }
 
     void Core::omp_target_handler_post(TL::PragmaCustomStatement ctr)
@@ -291,7 +340,8 @@ namespace TL { namespace OpenMP {
         _openmp_info->push_current_data_environment(data_environment);
 
         handle_map_clause(ctr.get_pragma_line(), data_environment);
-        compute_implicit_device_mappings(ctr.get_statements(), data_environment);
+        // FIXME: We should not be doing this
+        // compute_implicit_device_mappings(ctr.get_statements(), data_environment);
     }
 
     void Core::target_data_handler_post(TL::PragmaCustomStatement ctr)
@@ -347,49 +397,69 @@ namespace TL { namespace OpenMP {
     }
 
     void Core::distribute_parallel_for_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::distribute_parallel_for_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::distribute_parallel_do_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::distribute_parallel_do_handler_post(TL::PragmaCustomStatement ctr) { }
 
     // Combined
     void Core::target_teams_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::target_teams_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::teams_distribute_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::teams_distribute_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::teams_distribute_parallel_for_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::teams_distribute_parallel_for_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::teams_distribute_parallel_do_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::teams_distribute_parallel_do_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::target_teams_distribute_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::target_teams_distribute_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::target_teams_distribute_parallel_for_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::target_teams_distribute_parallel_for_handler_post(TL::PragmaCustomStatement ctr) { }
 
     void Core::target_teams_distribute_parallel_do_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+        error_printf_at(ctr.get_locus(), "OpenMP 4.0 construct not implemented yet\n");
     }
     void Core::target_teams_distribute_parallel_do_handler_post(TL::PragmaCustomStatement ctr) { }
+
+    void Core::declare_target_handler_pre(TL::PragmaCustomDirective ctr)
+    {
+        if (_inside_declare_target)
+        {
+            error_printf_at(ctr.get_locus(), "nesting of '#pragma omp declare target' not implemented\n");
+        }
+        _inside_declare_target = true;
+    }
+    void Core::declare_target_handler_post(TL::PragmaCustomDirective ctr) { }
+
+    void Core::end_declare_target_handler_pre(TL::PragmaCustomDirective ctr) { }
+    void Core::end_declare_target_handler_post(TL::PragmaCustomDirective ctr)
+    {
+        if (!_inside_declare_target)
+        {
+            error_printf_at(ctr.get_locus(), "invalid nesting of '#pragma omp end declare target'\n");
+        }
+        _inside_declare_target = false;
+    }
 
 } }

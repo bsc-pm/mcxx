@@ -368,7 +368,7 @@ std::string GenericFunctions::get_specific_func_name(
     function_map_t::iterator it = _function_map.find(scalar_func_sym);
     if (it == _function_map.end())
     {
-        running_error("error: '%s' Symbol is not a function Symbol.",
+        fatal_error("error: '%s' Symbol is not a function Symbol.",
                 scalar_func_sym.get_name().c_str());
     }
 
@@ -469,7 +469,7 @@ Source SpecificFunctionInfo::get_definition(
         return replace.replace_naive_function(scalar_func_sym, _spec_func_name);
     }
 
-    running_error("error: specific function definition has a invalid kind.");
+    fatal_error("error: specific function definition has a invalid kind.");
 }
 
 Source SpecificFunctionInfo::get_declaration(
@@ -482,7 +482,7 @@ Source SpecificFunctionInfo::get_declaration(
 
     if (!func_type.is_function())
     {
-        running_error("error: expected function Symbol");
+        fatal_error("error: expected function Symbol");
     }
 
     ObjectList<Type> type_param_list = func_type.parameters();
@@ -558,12 +558,12 @@ GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym)
 {
     if (_scalar_func_sym.is_invalid())
     {
-        running_error("error: expected a valid scalar Symbol from a scalar function");
+        fatal_error("error: expected a valid scalar Symbol from a scalar function");
     }
 
     if (!_scalar_func_sym.is_function())
     {
-        running_error("error: expected a function Symbol from a scalar function");
+        fatal_error("error: expected a function Symbol from a scalar function");
     }
 }
 
@@ -574,22 +574,22 @@ GenericFunctionInfo::GenericFunctionInfo(
 {
     if (_scalar_func_sym.is_invalid())
     {
-        running_error("error: expected a valid scalar Symbol from a scalar function");
+        fatal_error("error: expected a valid scalar Symbol from a scalar function");
     }
 
     if (!_scalar_func_sym.is_function())
     {
-        running_error("error: expected function Symbol from a scalar function");
+        fatal_error("error: expected function Symbol from a scalar function");
     }
 
     if (simd_func_sym.is_invalid())
     {
-        running_error("error: expected a valid SIMD Symbol from a generic function");
+        fatal_error("error: expected a valid SIMD Symbol from a generic function");
     }
 
     if (!_simd_func_sym.is_function())
     {
-        running_error("error: expected function Symbol from a generic function");
+        fatal_error("error: expected function Symbol from a generic function");
     }
 }
 
@@ -809,7 +809,7 @@ SpecificFunctionInfo& GenericFunctionInfo::get_better_specific_function(
     device_specific_map_t::iterator it = _specific_functions.find(device_name);
     if (it == _specific_functions.end())
     {
-        running_error("error: specific function definition is missing in device %s.", device_name.c_str());
+        fatal_error("error: specific function definition is missing in device %s.", device_name.c_str());
     }
 
     width_specific_map_t& width_spec_map = it->second;
@@ -817,7 +817,7 @@ SpecificFunctionInfo& GenericFunctionInfo::get_better_specific_function(
     width_specific_map_t::iterator it2 = width_spec_map.find(width);
     if (it2 == width_spec_map.end())
     {
-        running_error("error: specific function definition is missing in device %s with width %d.", device_name.c_str(), width);
+        fatal_error("error: specific function definition is missing in device %s with width %d.", device_name.c_str(), width);
     }
 
     it2 = std::max_element(it2, width_spec_map.end(), compare_pairs());

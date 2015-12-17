@@ -35,22 +35,22 @@
 namespace TL { namespace HLT {
 
 HLTPragmaPhase::HLTPragmaPhase()
-    : PragmaCustomCompilerPhase("hlt")
+    : PragmaCustomCompilerPhase()
 {
     set_phase_name("High Level Transformations");
     set_phase_description("This phase implements several high level "
             "transformations available through the usage of #pragma hlt");
 
-    register_construct("normalize");
-    dispatcher().statement.post["normalize"].connect(
+    register_construct("hlt", "normalize");
+    dispatcher("hlt").statement.post["normalize"].connect(
             std::bind(
                 &HLTPragmaPhase::do_loop_normalize,
                 this,
                 std::placeholders::_1)
             );
 
-    register_construct("unroll");
-    dispatcher().statement.post["unroll"].connect(
+    register_construct("hlt", "unroll");
+    dispatcher("hlt").statement.post["unroll"].connect(
             std::bind(
                 &HLTPragmaPhase::do_loop_unroll,
                 this,
@@ -109,8 +109,8 @@ void HLTPragmaPhase::do_loop_unroll(TL::PragmaCustomStatement construct)
     }
 
     loop_unroll.unroll();
-    info_printf("%s: info: loop unrolled by a factor %d\n",
-            construct.get_locus_str().c_str(), unroll_factor);
+    info_printf_at(construct.get_locus(), "loop unrolled by a factor %d\n",
+            unroll_factor);
 
     Nodecl::NodeclBase transformed_code = loop_unroll.get_whole_transformation();
     construct.replace(transformed_code);
@@ -123,7 +123,7 @@ void HLTPragmaPhase::do_loop_normalize(TL::PragmaCustomStatement construct)
     loop_normalize.set_loop(loop);
 
     loop_normalize.normalize();
-    info_printf("%s: info: loop normalized\n", construct.get_locus_str().c_str());
+    info_printf_at(construct.get_locus(), "loop normalized\n");
 
     Nodecl::NodeclBase transformed_code = loop_normalize.get_whole_transformation();
     construct.replace(transformed_code);

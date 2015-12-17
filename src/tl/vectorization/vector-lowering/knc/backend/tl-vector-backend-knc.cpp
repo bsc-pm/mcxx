@@ -87,7 +87,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("KNC Backend: casting intrinsic not supported");
+            fatal_error("KNC Backend: casting intrinsic not supported");
         }
 
         return result.str();
@@ -136,7 +136,7 @@ namespace Vectorization
        // }
         else
         {
-            running_error("KNC Backend: undef intrinsic not supported for type '%s'",
+            fatal_error("KNC Backend: undef intrinsic not supported for type '%s'",
                     type.get_simple_declaration(
                         CURRENT_COMPILED_FILE->global_decl_context, "").c_str());
         }
@@ -893,7 +893,7 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorLogicalOr& n)
     {
-        running_error("KNC Backend %s: 'logical or' operation (i.e., operator '||') is not "\
+        fatal_error("KNC Backend %s: 'logical or' operation (i.e., operator '||') is not "\
                 "supported in KNC. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
                 locus_to_str(n.get_locus()));
     }
@@ -2282,11 +2282,18 @@ namespace Vectorization
 
                 walk(arguments);
 
-                // args << mask_args;
-                for (Nodecl::List::const_iterator it = arguments.begin();
+                args << mask_args;
+                int num = 0;
+                Nodecl::List::const_iterator it = arguments.begin();
+                for (;
                         it != arguments.end();
-                        it++)
+                        it++, num++)
                 {
+                    // Skip the first two when there is mask
+                    if (!mask.is_null()
+                            && (num < 2))
+                        continue;
+
                     args.append_with_separator(as_expression(*it), ", ");
                 }
 

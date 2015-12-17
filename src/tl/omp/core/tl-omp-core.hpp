@@ -65,6 +65,7 @@ namespace TL
                 void parse_new_udr(const std::string& str);
 
                 void register_omp_constructs();
+                void register_oss_constructs();
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
@@ -153,15 +154,34 @@ namespace TL
                         DataEnvironment& data_environment,
                         ObjectList<TL::Symbol>& nonlocal_symbols);
 
+                // This function is basically a wrapper that calls to the other
+                // 'get_dependences_info' function using the pragma_line as parsing_context
                 void get_dependences_info(
-                        PragmaCustomLine construct,
+                        PragmaCustomLine pragma_line,
+                        DataEnvironment& data_environment,
+                        DataSharingAttribute default_data_attr,
+                        ObjectList<Symbol>& extra_symbols);
+
+                // This function handles the dependences of a contruct, adding
+                // new information to the data_environment
+                void get_dependences_info(
+                        PragmaCustomLine pragma_line,
+                        Nodecl::NodeclBase parsing_context,
+                        DataEnvironment& data_environment,
+                        DataSharingAttribute default_data_attr,
+                        ObjectList<Symbol>& extra_symbols);
+
+                // This function is used to define a concurrent dependence over
+                // the reduction expressions
+                void get_dependences_info_from_reductions(
+                        PragmaCustomLine pragma_line,
                         DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
                 void get_dependences_ompss_info_clause(
                         PragmaCustomClause clause,
-                        Nodecl::NodeclBase construct,
+                        Nodecl::NodeclBase parsing_context,
                         DataEnvironment& data_environment,
                         DependencyDirection dep_attr,
                         DataSharingAttribute default_data_attr,
@@ -173,8 +193,8 @@ namespace TL
                         TL::ReferenceScope parsing_scope);
 
                 void get_dependences_openmp(
-                        TL::PragmaCustomLine construct,
                         TL::PragmaCustomClause clause,
+                        Nodecl::NodeclBase parsing_context,
                         DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
@@ -200,8 +220,15 @@ namespace TL
                 void handle_map_clause(TL::PragmaCustomLine pragma_line,
                         DataEnvironment& data_environment);
 
+                enum DefaultMapValue
+                {
+                    DEFAULTMAP_NONE = 0,
+                    DEFAULTMAP_SCALAR = 1,
+                };
+
                 void compute_implicit_device_mappings(Nodecl::NodeclBase stmt,
-                        DataEnvironment& data_environment);
+                        DataEnvironment& data_environment,
+                        DefaultMapValue);
 
                 void common_parallel_handler(
                         TL::PragmaCustomStatement ctr,
@@ -241,8 +268,8 @@ namespace TL
 
                 void collapse_check_loop(TL::PragmaCustomStatement construct);
 
-                void parse_declare_reduction(ReferenceScope ref_sc, const std::string& declare_reduction_src);
-                void parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src);
+                void parse_declare_reduction(ReferenceScope ref_sc, const std::string& declare_reduction_src, bool is_builtin);
+                void parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src, bool is_builtin);
                 void parse_declare_reduction(ReferenceScope ref_sc,
                         const std::string &name,
                         const std::string &typenames,
@@ -270,6 +297,9 @@ namespace TL
 
                 // This variable is used to enable the experimental support of nonvoid function tasks
                 bool _enable_nonvoid_function_tasks;
+
+                // States if we have seen a declare target
+                bool _inside_declare_target;
             public:
                 Core();
 
@@ -314,6 +344,8 @@ namespace TL
                     return _untied_tasks_by_default;
                 }
         };
+
+        bool is_scalar_type(TL::Type t);
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct);

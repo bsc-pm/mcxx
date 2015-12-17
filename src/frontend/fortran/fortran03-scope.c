@@ -378,8 +378,7 @@ static void diagnostic_ambiguity(scope_entry_list_t* entry_list)
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        info_printf("%s: info: name '%s' first bound here\n",
-                locus_to_str(entry->locus), entry->symbol_name);
+        info_printf_at(entry->locus, "name '%s' first bound here\n", entry->symbol_name);
     }
     entry_list_iterator_free(it);
 }
@@ -402,7 +401,7 @@ scope_entry_t* fortran_query_name_str(const decl_context_t* decl_context,
             if (entry_list_size(result_list) > 1
                     && !mean_the_same_entity(result_list))
             {
-                error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
+                error_printf_at(locus, "name '%s' is ambiguous\n", unqualified_name);
                 diagnostic_ambiguity(result_list);
             }
 
@@ -581,7 +580,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(const decl_context_t* de
                 {
                     if (!mean_the_same_entity(entry_list))
                     {
-                        error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
+                        error_printf_at(locus, "name '%s' is ambiguous\n", unqualified_name);
                         diagnostic_ambiguity(entry_list);
                     }
 

@@ -220,6 +220,12 @@ typedef struct parameter_flags_tag
     parameter_flag_value_t value;
 } parameter_flags_t;
 
+typedef struct subgoal_tag
+{
+    const char* linked_subgoal_filename;
+    struct compilation_configuration_tag* configuration;
+} subgoal_t;
+
 typedef struct compilation_process_tag
 {
     // Result of the execution
@@ -234,6 +240,13 @@ typedef struct compilation_process_tag
     // List of translation units
     struct compilation_file_process_tag** translation_units;
     int num_translation_units;
+
+    // Meaningful only if we are going to link
+    const char *linked_output_filename;
+
+    // Used for sublinking
+    int num_subgoals;
+    subgoal_t *subgoals;
 
     // For further use. They can be modified as we need
     int argc;
@@ -281,6 +294,11 @@ typedef struct compilation_configuration_line
     const char *value;
 
     flag_expr_t* flag_expr;
+
+    // location
+    const char *filename;
+    int line;
+
 } compilation_configuration_line_t;
 
 #if 0
@@ -373,9 +391,6 @@ typedef struct compilation_configuration_tag
     // Source language information
     source_language_t source_language;
 
-    // Output filename
-    const char* linked_output_filename;
-
     // Toolchain information
     const char* preprocessor_name;
     const char** preprocessor_options;
@@ -432,12 +447,16 @@ typedef struct compilation_configuration_tag
 
     const char* linker_name;
 
-    const char** linker_options_pre;
-
     int num_args_linker_command;
     parameter_linker_command_t** linker_command;
 
     const char** linker_options;
+    // --Wr,
+    // Added before all linker options
+    const char** linker_options_pre;
+    // --WL,
+    // Added after all linker options
+    const char** linker_options_post;
 
     // Toolchain tools of the target
     const char* target_objcopy;
@@ -480,8 +499,11 @@ typedef struct compilation_configuration_tag
     // __int8, __int16, __int32 and __int64
     char enable_ms_builtin_types;
 
-    // Enable Intel C/C++ builtins
-    char enable_intel_builtins;
+    // Enable Intel C/C++ builtins syntax
+    char enable_intel_builtins_syntax;
+
+    // Enable Intel C/C++ builtin intrinsics
+    char enable_intel_intrinsics;
 
     // Enable special vector types for Intel SSE/AVX
     // struct __m128, struct __m256
@@ -501,6 +523,9 @@ typedef struct compilation_configuration_tag
 
     // Fortran array descriptor (compiler dependent)
     struct fortran_array_descriptor_t* fortran_array_descriptor;
+
+    // Fortran mangling (compiler dependent)
+    struct fortran_name_mangling_t* fortran_name_mangling;
 
     // Flags affecting some bits of the language
     code_shape_t code_shape;
@@ -549,6 +574,9 @@ typedef struct compilation_configuration_tag
     // Enable IBM XL compatibility
     char xl_compatibility;
 
+    // Enable IFORT compatibility
+    char ifort_compatibility;
+
     // Emit line markers in the output files
     char line_markers;
 } compilation_configuration_t;
@@ -563,6 +591,7 @@ typedef struct compilation_file_process_tag
 {
     translation_unit_t *translation_unit;
     compilation_configuration_t *compilation_configuration;
+    int tag; // zero by default
 
     char already_compiled;
 

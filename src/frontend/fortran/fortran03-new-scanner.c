@@ -1,32 +1,32 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2015 Barcelona Supercomputing Center
-                          Centro Nacional de Supercomputacion
-  
+  Centro Nacional de Supercomputacion
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
---------------------------------------------------------------------*/
+  --------------------------------------------------------------------*/
 
 
 #ifdef HAVE_CONFIG_H
-   #include "config.h"
+#include "config.h"
 #endif
 
 #include "fortran03-new-scanner.h"
@@ -62,7 +62,7 @@
 
    The maxim level of nesting is not defined in Fortran 95 standard.
    We have set it to 99.
- */
+   */
 
 enum {
     MAX_INCLUDE_DEPTH = 99,
@@ -218,7 +218,7 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename,
     int fd = open(scanned_filename, O_RDONLY);
     if (fd < 0)
     {
-        running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+        fatal_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
     }
 
     // Get size of file because we need it for the mmap
@@ -226,13 +226,13 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename,
     int status = fstat (fd, &s);
     if (status < 0)
     {
-        running_error("error: cannot get status of file '%s' (%s)", scanned_filename, strerror(errno));
+        fatal_error("error: cannot get status of file '%s' (%s)", scanned_filename, strerror(errno));
     }
 
     const char *mmapped_addr = mmap(0, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (mmapped_addr == MAP_FAILED)
     {
-        running_error("error: cannot map file '%s' in memory (%s)", scanned_filename, strerror(errno));
+        fatal_error("error: cannot map file '%s' in memory (%s)", scanned_filename, strerror(errno));
     }
 
     lexer_state.form = !is_fixed_form ? LEXER_TEXTUAL_FREE_FORM : LEXER_TEXTUAL_FIXED_FORM;
@@ -320,7 +320,7 @@ extern int new_mf03_prepare_string_for_scanning(const char* str)
 
     lexer_state.include_stack_size = 0;
     lexer_state.current_file = &(lexer_state.include_stack[lexer_state.include_stack_size]);
-  
+
     const char* filename = NULL;
     uniquestr_sprintf(&filename, "%s-%s-%d", TL_SOURCE_STRING, CURRENT_COMPILED_FILE->input_filename, num_string);
     num_string++;
@@ -334,7 +334,7 @@ extern int new_mf03_prepare_string_for_scanning(const char* str)
     lexer_state.current_file->current_location.filename = filename;
     lexer_state.current_file->current_location.line = 1;
     lexer_state.current_file->current_location.column = 1;
-    
+
     init_lexer_state();
 
     return 0;
@@ -347,12 +347,12 @@ static inline void close_current_file(void)
         int res = munmap((void*)lexer_state.current_file->buffer, lexer_state.current_file->buffer_size);
         if (res < 0)
         {
-            running_error("error: unmaping of file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
+            fatal_error("error: unmaping of file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
         }
         res = close(lexer_state.current_file->fd);
         if (res < 0)
         {
-            running_error("error: closing file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
+            fatal_error("error: closing file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
         }
         lexer_state.current_file->fd = -1;
     }
@@ -649,19 +649,23 @@ static char handle_preprocessor_line(void)
                 }
                 else
                 {
-                    warn_printf("%s:%d:%d: invalid flag %d\n",
-                            flag_loc.filename,
-                            flag_loc.line,
-                            flag_loc.column,
+                    warn_printf_at(
+                            make_locus(
+                                flag_loc.filename,
+                                flag_loc.line,
+                                flag_loc.column),
+                            "invalid flag %d\n",
                             flag);
                 }
             }
             else
             {
-                warn_printf("%s:%d:%d: unexpected tokens at end of line-marker\n",
-                        lexer_state.current_file->current_location.filename,
-                        lexer_state.current_file->current_location.line,
-                        lexer_state.current_file->current_location.column);
+                warn_printf_at(
+                        make_locus(
+                            lexer_state.current_file->current_location.filename,
+                            lexer_state.current_file->current_location.line,
+                            lexer_state.current_file->current_location.column),
+                        "unexpected tokens at end of line-marker\n");
                 break;
             }
         }
@@ -704,10 +708,12 @@ static char handle_preprocessor_line(void)
     }
     else
     {
-        warn_printf("%s:%d:%d: invalid filename, ignoring line-marker\n",
-                filename_loc.filename,
-                filename_loc.line,
-                filename_loc.column);
+        warn_printf_at(
+                make_locus(
+                    filename_loc.filename,
+                    filename_loc.line,
+                    filename_loc.column),
+                "invalid filename, ignoring line-marker\n");
 
         // Go to end of the line
         while (!past_eof()
@@ -1482,10 +1488,10 @@ static inline int free_form_get(token_location_t* loc)
 
 #define ROLLBACK \
         { \
-                lexer_state.current_file->current_location = keep_location; \
-                lexer_state.bol = keep_bol; \
-                lexer_state.current_file->current_pos = keep; \
-                break; \
+            lexer_state.current_file->current_location = keep_location; \
+            lexer_state.bol = keep_bol; \
+            lexer_state.current_file->current_pos = keep; \
+            break; \
         }
 
         if (past_eof())
@@ -1865,7 +1871,7 @@ static inline void peek_insert(int n, int c, token_location_t loc)
     while (i < (_peek_queue.front - n))
     {
         _peek_queue.buffer[(_peek_queue.size - 1) + i]
-            = _peek_queue.buffer[(_peek_queue.size - 1) + i + 1];
+        = _peek_queue.buffer[(_peek_queue.size - 1) + i + 1];
         i++;
     }
     _peek_queue.back--;
@@ -1971,7 +1977,7 @@ static inline int peek_loc(int n, token_location_t *loc)
             }
         }
     }
-    
+
     peek_token_info_t p = peek_get(n);
 
     if (loc != NULL)
@@ -2028,10 +2034,12 @@ static char* scan_kind(void)
     }
     else
     {
-        error_printf("%s:%d:%d: invalid kind-specifier\n",
-                loc.filename,
-                loc.line,
-                loc.column);
+        error_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "invalid kind-specifier\n");
     }
 
     tiny_dyncharbuf_add(&str, '\0');
@@ -2137,10 +2145,12 @@ static inline void scan_character_literal(
         }
         else // c == '\n' || c == '\r'
         {
-            error_printf("%s:%d:%d: error: unended character literal\n",
-                    loc2.filename,
-                    loc2.line,
-                    loc2.column);
+            error_printf_at(
+                    make_locus(
+                        loc2.filename,
+                        loc2.line,
+                        loc2.column),
+                    "unended character literal\n");
             unended_literal = 1;
             break;
         }
@@ -2227,10 +2237,12 @@ static char* scan_fractional_part_of_real_literal(void)
             c = peek_loc(2, &exp_loc);
             if (!is_decimal_digit(c))
             {
-                error_printf("%s:%d:%d: error: missing exponent in real literal\n",
-                        exp_loc.filename,
-                        exp_loc.line,
-                        exp_loc.column);
+                error_printf_at(
+                        make_locus(
+                            exp_loc.filename,
+                            exp_loc.line,
+                            exp_loc.column),
+                        "missing exponent in real literal\n");
                 // 1.23e+a
                 // 1.23e-a
                 tiny_dyncharbuf_add(&str, '\0');
@@ -2245,10 +2257,12 @@ static char* scan_fractional_part_of_real_literal(void)
         else
         {
             // 1.23ea
-            error_printf("%s:%d:%d: error: missing exponent in real literal\n",
-                    exp_loc.filename,
-                    exp_loc.line,
-                    exp_loc.column);
+            error_printf_at(
+                    make_locus(
+                        exp_loc.filename,
+                        exp_loc.line,
+                        exp_loc.column),
+                    "missing exponent in real literal\n");
             tiny_dyncharbuf_add(&str, '\0');
             return str.buf;
         }
@@ -2394,10 +2408,12 @@ static char is_include_line(void)
 
     if (include_filename == NULL)
     {
-        running_error("%s:%d:%d: error: included file '%s' not found\n",
-                loc.filename,
-                loc.line,
-                loc.column,
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "included file '%s' not found\n",
                 include_filename_buf.buf);
     }
     DELETE(include_filename_buf.buf);
@@ -2405,10 +2421,12 @@ static char is_include_line(void)
     int fd = open(include_filename, O_RDONLY);
     if (fd < 0)
     {
-        running_error("%s:%d:%d: error: cannot open included file '%s' (%s)\n",
-                loc.filename,
-                loc.line,
-                loc.column,
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "cannot open included file '%s' (%s)\n",
                 include_filename,
                 strerror(errno));
     }
@@ -2418,20 +2436,24 @@ static char is_include_line(void)
     int status = fstat (fd, &s);
     if (status < 0)
     {
-        running_error("%s:%d:%d: error: cannot get status of included file '%s' (%s)\n",
-                loc.filename,
-                loc.line,
-                loc.column,
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "cannot get status of included file '%s' (%s)\n",
                 include_filename, strerror(errno));
     }
 
     const char *mmapped_addr = mmap(0, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (mmapped_addr == MAP_FAILED)
     {
-        running_error("%s:%d:%d: error: cannot map included file '%s' in memory (%s)",
-                loc.filename,
-                loc.line,
-                loc.column,
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "cannot map included file '%s' in memory (%s)",
                 include_filename,
                 strerror(errno));
     }
@@ -2439,10 +2461,12 @@ static char is_include_line(void)
     lexer_state.include_stack_size++;
     if (lexer_state.include_stack_size == MAX_INCLUDE_DEPTH)
     {
-        running_error("%s:%d:%d: error: too many nested included files",
-                loc.filename,
-                loc.line,
-                loc.column);
+        fatal_printf_at(
+                make_locus(
+                    loc.filename,
+                    loc.line,
+                    loc.column),
+                "too many nested included files");
     }
 
     lexer_state.current_file = &lexer_state.include_stack[lexer_state.include_stack_size];
@@ -2639,7 +2663,7 @@ static char is_nonexecutable_statement(int k)
         case TOKEN_SUBROUTINE:
         case TOKEN_FUNCTION:
         case TOKEN_MODULE:
-        // case TOKEN_MODULE_PROCEDURE:
+            // case TOKEN_MODULE_PROCEDURE:
         case TOKEN_BLOCKDATA:
         case TOKEN_USE:
         case TOKEN_IMPLICIT:
@@ -2855,10 +2879,12 @@ static inline void preanalyze_statement(char expect_label)
         {
             if (!is_decimal_digit(p))
             {
-                error_printf("%s:%d:%d: invalid character in label field\n",
-                        loc.filename,
-                        loc.line,
-                        loc.column);
+                error_printf_at(
+                        make_locus(
+                            loc.filename,
+                            loc.line,
+                            loc.column),
+                        "invalid character in label field\n");
                 break;
             }
             peek_idx++;
@@ -3013,7 +3039,6 @@ static inline void preanalyze_statement(char expect_label)
         {
             // Well, we could not classify this statement with any known
             // keyword, maybe there are no more keywords or it is an error
-            done_with_keywords = 1;
             break;
         }
         allow_named_label = 0;
@@ -3480,7 +3505,7 @@ static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set
             int size_directive = strlen(pragma_directive_set->directive_names[j]);
             if (current_match == size_lexed_directive && size_lexed_directive == size_directive)
             {
-               exact_match = 1;
+                exact_match = 1;
             }
             length_match = current_match;
             longest_match_so_far = pragma_directive_set->directive_names[j];
@@ -3704,10 +3729,12 @@ extern int new_mf03lex(void)
                                 }
                                 else
                                 {
-                                    warn_printf("%s:%d:%d: warning: ignoring unknown '!$%s' directive\n",
-                                            loc.filename,
-                                            loc.line,
-                                            loc.column,
+                                    warn_printf_at(
+                                            make_locus(
+                                                loc.filename,
+                                                loc.line,
+                                                loc.column),
+                                            "ignoring unknown '!$%s' directive\n",
                                             sentinel);
 
                                     // Return an UNKNOWN_PRAGMA
@@ -3868,6 +3895,8 @@ extern int new_mf03lex(void)
                 case '+' :
                 case '-' :
                 case ':' :
+                case '{' :
+                case '}' :
                     {
                         const char s[] = {c0, '\0'};
                         return commit_text(c0, s, loc);
@@ -4176,10 +4205,12 @@ extern int new_mf03lex(void)
 
                             if (c != '.')
                             {
-                                error_printf("%s:%d:%d: error: unended user-defined operator name\n",
-                                        loc.filename,
-                                        loc.line,
-                                        loc.column);
+                                error_printf_at(
+                                        make_locus(
+                                            loc.filename,
+                                            loc.line,
+                                            loc.column),
+                                        "unended user-defined operator name\n");
                             }
                             else
                             {
@@ -4262,10 +4293,12 @@ extern int new_mf03lex(void)
                                             if (c != c1
                                                     && !is_newline(c))
                                             {
-                                                error_printf("%s:%d:%d: error: invalid binary digit\n",
-                                                        loc2.filename,
-                                                        loc2.line,
-                                                        loc2.column);
+                                                error_printf_at(
+                                                        make_locus(
+                                                            loc2.filename,
+                                                            loc2.line,
+                                                            loc2.column),
+                                                        "invalid binary digit\n");
                                             }
                                             break;
                                         }
@@ -4285,10 +4318,12 @@ extern int new_mf03lex(void)
                                             if (c != c1
                                                     && !is_newline(c))
                                             {
-                                                error_printf("%s:%d:%d: error: invalid octal digit\n",
-                                                        loc2.filename,
-                                                        loc2.line,
-                                                        loc2.column);
+                                                error_printf_at(
+                                                        make_locus(
+                                                            loc2.filename,
+                                                            loc2.line,
+                                                            loc2.column),
+                                                        "invalid octal digit\n");
                                             }
                                             break;
                                         }
@@ -4310,10 +4345,12 @@ extern int new_mf03lex(void)
                                             if (c != c1
                                                     && !is_newline(c))
                                             {
-                                                error_printf("%s:%d:%d: error: invalid hexadecimal digit\n",
-                                                        loc2.filename,
-                                                        loc2.line,
-                                                        loc2.column);
+                                                error_printf_at(
+                                                        make_locus(
+                                                            loc2.filename,
+                                                            loc2.line,
+                                                            loc2.column),
+                                                        "invalid hexadecimal digit\n");
                                             }
                                             break;
                                         }
@@ -4328,10 +4365,12 @@ extern int new_mf03lex(void)
 
                                     if (length == 0)
                                     {
-                                        error_printf("%s:%d:%d: error: empty integer literal\n",
-                                                loc2.filename,
-                                                loc2.line,
-                                                loc2.column);
+                                        error_printf_at(
+                                                make_locus(
+                                                    loc2.filename,
+                                                    loc2.line,
+                                                    loc2.column),
+                                                "empty integer literal\n");
 
                                         tiny_dyncharbuf_add(&str, 0);
                                         tiny_dyncharbuf_add(&str, c1);
@@ -4346,10 +4385,12 @@ extern int new_mf03lex(void)
                                 }
                                 else
                                 {
-                                    error_printf("%s:%d:%d: error: unended integer literal\n",
-                                            loc2.filename,
-                                            loc2.line,
-                                            loc2.column);
+                                    error_printf_at(
+                                            make_locus(
+                                                loc2.filename,
+                                                loc2.line,
+                                                loc2.column),
+                                            "unended integer literal\n");
                                     tiny_dyncharbuf_add(&str, c1);
                                 }
 
@@ -4572,10 +4613,12 @@ extern int new_mf03lex(void)
 
                             if (length == 0)
                             {
-                                error_printf("%s:%d:%d: error: ignoring invalid Hollerith constant of length 0\n",
-                                        loc.filename,
-                                        loc.line,
-                                        loc.column);
+                                error_printf_at(
+                                        make_locus(
+                                            loc.filename,
+                                            loc.line,
+                                            loc.column),
+                                        "ignoring invalid Hollerith constant of length 0\n");
                                 continue;
                             }
                             else
@@ -4589,10 +4632,12 @@ extern int new_mf03lex(void)
                                     if (is_newline(c)
                                             || c == EOF)
                                     {
-                                        error_printf("%s:%d:%d: error: unended Hollerith constant\n",
-                                                loc.filename,
-                                                loc.line,
-                                                loc.column);
+                                        error_printf_at(
+                                                make_locus(
+                                                    loc.filename,
+                                                    loc.line,
+                                                    loc.column),
+                                                "unended Hollerith constant\n");
                                         ok = 0;
                                         break;
                                     }
@@ -4690,10 +4735,12 @@ extern int new_mf03lex(void)
 
                             if (result == NULL)
                             {
-                                error_printf("%s:%d:%d: invalid special token '%s', ignoring\n",
-                                        loc.filename,
-                                        loc.line,
-                                        loc.column,
+                                error_printf_at(
+                                        make_locus(
+                                            loc.filename,
+                                            loc.line,
+                                            loc.column),
+                                        "invalid special token '%s', ignoring\n",
                                         str.buf);
                                 continue;
                             }
@@ -4726,10 +4773,12 @@ extern int new_mf03lex(void)
                         lexer_state.substate = LEXER_SUBSTATE_NORMAL;
                         DELETE(lexer_state.sentinel);
                         lexer_state.sentinel = NULL;
-                        error_printf("%s:%d:%d: error: unexpected end-of-file in directive\n",
-                                loc.filename,
-                                loc.line,
-                                loc.column);
+                        error_printf_at(
+                                make_locus(
+                                    loc.filename,
+                                    loc.line,
+                                    loc.column),
+                                "unexpected end-of-file in directive\n");
                         continue;
                     }
                 case '\n':
@@ -4866,10 +4915,12 @@ extern int new_mf03lex(void)
                                         }
                                         else
                                         {
-                                            running_error("%s:%d:%d: error: invalid directive '!$%s END %s'\n", 
-                                                    loc.filename,
-                                                    loc.line,
-                                                    loc.column,
+                                            fatal_printf_at(
+                                                    make_locus(
+                                                        loc.filename,
+                                                        loc.line,
+                                                        loc.column),
+                                                    "invalid directive '!$%s END %s'\n",
                                                     strtoupper(lexer_state.sentinel),
                                                     strtoupper(relevant_directive));
                                         }
@@ -4910,10 +4961,12 @@ extern int new_mf03lex(void)
                                                 char* top = lexer_state.pragma_constructs_stack[lexer_state.num_pragma_constructs-1];
                                                 if (strcmp(top, longest_match) != 0)
                                                 {
-                                                    running_error("%s:%d:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
-                                                            loc.filename,
-                                                            loc.line,
-                                                            loc.column,
+                                                    fatal_printf_at(
+                                                            make_locus(
+                                                                loc.filename,
+                                                                loc.line,
+                                                                loc.column),
+                                                            "invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
                                                             strtoupper(lexer_state.sentinel), 
                                                             strtoupper(relevant_directive),
                                                             strtoupper(lexer_state.sentinel), 
@@ -4928,10 +4981,12 @@ extern int new_mf03lex(void)
                                             }
                                             else
                                             {
-                                                running_error("%s:%d:%d: error: bad nesting for '!$%s %s'\n",
-                                                        loc.filename,
-                                                        loc.line,
-                                                        loc.column,
+                                                fatal_printf_at(
+                                                        make_locus(
+                                                            loc.filename,
+                                                            loc.line,
+                                                            loc.column),
+                                                        "bad nesting for '!$%s %s'\n",
                                                         strtoupper(lexer_state.sentinel), 
                                                         strtoupper(relevant_directive));
                                             }
@@ -4940,10 +4995,12 @@ extern int new_mf03lex(void)
                                     }
                                 case PDK_NONE :
                                     {
-                                        running_error("%s:%d:%d: error: unknown directive '!$%s %s'",
-                                                loc.filename,
-                                                loc.line,
-                                                loc.column,
+                                        fatal_printf_at(
+                                                make_locus(
+                                                    loc.filename,
+                                                    loc.line,
+                                                    loc.column),
+                                                "unknown directive '!$%s %s'",
                                                 strtoupper(lexer_state.sentinel),
                                                 strtoupper(str.buf));
                                         break;
@@ -5116,10 +5173,12 @@ extern int new_mf03lex(void)
 
                     if (c != ')')
                     {
-                        error_printf("%s:%d:%d: error: unended clause\n",
-                                loc.filename,
-                                loc.line,
-                                loc.column);
+                        error_printf_at(
+                                make_locus(
+                                    loc.filename,
+                                    loc.line,
+                                    loc.column),
+                                "unended clause\n");
                     }
 
                     return commit_text_and_free(PRAGMA_CLAUSE_ARG_TEXT, str.buf, loc);
@@ -5134,18 +5193,22 @@ extern int new_mf03lex(void)
         // Default case, unclassifiable token
         if (isprint(c0))
         {
-            error_printf("%s:%d:%d: error: unexpected character: `%c' (0x%X)\n", 
-                    loc.filename,
-                    loc.line,
-                    loc.column,
+            error_printf_at(
+                    make_locus( 
+                        loc.filename,
+                        loc.line,
+                        loc.column),
+                    "unexpected character: `%c' (0x%X)\n",
                     c0, c0);
         }
         else
         {
-            error_printf("%s:%d:%d: error: unexpected character: 0x%X\n\n", 
-                    loc.filename,
-                    loc.line,
-                    loc.column,
+            error_printf_at(
+                    make_locus( 
+                        loc.filename,
+                        loc.line,
+                        loc.column),
+                    "unexpected character: 0x%X\n\n",
                     c0);
         }
     }

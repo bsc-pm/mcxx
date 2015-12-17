@@ -496,7 +496,7 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse source\n\n%s\n", 
+            fatal_error("Could not parse source\n\n%s\n", 
                     format_source(extended_source).c_str());
         }
 

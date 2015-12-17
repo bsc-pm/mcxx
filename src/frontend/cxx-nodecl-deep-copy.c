@@ -33,6 +33,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-utils.h"
 #include "cxx-symbol-deep-copy.h"
+#include "cxx-typeutils.h"
 
 // Machine generated in cxx-nodecl-deep-copy-base.c
 extern nodecl_t nodecl_deep_copy_rec(nodecl_t n, 
@@ -267,20 +268,14 @@ nodecl_t nodecl_deep_copy_context(nodecl_t n,
 typedef
 struct closure_hash_tag
 {
-    scope_t* original_scope;
     const decl_context_t* new_decl_context;
     nested_symbol_map_t* nested_symbol_map;
 
     nodecl_deep_copy_map_t* nodecl_deep_copy_map;
     symbol_deep_copy_map_t* symbol_deep_copy_map;
 
-    int num_filled;
-    scope_entry_t** filled_symbols;
+    scope_entry_list_t* symbols;
 } closure_hash_t;
-
-static void symbol_deep_copy_map_add(symbol_deep_copy_map_t* symbol_deep_copy_map,
-        scope_entry_t *orig,
-        scope_entry_t *copied);
 
 static void create_symbols(const char* name UNUSED_PARAMETER,
         scope_entry_list_t* entry_list,
@@ -308,6 +303,30 @@ static void create_symbols(const char* name UNUSED_PARAMETER,
             // remember the mapping
             symbol_deep_copy_map_add(data->symbol_deep_copy_map, entry, new_entry);
 
+            // Classes require extra mappings
+            if (entry->kind == SK_CLASS)
+            {
+                new_entry->kind = SK_CLASS; // Required by new_class_context
+                const decl_context_t* new_class_ctx = new_class_context(data->new_decl_context, new_entry);
+
+                // Keep a mapping in the symbol map
+                nested_map_add(data->nested_symbol_map,
+                        (scope_entry_t*)class_type_get_inner_context(entry->type_information),
+                        (scope_entry_t*)new_class_ctx);
+
+                // Make sure the context of the members is the class context
+                closure_hash_t* new_data = NEW(closure_hash_t);
+                *new_data = *data;
+                new_data->new_decl_context = new_class_ctx;
+
+                scope_entry_list_t* member_list = class_type_get_members(entry->type_information);
+                create_symbols(name,
+                        member_list,
+                        new_data);
+                entry_list_free(member_list);
+
+                DELETE(new_data);
+            }
         }
     }
     entry_list_iterator_free(it);
@@ -329,12 +348,35 @@ static void register_symbols(const char* name,
         if (mapped_symbol != entry)
         {
             insert_alias(data->new_decl_context->current_scope, mapped_symbol, name);
+
+            // Classes require extra mappings
+            if (entry->kind == SK_CLASS)
+            {
+                // Make sure the context of the members is the class context
+                closure_hash_t* new_data = NEW(closure_hash_t);
+                *new_data = *data;
+
+                new_data->new_decl_context = (const decl_context_t*)
+                    // We need to abuse a bit of the scope map to retrieve the new class context
+                    data->nested_symbol_map->base_.map(
+                            &data->nested_symbol_map->base_,
+                            (scope_entry_t*)class_type_get_inner_context(entry->type_information));
+
+                scope_entry_list_t* member_list = class_type_get_members(entry->type_information);
+                register_symbols(name,
+                        member_list,
+                        new_data);
+                entry_list_free(member_list);
+
+                DELETE(new_data);
+            }
         }
     }
     entry_list_iterator_free(it);
 }
 
-static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
+static void gather_all_symbols_in_scope(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
+static void fill_symbols(closure_hash_t* data);
 
 static void copy_scope(const decl_context_t* new_decl_context, scope_t* original_scope,
         nested_symbol_map_t* nested_symbol_map,
@@ -345,7 +387,6 @@ static void copy_scope(const decl_context_t* new_decl_context, scope_t* original
     closure_hash_t closure_info;
     memset(&closure_info, 0, sizeof(closure_info));
 
-    closure_info.original_scope = original_scope;
     closure_info.new_decl_context = new_decl_context;
     closure_info.nested_symbol_map = nested_symbol_map;
     closure_info.nodecl_deep_copy_map = nodecl_deep_copy_map;
@@ -354,10 +395,13 @@ static void copy_scope(const decl_context_t* new_decl_context, scope_t* original
     // First walk, sign in all the names but leave them empty
     dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)create_symbols, &closure_info);
     dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)register_symbols, &closure_info);
-    // Fill the created symbols
-    dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)fill_symbols, &closure_info);
 
-    DELETE(closure_info.filled_symbols);
+    // Gather all the symbols of the scope in closure.symbols
+    dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)gather_all_symbols_in_scope, &closure_info);
+    // And fill them
+    fill_symbols(&closure_info);
+
+    entry_list_free(closure_info.symbols);
 }
 
 static decl_context_t* copy_function_scope(decl_context_t* new_decl_context,
@@ -421,41 +465,262 @@ static decl_context_t* copy_block_scope(decl_context_t* new_decl_context,
     return new_decl_context;
 }
 
-static void fill_symbols(const char* name UNUSED_PARAMETER,
-        scope_entry_list_t* entry_list,
+static void fill_single_symbol(
+        scope_entry_t* entry,
+        scope_entry_t* mapped_symbol,
         closure_hash_t* data)
 {
+    ERROR_CONDITION(entry == mapped_symbol, "Invalid symbol", 0);
+
     nodecl_deep_copy_map_t* nodecl_deep_copy_map = data->nodecl_deep_copy_map;
     symbol_deep_copy_map_t* symbol_deep_copy_map = data->symbol_deep_copy_map;
 
+    symbol_deep_copy_compute_maps(mapped_symbol,
+            entry, data->new_decl_context,
+            (symbol_map_t*)data->nested_symbol_map,
+            nodecl_deep_copy_map,
+            symbol_deep_copy_map);
+}
+
+typedef
+struct symbol_fill_info_tag
+{
+    scope_entry_t* symbol;
+    scope_entry_t* mapped;
+    closure_hash_t* data;
+
+    scope_entry_t** depends;
+    int num_depends;
+
+} symbol_fill_info_t;
+
+static void gather_all_symbols_to_fill(
+        scope_entry_list_t* entry_list,
+        closure_hash_t* data,
+        int *num_symbols,
+        symbol_fill_info_t** symbol_fill_info)
+{
     scope_entry_list_iterator_t *it;
     for (it = entry_list_iterator_begin(entry_list);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-
         scope_entry_t* mapped_symbol = nested_symbol_map_fun_immediate((symbol_map_t*)data->nested_symbol_map, entry);
 
         if (mapped_symbol != entry)
         {
-            int i;
-            for (i = 0; i < data->num_filled; i++)
+            symbol_fill_info_t fill_info =
             {
-                if (data->filled_symbols[i] == entry)
-                    return;
+                .symbol = entry,
+                .mapped = mapped_symbol,
+                .data = data,
+                .num_depends = 0,
+                .depends = NULL
+            };
+
+            P_LIST_ADD(*symbol_fill_info, *num_symbols, fill_info);
+
+            if (entry->kind == SK_CLASS)
+            {
+                // Make sure the context of the members is the class context
+                closure_hash_t* new_data = NEW(closure_hash_t);
+                *new_data = *data;
+
+                new_data->new_decl_context = (const decl_context_t*)
+                    // We need to abuse a bit of the scope map to retrieve the new class context
+                    data->nested_symbol_map->base_.map(
+                            &data->nested_symbol_map->base_,
+                            (scope_entry_t*)class_type_get_inner_context(entry->type_information));
+
+                scope_entry_list_t* member_list = class_type_get_members(entry->type_information);
+                gather_all_symbols_to_fill(member_list,
+                        new_data,
+                        num_symbols,
+                        symbol_fill_info);
+                entry_list_free(member_list);
             }
-
-            P_LIST_ADD(data->filled_symbols, data->num_filled, entry);
-
-            symbol_deep_copy_compute_maps(mapped_symbol,
-                    entry, data->new_decl_context,
-                    (symbol_map_t*)data->nested_symbol_map,
-                    nodecl_deep_copy_map,
-                    symbol_deep_copy_map);
         }
     }
     entry_list_iterator_free(it);
+}
+
+static void compute_dependences_type(symbol_fill_info_t* symbol_fill_info,
+        type_t* t,
+        closure_hash_t* data)
+{
+    if (is_named_type(t)
+            && named_type_get_symbol(t) != symbol_fill_info->symbol)
+    {
+        scope_entry_t* entry = named_type_get_symbol(t);
+        scope_entry_t* mapped_symbol = nested_symbol_map_fun_immediate((symbol_map_t*)data->nested_symbol_map, entry);
+
+        if (entry != mapped_symbol)
+        {
+            P_LIST_ADD_ONCE(symbol_fill_info->depends, symbol_fill_info->num_depends, entry);
+        }
+    }
+    else if (is_pointer_type(t))
+    {
+        compute_dependences_type(symbol_fill_info,
+                pointer_type_get_pointee_type(t),
+                data);
+    }
+    else if (is_pointer_to_member_type(t))
+    {
+        compute_dependences_type(symbol_fill_info,
+                pointer_type_get_pointee_type(t),
+                data);
+
+        compute_dependences_type(symbol_fill_info,
+                pointer_to_member_type_get_class_type(t),
+                data);
+    }
+    else if (is_any_reference_type(t))
+    {
+        compute_dependences_type(symbol_fill_info,
+                no_ref(t),
+                data);
+    }
+    else if (is_array_type(t))
+    {
+        compute_dependences_type(
+                symbol_fill_info,
+                array_type_get_element_type(t),
+                data);
+    }
+    else if (is_function_type(t))
+    {
+        compute_dependences_type(
+                symbol_fill_info,
+                function_type_get_return_type(t),
+                data);
+
+        if (!function_type_get_lacking_prototype(t))
+        {
+            int i, N = function_type_get_num_parameters(t), P = N;
+
+            if (function_type_get_has_ellipsis(t))
+            {
+                P = N - 1;
+            }
+
+            for (i = 0; i < P; i++)
+            {
+                compute_dependences_type(
+                        symbol_fill_info,
+                        function_type_get_parameter_type_num(t, i),
+                        data);
+            }
+        }
+    }
+    else if (is_vector_type(t))
+    {
+        compute_dependences_type(
+                symbol_fill_info,
+                vector_type_get_element_type(t),
+                data);
+    }
+}
+
+static void compute_dependences(symbol_fill_info_t* symbol_fill_info,
+        closure_hash_t* data)
+{
+    compute_dependences_type(symbol_fill_info,
+            symbol_fill_info->symbol->type_information,
+            data);
+}
+
+static void remove_symbol_from_deps(
+        symbol_fill_info_t* symbol_fill_info,
+        scope_entry_t* symbol)
+{
+    P_LIST_REMOVE(symbol_fill_info->depends, symbol_fill_info->num_depends, symbol);
+}
+
+static void gather_all_symbols_in_scope(const char* name UNUSED_PARAMETER,
+        scope_entry_list_t* entry_list,
+        closure_hash_t* data)
+{
+    data->symbols = entry_list_concat(data->symbols, entry_list);
+}
+
+static void fill_symbols(closure_hash_t* data)
+{
+    // Gather first all symbols including indirect ones of SK_CLASSes
+    int num_symbols = 0;
+    symbol_fill_info_t* symbol_fill_info = 0;
+
+    gather_all_symbols_to_fill(data->symbols, data, &num_symbols, &symbol_fill_info);
+
+    // We have to fill symbols in topological order, otherwise we may have
+    // incomplete information when filling them (in particular TYPEDEFs are
+    // very sensitive to this)
+
+    // First for each symbol traverse its type in case it depends on another mapped symbol
+    int i;
+    for (i = 0; i < num_symbols; i++)
+    {
+        compute_dependences(&symbol_fill_info[i], data);
+    }
+
+    // Now define symbols as long as they have no dependences
+    // (this implements the topological order)
+    int remaining_symbols;
+    for(remaining_symbols = num_symbols;
+            remaining_symbols > 0;
+            )
+    {
+        int old_remaining_symbols = remaining_symbols;
+
+        for (i = 0; i < num_symbols; i++)
+        {
+            if (symbol_fill_info[i].symbol != NULL // not yet processed
+                    && symbol_fill_info[i].num_depends == 0)
+            {
+                fill_single_symbol(
+                        symbol_fill_info[i].symbol,
+                        symbol_fill_info[i].mapped,
+                        symbol_fill_info[i].data);
+
+                // Now remove this symbol from other symbols
+                // This is the inefficient part of this implementation
+                int j;
+                for (j = 0; j < num_symbols; j++)
+                {
+                    if (i == j)
+                        continue;
+
+                    remove_symbol_from_deps(
+                            &symbol_fill_info[j],
+                            symbol_fill_info[i].symbol);
+                }
+
+                symbol_fill_info[i].symbol = NULL; // already processed
+                remaining_symbols--;
+            }
+        }
+
+        // Sanity check that we are progressing
+        ERROR_CONDITION(remaining_symbols == old_remaining_symbols,
+                "No symbol filled", 0);
+    }
+
+    // Cleanup extra closures that may have been created during gather_all_symbols_to_fill
+    closure_hash_t** extra_closures = NULL;
+    int num_extra_closures = 0;
+    for (i = 0; i < num_symbols; i++)
+    {
+        if (symbol_fill_info[i].data != data) // 'data' will be freed by the caller
+        {
+            P_LIST_ADD_ONCE(extra_closures, num_extra_closures, symbol_fill_info[i].data);
+        }
+    }
+    for (i = 0; i < num_extra_closures; i++)
+    {
+        DELETE(extra_closures[i]);
+    }
+    DELETE(extra_closures);
 }
 
 nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
@@ -468,6 +733,11 @@ nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
 {
     scope_entry_t* orig_symbol = nodecl_get_symbol(n);
     scope_entry_t* symbol = (*synth_symbol_map)->map(*synth_symbol_map, orig_symbol);
+
+    // Skip unmapped member functions
+    if (symbol == orig_symbol
+            && symbol_entity_specs_get_is_member(orig_symbol))
+        return nodecl_null();
 
     ERROR_CONDITION( (symbol == orig_symbol), "When copying a NODECL_FUNCTION_CODE, the function symbol must always be mapped, "
             "otherwise there would be two function code trees for the same symbol", 0);
@@ -626,7 +896,8 @@ extern void nodecl_deep_copy_map_add(nodecl_deep_copy_map_t* nodecl_deep_copy_ma
     P_LIST_ADD(nodecl_deep_copy_map->copied, nodecl_deep_copy_map->num_mappings, copied);
 }
 
-static void symbol_deep_copy_map_add(symbol_deep_copy_map_t* symbol_deep_copy_map,
+/* Used in cxx-typeutils.c */
+extern void symbol_deep_copy_map_add(symbol_deep_copy_map_t* symbol_deep_copy_map,
         scope_entry_t *orig,
         scope_entry_t *copied)
 {

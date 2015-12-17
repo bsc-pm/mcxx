@@ -31,7 +31,6 @@
 #include "tl-counters.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-outline-info.hpp"
-#include "tl-replace.hpp"
 #include "tl-compilerpipeline.hpp"
 
 #include "tl-nodecl-utils-c.hpp"
@@ -76,11 +75,8 @@ namespace TL { namespace Nanox {
         if (current_function.is_nested_function())
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                running_error("%s: error: nested functions are not supported\n",
-                        original_statements.get_locus_str().c_str());
-            // if (IS_FORTRAN_LANGUAGE)
-            //     running_error("%s: error: internal subprograms are not supported\n",
-            //             original_statements.get_locus().c_str());
+                fatal_printf_at(original_statements.get_locus(),
+                        "nested functions are not supported\n");
         }
 
         symbol_map = new Nodecl::Utils::SimpleSymbolMap();
@@ -465,7 +461,6 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
-                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         // // Pass the original reduced variable as if it were a shared
                         Source argument;
@@ -708,7 +703,7 @@ namespace TL { namespace Nanox {
         FILE* ancillary_file = fopen(new_filename.c_str(), "w");
         if (ancillary_file == NULL)
         {
-            running_error("%s: error: cannot open file '%s'. %s\n",
+            fatal_error("%s: error: cannot open file '%s'. %s\n",
                     original_filename.c_str(),
                     new_filename.c_str(),
                     strerror(errno));

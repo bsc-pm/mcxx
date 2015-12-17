@@ -1,143 +1,156 @@
 #!/usr/bin/env bash
+
+function path_search {
+  found=$(type -P $*)
+  set -- $found
+  # Return first found
+  echo $1
+}
+
+
 USER_FLAGS=" $* "
-ORIGINAL_COMPILER_PATH=$(dirname $0)
-ORIGINAL_MCC_COMPILER=mpimfc
-ORIGINAL_MPI_COMPILER=@MPIFORT@
-ORIGINAL_CXX_MPI_COMPILER=@MPICXX@
-EXTRA_MCC_FLAGS=""
-#Find which compilers should we use
-if [[ ! -z "$OFFL_CXX" ]]; then
-    ORIGINAL_CXX_MPI_COMPILER=$OFFL_CXX
-else
-if which mpiicpc >/dev/null 2>&1; then
-    ORIGINAL_CXX_MPI_COMPILER=mpiicpc
-elif which mpicxx >/dev/null 2>&1; 
-then
-    ORIGINAL_CXX_MPI_COMPILER=mpicxx
-else
-    echo "mpiicpc or mpicxx not found in your system and OFFL_CXX env variable not set, they are required in order to offload"
-fi
-fi
+EXTRA_FLAGS=
 
-if [[ ! -z "$OFFL_FC" ]]; then
-    ORIGINAL_MPI_COMPILER=$OFFL_FC
-else
-if which mpiifort >/dev/null 2>&1; then
-    ORIGINAL_MPI_COMPILER=mpiifort
-elif which mpifc >/dev/null 2>&1; 
-then
-    ORIGINAL_MPI_COMPILER=mpifc
-elif which mpif90 >/dev/null 2>&1; 
-then
-    ORIGINAL_MPI_COMPILER=mpif90
-elif which mpif77 >/dev/null 2>&1; 
-then
-    ORIGINAL_MPI_COMPILER=mpi77
-else
-    echo "mpiifort or mpifc not found in your system and OFFL_FC env variable not set"
-fi
-fi
+# -----------------------------------------------
+# Compiler
+# -----------------------------------------------
 
-#if a word starts with " g" it's GNU
-if [[ `$ORIGINAL_MPI_COMPILER -show` == *@GFORTRAN@* ]] 
-then
-    ORIGINAL_MCC_COMPILER="${ORIGINAL_MCC_COMPILER}_mcc"
-else
-    ORIGINAL_MCC_COMPILER="${ORIGINAL_MCC_COMPILER}_imcc"
-fi
-#Extra flags for intel MPI (pretty hackish)
-if [[ `$ORIGINAL_MPI_COMPILER -help 2> /dev/null` == *I_MPI* ]]
-then
-   MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS -mt_mpi"
-   EXTRA_MCC_FLAGS="$EXTRA_MCC_FLAGS -mt_mpi"
-fi
+MCC=mpimfc
+MPIFC=@MPIFORT@
+MPICXX=@MPICXX@
 
-NANOX_INSTALL=@NANOX@/
-
-#Setup flags for MIC
-ORIGINAL_MCC_COMPILER="${ORIGINAL_MCC_COMPILER}_base"
-
-ORIGINAL_MCC_COMPILER="${ORIGINAL_COMPILER_PATH}/plaincxx --profile=${ORIGINAL_MCC_COMPILER} --fpp=$ORIGINAL_MPI_COMPILER --cpp=$ORIGINAL_CXX_MPI_COMPILER --cxx=$ORIGINAL_MPI_COMPILER --ld=$ORIGINAL_MPI_COMPILER"
+# Setup options for MIC
 if [[ "$USER_FLAGS" == *--mmic* ]] 
 then
-   MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS -mmic"
-   NANOX_INSTALL=@NANOX_MIC@/
+   EXTRA_FLAGS+=" -mmic"
+   NANOX_INSTALL=@NANOX_MIC@
+else
+   NANOX_INSTALL=@NANOX@
+fi
+
+NANOX_CXX=$( cat $NANOX_INSTALL/src/arch/mpi/nanox_compiler )
+if type -P "$NANOX_CXX" &> /dev/null; then 
+   export I_MPI_CXX="$NANOX_CXX"
+   export MPICH_CXX="$NANOX_CXX"
+   export OMPI_CXX="$NANOX_CXX"
+fi
+
+# Find which compilers should be used
+MPICXX=$(path_search $OFFL_CXX $MPICXX mpiicpc mpicxx)
+if test ! -f "$MPICXX"; then
+   echo "\
+Could not find a MPI C++ compiler. Set PATH env. var accordingly to find either mpiicpc or mpicxx. \
+OFFL_CXX can also be set if a different C++ MPI compiler is desired."
+   exit -1
+fi
+
+MPIFC=$(path_search $OFFL_FC $MPIFC mpiifort mpifc mpif90 mpif77)
+if test ! -f "$MPIFC"; then
+   echo "\
+Could not find a MPI Fortran compiler. Set PATH env. var accordingly to find either mpiifort or mpifc/mpif90/mpif77. \
+OFFL_FC can also be set if a different Fortran MPI compiler is desired."
+   exit -1
+fi
+
+# If a word starts with " g" it's GNU
+if [[ $($MPIFC -show) == *@GFORTRAN@* ]] 
+then
+    MCC="${MCC}_mcc"
+else
+    MCC="${MCC}_imcc"
+fi
+
+# Compiler command without flags
+MCC="plaincxx --profile=${MCC}_base"
+export I_MPI_F77="$MCC"
+export I_MPI_F90="$MCC"
+export OMPI_FC="$MCC"
+export OMPI_F90="$MCC"
+export OMPI_F77="$MCC"
+export MPICH_FC="$MCC"
+export MPICH_F77="$MCC"
+export MPICH_F90="$MCC"
+
+# -----------------------------------------------
+# Flags
+# -----------------------------------------------
+
+# Extra flags for multithreading Intel MPI
+if [[ $( $MPICXX -openmp -show ) == *-lmpi_mt* ]]
+then
+   EXTRA_FLAGS+=" -mt_mpi"
 fi
 
 #Call the native mercurim compiler and recompile Offload plugin whenever needed
+
+# Special options:
+case $USER_FLAGS in
+*"-help "*)
+   ${MCC} $USER_FLAGS
+   echo "\
+This Offload compiler uses internally $MPIFC from your current PATH.\
+If you want to change compiler, use OFFL_FC and OFFL_CXX env variables (make sure they point to the same MPI implementation).\
+General guidelines about Offloading can be found in http://pm.bsc.es/ompss-docs/user-guide/run-programs-archs-offload.html"
+   exit 0
+   ;;
+*"-showme:"*)
+   echo "Showme is not supported. Offload will not work if this wrapper is not used"
+   exit -1
+   ;;
+*"-show "*)
+   echo "Show is not supported. Offload will not work if this wrapper is not used"
+   exit -1
+   ;;
+*" --instrument "*)
+   build_type=instrumentation
+   ;;
+*" --debug "*)
+   build_type=debug
+   ;;
+*" --instrument "*"--debug "*|*" --debug "*"--instrument "*)
+   build_type=instrumentation-debug
+   ;;
+*)
+   build_type=performance
+   ;;
+esac
+
 OLDPPWD=$PWD
+
 if [[ "$USER_FLAGS" == *\ -c\ * ]]
 then
-	MPIINCLUDEFOLDER=`which $ORIGINAL_MPI_COMPILER`
-	MPIINCLUDEFOLDER=${MPIINCLUDEFOLDER%$ORIGINAL_MPI_COMPILER}
-	MPIINCLUDEFOLDER=$MPIINCLUDEFOLDER../include
-	${ORIGINAL_MCC_COMPILER} $USER_FLAGS -I$MPIINCLUDEFOLDER
+   ${MPIFC} $EXTRA_FLAGS $USER_FLAGS
 elif [ $# -eq 0 ]
 then
-	${ORIGINAL_MCC_COMPILER} $USER_FLAGS
-   echo "This Offload compiler uses internally $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change compiler, use OFFL_FC and OFFL_CXX env variables (both have to be pointing to the same MPI implementation)
-         or remove $ORIGINAL_MPI_COMPILER from your PATH"
-elif [[ "$USER_FLAGS" == *-help\ * ]]
-then
-	${ORIGINAL_MCC_COMPILER} $USER_FLAGS
-   echo "This Offload compiler uses internally $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change compiler, use OFFL_FC and OFFL_CXX env variables (both have to be pointing to the same MPI implementation)
-         or remove $ORIGINAL_MPI_COMPILER from your PATH"
-   echo "General guidelines about Offloading can be found in http://pm.bsc.es/ompss-docs/user-guide/run-programs-archs-offload.html"
-elif [[ "$USER_FLAGS" == *-showme:* ]]
-then
-   echo "Showme is not supported. Offload will not work if this wrapper is not used"
-elif [[ "$USER_FLAGS" == *-show\ * ]]
-then
-   echo "Show is not supported. Offload will not work if this wrapper is not used"
+   ${MPIFC} $EXTRA_FLAGS $USER_FLAGS
+   echo "\
+This Offload compiler uses internally $MPIFC from your current PATH.
+If you want to change compiler, use OFFL_FC and OFFL_CXX env variables (make sure they point to the same MPI implementation)."
+   exit 0
 else
    #remove possible remainders from previous compilations
    rm -f $OLDPPWD/temporaloffloadplugin*.o > /dev/null 2>&1
-	type=performance
-	if [[ "$USER_FLAGS" == *--instrument\ * ]]
-	then
-		type=instrumentation
-	fi
-	if [[ "$USER_FLAGS" == *--debug\ * ]]
-	then
-		type=debug
-	fi
-	if [[ "$USER_FLAGS" == *--instrumentation*--debug* ]]
-	then
-		type=instrumentation_debug
-	fi
-	if [[ "$USER_FLAGS" == *--debug*--instrumentation* ]]
-	then
-		type=instrumentation_debug
-	fi
-	MPI_PLUGIN_FLAGS_FILE=`cat $NANOX_INSTALL/src/arch/mpi/${type}_flags`
-	MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS_FILE $MPI_PLUGIN_FLAGS"
-	ORIGINAL_NANOX_COMPILER="`cat $NANOX_INSTALL/src/arch/mpi/nanox_compiler`"
    trap "rm -f $OLDPPWD/temporaloffloadplugin$$.o" EXIT
-   if which $ORIGINAL_NANOX_COMPILER >/dev/null 2>&1; then	
-     I_MPI_CXX=$ORIGINAL_NANOX_COMPILER OMPI_CXX=$ORIGINAL_NANOX_COMPILER MPICH_CXX=$ORIGINAL_NANOX_COMPILER $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o >/dev/null 2>&1	
-   else
-     $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o >/dev/null 2>&1
-   fi
+
+   MPI_PLUGIN_FLAGS+=" "$(cat $NANOX_INSTALL/src/arch/mpi/${build_type}_flags)
+   compile_messages=$( $MPICXX $EXTRA_FLAGS -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o 2>&1 )
+
    if [[ ! -f $OLDPPWD/temporaloffloadplugin$$.o ]] ;
    then 
-       echo "Compiling OmpSs MPI Offload library"
-       echo $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o
-       if which $ORIGINAL_NANOX_COMPILER >/dev/null 2>&1; then	
-         I_MPI_CXX=$ORIGINAL_NANOX_COMPILER OMPI_CXX=$ORIGINAL_NANOX_COMPILER MPICH_CXX=$ORIGINAL_NANOX_COMPILER $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o	
-       else
-         $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o	
-       fi
-       echo "OmpSs MPI Offload library could not be compiled. Try to solve the problem if its related to your environment. If its not a problem from your environment, plase submit a ticket to https://pm.bsc.es/projects/nanox/newticket"
+       echo "\
+Compiling OmpSs MPI Offload library
+$MPICXX $EXTRA_FLAGS -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o
+$compile_messages
+
+OmpSs MPI Offload library could not be compiled.
+Check if your environment is not producing any conflict. If it is not, please report this error to https://pm.bsc.es/projects/nanox/newticket"
        exit -1
    fi
+
    #If the compiler has lmpi_cxx (openmpi), link manually with it because we'll use fortran mpi wrapper
-   if [[ `$ORIGINAL_CXX_MPI_COMPILER -show` == *-lmpi_cxx* ]] 
-   then
+   if [[ $( $MPICXX -show) == *-lmpi_cxx* ]]; then
       EXTRA_MCC_FLAGS="$EXTRA_MCC_FLAGS -lmpi_cxx"
    fi
-	MPIINCLUDEFOLDER=`which $ORIGINAL_MPI_COMPILER`
-	MPIINCLUDEFOLDER=${MPIINCLUDEFOLDER%$ORIGINAL_MPI_COMPILER}
-	MPIINCLUDEFOLDER=$MPIINCLUDEFOLDER../include
-	${ORIGINAL_MCC_COMPILER} -I$MPIINCLUDEFOLDER $EXTRA_MCC_FLAGS $OLDPPWD/temporaloffloadplugin$$.o $USER_FLAGS
-	rm -f $OLDPPWD/temporaloffloadplugin$$.o
+   ${MPIFC} $EXTRA_MCC_FLAGS $OLDPPWD/temporaloffloadplugin$$.o $USER_FLAGS $EXTRA_FLAGS
+   rm -f $OLDPPWD/temporaloffloadplugin$$.o
 fi

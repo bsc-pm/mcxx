@@ -39,6 +39,7 @@
 
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
+#include "cxx-driver-build-info.h"
 #include "cxx-macros.h"
 #include "cxx-parameters.h"
 #include "cxx-embed.h"
@@ -163,7 +164,7 @@ static void tool_initialization(int argc, const char* argv[])
     if (alternate_stack.ss_sp == 0
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
-        running_error("Setting alternate signal stack failed (%s)\n",
+        fatal_error("Setting alternate signal stack failed (%s)\n",
 				strerror(errno));
     }
 #endif
@@ -190,7 +191,7 @@ static void tool_initialization(int argc, const char* argv[])
     
     if (result != 0)
     {
-        running_error("Signal programming failed with '%s'\n", strerror(errno));
+        fatal_error("Signal programming failed with '%s'\n", strerror(errno));
     }
 #endif
 
@@ -336,7 +337,7 @@ int main(int argc, char *argv[])
     {
         if (errno != ENOENT)
         {
-            running_error("Cannot stat output file '%s'. %s\n", output_filename, strerror(errno));
+            fatal_error("Cannot stat output file '%s'. %s\n", output_filename, strerror(errno));
         }
 
         // FIXME - Assuming the compiler profile allows C
@@ -351,14 +352,14 @@ int main(int argc, char *argv[])
 
         if (execute_program(compiler_profile, compiler_args) != 0)
         {
-            running_error("Invocation of the compiler to generate output file '%s' failed", 
+            fatal_error("Invocation of the compiler to generate output file '%s' failed", 
                     output_filename);
         }
     }
 
     if (embed_to_file(output_filename, num_embed_files, embed_files) == 0)
     {
-        running_error("Embedding into '%s' failed\n", output_filename);
+        fatal_error("Embedding into '%s' failed\n", output_filename);
     }
 
     return 0;

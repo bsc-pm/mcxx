@@ -59,6 +59,7 @@
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
 #include "cxx-ast.h"
+#include "cxx-ambiguity.h"
 #include "cxx-graphviz.h"
 #include "cxx-html.h"
 #include "cxx-prettyprint.h"
@@ -96,7 +97,9 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-codegen.h"
 #include "fortran03-typeenviron.h"
+#include "fortran03-mangling.h"
 #include "cxx-driver-fortran.h"
+#include "cxx-driver-build-info.h"
 
 /* ------------------------------------------------------------------ */
 #define HELP_STRING \
@@ -144,11 +147,13 @@
 "                           This flag is only meaningful for Fortran\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
-"                           Flags is a sequence of 'p', 'n', 's', or 'l'\n" \
+"                           Flags is a sequence of\n"\
 "                              p: preprocessor\n"  \
 "                              s: Fortran prescanner\n" \
 "                              n: native compiler\n" \
 "                              l: linker\n" \
+"                              r: linker (beginning of the linker command)\n" \
+"                              L: linker (end of the linker command)\n" \
 "  --Wx:<profile>:<flags>,<options>\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
@@ -248,6 +253,11 @@
 "  --list-fortran-array-descriptors\n" \
 "                           Prints list of supported Fortran\n" \
 "                           array descriptors and quits\n" \
+"  --fortran-name-mangling=<name>\n" \
+"                           Selects Fortran name mangling\n" \
+"  --list-fortran-name-manglings\n" \
+"                           Prints list of supported Fortran\n" \
+"                           name manglings and quits\n" \
 "  --search-includes=<dir>  Adds <dir> to the directories searched\n" \
 "                           when solving a Fortran INCLUDE line.\n" \
 "                           Does not affect the native compiler like\n" \
@@ -281,8 +291,8 @@
 "                           action will be carried by the driver\n" \
 "  --enable-ms-builtins     Enables __int8, __int16, __int32 and\n" \
 "                           __int64 builtin types\n" \
-"  --enable-intel-builtins\n" \
-"                           Enables some Intel C/C++ builtins\n" \
+"  --enable-intel-builtins-syntax\n" \
+"                           Enables extra Intel C/C++ syntax\n" \
 "  --enable-intel-vector-types\n" \
 "                           Enables special support for SIMD types\n" \
 "                           __m128, __m256 and __m512 as struct types\n" \
@@ -294,11 +304,14 @@
 "  --xl-compat              Enables compatibility features with\n" \
 "                           IBM XL C/C++/Fortran. This flag may be\n" \
 "                           required when using such compiler.\n" \
+"  --ifort-compat           Enables some compatibility features\n" \
+"                           required by Intel Fortran\n" \
 "  --line-markers           Adds line markers to the generated file\n" \
 "  --parallel               EXPERIMENTAL: behave in a way that \n" \
 "                           allows parallel compilation of the same\n" \
 "                           source codes without reusing intermediate\n" \
 "                           filenames\n" \
+"  --Xcompiler OPTION       Equivalent to --Wn,OPTION\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -315,6 +328,8 @@
 "  -export-dynamic\n" \
 "  -f<name>\n" \
 "  -include FILE\n" \
+"  -isystem DIR\n" \
+"  -isysroot DIR\n" \
 "  -MD\n" \
 "  -MF <file>\n" \
 "  -MG <file>\n" \
@@ -356,68 +371,74 @@ static char *_alternate_signal_stack;
 typedef enum
 {
     OPTION_UNDEFINED = 1024,
-    OPTION_VERSION,
-    OPTION_PREPROCESSOR_NAME,
-    OPTION_NATIVE_COMPILER_NAME,
-    OPTION_LINKER_NAME,
-    OPTION_DEBUG_FLAG,
-    OPTION_HELP_DEBUG_FLAGS,
-    OPTION_HELP_TARGET_OPTIONS,
-    OPTION_OUTPUT_DIRECTORY,
-    OPTION_OPENMP,
-    OPTION_NO_OPENMP,
-    OPTION_EXTERNAL_VAR,
-    OPTION_CONFIG_FILE,
-    OPTION_CONFIG_DIR,
-    OPTION_PROFILE,
-    OPTION_TYPECHECK,
-    OPTION_PREPROCESSOR_USES_STDOUT,
-    OPTION_DISABLE_GXX_TRAITS,
-    OPTION_ENABLE_MS_BUILTIN,
-    OPTION_ENABLE_INTEL_BUILTINS,
-    OPTION_ENABLE_INTEL_VECTOR_TYPES,
-    OPTION_PASS_THROUGH,
-    OPTION_DISABLE_SIZEOF,
-    OPTION_SET_ENVIRONMENT,
-    OPTION_LIST_ENVIRONMENTS,
-    OPTION_PRINT_CONFIG_FILE,
-    OPTION_PRINT_CONFIG_DIR,
-    OPTION_ENABLE_UPC,
-    OPTION_ENABLE_CUDA,
-    OPTION_ENABLE_OPENCL,
-    OPTION_OPENCL_OPTIONS,
-    OPTION_DO_NOT_UNLOAD_PHASES,
-    OPTION_INSTANTIATE_TEMPLATES,
+    // Keep the following options sorted (but leave OPTION_UNDEFINED as is)
     OPTION_ALWAYS_PREPROCESS,
+    OPTION_CONFIG_DIR,
+    OPTION_CONFIG_FILE,
+    OPTION_DEBUG_FLAG,
+    OPTION_DISABLE_FILE_LOCKING,
+    OPTION_DISABLE_GXX_TRAITS,
+    OPTION_DISABLE_INTRINSICS,
+    OPTION_DISABLE_SIZEOF,
+    OPTION_DO_NOT_PROCESS_FILE,
+    OPTION_DO_NOT_UNLOAD_PHASES,
+    OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
+    OPTION_DO_NOT_WRAP_FORTRAN_MODULES,
+    OPTION_EMPTY_SENTINELS,
+    OPTION_ENABLE_CUDA,
+    OPTION_ENABLE_INTEL_BUILTINS_SYNTAX,
+    OPTION_ENABLE_INTEL_INTRINSICS,
+    OPTION_ENABLE_INTEL_VECTOR_TYPES,
+    OPTION_ENABLE_MS_BUILTIN,
+    OPTION_ENABLE_OPENCL,
+    OPTION_ENABLE_UPC,
+    OPTION_EXTERNAL_VAR,
+    OPTION_FORTRAN_ARRAY_DESCRIPTOR,
+    OPTION_FORTRAN_CHARACTER_KIND,
     OPTION_FORTRAN_COLUMN_WIDTH,
+    OPTION_FORTRAN_DOUBLEPRECISION_KIND,
     OPTION_FORTRAN_FIXED,
     OPTION_FORTRAN_FIXED_FORM_LENGTH,
     OPTION_FORTRAN_FREE,
-    OPTION_EMPTY_SENTINELS,
-    OPTION_DISABLE_INTRINSICS,
-    OPTION_FORTRAN_PREPROCESSOR,
-    OPTION_FORTRAN_PRESCANNER,
-    OPTION_FORTRAN_DOUBLEPRECISION_KIND,
     OPTION_FORTRAN_INTEGER_KIND,
     OPTION_FORTRAN_LOGICAL_KIND,
+    OPTION_FORTRAN_NAME_MANGLING,
+    OPTION_FORTRAN_PREPROCESSOR,
+    OPTION_FORTRAN_PRESCANNER,
     OPTION_FORTRAN_REAL_KIND,
-    OPTION_FORTRAN_CHARACTER_KIND,
-    OPTION_FORTRAN_ARRAY_DESCRIPTOR,
-    OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
-    OPTION_SEARCH_MODULES,
-    OPTION_SEARCH_INCLUDES,
-    OPTION_MODULE_OUT_PATTERN,
-    OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
-    OPTION_DO_NOT_WRAP_FORTRAN_MODULES,
-    OPTION_VECTOR_FLAVOR,
-    OPTION_LIST_VECTOR_FLAVORS,
-    OPTION_NO_WHOLE_FILE,
-    OPTION_DO_NOT_PROCESS_FILE,
-    OPTION_DISABLE_FILE_LOCKING,
-    OPTION_XL_COMPATIBILITY,
+    OPTION_HELP_DEBUG_FLAGS,
+    OPTION_HELP_TARGET_OPTIONS,
+    OPTION_IFORT_COMPATIBILITY,
+    OPTION_INSTANTIATE_TEMPLATES,
     OPTION_LINE_MARKERS,
+    OPTION_LINKER_NAME,
+    OPTION_LIST_ENVIRONMENTS,
+    OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
+    OPTION_LIST_FORTRAN_NAME_MANGLINGS,
+    OPTION_LIST_VECTOR_FLAVORS,
+    OPTION_MODULE_OUT_PATTERN,
+    OPTION_NATIVE_COMPILER_NAME,
+    OPTION_NO_OPENMP,
+    OPTION_NO_WHOLE_FILE,
+    OPTION_OPENCL_OPTIONS,
+    OPTION_OPENMP,
+    OPTION_OUTPUT_DIRECTORY,
     OPTION_PARALLEL,
+    OPTION_PASS_THROUGH,
+    OPTION_PREPROCESSOR_NAME,
+    OPTION_PREPROCESSOR_USES_STDOUT,
+    OPTION_PRINT_CONFIG_DIR,
+    OPTION_PRINT_CONFIG_FILE,
+    OPTION_PROFILE,
+    OPTION_SEARCH_INCLUDES,
+    OPTION_SEARCH_MODULES,
+    OPTION_SET_ENVIRONMENT,
+    OPTION_TYPECHECK,
+    OPTION_VECTOR_FLAVOR,
     OPTION_VERBOSE,
+    OPTION_VERSION,
+    OPTION_XCOMPILER,
+    OPTION_XL_COMPATIBILITY,
 } COMMAND_LINE_OPTIONS;
 
 
@@ -484,6 +505,8 @@ struct command_line_long_options command_line_long_options[] =
     {"character-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_CHARACTER_KIND},
     {"fortran-array-descriptor", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_ARRAY_DESCRIPTOR},
     {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
+    {"fortran-name-mangling", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_NAME_MANGLING},
+    {"list-fortran-name-manglings", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_NAME_MANGLINGS},
     {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
     {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
     {"module-out-pattern", CLP_REQUIRED_ARGUMENT, OPTION_MODULE_OUT_PATTERN},
@@ -496,12 +519,15 @@ struct command_line_long_options command_line_long_options[] =
     {"no-whole-file", CLP_NO_ARGUMENT, OPTION_NO_WHOLE_FILE },
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
-    {"enable-intel-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_BUILTINS },
+    {"enable-intel-builtins-syntax", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_BUILTINS_SYNTAX },
+    {"enable-intel-intrinsics", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_INTRINSICS },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
+    {"ifort-compat", CLP_NO_ARGUMENT, OPTION_IFORT_COMPATIBILITY },
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
+    {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
     // sentinel
     {NULL, 0, 0}
 };
@@ -555,7 +581,6 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
 static void terminating_signal_handler(int sig);
 #endif
 static char check_tree(AST a);
-static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
 static void embed_files(void);
 static void link_objects(void);
@@ -575,7 +600,12 @@ static int parse_special_parameters(int *should_advance, int argc,
 static int parse_implicit_parameter_flag(int *should_advance, const char *special_parameter);
 
 static void list_environments(void);
+
 static void list_fortran_array_descriptors(void);
+
+static void list_fortran_name_manglings(void);
+static fortran_name_mangling_t* get_fortran_name_mangling(const char* descriptor_id);
+
 static void list_vector_flavors(void);
 
 static void register_disable_intrinsics(const char* intrinsic_name);
@@ -713,7 +743,7 @@ static void driver_initialization(int argc, const char* argv[])
     if (alternate_stack.ss_sp == 0
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
-        running_error("Setting alternate signal stack failed (%s)\n",
+        fatal_error("Setting alternate signal stack failed (%s)\n",
                 strerror(errno));
     }
 #endif
@@ -740,7 +770,7 @@ static void driver_initialization(int argc, const char* argv[])
     
     if (result != 0)
     {
-        running_error("Signal programming failed with '%s'\n", strerror(errno));
+        fatal_error("Signal programming failed with '%s'\n", strerror(errno));
     }
 #endif
 
@@ -966,7 +996,8 @@ int parse_arguments(int argc, const char* argv[],
                     // create a new translation unit
                     translation_unit_t * ptr_tr = add_new_file_to_compilation_process(
                         /* add to the global file process */ NULL, parameter_info.argument,
-                        output_file, current_configuration);
+                        output_file, current_configuration,
+                        /* tag */ 0);
 
                     P_LIST_ADD(list_translation_units, num_translation_units,ptr_tr);
                     P_LIST_ADD(list_compilation_configs, num_compilation_configs, current_configuration);
@@ -1134,8 +1165,6 @@ int parse_arguments(int argc, const char* argv[],
                                 return 1;
                             }
                             output_file = uniquestr(parameter_info.argument);
-                            add_to_linker_command(uniquestr("-o"),NULL);
-                            add_to_linker_command(uniquestr(parameter_info.argument),NULL);
                         }
                         break;
                     }
@@ -1332,14 +1361,19 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->enable_ms_builtin_types = 1;
                         break;
                     }
-                case OPTION_ENABLE_INTEL_BUILTINS:
+                case OPTION_ENABLE_INTEL_BUILTINS_SYNTAX:
                     {
-                        CURRENT_CONFIGURATION->enable_intel_builtins = 1;
+                        CURRENT_CONFIGURATION->enable_intel_builtins_syntax = 1;
                         break;
                     }
                 case OPTION_ENABLE_INTEL_VECTOR_TYPES:
                     {
                         CURRENT_CONFIGURATION->enable_intel_vector_types = 1;
+                        break;
+                    }
+                case OPTION_ENABLE_INTEL_INTRINSICS:
+                    {
+                        CURRENT_CONFIGURATION->enable_intel_intrinsics = 1;
                         break;
                     }
                 case OPTION_PASS_THROUGH:
@@ -1382,6 +1416,20 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS:
                     {
                         list_fortran_array_descriptors();
+                        break;
+                    }
+                case OPTION_FORTRAN_NAME_MANGLING:
+                    {
+                        fortran_name_mangling_t* chosen_fortran_name_mangling = get_fortran_name_mangling(parameter_info.argument);
+                        if (chosen_fortran_name_mangling != NULL)
+                        {
+                            CURRENT_CONFIGURATION->fortran_name_mangling = chosen_fortran_name_mangling;
+                        }
+                        break;
+                    }
+                case OPTION_LIST_FORTRAN_NAME_MANGLINGS:
+                    {
+                        list_fortran_name_manglings();
                         break;
                     }
                 case OPTION_SEARCH_MODULES:
@@ -1608,6 +1656,11 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->xl_compatibility = 1;
                         break;
                     }
+                case OPTION_IFORT_COMPATIBILITY:
+                    {
+                        CURRENT_CONFIGURATION->ifort_compatibility = 1;
+                        break;
+                    }
                 case OPTION_LINE_MARKERS:
                     {
                         CURRENT_CONFIGURATION->line_markers = 1;
@@ -1616,6 +1669,15 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_PARALLEL:
                     {
                         compilation_process.parallel_process = 1;
+                        break;
+                    }
+                case OPTION_XCOMPILER:
+                    {
+                        const char * parameter[] = { uniquestr(parameter_info.argument) };
+                        add_to_parameter_list(
+                                &CURRENT_CONFIGURATION->native_compiler_options,
+                                parameter,
+                                1);
                         break;
                     }
                 default:
@@ -1683,7 +1745,9 @@ int parse_arguments(int argc, const char* argv[],
             && !CURRENT_CONFIGURATION->do_not_process_files)
                         // Do not process anything
     {
-        fprintf(stderr, "%s: assuming stdout as default output since -E has been specified\n", compilation_process.exec_basename);
+        fprintf(stderr, "%s: assuming stdout as default output since %s has been specified\n",
+                compilation_process.exec_basename,
+                E_specified ? "-E" : "-y");
         if (!CURRENT_CONFIGURATION->preprocessor_uses_stdout)
         {
             output_file = uniquestr("-");
@@ -1739,7 +1803,7 @@ int parse_arguments(int argc, const char* argv[],
     {
         if (!CURRENT_CONFIGURATION->do_not_link)
         {
-            CURRENT_CONFIGURATION->linked_output_filename = output_file;
+            compilation_process.linked_output_filename = output_file;
         }
     }
 
@@ -2272,7 +2336,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'i':
             {
-                if (strcmp(argument, "-include") == 0)
+                if (strcmp(argument, "-include") == 0
+                        || strcmp(argument, "-isystem") == 0
+                        || strcmp(argument, "-isysroot") == 0)
                 {
                     if(!dry_run)
                     {
@@ -2394,6 +2460,8 @@ static void parse_subcommand_arguments(const char* arguments)
     char prepro_flag = 0;
     char native_flag = 0;
     char linker_flag = 0;
+    char linker_flag_pre = 0;
+    char linker_flag_post = 0;
     char prescanner_flag = 0;
 
     compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
@@ -2422,7 +2490,7 @@ static void parse_subcommand_arguments(const char* arguments)
         {
             if ((q - profile_name) > MAX_PROFILE_NAME)
             {
-                running_error("Profile name too long in option '--W%s'\n", arguments);
+                fatal_error("Profile name too long in option '--W%s'\n", arguments);
             }
 
             *q = *p;
@@ -2455,20 +2523,26 @@ static void parse_subcommand_arguments(const char* arguments)
     {
         switch (*p)
         {
-            case 'p' : 
+            case 'p' :
                 prepro_flag = 1;
                 break;
-            case 'n' : 
+            case 'n' :
                 native_flag = 1;
                 break;
-            case 'l' : 
+            case 'l' :
                 linker_flag = 1;
                 break;
             case 's':
                 prescanner_flag = 1;
                 break;
+            case 'r' :
+                linker_flag_pre = 1;
+                break;
+            case 'L' :
+                linker_flag_post = 1;
+                break;
             default:
-                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's' or 'l' are allowed, ignoring\n",
+                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's', 'l', 'r', 'L' are allowed, ignoring\n",
                         compilation_process.exec_basename,
                         *p);
                 break;
@@ -2551,6 +2625,18 @@ static void parse_subcommand_arguments(const char* arguments)
             add_to_linker_command_configuration(uniquestr(parameters[i]), NULL, configuration);
         }
     }
+    if (linker_flag_pre)
+    {
+        add_to_parameter_list(
+                &configuration->linker_options_pre,
+                parameters, num_parameters);
+    }
+    if (linker_flag_post)
+    {
+        add_to_parameter_list(
+                &configuration->linker_options_post,
+                parameters, num_parameters);
+    }
     if (prescanner_flag)
         add_to_parameter_list(
                 &configuration->prescanner_options,
@@ -2588,6 +2674,7 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->type_environment = default_environment;
     CURRENT_CONFIGURATION->fortran_array_descriptor = default_fortran_array_descriptor;
+    CURRENT_CONFIGURATION->fortran_name_mangling = default_fortran_name_mangling;
 
     CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
 
@@ -2803,8 +2890,9 @@ static void commit_configuration(void)
 
             if (config_directive == NULL)
             {
-                fprintf(stderr, "%s: configuration directive '%s' skipped since it is unknown\n", 
-                        compilation_process.exec_basename,
+                fprintf(stderr, "%s:%d: warning: skipping unknown configuration directive '%s'\n",
+                        configuration_line->filename,
+                        configuration_line->line,
                         configuration_line->name);
                 continue;
             }
@@ -3019,7 +3107,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (parsed_filename == NULL)
             {
-                running_error("Preprocess failed for file '%s'", translation_unit->input_filename);
+                fatal_error("Preprocess failed for file '%s'", translation_unit->input_filename);
             }
         }
 
@@ -3051,7 +3139,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (parsed_filename == NULL)
             {
-                running_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
+                fatal_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
                         translation_unit->input_filename);
             }
 
@@ -3084,7 +3172,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3092,7 +3180,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3100,7 +3188,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename, is_fixed_form) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3353,7 +3441,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
     if (parse_result != 0)
     {
-        running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
+        fatal_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
     }
 
     // Store the parsed tree as the unique child of AST_TRANSLATION_UNIT
@@ -3404,7 +3492,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
-    nodecl_t nodecl = nodecl_null();
+    nodecl_t nodecl;
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
@@ -3442,7 +3530,8 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
 
     if (CURRENT_CONFIGURATION->warnings_as_errors)
     {
-        info_printf("%s: info: treating warnings as errors\n", translation_unit->input_filename);
+        info_printf_at(make_locus(translation_unit->input_filename, 0, 0),
+                "treating warnings as errors\n");
         there_were_errors = there_were_errors || (diagnostics_get_warn_count() != 0);
     }
 
@@ -3580,7 +3669,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
     if (prettyprint_file == NULL)
     {
-        running_error("Cannot create output file '%s' (%s)", output_filename,
+        fatal_error("Cannot create output file '%s' (%s)", output_filename,
                 strerror(errno));
     }
 
@@ -3603,7 +3692,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
             if (raw_prettyprint_file == NULL)
             {
-                running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+                fatal_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             run_codegen_phase(raw_prettyprint_file, translation_unit, output_filename);
             fclose(raw_prettyprint_file);
@@ -3611,7 +3700,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
             if (raw_prettyprint_file == NULL)
             {
-                running_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+                fatal_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->output_column_width);
             fclose(raw_prettyprint_file);
@@ -4221,7 +4310,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         {
             driver_fortran_restore_mercurium_modules();
         }
-        running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
+        fatal_error("Native compilation failed for file '%s'", translation_unit->input_filename);
     }
     timing_end(&timing_compilation);
 
@@ -4245,7 +4334,7 @@ static void native_compilation(translation_unit_t* translation_unit,
 
         if (execute_program(CURRENT_CONFIGURATION->native_compiler_name, native_compilation_args) != 0)
         {
-            running_error("Binary check failed because native compiler failed on the original input source file '%s'\n",
+            fatal_error("Binary check failed because native compiler failed on the original input source file '%s'\n",
                     translation_unit->input_filename);
         }
 
@@ -4273,7 +4362,7 @@ static void native_compilation(translation_unit_t* translation_unit,
             fprintf(stderr, "Stripping '%s'\n", strip_args[1]);
             if (execute_program("strip", strip_args) != 0)
             {
-                running_error("Stripping failed on '%s'\n", strip_args[1]);
+                fatal_error("Stripping failed on '%s'\n", strip_args[1]);
             }
         }
 
@@ -4281,7 +4370,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* cmp_args[] = { output_object_filename, new_obj_file->name, NULL };
         if (execute_program("cmp", cmp_args) != 0)
         {
-            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
+            fatal_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
         }
         else
         {
@@ -4359,7 +4448,7 @@ static void embed_files(void)
 
             if (target_options == NULL)
             {
-                running_error("During embedding, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+                fatal_error("During embedding, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
                         secondary_configuration->configuration_name,
                         CURRENT_CONFIGURATION->configuration_name);
             }
@@ -4431,22 +4520,27 @@ static void link_files(const char** file_list, int num_files,
         const char* linked_output_filename,
         compilation_configuration_t* compilation_configuration)
 {
-    int num_args_linker = 
+    int num_args_linker =
         count_null_ended_array((void**)compilation_configuration->linker_options);
-    int num_args_linker_options_pre = 
+    int num_args_linker_options_pre =
         count_null_ended_array((void**)compilation_configuration->linker_options_pre);
-    int num_args_linker_command = 
+    int num_args_linker_options_post =
+        count_null_ended_array((void**)compilation_configuration->linker_options_post);
+    int num_args_linker_command =
         compilation_configuration->num_args_linker_command;
-    
-    int num_arguments = num_args_linker_options_pre + num_args_linker_command + 
-        num_args_linker + num_files;
+
+    int num_arguments = num_args_linker_options_pre
+        + num_args_linker_options_post
+        + num_args_linker_command
+        + num_args_linker
+        + num_files;
 
     if (linked_output_filename != NULL)
     {
         // -o output
         num_arguments += 2;
     }
-    
+
     // NULL
     num_arguments += 1;
 
@@ -4460,14 +4554,14 @@ static void link_files(const char** file_list, int num_files,
     {
         linker_args[i] = uniquestr("-o");
         i++;
-        linker_args[i] = compilation_configuration->linked_output_filename;
+        linker_args[i] = linked_output_filename;
         i++;
     }
 
     //Adding linker options pre
-    for(j = 0; j < num_args_linker_options_pre; j++, i++) 
+    for(j = 0; j < num_args_linker_options_pre; j++, i++)
     {
-        linker_args[i] = compilation_configuration->linker_options[j];
+        linker_args[i] = compilation_configuration->linker_options_pre[j];
     }
 
     //Adding linker command arguments
@@ -4476,11 +4570,11 @@ static void link_files(const char** file_list, int num_files,
         // This is a file
         if (compilation_configuration->linker_command[j]->translation_unit != NULL)
         {
-            translation_unit_t* current_translation_unit = 
+            translation_unit_t* current_translation_unit =
                 compilation_configuration->linker_command[j]->translation_unit;
             const char* extension =
                 get_extension_filename(current_translation_unit->input_filename);
-            struct extensions_table_t* current_extension = 
+            struct extensions_table_t* current_extension =
                 fileextensions_lookup(extension, strlen(extension));
 
             if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
@@ -4498,33 +4592,39 @@ static void link_files(const char** file_list, int num_files,
         // This is another sort of command-line parameter
         else
         {
-            linker_args[i] = compilation_configuration->linker_command[j]->argument;    
+            linker_args[i] = compilation_configuration->linker_command[j]->argument;
         }
         i++;
     }
-    //Adding multifile list or additional file list 
+    //Adding multifile list or additional file list
     for (j = 0; j < num_files; j++, i++)
     {
         linker_args[i] = file_list[j];
     }
 
-    //Adding linker options arguments 
+    //Adding linker options arguments
     for (j = 0; j < num_args_linker; j++, i++)
     {
         linker_args[i] = compilation_configuration->linker_options[j];
     }
-      
+
+    //Adding linker options post
+    for(j = 0; j < num_args_linker_options_post; j++, i++)
+    {
+        linker_args[i] = compilation_configuration->linker_options_post[j];
+    }
+
     timing_t timing_link;
     timing_start(&timing_link);
     if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
     {
-        running_error("Link failed");
+        fatal_error("Link failed");
     }
     timing_end(&timing_link);
 
     if (compilation_configuration->verbose)
     {
-        fprintf(stderr, "Link performed in %.2f seconds\n", 
+        fprintf(stderr, "Link performed in %.2f seconds\n",
                 timing_elapsed(&timing_link));
     }
 }
@@ -4565,18 +4665,18 @@ static void do_combining(target_options_map_t* target_map,
                     // We will stick to CSS convention of calling the symbol 'spe_prog'
                     /* FIXME: no flags at the moment */
                     "spe_prog", 
-                    configuration->linked_output_filename,
+                    compilation_process.linked_output_filename,
                     output_filename,
                     NULL,
                 };
 
                 if (execute_program("ppu-spuembed", args) != 0)
                 {
-                    running_error("Error when embedding SPU executable");
+                    fatal_error("Error when embedding SPU executable");
                 }
 
-                remove(configuration->linked_output_filename);
-                configuration->linked_output_filename = output_filename;
+                remove(compilation_process.linked_output_filename);
+                compilation_process.linked_output_filename = output_filename;
                 break;
             }
         case COMBINING_MODE_INCBIN:
@@ -4587,7 +4687,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (temp_file_fd == NULL)
                 {
-                    running_error("Cannot create temporal assembler file '%s': %s\n",
+                    fatal_error("Cannot create temporal assembler file '%s': %s\n",
                             temp_file_as->name,
                             strerror(errno));
                 }
@@ -4603,7 +4703,7 @@ static void do_combining(target_options_map_t* target_map,
                         configuration->configuration_name,
                         configuration->configuration_name,
                         configuration->configuration_name,
-                        configuration->linked_output_filename,
+                        compilation_process.linked_output_filename,
                         configuration->configuration_name
                         );
 
@@ -4621,11 +4721,11 @@ static void do_combining(target_options_map_t* target_map,
                 if (execute_program(CURRENT_CONFIGURATION->native_compiler_name,
                             args) != 0)
                 {
-                    running_error("Error when complining embedding assembler");
+                    fatal_error("Error when complining embedding assembler");
                 }
 
-                remove(configuration->linked_output_filename);
-                configuration->linked_output_filename = output_filename;
+                remove(compilation_process.linked_output_filename);
+                compilation_process.linked_output_filename = output_filename;
                 break;
             }
         default:
@@ -4656,26 +4756,26 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
     if (no_multifile_info)
         return;
 
-    const char** multifile_profiles = NULL;
+    multifile_extracted_profile_t* multifile_profiles = NULL;
     int num_multifile_profiles = 0;
     multifile_get_extracted_profiles(&multifile_profiles, &num_multifile_profiles);
 
     for (i = 0; i < num_multifile_profiles; i++)
     {
-        compilation_configuration_t* configuration = get_compilation_configuration(multifile_profiles[i]);
+        compilation_configuration_t* configuration = get_compilation_configuration(multifile_profiles[i].name);
 
         if (configuration == NULL)
         {
-            running_error("Multifile needs a profile '%s' not defined in the configuration\n",
-                    multifile_profiles[i]);
+            fatal_error("Multifile needs a profile '%s' not defined in the configuration\n",
+                    multifile_profiles[i].name);
         }
 
         target_options_map_t* target_map = get_target_options(configuration, target_configuration->configuration_name);
 
         if (target_map == NULL)
         {
-            running_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
-                    configuration->configuration_name, 
+            fatal_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+                    configuration->configuration_name,
                     target_configuration->configuration_name);
         }
 
@@ -4683,7 +4783,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
         int multifile_num_files = 0;
 
         multifile_get_profile_file_list(
-                multifile_profiles[i],
+                &multifile_profiles[i],
                 &multifile_file_list, 
                 &multifile_num_files);
 
@@ -4706,17 +4806,30 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 #else
             const char* linked_output_suffix = "a.exe";
 #endif
-            if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+
+            if (compilation_process.linked_output_filename != NULL)
             {
-                linked_output_suffix = give_basename(CURRENT_CONFIGURATION->linked_output_filename);
+                linked_output_suffix = give_basename(compilation_process.linked_output_filename);
             }
 
-            configuration->linked_output_filename =
-                strappend(configuration->configuration_name, linked_output_suffix);
+            const char* current_sublinked_output = NULL;
+            int tag = multifile_profiles[i].tag;
+            if (tag == 0)
+            {
+                uniquestr_sprintf(&current_sublinked_output,
+                        "%s%s",
+                        configuration->configuration_name, linked_output_suffix);
+            }
+            else
+            {
+                uniquestr_sprintf(&current_sublinked_output,
+                        "%s%s-%d",
+                        configuration->configuration_name, linked_output_suffix, tag);
+            }
 
             // Here the file list contains all the elements of this secondary profile.
-            link_files(multifile_file_list, multifile_num_files, 
-                    configuration->linked_output_filename,
+            link_files(multifile_file_list, multifile_num_files,
+                    current_sublinked_output,
                     configuration);
 
             do_combining(target_map, configuration);
@@ -4724,10 +4837,21 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             // Now add the linked output as an additional link file
             if (target_map->do_combining)
             {
-                P_LIST_ADD((*additional_files), 
-                        (*num_additional_files), 
-                        configuration->linked_output_filename);
+                P_LIST_ADD((*additional_files),
+                        (*num_additional_files),
+                        current_sublinked_output);
             }
+
+            // Keep this subgoal
+            subgoal_t new_subgoal;
+            memset(&new_subgoal, 0, sizeof(new_subgoal));
+
+            new_subgoal.linked_subgoal_filename = current_sublinked_output;
+            new_subgoal.configuration = configuration;
+
+            P_LIST_ADD(compilation_process.subgoals,
+                    compilation_process.num_subgoals,
+                    new_subgoal);
         }
     }
 }
@@ -4897,7 +5021,7 @@ static void link_objects(void)
 
     // Additional files are those coming from secondary profiles
     link_files(additional_files, num_additional_files,
-            /* linked_output_filename */ NULL,
+            compilation_process.linked_output_filename,
             CURRENT_CONFIGURATION);
 
     DELETE(file_list);
@@ -4927,8 +5051,15 @@ static void terminating_signal_handler(int sig)
 
 static char check_tree(AST a)
 {
-    AST ambiguous_node = NULL;
-    if (!check_for_ambiguities(a, &ambiguous_node))
+    // Check consistency of links
+    if (!ast_check(a))
+    {
+        internal_error("Tree is inconsistent\n", 0);
+    }
+
+    // If links look OK, make sure no ambiguities remain
+    AST ambiguous_node = find_ambiguity(a);
+    if (ambiguous_node != NULL)
     {
         fprintf(stderr, "============================\n");
         fprintf(stderr, "  Ambiguities not resolved\n");
@@ -4956,34 +5087,8 @@ static char check_tree(AST a)
         return 0;
     }
 
-    // Check consistency of links
-    if (!ast_check(a))
-    {
-        internal_error("Tree is inconsistent\n", 0);
-    }
-
     return 1;
 }
-
-static char check_for_ambiguities(AST a, AST* ambiguous_node)
-{
-    if (a == NULL)
-        return 1;
-
-    if (ASTKind(a) == AST_AMBIGUITY)
-    {
-        *ambiguous_node = a;
-        return 0;
-    }
-    else
-    {
-        return check_for_ambiguities(ASTSon0(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon1(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon2(a), ambiguous_node)
-            && check_for_ambiguities(ASTSon3(a), ambiguous_node);
-    }
-}
-
 
 void load_compiler_phases(compilation_configuration_t* config)
 {
@@ -5294,12 +5399,31 @@ static void list_fortran_array_descriptors(void)
     }
 
     fprintf(stdout, "\n");
-    fprintf(stdout, "Command line parameter --fortran-descriptor=<env-id> can be used to choose a particular descriptor.\n");
+    fprintf(stdout, "Command line parameter --fortran-array-descriptor=<name> can be used to choose a particular descriptor.\n");
     fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
             default_fortran_array_descriptor->descriptor_id,
             default_fortran_array_descriptor->descriptor_name);
 
     exit(EXIT_SUCCESS);
+}
+
+static fortran_name_mangling_t* get_fortran_name_mangling(const char* descriptor_id)
+{
+    fortran_name_mangling_t** fortran_name_mangling = NULL;
+
+    for (fortran_name_mangling = fortran_name_mangling_list;
+            (*fortran_name_mangling) != NULL;
+            fortran_name_mangling++)
+    {
+        if (strcmp(descriptor_id, (*fortran_name_mangling)->descriptor_id) == 0)
+        {
+            return (*fortran_name_mangling);
+        }
+    }
+
+    fprintf(stderr, "Unknown Fortran name mangling '%s'. "
+            "Use '--list-fortran-name-manglings' to get a list of supported Fortran name manglings\n", descriptor_id);
+    return NULL;
 }
 
 static void list_vector_flavors(void)
@@ -5319,6 +5443,30 @@ static void list_vector_flavors(void)
     fprintf(stdout, "\n");
     fprintf(stdout, "Command line parameter --vector-flavor=name can be used to choose a specific vector flavor\n");
     fprintf(stdout, "If not specified, default vector flavor is gnu\n");
+
+    exit(EXIT_SUCCESS);
+}
+
+static void list_fortran_name_manglings(void)
+{
+    fprintf(stdout, "Supported Fortran name manglings :\n\n");
+
+    fortran_name_mangling_t** fortran_name_mangling = NULL;
+
+    for (fortran_name_mangling = fortran_name_mangling_list;
+            (*fortran_name_mangling) != NULL;
+            fortran_name_mangling++)
+    {
+        fprintf(stdout, "  %-20s (%s)\n",
+                (*fortran_name_mangling)->descriptor_id,
+                (*fortran_name_mangling)->descriptor_name);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --fortran-name-mangling=<name> can be used to choose a particular descriptor.\n");
+    fprintf(stdout, "If not specified, default Fortran array descriptor is '%s' (%s)\n",
+            default_fortran_name_mangling->descriptor_id,
+            default_fortran_name_mangling->descriptor_name);
 
     exit(EXIT_SUCCESS);
 }

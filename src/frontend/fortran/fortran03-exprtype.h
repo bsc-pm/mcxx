@@ -58,6 +58,9 @@ LIBMF03_EXTERN type_t* common_type_of_equality_operation(type_t* t1, type_t* t2)
 
 LIBMF03_EXTERN scope_entry_t* fortran_data_ref_get_symbol(nodecl_t n);
 
+LIBMF03_EXTERN nodecl_t fortran_expression_as_value(nodecl_t expr);
+LIBMF03_EXTERN nodecl_t fortran_expression_as_variable(nodecl_t expr);
+
 MCXX_END_DECLS
 
 #endif // FORTRAN_EXPRTYPE_H

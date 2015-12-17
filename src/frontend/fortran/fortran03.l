@@ -387,9 +387,12 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 	{
         if (is_valid_pragma_custom_prefix(sentinel))
         {
-            fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
-                    fortran_scanning_now->current_filename, 
-                    fortran_scanning_now->line_number);
+            warn_printf_at(
+                    make_locus(
+                        fortran_scanning_now->current_filename, 
+                        fortran_scanning_now->line_number,
+                        0),
+                    "invalid continued line with mismatching sentinels, moving on\n");
         }
 	    REJECT;
 	}
@@ -425,9 +428,12 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 
         if (is_valid_pragma_custom_prefix(sentinel))
         {
-            fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
-                    fortran_scanning_now->current_filename, 
-                    fortran_scanning_now->line_number);
+            warn_printf_at(
+                    make_locus(
+                        fortran_scanning_now->current_filename, 
+                        fortran_scanning_now->line_number,
+                        0),
+                    "invalid continued line with mismatching sentinels, moving on\n");
         }
         REJECT;
 	}
@@ -543,9 +549,12 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     }
     else
     {
-        fprintf(stderr, "%s:%d: warning: ignoring unknown '!$%s' directive\n", 
-                fortran_scanning_now->current_filename,
-                fortran_scanning_now->line_number, 
+        warn_printf_at(
+                make_locus(
+                    fortran_scanning_now->current_filename,
+                    fortran_scanning_now->line_number,
+                    0),
+                "ignoring unknown '!$%s' directive\n",
                 sentinel);
         // Ignore this sentinel
         BEGIN(unknown_pragma);
@@ -647,9 +656,12 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
                 }
                 else
                 {
-                    running_error("%s:%d: error: '!$%s %s' directive cannot be '!$%s END %s'\n", 
-                            fortran_scanning_now->current_filename,
-                            fortran_scanning_now->line_number,
+                    fatal_printf_at(
+                            make_locus(
+                                fortran_scanning_now->current_filename,
+                                fortran_scanning_now->line_number,
+                                0),
+                            "'!$%s %s' directive cannot be '!$%s END %s'\n", 
                             strtoupper(current_pragma_prefix),
                             strtoupper(longest_match),
                             strtoupper(current_pragma_prefix),
@@ -685,9 +697,12 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
                     {
                         if (strcmp(pragma_construct_stack[pragma_construct_stack_idx-1], longest_match) != 0)
                         {
-                            running_error("%s:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
-                                    fortran_scanning_now->current_filename, 
-                                    fortran_scanning_now->line_number,
+                            fatal_printf_at(
+                                    make_locus(
+                                        fortran_scanning_now->current_filename,
+                                        fortran_scanning_now->line_number,
+                                        0),
+                                    "invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
                                     strtoupper(current_pragma_prefix), 
                                     strtoupper(longest_match),
                                     strtoupper(current_pragma_prefix), 
@@ -701,9 +716,12 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
                     }
                     else
                     {
-                        running_error("%s:%d: error: bad nesting for '!$%s %s'\n",
-                                fortran_scanning_now->current_filename, 
-                                fortran_scanning_now->line_number,
+                        fatal_printf_at(
+                                make_locus(
+                                    fortran_scanning_now->current_filename,
+                                    fortran_scanning_now->line_number,
+                                    0),
+                                "bad nesting for '!$%s %s'\n",
                                 strtoupper(current_pragma_prefix), 
                                 strtoupper(longest_match));
                     }
@@ -712,12 +730,16 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
             }
         case PDK_NONE :
             {
-                running_error("%s:%d: error: unknown directive '!$%s %s'. Maybe you forgot to register it?",
-                        fortran_scanning_now->current_filename, 
+                fatal_printf_at(
+                        make_locus(
+                            fortran_scanning_now->current_filename,
+                            fortran_scanning_now->line_number,
+                            0),
+                        "unknown directive '!$%s %s'. Maybe you forgot to register it?",
+                        fortran_scanning_now->current_filename,
                         fortran_scanning_now->line_number,
                         current_pragma_prefix, strtoupper(yytext)
                         );
-
             }
         default:
             internal_error("Invalid pragma directive kind kind=%d", directive_kind);
@@ -862,9 +884,12 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        fprintf(stderr, "%s:%d: warning: unended custom clause. Skipping.\n",
-                fortran_scanning_now->current_filename,
-                fortran_scanning_now->line_number);
+        warn_printf_at(
+                make_locus(
+                    fortran_scanning_now->current_filename,
+                    fortran_scanning_now->line_number,
+                    0),
+                "unended custom clause. Skipping.\n");
     }
     // Head back to initial state and finish this pragma
     fortran_scanning_now->line_number++;
@@ -1146,9 +1171,12 @@ x["][0-9a-f]+["] {
 
     if (count_hollerith_constant == 0)
     {
-        error_printf("%s:%d: error: ignoring invalid Hollerith constant of length 0\n",
-                fortran_scanning_now->current_filename,
-                fortran_scanning_now->line_number);
+        error_printf_at(
+                make_locus(
+                    fortran_scanning_now->current_filename,
+                    fortran_scanning_now->line_number,
+                    0),
+                "ignoring invalid Hollerith constant of length 0\n");
     }
     else
     {
@@ -2415,6 +2443,16 @@ goto {
 	RETURN_TOKEN('%');
 }
 
+"{" {
+	parse_token_text();
+	RETURN_TOKEN('{');
+}
+
+"}" {
+	parse_token_text();
+	RETURN_TOKEN('}');
+}
+
 \.[a-z]+\. {
 	parse_token_text();
 	RETURN_TOKEN(USER_DEFINED_OPERATOR);
@@ -2427,16 +2465,22 @@ goto {
 <*>. {
 	if (isprint(yytext[0]))
 	{
-		error_printf("%s:%d: error: unexpected character: `%c' (0x%X)\n", 
-                fortran_scanning_now->current_filename,
-                fortran_scanning_now->line_number, 
+        error_printf_at(
+                make_locus(
+                    fortran_scanning_now->current_filename,
+                    fortran_scanning_now->line_number,
+                    0),
+                "unexpected character: `%c' (0x%X)\n", 
                 yytext[0], yytext[0]);
 	}
 	else
 	{
-		error_printf("%s:%d: error: unexpected character: 0x%X\n\n", 
-                fortran_scanning_now->current_filename,
-                fortran_scanning_now->line_number, 
+        error_printf_at(
+                make_locus(
+                    fortran_scanning_now->current_filename,
+                    fortran_scanning_now->line_number,
+                    0),
+                "unexpected character: 0x%X\n\n", 
                 yytext[0]);
 	}
   }
@@ -2680,7 +2724,7 @@ static void open_included_file(char* include_name)
 {
 	if (include_stack_size >= MAX_INCLUDE_DEPTH)
 	{
-		running_error("Too many levels (>%d) of inclusion at %s:%d", MAX_INCLUDE_DEPTH,
+		fatal_error("Too many levels (>%d) of inclusion at %s:%d", MAX_INCLUDE_DEPTH,
 				fortran_scanning_now->filename, fortran_scanning_now->line_number);
 	}	
 
@@ -2692,24 +2736,30 @@ static void open_included_file(char* include_name)
             include_name,
             /* origin */ fortran_scanning_now->current_filename);
 	if (include_filename == NULL)
-	{
-		running_error("%s:%d: error: cannot open included file '%s'\n", 
-                fortran_scanning_now->current_filename, 
-                fortran_scanning_now->line_number,
-				include_name);
-	}
+    {
+        fatal_error(
+                make_locus(
+                    fortran_scanning_now->current_filename, 
+                    fortran_scanning_now->line_number,
+                    0),
+                "cannot open included file '%s'\n", 
+                include_name);
+    }
 
 	temporal_file_t temporal_include_filename = new_temporal_file();
 	if (!temporal_include_filename)
 	{
-		running_error("%s:%d: error: cannot create temporal included file",
-                fortran_scanning_now->current_filename, 
-                fortran_scanning_now->line_number);
+		fatal_error(
+                make_locus(
+                    fortran_scanning_now->current_filename,
+                    fortran_scanning_now->line_number,
+                    0),
+                "cannot create temporal included file");
 	}
 
 	if (copy_file(include_filename, temporal_include_filename->name) != 0)
     {
-        running_error("Failure during copy of '%s' to '%s'. %s\n", 
+        fatal_error("Failure during copy of '%s' to '%s'. %s\n", 
                 include_filename, 
                 temporal_include_filename->name, 
                 strerror(errno));
@@ -2719,7 +2769,7 @@ static void open_included_file(char* include_name)
     FILE* included_file = fopen(temporal_include_filename->name, "r+");
     if (included_file == NULL)
     {
-		running_error("Cannot open for modification temporal included file '%s'. %s\n", 
+		fatal_error("Cannot open for modification temporal included file '%s'. %s\n", 
                 temporal_include_filename->name,
                 strerror(errno));
     }
@@ -2731,7 +2781,7 @@ static void open_included_file(char* include_name)
     included_file = fopen(temporal_include_filename->name, "r");
     if (included_file == NULL)
     {
-		running_error("Cannot open for reading temporal included file '%s'. %s\n", 
+		fatal_error("Cannot open for reading temporal included file '%s'. %s\n", 
                 temporal_include_filename->name,
                 strerror(errno));
     }
@@ -2804,7 +2854,7 @@ int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_
 
 	if (file == NULL)
 	{
-		running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+		fatal_printf_at(NULL, "cannot open file '%s' (%s)", scanned_filename, strerror(errno));
 	}
 
     fortran_scanning_now = &include_stack[0];

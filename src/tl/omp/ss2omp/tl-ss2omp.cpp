@@ -218,7 +218,7 @@ namespace TL
 //                 std::cerr << "Augmented Symbol " << augmented_sym.get_name() 
 //                           << " causes task with regions with more than one dependence" << std::endl;
 //                 
-// 				running_error("%s: error: regions with more than one dependence are not supported\n",
+// 				fatal_error("%s: error: regions with more than one dependence are not supported\n",
 // 						construct.get_ast().get_locus().c_str());
 // 			}
 

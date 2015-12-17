@@ -48,9 +48,13 @@ static void *backtrace_buffer[BACKTRACE_SIZE];
 
 translation_unit_t* add_new_file_to_compilation_process(
         compilation_file_process_t* current_file_process,
-        const char* file_path, const char* output_file, 
-        compilation_configuration_t* configuration)
+        const char* file_path,
+        const char* output_file,
+        compilation_configuration_t* configuration,
+        int tag)
 {
+    ERROR_CONDITION(tag < 0, "Invalid tag", 0);
+
     translation_unit_t* translation_unit = NEW0(translation_unit_t);
     // Initialize with the translation unit root tree
     translation_unit->input_filename = uniquestr(file_path);
@@ -64,6 +68,7 @@ translation_unit_t* add_new_file_to_compilation_process(
 
     new_compiled_file->translation_unit = translation_unit;
     new_compiled_file->compilation_configuration = configuration;
+    new_compiled_file->tag = tag;
 
     if ((configuration->do_not_link
             || configuration->do_not_compile)
@@ -178,26 +183,20 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 #endif
 }
 
-void running_error(const char* message, ...)
+void fatal_vprintf(const char* message, va_list ap)
 {
-    va_list ap;
-
     char* sanitized_message = xstrdup(message);
 
     // Remove annoying \n at the end. This will make this function
     // interchangeable with fprintf(stderr, 
-    int length = strlen(sanitized_message);
-
-    length--;
-    while (length > 0 && sanitized_message[length] == '\n')
+    int last = strlen(sanitized_message) - 1;
+    while (last > 0 && sanitized_message[last] == '\n')
     {
-        sanitized_message[length] = '\0';
-        length--;
+        sanitized_message[last] = '\0';
+        last--;
     }
     
-    va_start(ap, message);
     vfprintf(stderr, sanitized_message, ap);
-    va_end(ap);
     fprintf(stderr, "\n");
 
     if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
@@ -212,10 +211,18 @@ void running_error(const char* message, ...)
     if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
         raise(SIGABRT);
 
-
     DELETE(sanitized_message);
 
     exit(EXIT_FAILURE);
+}
+
+void fatal_error(const char* message, ...)
+{
+    va_list ap;
+
+    va_start(ap, message);
+    fatal_vprintf(message, ap);
+    va_end(ap);
 }
 
 // Useful for debugging sessions

@@ -124,6 +124,14 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
                 (size_t)nodecl_get_ast(entry->value));
     }
 
+    if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
+    {
+        ast_dump_graphviz_rec(nodecl_get_ast(symbol_entity_specs_get_function_code(entry)), f, 0, -1);
+
+        fprintf(f, "sym_%zd -> n%zd [label=\"function_code\"]\n",
+                (size_t)entry,
+                (size_t)nodecl_get_ast(symbol_entity_specs_get_function_code(entry)));
+    }
 }
 
 static void cval_dump_graphviz(FILE* f, const_value_t* cval)
@@ -223,34 +231,6 @@ static int decl_context_t_dump_graphviz(FILE* f, const decl_context_t* decl_cont
     return i++;
 }
 
-static char list_tree_is_ok(AST a)
-{
-    if (a == NULL)
-        return 0;
-
-    if (ASTKind(a) != AST_NODE_LIST)
-        return 0;
-
-    if (ASTSon1(a) == NULL)
-        return 0;
-
-    if (ASTKind(ASTSon1(a)) == AST_NODE_LIST)
-        return 0;
-
-    if (ASTSon0(a) == NULL)
-        return 1;
-
-    if (ASTKind(ASTSon0(a)) != AST_NODE_LIST)
-        return 0;
-
-    if (ASTSon0(a) != NULL && ASTParent(ASTSon0(a)) != a)
-        return 0;
-
-    if (ASTParent(ASTSon1(a)) != a)
-        return 0;
-
-    return list_tree_is_ok(ASTSon0(a));
-}
 
 static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int position)
 {
@@ -275,7 +255,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         }
         else if (ASTKind(a) == AST_NODE_LIST)
         {
-            list_is_ok = list_tree_is_ok(a);
+            list_is_ok = ast_check_list_tree(a);
             if (!list_is_ok)
                 shape = "Mdiamond";
         }
