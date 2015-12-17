@@ -56,8 +56,8 @@ void DeviceCUDA::generate_ndrange_additional_code(
         TL::Source& code_ndrange)
 {
     Nodecl::NodeclBase num_dims_expr = new_ndrange_args[0];
-    if (!num_dims_expr.get_type().is_integral()
-            || !nodecl_is_constant(num_dims_expr.is_constant()))
+    if (!num_dims_expr.get_type().is_integral_type()
+            || !num_dims_expr.is_constant())
     {
         fatal_printf_at(num_dims_expr.get_locus(), "first argument of 'ndrange' clause must be an integer constant");
     }
@@ -65,14 +65,12 @@ void DeviceCUDA::generate_ndrange_additional_code(
     int num_args_ndrange = new_ndrange_args.size();
     int num_dim = const_value_cast_to_4(num_dims_expr.get_constant());
 
-    char is_null_ended = 0;
-
     if (num_dim * 2 != num_args_ndrange)
     {
         fatal_printf_at(num_dims_expr.get_locus(),
                 "a 'ndrange(%d, argument-list)' clause requires %d arguments in argument-list\n",
-                num_dims,
-                num_dims * 2);
+                num_dim,
+                num_dim * 2);
     }
 
     code_ndrange << "dim3 dimGrid;";
