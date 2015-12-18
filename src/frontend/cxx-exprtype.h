@@ -59,6 +59,8 @@ LIBMCXX_EXTERN char check_expression_non_executable_must_be_constant(AST a, cons
 
 LIBMCXX_EXTERN char check_list_of_expressions(AST expression_list, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN nodecl_t nodecl_expression_make_rvalue(nodecl_t nodecl_expr, const decl_context_t* decl_context);
+
 LIBMCXX_EXTERN char check_list_of_initializer_clauses(AST initializer_clause_list,
         const decl_context_t* decl_context,
         nodecl_t* nodecl_output);
@@ -210,7 +212,12 @@ LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(
         type_t* t,
         const decl_context_t*,
         const locus_t* locus);
-LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus);
+LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type,
+        const decl_context_t* decl_context,
+        const locus_t* locus);
+LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion_to_logical(nodecl_t expr, type_t* dest_type,
+        const decl_context_t* decl_context,
+        const locus_t* locus);
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_wrap_in_parentheses(nodecl_t n);
 
 LIBMCXX_EXTERN scope_entry_t* resolve_symbol_this(const decl_context_t* decl_context);
@@ -264,6 +271,8 @@ scope_entry_t* expand_template_function_given_template_arguments(
 LIBMCXX_EXTERN char same_functional_expression(
         nodecl_t n1,
         nodecl_t n2);
+
+LIBMCXX_EXTERN type_t* clear_special_expr_type_variants(type_t* t);
 
 // Used by the lexer
 char* interpret_schar(const char* schar, const locus_t* locus);

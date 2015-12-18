@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,23 +24,33 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NODECL_REPLACE_HPP
-#define TL_NODECL_REPLACE_HPP
 
-#include "tl-nodecl.hpp"
-#include "tl-nodecl-visitor.hpp"
 
-namespace Nodecl
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+#include<assert.h>
+#define N 100
+#define MAX_GRAINSIZE 7
+
+int main(int argc, char* argv[])
 {
-    class BaseReplaceSymbols : public NodeclVisitor<void>
+    for (int x = 1; x <= MAX_GRAINSIZE; ++x)
     {
-        public:
-            virtual void visit(const Nodecl::Symbol& nodecl) = 0;
-    };
+        int a[N] = {0};
+        #pragma omp taskloop grainsize(x) shared(a)
+        for (int i = 0; i < N; ++i)
+            a[i]++;
 
-    class ReplaceSymbols : public BaseReplaceSymbols
-    {
-    };
+        int j;
+        #pragma omp taskloop grainsize(x) shared(a)
+        for (j = 0; j < N; ++j)
+            a[j]++;
+
+        for (int i = 0; i < N; ++i)
+            assert(a[i] == 2);
+    }
+    return 0;
 }
-
-#endif // TL_NODECL_REPLACE_HPP

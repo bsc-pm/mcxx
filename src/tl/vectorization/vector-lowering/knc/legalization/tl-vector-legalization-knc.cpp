@@ -326,7 +326,7 @@ namespace Vectorization
     Nodecl::NodeclVisitor<void>::Ret KNCVectorLegalization::unhandled_node(
             const Nodecl::NodeclBase& n)
     {
-        running_error("KNC Legalization: Unknown n %s at %s.",
+        fatal_error("KNC Legalization: Unknown n %s at %s.",
                 ast_print_node_type(n.get_kind()),
                 locus_to_str(n.get_locus()));
 

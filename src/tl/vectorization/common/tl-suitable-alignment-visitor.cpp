@@ -75,10 +75,27 @@ namespace Vectorization
         subscripted = Nodecl::Utils::advance_conversions(subscripted);
 
         // Linearized multidimensional arrays
-        if (subscripted.is<Nodecl::Cast>())
+        int field_offset = 0;
+
+        if (subscripted.is<Nodecl::ClassMemberAccess>())
         {
-            subscripted = Nodecl::Utils::advance_conversions(
-                    subscripted.as<Nodecl::Cast>().get_rhs());
+            Nodecl::NodeclBase rhs = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
+            ERROR_CONDITION(!rhs.is<Nodecl::Symbol>(),
+                    "invalid rhs in class member acces", 0);
+            bool field_is_array = rhs.get_symbol().get_type().is_array();
+
+            while (subscripted.is<Nodecl::ClassMemberAccess>())
+            {
+                rhs = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
+                ERROR_CONDITION(!rhs.is<Nodecl::Symbol>(),
+                        "invalid rhs in class member acces", 0);
+
+                if (field_is_array)
+                {
+                    field_offset += rhs.as<Nodecl::Symbol>().get_symbol().get_offset();
+                }
+                subscripted = subscripted.as<Nodecl::ClassMemberAccess>().get_lhs();
+            }
         }
 
         ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
@@ -92,6 +109,8 @@ namespace Vectorization
             // Assume unaligned
             return false;
         }
+
+        alignment += field_offset;
 
         Nodecl::List subscripts = n.get_subscripts( ).as<Nodecl::List>( );
         int num_subscripts = subscripts.size( );
@@ -246,9 +265,9 @@ namespace Vectorization
         TL::Symbol tl_sym = n.get_symbol();
         TL::Type sym_type = tl_sym.get_type();
 
-        ERROR_CONDITION(!(sym_type.is_pointer() || sym_type.is_array()),
-                "SuitableAlignmentVisitor: %s is neither a pointer nor array\n",
-                tl_sym.get_name().c_str());
+        // ERROR_CONDITION(!(sym_type.is_pointer() || sym_type.is_array()),
+        //         "SuitableAlignmentVisitor: %s is neither a pointer nor array\n",
+        //         tl_sym.get_name().c_str());
 
         std::map<TL::Symbol, int>::const_iterator alignment_info =
             _aligned_expressions.find(tl_sym);

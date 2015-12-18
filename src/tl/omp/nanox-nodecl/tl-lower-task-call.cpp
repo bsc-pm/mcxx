@@ -850,11 +850,11 @@ void LoweringVisitor::visit_task_call_c(
         .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
     ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
 
-    std::cerr << construct.get_locus_str()
-        << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
-    std::cerr << function_parsing_context.get_locus_str()
-        << ": note: task function declared here"
-        << std::endl;
+    info_printf_at(construct.get_locus(),
+            "call to task function '%s'\n",
+            called_sym.get_qualified_name().c_str());
+    info_printf_at(function_parsing_context.get_locus(),
+            "task function declared here\n");
 
     // Get parameters outline info
     OutlineInfo parameters_outline_info(*_lowering, parameters_environment, called_sym, _function_task_set);
@@ -1692,8 +1692,8 @@ void LoweringVisitor::visit_task_call_fortran(
 
     if (current_function.is_nested_function())
     {
-        error_printf("%s: error: call to task function '%s' from an internal subprogram is not supported\n",
-                construct.get_locus_str().c_str(),
+        error_printf_at(construct.get_locus(),
+                "call to task function '%s' from an internal subprogram is not supported\n",
                 called_task_function.get_qualified_name().c_str());
         return;
     }
@@ -1705,15 +1705,16 @@ void LoweringVisitor::visit_task_call_fortran(
         .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
     ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
 
-    std::cerr << construct.get_locus_str()
-        << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
-    std::cerr << function_parsing_context.get_locus_str()
-        << ": note: task function declared here"
-        << std::endl;
+    info_printf_at(construct.get_locus(),
+            "call to task function '%s'\n",
+            called_task_function.get_qualified_name().c_str());
+    info_printf_at(function_parsing_context.get_locus(),
+            "task function declared here\n");
 
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
-    ss << called_task_function.get_name() << "_adapter_" << (int)adapter_counter;
+    ss << called_task_function.get_name() << "_ad_"
+        << (int)adapter_counter << "_" << simple_hash_str(construct.get_filename().c_str());
     adapter_counter++;
 
     TL::ObjectList<Symbol> save_expressions;

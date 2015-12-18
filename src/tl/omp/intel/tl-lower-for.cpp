@@ -392,8 +392,8 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         }
         else
         {
-            error_printf("%s: error '%s' is not a valid OpenMP schedule\n",
-                    construct.get_locus_str().c_str(),
+            error_printf_at(construct.get_locus(),
+                    "'%s' is not a valid OpenMP schedule\n",
                     schedule.get_text().c_str());
         }
 

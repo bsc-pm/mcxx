@@ -57,7 +57,9 @@ namespace Optimizations {
     
     Calculator::Ret Calculator::visit(const Nodecl::Symbol& n)
     {
-        if (n.is_constant())
+        if (n.is_constant()
+                && !const_value_is_object(n.get_constant())
+                && !const_value_is_address(n.get_constant()))
         {
             return TL::ObjectList<const_value_t*>(1, n.get_constant());
         }
@@ -70,14 +72,23 @@ namespace Optimizations {
     Calculator::Ret Calculator::visit(const Nodecl::Conversion& n)
     {
         TL::ObjectList<const_value_t*> nest = walk(n.get_nest());
-        
-        if (nest.empty())
+
+        if (n.is_constant())
         {
-            return TL::ObjectList<const_value_t*>();
+            if (!const_value_is_object(n.get_constant())
+                    && !const_value_is_address(n.get_constant()))
+            {
+                return TL::ObjectList<const_value_t*>(1, n.get_constant());
+            }
+            else
+            {
+                // Not the kind of constant we want in this calculator
+                return TL::ObjectList<const_value_t*>();
+            }
         }
         else
         {
-            return TL::ObjectList<const_value_t*>(1, nest[0]);
+            return walk(n.get_nest());
         }
     }
     
@@ -451,11 +462,6 @@ namespace Optimizations {
         }
     }
 
-    Calculator::Ret Calculator::visit(const Nodecl::Cast& n)
-    {
-        return walk(n.get_rhs());
-    }
-    
     Calculator::Ret Calculator::visit(const Nodecl::FunctionCall& n)
     {
         return TL::ObjectList<const_value_t*>();

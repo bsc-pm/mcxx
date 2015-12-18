@@ -31,9 +31,18 @@
 #include "filename.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-nodecl.hpp"
+#include <time.h>
 
 namespace TL {
 namespace Analysis {
+
+    double time_nsec()
+    {
+        struct timespec tp;
+        clock_gettime(CLOCK_MONOTONIC, &tp);
+        return (tp.tv_sec * 1e9 + tp.tv_nsec);
+    }
+
 namespace Utils {
 
     // ******************************************************************************************* //
@@ -109,10 +118,6 @@ namespace Utils {
         else if(n.is<Nodecl::Conversion>())
         {
             nodecl = get_nodecl_base(n.as<Nodecl::Conversion>().get_nest());
-        }
-        else if(n.is<Nodecl::Cast>())
-        {
-            nodecl = get_nodecl_base(n.as<Nodecl::Cast>().get_rhs());
         }
         else if(n.is<Nodecl::Postdecrement>())
         {
@@ -198,11 +203,6 @@ namespace Utils {
             Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
             return get_nodecls_base(aux.get_nest());
         }
-        else if (n.is<Nodecl::Cast>())
-        {
-            Nodecl::Cast aux = n.as<Nodecl::Cast>();
-            return get_nodecls_base(aux.get_rhs());
-        }
         /*!
         * We can have (pre- post-) in- de-crements and other arithmetic operations
         * Example:
@@ -283,10 +283,6 @@ namespace Utils {
         {
             return nodecl_set_contains_enclosing_nodecl_rec(m.as<Nodecl::ClassMemberAccess>().get_lhs(), set);
         }
-        else if (m.is<Nodecl::Cast>())
-        {
-            return nodecl_set_contains_enclosing_nodecl_rec(m.as<Nodecl::Cast>().get_rhs(), set);
-        }
 
         return NBase::null();
     }
@@ -326,8 +322,6 @@ namespace Utils {
     
     Nodecl::NodeclBase unflatten_subscripts(Nodecl::NodeclBase n)
     {
-        if (n.is<Nodecl::Cast>())
-            n = n.as<Nodecl::Cast>().get_rhs().no_conv();
         if (n.is<Nodecl::ArraySubscript>())
         {
             const Nodecl::NodeclBase& subscripted = n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
@@ -384,8 +378,6 @@ namespace Utils {
                     while (true)
                     {
                         sub1 = sub1.no_conv();
-                        if (sub1.is<Nodecl::Cast>())
-                            sub1 = sub1.as<Nodecl::Cast>().get_rhs().no_conv();
                         if (Nodecl::Utils::structurally_equal_nodecls(n, sub1, /*skip conversions*/true))
                         {
                             result.append(sub1.shallow_copy());
@@ -409,8 +401,6 @@ namespace Utils {
                         while (true)
                         {
                             sub2 = sub2.no_conv();
-                            if (sub2.is<Nodecl::Cast>())
-                                sub2 = sub2.as<Nodecl::Cast>().get_rhs().no_conv();
                             if (Nodecl::Utils::structurally_equal_nodecls(n, sub2, /*skip conversions*/true))
                             {
                                 result.append(sub2.shallow_copy());

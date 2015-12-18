@@ -48,6 +48,8 @@
 #include "cxx-typededuc.h"
 #include "cxx-diagnostic.h"
 
+#include "cxx-symbol-deep-copy.h"
+
 #include "fortran03-scope.h"
 
 #include "dhash_ptr.h"
@@ -327,8 +329,10 @@ struct simple_type_tag {
     // Complex types, base type of the complex type (STK_COMPLEX)
     type_t* complex_element;
 
-    // Vector types, element type and vector size
-    // if vector_size == 0 then this is a generic vector
+    // STK_VECTOR
+    // STK_MASK
+    // For a mask vector_size is the number of bits of the mask
+    // and vector_element is the underlying integer backing it (if any)
     type_t* vector_element;
     unsigned int vector_size;
 } simple_type_t;
@@ -1162,8 +1166,17 @@ extern inline type_t* get_long_double_type(void)
     return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->long_double_info);
 }
 
+// defined in cxx-typeenviron.c
+extern struct floating_type_info_tag binary_float_16;
+
 extern inline type_t* get_float16_type(void)
 {
+    // We do not want to register this type to the list of floating types
+    // because weird things happen in the FEs
+    if (CURRENT_CONFIGURATION->type_environment->float16_info == NULL)
+    {
+        CURRENT_CONFIGURATION->type_environment->float16_info = &binary_float_16;
+    }
     return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->float16_info);
 }
 
@@ -1174,7 +1187,8 @@ extern inline type_t* get_float128_type(void)
 {
     if (CURRENT_CONFIGURATION->type_environment->float128_info == NULL)
     {
-        warn_printf("warning: the current typing environment (%s) does not define a __float128 type but "
+        warn_printf_at(NULL,
+                "the current typing environment (%s) does not define a __float128 type but "
                 "Mercurium was compiled with __float128 support\n",
                 CURRENT_CONFIGURATION->type_environment->environ_name);
         CURRENT_CONFIGURATION->type_environment->float128_info = &binary_float_128;
@@ -1886,11 +1900,15 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
                                 && nodecl_is_constant(result->arguments[i]->value)
                                 && !is_dependent_type(result->parameters[i]->entry->type_information))
                         {
-                            if (!is_enum_type(result->parameters[i]->entry->type_information))
+                            const_value_t* value = nodecl_get_constant(result->arguments[i]->value);
+                            if (!is_enum_type(result->parameters[i]->entry->type_information)
+                                    // We are not ready to handle these yet
+                                    && !const_value_is_object(value)
+                                    && !const_value_is_address(value))
                             {
                                 result->arguments[i]->value =
                                     const_value_to_nodecl_with_basic_type(
-                                            nodecl_get_constant(result->arguments[i]->value),
+                                            value,
                                             simplify_types_template_arguments(
                                                 result->parameters[i]->entry->type_information
                                                 ));
@@ -2403,6 +2421,17 @@ static int template_arg_value_type_identical_compare(nodecl_t n1, nodecl_t n2)
 
     const_value_t* cv1 = nodecl_get_constant(n1);
     const_value_t* cv2 = nodecl_get_constant(n2);
+
+    // Ignore these as constants
+    if (cv1 != NULL
+            && (const_value_is_object(cv1)
+                || const_value_is_address(cv1)))
+        cv1 = NULL;
+    if (cv2 != NULL
+            && (const_value_is_object(cv2)
+                || const_value_is_address(cv2)))
+        cv2 = NULL;
+
     if (cv1 == NULL
             && cv2 != NULL)
         return -1;
@@ -4199,6 +4228,7 @@ type_t* array_type_rebase(type_t* array_type, type_t* new_element_type)
 
 extern inline type_t* get_unqualified_type(type_t* t)
 {
+    type_t* orig_type = t;
     t = advance_over_typedefs(t);
 
     if (t->kind == TK_ARRAY)
@@ -4208,17 +4238,25 @@ extern inline type_t* get_unqualified_type(type_t* t)
     }
 
     // Keep restrict attribute as it can't be discarded like const or volatile
-    char is_restricted = (get_cv_qualifier(t) & CV_RESTRICT) == CV_RESTRICT;
+    cv_qualifier_t cv = get_cv_qualifier(t);
+    char is_restricted = (cv & CV_RESTRICT) == CV_RESTRICT;
 
     ERROR_CONDITION(t->unqualified_type == NULL, "This cannot be NULL", 0);
-    
+
     if (!is_restricted)
     {
-        return t->unqualified_type;
+        if (cv == CV_NONE)
+            // Return the original type
+            return orig_type;
+        else
+            return t->unqualified_type;
     }
     else
     {
-        return get_restrict_qualified_type(t->unqualified_type);
+        if (cv == CV_RESTRICT)
+            return get_restrict_qualified_type(orig_type);
+        else
+            return get_restrict_qualified_type(t->unqualified_type);
     }
 }
 
@@ -4233,7 +4271,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     type_t* unchanged_type = original;
 
     original = advance_over_typedefs_with_cv_qualif(original, &old_cv_qualifier);
-    
+
     // Try hard to preserve the type
     if (cv_qualification == old_cv_qualifier)
         return unchanged_type;
@@ -6306,6 +6344,7 @@ static char is_same_member_declaration(member_declaration_info_t mdi1,
 
 extern inline void class_type_add_member(type_t* class_type,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6315,7 +6354,7 @@ extern inline void class_type_add_member(type_t* class_type,
     class_type->type->class_info->members = entry_list_add_once(class_type->type->class_info->members, entry);
 
     // Keep the declaration list
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD_ONCE_FUN(class_type->type->class_info->member_declarations,
         class_type->type->class_info->num_member_declarations,
         mdi, is_same_member_declaration);
@@ -6325,6 +6364,7 @@ extern inline void class_type_add_member_after(
         type_t* class_type,
         scope_entry_t* position,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6345,7 +6385,7 @@ extern inline void class_type_add_member_after(
         }
     }
 
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD(class_type->type->class_info->member_declarations,
             class_type->type->class_info->num_member_declarations,
             mdi);
@@ -6368,6 +6408,7 @@ extern inline void class_type_add_member_after(
 extern inline void class_type_add_member_before(type_t* class_type,
         scope_entry_t* position,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -6387,7 +6428,7 @@ extern inline void class_type_add_member_before(type_t* class_type,
         }
     }
 
-    member_declaration_info_t mdi = { entry, is_definition };
+    member_declaration_info_t mdi = { entry, decl_context, is_definition };
     P_LIST_ADD(class_type->type->class_info->member_declarations,
             class_type->type->class_info->num_member_declarations,
             mdi);
@@ -7787,7 +7828,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
+                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s' (%s)\n", name, symbol_kind_name(member));
             }
             return get_dependent_typename_type_from_parts(current_member, 
                     nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
@@ -7872,6 +7913,41 @@ static type_t* advance_dependent_typename_aux(
                 fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", name);
             }
             type_t* advanced_type = advance_over_typedefs(member->type_information);
+
+            if (is_dependent_typename_type(advanced_type))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Got a dependent typename when looking up dependent-part '%s' '%s'\n",
+                            name,
+                            print_declarator(advanced_type));
+                }
+                scope_entry_t* new_dependent_entry = NULL;
+                nodecl_t nodecl_dependent_parts = nodecl_null();
+
+                dependent_typename_get_components(advanced_type, &new_dependent_entry, &nodecl_dependent_parts);
+
+                nodecl_t nodecl_new_parts = nodecl_shallow_copy(nodecl_get_child(nodecl_dependent_parts, 0));
+
+                int j;
+                for (j = 1; j < num_items; j++)
+                {
+                    nodecl_new_parts = nodecl_append_to_list(nodecl_new_parts,
+                            nodecl_shallow_copy(dep_parts[j]));
+                }
+
+                DELETE(dep_parts);
+
+                type_t* result = get_dependent_typename_type_from_parts(
+                        new_dependent_entry,
+                        nodecl_make_cxx_dep_name_nested(nodecl_new_parts, NULL));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Advanced to '%s'\n",
+                            print_declarator(result));
+                }
+                return result;
+            }
 
             if (is_named_class_type(advanced_type))
             {
@@ -7977,7 +8053,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
+                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s' (%s)\n", name, symbol_kind_name(member));
             }
 
             type_t* result = rebuild_advanced_dependent_typename(original_type, 
@@ -8089,12 +8165,10 @@ static inline char type_contains_a_dependent_typename(type_t* t)
         return 1;
     }
     else if (is_named_type(t)
-        && is_template_specialized_type(named_type_get_symbol(t)->type_information))
+            && is_template_specialized_type(named_type_get_symbol(t)->type_information))
     {
-        return type_contains_a_dependent_typename(named_type_get_symbol(t)->type_information);
-    }
-    else if (is_template_specialized_type(t))
-    {
+        t = named_type_get_symbol(t)->type_information;
+
         template_parameter_list_t* tpl = template_specialized_type_get_template_arguments(t);
 
         int i;
@@ -8251,12 +8325,8 @@ static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
     else if (is_named_type(t)
         && is_template_specialized_type(named_type_get_symbol(t)->type_information))
     {
-        result = rebuild_type_advancing_dependent_typenames(
-            named_type_get_symbol(t)->type_information,
-                decl_context, locus);
-    }
-    else if (is_template_specialized_type(t))
-    {
+        t = named_type_get_symbol(t)->type_information;
+
         template_parameter_list_t *fixed_tpl = rebuild_template_arguments_advancing_dependent_typenames(
                 template_specialized_type_get_template_arguments(t),
                 decl_context,
@@ -10135,12 +10205,57 @@ extern inline const char* print_opencl_vector_type(
     return c;
 }
 
+extern inline const char* print_neon_vector_type(
+        const decl_context_t* decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    int size = vector_type_get_vector_size(t);
+    int num_elements = vector_type_get_num_elements(t);
+    type_t* element_type = vector_type_get_element_type(t);
+
+    const char *c = NULL;
+    if (size == 8
+            || size == 16)
+    {
+        if (is_integral_type(element_type))
+        {
+            uniquestr_sprintf(&c, "%sint%dx%d_t",
+                    is_unsigned_integral_type(element_type) ? "u" : "",
+                    (int)type_get_size(element_type) * 8,
+                    num_elements);
+            return c;
+        }
+        else if (is_float_type(element_type))
+        {
+            uniquestr_sprintf(&c, "float32x%d_t", num_elements);
+            return c;
+        }
+        else if (is_double_type(element_type))
+        {
+            uniquestr_sprintf(&c, "float64x%d_t", num_elements);
+            return c;
+        }
+    }
+
+    const char* typename = get_simple_type_name_string_internal_impl(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+    uniquestr_sprintf(&c, "<<neon-vector-%s-%d>>",
+            typename,
+            vector_type_get_vector_size(t));
+    return c;
+}
+
 // Arrays 'vector_flavors' and 'print_vector_functions' are parallel arrays
 #define VECTOR_FLAVORS \
     VECTOR_FLAVOR(gnu, print_gnu_vector_type) \
     VECTOR_FLAVOR(intel, print_intel_sse_avx_vector_type) \
     VECTOR_FLAVOR(altivec, print_altivec_vector_type) \
-    VECTOR_FLAVOR(opencl, print_opencl_vector_type)
+    VECTOR_FLAVOR(opencl, print_opencl_vector_type) \
+    VECTOR_FLAVOR(neon, print_neon_vector_type)
 
 #define VECTOR_FLAVOR(name, _) #name,
 const char* vector_flavors[] = {
@@ -12576,16 +12691,27 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
         }
     }
 
-    // cv1 T1 -> const T2&
-    // cv1 T1 ->   cv2 T2&&   where cv2 is more or equal qualified thant cv1
-    if ((is_lvalue_reference_type(dest)
-                && is_const_qualified_type(reference_type_get_referenced_type(dest)))
-            || (!is_lvalue_reference_type(orig) // Make sure that orig is not a lvalue reference.
-                                                // Note that when both orig and dest are both references
-                                                // of  the same kind (lvalue or rvalue) has already been
-                                                // handled above
-                && is_rvalue_reference_type(dest)
-                && is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig))))
+    // (A)
+    // cv1 T1   -> const T2&
+    // cv1 T1&& -> const T2&
+    //
+    // (B)
+    // cv1 T1   ->   cv2 T2&&
+    // [note: cv1 T1&& -> cv2 T2&& has been handled above]
+    //
+    // where cv2 is more or equal qualified thant cv1.
+    //
+    // Note that the case when both orig and dest are both references
+    // of the same kind (lvalue or rvalue) has already been
+    // handled above
+    if (// (A)
+            ((is_lvalue_reference_type(dest)
+              && is_const_qualified_type(reference_type_get_referenced_type(dest)))
+             // (B)
+             // Make sure that orig is not a lvalue reference (it can be an rvalue-ref, though)
+             || (!is_lvalue_reference_type(orig)
+                 && is_rvalue_reference_type(dest)
+                 && is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig)))))
     {
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         // cv T1 -> T2
@@ -12610,6 +12736,7 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
         {
             (*result).conv[0] = conversion_among_lvalues.conv[0];
             (*result).conv[1] = conversion_among_lvalues.conv[1];
+            (*result).conv[2] = conversion_among_lvalues.conv[2];
             ok = 1;
         }
 
@@ -13240,6 +13367,9 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
     //
     //  qualification-conversion
     //
+    //  T* -> const T*
+    //  char* -> const char*       [only for string-literals]
+    //  wchar_t* -> const wchar_t* [only for string-literals]
     if (!equivalent_types(orig, dest)
             && ((is_pointer_type(orig)
                     && is_pointer_type(dest))
@@ -13651,7 +13781,7 @@ extern inline type_t* get_literal_string_type(int length, type_t* base_type)
 extern inline char array_type_is_string_literal(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "Invalid type", 0);
-    t = advance_over_typedefs(no_ref(t));
+    t = advance_over_typedefs(t);
 
     return t->array->is_string_literal;
 }
@@ -14124,6 +14254,10 @@ extern inline scope_entry_list_t* class_type_get_all_bases(type_t *t, char inclu
 
 static char covariant_return(type_t* overrided_type, type_t* virtual_type)
 {
+    if (overrided_type == NULL
+            && virtual_type == NULL)
+        return 1;
+
     if (equivalent_types(overrided_type, virtual_type))
         return 1;
 
@@ -14150,10 +14284,27 @@ static char covariant_return(type_t* overrided_type, type_t* virtual_type)
     return 0;
 }
 
+static char same_function_qualification(type_t* overrided_type, type_t* virtual_type)
+{
+    if (!equivalent_cv_qualification(get_cv_qualifier(overrided_type), get_cv_qualifier(virtual_type)))
+        return 0;
+
+    if (function_type_get_ref_qualifier(overrided_type) !=
+            function_type_get_ref_qualifier(virtual_type))
+        return 0;
+
+    return 1;
+}
+
 extern inline char function_type_can_override(type_t* potential_overrider, type_t* function_type)
 {
+    ERROR_CONDITION(!is_function_type(potential_overrider), "Must be a function type", 0);
+    ERROR_CONDITION(!is_function_type(function_type), "Must be a function type", 0);
+
     return compatible_parameters(potential_overrider->function, function_type->function)
-        && covariant_return(potential_overrider, function_type);
+        && covariant_return(function_type_get_return_type(potential_overrider),
+                function_type_get_return_type(function_type))
+        && same_function_qualification(potential_overrider, function_type);
 }
 
 extern inline char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2)
@@ -14633,6 +14784,9 @@ extern inline char class_type_is_pod(type_t* t)
 
 static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
 {
+    if (is_error_type(t))
+        return 0;
+
     if (is_scalar_type(t))
         return 1;
 
@@ -15330,24 +15484,93 @@ extern inline const char* type_to_source(type_t* t)
     return c;
 }
 
-extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
+static inline type_t* type_deep_copy_class(
+        type_t* orig,
+        scope_entry_t* dest,
         const decl_context_t* new_decl_context, 
-        symbol_map_t* symbol_map,
-        nodecl_deep_copy_map_t* nodecl_deep_copy_map,
-        symbol_deep_copy_map_t* symbol_deep_copy_map)
+        symbol_map_t* symbol_map)
 {
-    // Note that this function does not copy class types
+    // Note, at this point symbol members are already mapped, here we are just
+    // adding them to the class type as members
+    ERROR_CONDITION(dest == NULL, "Invalid symbol", 0);
 
+    dest->type_information = get_new_class_type(
+            new_decl_context,
+            class_type_get_class_kind(orig));
+
+    // Duplicate all members
+    // FIXME: duplicate them in declaration order!
+    scope_entry_list_t* entry_list = class_type_get_members(orig);
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* member = entry_list_iterator_current(it);
+        scope_entry_t* new_member = symbol_map->map(symbol_map, member);
+
+        ERROR_CONDITION(member == new_member, "Member '%s' not mapped\n",
+                get_qualified_symbol_name(member, member->decl_context));
+
+        class_type_add_member(dest->type_information, new_member,
+                new_member->decl_context,
+                /* is_definition */ 1);
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(entry_list);
+
+    // Map bases
+    int num_bases = class_type_get_num_bases(orig);
+    int i;
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual, is_dependent, is_expansion;
+        access_specifier_t access_specifier;
+
+        scope_entry_t* current_base = class_type_get_base_num(orig, i,
+                &is_virtual,
+                &is_dependent,
+                &is_expansion,
+                &access_specifier);
+
+        scope_entry_t* mapped_base = symbol_map->map(symbol_map, current_base);
+
+        class_type_add_base_class(
+                dest->type_information,
+                mapped_base,
+                is_virtual,
+                is_dependent,
+                is_expansion,
+                access_specifier);
+    }
+
+    class_type_set_is_abstract(dest->type_information, class_type_is_abstract(orig));
+    class_type_set_is_lambda(dest->type_information, class_type_is_lambda(orig));
+    class_type_set_is_packed(dest->type_information, class_type_is_packed(orig));
+
+    set_is_complete_type(dest->type_information, is_complete_type(orig));
+
+    return dest->type_information;
+}
+
+extern inline type_t* type_deep_copy_compute_maps(
+    type_t* orig,
+    scope_entry_t* dest,
+    const decl_context_t* new_decl_context,
+    symbol_map_t* symbol_map,
+    nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+    symbol_deep_copy_map_t* symbol_deep_copy_map)
+{
     if (orig == NULL)
         return NULL;
 
     type_t* result = orig;
 
-    if (is_named_type(orig)
-            && (is_named_class_type(orig) || is_named_enumerated_type(orig)))
+    if (is_named_type(orig))
     {
         scope_entry_t* symbol = named_type_get_symbol(orig);
         symbol = symbol_map->map(symbol_map, symbol);
+
         if (is_indirect_type(orig))
         {
             if (is_mutable_indirect_type(orig))
@@ -15365,18 +15588,24 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_pointer_type(orig))
     {
         type_t* pointee = pointer_type_get_pointee_type(orig);
-        pointee = type_deep_copy_compute_maps(pointee, new_decl_context, symbol_map,
+        pointee = type_deep_copy_compute_maps(pointee,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
         result = get_pointer_type(pointee);
     }
     else if (is_pointer_to_member_type(orig))
     {
         type_t* pointee = pointer_type_get_pointee_type(orig);
-        pointee = type_deep_copy_compute_maps(pointee, new_decl_context, symbol_map,
+        pointee = type_deep_copy_compute_maps(pointee,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         type_t* class_type = pointer_to_member_type_get_class_type(orig);
-        class_type = type_deep_copy_compute_maps(class_type, new_decl_context, symbol_map,
+        class_type = type_deep_copy_compute_maps(class_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_pointer_to_member_type(pointee, class_type);
@@ -15384,7 +15613,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_rebindable_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+        ref_type = type_deep_copy_compute_maps(ref_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_rebindable_reference_type(ref_type);
@@ -15392,7 +15623,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_lvalue_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+        ref_type = type_deep_copy_compute_maps(ref_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_lvalue_reference_type(ref_type);
@@ -15400,7 +15633,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_rvalue_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+        ref_type = type_deep_copy_compute_maps(ref_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_rvalue_reference_type(ref_type);
@@ -15408,7 +15643,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_array_type(orig))
     {
         type_t* element_type = array_type_get_element_type(orig);
-        element_type = type_deep_copy_compute_maps(element_type, new_decl_context, symbol_map,
+        element_type = type_deep_copy_compute_maps(element_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         if (array_type_is_string_literal(orig))
@@ -15498,7 +15735,9 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_function_type(orig))
     {
         type_t* return_type = function_type_get_return_type(orig);
-        return_type = type_deep_copy_compute_maps(return_type, new_decl_context, symbol_map,
+        return_type = type_deep_copy_compute_maps(return_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         if (function_type_get_lacking_prototype(orig))
@@ -15524,6 +15763,7 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
             for (i = 0; i < P; i++)
             {
                 param_info[i].type_info = type_deep_copy_compute_maps(function_type_get_parameter_type_num(orig, i),
+                        /* dest */ NULL,
                         new_decl_context, symbol_map,
                         nodecl_deep_copy_map,
                         symbol_deep_copy_map);
@@ -15535,12 +15775,22 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
     else if (is_vector_type(orig))
     {
         type_t * element_type = vector_type_get_element_type(orig);
-        element_type = type_deep_copy_compute_maps(element_type, new_decl_context, symbol_map,
+        element_type = type_deep_copy_compute_maps(element_type,
+                /* dest */ NULL,
+                new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_vector_type(
                 element_type,
                 vector_type_get_vector_size(orig));
+    }
+    else if (is_class_type(orig))
+    {
+        result = type_deep_copy_class(
+                orig,
+                dest,
+                new_decl_context,
+                symbol_map);
     }
 
     // GCC attributes
@@ -15580,6 +15830,7 @@ extern inline type_t* type_deep_copy(type_t* orig,
 {
     return type_deep_copy_compute_maps(
             orig,
+            /* dest */ NULL,
             new_decl_context,
             symbol_map,
             /* nodecl_deep_copy_map_t */ NULL,
@@ -15674,6 +15925,41 @@ extern inline int generic_type_get_num(type_t* t)
     return -1;
 }
 
+static void mask_type_compute_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(!is_mask_type(t),
+            "This is not a mask type", 0);
+    t = advance_over_typedefs(t);
+
+    type_t* unsigned_integers[] = {
+        get_unsigned_char_type(),
+        get_unsigned_short_int_type(),
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+        NULL,
+    };
+
+    type_t** it = &unsigned_integers[0];
+    unsigned int num_bits = mask_type_get_num_bits(t);
+
+    while (*it != NULL)
+    {
+        if ((8 * type_get_size(*it)) == num_bits)
+        {
+            t->type->vector_element = *it;
+
+            // Share the sizing info with the underlying type
+            DELETE(t->info);
+            t->info = t->type->vector_element->info;
+
+            break;
+        }
+
+        it++;
+    }
+}
+
 extern inline type_t* get_mask_type(unsigned int mask_size_bits)
 {
     static rb_red_blk_tree *_mask_hash = NULL;
@@ -15694,6 +15980,8 @@ extern inline type_t* get_mask_type(unsigned int mask_size_bits)
         int *k = NEW(int);
         *k = mask_size_bits;
 
+        mask_type_compute_underlying_type(result);
+
         rb_tree_insert(_mask_hash, k, result);
     }
 
@@ -15709,34 +15997,20 @@ extern inline char is_mask_type(type_t* t)
             && t->type->kind == STK_MASK);
 }
 
+
 extern inline type_t* mask_type_get_underlying_type(type_t* t)
 {
     ERROR_CONDITION(!is_mask_type(t),
             "This is not a mask type", 0);
+    t = advance_over_typedefs(t);
 
+    unsigned int num_bits = t->type->vector_size;
 
-    type_t* unsigned_integers[] = {
-        get_unsigned_char_type(),
-        get_unsigned_short_int_type(),
-        get_unsigned_int_type(),
-        get_unsigned_long_int_type(),
-        get_unsigned_long_long_int_type(),
-        NULL,
-    };
-
-    type_t** it = &unsigned_integers[0];
-    unsigned int num_bits = mask_type_get_num_bits(t);
-
-    while (*it != NULL)
-    {
-        if ((8 * type_get_size(*it)) == num_bits)
-            return *it;
-
-        it++;
-    }
-
-    internal_error("Not found a suitable unsigned integer type for a mask of '%d' bits\n",
+    ERROR_CONDITION(t->type->vector_element == NULL,
+            "Not found a suitable unsigned integer type for a mask of '%d' bits\n",
             num_bits);
+
+    return t->type->vector_element;
 }
 
 unsigned int mask_type_get_num_bits(type_t* t)

@@ -47,8 +47,7 @@ namespace TL
 
             if (expr_list.size() != 1)
             {
-                error_printf("%s: error: collapse clause needs exactly one argument\n", 
-                        locus_to_str(construct.get_locus()));
+                error_printf_at(construct.get_locus(), "collapse clause needs exactly one argument\n");
                 return;
             }
 
@@ -56,8 +55,8 @@ namespace TL
             if (!expr.is_constant()
                     || !is_any_int_type(expr.get_type().get_internal_type()))
             {
-                error_printf("%s: error: collapse clause requires an integer constant expression\n",
-                        locus_to_str(construct.get_locus()));
+                error_printf_at(construct.get_locus(),
+                        "collapse clause requires an integer constant expression\n");
                 return;
             }
 
@@ -65,8 +64,8 @@ namespace TL
 
             if (!const_value_is_one(cval))
             {
-                error_printf("%s: error: only collapse(1) is supported\n",
-                        locus_to_str(construct.get_locus()));
+                error_printf_at(construct.get_locus(),
+                        "only collapse(1) is supported\n");
                 return;
             }
         }

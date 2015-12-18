@@ -104,6 +104,10 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<Nodecl::NodeclBase> dep_out;
             TL::ObjectList<Nodecl::NodeclBase> dep_inout;
 
+            TL::ObjectList<Nodecl::NodeclBase> dep_weakin;
+            TL::ObjectList<Nodecl::NodeclBase> dep_weakout;
+            TL::ObjectList<Nodecl::NodeclBase> dep_weakinout;
+
             TL::ObjectList<Nodecl::NodeclBase> copy_in;
             TL::ObjectList<Nodecl::NodeclBase> copy_out;
             TL::ObjectList<Nodecl::NodeclBase> copy_inout;

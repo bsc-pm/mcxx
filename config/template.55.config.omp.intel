@@ -15,14 +15,16 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-bui
 {avx2} preprocessor_options = -march=core-avx2 -mtune=core-avx2
 {avx2} linker_options = -march=core-avx2 -mtune=core-avx2
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
-{@ENABLE_CUDA@,!mmic,openmp}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+#cuda
 {@ENABLE_CUDA@,!mmic,openmp}options = --cuda
-{@ENABLE_CUDA@,!mmic,openmp}linker_options = -lnanox-gpu-api
-{@ENABLE_CUDA@,!mmic,openmp}compiler_phase = libtlnanox-cuda.so
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}linker_options = -lnanox-gpu-api
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}compiler_phase = libtlnanox-cuda.so
+#opencl
 {@ENABLE_OPENCL@,!mmic,openmp}options = --opencl
-{@ENABLE_OPENCL@,!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
-{@ENABLE_OPENCL@,!mmic,openmp}compiler_phase = libtlnanox-opencl.so
-{@ENABLE_OPENCL@,!mmic,openmp}linker_options = -lnanox-opencl-api
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}compiler_phase = libtlnanox-opencl.so
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}linker_options = -lnanox-opencl-api
 
 [imcxx : omp-base]
 language = C++
@@ -38,14 +40,16 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-bui
 {avx2} preprocessor_options = -march=core-avx2 -mtune=core-avx2
 {avx2} linker_options = -march=core-avx2 -mtune=core-avx2
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
-{@ENABLE_CUDA@,!mmic,openmp}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+#cuda
 {@ENABLE_CUDA@,!mmic,openmp}options = --cuda
-{@ENABLE_CUDA@,!mmic,openmp}linker_options = -lnanox-gpu-api
-{@ENABLE_CUDA@,!mmic,openmp}compiler_phase = libtlnanox-cuda.so
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}linker_options = -lnanox-gpu-api
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}compiler_phase = libtlnanox-cuda.so
+#opencl
 {@ENABLE_OPENCL@,!mmic,openmp}options = --opencl
-{@ENABLE_OPENCL@,!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
-{@ENABLE_OPENCL@,!mmic,openmp}compiler_phase = libtlnanox-opencl.so
-{@ENABLE_OPENCL@,!mmic,openmp}linker_options = -lnanox-opencl-api
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}compiler_phase = libtlnanox-opencl.so
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}linker_options = -lnanox-opencl-api
 
 [imfc : omp-base]
 language = Fortran
@@ -63,14 +67,17 @@ linker_options = -reentrancy threaded
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
 {mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
-{@ENABLE_CUDA@,!mmic,openmp}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+#cuda
 {@ENABLE_CUDA@,!mmic,openmp}options = --cuda
-{@ENABLE_CUDA@,!mmic,openmp}linker_options = -lnanox-gpu-api
-{@ENABLE_CUDA@,!mmic,openmp}compiler_phase = libtlnanox-cuda.so
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}linker_options = -lnanox-gpu-api
+{@NANOX_GATE@,@ENABLE_CUDA@,!mmic,openmp}compiler_phase = libtlnanox-cuda.so
+#opencl
 {@ENABLE_OPENCL@,!mmic,openmp}options = --opencl
-{@ENABLE_OPENCL@,!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
-{@ENABLE_OPENCL@,!mmic,openmp}compiler_phase = libtlnanox-opencl.so
-{@ENABLE_OPENCL@,!mmic,openmp}linker_options = -lnanox-opencl-api
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}compiler_phase = libtlnanox-opencl.so
+{@NANOX_GATE@,@ENABLE_OPENCL@,!mmic,openmp}linker_options = -lnanox-opencl-api
+#
 {mmic}target_objcopy=@MIC_TOOLS@objcopy
 {mmic}target_objdump=@MIC_TOOLS@objdump
 {mmic}target_ar=@MIC_TOOLS@ar

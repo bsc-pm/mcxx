@@ -81,7 +81,6 @@ namespace Codegen
             Ret visit(const Nodecl::C99FieldDesignator &);
             Ret visit(const Nodecl::C99IndexDesignator &);
             Ret visit(const Nodecl::CaseStatement &);
-            Ret visit(const Nodecl::Cast &);
             Ret visit(const Nodecl::CatchHandler &);
             Ret visit(const Nodecl::ClassMemberAccess &);
             Ret visit(const Nodecl::Comma &);
@@ -92,6 +91,7 @@ namespace Codegen
             Ret visit(const Nodecl::Context &);
             Ret visit(const Nodecl::ContinueStatement &);
             Ret visit(const Nodecl::Conversion &);
+            Ret visit(const Nodecl::CxxCast &);
             Ret visit(const Nodecl::CxxClassMemberAccess &);
             Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxArrowPtrMember& node);
@@ -241,6 +241,8 @@ namespace Codegen
 
             Ret visit(const Nodecl::CxxForRanged& node);
 
+            Ret visit(const Nodecl::CxxStaticAssert& node);
+
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::VlaWildcard &);
 
@@ -282,6 +284,8 @@ namespace Codegen
 
                 bool in_condition;
                 Nodecl::NodeclBase condition_top;
+
+                bool in_for_stmt_decl;
 
                 bool in_member_declaration;
 
@@ -329,12 +333,16 @@ namespace Codegen
                 // its C++11 support
                 bool _do_not_emit_this;
 
+                // Saved locus when emitting location
+                const locus_t* _saved_locus;
+
                 State() :
                     global_namespace(),
                     opened_namespace(),
                     emit_declarations(EMIT_NO_DECLARATIONS),
                     in_condition(false),
                     condition_top(Nodecl::NodeclBase::null()),
+                    in_for_stmt_decl(false),
                     in_member_declaration(false),
                     in_forwarded_member_declaration(false),
                     in_dependent_template_function_code(false),
@@ -350,7 +358,8 @@ namespace Codegen
                     do_not_derref_rebindable_reference(false),
                     _inline_comment_nest(0),
                     _indent_level(0),
-                   _do_not_emit_this(false) { }
+                   _do_not_emit_this(false),
+                   _saved_locus(NULL) { }
             } state;
             // End of State
 
@@ -370,10 +379,7 @@ namespace Codegen
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
                     int level,
                     TL::Scope* scope = NULL);
-            void old_define_class_symbol_aux(TL::Symbol symbol,
-                    TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
-                    int level,
-                    TL::Scope* scope);
+
             void define_class_symbol_using_member_declarations_aux(TL::Symbol symbol,
                     TL::ObjectList<TL::Symbol> symbols_defined_inside_class,
                     int level,
@@ -550,6 +556,8 @@ namespace Codegen
             std::string gcc_attributes_to_str(TL::Symbol);
             std::string gcc_asm_specifier_to_str(TL::Symbol);
 
+            std::string alignas_attributes_to_str(TL::Symbol);
+
             std::string ms_attributes_to_str(TL::Symbol);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);
@@ -608,7 +616,11 @@ namespace Codegen
             void emit_line_marker(Nodecl::NodeclBase n);
             void emit_line_marker(const locus_t* locus);
 
+            void emit_saved_locus();
+
             bool looks_like_braced_list(Nodecl::NodeclBase n);
+
+            void emit_explicit_cast(Nodecl::NodeclBase node, Nodecl::NodeclBase nest);
         protected:
 
             void walk_list(const Nodecl::List&,
@@ -641,10 +653,6 @@ namespace Codegen
             std::string _prune_saved_variables_str;
             bool _prune_saved_variables;
             void set_prune_saved_variables(const std::string& str);
-
-            std::string _use_old_method_for_class_definitions_str;
-            bool _use_old_method_for_class_definitions;
-            void set_old_method_for_class_definitions(const std::string& str);
     };
 }
 

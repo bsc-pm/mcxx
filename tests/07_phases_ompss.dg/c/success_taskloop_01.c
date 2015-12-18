@@ -31,55 +31,26 @@
 test_generator=config/mercurium-ompss
 </testinfo>
 */
-#include <stdlib.h>
-#include <stdio.h>
-
-enum { N = 10000 };
-
-char check[N] = { };
-
-void f(int *a, int n)
-{
-    int i;
-#pragma omp taskloop out(a[i]) grainsize(10) shared(check)
-    for (i = 0; i < n; i++)
-    {
-        if (check[i] != 0)
-            abort();
-        a[i] = i;
-        check[i] = 1;
-    }
-
-#pragma omp taskloop inout(a[i]) grainsize(10) shared(check)
-    for (i = 0; i < n; i++)
-    {
-        if (check[i] != 1)
-            abort();
-        a[i]++;
-        check[i] = 0;
-    }
-
-#pragma omp taskloop in(a[i]) grainsize(10) shared(check)
-    for (i = 0; i < n; i++)
-    {
-        if (check[i] != 0)
-            abort();
-    }
-
-#pragma omp taskwait
-}
-
-int w[N];
+#include<assert.h>
+#define N 100
+#define MAX_GRAINSIZE 7
 
 int main(int argc, char* argv[])
 {
-    int i;
-    for (i = 0; i < N; i++)
+    for (int x = 1; x <= MAX_GRAINSIZE; ++x)
     {
-        w[i] = i;
+        int a[N] = {0};
+        #pragma omp taskloop grainsize(x) shared(a)
+        for (int i = 0; i < N; ++i)
+            a[i]++;
+
+        int j;
+        #pragma omp taskloop grainsize(x) shared(a)
+        for (j = 0; j < N; ++j)
+            a[j]++;
+
+        for (int i = 0; i < N; ++i)
+            assert(a[i] == 2);
     }
-
-    f(w, N);
-
     return 0;
 }

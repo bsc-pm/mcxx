@@ -33,7 +33,7 @@ test_ignore=yes
 
 int test(void)
 {
-#if __GNUC__ == 4 && __GNUC_MINOR__ >= 4
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4)
     int i;
     unsigned char __attribute__((aligned(64))) a[102];
     float __attribute__((aligned(64))) b[102];

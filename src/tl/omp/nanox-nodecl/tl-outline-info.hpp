@@ -473,6 +473,8 @@ namespace TL
             return OutlineDataItem::AllocationPolicyFlags(unsigned(a) & unsigned(b));
         }
 
+        class OutlineInfoRegisterEntities;
+
         class OutlineInfo
         {
             private:
@@ -480,6 +482,7 @@ namespace TL
             public:
                 typedef std::map<TL::Symbol, TL::Nanox::TargetInformation> implementation_table_t;
                 TL::Symbol _funct_symbol;
+                TL::Symbol _multicopies_index_symbol;
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
@@ -571,6 +574,11 @@ namespace TL
                 bool firstprivates_always_by_reference() const;
 
                 void handle_implements_clause(TL::Symbol function_symbol, std::string device_name);
+
+                void finish_multicopies(OutlineInfoRegisterEntities&, TL::Scope sc);
+
+                TL::Symbol get_multicopies_index_symbol() const;
+                void set_multicopies_index_symbol(TL::Symbol sym);
 
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);

@@ -315,10 +315,19 @@ LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class
 LIBMCXX_EXTERN void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_add_inherited_constructor(type_t* t, scope_entry_t* entry);
 
-LIBMCXX_EXTERN void class_type_add_member(type_t* t, scope_entry_t* member, char is_definition);
-LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
+LIBMCXX_EXTERN void class_type_add_member(type_t* t,
+        scope_entry_t* member,
+        const decl_context_t* decl_context,
         char is_definition);
-LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
+LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type,
+        scope_entry_t* position,
+        scope_entry_t* entry,
+        const decl_context_t* decl_context,
+        char is_definition);
+LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type,
+        scope_entry_t* position,
+        scope_entry_t* entry,
+        const decl_context_t* decl_context,
         char is_definition);
 
 LIBMCXX_EXTERN void class_type_complete_if_needed(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus);
@@ -846,7 +855,9 @@ LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig,
         const decl_context_t* new_decl_context,
         symbol_map_t* symbol_map);
 
-LIBMCXX_EXTERN type_t* type_deep_copy_compute_maps(type_t* orig,
+LIBMCXX_EXTERN type_t* type_deep_copy_compute_maps(
+        type_t* orig_type,
+        scope_entry_t* dest,
         const decl_context_t* new_decl_context,
         symbol_map_t* symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,

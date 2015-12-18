@@ -175,11 +175,10 @@ namespace TL
         {
 		    for(ObjectList<std::string>::iterator it = unreferenced_clauses.begin(); it != unreferenced_clauses.end(); it++)
 		    {
-		        std::cerr << clauses_info->get_locus_info(pragma_custom_construct->get_ast())
-		                << ": warning: unused clause '" << *it << "'"
-		                << " for '#pragma "
-	                    << clauses_info->get_pragma(pragma_custom_construct->get_ast()) << "'"
-		                << std::endl;
+                warn_printf_at(clauses_info.get_locus_info(pragma_custom_construct.get_ast()),
+                        "unused clause '%s' for '#pragma %s'\n",
+                        it->c_str(),
+                        clauses_info->get_pragma(pragma_custom_construct->get_ast()).c_str());
 		    }
         }
 

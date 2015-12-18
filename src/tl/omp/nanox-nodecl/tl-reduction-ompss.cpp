@@ -118,8 +118,8 @@ namespace TL { namespace Nanox {
 
         if (!Nanos::Version::interface_is_at_least("master", 5023))
         {
-            running_error("%s: error: a newer version of Nanos++ (>=5023) is required for reductions support\n",
-                    construct.get_locus_str().c_str());
+            fatal_printf_at(construct.get_locus(),
+                    "a newer version of Nanos++ (>=5023) is required for reductions support\n");
         }
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(

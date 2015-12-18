@@ -36,6 +36,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-entrylist.h"
 #include "cxx-driver-utils.h"
+#include "cxx-diagnostic.h"
 #include "string_utils.h"
 #include <ctype.h>
 
@@ -1536,16 +1537,8 @@ OPERATOR_TABLE
         if (t.is_any_reference())
             t = t.references_to();
 
-        Nodecl::NodeclBase n = node.get_rhs();
-        while (n.is<Nodecl::Conversion>())
-        {
-            n = n.as<Nodecl::Conversion>().get_nest();
-        }
-        n = advance_parenthesized_expression(n);
-        while (n.is<Nodecl::Conversion>())
-        {
-            n = n.as<Nodecl::Conversion>().get_nest();
-        }
+        Nodecl::NodeclBase n = node.get_rhs().no_conv();
+        n = advance_parenthesized_expression(n).no_conv();
 
         if (is_fortran_representable_pointer(t))
         {
@@ -1623,22 +1616,7 @@ OPERATOR_TABLE
         // because this node was created in C
         subscripted = advance_parenthesized_expression(subscripted);
 
-        while (subscripted.is<Nodecl::Conversion>())
-        {
-            // Skip this conversion that may arise when we convert from
-            // T (&)[10][20] to T (*)[20] because of C
-            subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
-        }
-
-        TL::Symbol array_symbol;
-        if (subscripted.is<Nodecl::Symbol>())
-        {
-            array_symbol = subscripted.get_symbol();
-        }
-        else if (subscripted.is<Nodecl::Dereference>())
-        {
-            array_symbol = subscripted.as<Nodecl::Dereference>().get_rhs().get_symbol();
-        }
+        subscripted = subscripted.no_conv();
 
         TL::Symbol subscripted_symbol =
             ::fortran_data_ref_get_symbol(subscripted.get_internal_nodecl());
@@ -1699,7 +1677,18 @@ OPERATOR_TABLE
                 }
             }
 
-            walk(arg);
+            if (arg.is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion conv = arg.as<Nodecl::Conversion>();
+                codegen_casting(
+                        conv.get_type(),
+                        conv.get_nest().get_type(),
+                        conv.get_nest());
+            }
+            else
+            {
+                walk(arg);
+            }
         }
     }
 
@@ -2681,12 +2670,33 @@ OPERATOR_TABLE
         walk(initializer);
     }
 
+    bool FortranBase::requires_explicit_cast(const Nodecl::Conversion& node)
+    {
+        if (node.get_type().is_pointer()
+                && node.get_nest().get_type().no_ref().is_function())
+            return true;
+
+        if (node.get_type().is_pointer()
+                && node.get_nest().get_type().no_ref().is_array())
+            return true;
+
+        return false;
+    }
+
     void FortranBase::visit(const Nodecl::Conversion& node)
     {
-        codegen_casting(
-                /* dest_type */ node.get_type(),
-                /* source_type */ node.get_nest().get_type(),
-                node.get_nest());
+        if (node.get_text() != ""
+                || requires_explicit_cast(node))
+        {
+            codegen_casting(
+                    node.get_type(),
+                    node.get_nest().get_type(),
+                    node.get_nest());
+        }
+        else
+        {
+            walk(node.get_nest());
+        }
     }
 
     void FortranBase::visit(const Nodecl::UnknownPragma& node)
@@ -2914,14 +2924,6 @@ OPERATOR_TABLE
             // Best effort: Not a known conversion, ignore it
             walk(nest);
         }
-    }
-
-    void FortranBase::visit(const Nodecl::Cast& node)
-    {
-        codegen_casting(
-                /* dest_type */ node.get_type(),
-                /* source_type */ node.get_rhs().get_type(),
-                node.get_rhs());
     }
 
     void FortranBase::visit(const Nodecl::Sizeof& node)
@@ -4332,8 +4334,11 @@ OPERATOR_TABLE
                 }
             }
 
+
+            bool keep_emit_interop = state.emit_interoperable_types;
             if (entry.is_bind_c())
             {
+                state.emit_interoperable_types = true;
                 Nodecl::NodeclBase bind_name = entry.get_bind_c_name();
                 if (bind_name.is_null())
                 {
@@ -4435,6 +4440,8 @@ OPERATOR_TABLE
 
             dec_indent();
             pop_declaring_entity();
+
+            state.emit_interoperable_types = keep_emit_interop;
 
             indent();
             *(file) << "END TYPE " << real_name << "\n";
@@ -5625,7 +5632,8 @@ OPERATOR_TABLE
         if (t.is_any_reference())
             t = t.references_to();
 
-        bool is_fortran_pointer = is_fortran_representable_pointer(t);
+        bool is_fortran_pointer = !state.emit_interoperable_types
+            && is_fortran_representable_pointer(t);
         if (is_fortran_pointer)
         {
             t = t.points_to();
@@ -5866,38 +5874,24 @@ OPERATOR_TABLE
                     declare_everything_needed(string_size);
                 }
 
-                if (state.emit_interoperable_types)
-                {
-                    ss << "CHARACTER(KIND=C_CHAR,LEN=" 
-                        << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
+                    ss << "CHARACTER("
+                        << ((!state.emit_interoperable_types) ? "" : "KIND=C_SIGNED_CHAR,")
+                        << "LEN="
+                        << (array_type_is_unknown_size(t.get_internal_type()) ? "*" :
                                 this->codegen_to_str(string_size, string_size.retrieve_context()))
                         << ")";
-                }
-                else
-                {
-                    ss << "CHARACTER(LEN=" 
-                        << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(string_size, string_size.retrieve_context()))
-                        << ")";
-                }
             }
             else
             {
-                if (state.emit_interoperable_types)
-                {
-                    ss << "CHARACTER(KIND=C_CHAR,LEN=*)";
-                }
-                else
-                {
-                    ss << "CHARACTER(LEN=*)";
-                }
+                ss << "CHARACTER(LEN=*)";
             }
 
             type_specifier = ss.str();
         }
         // Special case for char* / const char*
         else if (t.is_pointer()
-                && t.points_to().is_char())
+                && t.points_to().is_char()
+                && !state.emit_interoperable_types)
         {
             type_specifier = "CHARACTER(LEN=*)";
         }
@@ -5905,9 +5899,17 @@ OPERATOR_TABLE
         // their basic type simplified at this point
         else if (t.is_pointer())
         {
-            // Non Fortran pointer, use an INTEGER of size the pointer size
             std::stringstream ss;
-            ss << "INTEGER(" << CURRENT_CONFIGURATION->type_environment->sizeof_pointer << ")";
+            if (state.emit_interoperable_types)
+            {
+                // Non Fortran pointer, use an interoperable object pointer
+                ss << "INTEGER(C_INTPTR_T)";
+            }
+            else
+            {
+                // Non Fortran pointer, use an INTEGER of size the pointer size
+                ss << "INTEGER(" << CURRENT_CONFIGURATION->type_environment->sizeof_pointer << ")";
+            }
             type_specifier = ss.str();
         }
         else 
@@ -6063,14 +6065,16 @@ OPERATOR_TABLE
         {
             if (result_var.is_valid())
             {
-                if (result_var.get_name() != entry.get_name()
-                        && result_var.get_name() != ".result")
-                {
-                    *(file) << " RESULT(" << rename(result_var) << ")";
-                }
-
                 if (result_var.get_name() == ".result")
                     lacks_result = true;
+
+                if (!lacks_result)
+                {
+                    if (result_var.get_name() != entry.get_name())
+                        *(file) << " RESULT(" << rename(result_var) << ")";
+                    else
+                        remove_rename(result_var);
+                }
             }
             else
             {
@@ -6193,8 +6197,8 @@ OPERATOR_TABLE
 
         if (bitfield_size != 1)
         {
-            running_error("%s: error: codegen of loads in bitfields larger than one bit is not implemented", 
-                    node.get_locus_str().c_str());
+            fatal_printf_at(node.get_locus(),
+                    "codegen of loads in bitfields larger than one bit is not implemented");
         }
 
         *(file) << "IBITS(";
@@ -6216,8 +6220,7 @@ OPERATOR_TABLE
 
         if (!lhs.is<Nodecl::ClassMemberAccess>())
         {
-            running_error("%s: error: bitfield not accessed through a field-name", 
-                    node.get_locus_str().c_str());
+            fatal_printf_at(node.get_locus(), "bitfield not accessed through a field-name");
         }
 
         TL::Symbol symbol = lhs.as<Nodecl::ClassMemberAccess>().get_member().get_symbol();
@@ -6238,8 +6241,7 @@ OPERATOR_TABLE
 
         if (bitfield_size != 1)
         {
-            running_error("%s: error: codegen of stores in bitfields larger than one bit is not implemented", 
-                    node.get_locus_str().c_str());
+            fatal_printf_at(node.get_locus(), "codegen of stores in bitfields larger than one bit is not implemented");
         }
 
         if (rhs.is_constant())
@@ -6258,8 +6260,7 @@ OPERATOR_TABLE
         }
         else
         {
-            running_error("%s: error: non constants stores of bitfields is not implemented", 
-                    node.get_locus_str().c_str());
+            fatal_printf_at(node.get_locus(), "non constants stores of bitfields is not implemented");
         }
     }
 

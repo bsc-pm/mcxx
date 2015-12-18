@@ -60,32 +60,32 @@ void VectorizerReport::print_report(const Nodecl::NodeclBase& n)
     reset_report();
     walk(n);
 
-    info_printf("%s: info: Total loads: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "Total loads: %d\n",
             _vloads);
-    info_printf("%s: info:     - Aligned: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "     - Aligned: %d\n",
             _aligned_vloads);
-    info_printf("%s: info:     - Unaligned: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "    - Unaligned: %d\n",
             _unaligned_vloads);
-    info_printf("%s: info: Total stores: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "Total stores: %d\n",
             _vstores);
-    info_printf("%s: info:     - Aligned: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "    - Aligned: %d\n",
             _aligned_vstores);
-    info_printf("%s: info:     - Unaligned: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "    - Unaligned: %d\n",
             _unaligned_vstores);
-    info_printf("%s: info: Gathers: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "Gathers: %d\n",
             _vgathers);
-    info_printf("%s: info: Scatters: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "Scatters: %d\n",
             _vscatters);
-    info_printf("%s: info: Vector promotions: %d\n",
-            n.get_locus_str().c_str(),
+    info_printf_at(n.get_locus(),
+            "Vector promotions: %d\n",
             _vpromotions);
 }
 

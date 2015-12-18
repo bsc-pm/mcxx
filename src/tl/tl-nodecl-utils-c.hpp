@@ -64,6 +64,18 @@ namespace Nodecl { namespace Utils { namespace C {
             }
     };
 
+    struct ExtraDeclsVisitor
+    {
+            ExtraDeclsVisitor(Nodecl::Utils::SimpleSymbolMap*&,
+                    TL::Scope,
+                    TL::Symbol)
+            { }
+
+            void insert_extra_symbols(const Nodecl::NodeclBase &) { }
+            void insert_extra_symbol(TL::Symbol sym) { }
+    };
+
+#if 0
     struct ExtraDeclsVisitor : Nodecl::ExhaustiveVisitor<void>
     {
         private:
@@ -221,6 +233,7 @@ namespace Nodecl { namespace Utils { namespace C {
                 }
             }
     };
+#endif
 
 
 } } }

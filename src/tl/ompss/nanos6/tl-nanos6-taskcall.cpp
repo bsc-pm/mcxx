@@ -31,6 +31,7 @@
 #include "tl-symbol-utils.hpp"
 #include "tl-counters.hpp"
 #include "cxx-exprtype.h"
+#include "cxx-diagnostic.h"
 #include <map>
 
 namespace TL { namespace Nanos6 {
@@ -71,6 +72,53 @@ namespace TL { namespace Nanos6 {
                                 it++)
                         {
                             walk(*it);
+                        }
+                    }
+                    // FIXME: turn this class into a visitor
+                    else if (n.is<Nodecl::OpenMP::Shared>())
+                    {
+                        Nodecl::List sym_list = n.as<Nodecl::OpenMP::Shared>()
+                            .get_symbols().as<Nodecl::List>();
+                        TL::ObjectList<Nodecl::NodeclBase> pruned_list;
+                        TL::ObjectList<Nodecl::NodeclBase> captured_arguments;
+                        for (Nodecl::List::iterator it = sym_list.begin();
+                                it != sym_list.end();
+                                it++)
+                        {
+                            TL::Symbol sym = it->get_symbol();
+                            if (!sym.is_parameter()
+                                    || sym.get_parameter_position() >= (int)_argument_captures_syms.size())
+                            {
+                                pruned_list.append(sym.make_nodecl());
+                            }
+                            else
+                            {
+                                // In Nanos6 we have to capture the arguments of the task call
+                                captured_arguments.append(sym.make_nodecl());
+                            }
+                        }
+                        if (!captured_arguments.empty())
+                        {
+                            // Capture arguments
+                            Nodecl::NodeclBase captured_arg_list =
+                                    Nodecl::OpenMP::Firstprivate::make(
+                                        Nodecl::List::make(captured_arguments),
+                                        n.get_locus());
+                            walk(captured_arg_list);
+                            n.prepend_sibling(captured_arg_list);
+                        }
+                        if (pruned_list.empty())
+                        {
+                            Nodecl::Utils::remove_from_enclosing_list(n);
+                        }
+                        else
+                        {
+                            // FIXME: this is probably unlikely
+                            n.replace(
+                                    Nodecl::OpenMP::Shared::make(
+                                        Nodecl::List::make(pruned_list),
+                                        n.get_locus())
+                                    );
                         }
                     }
                     else
@@ -124,11 +172,11 @@ namespace TL { namespace Nanos6 {
             .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
         ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
 
-        std::cerr << construct.get_locus_str()
-            << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
-        std::cerr << function_parsing_context.get_locus_str()
-            << ": note: task function declared here"
-            << std::endl;
+        info_printf_at(construct.get_locus(),
+                "call to task function '%s'\n",
+                called_sym.get_qualified_name().c_str());
+        info_printf_at(function_parsing_context.get_locus(),
+                "task function declared here\n");
 
         Scope sc = construct.retrieve_context();
         Scope new_block_context_sc = new_block_context(sc.get_decl_context());
@@ -176,6 +224,7 @@ namespace TL { namespace Nanos6 {
                     it_args->get_locus());
             Nodecl::NodeclBase new_arg = ::cxx_nodecl_make_conversion(symbol_ref.get_internal_nodecl(),
                     it_params->get_type().get_internal_type(),
+                    TL::Scope::get_global_scope().get_decl_context(),
                     symbol_ref.get_locus());
             new_args.append(new_arg);
 

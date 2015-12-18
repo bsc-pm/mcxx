@@ -2309,23 +2309,16 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
 static char standard_conversion_differs_qualification(standard_conversion_t scs1,
         standard_conversion_t scs2)
 {
-    if ((scs1.conv[0] == scs2.conv[0])
-            && is_pointer_conversion(scs1.conv[1]))
+    if (scs1.conv[0] == scs2.conv[0]
+            && is_pointer_type(scs1.dest)
+            && is_pointer_type(scs2.dest)
+            && pointer_types_are_similar(scs1.dest, scs2.dest))
     {
         // S1 and S2 differ only in their qualification conversion and yield similar types T1 and T2
         // respectively, and the cv-qualification signature of type T1 is a proper subset of the cv-qualification
         // signature of type T2
-        cv_qualifier_t cv_qualif_1 = CV_NONE;
-        /* type_t* type_1 = */ advance_over_typedefs_with_cv_qualif(scs1.dest, &cv_qualif_1);
-
-        cv_qualifier_t cv_qualif_2 = CV_NONE;
-        /* type_t* type_2 = */ advance_over_typedefs_with_cv_qualif(scs2.dest, &cv_qualif_2);
-
-        // Check that they yield similar types and scs2 is more qualified
-        if (((cv_qualif_1 | cv_qualif_2) == cv_qualif_1) 
-                && equivalent_types(get_unqualified_type(scs1.dest), 
-                    get_unqualified_type(scs2.dest)
-                    ))
+        if (is_more_cv_qualified_type(pointer_type_get_pointee_type(scs2.dest),
+                    pointer_type_get_pointee_type(scs1.dest)))
         {
             return 1;
         }
@@ -2565,15 +2558,19 @@ static overload_entry_list_t* compute_viable_functions(
         const locus_t* locus)
 {
     overload_entry_list_t *result = NULL;
-    candidate_t *it = candidate_functions;
 
-    while (it != NULL)
+    for (candidate_t* it = candidate_functions;
+            it != NULL;
+            it = it->next)
     {
         scope_entry_t* orig_candidate = it->entry;
         int num_arguments = it->num_args;
         type_t** argument_types = it->args;
 
         scope_entry_t* candidate = entry_advance_aliases(orig_candidate);
+
+        if (is_error_type(candidate->type_information))
+            continue;
 
         ERROR_CONDITION(!is_function_type(candidate->type_information),
                 "This is not a function", 0);
@@ -2723,8 +2720,6 @@ static overload_entry_list_t* compute_viable_functions(
                 DELETE(ics_arguments);
             }
         }
-
-        it = it->next;
     }
 
     return result;
@@ -4111,6 +4106,9 @@ candidate_t* candidate_set_add(candidate_t* candidate_set,
         int num_args,
         type_t** args)
 {
+    if (is_error_type(entry_advance_aliases(entry)->type_information))
+        return candidate_set;
+
     candidate_t* result = NEW0(candidate_t);
 
     result->next = candidate_set;

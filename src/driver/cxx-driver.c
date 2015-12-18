@@ -147,11 +147,13 @@
 "                           This flag is only meaningful for Fortran\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
-"                           Flags is a sequence of 'p', 'n', 's', or 'l'\n" \
+"                           Flags is a sequence of\n"\
 "                              p: preprocessor\n"  \
 "                              s: Fortran prescanner\n" \
 "                              n: native compiler\n" \
 "                              l: linker\n" \
+"                              r: linker (beginning of the linker command)\n" \
+"                              L: linker (end of the linker command)\n" \
 "  --Wx:<profile>:<flags>,<options>\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
@@ -310,8 +312,6 @@
 "                           source codes without reusing intermediate\n" \
 "                           filenames\n" \
 "  --Xcompiler OPTION       Equivalent to --Wn,OPTION\n" \
-"  --native                 Convenience flag to handoff all the\n" \
-"                           compilation process to the native compiler.\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -328,6 +328,8 @@
 "  -export-dynamic\n" \
 "  -f<name>\n" \
 "  -include FILE\n" \
+"  -isystem DIR\n" \
+"  -isysroot DIR\n" \
 "  -MD\n" \
 "  -MF <file>\n" \
 "  -MG <file>\n" \
@@ -414,7 +416,6 @@ typedef enum
     OPTION_LIST_FORTRAN_NAME_MANGLINGS,
     OPTION_LIST_VECTOR_FLAVORS,
     OPTION_MODULE_OUT_PATTERN,
-    OPTION_NATIVE,
     OPTION_NATIVE_COMPILER_NAME,
     OPTION_NO_OPENMP,
     OPTION_NO_WHOLE_FILE,
@@ -525,7 +526,6 @@ struct command_line_long_options command_line_long_options[] =
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
     {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
-    {"native", CLP_NO_ARGUMENT, OPTION_NATIVE },
     // sentinel
     {NULL, 0, 0}
 };
@@ -741,7 +741,7 @@ static void driver_initialization(int argc, const char* argv[])
     if (alternate_stack.ss_sp == 0
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
-        running_error("Setting alternate signal stack failed (%s)\n",
+        fatal_error("Setting alternate signal stack failed (%s)\n",
                 strerror(errno));
     }
 #endif
@@ -768,7 +768,7 @@ static void driver_initialization(int argc, const char* argv[])
     
     if (result != 0)
     {
-        running_error("Signal programming failed with '%s'\n", strerror(errno));
+        fatal_error("Signal programming failed with '%s'\n", strerror(errno));
     }
 #endif
 
@@ -1673,11 +1673,6 @@ int parse_arguments(int argc, const char* argv[],
                                 1);
                         break;
                     }
-                case OPTION_NATIVE:
-                    {
-                        CURRENT_CONFIGURATION->handoff_to_native = 1;
-                        break;
-                    }
                 default:
                     {
                         const char* unhandled_flag = "<<<unknown!>>>";
@@ -2334,7 +2329,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'i':
             {
-                if (strcmp(argument, "-include") == 0)
+                if (strcmp(argument, "-include") == 0
+                        || strcmp(argument, "-isystem") == 0
+                        || strcmp(argument, "-isysroot") == 0)
                 {
                     if(!dry_run)
                     {
@@ -2456,6 +2453,8 @@ static void parse_subcommand_arguments(const char* arguments)
     char prepro_flag = 0;
     char native_flag = 0;
     char linker_flag = 0;
+    char linker_flag_pre = 0;
+    char linker_flag_post = 0;
     char prescanner_flag = 0;
 
     compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
@@ -2484,7 +2483,7 @@ static void parse_subcommand_arguments(const char* arguments)
         {
             if ((q - profile_name) > MAX_PROFILE_NAME)
             {
-                running_error("Profile name too long in option '--W%s'\n", arguments);
+                fatal_error("Profile name too long in option '--W%s'\n", arguments);
             }
 
             *q = *p;
@@ -2517,20 +2516,26 @@ static void parse_subcommand_arguments(const char* arguments)
     {
         switch (*p)
         {
-            case 'p' : 
+            case 'p' :
                 prepro_flag = 1;
                 break;
-            case 'n' : 
+            case 'n' :
                 native_flag = 1;
                 break;
-            case 'l' : 
+            case 'l' :
                 linker_flag = 1;
                 break;
             case 's':
                 prescanner_flag = 1;
                 break;
+            case 'r' :
+                linker_flag_pre = 1;
+                break;
+            case 'L' :
+                linker_flag_post = 1;
+                break;
             default:
-                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's' or 'l' are allowed, ignoring\n",
+                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's', 'l', 'r', 'L' are allowed, ignoring\n",
                         compilation_process.exec_basename,
                         *p);
                 break;
@@ -2612,6 +2617,18 @@ static void parse_subcommand_arguments(const char* arguments)
         {
             add_to_linker_command_configuration(uniquestr(parameters[i]), NULL, configuration);
         }
+    }
+    if (linker_flag_pre)
+    {
+        add_to_parameter_list(
+                &configuration->linker_options_pre,
+                parameters, num_parameters);
+    }
+    if (linker_flag_post)
+    {
+        add_to_parameter_list(
+                &configuration->linker_options_post,
+                parameters, num_parameters);
     }
     if (prescanner_flag)
         add_to_parameter_list(
@@ -3012,12 +3029,11 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         if (!CURRENT_CONFIGURATION->force_language
                 && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
-                && !file_not_processed
-                && !CURRENT_CONFIGURATION->handoff_to_native)
+                && !file_not_processed)
         {
             fprintf(stderr, "%s: %s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
                     compilation_process.exec_basename,
-                    compilation_process.exec_basename,
+                    compilation_process.exec_basename, 
                     source_language_names[CURRENT_CONFIGURATION->source_language],
                     translation_unit->input_filename,
                     source_language_names[current_extension->source_language]);
@@ -3045,11 +3061,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         char preprocessed = 0;
 #endif
         // If the file is not preprocessed or we've ben told to preprocess it
-        if (!CURRENT_CONFIGURATION->handoff_to_native
-                && (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
-                            || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
-                        && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
-                    && !CURRENT_CONFIGURATION->pass_through))
+        if (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
+                    || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
+                    && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
+                && !CURRENT_CONFIGURATION->pass_through)
         {
 #ifndef FORTRAN_NEW_SCANNER
             preprocessed = 1;
@@ -3085,19 +3100,18 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (parsed_filename == NULL)
             {
-                running_error("Preprocess failed for file '%s'", translation_unit->input_filename);
+                fatal_error("Preprocess failed for file '%s'", translation_unit->input_filename);
             }
         }
 
         char is_fixed_form  = (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
-                // We prescan from fixed to free if
+                // We prescan from fixed to free if 
                 //  - the file is fixed form OR we are forced to be fixed for (--fixed)
                 //  - AND we were NOT told to be DELETE form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
-                && !CURRENT_CONFIGURATION->pass_through
-                && !CURRENT_CONFIGURATION->handoff_to_native);
+                && !CURRENT_CONFIGURATION->pass_through);
 
 #ifndef FORTRAN_NEW_SCANNER
         if (is_fixed_form)
@@ -3118,7 +3132,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (parsed_filename == NULL)
             {
-                running_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
+                fatal_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
                         translation_unit->input_filename);
             }
 
@@ -3129,8 +3143,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
             if (!CURRENT_CONFIGURATION->pass_through
-                    && !file_not_processed
-                    && !CURRENT_CONFIGURATION->handoff_to_native)
+                    && !file_not_processed)
             {
                 // * Do this before open for scan since we might to internally parse some sources
                 mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
@@ -3152,7 +3165,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3160,7 +3173,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3168,7 +3181,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename, is_fixed_form) != 0)
                     {
-                        running_error("Could not open file '%s'", parsed_filename);
+                        fatal_error("Could not open file '%s'", parsed_filename);
                     }
                 }
 
@@ -3241,7 +3254,6 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             // * Codegen
             const char* prettyprinted_filename = NULL;
             if (!file_not_processed
-                    && !CURRENT_CONFIGURATION->handoff_to_native
                     && !CURRENT_CONFIGURATION->debug_options.do_not_codegen)
             {
                 prettyprinted_filename
@@ -3296,8 +3308,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_COMPILE))
             {
                 // * Native compilation
-                if (!file_not_processed
-                        && !CURRENT_CONFIGURATION->handoff_to_native)
+                if (!file_not_processed)
                 {
                     native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
                 }
@@ -3423,7 +3434,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
     if (parse_result != 0)
     {
-        running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
+        fatal_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
     }
 
     // Store the parsed tree as the unique child of AST_TRANSLATION_UNIT
@@ -3512,7 +3523,8 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
 
     if (CURRENT_CONFIGURATION->warnings_as_errors)
     {
-        info_printf("%s: info: treating warnings as errors\n", translation_unit->input_filename);
+        info_printf_at(make_locus(translation_unit->input_filename, 0, 0),
+                "treating warnings as errors\n");
         there_were_errors = there_were_errors || (diagnostics_get_warn_count() != 0);
     }
 
@@ -3650,7 +3662,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
     if (prettyprint_file == NULL)
     {
-        running_error("Cannot create output file '%s' (%s)", output_filename,
+        fatal_error("Cannot create output file '%s' (%s)", output_filename,
                 strerror(errno));
     }
 
@@ -3673,7 +3685,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
             if (raw_prettyprint_file == NULL)
             {
-                running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+                fatal_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             run_codegen_phase(raw_prettyprint_file, translation_unit, output_filename);
             fclose(raw_prettyprint_file);
@@ -3681,7 +3693,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
             if (raw_prettyprint_file == NULL)
             {
-                running_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+                fatal_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->output_column_width);
             fclose(raw_prettyprint_file);
@@ -4291,7 +4303,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         {
             driver_fortran_restore_mercurium_modules();
         }
-        running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
+        fatal_error("Native compilation failed for file '%s'", translation_unit->input_filename);
     }
     timing_end(&timing_compilation);
 
@@ -4315,7 +4327,7 @@ static void native_compilation(translation_unit_t* translation_unit,
 
         if (execute_program(CURRENT_CONFIGURATION->native_compiler_name, native_compilation_args) != 0)
         {
-            running_error("Binary check failed because native compiler failed on the original input source file '%s'\n",
+            fatal_error("Binary check failed because native compiler failed on the original input source file '%s'\n",
                     translation_unit->input_filename);
         }
 
@@ -4343,7 +4355,7 @@ static void native_compilation(translation_unit_t* translation_unit,
             fprintf(stderr, "Stripping '%s'\n", strip_args[1]);
             if (execute_program("strip", strip_args) != 0)
             {
-                running_error("Stripping failed on '%s'\n", strip_args[1]);
+                fatal_error("Stripping failed on '%s'\n", strip_args[1]);
             }
         }
 
@@ -4351,7 +4363,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* cmp_args[] = { output_object_filename, new_obj_file->name, NULL };
         if (execute_program("cmp", cmp_args) != 0)
         {
-            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
+            fatal_error("*** BINARY COMPARISON FAILED. Aborting ***\n");
         }
         else
         {
@@ -4429,7 +4441,7 @@ static void embed_files(void)
 
             if (target_options == NULL)
             {
-                running_error("During embedding, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+                fatal_error("During embedding, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
                         secondary_configuration->configuration_name,
                         CURRENT_CONFIGURATION->configuration_name);
             }
@@ -4501,22 +4513,27 @@ static void link_files(const char** file_list, int num_files,
         const char* linked_output_filename,
         compilation_configuration_t* compilation_configuration)
 {
-    int num_args_linker = 
+    int num_args_linker =
         count_null_ended_array((void**)compilation_configuration->linker_options);
-    int num_args_linker_options_pre = 
+    int num_args_linker_options_pre =
         count_null_ended_array((void**)compilation_configuration->linker_options_pre);
-    int num_args_linker_command = 
+    int num_args_linker_options_post =
+        count_null_ended_array((void**)compilation_configuration->linker_options_post);
+    int num_args_linker_command =
         compilation_configuration->num_args_linker_command;
-    
-    int num_arguments = num_args_linker_options_pre + num_args_linker_command + 
-        num_args_linker + num_files;
+
+    int num_arguments = num_args_linker_options_pre
+        + num_args_linker_options_post
+        + num_args_linker_command
+        + num_args_linker
+        + num_files;
 
     if (linked_output_filename != NULL)
     {
         // -o output
         num_arguments += 2;
     }
-    
+
     // NULL
     num_arguments += 1;
 
@@ -4535,9 +4552,9 @@ static void link_files(const char** file_list, int num_files,
     }
 
     //Adding linker options pre
-    for(j = 0; j < num_args_linker_options_pre; j++, i++) 
+    for(j = 0; j < num_args_linker_options_pre; j++, i++)
     {
-        linker_args[i] = compilation_configuration->linker_options[j];
+        linker_args[i] = compilation_configuration->linker_options_pre[j];
     }
 
     //Adding linker command arguments
@@ -4546,11 +4563,11 @@ static void link_files(const char** file_list, int num_files,
         // This is a file
         if (compilation_configuration->linker_command[j]->translation_unit != NULL)
         {
-            translation_unit_t* current_translation_unit = 
+            translation_unit_t* current_translation_unit =
                 compilation_configuration->linker_command[j]->translation_unit;
             const char* extension =
                 get_extension_filename(current_translation_unit->input_filename);
-            struct extensions_table_t* current_extension = 
+            struct extensions_table_t* current_extension =
                 fileextensions_lookup(extension, strlen(extension));
 
             if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
@@ -4568,33 +4585,39 @@ static void link_files(const char** file_list, int num_files,
         // This is another sort of command-line parameter
         else
         {
-            linker_args[i] = compilation_configuration->linker_command[j]->argument;    
+            linker_args[i] = compilation_configuration->linker_command[j]->argument;
         }
         i++;
     }
-    //Adding multifile list or additional file list 
+    //Adding multifile list or additional file list
     for (j = 0; j < num_files; j++, i++)
     {
         linker_args[i] = file_list[j];
     }
 
-    //Adding linker options arguments 
+    //Adding linker options arguments
     for (j = 0; j < num_args_linker; j++, i++)
     {
         linker_args[i] = compilation_configuration->linker_options[j];
     }
-      
+
+    //Adding linker options post
+    for(j = 0; j < num_args_linker_options_post; j++, i++)
+    {
+        linker_args[i] = compilation_configuration->linker_options_post[j];
+    }
+
     timing_t timing_link;
     timing_start(&timing_link);
     if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
     {
-        running_error("Link failed");
+        fatal_error("Link failed");
     }
     timing_end(&timing_link);
 
     if (compilation_configuration->verbose)
     {
-        fprintf(stderr, "Link performed in %.2f seconds\n", 
+        fprintf(stderr, "Link performed in %.2f seconds\n",
                 timing_elapsed(&timing_link));
     }
 }
@@ -4642,7 +4665,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (execute_program("ppu-spuembed", args) != 0)
                 {
-                    running_error("Error when embedding SPU executable");
+                    fatal_error("Error when embedding SPU executable");
                 }
 
                 remove(compilation_process.linked_output_filename);
@@ -4657,7 +4680,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (temp_file_fd == NULL)
                 {
-                    running_error("Cannot create temporal assembler file '%s': %s\n",
+                    fatal_error("Cannot create temporal assembler file '%s': %s\n",
                             temp_file_as->name,
                             strerror(errno));
                 }
@@ -4691,7 +4714,7 @@ static void do_combining(target_options_map_t* target_map,
                 if (execute_program(CURRENT_CONFIGURATION->native_compiler_name,
                             args) != 0)
                 {
-                    running_error("Error when complining embedding assembler");
+                    fatal_error("Error when complining embedding assembler");
                 }
 
                 remove(compilation_process.linked_output_filename);
@@ -4736,7 +4759,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 
         if (configuration == NULL)
         {
-            running_error("Multifile needs a profile '%s' not defined in the configuration\n",
+            fatal_error("Multifile needs a profile '%s' not defined in the configuration\n",
                     multifile_profiles[i].name);
         }
 
@@ -4744,7 +4767,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 
         if (target_map == NULL)
         {
-            running_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+            fatal_error("During sublinking, there are no target options defined from profile '%s' to profile '%s' in the configuration\n",
                     configuration->configuration_name,
                     target_configuration->configuration_name);
         }

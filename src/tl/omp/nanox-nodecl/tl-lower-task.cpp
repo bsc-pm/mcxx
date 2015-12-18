@@ -87,7 +87,8 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = ::get_user_defined_type(base_class.get_internal_symbol());
-            class_type_add_member(new_class_type, field.get_internal_symbol(), /* is_definition */ 1);
+            class_type_add_member(new_class_type, field.get_internal_symbol(),
+                   field.get_internal_symbol()->decl_context, /* is_definition */ 1);
         }
 
         {
@@ -113,7 +114,10 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
                         const_value_to_nodecl( const_value_get_signed_int(num_implementations)),
                         class_scope.get_decl_context());
 
-            class_type_add_member(new_class_type, field.get_internal_symbol(), /* is_definition */ 1);
+            class_type_add_member(new_class_type,
+                    field.get_internal_symbol(),
+                    field.get_internal_symbol()->decl_context,
+                    /* is_definition */ 1);
         }
 
         nodecl_t nodecl_output = nodecl_null();
@@ -195,7 +199,7 @@ Source LoweringVisitor::fill_const_wd_info(
                 num_copies << num_static_copies << " + ";
             }
 
-            num_copies << as_expression(count_dynamic_dependences(outline_info));
+            num_copies << as_expression(count_dynamic_copies(outline_info));
         }
         else
         {
@@ -1066,6 +1070,147 @@ void LoweringVisitor::visit_task(
             placeholder_task_expr_transformation);
 }
 
+Source LoweringVisitor::compute_num_refs_in_multiref(DataReference& data_ref)
+{
+    ERROR_CONDITION(!data_ref.is_multireference(), "Invalid data reference", 0);
+    Source src;
+
+    ObjectList<DataReference::MultiRefIterator> m = data_ref.multireferences();
+
+    for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
+            current_multidep != m.end();
+            current_multidep++)
+    {
+        Nodecl::Range range = current_multidep->second.as<Nodecl::Range>();
+        ERROR_CONDITION(!range.is<Nodecl::Range>(), "Invalid node %s", ast_print_node_type(range.get_kind()));
+
+        Nodecl::NodeclBase lower = range.get_lower().shallow_copy();
+        Nodecl::NodeclBase upper = range.get_upper().shallow_copy();
+        Nodecl::NodeclBase stride = range.get_stride().shallow_copy();
+
+        if (stride.is_constant()
+                && const_value_is_one(stride.get_constant()))
+        {
+            // Common case
+            src << "(" <<  as_expression(upper.shallow_copy()) << " - " << as_expression(lower.shallow_copy()) << " + 1)";
+        }
+        else
+        {
+            src << "(((" <<  as_expression(upper.shallow_copy()) << " - " << as_expression(lower.shallow_copy()) << " + 1)"
+                " + (" << as_expression(stride.shallow_copy()) << " - 1)) / " << as_expression(stride.shallow_copy()) << ")";
+        }
+    }
+
+    return src;
+}
+
+void LoweringVisitor::initialize_multicopies_index(
+        Nodecl::NodeclBase ctr,
+        OutlineInfo& outline_info,
+        // out
+        Source& fill_outline_arguments,
+        Source& fill_immediate_arguments
+        )
+{
+    if (!outline_info.get_multicopies_index_symbol().is_valid())
+        return;
+
+    if (IS_CXX_LANGUAGE)
+    {
+        Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                outline_info.get_multicopies_index_symbol(),
+                ctr.get_locus());
+        ctr.prepend_sibling(def);
+    }
+
+    Source src;
+
+    int multicopy_index = 0;
+
+    int num_static_copies = 0;
+
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+
+        if (copies.empty())
+            continue;
+        for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+                copy_it != copies.end();
+                copy_it++)
+        {
+            TL::DataReference copy_expr(copy_it->expression);
+            if (!copy_expr.is_multireference())
+                num_static_copies++;
+        }
+    }
+
+    Source previous_num_copies;
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+
+        if (copies.empty())
+            continue;
+
+        Source current_num_copies;
+
+        bool has_multicopies = false;
+        int num_dynamic_copies_of_item = 0;
+        for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+                copy_it != copies.end();
+                copy_it++, num_dynamic_copies_of_item++)
+        {
+            TL::DataReference copy_expr(copy_it->expression);
+            if (copy_expr.is_multireference())
+            {
+                has_multicopies = true;
+
+                Source num_copies_in_multiref;
+                num_copies_in_multiref
+                    << compute_num_refs_in_multiref(copy_expr);
+                if (num_dynamic_copies_of_item > 0)
+                {
+                    current_num_copies << " + ";
+                }
+                current_num_copies << num_copies_in_multiref;
+            }
+        }
+
+        if (has_multicopies)
+        {
+            if (multicopy_index == 0)
+            {
+                // Skip the first one
+            }
+            else
+            {
+                src << as_symbol(outline_info.get_multicopies_index_symbol()) << "[" << (multicopy_index-1) << "] = "
+                    ;
+
+                if (multicopy_index == 1)
+                    src << num_static_copies;
+                else if (multicopy_index > 1)
+                    src << as_symbol(outline_info.get_multicopies_index_symbol()) << "[" << (multicopy_index-2) << "]";
+
+                src << "+" << previous_num_copies << ";"
+                    ;
+            }
+            multicopy_index++;
+        }
+
+        previous_num_copies = current_num_copies;
+    }
+
+    fill_outline_arguments << src;
+    fill_immediate_arguments << src;
+}
+
 void LoweringVisitor::fill_arguments(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -1074,6 +1219,9 @@ void LoweringVisitor::fill_arguments(
         Source& fill_immediate_arguments
         )
 {
+    // Multicopies may require extra information
+    initialize_multicopies_index(ctr, outline_info, fill_outline_arguments, fill_immediate_arguments);
+
     // We overallocate with an alignment of 8
     const int overallocation_alignment = 8;
     const int overallocation_mask = overallocation_alignment - 1;
@@ -1596,9 +1744,9 @@ void LoweringVisitor::fill_arguments(
                         DataReference data_ref((*it)->get_base_address_expression());
                         if (!data_ref.is_valid())
                         {
-                            warn_printf(
-                                "%s: warning: an argument is not a valid data-reference, compilation is likely to fail\n",
-                                (*it)->get_base_address_expression().get_locus_str().c_str());
+                            warn_printf_at(
+                                (*it)->get_base_address_expression().get_locus(),
+                                "an argument is not a valid data-reference, compilation is likely to fail\n");
                         }
 
                         // This is a pointer reference
@@ -1900,7 +2048,8 @@ Nodecl::NodeclBase LoweringVisitor::count_copies_dimensions(OutlineInfo& outline
             }
             else
             {
-                if (result.is_constant())
+                if (result.is_constant()
+                        && current_value.is_constant())
                 {
                     result = const_value_to_nodecl(
                             const_value_add(
@@ -2244,9 +2393,11 @@ void LoweringVisitor::fill_copies_region(
             ctr.prepend_sibling(def);
         }
 
-        copy_ol_setup << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
+        copy_ol_setup << as_symbol(dyn_copy_idx) << " = " << current_copy_idx << ";"
+                      << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
             ;
-        copy_imm_setup << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
+        copy_imm_setup << as_symbol(dyn_copy_idx) << " = " << current_copy_idx << ";"
+                       << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
             ;
 
         // Dynamic copies second
@@ -2504,142 +2655,53 @@ bool is_not_alnum(int charact) {
     return !std::isalnum(charact);
 }
 
-// void LoweringVisitor::emit_translation_function_nonregion(
-//         Nodecl::NodeclBase ctr,
-//         OutlineInfo& outline_info,
-//         OutlineInfo* parameter_outline_info,
-//         TL::Symbol structure_symbol,
-//         bool allow_multiple_copies,
-//         // Out
-//         TL::Symbol& translation_function_symbol
-//         )
-// {
-//     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
-//     Source fun_name;
-//     std::string filename = TL::CompilationProcess::get_current_file().get_filename();
-//     //Remove non-alphanumeric characters from the string
-//     filename.erase(std::remove_if(filename.begin(), filename.end(), (bool(*)(int))is_not_alnum), filename.end());
-//     fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
-//     fun_num++;
-// 
-//     TL::Type argument_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
-//     argument_type = argument_type.get_lvalue_reference_to();
-// 
-//     ObjectList<std::string> parameter_names;
-//     ObjectList<TL::Type> parameter_types;
-// 
-//     parameter_names.append("arg");
-//     parameter_types.append(argument_type);
-// 
-//     TL::Symbol sym_nanos_wd_t = ReferenceScope(ctr).get_scope().get_symbol_from_name("nanos_wd_t");
-//     ERROR_CONDITION(!sym_nanos_wd_t.is_valid(), "Typename nanos_wd_t not found", 0);
-//     parameter_names.append("wd");
-//     parameter_types.append(sym_nanos_wd_t.get_user_defined_type());
-// 
-//     translation_function_symbol = SymbolUtils::new_function_symbol(
-//             Nodecl::Utils::get_enclosing_function(ctr),
-//             fun_name.get_source(),
-//             TL::Type::get_void_type(),
-//             parameter_names,
-//             parameter_types);
-// 
-//     Nodecl::NodeclBase function_code, empty_statement;
-//     SymbolUtils::build_empty_body_for_function(
-//             translation_function_symbol,
-//             function_code,
-//             empty_statement);
-// 
-//     TL::ObjectList<OutlineDataItem*> data_items;
-//     data_items = outline_info.get_fields();
-// 
-//     Source translations;
-// 
-//     Nodecl::Utils::SimpleSymbolMap symbol_map;
-// 
-//     // Initialize the rewrite visitor
-//     RewriteAddressExpression rewrite_base_address;
-//     TL::Symbol argument_structure_symbol = ReferenceScope(empty_statement).get_scope().get_symbol_from_name("arg");
-//     ERROR_CONDITION(!argument_structure_symbol.is_valid(), "Invalid symbol 'arg' just created!", 0);
-//     rewrite_base_address.structure = argument_structure_symbol;
-// 
-//     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-//             it != data_items.end(); it++)
-//     {
-//         // Create a mapping "var" to "args->var"
-//         ERROR_CONDITION(!(*it)->get_field_symbol().is_valid(), "Invalid field symbol", 0);
-//         rewrite_base_address.sym_to_field[(*it)->get_symbol()] = (*it)->get_field_symbol();
-//     }
-// 
-//     int copy_num = 0;
-//     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-//             it != data_items.end();
-//             it++)
-//     {
-//         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-// 
-//         if (copies.empty())
-//             continue;
-// 
-//         if (!allow_multiple_copies
-//                 && copies.size() > 1)
-//         {
-//             info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
-//                     "Only the first copy (%s) will be translated\n",
-//                     ctr.get_locus_str().c_str(),
-//                     (*it)->get_symbol().get_name().c_str(),
-//                     copies[0].expression.prettyprint().c_str());
-//         }
-// 
-//         TL::DataReference data_ref(copies[0].expression);
-// 
-//         // if (IS_FORTRAN_LANGUAGE)
-//         // {
-//         //     base_address = data_ref.get_base_address_as_integer();
-//         // }
-//         // else
-//         // {
-//         //     base_address = data_ref.get_base_address().shallow_copy();
-//         // }
-// 
-//         // // rewrite
-//         // rewrite_base_address.walk(base_address);
-// 
-//         Nodecl::NodeclBase offset = data_ref.get_offsetof();
-//         rewrite_base_address.walk(offset);
-// 
-//         translations
-//             << "{"
-//             << "intptr_t device_base_address;"
-//             << "signed long offset;"
-//             << "nanos_err_t nanos_err;"
-//             << "intptr_t host_base_address;"
-// 
-//             << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
-//             << "offset = " << as_expression(offset) << ";"
-//             << "device_base_address = 0;"
-//             << "nanos_err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
-//             << "device_base_address -= offset;"
-//             << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
-//             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
-//             << "}"
-//             ;
-//         copy_num += copies.size();
-//     }
-// 
-//     if (IS_FORTRAN_LANGUAGE)
-//     {
-//         Source::source_language = SourceLanguage::C;
-//     }
-//     Nodecl::NodeclBase translations_tree = translations.parse_statement(empty_statement);
-//     if (IS_FORTRAN_LANGUAGE)
-//     {
-//         Source::source_language = SourceLanguage::Current;
-//     }
-// 
-//     empty_statement.replace(translations_tree);
-// 
-//     Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_code);
-// }
+void LoweringVisitor::translate_single_item(
+        Source &translations,
+        Nodecl::NodeclBase ctr,
+        OutlineDataItem* item,
+        Nodecl::NodeclBase copy_num)
+{
+    translations
+        << "{"
+        << "void *device_base_address;"
+        << "nanos_err_t nanos_err;"
+
+        << "device_base_address = 0;"
+        << "nanos_err = nanos_get_addr(" << as_expression(copy_num) << ", &device_base_address, wd);"
+        << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+        ;
+
+    if ((item->get_symbol().get_type().no_ref().is_fortran_array()
+                && item->get_symbol().get_type().no_ref().array_requires_descriptor())
+            || (item->get_symbol().get_type().no_ref().is_pointer()
+                && item->get_symbol().get_type().no_ref().points_to().is_fortran_array()
+                && item->get_symbol().get_type().no_ref().points_to().array_requires_descriptor()))
+    {
+        TL::Symbol new_function = get_function_modify_array_descriptor(
+                item->get_field_name(),
+                item->get_field_type(),
+                ctr.retrieve_context());
+
+        ERROR_CONDITION(item->get_copy_of_array_descriptor() == NULL, "This needs a copy of the array descriptor", 0);
+
+        translations
+            //<<  new_function.get_name() << "(arg." << item->get_field_name() << ", device_base_address);"
+            <<  new_function.get_name() << "(arg." <<
+            item->get_copy_of_array_descriptor()->get_field_name() << ", device_base_address);"
+            << "}"
+            ;
+    }
+    else
+    {
+        // Currently we do not support copies on non-shared stuff, so this should be always a pointer
+        ERROR_CONDITION(!item->get_field_type().is_pointer(), "Invalid type, expecting a pointer", 0);
+
+        translations
+            << "arg." << item->get_field_name() << " = (" << as_type(item->get_field_type()) << ")device_base_address;"
+            << "}"
+            ;
+    }
+}
 
 void LoweringVisitor::emit_translation_function_region(
         Nodecl::NodeclBase ctr,
@@ -2690,7 +2752,9 @@ void LoweringVisitor::emit_translation_function_region(
 
     Source translations;
 
-    int copy_num = 0;
+    // First the static ones
+    TL::ObjectList<OutlineDataItem*> already_processed;
+    int current_copy_num = 0;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
@@ -2702,48 +2766,67 @@ void LoweringVisitor::emit_translation_function_region(
 
         //ERROR_CONDITION((*it)->get_sharing() != OutlineDataItem::SHARING_SHARED, "Unexpected sharing\n", 0);
 
-        translations
-            << "{"
-            << "void *device_base_address;"
-            << "nanos_err_t nanos_err;"
+        int num_static_copies = 0;
 
-            << "device_base_address = 0;"
-            << "nanos_err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
-            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
-            ;
-
-        if (((*it)->get_symbol().get_type().no_ref().is_fortran_array()
-                    && (*it)->get_symbol().get_type().no_ref().array_requires_descriptor())
-                || ((*it)->get_symbol().get_type().no_ref().is_pointer()
-                    && (*it)->get_symbol().get_type().no_ref().points_to().is_fortran_array()
-                    && (*it)->get_symbol().get_type().no_ref().points_to().array_requires_descriptor()))
+        for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator
+                copy_it = copies.begin();
+                copy_it != copies.end();
+                copy_it++)
         {
-            TL::Symbol new_function = get_function_modify_array_descriptor(
-                    (*it)->get_field_name(),
-                    (*it)->get_field_type(),
-                    ctr.retrieve_context());
+            TL::DataReference copy_expr(copy_it->expression);
+            if (!copy_expr.is_multireference())
+                num_static_copies++;
+        }
 
-            ERROR_CONDITION((*it)->get_copy_of_array_descriptor() == NULL, "This needs a copy of the array descriptor", 0);
+        if (num_static_copies == 0)
+            continue;
 
-            translations
-                //<<  new_function.get_name() << "(arg." << (*it)->get_field_name() << ", device_base_address);"
-                <<  new_function.get_name() << "(arg." <<
-                        (*it)->get_copy_of_array_descriptor()->get_field_name() << ", device_base_address);"
-                << "}"
-                ;
+        already_processed.append(*it);
+
+        translate_single_item(translations,
+                ctr,
+                *it,
+                // copy_num
+                const_value_to_nodecl(const_value_get_signed_int(current_copy_num)));
+
+        current_copy_num += num_static_copies;
+    }
+
+    // Second chance for multidependences
+    int num_dynamic_copies = 0;
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        if (already_processed.contains(*it))
+            continue;
+
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+        if (copies.empty())
+            continue;
+
+        Nodecl::NodeclBase copy_num;
+        if (num_dynamic_copies == 0)
+        {
+            copy_num = const_value_to_nodecl(const_value_get_signed_int(current_copy_num));
         }
         else
         {
-            // Currently we do not support copies on non-shared stuff, so this should be always a pointer
-            ERROR_CONDITION(!(*it)->get_field_type().is_pointer(), "Invalid type, expecting a pointer", 0);
+            Source src;
+            OutlineDataItem& multicopies_index_symbol = outline_info.get_entity_for_symbol(
+                    outline_info.get_multicopies_index_symbol()
+                    );
+            src << "arg." << multicopies_index_symbol.get_field_name() << "[" << (num_dynamic_copies - 1) << "]";
 
-            translations
-                << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
-                << "}"
-                ;
+            copy_num = src.parse_expression(empty_statement);
         }
 
-        copy_num += copies.size();
+        translate_single_item(translations,
+                ctr,
+                *it,
+                copy_num);
+
+        num_dynamic_copies++;
     }
 
     if (IS_FORTRAN_LANGUAGE)
@@ -2809,6 +2892,10 @@ void LoweringVisitor::fortran_dependence_extra_check(
         {
             n = n.as<Nodecl::Dereference>().get_rhs();
         }
+        else if (n.is<Nodecl::Conversion>())
+        {
+            n = n.as<Nodecl::Conversion>().get_nest();
+        }
         else
         {
             break;
@@ -2833,11 +2920,14 @@ void LoweringVisitor::handle_dependency_item(
         Source& current_dep_num,
         Source& result_src)
 {
-    ERROR_CONDITION(!dep_expr.is_valid(),
-            "%s: Invalid dependency detected '%s'. Reason: %s\n",
+    if (!dep_expr.is_valid())
+    {
+        dep_expr.commit_diagnostic();
+        internal_error(
+            "%s: Invalid dependency detected '%s'",
             dep_expr.get_locus_str().c_str(),
-            dep_expr.prettyprint().c_str(),
-            dep_expr.get_error_log().c_str());
+            dep_expr.prettyprint().c_str());
+    }
 
     Source dependency_offset,
            dependency_flags,
@@ -2945,6 +3035,11 @@ void LoweringVisitor::handle_dependency_item(
         Nodecl::NodeclBase n = dep_expr;
         if (n.is<Nodecl::ArraySubscript>())
             n = n.as<Nodecl::ArraySubscript>().get_subscripted();
+
+        n = n.no_conv();
+        ERROR_CONDITION(!n.is<Nodecl::Dereference>(), "Invalid node", 0);
+        n = n.as<Nodecl::Dereference>().get_rhs();
+
         n = n.shallow_copy();
 
         Source check_for_allocated_src;
@@ -3140,8 +3235,8 @@ void LoweringVisitor::fill_dependences_internal(
 
     if (!Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
-        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n",
-                ctr.get_locus_str().c_str());
+        fatal_printf_at(ctr.get_locus(),
+                "please update your runtime version. deps_api < 1001 not supported\n");
     }
 
     Source dependency_regions;

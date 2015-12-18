@@ -68,6 +68,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
         virtual void visit(const Nodecl::OmpSs::WaitOnDependences& construct);
         virtual void visit(const Nodecl::OmpSs::Register& construct);
+        virtual void visit(const Nodecl::OmpSs::Unregister& construct);
 
 
         // This typedef should be public because It's used by some local functions
@@ -480,6 +481,21 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 bool &is_fortran_allocatable_dependence,
                 bool &is_fortran_pointer_dependence);
+
+        void initialize_multicopies_index(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
+                // out
+                Source& fill_outline_arguments,
+                Source& fill_immediate_arguments);
+
+        Source compute_num_refs_in_multiref(DataReference& data_ref);
+
+        void translate_single_item(
+                Source &translations,
+                Nodecl::NodeclBase ctr,
+                OutlineDataItem* item,
+                Nodecl::NodeclBase copy_num);
 };
 
 } }

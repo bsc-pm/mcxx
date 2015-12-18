@@ -94,7 +94,7 @@ namespace TL { namespace Nanos6 {
         }
         else
         {
-            running_error("Could not open Nanos++ include");
+            fatal_error("Could not open Nanos++ include");
         }
 
         Source::source_language = SourceLanguage::C;

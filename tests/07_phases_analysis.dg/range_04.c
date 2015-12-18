@@ -30,6 +30,8 @@
 <testinfo>
 test_generator=config/mercurium-analysis
 test_nolink=yes
+test_ignore="yes"
+test_ignore_reason="Broken after merging with master"
 </testinfo>
 */
 

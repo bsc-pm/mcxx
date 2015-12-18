@@ -648,70 +648,6 @@ def generate_visitor_class_header(rule_map):
     print "};"
     print ""
     print "template <typename _Ret>"
-    print "class ProxyVisitor : public NodeclVisitor<_Ret>"
-    print "{"
-    print "public:"
-    print "     ProxyVisitor() : _proxy(NULL) { }"
-    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
-         qualified_name = get_qualified_name(namespaces, class_name)
-         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
-         print "     {"
-         print "        return _proxy->walk(n);"
-         print "     }"
-    print "protected:"
-    print "   BaseNodeclVisitor<_Ret> *_proxy;"
-    print "};"
-
-    print "template <typename _Ret>"
-    print "class ModularVisitor;"
-    print "template <typename _Ret>"
-    print "class ModuleVisitor : public NodeclVisitor<_Ret>"
-    print "{"
-    print "  protected:"
-    print "     ModularVisitor<_Ret> *_modular_visitor;"
-    print "  public:"
-    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
-    print "     ModuleVisitor(ModularVisitor<_Ret>* modular_visitor) : _modular_visitor(modular_visitor) { }"
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
-         qualified_name = get_qualified_name(namespaces, class_name)
-         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
-         print "     {"
-         if module_name == "base":
-                 print "        return _modular_visitor->walk(n);"
-         else:
-                 print "        return this->unhandled_node(n);"
-         print "     }"
-    print "};"
-    print "template <typename _Ret>"
-    print "class ModularVisitor : public NodeclVisitor<_Ret>"
-    print "{"
-    print "  protected:"
-    module_set = set([])
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
-        module_set.add(module_name)
-    # modules discovered
-    for module_name in module_set:
-        if module_name != "base":
-            print "     ModuleVisitor<_Ret>* %s;" % ("_module_" + module_name)
-    print "  public:"
-    print "     typedef typename NodeclVisitor<_Ret>::Ret Ret;"
-    for module_name in module_set:
-        if module_name != "base":
-            print "     void set_%s(ModuleVisitor<_Ret>* module_visitor) { %s = module_visitor; }" \
-                    % ("module_" + module_name, "_module_" + module_name)
-    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
-         qualified_name = get_qualified_name(namespaces, class_name)
-         if (module_name == "base"):
-             pass
-         else:
-             print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
-             print "     {"
-             print "        return %s->visit(n);" % ("_module_" + module_name)
-             print "     }"
-    print "};"
-
-    print "template <typename _Ret>"
     print "typename BaseNodeclVisitor<_Ret>::Ret BaseNodeclVisitor<_Ret>::walk(const NodeclBase& n)"
     print "{"
     print """
@@ -1410,6 +1346,7 @@ def generate_c_deep_copy_def(rule_map):
     print "#include \"cxx-nodecl.h\""
     print "#include \"cxx-nodecl-deep-copy.h\""
     print "#include \"cxx-symbol-deep-copy.h\""
+    print "#include \"cxx-cexpr-deep-copy.h\""
     print "#include \"cxx-nodecl-output.h\""
     print "#include \"cxx-scope.h\""
     print "#include \"cxx-typeutils.h\""
@@ -1513,7 +1450,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, const decl_context_t* new_decl_context
         # FIXME - The type may have to be regenerated as well
         if has_attr("type"):
             print "type_t* type = nodecl_get_type(n);"
-            print "type = type_deep_copy_compute_maps(type, new_decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "type = type_deep_copy_compute_maps(type, /* dest */ NULL, new_decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
         if needs_attr("type"):
             factory_arguments.append("type")
 
@@ -1523,7 +1460,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, const decl_context_t* new_decl_context
             factory_arguments.append("text")
 
         if has_attr("cval"):
-            print "const_value_t* cval = nodecl_get_constant(n);"
+            print "const_value_t* cval = const_value_deep_copy(nodecl_get_constant(n), *synth_symbol_map);"
         if needs_attr("cval"):
             factory_arguments.append("cval")
 

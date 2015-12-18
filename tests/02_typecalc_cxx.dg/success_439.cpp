@@ -16,7 +16,7 @@ struct A
     {
         static X var = {
             // This syntax is only allowed in g++ 4.7
-#if  defined(__GNUC__) && (__GNUC__ == 4) && (__GNUC_MINOR__ >= 7)
+#if  defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4) && (__GNUC_MINOR__ >= 7))
             .outline =
 #endif
                 (void(*)(void*)) (void(*)(::A<T1, T2>::X&)) &::A<T1, T2>::bar

@@ -87,7 +87,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("KNC Backend: casting intrinsic not supported");
+            fatal_error("KNC Backend: casting intrinsic not supported");
         }
 
         return result.str();
@@ -136,7 +136,7 @@ namespace Vectorization
        // }
         else
         {
-            running_error("KNC Backend: undef intrinsic not supported for type '%s'",
+            fatal_error("KNC Backend: undef intrinsic not supported for type '%s'",
                     type.get_simple_declaration(
                         CURRENT_COMPILED_FILE->global_decl_context, "").c_str());
         }
@@ -893,7 +893,7 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorLogicalOr& n)
     {
-        running_error("KNC Backend %s: 'logical or' operation (i.e., operator '||') is not "\
+        fatal_error("KNC Backend %s: 'logical or' operation (i.e., operator '||') is not "\
                 "supported in KNC. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
                 locus_to_str(n.get_locus()));
     }

@@ -43,7 +43,7 @@ namespace Codegen
 
             virtual void visit(const Nodecl::Symbol& sym);
             virtual void visit(const Nodecl::ObjectInit& n);
-            virtual void visit(const Nodecl::Cast& n);
+            virtual void visit(const Nodecl::Conversion& n);
             virtual void visit(const Nodecl::FunctionCode& function_code);
 
             void walk_type(TL::Type t);

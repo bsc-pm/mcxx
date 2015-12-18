@@ -122,6 +122,8 @@ c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handle
     | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
 # This one should only appear inside a NODECL_TRY_BLOCK
     | NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
+# C++2011: dependent static asserts
+    | NODECL_CXX_STATIC_ASSERT([predicate]expression, [message]expression-opt)
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value
@@ -177,7 +179,6 @@ expression : literal
            | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type const-value-opt
            | NODECL_DEREFERENCE([rhs]expression) type const-value-opt
-           | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
            | NODECL_VECTOR_SUBSCRIPT([subscripted] expression, [subscript]expression) type const-value-opt
            | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
@@ -240,7 +241,7 @@ expression : literal
            | compatibility
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
-           | NODECL_CONVERSION([nest] expression) type const-value-opt
+           | NODECL_CONVERSION([nest] expression) type const-value-opt text-opt
 # This one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
@@ -384,6 +385,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_ALIGNOF([expr] expression) type const-value-opt
 # (type) { ... }
     | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type const-value-opt
+# dependent-cast
+    | NODECL_CXX_CAST([rhs]expression) type text const-value-opt
 # T(expr-list)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const-value-opt
 # T(expr-list) (T being an expression)
@@ -393,6 +396,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
 # [dependent] C+11 lambdas
     | NODECL_CXX_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
+# [dependent] alignas
+    | NODECL_CXX_ALIGNAS([values]expression-seq) type
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
@@ -702,11 +707,15 @@ parallel-statements: data-coordination
 
 # register
 data-coordination : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
+                | NODECL_OMP_SS*UNREGISTER([unregistered_set]expression-seq)
 
 omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*CONCURRENT([inout_deps]expression-seq)
                 | NODECL_OMP_SS*COMMUTATIVE([inout_deps]expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_IN([weakin_deps]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_OUT([weakout_deps]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_INOUT([weakinout_deps]expression-seq)
 
 omp-exec-environment : ompss-device-info
 

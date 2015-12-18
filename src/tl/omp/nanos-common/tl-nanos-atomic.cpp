@@ -36,7 +36,7 @@ namespace TL { namespace Nanos {
 #if 0
     static AST_t inefficient_atomic(PragmaCustomConstruct atomic_construct)
     {
-        running_error("%s: error '#pragma atomic' cannot be currently implemented for '%s'\n",
+        fatal_error("%s: error '#pragma atomic' cannot be currently implemented for '%s'\n",
                 atomic_construct.get_ast().get_locus().c_str(),
                 atomic_construct.get_statement().prettyprint().c_str());
     }

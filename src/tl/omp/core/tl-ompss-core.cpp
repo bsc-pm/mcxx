@@ -79,8 +79,9 @@ namespace TL { namespace OpenMP {
                 {
                     if (!_seen_local_symbols.contains(*it))
                     {
-                        error_printf("%s: error: cannot reference local variable '%s' in dependence\n",
-                                expr.get_locus_str().c_str(),
+                        error_printf_at(
+                                expr.get_locus(),
+                                "cannot reference local variable '%s' in dependence\n",
                                 it->get_name().c_str());
                     }
                 }
@@ -111,21 +112,24 @@ namespace TL { namespace OpenMP {
                         // Copy semantics of values in C/C++ lead to this fact
                         // If the dependence is output (or inout) this should
                         // be regarded as an error
-                        if ((_direction & TL::OpenMP::DEP_DIR_OUT) == TL::OpenMP::DEP_DIR_OUT)
+                        if ((_direction & TL::OpenMP::DEP_DIR_OUT) == TL::OpenMP::DEP_DIR_OUT
+                                || (_direction & TL::OpenMP::DEP_OMPSS_WEAK_OUT) == TL::OpenMP::DEP_OMPSS_WEAK_OUT)
                         {
-                            error_printf("%s: error: dependence %s(%s) "
+                            error_printf_at(
+                                    expr.get_locus(),
+                                    "dependence %s(%s) "
                                     "only names a parameter. The value of a parameter is never copied out of a function "
                                     "so it cannot generate an output dependence\n",
-                                    expr.get_locus_str().c_str(),
                                     get_dependency_direction_name(_direction).c_str(),
                                     expr.prettyprint().c_str());
                             return true;
                         }
                         else if (_direction != TL::OpenMP::DEP_OMPSS_DIR_IN_VALUE)
                         {
-                            warn_printf("%s: warning: skipping useless dependence %s(%s). The value of a parameter "
+                            warn_printf_at(
+                                    expr.get_locus(),
+                                    "skipping useless dependence %s(%s). The value of a parameter "
                                     "is always copied in and will never define such dependence\n",
-                                    expr.get_locus_str().c_str(),
                                     get_dependency_direction_name(_direction).c_str(),
                                     expr.prettyprint().c_str());
                             return true;
@@ -280,10 +284,11 @@ namespace TL { namespace OpenMP {
                         && sym.is_parameter()
                         && !sym.get_type().is_any_reference())
                 {
-                    warn_printf("%s: warning: defining an input dependence on the '%s' parameter "
+                    warn_printf_at(
+                            construct.get_locus(),
+                            "defining an input dependence on the '%s' parameter "
                             "which is not a pointer nor a reference is an experimental feature.\n "
                             "Please, remove this dependence if you are not sure that you need it.\n",
-                            construct.get_locus_str().c_str(),
                             sym.get_name().c_str());
 
                     input_value_args.append(input_argument);
@@ -317,8 +322,9 @@ namespace TL { namespace OpenMP {
                 if (!expr.is_valid())
                 {
                     std::string dep_str = get_dependency_direction_name(_direction);
-                    warn_printf("%s: warning: invalid dependency expression '%s(%s)', skipping\n",
-                            nodecl.get_locus_str().c_str(),
+                    warn_printf_at(
+                            nodecl.get_locus(),
+                            "invalid dependency expression '%s(%s)', skipping\n",
                             dep_str.c_str(),
                             expr.prettyprint().c_str());
                 }
@@ -355,15 +361,13 @@ namespace TL { namespace OpenMP {
 
         TL::OmpSs::RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
 
-        TL::Scope scope = construct.retrieve_context();
-
         Symbol function_sym = construct.get_symbol();
 
         if (!function_sym.is_function())
         {
-            warn_printf("%s: warning: '#pragma omp task' cannot be applied to this declaration "
-                    "since it does not declare a function, skipping",
-                    construct.get_locus_str().c_str());
+            warn_printf_at(construct.get_locus(),
+                    "'#pragma omp task' cannot be applied to this declaration "
+                    "since it does not declare a function, skipping\n");
             return;
         }
 
@@ -386,6 +390,14 @@ namespace TL { namespace OpenMP {
                     input_value_arguments);
         }
 
+        ObjectList<Nodecl::NodeclBase> weakinput_arguments;
+        PragmaCustomClause weakinput_clause = pragma_line.get_clause("weakin");
+        if (weakinput_clause.is_defined())
+        {
+            weakinput_arguments = parse_dependences_ompss_clause(weakinput_clause, parsing_scope);
+            weakinput_arguments = update_clauses(weakinput_arguments, function_sym);
+        }
+
         TL::ObjectList<std::string> input_private_names;
         input_private_names.append("inprivate");
         PragmaCustomClause input_private_clause = pragma_line.get_clause(input_private_names);
@@ -405,12 +417,28 @@ namespace TL { namespace OpenMP {
             output_arguments = update_clauses(output_arguments, function_sym);
         }
 
+        ObjectList<Nodecl::NodeclBase> weakoutput_arguments;
+        PragmaCustomClause weakoutput_clause = pragma_line.get_clause("weakout");
+        if (weakoutput_clause.is_defined())
+        {
+            weakoutput_arguments = parse_dependences_ompss_clause(weakoutput_clause, parsing_scope);
+            weakoutput_arguments = update_clauses(weakoutput_arguments, function_sym);
+        }
+
         PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
         ObjectList<Nodecl::NodeclBase> inout_arguments;
         if (inout_clause.is_defined())
         {
             inout_arguments = parse_dependences_ompss_clause(inout_clause, parsing_scope);
             inout_arguments = update_clauses(inout_arguments, function_sym);
+        }
+
+        ObjectList<Nodecl::NodeclBase> weakinout_arguments;
+        PragmaCustomClause weakinout_clause = pragma_line.get_clause("weakinout");
+        if (weakinout_clause.is_defined())
+        {
+            weakinout_arguments = parse_dependences_ompss_clause(weakinout_clause, parsing_scope);
+            weakinout_arguments = update_clauses(weakinout_arguments, function_sym);
         }
 
         {
@@ -449,8 +477,8 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase function_code = function_sym.get_function_code();
             if (function_code.is_null())
             {
-                warn_printf("%s: warning: nested function '%s' has not been defined\n",
-                        construct.get_locus_str().c_str(),
+                warn_printf_at(construct.get_locus(),
+                        "nested function '%s' has not been defined\n",
                         function_sym.get_name().c_str());
             }
             else
@@ -496,17 +524,17 @@ namespace TL { namespace OpenMP {
 
         if (has_ellipsis)
         {
-            warn_printf("%s: warning: '#pragma omp task' cannot be applied to functions "
-                    "declarations with ellipsis, skipping\n",
-                    construct.get_locus_str().c_str());
+            warn_printf_at(construct.get_locus(),
+                    "'#pragma omp task' cannot be applied to functions "
+                    "declarations with ellipsis, skipping\n");
             return;
         }
 
         if (!function_type.returns().is_void()
                 && (IS_FORTRAN_LANGUAGE || !_enable_nonvoid_function_tasks))
         {
-            error_printf("%s: error: non-void tasks are not supported, skipping\n",
-                    construct.get_locus_str().c_str());
+            error_printf_at(construct.get_locus(),
+                    "non-void tasks are not supported, skipping\n");
             return;
         }
 
@@ -515,6 +543,11 @@ namespace TL { namespace OpenMP {
         dependence_list_check(input_arguments, DEP_DIR_IN, function_sym);
         dependence_list.append(input_arguments
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_IN))
+                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+
+        dependence_list_check(weakinput_arguments, DEP_OMPSS_WEAK_IN, function_sym);
+        dependence_list.append(weakinput_arguments
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_IN))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         dependence_list_check(input_value_arguments, DEP_OMPSS_DIR_IN_VALUE, function_sym);
@@ -531,9 +564,19 @@ namespace TL { namespace OpenMP {
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
+        dependence_list_check(weakoutput_arguments, DEP_OMPSS_WEAK_OUT, function_sym);
+        dependence_list.append(weakoutput_arguments
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_OUT))
+                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+
         dependence_list_check(inout_arguments, DEP_DIR_INOUT, function_sym);
         dependence_list.append(inout_arguments
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
+                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+
+        dependence_list_check(weakinout_arguments, DEP_OMPSS_WEAK_INOUT, function_sym);
+        dependence_list.append(weakinout_arguments
+                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_INOUT))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
         dependence_list_check(concurrent_arguments, DEP_OMPSS_CONCURRENT, function_sym);
@@ -573,7 +616,7 @@ namespace TL { namespace OpenMP {
             TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_out = update_clauses(target_context.copy_out, function_sym);
             TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_inout = update_clauses(target_context.copy_inout, function_sym);
 
-            if (target_context.copy_deps)
+            if (target_context.copy_deps == OmpSs::TargetContext::COPY_DEPS)
             {
                 // Honour copy deps but first remove useless dependences
                 target_ctx_copy_in.append(input_arguments);
@@ -609,7 +652,7 @@ namespace TL { namespace OpenMP {
 
             target_info.append_to_device_list(target_context.device_list);
 
-            target_info.set_copy_deps(target_context.copy_deps);
+            target_info.set_copy_deps(target_context.copy_deps == OmpSs::TargetContext::COPY_DEPS);
         }
 
         // Store the target information in the current function task
@@ -625,10 +668,12 @@ namespace TL { namespace OpenMP {
             ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(parsing_scope);
             if (expr_list.size() != 1)
             {
-                running_error("%s: error: clause 'if' requires just one argument\n",
-                        construct.get_locus_str().c_str());
+                error_printf_at(construct.get_locus(), "clause 'if' requires just one argument\n");
             }
-            task_info.set_if_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
+            else
+            {
+                task_info.set_if_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
+            }
         }
 
         // Support final clause
@@ -638,10 +683,12 @@ namespace TL { namespace OpenMP {
             ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(parsing_scope);
             if (expr_list.size() != 1)
             {
-                running_error("%s: error: clause 'final' requires just one argument\n",
-                        construct.get_locus_str().c_str());
+                error_printf_at(construct.get_locus(), "clause 'final' requires just one argument\n");
             }
-            task_info.set_final_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
+            else
+            {
+                task_info.set_final_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
+            }
         }
 
         // Support priority clause
@@ -651,10 +698,12 @@ namespace TL { namespace OpenMP {
             ObjectList<Nodecl::NodeclBase> expr_list = priority_clause.get_arguments_as_expressions(parsing_scope);
             if (expr_list.size() != 1)
             {
-                running_error("%s: error: clause 'if' requires just one argument\n",
-                        construct.get_locus_str().c_str());
+                error_printf_at(construct.get_locus(), "clause 'priority' requires just one argument\n");
             }
-            task_info.set_priority_clause_expression(update_clauses(expr_list, function_sym)[0]);
+            else
+            {
+                task_info.set_priority_clause_expression(update_clauses(expr_list, function_sym)[0]);
+            }
         }
 
         PragmaCustomClause tied_clause = pragma_line.get_clause("tied");
@@ -673,8 +722,9 @@ namespace TL { namespace OpenMP {
 
             if (str_list.size() != 1)
             {
-                warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
-                        construct.get_locus_str().c_str());
+                warn_printf_at(
+                        construct.get_locus(),
+                        "ignoring invalid 'label' clause in 'task' construct\n");
             }
             else
             {
@@ -718,8 +768,9 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        info_printf("%s: note: adding task function '%s'%s\n",
-                construct.get_locus_str().c_str(),
+        info_printf_at(
+                construct.get_locus(),
+                "adding task function '%s'%s\n",
                 function_sym.get_name().c_str(),
                 devices_diagnostic);
         _function_task_set->add_function_task(function_sym, task_info);
@@ -731,23 +782,26 @@ namespace TL { namespace OpenMP {
 
             if (decl_context->current_scope == decl_context->global_scope)
             {
-                std::cerr
-                    << construct.get_locus_str()
-                    << ": warning: !$OMP TASK at top level only applies to calls in the current file"
-                    << std::endl
-                    ;
+                warn_printf_at(
+                        construct.get_locus(),
+                        "!$OMP TASK at top level only applies to calls in the current file\n");
 
                 if (!already_nagged)
                 {
-                    std::cerr
-                        << construct.get_locus_str()
-                        << ": info: use INTERFACE blocks or MODULE PROCEDUREs when using tasks between files"
-                        << std::endl
-                        ;
+                    info_printf_at(
+                            construct.get_locus(),
+                            "use INTERFACE blocks or MODULE PROCEDUREs when using tasks between files\n");
                     already_nagged = true;
                 }
             }
         }
+
+        // The target context has been fully consumed by this function task,
+        // this prevents from it leaking to other tasks (see ticket #2564)
+        //
+        // Recall that std::stack does not have a clear operation so we assign
+        // to it a new std::stack
+        _target_context = std::stack<TL::OmpSs::TargetContext>();
     }
 
     void Core::task_inline_handler_pre(TL::PragmaCustomStatement construct)
@@ -817,12 +871,11 @@ namespace TL { namespace OpenMP {
 
             if(deadline_exprs.size() != 1) 
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task deadline' "
-                    << "has a wrong number of arguments, skipping"
-                    << std::endl;
+                warn_printf_at(
+                        construct.get_locus(),
+                        "'#pragma omp task deadline' has a wrong number of arguments, skipping\n");
             }
-            else 
+            else
             {
                 rt_info.set_time_deadline(deadline_exprs[0]);
             }
@@ -838,10 +891,9 @@ namespace TL { namespace OpenMP {
 
             if(release_exprs.size() != 1) 
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task release_deadline' "
-                    << "has a wrong number of arguments, skipping"
-                    << std::endl;
+                warn_printf_at(
+                        construct.get_locus(),
+                        "'#pragma omp task release_deadline' has a wrong number of arguments, skipping\n");
             }
             else
             {
@@ -858,10 +910,9 @@ namespace TL { namespace OpenMP {
 
             if(on_error_args.size() != 1) 
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task onerror' "
-                    << "has a wrong number of arguments, skipping"
-                    << std::endl;
+                warn_printf_at(
+                        construct.get_locus(),
+                        "'#pragma omp task onerror' has a wrong number of arguments, skipping\n");
             }
             else
             {
@@ -877,10 +928,9 @@ namespace TL { namespace OpenMP {
                             if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
                                     (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_locus_str()
-                                    << ": warning: '#pragma omp task onerror' "
-                                    << "first token must be an identifier, skipping"
-                                    << std::endl;
+                                warn_printf_at(
+                                        construct.get_locus(),
+                                        "'#pragma omp task onerror' first token must be an idenfifier, skipping\n");
                             }
                             else
                             {
@@ -895,25 +945,22 @@ namespace TL { namespace OpenMP {
                             if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
                                     (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_locus_str()
-                                    << ": warning: '#pragma omp task onerror' "
-                                    << "first token must be an identifier, skipping"
-                                    << std::endl;
+                                warn_printf_at(
+                                        construct.get_locus(),
+                                        "'#pragma omp task onerror' first token must be an idenfifier, skipping\n");
                             }
                             else if (tokens[1].first != (int)':')
                             {
-                                std::cerr << construct.get_locus_str()
-                                    << ": warning: '#pragma omp task onerror' "
-                                    << "second token must be a colon, skipping"
-                                    << std::endl;
+                                warn_printf_at(
+                                        construct.get_locus(),
+                                        "'#pragma omp task onerror' second token must be a colon, skipping\n");
                             }
                             else if ((IS_C_LANGUAGE   && (tokens[2].first != TokensC::IDENTIFIER)) ||
                                     (IS_CXX_LANGUAGE && (tokens[2].first != TokensCXX::IDENTIFIER)))
                             {
-                                std::cerr << construct.get_locus_str()
-                                    << ": warning: '#pragma omp task onerror' "
-                                    << "third token must be an identifier, skipping"
-                                    << std::endl;
+                                warn_printf_at(
+                                        construct.get_locus(),
+                                        "'#pragma omp task onerror' third token must be an identifier, skipping\n");
                             }
                             else
                             {
@@ -923,13 +970,10 @@ namespace TL { namespace OpenMP {
                         }
                     default:
                         {
-                            std::cerr 
-                                << construct.get_locus_str()
-                                << ": warning: '#pragma omp task onerror' "
-                                << "has a wrong number of tokens. "
-                                << "It is expecting 'identifier:identifier' "
-                                << "or 'indentifier', skipping"
-                                << std::endl;
+                            warn_printf_at(
+                                    construct.get_locus(),
+                                    "'#pragma omp task onerror' has a wrong number of tokens. "
+                                    "Expecting either a single identifier or identifier:identifier, skipping\n");
                         }
                 }
             }

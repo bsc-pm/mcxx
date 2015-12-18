@@ -381,8 +381,7 @@ typedef struct compilation_configuration_tag
     char do_not_link;
     char generate_assembler;
     char enable_openmp;
-    char force_language;
-    char handoff_to_native;
+	char force_language;
 
     // -Werror
     char warnings_as_errors;
@@ -448,12 +447,16 @@ typedef struct compilation_configuration_tag
 
     const char* linker_name;
 
-    const char** linker_options_pre;
-
     int num_args_linker_command;
     parameter_linker_command_t** linker_command;
 
     const char** linker_options;
+    // --Wr,
+    // Added before all linker options
+    const char** linker_options_pre;
+    // --WL,
+    // Added after all linker options
+    const char** linker_options_post;
 
     // Toolchain tools of the target
     const char* target_objcopy;

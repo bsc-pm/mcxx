@@ -178,8 +178,8 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mod& node)
     TL::Type lhs_type = lhs.get_type();
     TL::Type rhs_type = rhs.get_type();
 
-    if(rhs.is_constant() && rhs_type.is_integral_type()
-            && lhs_type.is_unsigned_int())
+    if(node.get_type().is_unsigned_int()
+            && rhs.is_constant())
     {
         //TODO: It could be a different type than int
         const_value_t * cv = rhs.get_constant();

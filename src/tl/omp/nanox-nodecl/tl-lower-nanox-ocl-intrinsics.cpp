@@ -185,7 +185,10 @@ namespace TL { namespace Nanox {
 
         // Replace the current intrinsic call by a call to the new function
         TL::Source actual_arg_array;
-        actual_arg_array << as_expression(subscripted);
+        Nodecl::NodeclBase subscripted_lvalue = subscripted.shallow_copy();
+        subscripted_lvalue.set_type(subscripted_symbol.get_type().no_ref().get_lvalue_reference_to());
+
+        actual_arg_array << as_expression(subscripted_lvalue);
 
         TL::Source actual_arg_bounds;
         Nodecl::List subscripts = arg.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();

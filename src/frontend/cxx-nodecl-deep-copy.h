@@ -67,6 +67,10 @@ typedef struct nested_symbol_map_tag nested_symbol_map_t;
 nested_symbol_map_t* new_nested_symbol_map(symbol_map_t* enclosing_map);
 void nested_map_add(nested_symbol_map_t* nested_symbol_map, scope_entry_t* source, scope_entry_t* target);
 
+void symbol_deep_copy_map_add(symbol_deep_copy_map_t* symbol_deep_copy_map,
+        scope_entry_t *orig,
+        scope_entry_t *copied);
+
 MCXX_END_DECLS
 
 #endif // CXX_NODECL_DEEP_COPY_H

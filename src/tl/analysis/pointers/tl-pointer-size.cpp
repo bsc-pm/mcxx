@@ -72,16 +72,12 @@ namespace Analysis{
                             t = s.get_type().no_ref();
                             if(!s.is<Nodecl::Symbol>() && !s.is<Nodecl::ClassMemberAccess>() && !s.is<Nodecl::ArraySubscript>())
                                 continue;
-                            value = it->as<Nodecl::Assignment>().get_rhs();
+                            value = it->as<Nodecl::Assignment>().get_rhs().no_conv();
                         }
                         
                         // Check whether this is a pointer and the assignment is a recognized memory operation
                         if(t.is_pointer() && !value.is_null())      // This can be null if uninitialized ObjectInit
                         {
-                            // Skip casts
-                            while(value.is<Nodecl::Cast>())
-                                value = value.as<Nodecl::Cast>().get_rhs();
-                            
                             if(value.is<Nodecl::FunctionCall>())
                             {
                                 Symbol called_sym = value.as<Nodecl::FunctionCall>().get_called().get_symbol();

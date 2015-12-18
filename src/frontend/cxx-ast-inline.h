@@ -527,7 +527,9 @@ static inline void ast_replace_with_ambiguity(AST a, int n)
 static inline AST ast_list_head(const_AST list);
 static inline const locus_t* ast_get_locus(const_AST a)
 {
-    if (ASTKind(a) != AST_NODE_LIST)
+    if (a == NULL)
+        return NULL;
+    else if (ASTKind(a) != AST_NODE_LIST)
         return a->locus;
     else
         return ast_get_locus(

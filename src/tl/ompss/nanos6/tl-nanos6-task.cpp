@@ -131,8 +131,9 @@ namespace TL { namespace Nanos6 {
                     node.get_locus());
 
             // (void**)&args
+            Nodecl::NodeclBase cast;
             Nodecl::NodeclBase args_ptr_out =
-                Nodecl::Cast::make(
+                cast = Nodecl::Conversion::make(
                         Nodecl::Reference::make(
                             args.make_nodecl(
                                 /* set_ref_type */ true,
@@ -140,8 +141,9 @@ namespace TL { namespace Nanos6 {
                             args.get_type().get_pointer_to(),
                             node.get_locus()),
                         TL::Type::get_void_type().get_pointer_to().get_pointer_to(),
-                        "C",
                         node.get_locus());
+
+            cast.set_text("C");
 
             // &task_ptr
             Nodecl::NodeclBase task_ptr_out =
@@ -203,6 +205,7 @@ namespace TL { namespace Nanos6 {
             task_ptr_arg = ::cxx_nodecl_make_conversion(
                     task_ptr_arg.get_internal_nodecl(),
                     task_ptr.get_type().no_ref().get_internal_type(),
+                    TL::Scope::get_global_scope().get_decl_context(),
                     node.get_locus());
 
             Nodecl::NodeclBase new_task =

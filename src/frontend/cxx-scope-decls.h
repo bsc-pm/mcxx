@@ -175,6 +175,8 @@ struct decl_context_tag
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_CLASS, "dependent friend class") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend function") \
+    SYMBOL_KIND(SK_MEMBER_STATIC_ASSERT, "member static_assert") \
+    SYMBOL_KIND(SK_NULLPTR, "nullptr") \
     SYMBOL_KIND(SK_USING, "using declared name") \
     SYMBOL_KIND(SK_USING_TYPENAME, "using typename declared name") \
     SYMBOL_KIND(SK_LAMBDA, "lambda-expression") \
@@ -239,8 +241,11 @@ struct template_parameter_value_tag
     // This tree is owned by this structure
     nodecl_t value;
 
-    // Template, states that this is a default argument of a template parameter
-    char is_default;
+    // States that this is a default argument of a template parameter
+    char is_default:1;
+    // States that this argument was not present in the original template argument
+    // but was added when completing them
+    char is_implicit:1;
 
     // This symbol is null until lookup finds a template parameter and
     // discovers it has this value. Then a fake symbol is created to represent

@@ -44,8 +44,8 @@ linker_name = @GCC@
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
 
 #simd
-{simd, !mmic, !knl, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
-{simd, !mmic, !knl, !avx2} compiler_options = @SIMD_FLAGS@
+{simd, !(mmic|knl|avx2|neon)} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !(mmic|knl|avx2|neon)} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
@@ -57,8 +57,14 @@ linker_name = @GCC@
 {simd, knl} options = --variable=knl_enabled:1
 {simd, mmic} options = --variable=mic_enabled:1
 {simd, avx2} options = --variable=avx2_enabled:1
+{simd, neon} options = --variable=neon_enabled:1
 {(mmic|knl)} preprocessor_options = -include immintrin.h
 {simd, avx2} preprocessor_options = -include immintrin.h
+{simd,neon} preprocessor_options = -mfpu=neon -include arm_neon.h
+{simd,neon} compiler_options = -mfpu=neon
+{simd,neon} linker_options = -mfpu=neon
+{neon} options = --vector-flavor=neon
+
 {@NANOX_GATE@,cluster} options = --variable=nanos_main_enabled:1
 
 #omp
@@ -125,11 +131,7 @@ linker_options = -Xlinker --enable-new-dtags
 {@NANOS6_GATE@,openmp} pragma_prefix = oss
 {@NANOS6_GATE@,openmp}preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6_rt_interface.h
 {@NANOS6_GATE@} linker_options = -L@NANOS6_LIB@
-{@NANOS6_GATE@,openmp,!(instrument|instrumentation),!debug,!null-rt}linker_options = -lnanos6
-{@NANOS6_GATE@,openmp,!(instrument|instrumentation),debug,!null-rt}linker_options = -lnanos6-debug
-{@NANOS6_GATE@,openmp,null-rt}linker_options = -lnanos6-null
-{@NANOS6_GATE@,openmp,(instrument|instrumentation),!debug}linker_options = -lnanos6-instr
-{@NANOS6_GATE@,openmp,(instrument|instrumentation),debug}linker_options = -lnanos6-instr-dbg
+{@NANOS6_GATE@,openmp}linker_options = -lnanos6
 {@NANOS6_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
 # dlb

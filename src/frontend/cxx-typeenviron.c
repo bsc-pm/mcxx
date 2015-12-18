@@ -38,6 +38,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
+#include "cxx-gccbuiltins.h"
 
 #include "fortran03-typeenviron.h"
 #include "fortran03-typeutils.h"
@@ -1664,7 +1665,6 @@ void generic_system_v_sizeof(type_t* t)
     internal_error("Language not supported", 0);
 }
 
-#if 0
 struct floating_type_info_tag binary_float_16 =
 { 
     .size_of = 2, 
@@ -1676,8 +1676,6 @@ struct floating_type_info_tag binary_float_16 =
     .emin = -29,
     .emax = +32,
 };
-#endif
-
 
 struct floating_type_info_tag binary_float_32 =
 { 
@@ -1856,6 +1854,8 @@ void init_type_environments(void)
     linux_ia32.sizeof_builtin_va_list = 4;
     linux_ia32.alignof_builtin_va_list = 4;
 
+    linux_ia32.gcc_target_specific_builtins = gcc_builtins_i386;
+
     // ***************************+***************
     //     Linux AMD 64
     // ***************************+***************
@@ -1932,6 +1932,7 @@ void init_type_environments(void)
     linux_amd64.sizeof_builtin_va_list = 24;
     linux_amd64.alignof_builtin_va_list = 8;
 
+    linux_amd64.gcc_target_specific_builtins = gcc_builtins_x86_64;
 
     // ***************************+***************
     //     Linux IA64
@@ -2449,6 +2450,8 @@ void init_type_environments(void)
     linux_arm_eabi.sizeof_builtin_va_list = 4;
     linux_arm_eabi.alignof_builtin_va_list = 4;
 
+    linux_arm_eabi.gcc_target_specific_builtins = gcc_builtins_arm;
+
     // ***************************+***************
     //     Linux ARM 64
     // ***************************+***************
@@ -2529,6 +2532,8 @@ void init_type_environments(void)
     // } va_list;
     linux_arm64.sizeof_builtin_va_list = 32;
     linux_arm64.alignof_builtin_va_list = 8;
+
+    linux_arm64.gcc_target_specific_builtins = gcc_builtins_arm64;
 }
 
 /*

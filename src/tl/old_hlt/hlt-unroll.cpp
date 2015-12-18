@@ -256,7 +256,7 @@ TL::Source LoopUnroll::do_unroll()
 		else
 		{
 			std::cerr << "Do not create task " << __FILE__ << ":" << __LINE__ << std::endl;
-            running_error("Path not supported yet", 0);
+            fatal_error("Path not supported yet", 0);
 			// epilogue_body << loop_body.get_ast().prettyprint_with_callback(functor(ignore_tasks));
 		}
 	}

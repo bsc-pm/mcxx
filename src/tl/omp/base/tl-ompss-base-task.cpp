@@ -417,6 +417,12 @@ namespace TL { namespace OmpSs {
                 locus,
                 result_list);
 
+        _base->make_dependency_list<Nodecl::OmpSs::DepWeakIn>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_IN,
+                locus,
+                result_list);
+
         _base->make_dependency_list<Nodecl::OmpSs::DepInPrivate>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_DIR_IN_PRIVATE,
@@ -428,15 +434,28 @@ namespace TL { namespace OmpSs {
                 OpenMP::DEP_OMPSS_DIR_IN_VALUE,
                 locus,
                 result_list);
+
         _base->make_dependency_list<Nodecl::OpenMP::DepOut>(
                 task_dependences,
                 OpenMP::DEP_DIR_OUT,
                 locus,
                 result_list);
 
+        _base->make_dependency_list<Nodecl::OmpSs::DepWeakOut>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_OUT,
+                locus,
+                result_list);
+
         _base->make_dependency_list<Nodecl::OpenMP::DepInout>(
                 task_dependences,
                 OpenMP::DEP_DIR_INOUT,
+                locus,
+                result_list);
+
+        _base->make_dependency_list<Nodecl::OmpSs::DepWeakInout>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_INOUT,
                 locus,
                 result_list);
 
@@ -515,16 +534,17 @@ namespace TL { namespace OmpSs {
 
                         ERROR_CONDITION(arg.is_null(), "Invalid node", 0);
 
-                        warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
+                        warn_printf_at(
+                                function_sym.get_locus(),
+                                "assuming dummy argument '%s' of function task '%s' "
                                 "is SHARED because it does not have VALUE attribute\n",
-                                function_sym.get_locus_str().c_str(),
                                 it->get_name().c_str(),
                                 function_sym.get_name().c_str());
                         if (!arg.is_constant())
                         {
-                            info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
+                            info_printf_at(function_sym.get_locus(),
+                                    "during the execution of task '%s', the dummy argument '%s' may not have "
                                     "the value that the actual argument '%s' had at task creation\n",
-                                    function_sym.get_locus_str().c_str(),
                                     function_sym.get_name().c_str(),
                                     it->get_name().c_str(),
                                     arg.prettyprint().c_str());
@@ -708,12 +728,27 @@ namespace TL { namespace OmpSs {
             there_are_dependences = true;
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakIn& dep_in)
+        {
+            there_are_dependences = true;
+        }
+
         void visit(const Nodecl::OpenMP::DepOut& dep_out)
         {
             there_are_dependences = true;
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakOut& dep_out)
+        {
+            there_are_dependences = true;
+        }
+
         void visit(const Nodecl::OpenMP::DepInout& dep_inout)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OmpSs::DepWeakInout& dep_inout)
         {
             there_are_dependences = true;
         }
@@ -799,14 +834,29 @@ namespace TL { namespace OmpSs {
             report_dep(dep_in.get_in_deps(), OpenMP::DEP_DIR_IN);
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakIn& dep_in)
+        {
+            report_dep(dep_in.get_weakin_deps(), OpenMP::DEP_OMPSS_WEAK_IN);
+        }
+
         void visit(const Nodecl::OpenMP::DepOut& dep_out)
         {
             report_dep(dep_out.get_out_deps(), OpenMP::DEP_DIR_OUT);
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakOut& dep_in)
+        {
+            report_dep(dep_in.get_weakout_deps(), OpenMP::DEP_OMPSS_WEAK_OUT);
+        }
+
         void visit(const Nodecl::OpenMP::DepInout& dep_inout)
         {
             report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_DIR_INOUT);
+        }
+
+        void visit(const Nodecl::OmpSs::DepWeakInout& dep_in)
+        {
+            report_dep(dep_in.get_weakinout_deps(), OpenMP::DEP_OMPSS_WEAK_INOUT);
         }
 
         void visit(const Nodecl::OmpSs::DepInPrivate& dep_in)
@@ -1382,12 +1432,12 @@ namespace TL { namespace OmpSs {
                 && expression_stmt_is_a_reduction(enclosing_stmt, _function_task_set)
                 && only_one_task_is_involved_in_this_stmt(enclosing_stmt))
         {
-            std::cerr << locus_to_str(enclosing_stmt.get_locus())
-                      << ": info: enabling experimental optimization: transforming task expression '"
-                      << enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().prettyprint()
-                      << "' into a simple task" << std::endl
-                      << "To disable this optimization use the flag "
-                      << " --variable=disable_task_expression_optimization:1" << std::endl;
+            info_printf_at(enclosing_stmt.get_locus(),
+                      "enabling experimental optimization: transforming task expression '%s' into a simple task\n",
+                      enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().prettyprint().c_str());
+            info_printf_at(enclosing_stmt.get_locus(),
+                      "To disable this optimization use the flag "
+                      " --variable=disable_task_expression_optimization:1\n");
 
             transform_task_expression_into_simple_task(func_call, enclosing_stmt);
             return;

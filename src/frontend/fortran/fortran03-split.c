@@ -131,7 +131,7 @@ void fortran_split_lines(FILE* input, FILE* output, int width)
 
 				if (next_position == NULL)
 				{
-					running_error("Serious problem when splitting line. '%s' not found:\n\n %s", mf03lval.token_atrib.token_text, position);
+					fatal_error("Serious problem when splitting line. '%s' not found:\n\n %s", mf03lval.token_atrib.token_text, position);
 				}
 
 				// Next column has the column where the token will start
@@ -305,7 +305,7 @@ static char* read_whole_line(FILE* input)
     {
         if (ferror(input))
         {
-            running_error("error: while starting to split file\n");
+            fatal_error("error: while starting to split file\n");
         }
     }
 
@@ -325,7 +325,7 @@ static char* read_whole_line(FILE* input)
         {
             if (ferror(input))
             {
-                running_error("error: while splitting file\n");
+                fatal_error("error: while splitting file\n");
             }
         }
 

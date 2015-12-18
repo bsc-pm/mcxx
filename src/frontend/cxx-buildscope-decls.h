@@ -164,7 +164,7 @@ struct gather_decl_spec_tag {
         bool is_shared:1;
         bool is_constant:1;
     } cuda;
-    
+
     // OpenCL info
     struct
     {
@@ -181,6 +181,8 @@ struct gather_decl_spec_tag {
     // _Pragma("map") inlined in a declarator
     int num_xl_pragmas;
     const char** xl_pragmas;
+
+    nodecl_t alignas_list;
 
 } gather_decl_spec_t;
 

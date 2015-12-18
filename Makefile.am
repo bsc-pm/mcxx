@@ -291,6 +291,8 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-cexpr.h \
   src/frontend/cxx-cexpr-fwd.h \
   src/frontend/cxx-cexpr-decls.h \
+  src/frontend/cxx-cexpr-deep-copy.h \
+  src/frontend/cxx-cexpr-deep-copy.c \
   src/frontend/cxx-ambiguity.c \
   src/frontend/cxx-ambiguity.h \
   src/frontend/cxx-solvetemplate.h \
@@ -373,6 +375,8 @@ src_frontend_libgccbuiltins_la_CFLAGS=@NO_VAR_TRACKING_ASSIGNMENTS@ \
 src_frontend_libgccbuiltins_la_SOURCES = \
   src/frontend/cxx-gccbuiltins.h \
   src/frontend/cxx-gccbuiltins-ia32.h \
+  src/frontend/cxx-gccbuiltins-arm-neon.h \
+  src/frontend/cxx-gccbuiltins-arm64-neon.h \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
@@ -955,8 +959,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-nodecl-utils-fortran.cpp \
     src/tl/tl-nodecl-utils-c.hpp \
     src/tl/tl-nodecl-utils-c.cpp \
-    src/tl/tl-nodecl-replace.hpp \
-    src/tl/tl-nodecl-replace.cpp \
     src/tl/tl-scope.hpp \
     src/tl/tl-scope-fwd.hpp \
     src/tl/tl-scope.cpp \
@@ -978,6 +980,7 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-type-fwd.hpp \
     src/tl/tl-type.hpp \
     src/tl/tl-type.cpp \
+    src/tl/tl-member-decl.hpp \
     src/tl/tl-objectlist.hpp \
     src/tl/tl-objectlist.cpp \
     src/tl/tl-externalvars.hpp \
@@ -1002,8 +1005,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-clauses-info.cpp \
     src/tl/tl-pragmasupport.hpp \
     src/tl/tl-pragmasupport.cpp \
-    src/tl/tl-replace.hpp \
-    src/tl/tl-replace.cpp \
     src/tl/tl-modules-fwd.hpp \
     src/tl/tl-modules.hpp \
     src/tl/tl-modules.cpp \
@@ -1192,7 +1193,9 @@ src_tl_analysis_common_libanalysis_utils_la_CXXFLAGS = $(tl_cflags) \
 				-I$(top_srcdir)/src/tl/optimizations
 src_tl_analysis_common_libanalysis_utils_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_common_libanalysis_utils_la_LIBADD = $(tl_libadd) src/tl/libtl.la \
-				src/tl/optimizations/libtloptimizations.la
+				src/tl/optimizations/libtloptimizations.la \
+				-lrt \
+				$(END)
 
 src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 				src/tl/analysis/common/tl-link-data.hpp \
@@ -1343,7 +1346,6 @@ src_tl_analysis_loops_libloops_analysis_la_SOURCES = src/tl/analysis/loops/tl-iv
                                src/tl/analysis/loops/tl-iv-analysis.cpp \
                                src/tl/analysis/loops/tl-loop-analysis.hpp \
                                src/tl/analysis/loops/tl-loop-analysis.cpp \
-                               src/tl/analysis/loops/tl-renaming-visitor.hpp \
                                $(END)
 
 ##########################################################################
@@ -2572,6 +2574,35 @@ src_tl_vectorization_vector_lowering_knl_libtlvector_lowering_knl_la_SOURCES = \
 endif
 
 ##########################################################################
+# src/tl/vectorization/vector-lowering/neon
+##########################################################################
+
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/vector-lowering/neon/libtlvector-lowering-neon.la
+
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_CFLAGS = $(tl_cflags)
+
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_CXXFLAGS = $(tl_cflags) \
+                              $(vector_lowering_cflags) \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/neon/legalization \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/neon/backend \
+                              $(END)
+
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+	$(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
+$(END)
+
+src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_SOURCES = \
+     src/tl/vectorization/vector-lowering/neon/legalization/tl-vector-legalization-neon.hpp \
+     src/tl/vectorization/vector-lowering/neon/legalization/tl-vector-legalization-neon.cpp \
+     src/tl/vectorization/vector-lowering/neon/backend/tl-vector-backend-neon.hpp \
+     src/tl/vectorization/vector-lowering/neon/backend/tl-vector-backend-neon.cpp \
+     $(END)
+endif
+
+##########################################################################
 # src/tl/vectorization/vector-lowering
 ##########################################################################
 
@@ -2592,6 +2623,9 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_c
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knl/ \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knl/legalization \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knl/backend \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/legalization \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/backend \
                  $(END)
 
 src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)
@@ -2606,6 +2640,7 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LIBADD = \
     $(top_builddir)/src/tl/vectorization/vector-lowering/avx2/libtlvector-lowering-avx2.la \
     $(top_builddir)/src/tl/vectorization/vector-lowering/knc/libtlvector-lowering-knc.la \
     $(top_builddir)/src/tl/vectorization/vector-lowering/knl/libtlvector-lowering-knl.la \
+    $(top_builddir)/src/tl/vectorization/vector-lowering/neon/libtlvector-lowering-neon.la \
     $(END)
 endif
 
@@ -3184,6 +3219,7 @@ config_edit = \
      -e 's|@NANOS6_GATE[@]|$(NANOS6_GATE)|g' \
      -e 's|@NANOS6_INCLUDES[@]|$(NANOS6_INCLUDES)|g' \
      -e 's|@NANOS6_LIB[@]|$(NANOS6_LIB)|g' \
+     -e 's|@GOMP_OMP_LIB[@]|$(GOMP_OMP_LIB)|g' \
     $(END)
 
 # Cross compiler profile names
@@ -3260,7 +3296,9 @@ config_DATA = \
 EXTRA_DIST += \
 			scripts/bison-2.3-rofi-patch \
 			scripts/mcxx-rpm.spec \
-			scripts/builtins_ia32.cpp \
+			scripts/simd/x86/builtins_ia32.cpp \
+			scripts/simd/neon/builtins_neon.cpp \
+			scripts/simd/builtins-common.hpp \
 			$(DEBIAN_EXTRA)
 			$(END)
 
@@ -3271,66 +3309,70 @@ DEBIAN_EXTRA=\
               scripts/debian/control \
               $(END)
 
-LATEST_GXX=g++-5.1
+#####################################
+# x86 builtins generator
+#####################################
 
-LATEST_GXX_FLAGS =
-LATEST_GXX_FLAGS += -fabi-version=6
-LATEST_GXX_FLAGS += -m3dnow
-LATEST_GXX_FLAGS += -mabm
-LATEST_GXX_FLAGS += -maes
-LATEST_GXX_FLAGS += -mavx
-LATEST_GXX_FLAGS += -mavx2
-LATEST_GXX_FLAGS += -mavx512bw
-LATEST_GXX_FLAGS += -mavx512cd
-LATEST_GXX_FLAGS += -mavx512dq
-LATEST_GXX_FLAGS += -mavx512er
-LATEST_GXX_FLAGS += -mavx512f
-LATEST_GXX_FLAGS += -mavx512ifma
-LATEST_GXX_FLAGS += -mavx512pf
-LATEST_GXX_FLAGS += -mavx512vbmi
-LATEST_GXX_FLAGS += -mavx512vl
-LATEST_GXX_FLAGS += -mbmi
-LATEST_GXX_FLAGS += -mbmi2
-LATEST_GXX_FLAGS += -mclflushopt
-LATEST_GXX_FLAGS += -mclwb
-LATEST_GXX_FLAGS += -mf16c
-LATEST_GXX_FLAGS += -mfma
-LATEST_GXX_FLAGS += -mfma4
-LATEST_GXX_FLAGS += -mfsgsbase
-LATEST_GXX_FLAGS += -mfxsr
-LATEST_GXX_FLAGS += -mlwp
-LATEST_GXX_FLAGS += -mlzcnt
-LATEST_GXX_FLAGS += -mmmx
-LATEST_GXX_FLAGS += -mmpx
-LATEST_GXX_FLAGS += -mmwaitx
-LATEST_GXX_FLAGS += -mno-fma4
-LATEST_GXX_FLAGS += -mpclmul
-LATEST_GXX_FLAGS += -mpcommit
-LATEST_GXX_FLAGS += -mpopcnt
-LATEST_GXX_FLAGS += -mprefetchwt1
-LATEST_GXX_FLAGS += -mrdrnd
-LATEST_GXX_FLAGS += -mrdseed
-LATEST_GXX_FLAGS += -mrtm
-LATEST_GXX_FLAGS += -msha
-LATEST_GXX_FLAGS += -msse
-LATEST_GXX_FLAGS += -msse2
-LATEST_GXX_FLAGS += -msse3
-LATEST_GXX_FLAGS += -msse4
-LATEST_GXX_FLAGS += -msse4.1
-LATEST_GXX_FLAGS += -msse4.2
-LATEST_GXX_FLAGS += -msse4a
-LATEST_GXX_FLAGS += -mssse3
-LATEST_GXX_FLAGS += -mtbm
-LATEST_GXX_FLAGS += -mxop
-LATEST_GXX_FLAGS += -mxsave
-LATEST_GXX_FLAGS += -mxsavec
-LATEST_GXX_FLAGS += -mxsaveopt
-LATEST_GXX_FLAGS += -mxsaves
+LATEST_GXX_X86=g++-5.1
 
-scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp Makefile
-	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir)\
+LATEST_GXX_X86_FLAGS =
+LATEST_GXX_X86_FLAGS += -fabi-version=6
+LATEST_GXX_X86_FLAGS += -m3dnow
+LATEST_GXX_X86_FLAGS += -mabm
+LATEST_GXX_X86_FLAGS += -maes
+LATEST_GXX_X86_FLAGS += -mavx
+LATEST_GXX_X86_FLAGS += -mavx2
+LATEST_GXX_X86_FLAGS += -mavx512bw
+LATEST_GXX_X86_FLAGS += -mavx512cd
+LATEST_GXX_X86_FLAGS += -mavx512dq
+LATEST_GXX_X86_FLAGS += -mavx512er
+LATEST_GXX_X86_FLAGS += -mavx512f
+LATEST_GXX_X86_FLAGS += -mavx512ifma
+LATEST_GXX_X86_FLAGS += -mavx512pf
+LATEST_GXX_X86_FLAGS += -mavx512vbmi
+LATEST_GXX_X86_FLAGS += -mavx512vl
+LATEST_GXX_X86_FLAGS += -mbmi
+LATEST_GXX_X86_FLAGS += -mbmi2
+LATEST_GXX_X86_FLAGS += -mclflushopt
+LATEST_GXX_X86_FLAGS += -mclwb
+LATEST_GXX_X86_FLAGS += -mf16c
+LATEST_GXX_X86_FLAGS += -mfma
+LATEST_GXX_X86_FLAGS += -mfma4
+LATEST_GXX_X86_FLAGS += -mfsgsbase
+LATEST_GXX_X86_FLAGS += -mfxsr
+LATEST_GXX_X86_FLAGS += -mlwp
+LATEST_GXX_X86_FLAGS += -mlzcnt
+LATEST_GXX_X86_FLAGS += -mmmx
+LATEST_GXX_X86_FLAGS += -mmpx
+LATEST_GXX_X86_FLAGS += -mmwaitx
+LATEST_GXX_X86_FLAGS += -mno-fma4
+LATEST_GXX_X86_FLAGS += -mpclmul
+LATEST_GXX_X86_FLAGS += -mpcommit
+LATEST_GXX_X86_FLAGS += -mpopcnt
+LATEST_GXX_X86_FLAGS += -mprefetchwt1
+LATEST_GXX_X86_FLAGS += -mrdrnd
+LATEST_GXX_X86_FLAGS += -mrdseed
+LATEST_GXX_X86_FLAGS += -mrtm
+LATEST_GXX_X86_FLAGS += -msha
+LATEST_GXX_X86_FLAGS += -msse
+LATEST_GXX_X86_FLAGS += -msse2
+LATEST_GXX_X86_FLAGS += -msse3
+LATEST_GXX_X86_FLAGS += -msse4
+LATEST_GXX_X86_FLAGS += -msse4.1
+LATEST_GXX_X86_FLAGS += -msse4.2
+LATEST_GXX_X86_FLAGS += -msse4a
+LATEST_GXX_X86_FLAGS += -mssse3
+LATEST_GXX_X86_FLAGS += -mtbm
+LATEST_GXX_X86_FLAGS += -mxop
+LATEST_GXX_X86_FLAGS += -mxsave
+LATEST_GXX_X86_FLAGS += -mxsavec
+LATEST_GXX_X86_FLAGS += -mxsaveopt
+LATEST_GXX_X86_FLAGS += -mxsaves
+
+scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/simd/x86/builtins_ia32.cpp Makefile
+	$(LATEST_GXX_X86) $(LATEST_GXX_X86_FLAGS) -I$(srcdir)/scripts/simd \
 		-o scripts/generate_builtins_ia32.bin \
-		$(srcdir)/scripts/builtins_ia32.cpp \
+		$(srcdir)/scripts/simd/x86/builtins_ia32.cpp \
 		-Wl,-rpath,$$(dirname $$($(LATEST_GXX) -print-file-name=libstdc++.so))
 
 # These files are only regenerated manually
@@ -3338,6 +3380,51 @@ scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp Makefil
 CLEANFILES += scripts/generate_builtins_ia32.bin
 generate_builtins_ia32: scripts/generate_builtins_ia32.bin
 	./scripts/generate_builtins_ia32.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32.h
+
+#####################################
+# ARM NEON builtins generator
+#####################################
+
+LATEST_GXX_NEON=arm-linux-gnueabihf-g++
+LATEST_GXX_NEON_FLAGS =
+LATEST_GXX_NEON_FLAGS += -mfpu=neon
+
+# These files are only regenerated manually
+.PHONY: generate_builtins_neon
+CLEANFILES += scripts/generate_builtins_neon.bin
+
+scripts/generate_builtins_neon.bin : $(srcdir)/scripts/simd/neon/builtins_neon.cpp Makefile
+	$(LATEST_GXX_NEON) $(LATEST_GXX_NEON_FLAGS) \
+		-static \
+		-I$(srcdir)/scripts/simd \
+		-o scripts/generate_builtins_neon.bin \
+		$(srcdir)/scripts/simd/neon/builtins_neon.cpp
+
+generate_builtins_neon: scripts/generate_builtins_neon.bin
+	qemu-arm ./scripts/generate_builtins_neon.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm-neon.h
+
+#####################################
+# ARM64 NEON builtins generator
+#####################################
+
+LATEST_GXX_NEON_ARM64=aarch64-linux-gnu-g++
+LATEST_GXX_NEON_ARM64_FLAGS =
+
+# These files are only regenerated manually
+.PHONY: generate_builtins_neon_arm64
+CLEANFILES += scripts/generate_builtins_neon_arm64.bin
+
+scripts/generate_builtins_neon_arm64.bin : $(srcdir)/scripts/simd/neon/builtins_neon_arm64.cpp Makefile
+	$(LATEST_GXX_NEON_ARM64) $(LATEST_GXX_NEON_ARM64_FLAGS) \
+		-static \
+		-I$(srcdir)/scripts/simd \
+		-o scripts/generate_builtins_neon_arm64.bin \
+		$(srcdir)/scripts/simd/neon/builtins_neon_arm64.cpp
+
+generate_builtins_neon_arm64: scripts/generate_builtins_neon_arm64.bin
+	qemu-aarch64 ./scripts/generate_builtins_neon_arm64.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm64-neon.h
+
+#####################################
 
 rpm: dist-gzip
 	@echo "Generating RPM structure"

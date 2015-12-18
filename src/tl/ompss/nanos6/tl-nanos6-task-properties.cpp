@@ -34,6 +34,7 @@
 #include "cxx-diagnostic.h"
 
 #include "fortran03-mangling.h"
+#include "fortran03-typeutils.h"
 
 #include <algorithm>
 
@@ -91,6 +92,21 @@ namespace TL { namespace Nanos6 {
             virtual void visit(const Nodecl::OpenMP::DepInout& n)
             {
                 _task_properties.dep_inout.append(n.get_inout_deps().as<Nodecl::List>().to_object_list());
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepWeakIn& n)
+            {
+                _task_properties.dep_weakin.append(n.get_weakin_deps().as<Nodecl::List>().to_object_list());
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepWeakOut& n)
+            {
+                _task_properties.dep_weakout.append(n.get_weakout_deps().as<Nodecl::List>().to_object_list());
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepWeakInout& n)
+            {
+                _task_properties.dep_weakinout.append(n.get_weakinout_deps().as<Nodecl::List>().to_object_list());
             }
 
             virtual void visit(const Nodecl::OpenMP::Final& n)
@@ -278,21 +294,6 @@ namespace TL { namespace Nanos6 {
                     || task_info_struct.is_class()),
                 "Invalid symbol", 0);
 
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            // Force this symbol to be BIND(C)
-            // FIXME: we want to be able to do this from the C FE
-            TL::Symbol sym = task_info_struct.get_type().advance_over_typedefs().get_symbol();
-            if (!sym.is_bind_c())
-            {
-                symbol_entity_specs_set_bind_info(
-                        sym.get_internal_symbol(),
-                        Nodecl::FortranBindC::make(
-                            Nodecl::NodeclBase::null()
-                            ).get_internal_nodecl());
-            }
-        }
-
         std::string task_info_name;
         {
             std::stringstream ss;
@@ -307,6 +308,7 @@ namespace TL { namespace Nanos6 {
         symbol_entity_specs_set_is_user_declared(
                 task_info.get_internal_symbol(), 1);
         task_info.set_type(task_info_struct.get_user_defined_type());
+        symbol_entity_specs_set_is_static(task_info.get_internal_symbol(), 1);
 
         TL::ObjectList<TL::Symbol> fields = task_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field(fields);
@@ -325,10 +327,10 @@ namespace TL { namespace Nanos6 {
         TL::Type run_type = TL::Type::get_void_type().get_function_returning(
                 TL::ObjectList<TL::Type>(1, TL::Type::get_void_type().get_pointer_to()))
             .get_pointer_to();
-        init_run = Nodecl::Cast::make(
+        init_run = Nodecl::Conversion::make(
                 init_run,
-                run_type,
-                "C");
+                run_type);
+        init_run.set_text("C");
 
         Nodecl::NodeclBase field_register_depinfo = get_field("register_depinfo");
         Nodecl::NodeclBase init_register_depinfo;
@@ -345,10 +347,10 @@ namespace TL { namespace Nanos6 {
             {
                 init_register_depinfo = dependences_function.make_nodecl(/* set_ref_type */ true);
             }
-            init_register_depinfo = Nodecl::Cast::make(
+            init_register_depinfo = Nodecl::Conversion::make(
                     init_register_depinfo,
-                    dep_or_copies_fun_type,
-                    "C");
+                    dep_or_copies_fun_type);
+            init_register_depinfo.set_text("C");
         }
         else
         {
@@ -367,10 +369,10 @@ namespace TL { namespace Nanos6 {
             {
                 init_register_copies = copies_function.make_nodecl(/* set_ref_type */ true);
             }
-            init_register_copies = Nodecl::Cast::make(
+            init_register_copies = Nodecl::Conversion::make(
                     init_register_copies,
-                    run_type,
-                    "C");
+                    run_type);
+            init_register_copies.set_text("C");
         }
         else
         {
@@ -446,7 +448,7 @@ namespace TL { namespace Nanos6 {
         symbol_entity_specs_set_is_user_declared(
                 task_invocation_info.get_internal_symbol(), 1);
         task_invocation_info.set_type(task_invocation_info_struct.get_user_defined_type());
-
+        symbol_entity_specs_set_is_static(task_invocation_info.get_internal_symbol(), 1);
 
         TL::ObjectList<TL::Symbol> task_invocation_fields = task_invocation_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field_task_invocation_info(task_invocation_fields);
@@ -493,6 +495,44 @@ namespace TL { namespace Nanos6 {
         {
             phase->get_extra_c_code().append(Nodecl::ObjectInit::make(task_info));
             phase->get_extra_c_code().append(Nodecl::ObjectInit::make(task_invocation_info));
+
+            // Create a detached symbol with the same name as the real one
+            // We need to do that otherwise Fortran codegen attempts to initialize this symbol
+            // (We may want to fix this somehow)
+            symbol_entity_specs_set_is_static(task_info.get_internal_symbol(), 0);
+            //
+            scope_entry_t* task_info_shim = NEW0(scope_entry_t);
+            task_info_shim->symbol_name = task_info.get_internal_symbol()->symbol_name;
+            task_info_shim->kind = task_info.get_internal_symbol()->kind;
+            task_info_shim->decl_context = task_info.get_internal_symbol()->decl_context;
+            symbol_entity_specs_set_is_user_declared(task_info_shim, 1);
+            // Fake the structure size
+            const int size_of_ptr = TL::Type::get_void_type().get_pointer_to().get_size();
+            ERROR_CONDITION(task_info.get_type().get_size() % size_of_ptr != 0,
+                    "Struct size does not divide the size of a pointer", 0);
+            int num_elements = task_info.get_type().get_size() / size_of_ptr;
+            task_info_shim->type_information = TL::Type(fortran_choose_int_type_from_kind(size_of_ptr))
+                .get_array_to(const_value_to_nodecl(const_value_get_signed_int(num_elements)),
+                        TL::Scope::get_global_scope()).get_internal_type();
+
+            task_info = task_info_shim;
+
+            // Ditto for task_invocation_info
+            symbol_entity_specs_set_is_static(task_invocation_info.get_internal_symbol(), 0);
+            //
+            scope_entry_t* task_invocation_info_shim = NEW0(scope_entry_t);
+            task_invocation_info_shim->symbol_name = task_invocation_info.get_internal_symbol()->symbol_name;
+            task_invocation_info_shim->kind = task_invocation_info.get_internal_symbol()->kind;
+            task_invocation_info_shim->decl_context = task_invocation_info.get_internal_symbol()->decl_context;
+            symbol_entity_specs_set_is_user_declared(task_invocation_info_shim, 1);
+            ERROR_CONDITION(task_invocation_info.get_type().get_size() % size_of_ptr != 0,
+                    "Struct size does not divide the size of a pointer", 0);
+            num_elements = task_invocation_info.get_type().get_size() / size_of_ptr;
+            task_invocation_info_shim->type_information = TL::Type(fortran_choose_int_type_from_kind(size_of_ptr))
+                .get_array_to(const_value_to_nodecl(const_value_get_signed_int(num_elements)),
+                        TL::Scope::get_global_scope()).get_internal_type();
+
+            task_invocation_info = task_invocation_info_shim;
         }
         else
         {
@@ -552,6 +592,7 @@ namespace TL { namespace Nanos6 {
         class_type_add_member(
                 new_class_type.get_internal_type(),
                 field.get_internal_symbol(),
+                field.get_internal_symbol()->decl_context,
                 /* is_definition */ 1);
 
         field_map[var] = field;
@@ -609,8 +650,9 @@ namespace TL { namespace Nanos6 {
             {
                 if (type_of_field.no_ref().is_array())
                 {
-                    error_printf("%s: error: capturing the value of the runtime-sized array '%s' is not supported\n",
-                            locus_to_str(locus_of_task_creation),
+                    error_printf_at(
+                            locus_of_task_creation,
+                            "capturing the value of the runtime-sized array '%s' is not supported\n",
                             it->get_qualified_name().c_str());
                 }
                 type_of_field = TL::Type::get_void_type().get_pointer_to();
@@ -1029,9 +1071,10 @@ namespace TL { namespace Nanos6 {
                                 it->get_type().no_ref()
                                 );
 
+                        Nodecl::NodeclBase cast;
                         args.append(
                                 Nodecl::Dereference::make(
-                                    Nodecl::Cast::make(
+                                    cast = Nodecl::Conversion::make(
                                         Nodecl::Reference::make(
                                             Nodecl::ClassMemberAccess::make(
                                                 arg.make_nodecl(/* set_ref_type */ true),
@@ -1039,11 +1082,11 @@ namespace TL { namespace Nanos6 {
                                                 /* member_literal */ Nodecl::NodeclBase::null(),
                                                 field_map[*it].get_type().get_lvalue_reference_to()),
                                             field_map[*it].get_type().get_pointer_to()),
-                                        param_type.get_pointer_to(),
-                                        "C"),
+                                        param_type.get_pointer_to()),
                                     param_type.get_lvalue_reference_to()
                                     )
                                 );
+                        cast.set_text("C");
                     }
                 }
                 else
@@ -1080,16 +1123,17 @@ namespace TL { namespace Nanos6 {
                         // The field is void*, cast it to the type of the
                         // pointer (coming from array-to-pointer) type of the
                         // outline
+                        Nodecl::NodeclBase cast;
                         args.append(
-                                Nodecl::Cast::make(
+                                cast = Nodecl::Conversion::make(
                                     Nodecl::ClassMemberAccess::make(
                                         arg.make_nodecl(/* set_ref_type */ true),
                                         field_map[*it].make_nodecl(),
                                         /* member_literal */ Nodecl::NodeclBase::null(),
                                         field_map[*it].get_type().get_lvalue_reference_to()),
-                                    pointer_type,
-                                    "C")
+                                    pointer_type)
                                 );
+                        cast.set_text("C");
                     }
                     else
                     {
@@ -1102,19 +1146,20 @@ namespace TL { namespace Nanos6 {
 
                         // The field is void*, cast it to the type of the
                         // argument and then derreference
+                        Nodecl::NodeclBase cast;
                         args.append(
                                 Nodecl::Dereference::make(
-                                    Nodecl::Cast::make(
+                                    cast = Nodecl::Conversion::make(
                                         Nodecl::ClassMemberAccess::make(
                                             arg.make_nodecl(/* set_ref_type */ true),
                                             field_map[*it].make_nodecl(),
                                             /* member_literal */ Nodecl::NodeclBase::null(),
                                             field_map[*it].get_type().get_lvalue_reference_to()),
-                                        pointer_type,
-                                        "C"),
+                                        pointer_type),
                                     arg_type
                                     )
                                 );
+                        cast.set_text("C");
                     }
 
                 }
@@ -1181,8 +1226,8 @@ namespace TL { namespace Nanos6 {
 
             args.append(
                     Nodecl::Reference::make(
-                        outline_function.make_nodecl(/* set_ref_type */ true),
-                        outline_function.get_type().get_pointer_to()));
+                        unpacked_function.make_nodecl(/* set_ref_type */ true),
+                        unpacked_function.get_type().get_pointer_to()));
 
             for (TL::ObjectList<TL::Symbol>::iterator it = captured_value.begin();
                     it != captured_value.end();
@@ -1212,7 +1257,7 @@ namespace TL { namespace Nanos6 {
                 TL::Symbol field = field_map[*it];
 
                 forwarded_parameter_names.append(field.get_name());
-                forwarded_parameter_types.append(field.get_type().get_lvalue_reference_to());
+                forwarded_parameter_types.append(field.get_type());
 
                 args.append(
                             Nodecl::ClassMemberAccess::make(
@@ -1230,6 +1275,8 @@ namespace TL { namespace Nanos6 {
                     TL::Type::get_void_type(),
                     forwarded_parameter_names,
                     forwarded_parameter_types);
+            // Make this symbol global
+            symbol_entity_specs_set_is_static(forwarded_function.get_internal_symbol(), 0);
 
             Nodecl::NodeclBase call_to_forward =
                 Nodecl::ExpressionStatement::make(
@@ -1267,6 +1314,7 @@ namespace TL { namespace Nanos6 {
                     TL::Type::get_void_type(),
                     c_forwarded_parameter_names,
                     c_forwarded_parameter_types);
+            symbol_entity_specs_set_is_static(c_forwarded_function.get_internal_symbol(), 0);
 
             Nodecl::NodeclBase c_forwarded_function_code, c_forwarded_empty_stmt;
             SymbolUtils::build_empty_body_for_function(
@@ -1340,6 +1388,7 @@ namespace TL { namespace Nanos6 {
                 Nodecl::Conversion::make(
                     base_addr,
                     TL::Type::get_void_type().get_pointer_to()));
+
         // length
         if (data_type.depends_on_nonconstant_values())
         {
@@ -1457,31 +1506,36 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
 
         TL::Scope global_context = TL::Scope::get_global_scope();
-        TL::Symbol register_dep_in = global_context.get_symbol_from_name("nanos_register_read_depinfo");
-        ERROR_CONDITION(!register_dep_in.is_valid(), "Invalid symbol", 0);
-
-        TL::Symbol register_dep_out = global_context.get_symbol_from_name("nanos_register_write_depinfo");
-        ERROR_CONDITION(!register_dep_out.is_valid(), "Invalid symbol", 0);
-
-        TL::Symbol register_dep_inout = global_context.get_symbol_from_name("nanos_register_readwrite_depinfo");
-        ERROR_CONDITION(!register_dep_inout.is_valid(), "Invalid symbol", 0);
 
         struct DependencesSet
         {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
-            TL::Symbol register_fun;
+            std::string func_name;
         } deps[] = {
-            { dep_in, register_dep_in },
-            { dep_out, register_dep_out },
-            { dep_inout, register_dep_inout },
-        };
+            { dep_in, "nanos_register_read_depinfo" },
+            { dep_out, "nanos_register_write_depinfo" },
+            { dep_inout, "nanos_register_readwrite_depinfo" },
 
+            { dep_weakin, "nanos_register_weak_read_depinfo" },
+            { dep_weakout, "nanos_register_weak_write_depinfo" },
+            { dep_weakinout, "nanos_register_weak_readwrite_depinfo" },
+        };
 
         for (DependencesSet *dep_set = deps;
                 dep_set != (DependencesSet*)(&deps + 1);
                 dep_set++)
         {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
+
+            if (dep_list.empty())
+                continue;
+
+            TL::Symbol register_fun = global_context.get_symbol_from_name(dep_set->func_name);
+            if (!register_fun.is_valid())
+            {
+                fatal_error("Function '%s' not found while trying to register dependences of its kind\n",
+                        dep_set->func_name.c_str());
+            }
 
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator
                     it = dep_list.begin();
@@ -1498,7 +1552,7 @@ namespace TL { namespace Nanos6 {
                             data_ref,
                             handler,
                             arg,
-                            dep_set->register_fun,
+                            register_fun,
                             register_statements);
                 }
                 else
@@ -1507,7 +1561,7 @@ namespace TL { namespace Nanos6 {
                             data_ref,
                             handler,
                             arg,
-                            dep_set->register_fun,
+                            register_fun,
                             register_statements);
                 }
 
@@ -1564,8 +1618,8 @@ namespace TL { namespace Nanos6 {
                             node.get_locus());
 
                 // FIXME: what about Fortran?
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
+                // if (IS_C_LANGUAGE
+                //         || IS_CXX_LANGUAGE)
                 {
                     if (shared.contains(sym)
                             && !sym.get_type().no_ref().is_array())
@@ -1576,10 +1630,10 @@ namespace TL { namespace Nanos6 {
                                 new_expr.get_locus());
                     }
                 }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    internal_error("Not yet implemented", 0);
-                }
+                // else if (IS_FORTRAN_LANGUAGE)
+                // {
+                //     // internal_error("Not yet implemented", 0);
+                // }
 
                 node.replace(new_expr);
             }
@@ -1720,8 +1774,8 @@ namespace TL { namespace Nanos6 {
 
             if (!is_standard_layout_type(it->get_type().no_ref().get_internal_type()))
             {
-                error_printf("%s: error: capture of symbol '%s' with non-standard layout type is not supported\n",
-                        locus_to_str(locus_of_task_creation),
+                error_printf_at(locus_of_task_creation,
+                        "capture of symbol '%s' with non-standard layout type is not supported\n",
                         it->get_qualified_name().c_str());
             }
             else if (!it->get_type().no_ref().is_array())

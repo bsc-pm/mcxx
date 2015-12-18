@@ -69,6 +69,11 @@ AC_PATH_PROG([BASH], [bash], [])
 
 dnl Check python 2.4
 AM_PATH_PYTHON2([2.4],, [:])
+
+if test "$PYTHON" = ":"; then
+   AC_MSG_ERROR([Python 2.x not found (note that Python 3 can't be used)])
+fi
+
 if test x$BASH = x; then
   # If GNU Bash isn't available, use the current shell and hope for
   # the best.
@@ -983,19 +988,24 @@ AC_ARG_ENABLE([tl-openmp-gomp],
   ]
 )
 
+GOMP_OMP_LIB="gomp-dir-not-specified"
+
+AC_ARG_WITH([gomp-lib],
+            AS_HELP_STRING([--with-gomp-lib=dir], [Directory of GNU GOMP library]),
+            [
+             GOMP_OMP_LIB="${withval}"
+            ]
+            )
+
 if test x$is_enabled_tl_omp_gomp = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} gomp-mcc gomp-mcxx gomp-mfc"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.gomp-omp-base 50.config.omp.gomp-rtl"
 fi
 
-# FIXME
-GOMP_OMP_INCLUDE=""
-GOMP_OMP_LIB=""
 
 AM_CONDITIONAL([BUILD_OMP_GOMP], test x$is_enabled_tl_omp_gomp = xyes)
 
-AC_SUBST([GOMP_OMP_INCLUDE])
 AC_SUBST([GOMP_OMP_LIB])
 dnl --------------------- End of Support for GOMP ---------------------------
 
@@ -1494,12 +1504,7 @@ if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_ompss_nanos6 = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
-fi
 
-dnl -- Only Nanox
-if test x$is_enabled_tl_omp_nanox = xyes \
-      -o x$is_enabled_tl_omp_profile = xyes;
-then
    if test x$is_enabled_tl_omp_profile = xyes;
    then
        COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
@@ -2340,6 +2345,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-fe-only
            tests/config/mercurium-hlt
            tests/config/mercurium-nanox
+           tests/config/mercurium-nanos6
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
            tests/config/mercurium-serial-simd

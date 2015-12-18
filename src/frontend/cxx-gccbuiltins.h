@@ -74,6 +74,11 @@ LIBMCXX_EXTERN type_t* intel_vector_struct_type_get_vector_type(type_t* vector_t
 
 LIBMCXX_EXTERN void prepend_intel_vector_typedefs(nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN void gcc_builtins_i386(const decl_context_t* global_context);
+LIBMCXX_EXTERN void gcc_builtins_x86_64(const decl_context_t* global_context);
+LIBMCXX_EXTERN void gcc_builtins_arm(const decl_context_t* global_context);
+LIBMCXX_EXTERN void gcc_builtins_arm64(const decl_context_t* global_context);
+
 MCXX_END_DECLS
 
 #endif // CXX_GCCBUILTINS_H

@@ -593,8 +593,6 @@ namespace Vectorization
         TL::Type vector_type = Utils::get_qualified_vector_to(
                 n_type, _environment._vectorization_factor);
 
-        Nodecl::Symbol n_symbol;
-
         Nodecl::NodeclBase gather_copy;
         Nodecl::NodeclBase base;
         Nodecl::NodeclBase strides;
@@ -613,18 +611,6 @@ namespace Vectorization
                     get_subscripts().as<Nodecl::List>().size() > 1,
                     "Vectorizer: ArraySubscript has not been linearized: %s",
                     n.prettyprint().c_str());
-
-            if (subscripted.is<Nodecl::Cast>())
-            {
-                subscripted = Nodecl::Utils::advance_conversions(
-                        subscripted.as<Nodecl::Cast>().get_rhs());
-            }
-
-            ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
-                    "Vectorizer: ArraySubscript form not supported yet: %s",
-                    n.prettyprint().c_str());
-
-            n_symbol = subscripted.as<Nodecl::Symbol>();
 
             // Get a scatter for real scatter or unaligned store extra flag
             gather_copy = Vectorizer::_vectorizer_analysis->shallow_copy(array);
@@ -817,12 +803,6 @@ namespace Vectorization
                     get_subscripts().as<Nodecl::List>().size() > 1,
                     "Vectorizer: ArraySubscript has not been linearized: %s",
                     lhs.prettyprint().c_str());
-
-            if (subscripted.is<Nodecl::Cast>())
-            {
-                subscripted = Nodecl::Utils::advance_conversions(
-                        subscripted.as<Nodecl::Cast>().get_rhs());
-            }
 
             ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
                     "Vectorizer: ArraySubscript form not supported yet: %s",
@@ -1143,7 +1123,7 @@ namespace Vectorization
                     }
                     else
                     {
-                        running_error("Vectorizer: This linear update is not supported yet"\
+                        fatal_error("Vectorizer: This linear update is not supported yet"\
                                 "(%s).", n.prettyprint().c_str());
                     }
 
@@ -1193,7 +1173,7 @@ namespace Vectorization
                             << std::endl;
                     }
 
-                    running_error("Vectorizer: Extract operation is not "\
+                    fatal_error("Vectorizer: Extract operation is not "\
                             "supported yet (%s).", lhs.prettyprint().c_str());
 
                 }
@@ -1208,7 +1188,7 @@ namespace Vectorization
                    {
                    std::cerr << "Nested IV dependent store: " << lhs.prettyprint()
                    << std::endl;
-                   running_error("Vectorizer: Extract operation is not "\
+                   fatal_error("Vectorizer: Extract operation is not "\
                    "supported yet (%s).", lhs.prettyprint().c_str());
                    }
                  */
@@ -1323,7 +1303,7 @@ namespace Vectorization
                     }
                     else
                     {
-                        running_error("Vectorizer: ClassMemberAccess type is not "\
+                        fatal_error("Vectorizer: ClassMemberAccess type is not "\
                                 "supported yet: '%s'", n.prettyprint().c_str());
                     }
                 }
@@ -1343,7 +1323,7 @@ namespace Vectorization
                 }
                 else
                 {
-                    running_error("Vectorizer: ClassMemberAccess type is not "\
+                    fatal_error("Vectorizer: ClassMemberAccess type is not "\
                             "supported yet: '%s'", n.prettyprint().c_str());
                 }
             }
@@ -1424,33 +1404,6 @@ namespace Vectorization
         }
     }
 
-    void VectorizerVisitorExpression::visit(const Nodecl::Cast& n)
-    {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        Nodecl::NodeclBase rhs = n.get_rhs();
-        walk(rhs);
-
-        Nodecl::VectorConversion vector_conv =
-            Nodecl::VectorConversion::make(
-                    rhs.shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._vectorization_factor),
-                    n.get_locus());
-
-        if(rhs.is_constant())
-            vector_conv.set_constant(rhs.get_constant());
-
-        /*
-           printf("Casting %s %s\n",
-           Utils::get_qualified_vector_to(n.get_type(), _environment._vectorization_factor).get_simple_declaration(n.retrieve_context(), "").c_str(),
-           n.get_rhs().get_type().get_simple_declaration(n.retrieve_context(), "").c_str());
-         */
-        n.replace(vector_conv);
-    }
-
     void VectorizerVisitorExpression::visit(const Nodecl::ArraySubscript& n)
     {
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
@@ -1458,7 +1411,6 @@ namespace Vectorization
 
         TL::Type basic_type = n.get_type().no_ref();
 
-        const_value_t* const_value = n.get_constant();
 
         // Computing new vector type
         TL::Type vector_type = Utils::get_qualified_vector_to(basic_type,
@@ -1478,6 +1430,8 @@ namespace Vectorization
             while (!encapsulated_symbol.get_parent().is_null() &&
                     encapsulated_symbol.get_parent().is<Nodecl::Conversion>())
                 encapsulated_symbol = encapsulated_symbol.get_parent();
+
+            const_value_t* const_value = encapsulated_symbol.get_constant();
 
             TL::Type encapsulated_symbol_type = encapsulated_symbol.get_type();
 
@@ -1836,7 +1790,7 @@ namespace Vectorization
                 }
                 else
                 {
-                    running_error("Vectorizer: %s found as vector function "\
+                    fatal_error("Vectorizer: %s found as vector function "\
                             "version in function versioning.",
                             ast_print_node_type(best_version.get_kind()));
                 }
@@ -2044,7 +1998,7 @@ namespace Vectorization
                else
                {
                    //TODO: If you are from outside of the loop -> Vector local copy.
-                   running_error("Vectorizer: Loop is not vectorizable. '%s' "\
+                   fatal_error("Vectorizer: Loop is not vectorizable. '%s' "\
                            "is not IV, Invariant, Reduction or LastPrivate.",
                            n.get_symbol().get_name().c_str());
                }
@@ -2093,8 +2047,9 @@ namespace Vectorization
                 // Add pointer casting to base --> (float *) &a[i].fp
                 Nodecl::NodeclBase base = vector_gather.get_base();
 
-                base.replace(Nodecl::Cast::make(base.shallow_copy(),
-                            n_original.get_type().no_ref().get_pointer_to(), ""));
+                base.replace(Nodecl::Conversion::make(base.shallow_copy(),
+                            n_original.get_type().no_ref().get_pointer_to()));
+                base.set_text("C");
 
                 // Add member to strides
                 Nodecl::NodeclBase strides = vector_gather.get_strides();
@@ -2136,7 +2091,7 @@ namespace Vectorization
             }
             else
             {
-                running_error("Vectorizer: ClassMemberAccess type is not "\
+                fatal_error("Vectorizer: ClassMemberAccess type is not "\
                         "supported yet: '%s'", n.prettyprint().c_str());
             }
         }
@@ -2159,7 +2114,7 @@ namespace Vectorization
                 }
                 else
                 {
-                    running_error("Vectorizer: ClassMemberAccess type is not "\
+                    fatal_error("Vectorizer: ClassMemberAccess type is not "\
                             "supported yet: '%s'", n.prettyprint().c_str());
                 }
             }
@@ -2170,7 +2125,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("Vectorizer: ClassMemberAccess type is not "\
+            fatal_error("Vectorizer: ClassMemberAccess type is not "\
                     "supported yet: '%s'", n.prettyprint().c_str());
         }
     }
@@ -2471,12 +2426,12 @@ namespace Vectorization
                     _environment._analysis_simd_scope, ind_var_increment,
                     ind_var_increment))
         {
-            running_error("Vectorizer: Linear step is not constant but uniform: %s. Not supported",
+            fatal_error("Vectorizer: Linear step is not constant but uniform: %s. Not supported",
                     ind_var_increment.prettyprint().c_str());
         }
         else
         {
-            running_error("Vectorizer: Linear step is not constant: %s.",
+            fatal_error("Vectorizer: Linear step is not constant: %s.",
                     ind_var_increment.prettyprint().c_str());
         }
     }

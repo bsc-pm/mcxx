@@ -28,6 +28,7 @@
 
 
 #include "cxx-utils.h"
+#include "cxx-diagnostic.h"
 
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
@@ -258,7 +259,7 @@ namespace TL
                 {
                     std::stringstream ss;
                     ss << Version::_interfaces[family_clause.get_tokenized_arguments(ExpressionTokenizer())[0]];
-                    running_error("error: Nanos family %s previously defined with version %s\n",
+                    fatal_error("error: Nanos family %s previously defined with version %s\n",
                                   family_clause.get_tokenized_arguments(ExpressionTokenizer())[0].c_str(), 
                                   ss.str().c_str());
                 }
@@ -270,7 +271,7 @@ namespace TL
             }
             else
             {
-                running_error("error: Both, family and version must be provided by the runtime.\n");
+                fatal_error("error: Both, family and version must be provided by the runtime.\n");
             }
         }
 
@@ -281,8 +282,12 @@ namespace TL
         
         static void invalid_instrument_pragma(TL::PragmaCustomDirective ctr, const std::string& pragma)
         {
-            std::cerr << ctr.get_locus_str() << ": warning: ignoring invalid '" << ctr.prettyprint() << "'" << std::endl;
-            std::cerr << ctr.get_locus_str() << ": info: its syntax is '#pragma nanos " << pragma << "(identifier, string-literal)'" << std::endl;
+            warn_printf_at(ctr.get_locus(),
+                    "ignoring invalid '%s'\n",
+                    ctr.prettyprint().c_str());
+            info_printf_at(ctr.get_locus(),
+                    "its syntax is '#pragma nanos %s(identifier, string-literal)\n",
+                    pragma.c_str());
         }
 
         static void invalid_instrument_declare(TL::PragmaCustomDirective ctr)
@@ -307,7 +312,7 @@ namespace TL
                     || (IS_C_LANGUAGE && (tokens_key[0].first != TokensC::IDENTIFIER))
                     || (IS_CXX_LANGUAGE && (tokens_key[0].first != TokensCXX::IDENTIFIER)))
             {
-                std::cerr << ctr.get_locus_str() << ": warning: first argument must be an identifier" << std::endl;
+                warn_printf_at(ctr.get_locus(), "first argument must be an identifier\n");
                 invalid_instrument_declare(ctr);
                 return;
             }
@@ -317,7 +322,7 @@ namespace TL
                     || (IS_C_LANGUAGE && (tokens_descr[0].first != TokensC::STRING_LITERAL))
                     || (IS_CXX_LANGUAGE && (tokens_descr[0].first != TokensCXX::STRING_LITERAL)))
             {
-                std::cerr << ctr.get_locus_str() << ": warning: second argument must be a string-literal" << std::endl;
+                warn_printf_at(ctr.get_locus(), "second argument must be a string-literal\n");
                 invalid_instrument_declare(ctr);
                 return;
             }
@@ -365,7 +370,7 @@ namespace TL
             if ((IS_C_LANGUAGE && (tokens_key[0].first != TokensC::IDENTIFIER))
                     || (IS_CXX_LANGUAGE && (tokens_key[0].first != TokensCXX::IDENTIFIER)))
             {
-                std::cerr << ctr.get_locus_str() << ": warning: first argument must be an identifier" << std::endl;
+                warn_printf_at(ctr.get_locus(), "first argument must be an identifier\n");
                 invalid_instrument_emit(ctr);
                 Nodecl::Utils::remove_from_enclosing_list(ctr);
                 return;
@@ -374,7 +379,7 @@ namespace TL
             if ((IS_C_LANGUAGE && (tokens_descr[0].first != TokensC::STRING_LITERAL))
                     || (IS_CXX_LANGUAGE && (tokens_descr[0].first != TokensCXX::STRING_LITERAL)))
             {
-                std::cerr << ctr.get_locus_str() << ": warning: second argument must be a string-literal" << std::endl;
+                warn_printf_at(ctr.get_locus(), "second argument must be a string-literal\n");
                 invalid_instrument_emit(ctr);
                 Nodecl::Utils::remove_from_enclosing_list(ctr);
                 return;
@@ -382,7 +387,8 @@ namespace TL
 
             if (_map_events.find(arguments[0]) == _map_events.end())
             {
-                std::cerr << ctr.get_locus_str() << ": warning: event key '" << arguments[0] << "' has not been previously declared" << std::endl;
+                warn_printf_at(ctr.get_locus(), "event key '%s' has not been previously declared\n",
+                        arguments[0].c_str());
                 invalid_instrument_emit(ctr);
                 Nodecl::Utils::remove_from_enclosing_list(ctr);
                 return;

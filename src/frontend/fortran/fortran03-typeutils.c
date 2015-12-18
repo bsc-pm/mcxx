@@ -223,11 +223,11 @@ int fortran_get_rank_of_type(type_t* t)
     return result;
 }
 
-type_t* fortran_get_rank0_type_internal(type_t* t, char ignore_pointer)
+type_t* fortran_get_rank0_type(type_t* t)
 {
     t = no_ref(t);
 
-    if (ignore_pointer && is_pointer_type(t))
+    if (is_pointer_type(t))
         t = pointer_type_get_pointee_type(t);
 
     while (fortran_is_array_type(t))
@@ -235,11 +235,6 @@ type_t* fortran_get_rank0_type_internal(type_t* t, char ignore_pointer)
         t = array_type_get_element_type(t);
     }
     return t;
-}
-
-type_t* fortran_get_rank0_type(type_t* t)
-{
-    return fortran_get_rank0_type_internal(t, /* ignore_pointer */ 0);
 }
 
 char fortran_is_character_type(type_t* t)
@@ -304,14 +299,14 @@ char fortran_equivalent_tk_types(type_t* t1, type_t* t2)
     {
         r1 = function_type_get_return_type(r1);
     }
-    r1 = fortran_get_rank0_type_internal(r1, /* ignore pointer */ 1);
+    r1 = fortran_get_rank0_type(r1);
 
     type_t* r2 = t2;
     if (is_function_type(r2))
     {
         r2 = function_type_get_return_type(r2);
     }
-    r2 = fortran_get_rank0_type_internal(r2, /* ignore pointer */ 1);
+    r2 = fortran_get_rank0_type(r2);
 
     // Preprocess for character types
     if (fortran_is_character_type(r1))
@@ -623,7 +618,7 @@ static void wrong_init_kind(const char* typename, int kind_size, type_t* (*kind_
         uniquestr_sprintf(&valid_values_message, ". Valid values are %s", valid_set);
     }
 
-    running_error("Error: KIND %d is not valid for type %s%s\n", kind_size,
+    fatal_error("Error: KIND %d is not valid for type %s%s\n", kind_size,
             typename, valid_values_message);
 }
 

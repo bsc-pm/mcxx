@@ -124,6 +124,14 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
                 (size_t)nodecl_get_ast(entry->value));
     }
 
+    if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
+    {
+        ast_dump_graphviz_rec(nodecl_get_ast(symbol_entity_specs_get_function_code(entry)), f, 0, -1);
+
+        fprintf(f, "sym_%zd -> n%zd [label=\"function_code\"]\n",
+                (size_t)entry,
+                (size_t)nodecl_get_ast(symbol_entity_specs_get_function_code(entry)));
+    }
 }
 
 static void cval_dump_graphviz(FILE* f, const_value_t* cval)

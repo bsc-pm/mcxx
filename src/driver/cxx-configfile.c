@@ -220,6 +220,18 @@ int config_set_linker_name(struct compilation_configuration_tag* config, const c
     return 0;
 }
 
+// Set linker options
+int config_set_linker_options(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    int num;
+    const char **blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&config->linker_options, blank_separated_options, num);
+    DELETE(blank_separated_options);
+
+    return 0;
+}
+
 // Set linker options pre
 int config_set_linker_options_pre(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
@@ -232,13 +244,13 @@ int config_set_linker_options_pre(struct compilation_configuration_tag* config, 
     return 0;
 }
 
-// Set linker options
-int config_set_linker_options(struct compilation_configuration_tag* config, const char* index, const char* value)
+// Set linker options post
+int config_set_linker_options_post(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char **blank_separated_options = blank_separate_values(value, &num);
 
-    add_to_parameter_list(&config->linker_options, blank_separated_options, num);
+    add_to_parameter_list(&config->linker_options_post, blank_separated_options, num);
     DELETE(blank_separated_options);
 
     return 0;

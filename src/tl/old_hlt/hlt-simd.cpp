@@ -90,7 +90,7 @@ bool casting_needs_reinterpr_or_pack(TL::Type& casted_type, TL::Type& cast_type)
     }
     else
     {
-        running_error("error: casting_needs_reinterpr_or_pack does not support this casting in HLT SIMD.\n");
+        fatal_error("error: casting_needs_reinterpr_or_pack does not support this casting in HLT SIMD.\n");
     }
 }
 
@@ -228,7 +228,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                     {
                                         if (subscripted_expr.is_array_subscript())
                                         {
-                                            running_error("%s: error: Multidimensional arrays indexed by vectors are not supported yet.\n",
+                                            fatal_error("%s: error: Multidimensional arrays indexed by vectors are not supported yet.\n",
                                                     ast.get_locus().c_str());
                                         }
 
@@ -255,7 +255,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                             }
                             else
                             {           
-                                running_error("%s: error: subscripted array Expression seems to be complicated. SIMDization is not supported yet.\n",
+                                fatal_error("%s: error: subscripted array Expression seems to be complicated. SIMDization is not supported yet.\n",
                                         ast.get_locus().c_str());
                             }
                         }
@@ -383,7 +383,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                         /*
                         else
                         {
-                             running_error("%s: error: this special kind of conversion are not supported yet in SIMD'\n",
+                             fatal_error("%s: error: this special kind of conversion are not supported yet in SIMD'\n",
                                 ast.get_locus().c_str());
                         }
                         */
@@ -517,14 +517,14 @@ SIMDization* TL::HLT::simdize(LangConstruct& lang_const,
     { 
         if (!simd_id_exp_list.empty())
         {
-            running_error("%s: error: #pragma hlt simd does not support parameters with functiondefinition'\n",
+            fatal_error("%s: error: #pragma hlt simd does not support parameters with functiondefinition'\n",
                     lang_const.get_ast().get_locus().c_str());
         }
 
         return new FunctionSIMDization(dynamic_cast<FunctionDefinition&> (lang_const), min_stmt_size);
     }
 
-    running_error("%s: error: unexpected '#pragma hlt simd'.'\n",
+    fatal_error("%s: error: unexpected '#pragma hlt simd'.'\n",
             lang_const.get_ast().get_locus().c_str());
 
 /*
@@ -592,7 +592,7 @@ void SIMDization::gen_vector_type(const IdExpression& id){
     }
     else
     {
-        running_error("%s: error: symbol '%s' does not have a vectorizable type'\n",
+        fatal_error("%s: error: symbol '%s' does not have a vectorizable type'\n",
                 id.get_ast().get_locus().c_str(),
                 old_sym_name.c_str());
     }
@@ -700,7 +700,7 @@ TL::Source LoopSIMDization::do_simdization()
 
         if(!decl_ent_list[0].has_initializer())
         {
-            running_error("%s: error: Declared Entity does not have initializer'\n",
+            fatal_error("%s: error: Declared Entity does not have initializer'\n",
                     it_init_ast.get_locus().c_str());
         }
 
@@ -717,7 +717,7 @@ TL::Source LoopSIMDization::do_simdization()
 
         if (!exp.is_assignment())
         {
-            running_error("%s: error: Iterating initializacion is an Expression but not an assignment'\n",
+            fatal_error("%s: error: Iterating initializacion is an Expression but not an assignment'\n",
                     it_init_ast.get_locus().c_str());
         }
 
@@ -729,7 +729,7 @@ TL::Source LoopSIMDization::do_simdization()
     }
     else
     {
-        running_error("%s: error: Iterating initializacion is not a Declaration or a Expression'\n",
+        fatal_error("%s: error: Iterating initializacion is not a Declaration or a Expression'\n",
                 it_init_ast.get_locus().c_str());
     }
 
@@ -751,7 +751,7 @@ TL::Source LoopSIMDization::do_simdization()
         ;
 
     if (!step_evaluation){
-        running_error("%s: error: the loop is not simdizable. The step is not a compile-time evaluable constant.'\n",
+        fatal_error("%s: error: the loop is not simdizable. The step is not a compile-time evaluable constant.'\n",
                 _for_stmt.get_ast().get_locus().c_str());
     }
 */
@@ -798,7 +798,7 @@ TL::Source FunctionSIMDization::do_simdization()
 
     if (!decl_ent.is_functional_declaration())
     {
-           running_error("%s: unexpected DeclaredEntity.'\n",
+           fatal_error("%s: unexpected DeclaredEntity.'\n",
                    _func_def.get_ast().get_locus().c_str());
     }
 
