@@ -529,7 +529,6 @@ next_it:    ;
 
         _utils->_outer_nodes.pop();
         _utils->_last_nodes = ObjectList<Node*>(1, func_graph_node);
-
         return ObjectList<Node*>(1, func_graph_node);
     }
 
@@ -3062,7 +3061,22 @@ next_it:    ;
         ObjectList<Node*> return_last_nodes = _utils->_last_nodes;
         ObjectList<Node*> returned_value = walk(n.get_value());
         Node* return_node = merge_nodes(n, returned_value);
-        return_node->set_type(__Return);
+        if (return_node->is_graph_node())
+        {   // This happens when the returned value is a graph node,
+            // then 'return_node' is the split statement that combines
+            // the return keyword with the returned value
+            ObjectList<Node*> return_node_exit_parents
+                    = return_node->get_graph_exit_node()->get_parents();
+            ERROR_CONDITION(return_node_exit_parents.size() > 1,
+                            "One node expected but %d found.\n",
+                            return_node_exit_parents.size());
+            Node* real_return_node = return_node_exit_parents[0];
+            real_return_node->set_type(__Return);
+        }
+        else
+        {
+            return_node->set_type(__Return);
+        }
         _pcfg->connect_nodes(return_last_nodes, return_node);
         _utils->_last_nodes.clear();
         _utils->_return_nodes.append(return_node);
