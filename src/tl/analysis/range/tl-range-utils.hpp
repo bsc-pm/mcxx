@@ -24,7 +24,11 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_RANGE_UTILS_HPP
+#define TL_RANGE_UTILS_HPP
+
 #include <list>
+
 #include "tl-ranges-common.hpp"
 
 namespace TL {
@@ -200,3 +204,5 @@ namespace Analysis {
 
 }
 }
+
+#endif      // TL_RANGE_UTILS_HPP

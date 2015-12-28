@@ -65,6 +65,7 @@ namespace Utils {
     // ******************************* Range Analysis Constraints ******************************** //
 
     #define CONSTRAINT_KIND_LIST        \
+    CONSTRAINT_KIND(Array)              \
     CONSTRAINT_KIND(BackEdge)           \
     CONSTRAINT_KIND(BinaryOp)           \
     CONSTRAINT_KIND(ComparatorTrue)     \

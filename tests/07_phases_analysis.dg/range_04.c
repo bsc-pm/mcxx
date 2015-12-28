@@ -30,10 +30,10 @@
 <testinfo>
 test_generator=config/mercurium-analysis
 test_nolink=yes
-test_ignore="yes"
-test_ignore_reason="Broken after merging with master"
 </testinfo>
 */
+
+// NOTE Part of this test is broken after merging master branch
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -96,10 +96,10 @@ void sparselu_par_call(float **BENCH/*, int matrix_size, int submatrix_size*/)
                         if (BENCH[kk*MS+jj] != NULL)
                         {
                             if (BENCH[ii*MS+jj]==NULL) BENCH[ii*MS+jj] = allocate_clean_block(BS);
-#pragma omp task firstprivate(kk, jj, ii) shared(BENCH) \
-                            depend(in: BENCH[ii*MS+kk:BS*BS], BENCH[kk*MS+jj:BS*BS]) \
-                            depend(inout: BENCH[ii*MS+jj:BS*BS])
-                            bmod(BENCH[ii*MS+kk], BENCH[kk*MS+jj], BENCH[ii*MS+jj], BS);
+// #pragma omp task firstprivate(kk, jj, ii) shared(BENCH) \
+//                             depend(in: BENCH[ii*MS+kk:BS*BS], BENCH[kk*MS+jj:BS*BS]) \
+//                             depend(inout: BENCH[ii*MS+jj:BS*BS])
+//                             bmod(BENCH[ii*MS+kk], BENCH[kk*MS+jj], BENCH[ii*MS+jj], BS);
                         }
                     }
             }

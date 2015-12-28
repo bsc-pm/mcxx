@@ -31,6 +31,7 @@
 
 #include "tl-extensible-graph.hpp"
 #include "tl-range-utils.hpp"
+#include "tl-ssa.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -38,7 +39,6 @@ namespace Analysis {
     typedef std::map<Symbol, NBase> Constraints;
     /* This must be a multimap, so constant values may be repeated */
     typedef std::multimap<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGValueToCGNode_map;
-    typedef std::map<NBase, Utils::Constraint, Nodecl::Utils::Nodecl_structural_less> VarToConstraintMap;
 
     // **************************************************************************************************** //
     // **************************** Visitor implementing constraint building ****************************** //
@@ -87,11 +87,27 @@ namespace Analysis {
         // ************ Private visiting methods ************ //
         Ret visit_assignment(const NBase& lhs, const NBase& rhs);
         Ret visit_increment(const NBase& rhs, bool positive);
-        void visit_comparison_side(
-            const NBase& n,
-            const NBase& val,
-            char side /*l:left, r:right*/,
-            node_t comparison_kind);
+        void create_array_fake_constraint(const NBase& n);
+        void build_equal_constraint(
+            /*in*/  const Symbol& ssa_sym,
+            /*in*/  const NBase& n,
+            /*in*/  Type t,
+            /*out*/ NBase& val_true,
+            /*out*/ NBase& val_false);
+        void build_lower_constraint(
+            /*in*/  const Symbol& ssa_sym,
+            /*in*/  const NBase& n,
+            /*in*/  Type t,
+            /*out*/ NBase& val_true,
+            /*out*/ NBase& val_false,
+            /*in*/  char side);
+        void build_lower_or_equal_constraint(
+            /*in*/  const Symbol& ssa_sym,
+            /*in*/  const NBase& n,
+            /*in*/  Type t,
+            /*out*/ NBase& val_true,
+            /*out*/ NBase& val_false,
+            /*in*/  char side);
         void visit_comparison(const NBase& lhs, const NBase& rhs, node_t comparison_kind);
 
     public:

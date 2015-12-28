@@ -1445,7 +1445,10 @@ src_tl_analysis_range_librange_la_LIBADD = $(tl_libadd) $(ANALYSIS_LIBADD)
 src_tl_analysis_range_librange_la_SOURCES = \
 				src/tl/analysis/range/tl-range-utils.hpp \
 				src/tl/analysis/range/tl-range-utils.cpp \
+				src/tl/analysis/range/tl-ssa.hpp \
+				src/tl/analysis/range/tl-ssa.cpp \
 				src/tl/analysis/range/tl-range-analysis.hpp \
+				src/tl/analysis/range/tl-constraints.cpp \
 				src/tl/analysis/range/tl-range-analysis.cpp \
 				$(END)
 
