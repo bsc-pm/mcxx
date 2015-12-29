@@ -29,13 +29,12 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
-    unsigned int non_sym_constraint_id = 0;
+    static unsigned int non_sym_constraint_id = 0;
+    //! This maps stores the relationship between each variable in a given node and
+    //! the last identifier used to create a constraint for that variable
+    static std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> var_to_last_constraint_id;
     unsigned int get_next_id(const NBase& n)
     {
-        //! This maps stores the relationship between each variable in a given node and 
-        //! the last identifier used to create a constraint for that variable
-        std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> var_to_last_constraint_id;
-
         unsigned int next_id = 0;
         if (!n.is_null())
         {
