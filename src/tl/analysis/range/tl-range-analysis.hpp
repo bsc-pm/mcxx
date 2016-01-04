@@ -88,6 +88,12 @@ namespace Analysis {
         Ret visit_assignment(const NBase& lhs, const NBase& rhs);
         Ret visit_increment(const NBase& rhs, bool positive);
         void create_array_fake_constraint(const NBase& n);
+        void compute_comparison_constraint(
+            /*in*/  const NBase& n,
+            /*in*/  const NBase& m,
+            /*in*/  node_t comparison_kind,
+            /*out*/ NBase& val_true,
+            /*out*/ NBase& val_false);
         void build_equal_constraint(
             /*in*/  const Symbol& ssa_sym,
             /*in*/  const NBase& n,
@@ -99,15 +105,25 @@ namespace Analysis {
             /*in*/  const NBase& n,
             /*in*/  Type t,
             /*out*/ NBase& val_true,
-            /*out*/ NBase& val_false,
-            /*in*/  char side);
+            /*out*/ NBase& val_false);
         void build_lower_or_equal_constraint(
             /*in*/  const Symbol& ssa_sym,
             /*in*/  const NBase& n,
             /*in*/  Type t,
             /*out*/ NBase& val_true,
-            /*out*/ NBase& val_false,
-            /*in*/  char side);
+            /*out*/ NBase& val_false);
+        void build_greater_constraint(
+            /*in*/  const Symbol& ssa_sym,
+            /*in*/  const NBase& n,
+            /*in*/  Type t,
+            /*out*/ NBase& val_true,
+            /*out*/ NBase& val_false);
+        void build_greater_or_equal_constraint(
+            /*in*/  const Symbol& ssa_sym,
+            /*in*/  const NBase& n,
+            /*in*/  Type t,
+            /*out*/ NBase& val_true,
+            /*out*/ NBase& val_false);
         void visit_comparison(const NBase& lhs, const NBase& rhs, node_t comparison_kind);
 
     public:

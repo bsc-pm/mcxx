@@ -38,9 +38,9 @@ namespace {
     const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*signed*/ 1);
     const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*signed*/ 1);
     const_value_t* minus_one = const_value_get_minus_one(/*num_bytes*/ 4, /*sign*/1);
-    const_value_t* long_max = const_value_get_integer(LONG_MAX, /*num_bytes*/4, /*sign*/1);
+    const_value_t* long_max = const_value_get_integer(LONG_MAX, /*num_bytes*/sizeof(long), /*sign*/1);
     NBase plus_inf = Nodecl::Analysis::PlusInfinity::make(Type::get_long_int_type(), long_max);
-    const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/4, /*sign*/1);
+    const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/sizeof(long), /*sign*/1);
     NBase minus_inf = Nodecl::Analysis::MinusInfinity::make(Type::get_long_int_type(), long_min);
     
     // ************************************************************************************** //
@@ -481,6 +481,9 @@ namespace {
         _output_constraints[n] = c;
     }
 
+    // NOTE build_different_constraint is the same as build_equal_constraint
+    // exchanging val_true and val_false
+    // so we use the same method and change the order of the arguments when calling
     void ConstraintBuilder::build_equal_constraint(
             /*in*/  const Symbol& ssa_sym,
             /*in*/  const NBase& n,
@@ -536,94 +539,53 @@ namespace {
         /*in*/  const NBase& n,
         /*in*/  Type t,
         /*out*/ NBase& val_true,
-        /*out*/ NBase& val_false,
-        /*in*/  char side)
+        /*out*/ NBase& val_false)
     {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (!const_value_is_signed(n_const))
+        if (n_const != NULL
+                && !const_value_is_signed(n_const))
             n_const = const_value_cast_as_another(n_const, one);
 
-        switch (side)
+        NBase lb, ub;
+        NBase incr = const_value_to_nodecl(zero);
+
+        // 1.- Build the TRUE constraint value for the LHS
+        //     v < x;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
+        // 1.1.- Build LB: -∞
+        lb = minus_inf.shallow_copy();
+        // 1.2.- Build UB: x-1
+        if (n.is_constant())
         {
-            // 1.- The symbol is on the LHS
-            case 'l':
-            {
-                // 1.1.- Build the TRUE constraint value for the LHS
-                // v < x;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
-                NBase ub;
-                if (n.is_constant())
-                {
-                    const_value_t* ub_const = const_value_sub(n_const, one);
-                    ub = const_value_to_nodecl(ub_const);
-                    ub.set_constant(ub_const);
-                }
-                else
-                {
-                    ub = Nodecl::Minus::make(n.shallow_copy(), const_value_to_nodecl(one), t);
-                }
-                val_true = Nodecl::Analysis::RangeIntersection::make(
-                        ssa_sym.make_nodecl(/*set_ref_type*/false),
-                        Nodecl::Range::make(minus_inf.shallow_copy(), ub,
-                                            const_value_to_nodecl(zero), t),
-                        t);
+            const_value_t* ub_const = const_value_sub(n_const, one);
+            ub = const_value_to_nodecl(ub_const);
+            ub.set_constant(ub_const);
+        }
+        else
+        {
+            ub = Nodecl::Minus::make(n.shallow_copy(), const_value_to_nodecl(one), t);
+        }
+        // 1.3.- Build the whole value: v0 ∩ [-∞, x-1]
+        val_true = Nodecl::Analysis::RangeIntersection::make(
+                ssa_sym.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(lb, ub, incr.shallow_copy(), t),
+                t);
 
-                // 1.2.- Build the FALSE constraint value for the LHS
-                // v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
-                NBase lb;
-                if (n.is_constant())
-                    lb = const_value_to_nodecl(n_const);
-                else
-                    lb = n.shallow_copy();
-                val_false = Nodecl::Analysis::RangeIntersection::make(
-                        ssa_sym.make_nodecl(/*set_ref_type*/false),
-                        Nodecl::Range::make(lb, plus_inf.shallow_copy(),
-                                            const_value_to_nodecl(zero), t),
-                        t);
-                break;
-            }
-            // 2.- The symbol is on the RHS
-            case 'r':
-            {
-                // 2.1.- Build the TRUE constraint value for the RHS
-                // x < v   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
-                NBase lb;
-                if (n.is_constant())
-                {
-                    const_value_t* lb_const = const_value_add(n_const, one);
-                    lb = const_value_to_nodecl(lb_const);
-                    lb.set_constant(lb_const);
-                }
-                else
-                {
-                    lb = Nodecl::Add::make(n.shallow_copy(), const_value_to_nodecl(one), t);
-                }
-                val_true = Nodecl::Analysis::RangeIntersection::make(
-                        ssa_sym.make_nodecl(/*set_ref_type*/false),
-                        Nodecl::Range::make(lb, plus_inf.shallow_copy(),
-                                            const_value_to_nodecl(zero), t),
-                        t);
-
-                // 2.2.- Build the FALSE constraint value for the RHS
-                // x < v   --FALSE-->  v2 = v0 ∩ [-∞, x]
-                NBase ub;
-                if (n.is_constant())
-                    ub = const_value_to_nodecl(n_const);
-                else
-                    ub = n.shallow_copy();
-                val_false = Nodecl::Analysis::RangeIntersection::make(
-                        ssa_sym.make_nodecl(/*set_ref_type*/false),
-                        Nodecl::Range::make(minus_inf.shallow_copy(), ub,
-                                            const_value_to_nodecl(zero), t),
-                        t);
-                break;
-            }
-            default:
-            {
-                internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-            }
-        };
+        // 2.- Build the FALSE constraint value for the LHS
+        //     v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
+        // 2.1.- Build LB: -∞
+        if (n.is_constant())
+            lb = const_value_to_nodecl(n_const);
+        else
+            lb = n.shallow_copy();
+        // 2.1.- Build UB: +∞
+        ub = plus_inf.shallow_copy();
+        // 2.3.- Build the whole value: v0 ∩ [x, +∞]
+        val_false = Nodecl::Analysis::RangeIntersection::make(
+                ssa_sym.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(lb, ub, incr.shallow_copy(), t),
+                t);
     }
 
     void ConstraintBuilder::build_lower_or_equal_constraint(
@@ -631,106 +593,295 @@ namespace {
         /*in*/  const NBase& n,
         /*in*/  Type t,
         /*out*/ NBase& val_true,
-        /*out*/ NBase& val_false,
-        /*in*/  char side)
+        /*out*/ NBase& val_false)
     {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (!const_value_is_signed(n_const))
+        if (n_const != NULL
+                && !const_value_is_signed(n_const))
             n_const = const_value_cast_as_another(n_const, one);
 
-        switch (side)
-        {
-            // 1.- The symbol is on the LHS
-            case 'l':
-            {
-                // 1.1.- Build the TRUE constraint value for the LHS
-                // v < x;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
-                NBase ub;
-                if (n.is_constant())
-                {
-                    const_value_t* ub_const = const_value_sub(n_const, one);
-                    ub = const_value_to_nodecl(ub_const);
-                    ub.set_constant(ub_const);
-                }
-                else
-                {
-                    ub = Nodecl::Minus::make(n.shallow_copy(), const_value_to_nodecl(one), t);
-                }
-                val_true = Nodecl::Analysis::RangeIntersection::make(
-                        ssa_sym.make_nodecl(/*set_ref_type*/false),
-                        Nodecl::Range::make(minus_inf.shallow_copy(), ub,
-                                            const_value_to_nodecl(zero), t),
-                        t);
+        NBase lb, ub;
+        NBase incr = const_value_to_nodecl(zero);
 
-                // 1.2.- Build the FALSE constraint value for the LHS
-                // v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
-                NBase lb;
-                if (n.is_constant())
-                    lb = const_value_to_nodecl(n_const);
-                else
-                    lb = n.shallow_copy();
-                val_false = Nodecl::Analysis::RangeIntersection::make(
-                        ssa_sym.make_nodecl(/*set_ref_type*/false),
-                        Nodecl::Range::make(lb, plus_inf.shallow_copy(),
-                                            const_value_to_nodecl(zero), t),
-                        t);
+        // 1.- Build the TRUE constraint value for the LHS
+        //     v <= x;   --TRUE--->  v1 = v0 ∩ [-∞, x]
+        // 1.1.- Build LB: -∞
+        lb = minus_inf.shallow_copy();
+        // 1.2.- Build UB: x
+        if (n.is_constant())
+            ub = const_value_to_nodecl(n_const);
+        else
+            ub = n.shallow_copy();
+        // 1.3.- Build the whole value: v0 ∩ [-∞, x]
+                val_true = Nodecl::Analysis::RangeIntersection::make(
+                ssa_sym.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(lb, ub, incr.shallow_copy(), t),
+                t);
+
+        // 2.- Build the FALSE constraint value for the LHS
+        //     v <= x;   --FALSE-->  v2 = v0 ∩ [x+1, +∞]
+        // 2.1.- Build LB: x
+        if (n.is_constant())
+        {
+            const_value_t* lb_const = const_value_add(n_const, one);
+            lb = const_value_to_nodecl(lb_const);
+            lb.set_constant(lb_const);
+        }
+        else
+        {
+            lb = Nodecl::Minus::make(n.shallow_copy(), const_value_to_nodecl(one), t);
+        }
+        // 2.2.- Build UB: +∞
+        ub = plus_inf.shallow_copy();
+        // 2.3.- Build the whole value: v0 ∩ [x+1, +∞]
+        val_false = Nodecl::Analysis::RangeIntersection::make(
+                ssa_sym.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(lb, ub, incr.shallow_copy(), t),
+                t);
+    }
+
+    void ConstraintBuilder::build_greater_constraint(
+        /*in*/  const Symbol& ssa_sym,
+        /*in*/  const NBase& n,
+        /*in*/  Type t,
+        /*out*/ NBase& val_true,
+        /*out*/ NBase& val_false)
+    {
+        // All constant values must have the same bytes and sign
+        // to ensure comparisons work as expected
+        const_value_t* n_const = n.get_constant();
+        if (n_const != NULL
+                && !const_value_is_signed(n_const))
+            n_const = const_value_cast_as_another(n_const, one);
+
+        NBase lb, ub;
+        NBase incr = const_value_to_nodecl(zero);
+
+        // 1.- Build the TRUE constraint value for the RHS
+        //     v > x   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
+        // 1.1.- Build LB: x+1
+        if (n.is_constant())
+        {
+            const_value_t* lb_const = const_value_add(n_const, one);
+            lb = const_value_to_nodecl(lb_const);
+            lb.set_constant(lb_const);
+        }
+        else
+        {
+            lb = Nodecl::Add::make(n.shallow_copy(), const_value_to_nodecl(one), t);
+        }
+        // 1.2.- Build UB: +∞
+        ub = plus_inf.shallow_copy();
+        // 1.3.- Build the whole value: v0 ∩ [x+1, +∞]
+        val_true = Nodecl::Analysis::RangeIntersection::make(
+                ssa_sym.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(lb, ub, incr.shallow_copy(), t),
+                t);
+
+        // 2.- Build the FALSE constraint value for the RHS
+        //     v > x   --FALSE-->  v2 = v0 ∩ [-∞, x]
+        // 1.1.- Build LB: -∞
+        lb = minus_inf.shallow_copy();
+        // 1.2.- Build UB: x
+        if (n.is_constant())
+            ub = const_value_to_nodecl(n_const);
+        else
+            ub = n.shallow_copy();
+        // 1.3.- Build the whole value: v0 ∩ [-∞, x]
+        val_false = Nodecl::Analysis::RangeIntersection::make(
+                ssa_sym.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(lb, ub, incr.shallow_copy(), t),
+                t);
+    }
+
+    void ConstraintBuilder::build_greater_or_equal_constraint(
+        /*in*/  const Symbol& ssa_sym,
+        /*in*/  const NBase& n,
+        /*in*/  Type t,
+        /*out*/ NBase& val_true,
+        /*out*/ NBase& val_false)
+    {
+        // All constant values must have the same bytes and sign
+        // to ensure comparisons work as expected
+        const_value_t* n_const = n.get_constant();
+        if (n_const != NULL
+                && !const_value_is_signed(n_const))
+            n_const = const_value_cast_as_another(n_const, one);
+
+        NBase lb, ub;
+        NBase incr = const_value_to_nodecl(zero);
+
+        // 1.- Build the TRUE constraint value for the RHS
+        //     v >= x   --TRUE--->  v1 = v0 ∩ [x, +∞]
+        // 1.1.- Build LB: x
+        if (n.is_constant())
+            lb = const_value_to_nodecl(n_const);
+        else
+            lb = n.shallow_copy();
+        // 1.2.- Build UB: +∞
+        ub = plus_inf.shallow_copy();
+        // 1.3.- Build the whole value: v0 ∩ [x, +∞]
+        val_true = Nodecl::Analysis::RangeIntersection::make(
+                ssa_sym.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(lb, ub, incr.shallow_copy(), t),
+                t);
+
+        // 2.- Build the FALSE constraint value for the RHS
+        //     v >= x   --FALSE-->  v2 = v0 ∩ [-∞, x-1]
+        // 1.1.- Build LB: -∞
+        lb = minus_inf.shallow_copy();
+        // 1.2.- Build UB: x-1
+        if (n.is_constant())
+        {
+            const_value_t* ub_const = const_value_sub(n_const, one);
+            ub = const_value_to_nodecl(ub_const);
+            ub.set_constant(ub_const);
+        }
+        else
+        {
+            ub = Nodecl::Add::make(n.shallow_copy(), const_value_to_nodecl(one), t);
+        }
+        // 1.3.- Build the whole value: v0 ∩ [-∞, x-1]
+        val_false = Nodecl::Analysis::RangeIntersection::make(
+                ssa_sym.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(lb, ub, incr.shallow_copy(), t),
+                t);
+    }
+
+    void ConstraintBuilder::compute_comparison_constraint(
+            /*in*/  const NBase& n,
+            /*in*/  const NBase& m,
+            /*in*/  node_t comparison_kind,
+            /*out*/ NBase& val_true,
+            /*out*/ NBase& val_false)
+    {
+        // 1.- Get the original symbol of n
+        const NBase& base_n = Utils::get_nodecl_base(n);
+        Symbol s(base_n.get_symbol());
+        Type t = s.get_type();
+        std::string s_name = s.get_name();
+
+        // 2.- Get the last ssa symbol related to the original symbol
+        std::string last_ssa_name = _input_constraints.find(n)->second.get_symbol().get_name();
+        Symbol last_ssa = ssa_scope.get_symbol_from_name(last_ssa_name);
+        ERROR_CONDITION(!last_ssa.is_valid(),
+                        "No symbol '%s' found while building constraint for variable '%s'",
+                        last_ssa_name.c_str(), n.prettyprint().c_str());
+
+        // 3.- Compute the constraints generated from the condition
+        //         to the possible TRUE and FALSE exit edges
+        // =========================================================
+        // 3.1.- Build the symbols created for the TRUE and FALSE edges
+        // 3.1.1.- Build the TRUE constraint symbol
+        std::stringstream ss_true; ss_true << get_next_id(n);
+        Symbol s_true(ssa_scope.new_symbol(s_name + "_" + ss_true.str()));
+        s_true.set_type(t);
+        ssa_to_original_var[s_true] = n;
+        // 3.1.2.- Build the FALSE constraint symbol
+        std::stringstream ss_false; ss_false << get_next_id(n);
+        Symbol s_false(ssa_scope.new_symbol(s_name + "_" + ss_false.str()));
+        s_false.set_type(t);
+        ssa_to_original_var[s_false] = n;
+
+        // 3.2.- Build the values created for the TRUE and FALSE edges
+        NBase m_ssa = (m.is_constant()
+                            ? m.shallow_copy()
+                            : _input_constraints.find(m)->second.get_symbol().make_nodecl());
+        switch (comparison_kind)
+        {
+            case NODECL_EQUAL:
+            {
+                build_equal_constraint(last_ssa, m_ssa, t, val_true, val_false);
                 break;
             }
-            // 2.- The symbol is on the RHS
-            case 'r':
+            case NODECL_DIFFERENT:
             {
-                // 2.1.- Build the TRUE constraint value for the RHS
-                // x < v   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
-                NBase lb;
-                if (n.is_constant())
-                {
-                    const_value_t* lb_const = const_value_add(n_const, one);
-                    lb = const_value_to_nodecl(lb_const);
-                    lb.set_constant(lb_const);
-                }
-                else
-                {
-                    lb = Nodecl::Add::make(n.shallow_copy(), const_value_to_nodecl(one), t);
-                }
-                val_true = Nodecl::Analysis::RangeIntersection::make(
-                        ssa_sym.make_nodecl(/*set_ref_type*/false),
-                        Nodecl::Range::make(lb, plus_inf.shallow_copy(),
-                                            const_value_to_nodecl(zero), t),
-                        t);
-
-                // 2.2.- Build the FALSE constraint value for the RHS
-                // x < v   --FALSE-->  v2 = v0 ∩ [-∞, x]
-                NBase ub;
-                if (n.is_constant())
-                    ub = const_value_to_nodecl(n_const);
-                else
-                    ub = n.shallow_copy();
-                val_false = Nodecl::Analysis::RangeIntersection::make(
-                        ssa_sym.make_nodecl(/*set_ref_type*/false),
-                        Nodecl::Range::make(minus_inf.shallow_copy(), ub,
-                                            const_value_to_nodecl(zero), t),
-                        t);
+                build_equal_constraint(last_ssa, m_ssa, t, val_false, val_true);
+                break;
+            }
+            case NODECL_LOWER_THAN:
+            {
+                build_lower_constraint(last_ssa, m_ssa, t, val_true, val_false);
+                break;
+            }
+            case NODECL_LOWER_OR_EQUAL_THAN:
+            {
+                build_lower_or_equal_constraint(last_ssa, m_ssa, t, val_true, val_false);
+                break;
+            }
+            case NODECL_GREATER_THAN:
+            {
+                build_greater_constraint(last_ssa, m_ssa, t, val_true, val_false);
+                break;
+            }
+            case NODECL_GREATER_OR_EQUAL_THAN:
+            {
+                build_greater_or_equal_constraint(last_ssa, m_ssa, t, val_true, val_false);
                 break;
             }
             default:
             {
-                internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
+                internal_error("Unexpected node kind %s while building constraint for a comparison.\n",
+                                ast_print_node_type(comparison_kind));
             }
         };
-        
+
+        // 3.3.- Build the TRUE and FALSE constraints and store them
+        Utils::Constraint c_true
+                = build_constraint(s_true, val_true, Utils::ConstraintKind::__ComparatorTrue);
+        _output_true_constraints[n] = c_true;
+        Utils::Constraint c_false
+                = build_constraint(s_false, val_false, Utils::ConstraintKind::__ComparatorFalse);
+        _output_false_constraints[n] = c_false;
     }
+
+namespace {
+    void invert_comparison_kind(node_t& kind)
+    {
+        switch(kind)
+        {
+            case NODECL_EQUAL:
+            case NODECL_DIFFERENT:
+            {   // Nothing to change
+                break;
+            }
+            case NODECL_LOWER_THAN:
+            {
+                kind = NODECL_GREATER_THAN;
+                break;
+            }
+            case NODECL_LOWER_OR_EQUAL_THAN:
+            {
+                kind = NODECL_GREATER_OR_EQUAL_THAN;
+                break;
+            }
+            case NODECL_GREATER_THAN:
+            {
+                kind = NODECL_LOWER_THAN;
+                break;
+            }
+            case NODECL_GREATER_OR_EQUAL_THAN:
+            {
+                kind = NODECL_LOWER_OR_EQUAL_THAN;
+                break;
+            }
+            default:
+            {
+                internal_error("Unexpected node kind %s while building constraint for a comparison.\n",
+                               ast_print_node_type(kind));
+            }
+        }
+    }
+}
+
     // This method assumes the lhs is always a variable and the rhs may be a constant or a variable
     void ConstraintBuilder::visit_comparison(
             const NBase& lhs,
             const NBase& rhs,
             node_t comparison_kind)
     {
-        std::cerr << "========== VISIT COMPARISON  ::  " << lhs.prettyprint()
-                << " " << ast_print_node_type(comparison_kind) << " "
-                << rhs.prettyprint() << std::endl;
-
         // 1.- Base case: both sides are constant
         if (lhs.is_constant() && rhs.is_constant())
         {   // No constraint needs to be created
@@ -744,10 +895,11 @@ namespace {
         // 2.- Simple cases: one side is constant
         if (lhs.is_constant())
         {   // LHS is constant and RHS is not
-            std::cerr << "   -> LHS is constant" << std::endl;
 
             // 2.1.1.- Check supported case
-            if (!rhs.is<Nodecl::Symbol>() && !rhs.is<Nodecl::ArraySubscript>())
+            NBase rhs_no_conv = rhs.no_conv();
+            if (!rhs_no_conv.is<Nodecl::Symbol>()
+                    && !rhs_no_conv.is<Nodecl::ArraySubscript>())
             {
                 internal_error("Unsupported case: comparison with no single symbol at any side: %d %s %d.\n",
                                lhs.prettyprint().c_str(),
@@ -761,15 +913,21 @@ namespace {
                 create_array_fake_constraint(rhs);
             }
 
-            // TODO
-            internal_error("Not yet implemented.\n", 0);
+            // 2.3.3.2.- Compute the constraints generated from the condition
+            //           Since the order of the operands is inverted,
+            //           the operation must be inverted too
+            NBase val_true, val_false;
+            invert_comparison_kind(comparison_kind);
+            compute_comparison_constraint(
+                rhs_no_conv, lhs,
+                comparison_kind,
+                val_true, val_false);
         }
         else if (rhs.is_constant())
         {   // RHS is constant and LHS is not
-            std::cerr << "   -> RHS is constant" << std::endl;
 
-            NBase lhs_no_conv = lhs.no_conv();
             // 2.2.1.- Check supported case
+            NBase lhs_no_conv = lhs.no_conv();
             if (!lhs_no_conv.is<Nodecl::Symbol>()
                     && !lhs_no_conv.is<Nodecl::ArraySubscript>())
             {
@@ -785,522 +943,24 @@ namespace {
                 create_array_fake_constraint(lhs_no_conv);
             }
 
-            // 2.2.3.- Get the original symbol of the lhs
-            const NBase& base_n = Utils::get_nodecl_base(lhs_no_conv);
-            Symbol s(base_n.get_symbol());
-            Type t = s.get_type();
-            std::string s_name = s.get_name();
-
-            // 3.- Get the last ssa symbol related to the original symbol
-            std::string last_ssa_name = _input_constraints.find(lhs_no_conv)->second.get_symbol().get_name();
-            Symbol last_ssa = ssa_scope.get_symbol_from_name(last_ssa_name);
-            ERROR_CONDITION(!last_ssa.is_valid(),
-                            "No symbol '%s' found while building constraint for variable '%s'",
-                            last_ssa_name.c_str(), lhs.prettyprint().c_str());
-
-            // 2.2.4.- Compute the constraints generated from the condition
-            //         to the possible TRUE and FALSE exit edges
-            // =========================================================
-            // 2.2.4.- Build the symbols created for the TRUE and FALSE edges
-            // 2.2.4.1.- Build the TRUE constraint symbol
-            std::stringstream ss_true; ss_true << get_next_id(lhs_no_conv);
-            Symbol s_true(ssa_scope.new_symbol(s_name + "_" + ss_true.str()));
-            s_true.set_type(t);
-            ssa_to_original_var[s_true] = lhs_no_conv;
-            // 2.2.4.2.- Build the FALSE constraint symbol
-            std::stringstream ss_false; ss_false << get_next_id(lhs_no_conv);
-            Symbol s_false(ssa_scope.new_symbol(s_name + "_" + ss_false.str()));
-            s_false.set_type(t);
-            ssa_to_original_var[s_false] = lhs_no_conv;
-
-            // 2.2.4.3.- Build the values created for the TRUE and FALSE edges
+            // 2.2.3.- Compute the constraints generated from the condition
             NBase val_true, val_false;
-            switch (comparison_kind)
-            {
-                case NODECL_EQUAL:
-                {
-                    build_equal_constraint(last_ssa, rhs, t, val_true, val_false);
-                    break;
-                }
-                case NODECL_DIFFERENT:
-                {
-                    build_equal_constraint(last_ssa, rhs, t, val_false, val_true);
-                    break;
-                }
-                case NODECL_LOWER_THAN:
-                {
-                    build_lower_constraint(last_ssa, rhs, t, val_true, val_false, 'l');
-                    break;
-                }
-                case NODECL_LOWER_OR_EQUAL_THAN:
-                {
-                    build_lower_or_equal_constraint(last_ssa, rhs, t, val_true, val_false, 'l');
-                    break;
-                }
-                default:
-                {
-                    internal_error("Unexpected node kind %s while building constraint for a comparison.\n",
-                                    ast_print_node_type(comparison_kind));
-                }
-            };
-
-            // 2.2.5.- Build the TRUE and FALSE constraints and store them
-            Utils::Constraint c_true = build_constraint(s_true, val_true, Utils::ConstraintKind::__ComparatorTrue);
-            _output_true_constraints[lhs_no_conv] = c_true;
-            Utils::Constraint c_false = build_constraint(s_false, val_false, Utils::ConstraintKind::__ComparatorFalse);
-            _output_false_constraints[lhs_no_conv] = c_false;
-
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value
-//                         // v == x;   --TRUE--->   v1 = v0 ∩ [x, x]
-//                         NBase real_val;
-//                         if (val.is_constant())
-//                             real_val = const_value_to_nodecl(val_const);
-//                         else
-//                             real_val = val;
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false), 
-//                                 Nodecl::Range::make(real_val.shallow_copy(),
-//                                                     real_val.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value
-//                         // v == x;   --FALSE-->   v2 = v0 ∩ ([-∞, x-1] U [x+1, -∞])
-//                         NBase lb, ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Analysis::RangeUnion::make(
-//                                         Nodecl::Range::make(minus_inf.shallow_copy(), ub, 
-//                                                             const_value_to_nodecl(zero), t),
-//                                         Nodecl::Range::make(lb, plus_inf.shallow_copy(), 
-//                                                             const_value_to_nodecl(zero), t),
-//                                         t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_DIFFERENT:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value
-//                         // v != x;   --TRUE--->   v1 = v0 ∩ ([-∞, x-1] U [x+1, -∞])
-//                         NBase lb, ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                             const_value_t* ub_const = const_value_sub(val_const, zero);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Analysis::RangeUnion::make(
-//                                         Nodecl::Range::make(minus_inf.shallow_copy(), ub,
-//                                                             const_value_to_nodecl(zero), t),
-//                                         Nodecl::Range::make(lb, plus_inf.shallow_copy(),
-//                                                             const_value_to_nodecl(zero), t),
-//                                         t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value
-//                         // v != x;   --FALSE-->   v2 = v0 ∩ [x, x]
-//                         NBase real_val;
-//                         if (val.is_constant())
-//                             real_val = const_value_to_nodecl(val_const);
-//                         else
-//                             real_val = val;
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(real_val.shallow_copy(),
-//                                                     real_val.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_LOWER_OR_EQUAL_THAN:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value
-//                         // v <= x;   --TRUE--->   v1 = v0 ∩ [-∞, x]
-//                         NBase real_val;
-//                         if (val.is_constant())
-//                             real_val = const_value_to_nodecl(val_const);
-//                         else
-//                             real_val = val;
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     real_val.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value
-//                         // v <= x;   --FALSE-->   v2 = v0 ∩ [x+1, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value
-//                         // x <= v;   --TRUE--->   v1 = v0 ∩ [x, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                             lb = const_value_to_nodecl(val_const);
-//                         else
-//                             lb = val.shallow_copy();
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value
-//                         // x <= v;   --FALSE-->   v2 = v0 ∩ [-∞, x-1]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(plus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_LOWER_THAN:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the LHS
-//                         // v < x;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false), 
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the LHS
-//                         // v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                             lb = const_value_to_nodecl(val_const);
-//                         else
-//                             lb = val.shallow_copy();
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the RHS
-//                         // x < v   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the RHS
-//                         // x < v   --FALSE-->  v2 = v0 ∩ [-∞, x]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                             ub = const_value_to_nodecl(val_const);
-//                         else
-//                             ub = val.shallow_copy();
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false), 
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_GREATER_OR_EQUAL_THAN:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the LHS
-//                         // v >= x;   --TRUE--->  v1 = v0 ∩ [x, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                             lb = const_value_to_nodecl(val_const);
-//                         else
-//                             lb = val.shallow_copy();
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false), 
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(), 
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the LHS
-//                         // v >= x;   --FALSE-->  v2 = v0 ∩ [-∞, x-1]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(), 
-//                                                     ub, 
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the RHS
-//                         // x >= v;   --TRUE--->  v1 = v0 ∩ [-∞, x]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                             ub = const_value_to_nodecl(val_const);
-//                         else
-//                             ub = val.shallow_copy();
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the RHS
-//                         // x >= v;   --FALSE--->  v1 = v0 ∩ [x+1, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false), 
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_GREATER_THAN:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the LHS
-//                         // v > x;   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false), 
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(), 
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the LHS
-//                         // v > x;   --FALSE-->  v2 = v0 ∩ [-∞, x]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                             ub = const_value_to_nodecl(val_const);
-//                         else
-//                             ub = val.shallow_copy();
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(), 
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the RHS
-//                         // x > v;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the RHS
-//                         // x > v;   --FALSE--->  v1 = v0 ∩ [x, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                             lb = const_value_to_nodecl(val_const);
-//                         else
-//                             lb = val.shallow_copy();
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false), 
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             default:
-//             {
-//                 internal_error("Unexpected node kind %s while building constraint for a comparison.\n",
-//                                ast_print_node_type(comparison_kind));
-//             }
-//         };
+            compute_comparison_constraint(
+                    lhs_no_conv, rhs,
+                    comparison_kind,
+                    val_true, val_false);
         }
         // 3.- Other cases
         else
         {
-            std::cerr << "   -> no side is constant" << std::endl;
-            if (!lhs.is<Nodecl::Symbol>() && !lhs.is<Nodecl::ArraySubscript>()
-                && !rhs.is<Nodecl::Symbol>() && !rhs.is<Nodecl::ArraySubscript>())
+
+            // 2.3.1.- Check supported case
+            NBase lhs_no_conv = lhs.no_conv();
+            NBase rhs_no_conv = rhs.no_conv();
+            if (!lhs_no_conv.is<Nodecl::Symbol>()
+                    && !lhs_no_conv.is<Nodecl::ArraySubscript>()
+                    && !rhs_no_conv.is<Nodecl::Symbol>()
+                    && !rhs_no_conv.is<Nodecl::ArraySubscript>())
             {
                 internal_error("Unsupported case: comparison with no single symbol at any side: %d %s %d.\n",
                                lhs.prettyprint().c_str(),
@@ -1308,7 +968,7 @@ namespace {
                                rhs.prettyprint().c_str());
             }
 
-            // 2.- Create fake input constraint if necessary
+            // 2.3.2.- Create fake input constraint if necessary
             if (lhs.is<Nodecl::ArraySubscript>())
             {
                 create_array_fake_constraint(lhs);
@@ -1318,519 +978,36 @@ namespace {
                 create_array_fake_constraint(rhs);
             }
 
-            // TODO
-            internal_error("Not yet implemented.\n", 0);
+            // 2.3.3.- Compute the constraints generated from the condition
+            NBase val_true, val_false;
+            // 2.3.3.1.- Call for the symbol at the lhs
+            compute_comparison_constraint(
+                    lhs_no_conv, rhs,
+                    comparison_kind,
+                    val_true, val_false);
+            // 2.3.3.2.- Call for the symbol at the rhs
+            //           Since the order of the operands is inverted,
+            //           the operation must be inverted too
+            // FIXME We assume the RHS is not modified within the loop
+//             invert_comparison_kind(comparison_kind);
+//             compute_comparison_constraint(
+//                     rhs_no_conv, lhs,
+//                     comparison_kind,
+//                     val_true, val_false);
         }
-
-//         // 2.- Get the original symbol of the lhs
-//         const NBase& base_n = Utils::get_nodecl_base(n);
-//         Symbol s(base_n.get_symbol());
-//         Type t = s.get_type();
-//         std::string s_name = s.get_name();
-// 
-//         // 3.- Get the last ssa symbol related to the original symbol
-//         std::string last_ssa_name = _input_constraints.find(n)->second.get_symbol().get_name();
-//         Symbol last_ssa = ssa_scope.get_symbol_from_name(last_ssa_name);
-//         ERROR_CONDITION(!last_ssa.is_valid(),
-//                         "No symbol '%s' found while building constraint for variable '%s'",
-//                         last_ssa_name.c_str(), n.prettyprint().c_str());
-// 
-//         // 4.- Compute the constraints generated from the condition
-//         //     to the possible TRUE and FALSE exit edges
-//         // =========================================================
-// 
-//         // 4.1.- Replace, if necessary, all memory accesses
-//         //       by the corresponding SSA symbols arriving to the current node
-//         //       The enums are constant values, but they are not replaced in our
-//         //       S2S compiler, so we still have to treat them as a variable here
-//         if (!val.is_constant()
-//                 || _input_constraints.find(val) != _input_constraints.end())
-//         {
-//             ConstraintReplacement cr(&_input_constraints, _constraints, _ordered_constraints);
-//             cr.walk(val);
-//         }
-// 
-//         // 4.2.- Build the symbols created for the TRUE and FALSE edges
-//         // 4.2.1.- Build the TRUE constraint symbol
-//         std::stringstream ss_true; ss_true << get_next_id(n);
-//         Symbol s_true(ssa_scope.new_symbol(s_name + "_" + ss_true.str()));
-//         s_true.set_type(t);
-//         ssa_to_original_var[s_true] = n;
-//         // 4.2.2.- Build the FALSE constraint symbol
-//         std::stringstream ss_false; ss_false << get_next_id(n);
-//         Symbol s_false(ssa_scope.new_symbol(s_name + "_" + ss_false.str()));
-//         s_false.set_type(t);
-//         ssa_to_original_var[s_false] = n;
-// 
-//         // 4.3.- Build the values created for the TRUE and FALSE edges
-//         NBase val_true, val_false;
-//         const_value_t* val_const = val.get_constant();
-//         if (val.is_constant())
-//             if (!const_value_is_signed(val_const))
-//                 val_const = const_value_cast_as_another(val_const, one);
-//         switch (comparison_kind)
-//         {
-//             case NODECL_EQUAL:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value
-//                         // v == x;   --TRUE--->   v1 = v0 ∩ [x, x]
-//                         NBase real_val;
-//                         if (val.is_constant())
-//                             real_val = const_value_to_nodecl(val_const);
-//                         else
-//                             real_val = val;
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(real_val.shallow_copy(),
-//                                                     real_val.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value
-//                         // v == x;   --FALSE-->   v2 = v0 ∩ ([-∞, x-1] U [x+1, -∞])
-//                         NBase lb, ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Analysis::RangeUnion::make(
-//                                         Nodecl::Range::make(minus_inf.shallow_copy(), ub,
-//                                                             const_value_to_nodecl(zero), t),
-//                                         Nodecl::Range::make(lb, plus_inf.shallow_copy(),
-//                                                             const_value_to_nodecl(zero), t),
-//                                         t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_DIFFERENT:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value
-//                         // v != x;   --TRUE--->   v1 = v0 ∩ ([-∞, x-1] U [x+1, -∞])
-//                         NBase lb, ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                             const_value_t* ub_const = const_value_sub(val_const, zero);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Analysis::RangeUnion::make(
-//                                         Nodecl::Range::make(minus_inf.shallow_copy(), ub,
-//                                                             const_value_to_nodecl(zero), t),
-//                                         Nodecl::Range::make(lb, plus_inf.shallow_copy(),
-//                                                             const_value_to_nodecl(zero), t),
-//                                         t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value
-//                         // v != x;   --FALSE-->   v2 = v0 ∩ [x, x]
-//                         NBase real_val;
-//                         if (val.is_constant())
-//                             real_val = const_value_to_nodecl(val_const);
-//                         else
-//                             real_val = val;
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(real_val.shallow_copy(),
-//                                                     real_val.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_LOWER_OR_EQUAL_THAN:
-//             {   
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value
-//                         // v <= x;   --TRUE--->   v1 = v0 ∩ [-∞, x]
-//                         NBase real_val;
-//                         if (val.is_constant())
-//                             real_val = const_value_to_nodecl(val_const);
-//                         else
-//                             real_val = val;
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(), 
-//                                                     real_val.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value
-//                         // v <= x;   --FALSE-->   v2 = v0 ∩ [x+1, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false), 
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value
-//                         // x <= v;   --TRUE--->   v1 = v0 ∩ [x, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                             lb = const_value_to_nodecl(val_const);
-//                         else
-//                             lb = val.shallow_copy();
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value
-//                         // x <= v;   --FALSE-->   v2 = v0 ∩ [-∞, x-1]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(plus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_LOWER_THAN:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the LHS
-//                         // v < x;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the LHS
-//                         // v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                             lb = const_value_to_nodecl(val_const);
-//                         else
-//                             lb = val.shallow_copy();
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the RHS
-//                         // x < v   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the RHS
-//                         // x < v   --FALSE-->  v2 = v0 ∩ [-∞, x]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                             ub = const_value_to_nodecl(val_const);
-//                         else
-//                             ub = val.shallow_copy();
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_GREATER_OR_EQUAL_THAN:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the LHS
-//                         // v >= x;   --TRUE--->  v1 = v0 ∩ [x, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                             lb = const_value_to_nodecl(val_const);
-//                         else
-//                             lb = val.shallow_copy();
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the LHS
-//                         // v >= x;   --FALSE-->  v2 = v0 ∩ [-∞, x-1]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the RHS
-//                         // x >= v;   --TRUE--->  v1 = v0 ∩ [-∞, x]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                             ub = const_value_to_nodecl(val_const);
-//                         else
-//                             ub = val.shallow_copy();
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the RHS
-//                         // x >= v;   --FALSE--->  v1 = v0 ∩ [x+1, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             case NODECL_GREATER_THAN:
-//             {
-//                 switch (side)
-//                 {
-//                     case 'l':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the LHS
-//                         // v > x;   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* lb_const = const_value_add(val_const, one);
-//                             lb = const_value_to_nodecl(lb_const);
-//                             lb.set_constant(lb_const);
-//                         }
-//                         else
-//                         {
-//                             lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the LHS
-//                         // v > x;   --FALSE-->  v2 = v0 ∩ [-∞, x]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                             ub = const_value_to_nodecl(val_const);
-//                         else
-//                             ub = val.shallow_copy();
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     case 'r':
-//                     {
-//                         // 4.3.1.- Build the TRUE constraint value for the RHS
-//                         // x > v;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
-//                         NBase ub;
-//                         if (val.is_constant())
-//                         {
-//                             const_value_t* ub_const = const_value_sub(val_const, one);
-//                             ub = const_value_to_nodecl(ub_const);
-//                             ub.set_constant(ub_const);
-//                         }
-//                         else
-//                         {
-//                             ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-//                         }
-//                         val_true = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(minus_inf.shallow_copy(),
-//                                                     ub,
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//
-//                         // 4.3.2.- Build the FALSE constraint value for the RHS
-//                         // x > v;   --FALSE--->  v1 = v0 ∩ [x, +∞]
-//                         NBase lb;
-//                         if (val.is_constant())
-//                             lb = const_value_to_nodecl(val_const);
-//                         else
-//                             lb = val.shallow_copy();
-//                         val_false = Nodecl::Analysis::RangeIntersection::make(
-//                                 last_ssa.make_nodecl(/*set_ref_type*/false),
-//                                 Nodecl::Range::make(lb,
-//                                                     plus_inf.shallow_copy(),
-//                                                     const_value_to_nodecl(zero), t),
-//                                 t);
-//                         break;
-//                     }
-//                     default:
-//                         internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
-//                 };
-//                 break;
-//             }
-//             default:
-//             {
-//                 internal_error("Unexpected node kind %s while building constraint for a comparison.\n",
-//                                ast_print_node_type(comparison_kind));
-//             }
-//         };
-// 
-//         // 4.4.- Build the TRUE and FALSE constraints and store them
-//         Utils::Constraint c_true = build_constraint(s_true, val_true, Utils::ConstraintKind::__ComparatorTrue);
-//         _output_true_constraints[n] = c_true;
-//         Utils::Constraint c_false = build_constraint(s_false, val_false, Utils::ConstraintKind::__ComparatorFalse);
-//         _output_false_constraints[n] = c_false;
     }
 
     void ConstraintBuilder::visit(const Nodecl::AddAssignment& n)
     {
         NBase lhs = n.get_lhs();
         NBase rhs = n.get_rhs();
-        NBase new_rhs = Nodecl::Assignment::make(lhs.shallow_copy(), 
-                                                 Nodecl::Add::make(lhs.shallow_copy(), rhs.shallow_copy(), rhs.get_type()), 
-                                                 lhs.get_type());
+        NBase new_rhs
+                = Nodecl::Assignment::make(
+                        lhs.shallow_copy(),
+                        Nodecl::Add::make(lhs.shallow_copy(),
+                                          rhs.shallow_copy(),
+                                          rhs.get_type()),
+                        lhs.get_type());
         n.replace(new_rhs);
         visit_assignment(n.get_lhs().no_conv(), n.get_rhs().no_conv());
     }

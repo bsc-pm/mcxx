@@ -41,9 +41,9 @@ namespace {
 
     const_value_t* one = const_value_get_one(/*bytes*/ 4, /*signed*/ 1);
     const_value_t* zero = const_value_get_zero(/*bytes*/ 4, /*signed*/ 1);
-    const_value_t* long_max = const_value_get_integer(LONG_MAX, /*num_bytes*/4, /*sign*/1);
+    const_value_t* long_max = const_value_get_integer(LONG_MAX, /*num_bytes*/sizeof(long), /*sign*/1);
     NBase plus_inf = Nodecl::Analysis::PlusInfinity::make(Type::get_long_int_type(), long_max);
-    const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/4, /*sign*/1);
+    const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/sizeof(long), /*sign*/1);
     NBase minus_inf = Nodecl::Analysis::MinusInfinity::make(Type::get_long_int_type(), long_min);
 
     // *********** END initialize global variables for ranges operations *********** //

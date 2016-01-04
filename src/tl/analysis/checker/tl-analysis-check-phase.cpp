@@ -28,8 +28,10 @@
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
 #include "tl-omp-lint.hpp"
+#include "cxx-cexpr.h"
 
 #include <algorithm>
+#include <limits.h>
 
 namespace TL {
 namespace Analysis {
@@ -599,10 +601,7 @@ namespace {
             if (VERBOSE)
                 printf("   Check node %d range assertion.\n", current->get_id());
             const Utils::InductionVarList& assert_ranges = current->get_assert_ranges();
-            // 'current' is the context created by the checking pragma -> get the inner node
-            Node* inner_node =
-                    current->is_graph_node() ? current->get_graph_entry_node()->get_children()[0] : current;
-            const RangeValuesMap& ranges = inner_node->get_ranges();
+            const RangeValuesMap& ranges = current->get_ranges();
             // Compare the two sets
             for (Utils::InductionVarList::const_iterator it = assert_ranges.begin();
                  it != assert_ranges.end(); ++it)
@@ -615,28 +614,46 @@ namespace {
                                 "No range found for variable '%s' in node '%d'.\n",
                                 locus_str.c_str(), "range",
                                 Utils::prettyprint_induction_vars(assert_ranges, /*to_dot*/ false).c_str(),
-                                v.prettyprint().c_str(), inner_node->get_id());
+                                v.prettyprint().c_str(), current->get_id());
 
-                const Nodecl::Range& range = r_it->second.as<Nodecl::Range>();
+                const Nodecl::Range& computed_range = r_it->second.as<Nodecl::Range>();
 
-                std::cerr << "    ---> " << v.prettyprint() << " = " << range.prettyprint() << std::endl;
-                const Nodecl::NodeclBase& lb = *(c_it->get_lb().begin());
-                ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(lb, range.get_lower(), /*skip_conversions*/true),
-                                "%s: Assertion '%s(%s)' does not fulfill.\n"
-                                "Lower bounds of variable '%s' do not match ('%s' = '%s').\n",
-                                locus_str.c_str(), "range",
-                                Utils::prettyprint_induction_vars(assert_ranges, /*to_dot*/ false).c_str(),
-                                v.prettyprint().c_str(),
-                                lb.prettyprint().c_str(), range.get_lower().prettyprint().c_str());
+                std::cerr << "    ---> " << v.prettyprint() << " = " << computed_range.prettyprint() << std::endl;
+                const Nodecl::NodeclBase& assert_lb = *(c_it->get_lb().begin());
+                const Nodecl::NodeclBase& computed_lb = computed_range.get_lower();
+                const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/sizeof(long), /*sign*/1);
+                if (!Nodecl::Utils::structurally_equal_nodecls(
+                            assert_lb, computed_lb, /*skip_conversions*/true)
+                    // -inf is not a valid input, so we check it with the constant value
+                    && !(assert_lb.is<Nodecl::Symbol>()
+                        && (assert_lb.get_symbol().get_value().get_constant() == long_min)
+                        && computed_lb.is<Nodecl::Analysis::MinusInfinity>()))
+                {
+                    internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+                                   "Lower bounds of variable '%s' do not match ('%s' = '%s').\n",
+                                   locus_str.c_str(), "range",
+                                   Utils::prettyprint_induction_vars(assert_ranges, /*to_dot*/ false).c_str(),
+                                   v.prettyprint().c_str(),
+                                   assert_lb.prettyprint().c_str(), computed_lb.prettyprint().c_str());
+                }
 
-                const Nodecl::NodeclBase& ub = *(c_it->get_ub().begin());
-                ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(ub, range.get_upper(), /*skip_conversions*/true),
-                                "%s: Assertion '%s(%s)' does not fulfill.\n"
-                                "Upper bounds of variable '%s' do not match ('%s' = '%s').\n",
-                                locus_str.c_str(), "range",
-                                Utils::prettyprint_induction_vars(assert_ranges, /*to_dot*/ false).c_str(),
-                                v.prettyprint().c_str(),
-                                ub.prettyprint().c_str(), range.get_upper().prettyprint().c_str());
+                const Nodecl::NodeclBase& assert_ub = *(c_it->get_ub().begin());
+                const Nodecl::NodeclBase& computed_ub = computed_range.get_upper();
+                const_value_t* long_max = const_value_get_integer(LONG_MAX, /*num_bytes*/sizeof(long), /*sign*/1);
+                if (!Nodecl::Utils::structurally_equal_nodecls(
+                            assert_ub, computed_ub, /*skip_conversions*/true)
+                    // +inf is not a valid input, so we check it with the constant value
+                    && !(assert_ub.is<Nodecl::Symbol>()
+                        && (assert_ub.get_symbol().get_value().get_constant() == long_max)
+                        && computed_ub.is<Nodecl::Analysis::PlusInfinity>()))
+                {
+                    internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+                                   "Upper bounds of variable '%s' do not match ('%s' = '%s').\n",
+                                   locus_str.c_str(), "range",
+                                   Utils::prettyprint_induction_vars(assert_ranges, /*to_dot*/ false).c_str(),
+                                   v.prettyprint().c_str(),
+                                   assert_ub.prettyprint().c_str(), computed_ub.prettyprint().c_str());
+                }
             }
         }
 
