@@ -1909,8 +1909,12 @@ namespace {
                                 Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
                                 std::string subscripts_str;
                                 if (orig_var.no_conv().is<Nodecl::ArraySubscript>())
+                                {
+                                    VarToConstraintMap all_constrs = merged_input_constrs;
+                                    all_constrs.insert(input_constrs.begin(), input_constrs.end());
                                     subscripts_str = get_subscripts_string(orig_var.no_conv().as<Nodecl::ArraySubscript>(),
-                                                                           input_constrs) + "_";
+                                                                           all_constrs) + "_";
+                                }
                                 std::string constr_name = orig_sym.get_name() + "_" + subscripts_str + ss.str();
                                 Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
@@ -1985,8 +1989,12 @@ namespace {
                                 Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
                                 std::string subscripts_str;
                                 if (orig_var.no_conv().is<Nodecl::ArraySubscript>())
+                                {
+                                    VarToConstraintMap all_constrs = merged_input_constrs;
+                                    all_constrs.insert(input_constrs.begin(), input_constrs.end());
                                     subscripts_str = get_subscripts_string(orig_var.no_conv().as<Nodecl::ArraySubscript>(),
-                                                                           input_constrs) + "_";
+                                                                           all_constrs) + "_";
+                                }
                                 std::string constr_name = orig_sym.get_name() + "_" + subscripts_str + ss.str();
                                 Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());

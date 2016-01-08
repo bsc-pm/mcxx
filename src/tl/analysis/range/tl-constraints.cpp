@@ -118,6 +118,19 @@ namespace {
         }
     }
 
+    void ConstraintReplacement::visit(const Nodecl::Conversion& n)
+    {
+        // Catch constants at Conversion level
+        if (n.is_constant())
+        {
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+        else
+        {
+            walk(n.get_nest());
+        }
+    }
+
     void ConstraintReplacement::visit(const Nodecl::FunctionCall& n)
     {
         if (_input_constraints->find(n) != _input_constraints->end())
@@ -1009,12 +1022,12 @@ namespace {
                                           rhs.get_type()),
                         lhs.get_type());
         n.replace(new_rhs);
-        visit_assignment(n.get_lhs().no_conv(), n.get_rhs().no_conv());
+        visit_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void ConstraintBuilder::visit(const Nodecl::Assignment& n)
     {
-        visit_assignment(n.get_lhs().no_conv(), n.get_rhs().no_conv());
+        visit_assignment(n.get_lhs(), n.get_rhs());
     }
 
     // x != c;   ---TRUE-->    X1 = X0 ∩ ([-∞, c-1] U [c+1, -∞])

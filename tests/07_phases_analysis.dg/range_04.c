@@ -33,8 +33,6 @@ test_nolink=yes
 </testinfo>
 */
 
-// NOTE Part of this test is broken after merging master branch
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,7 +47,7 @@ void fwd(float *diag, float *col, int submatrix_size);
 const int MS = 1024;
 const int BS = 128;
 
-void sparselu_par_call(float **BENCH/*, int matrix_size, int submatrix_size*/)
+void sparselu_par_call(float **BENCH)
 {
     int ii, jj, kk;
 
@@ -96,15 +94,13 @@ void sparselu_par_call(float **BENCH/*, int matrix_size, int submatrix_size*/)
                         if (BENCH[kk*MS+jj] != NULL)
                         {
                             if (BENCH[ii*MS+jj]==NULL) BENCH[ii*MS+jj] = allocate_clean_block(BS);
-// #pragma omp task firstprivate(kk, jj, ii) shared(BENCH) \
-//                             depend(in: BENCH[ii*MS+kk:BS*BS], BENCH[kk*MS+jj:BS*BS]) \
-//                             depend(inout: BENCH[ii*MS+jj:BS*BS])
-//                             bmod(BENCH[ii*MS+kk], BENCH[kk*MS+jj], BENCH[ii*MS+jj], BS);
+#pragma omp task firstprivate(kk, jj, ii) shared(BENCH) \
+                            depend(in: BENCH[ii*MS+kk:BS*BS], BENCH[kk*MS+jj:BS*BS]) \
+                            depend(inout: BENCH[ii*MS+jj:BS*BS])
+                            bmod(BENCH[ii*MS+kk], BENCH[kk*MS+jj], BENCH[ii*MS+jj], BS);
                         }
                     }
             }
-
         }
-#pragma omp taskwait
     }
 }
