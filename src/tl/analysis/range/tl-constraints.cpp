@@ -329,7 +329,7 @@ namespace {
 
     void ConstraintBuilder::set_false_constraint_to_inf(const NBase& n)
     {
-        if (n.is<Nodecl::Equal>()
+        if (n.is<Nodecl::Equal>() || n.is<Nodecl::Different>()
                 || n.is<Nodecl::LowerThan>() || n.is<Nodecl::LowerOrEqualThan>()
                 || n.is<Nodecl::GreaterThan>() || n.is<Nodecl::GreaterOrEqualThan>()
                 || n.is<Nodecl::LogicalNot>())

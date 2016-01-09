@@ -47,8 +47,9 @@ void process_inner(p_block_t north, p_block_t west,
 unsigned long long wavefront(void)
 {
     int i, j;
-    #pragma analysis_check assert range(N:4:4:0; BS:8:8:0)
+    #pragma analysis_check assert range(N:4:4:0; BS:8:8:0; i:0:4:0)
     for (i=0; i<N; ++i) {
+        #pragma analysis_check assert range(j:0:4:0)
         for (j=0; j<N; ++j) {
             if (j == 0)
             {
