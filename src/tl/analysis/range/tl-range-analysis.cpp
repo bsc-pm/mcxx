@@ -1675,102 +1675,123 @@ namespace {
         VarToConstraintMap& child_constrs = pcfg_constraints[child];
         ConstraintBuilder cbv(child_constrs, constraints, ordered_constraints);
 
+        // 1.- Get the loop node containing both parent and child
+        Node* outer_loop = parent->get_outer_node();
+        while (!outer_loop->is_loop_node())
+        {
+            outer_loop = outer_loop->get_outer_node();
+        }
+        ERROR_CONDITION(!child->node_is_enclosed_by(outer_loop),
+                        "Unexpected loop structure: loop '%d' encloses parent '%d' but not child '%d'.\n",
+                        outer_loop->get_id(), parent->get_id(), child->get_id());
+
+        // 2.- Generate the constraints caused by the back edge
         for (VarToConstraintMap::const_iterator it = parent_constrs.begin();
              it != parent_constrs.end(); ++it)
         {
             const NBase& orig_var = it->first;
+            // 2.1.- Base case: the variable has not been modified => no propagation needed
+
             Utils::Constraint parent_c = it->second;
-            // Recompute constraint if the child has
-            // a constraint computed with a different value
-            if ((child_constrs.find(orig_var) != child_constrs.end())
-                && (child_constrs[orig_var] != parent_c))
+
+            // 2.2.- Base case: the child's constraint is the same as the parent's constraint
+                      //Recompute constraint if the child has
+            if ((child_constrs.find(orig_var) == child_constrs.end())
+                    || (child_constrs[orig_var] == parent_c))
+                continue;
+
+            // 2.3.- Base case: the variable has not been modified within the loop
+            const NodeclSet& killed_vars = outer_loop->get_killed_vars();
+            if (killed_vars.find(orig_var) == killed_vars.end())
+                continue;
+
+            // 2.4.- In any other case: Rebuild the constraint
+            // 2.4.1.- Get a new symbol for the new constraint
+            std::stringstream ss; ss << get_next_id(orig_var);
+            Symbol orig_sym(orig_var.get_symbol());
+            std::string constr_name = orig_sym.get_name() + "_" + ss.str();
+            Symbol phi_ssa_sym(ssa_scope.new_symbol(constr_name));
+            Type t(orig_sym.get_type());
+            phi_ssa_sym.set_type(t);
+            ssa_to_original_var[phi_ssa_sym] = orig_var;
+
+            // 2.4.2.- Replace the occurrences of the child_ssa_sym with phi_ssa_sym
+            //         only if there are modifications within the loop caused by the back edge
+            //         Do this before inserting the new one, because we do not want it to be replaced
+            std::stack<Node*> nodes;
+            nodes.push(parent->get_children()[0]);  // parent is the last node of a loop,
+                                                    // and it only has one child, the condition of the loop
+            NBase phi_ssa_var = phi_ssa_sym.make_nodecl(/*set_ref_type*/false);
+            Utils::Constraint& child_c = child_constrs[orig_var];
+            Symbol child_ssa_sym = child_c.get_symbol();
+            NBase child_ssa_var = child_ssa_sym.make_nodecl(/*set_ref_type*/false);
+            std::set<Node*> treated;
+            treated.insert(parent);
+            while (!nodes.empty())
             {
-                // 1.- Get a new symbol for the new constraint
-                std::stringstream ss; ss << get_next_id(orig_var);
-                Symbol orig_sym(orig_var.get_symbol());
-                std::string constr_name = orig_sym.get_name() + "_" + ss.str();
-                Symbol phi_ssa_sym(ssa_scope.new_symbol(constr_name));
-                Type t(orig_sym.get_type());
-                phi_ssa_sym.set_type(t);
-                ssa_to_original_var[phi_ssa_sym] = orig_var;
+                // Get the node to be treated
+                Node* n = nodes.top();
+                nodes.pop();
 
-                // 2.- Replace the occurrences of the child_ssa_sym with phi_ssa_sym
-                //     only if there are modifications within the loop caused by the back edge
-                //     Do this before inserting the new one, because we do not want it to be replaced
-                std::stack<Node*> nodes;
-                nodes.push(parent->get_children()[0]);  // parent is the last node of a loop,
-                                                        // and it only has one child, the condition of the loop
-                NBase phi_ssa_var = phi_ssa_sym.make_nodecl(/*set_ref_type*/false);
-                Utils::Constraint& child_c = child_constrs[orig_var];
-                Symbol child_ssa_sym = child_c.get_symbol();
-                NBase child_ssa_var = child_ssa_sym.make_nodecl(/*set_ref_type*/false);
-                std::set<Node*> treated;
-                treated.insert(parent);
-                while (!nodes.empty())
+                // Base case: the node has already been processed
+                if (treated.find(n) != treated.end())
+                    continue;
+                treated.insert(n);
+
+                // Gather the constraints generated by this node
+                VarToConstraintMap& n_constrs = pcfg_constraints[n];
+                if (n_constrs.find(orig_var) != n_constrs.end())
                 {
-                    // Get the node to be treated
-                    Node* n = nodes.top();
-                    nodes.pop();
-
-                    // Base case: the node has already been processed
-                    if (treated.find(n) != treated.end())
-                        continue;
-                    treated.insert(n);
-
-                    // Gather the constraints generated by this node
-                    VarToConstraintMap& n_constrs = pcfg_constraints[n];
-                    if (n_constrs.find(orig_var) != n_constrs.end())
+                    Utils::Constraint& n_c = n_constrs[orig_var];
+                    NBase& n_val = n_c.get_value();
+                    if (RANGES_DEBUG
+                        && Nodecl::Utils::nodecl_contains_nodecl_by_structure(n_val, child_ssa_var))
                     {
-                        Utils::Constraint& n_c = n_constrs[orig_var];
-                        NBase& n_val = n_c.get_value();
-                        if (RANGES_DEBUG
-                            && Nodecl::Utils::nodecl_contains_nodecl_by_structure(n_val, child_ssa_var))
-                        {
-                            std::cerr << "    REPLACE " << child_ssa_var.prettyprint()
-                                        << " WITH " << phi_ssa_var.prettyprint()
-                                        << " IN " << n_val.prettyprint() << std::endl;
-                        }
-                        Nodecl::Utils::nodecl_replace_nodecl_by_structure(n_val, child_ssa_var, phi_ssa_var);
+                        std::cerr << "    REPLACE " << child_ssa_var.prettyprint()
+                                  << " WITH " << phi_ssa_var.prettyprint()
+                                  << " IN " << n_val.prettyprint() << std::endl;
                     }
-
-                    // Prepare following iterations
-                    ObjectList<Node*> children =
-                        n->is_exit_node()
-                            ? n->get_outer_node()->get_children()           // exit graph nodes
-                            : n->is_graph_node()
-                                ? ObjectList<Node*>(1, n->get_graph_entry_node()) // enter graph nodes
-                                : n->get_children();                        // regular child
-                    for (ObjectList<Node*>::iterator itc = children.begin();
-                        itc != children.end(); ++itc)
-                    {
-                        nodes.push(*itc);
-                    }
+                    Nodecl::Utils::nodecl_replace_nodecl_by_structure(n_val, child_ssa_var, phi_ssa_var);
                 }
 
-                // 3.- Build the value of the new constraint    (i1 = phi(i3,i2))
-                Symbol parent_ssa_sym = parent_c.get_symbol();
-                NBase parent_ssa_var = parent_ssa_sym.make_nodecl(/*set_ref_type*/false);
-                Nodecl::List exprs = Nodecl::List::make(child_ssa_var, parent_ssa_var);
-                NBase val = Nodecl::Analysis::Phi::make(exprs, t);
-
-                // 4.- Build the new constraint and insert it in the proper list
-                Utils::Constraint recomputed_c = cbv.build_constraint(phi_ssa_sym, val,
-                                                                      Utils::ConstraintKind::__BackEdge);
-                child_c = recomputed_c;
-
-                // 5.- Reorder the new constraint in the proper place in the ordered list
-                //     build_constraint has inserted prior to the parent_ssa_var
-                // 5.1.- Remove the new SSA symbol (the last in the vector)
-                ordered_constraints->pop_back();
-                // 5.2.- Insert the new SSA symbol properly
-                std::vector<Symbol>::iterator ito = ordered_constraints->begin();
-                while (*ito != parent_ssa_sym && ito != ordered_constraints->end())
-                    ++ito;
-                ERROR_CONDITION(ito == ordered_constraints->end(),
-                                "SSA variable %s not found in the list of ordered constraints\n",
-                                phi_ssa_sym.get_name().c_str());
-                ordered_constraints->insert(ito, phi_ssa_sym);
+                // Prepare following iterations
+                ObjectList<Node*> children =
+                    n->is_exit_node()
+                        ? n->get_outer_node()->get_children()                   // exit graph nodes
+                        : n->is_graph_node()
+                            ? ObjectList<Node*>(1, n->get_graph_entry_node())   // enter graph nodes
+                            : n->get_children();                                // regular child
+                for (ObjectList<Node*>::iterator itc = children.begin();
+                    itc != children.end(); ++itc)
+                {
+                    nodes.push(*itc);
+                }
             }
+
+            // 2.4.3.- Build the value of the new constraint    (i1 = phi(i3,i2))
+            Symbol parent_ssa_sym = parent_c.get_symbol();
+            NBase parent_ssa_var = parent_ssa_sym.make_nodecl(/*set_ref_type*/false);
+            Nodecl::List exprs = Nodecl::List::make(child_ssa_var, parent_ssa_var);
+            NBase val = Nodecl::Analysis::Phi::make(exprs, t);
+
+            // 2.4.4.- Build the new constraint and insert it in the proper list
+            Utils::Constraint recomputed_c
+                    = cbv.build_constraint(phi_ssa_sym, val,
+                                           Utils::ConstraintKind::__BackEdge);
+            child_c = recomputed_c;
+
+            // 2.4.5.- Reorder the new constraint in the proper place in the ordered list
+            //         build_constraint has inserted prior to the parent_ssa_var
+            // 2.4.5.1.- Remove the new SSA symbol (the last in the vector)
+            ordered_constraints->pop_back();
+            // 2.4.5.2.- Insert the new SSA symbol properly
+            std::vector<Symbol>::iterator ito = ordered_constraints->begin();
+            while (*ito != parent_ssa_sym && ito != ordered_constraints->end())
+                ++ito;
+            ERROR_CONDITION(ito == ordered_constraints->end(),
+                            "SSA variable %s not found in the list of ordered constraints\n",
+                            phi_ssa_sym.get_name().c_str());
+            ordered_constraints->insert(ito, phi_ssa_sym);
         }
     }
 }
@@ -2213,9 +2234,10 @@ ssa_sym_found:
              it != pcfg_constraints.end(); ++it)
         {
             const VarToConstraintMap constraints = it->second;
-            if(!constraints.empty())
+            if (!constraints.empty())
             {
-                for(VarToConstraintMap::const_iterator itt = constraints.begin(); itt != constraints.end(); ++itt)
+                for (VarToConstraintMap::const_iterator itt = constraints.begin();
+                     itt != constraints.end(); ++itt)
                 {
                     Symbol s(itt->second.get_symbol());
                     std::map<Symbol, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator ssa_to_var_it;

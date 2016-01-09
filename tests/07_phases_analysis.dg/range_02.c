@@ -50,30 +50,36 @@ unsigned long long wavefront(void)
     #pragma analysis_check assert range(N:4:4:0; BS:8:8:0)
     for (i=0; i<N; ++i) {
         for (j=0; j<N; ++j) {
-            if (j == 0 && i == 0)
-            {           // top left corner block
-                #pragma analysis_check assert range(i:0:0:0; j:0:0:0)
-                p_block_t block = square[i][j];
-                process_corner(block);
-            }
-            else if (j == 0)
-            {           // blocks in left edge
-                p_block_t north = square[i-1][j];
-                p_block_t block = square[i][j];
-                process_left_edge(north, block);
+            if (j == 0)
+            {
+                if (i == 0)
+                {   // top left corner block
+                    p_block_t block = square[i][j];
+                    #pragma analysis_check assert range(i:0:0:0; j:0:0:0)
+                    process_corner(block);
+                }
+                else
+                {   // blocks in left edge
+                    p_block_t north = square[i-1][j];
+                    p_block_t block = square[i][j];
+                    #pragma analysis_check assert range(i:1:3:0; j:0:0:0)
+                    process_left_edge(north, block);
+                }
             }
             else if (i == 0)
-            {           // blocks in upper edge
+            {   // blocks in upper edge
                 p_block_t west = square[i][j-1];
                 p_block_t block = square[i][j];
+                #pragma analysis_check assert range(i:0:0:0; j:1:3:0)
                 process_upper_edge(west, block);
             }
             else
-            {           // internal blocks
+            {   // internal blocks
                 p_block_t north = square[i-1][j];
                 p_block_t west = square[i][j-1];
                 p_block_t north_west = square[i-1][j-1];
                 p_block_t block = square[i][j];
+                #pragma analysis_check assert range(i:1:3:0; j:1:3:0)
                 process_inner(north, west, north_west, block);
             }
         }

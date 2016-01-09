@@ -357,7 +357,7 @@ namespace Analysis {
         if (!_range)
         {
             // Required previous analysis
-            parallel_control_flow_graph(ast);
+            use_def(ast, /*propagate_graph_nodes*/ true);
 
             double init = 0.0;
             if (ANALYSIS_PERFORMANCE_MEASURE)
