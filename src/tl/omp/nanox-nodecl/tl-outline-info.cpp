@@ -1224,19 +1224,19 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OmpSs::DepWeakIn& dep_weak)
             {
                 error_printf_at(dep_weak.get_locus(),
-                        "weak dependences are not supported in Nanos++");
+                        "weak dependences are not supported in Nanos++\n");
             }
 
             void visit(const Nodecl::OmpSs::DepWeakOut& dep_weak)
             {
                 error_printf_at(dep_weak.get_locus(),
-                        "weak dependences are not supported in Nanos++");
+                        "weak dependences are not supported in Nanos++\n");
             }
 
             void visit(const Nodecl::OmpSs::DepWeakInout& dep_weak)
             {
                 error_printf_at(dep_weak.get_locus(),
-                        "weak dependences are not supported in Nanos++");
+                        "weak dependences are not supported in Nanos++\n");
             }
 
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
