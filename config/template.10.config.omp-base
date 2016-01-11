@@ -60,6 +60,8 @@ linker_name = @GCC@
 {simd, neon} options = --variable=neon_enabled:1
 {simd, (romol|valib)} options = --variable=romol_enabled:1
 {simd, (romol|valib)} preprocessor_options = -I @PKGDATADIR@/romol -include valib.h
+{simd, (romol|valib), valib-sim} preprocessor_options = -DVALIB_HIDE_DECLS
+{simd, (romol|valib), valib-sim} options = --variable=valib_sim_header:1
 {(mmic|knl)} preprocessor_options = -include immintrin.h
 {simd, avx2} preprocessor_options = -O -mavx2 -include immintrin.h
 {simd, avx2} compiler_options = -mavx2

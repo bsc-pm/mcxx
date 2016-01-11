@@ -50,7 +50,10 @@ namespace TL
             _knc_enabled(false),
             _avx2_enabled(false),
             _neon_enabled(false),
-            _romol_enabled(false)
+            _romol_enabled(false),
+            _prefer_gather_scatter(false),
+            _prefer_mask_gather_scatter(false),
+            _valib_sim_header(false)
         {
             set_phase_name("Vector Lowering Phase");
             set_phase_description("This phase lowers Vector IR to builtin calls. "
@@ -90,35 +93,40 @@ namespace TL
                     "If set to '1' enables gather/scatter generation for unaligned load/stores",
                     _prefer_gather_scatter_str,
                     "0").connect(std::bind(&VectorLoweringPhase::set_prefer_gather_scatter, this, std::placeholders::_1));
+
+            register_parameter("valib_sim_header",
+                    "If set to '1' prepends at the beginning of the output '#include <valib-sim.h>'",
+                    _valib_sim_header_str,
+                    "0").connect(std::bind(&VectorLoweringPhase::set_valib_sim_header, this, std::placeholders::_1));
         }
 
-        void VectorLoweringPhase::set_knl(const std::string knl_enabled_str)
+        void VectorLoweringPhase::set_knl(const std::string& knl_enabled_str)
         {
             parse_boolean_option("knl_enabled", knl_enabled_str, _knl_enabled, "Invalid value for knl_enabled");
         }
 
-        void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
+        void VectorLoweringPhase::set_knc(const std::string& knc_enabled_str)
         {
             parse_boolean_option("knc_enabled", knc_enabled_str, _knc_enabled, "Invalid value for knc_enabled");
         }
 
-        void VectorLoweringPhase::set_avx2(const std::string avx2_enabled_str)
+        void VectorLoweringPhase::set_avx2(const std::string& avx2_enabled_str)
         {
             parse_boolean_option("avx2_enabled", avx2_enabled_str, _avx2_enabled, "Invalid value for avx2_enabled");
         }
 
-        void VectorLoweringPhase::set_neon(const std::string neon_enabled_str)
+        void VectorLoweringPhase::set_neon(const std::string& neon_enabled_str)
         {
             parse_boolean_option("neon_enabled", neon_enabled_str, _neon_enabled, "Invalid value for neon_enabled");
         }
 
-        void VectorLoweringPhase::set_romol(const std::string romol_enabled_str)
+        void VectorLoweringPhase::set_romol(const std::string& romol_enabled_str)
         {
             parse_boolean_option("romol_enabled", romol_enabled_str, _romol_enabled, "Invalid value for romol_enabled");
         }
 
         void VectorLoweringPhase::set_prefer_gather_scatter(
-                const std::string prefer_gather_scatter_str)
+                const std::string& prefer_gather_scatter_str)
         {
             if (prefer_gather_scatter_str == "1")
             {
@@ -126,8 +134,14 @@ namespace TL
             }
         }
 
+        void VectorLoweringPhase::set_valib_sim_header(
+                const std::string& str)
+        {
+            parse_boolean_option("valib_sim_header", str, _valib_sim_header, "Invalid value for valib_sim_header");
+        }
+
         void VectorLoweringPhase::set_prefer_mask_gather_scatter(
-                const std::string prefer_mask_gather_scatter_str)
+                const std::string& prefer_mask_gather_scatter_str)
         {
             if (prefer_mask_gather_scatter_str == "1")
             {
@@ -236,6 +250,14 @@ namespace TL
 
                 RomolVectorBackend romol_vector_backend;
                 romol_vector_backend.walk(translation_unit);
+
+                if (_valib_sim_header)
+                {
+                    Nodecl::Utils::prepend_to_top_level_nodecl(
+                            Nodecl::PreprocessorLine::make(
+                                "#include <valib-sim.h>",
+                                /* locus */ 0));
+                }
             }
             else
             {

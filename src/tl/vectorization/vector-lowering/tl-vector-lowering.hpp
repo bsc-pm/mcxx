@@ -43,6 +43,7 @@ namespace TL
                 bool _romol_enabled;
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
+                bool _valib_sim_header;
 
                 std::string _knl_enabled_str;
                 std::string _knc_enabled_str;
@@ -52,18 +53,20 @@ namespace TL
                 std::string _intel_compiler_profile_str;
                 std::string _prefer_gather_scatter_str;
                 std::string _prefer_mask_gather_scatter_str;
+                std::string _valib_sim_header_str;
 
-                void set_knl(const std::string knl_enabled_str);
-                void set_knc(const std::string knc_enabled_str);
-                void set_avx2(const std::string avx2_enabled_str);
-                void set_neon(const std::string neon_enabled_str);
-                void set_romol(const std::string romol_enabled_str);
+                void set_knl(const std::string& knl_enabled_str);
+                void set_knc(const std::string& knc_enabled_str);
+                void set_avx2(const std::string& avx2_enabled_str);
+                void set_neon(const std::string& neon_enabled_str);
+                void set_romol(const std::string& romol_enabled_str);
                 void set_intel_compiler_profile(
-                        const std::string intel_compiler_profile_str);
+                        const std::string& intel_compiler_profile_str);
                 void set_prefer_gather_scatter(
-                        const std::string prefer_gather_scatter_str);
+                        const std::string& prefer_gather_scatter_str);
                 void set_prefer_mask_gather_scatter(
-                        const std::string prefer_mask_gather_scatter_str);
+                        const std::string& prefer_mask_gather_scatter_str);
+                void set_valib_sim_header(const std::string& str);
 
             public:
                 VectorLoweringPhase();
