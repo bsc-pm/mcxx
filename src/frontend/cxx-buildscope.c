@@ -10509,7 +10509,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
                     hide_template_parameters_because_of_members(decl_context,
                             named_type_get_symbol(symbol_entity_specs_get_class_type(first_symbol)),
                             decl_context->template_parameters);
-                // DEBUG_CODE()
+                DEBUG_CODE()
                 {
                     if (updated_entity_context->template_parameters == decl_context->template_parameters)
                     {
