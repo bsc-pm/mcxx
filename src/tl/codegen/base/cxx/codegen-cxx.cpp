@@ -9494,9 +9494,15 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     && symbol.has_default_argument_num(i)
                     && !symbol.has_hidden_default_argument_num(i))
             {
+                TL::Scope scope_of_param = current_param.get_scope();
+                if (symbol.is_member())
+                {
+                    scope_of_param = symbol.get_scope();
+                }
+
                 // Note that we add redundant parentheses because of a g++ 4.3 problem
                 parameter_attributes[i] += " = (" + this->codegen_to_str(symbol.get_default_argument_num(i), 
-                            current_param.get_scope()) + ")";
+                            scope_of_param) + ")";
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
         }
