@@ -578,6 +578,12 @@ void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->cuda.is_constant = 1;
     }
+    // Mercurium own attributes
+    else if (strcmp(attribute_name, "mcc_hidden") == 0
+            || strcmp(attribute_name, "mcxx_hidden") == 0)
+    {
+        gather_info->is_mcc_hidden = 1;
+    }
     else
     {
         // Unknown attribute, keep its arguments as a literal list

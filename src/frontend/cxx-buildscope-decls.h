@@ -102,6 +102,7 @@ struct gather_decl_spec_tag {
     // Mercurium extensions
     bool is_boolean_integer;
     bool is_mask_integer;
+    bool is_mcc_hidden;
 
     // We are in the declarator of "new T[e]" 
     // 'e' may be non-constant, do not create a VLA entity for it

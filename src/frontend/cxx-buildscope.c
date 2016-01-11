@@ -1269,6 +1269,12 @@ static void keep_extra_attributes_in_symbol(scope_entry_t* entry, gather_decl_sp
     keep_std_attributes_in_symbol(entry, gather_info);
     keep_gcc_attributes_in_symbol(entry, gather_info);
     keep_ms_declspecs_in_symbol(entry, gather_info);
+
+    if (gather_info->is_mcc_hidden)
+    {
+        entry->do_not_print = 1;
+        symbol_entity_specs_set_is_user_declared(entry, 0);
+    }
 }
 
 static void build_scope_explicit_instantiation(AST a,
