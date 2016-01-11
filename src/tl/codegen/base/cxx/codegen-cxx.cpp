@@ -4741,13 +4741,17 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         if (is_extern)
             *(file) << "extern ";
 
-        std::string gcc_attributes;
+        std::string attributes;
         if (sym.has_gcc_attributes())
         {
-            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+            attributes = gcc_attributes_to_str(sym) + " ";
+        }
+        if (sym.has_alignas())
+        {
+            attributes += alignas_attributes_to_str(sym) + " ";
         }
 
-        *(file) << "template " << class_key << " " << gcc_attributes << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
+        *(file) << "template " << class_key << " " << attributes << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
 
     }
     else if (sym.is_function())
@@ -5245,6 +5249,10 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
     if (symbol.has_gcc_attributes())
     {
         gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+    }
+    if (symbol.has_alignas())
+    {
+        gcc_attributes += alignas_attributes_to_str(symbol) + " ";
     }
 
     std::string gcc_extension;
@@ -6647,6 +6655,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
     std::string decl_specifiers;
     std::string gcc_attributes;
+    std::string std_attributes;
     std::string declarator;
     std::string bit_field;
 
@@ -6770,6 +6779,10 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
             gcc_attributes = gcc_attributes_to_str(symbol) + " ";
         }
     }
+    if (symbol.has_alignas())
+    {
+        std_attributes = alignas_attributes_to_str(symbol) + " ";
+    }
 
     std::string gcc_extension;
     if (symbol.has_gcc_extension())
@@ -6804,11 +6817,11 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     if (CURRENT_CONFIGURATION->xl_compatibility)
     {
         // IBM XL C/C++ only understands attributes before the initializer...
-        *(file) << gcc_extension << decl_specifiers << declarator << gcc_attributes << virt_specifiers << bit_field;
+        *(file) << gcc_extension << decl_specifiers << std_attributes << declarator << gcc_attributes << virt_specifiers << bit_field;
     }
     else
     {
-        *(file) << gcc_extension << decl_specifiers << gcc_attributes << declarator << virt_specifiers << bit_field;
+        *(file) << gcc_extension << decl_specifiers << gcc_attributes << std_attributes << declarator << virt_specifiers << bit_field;
     }
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
@@ -9057,6 +9070,54 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
         attributes_counter++;
     }
     return result;
+}
+
+std::string CxxBase::alignas_attributes_to_str(TL::Symbol symbol)
+{
+    Nodecl::NodeclBase alignas_expr = symbol.get_alignas();
+
+    if (alignas_expr.is_null())
+        return "";
+
+    std::stringstream ss;
+    std::ostream *tmp_out = &ss;
+
+    bool b = this->is_file_output();
+    this->set_is_file_output(false);
+    std::swap(file, tmp_out);
+
+    push_scope(symbol.get_scope());
+
+    if (alignas_expr.is<Nodecl::CxxAlignas>())
+    {
+        Nodecl::List l = alignas_expr.as<Nodecl::CxxAlignas>().get_values().as<Nodecl::List>();
+        int i = 0;
+        for (Nodecl::List::iterator it = l.begin();
+                it != l.end();
+                it++, i++)
+        {
+            if (i > 0)
+                ss << " ";
+            ss << "alignas(";
+            walk(*it);
+            ss << ")";
+        }
+    }
+    else
+    {
+        ss << "alignas(";
+
+        walk(alignas_expr);
+
+        ss << ")";
+    }
+
+    pop_scope();
+
+    std::swap(file, tmp_out);
+    this->set_is_file_output(b);
+
+    return ss.str();
 }
 
 std::string CxxBase::ms_attributes_to_str(TL::Symbol symbol)

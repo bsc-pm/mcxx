@@ -396,6 +396,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
 # [dependent] C+11 lambdas
     | NODECL_CXX_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
+# [dependent] alignas
+    | NODECL_CXX_ALIGNAS([values]expression-seq) type
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt

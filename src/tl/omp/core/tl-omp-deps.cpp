@@ -329,6 +329,24 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    void Core::get_dependences_info_from_reductions(
+            TL::PragmaCustomLine pragma_line,
+            DataEnvironment& data_sharing_environment,
+            DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        Nodecl::NodeclBase parsing_context = pragma_line;
+        TL::ObjectList<ReductionSymbol> reductions;
+        data_sharing_environment.get_all_reduction_symbols(reductions);
+
+        TL::ObjectList<Nodecl::NodeclBase> reduction_expressions =
+            reductions.map<Nodecl::NodeclBase>(&ReductionSymbol::get_reduction_expression);
+
+        add_data_sharings(reduction_expressions, data_sharing_environment,
+                DEP_OMPSS_CONCURRENT, default_data_attr, this->in_ompss_mode(),
+                "concurrent", extra_symbols);
+    }
+
     void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
             DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,

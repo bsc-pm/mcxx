@@ -171,6 +171,14 @@ namespace TL
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
+                // This function is used to define a concurrent dependence over
+                // the reduction expressions
+                void get_dependences_info_from_reductions(
+                        PragmaCustomLine pragma_line,
+                        DataEnvironment& data_environment,
+                        DataSharingAttribute default_data_attr,
+                        ObjectList<Symbol>& extra_symbols);
+
                 void get_dependences_ompss_info_clause(
                         PragmaCustomClause clause,
                         Nodecl::NodeclBase parsing_context,

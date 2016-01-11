@@ -538,6 +538,9 @@ namespace TL
             //! States whether this symbol has the gcc  __extension__
             bool has_gcc_extension() const;
 
+            //! States whether this symbol has __alignas__
+            bool has_alignas() const;
+
             //! States whether this symbol has ms attributes
             bool has_ms_attributes() const;
 
@@ -711,6 +714,9 @@ namespace TL
 
             //! Returns the ms attributes of this symbol
             ObjectList<MSAttribute> get_ms_attributes() const;
+
+            //! Get alignas attribute
+            Nodecl::NodeclBase get_alignas() const;
 
             //! __asm__ specifier
             /*!

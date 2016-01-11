@@ -64,6 +64,274 @@ void DeviceOpenCL::generate_ndrange_code(
         // Out
         TL::Source& code_ndrange)
 {
+    if (!Nanos::Version::interface_is_at_least("opencl", 1003))
+    {
+        return old_generate_ndrange_code(
+                called_task,
+                unpacked_function,
+                target_info,
+                filename,
+                kernel_name,
+                data_items,
+                called_fun_to_outline_data_map,
+                outline_data_to_unpacked_fun_map,
+                code_ndrange);
+    }
+
+    // The arguments of the clauses 'ndrange' and 'shmem' must be updated because
+    // they are not expressed in terms of the unpacked function parameters
+    TL::ObjectList<Nodecl::NodeclBase> new_ndrange, new_shmem;
+    update_ndrange_and_shmem_expressions(
+            unpacked_function.get_related_scope(),
+            target_info,
+            outline_data_to_unpacked_fun_map,
+            new_ndrange,
+            new_shmem);
+
+    // Prepare mapping for the call to the kernel
+    TL::Source code_ndrange_aux;
+    Nodecl::Utils::SimpleSymbolMap called_fun_to_unpacked_fun_map;
+
+    const std::map<TL::Symbol, TL::Symbol>* called_fun_to_outline_data_map_simple =
+        called_fun_to_outline_data_map->get_simple_symbol_map();
+    for (std::map<TL::Symbol, TL::Symbol>::const_iterator it = called_fun_to_outline_data_map_simple->begin();
+            it != called_fun_to_outline_data_map_simple->end();
+            it++)
+    {
+        TL::Symbol key = it->first;
+        TL::Symbol value = outline_data_to_unpacked_fun_map->map(it->second.get_internal_symbol());
+        called_fun_to_unpacked_fun_map.add_map(key, value);
+    }
+
+    // The syntax of ndrange is
+    //
+    //     ndrange(N, global-list [, local-list])
+    //
+    // Each X-list has as much as N elements
+
+    Nodecl::NodeclBase num_dims_expr = new_ndrange[0];
+    bool num_dims_is_constant = num_dims_expr.is_constant();
+
+    // pop_front
+    new_ndrange.erase(new_ndrange.begin()); // remove "N"
+
+    TL::ObjectList<Nodecl::NodeclBase> global_list;
+    TL::ObjectList<Nodecl::NodeclBase> local_list;
+
+    int num_dims = -1;
+    if (num_dims_is_constant)
+    {
+        num_dims = const_value_cast_to_signed_int(num_dims_expr.get_constant());
+        if (num_dims < 1 || num_dims > 3)
+        {
+            fatal_printf_at(num_dims_expr.get_locus(),
+                    "number of dimensions for 'ndrange' clause is not 1, 2 or 3\n");
+        }
+
+        if (num_dims != (int)new_ndrange.size()
+                && (num_dims * 2) != (int)new_ndrange.size())
+        {
+            fatal_printf_at(num_dims_expr.get_locus(),
+                    "a 'ndrange(%d, argument-list)' clause requires %d or %d arguments in argument-list\n",
+                    num_dims,
+                    num_dims ,
+                    num_dims * 2);
+        }
+    }
+
+    std::string compiler_options;
+    if (CURRENT_CONFIGURATION->opencl_build_options != NULL)
+    {
+        compiler_options = std::string(CURRENT_CONFIGURATION->opencl_build_options);
+    }
+
+    // Create OpenCL kernel
+    code_ndrange_aux << "nanos_err_t nanos_err;"
+                     << "void* ompss_kernel_ocl = nanos_create_current_kernel(\""
+                     <<         kernel_name << "\",\""
+                     <<         filename << "\","
+                     <<         "\"" << compiler_options << "\");";
+
+    // Prepare setArgs
+    unsigned int index_local = 0;
+    TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
+    for (unsigned int i = 0; i < parameters_called.size(); ++i)
+    {
+        TL::Symbol unpacked_argument = called_fun_to_unpacked_fun_map.map(parameters_called[i]);
+
+        // The attribute __global is deduced: the current argument will be __global if it has any copies
+        bool is_global = false;
+        if (unpacked_argument.get_type().no_ref().is_pointer()
+                || unpacked_argument.get_type().no_ref().is_array())
+        {
+            for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
+                    it != data_items.end() && !is_global;
+                    ++it)
+            {
+                TL::Symbol outline_data_item_sym = (*it)->get_symbol();
+
+                // If the outline data item has not a valid symbol, skip it
+                if (!outline_data_item_sym.is_valid())
+                    continue;
+
+                // If the symbol of the current outline data item is not the
+                // same as the unpacked_argument, skip it
+                if(outline_data_to_unpacked_fun_map->map(outline_data_item_sym.get_internal_symbol()) != unpacked_argument)
+                    continue;
+
+                is_global = !((*it)->get_copies().empty());
+            }
+        }
+
+        bool is_local = !is_global && unpacked_argument.get_type().no_ref().is_pointer();
+
+        if (is_global)
+        {
+            code_ndrange_aux
+                << "nanos_err = nanos_opencl_set_bufferarg("
+                <<      "ompss_kernel_ocl, "
+                <<      i << ", "
+                <<      as_symbol(unpacked_argument) <<");";
+        }
+        else if (is_local)
+        {
+            TL::Source sizeof_arg;
+            if (index_local >= new_shmem.size())
+            {
+                warn_printf_at(called_task.get_locus(),
+                        "the size of the local symbol '%s' has not been specified in the 'shmem' clause, assuming zero\n",
+                        unpacked_argument.get_name().c_str());
+
+                sizeof_arg << "0";
+            }
+            else
+            {
+                sizeof_arg << as_expression(new_shmem[index_local]);
+            }
+
+            code_ndrange_aux << "nanos_err = nanos_opencl_set_arg("
+                <<      "ompss_kernel_ocl, "
+                <<      i << ", "
+                <<      sizeof_arg << ", "
+                <<      "0);";
+            ++index_local;
+        }
+        else
+        {
+            code_ndrange_aux << "nanos_err = nanos_opencl_set_arg("
+                <<      "ompss_kernel_ocl, "
+                <<      i << ", "
+                <<      "sizeof(" << as_type(unpacked_argument.get_type().no_ref()) << "), "
+                <<      "&" << as_symbol(unpacked_argument) <<");";
+        }
+    }
+
+
+    //Build arrays with information from ndrange clause or pointing to the ndrange pointers
+    if (!num_dims_is_constant)
+    {
+        fatal_printf_at(num_dims_expr.get_locus(),
+                "first argument in 'ndrange' clause must be constant\n");
+    }
+    else
+    {
+        if (num_dims * 2 == (int)new_ndrange.size())
+        {
+            // ndrange(global-list, local-list)
+            int i = 0;
+            for (; i < num_dims; i++)
+            {
+                global_list.append(new_ndrange[i]);
+            }
+            for (; i < num_dims*2; i++)
+            {
+                local_list.append(new_ndrange[i]);
+            }
+        }
+        // locals are not specified here
+        else if (num_dims == (int)new_ndrange.size())
+        {
+            // ndrange(global-list)
+            int i = 0;
+            for (int k = 0; k < num_dims; k++, i++)
+            {
+                global_list.append(new_ndrange[i]);
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        bool there_is_local_size = !local_list.empty();
+
+        // Prepare ndrange calc pointers and arrays
+        if (there_is_local_size)
+        {
+            code_ndrange_aux
+                << "size_t local_size_arr[" << num_dims << "];"
+                ;
+        }
+        code_ndrange_aux
+            << "size_t global_size_arr[" << num_dims << "];"
+            ;
+
+        for (int i = 0; i < num_dims; i++)
+        {
+            if (there_is_local_size)
+            {
+                code_ndrange_aux
+                    << "local_size_arr[" << i << "] = " << as_expression(local_list[i]) << ";"
+                    ;
+            }
+            code_ndrange_aux
+                << "global_size_arr[" << i << "] = " << as_expression(global_list[i]) << ";"
+                ;
+        }
+
+        if (there_is_local_size)
+        {
+            // Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
+            code_ndrange_aux << "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, " << num_dims << ", local_size_arr, global_size_arr);"
+                ;
+        }
+        else
+        {
+            // Let the runtime choose the best local size
+            code_ndrange_aux << "nanos_err = nanos_profile_exec_kernel(ompss_kernel_ocl, " << num_dims << ", global_size_arr);"
+                ;
+        }
+    }
+
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Source::source_language = SourceLanguage::C;
+
+        Nodecl::NodeclBase code_ndrange_tree = code_ndrange_aux.parse_statement(unpacked_function.get_related_scope());
+
+        Source::source_language = SourceLanguage::Current;
+
+        code_ndrange << as_statement(code_ndrange_tree);
+    }
+    else
+    {
+        code_ndrange << code_ndrange_aux;
+    }
+}
+
+// Old version - Deprecated. Kept here for compatibility with old runtimes
+void DeviceOpenCL::old_generate_ndrange_code(
+        const TL::Symbol& called_task,
+        const TL::Symbol& unpacked_function,
+        const TargetInformation& target_info,
+        const std::string filename,
+        const std::string kernel_name,
+        const TL::ObjectList<OutlineDataItem*>& data_items,
+        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
+        Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
+        // Out
+        TL::Source& code_ndrange)
+{
     // The arguments of the clauses 'ndrange' and 'shmem' must be updated because
     // they are not expressed in terms of the unpacked function parameters
     TL::ObjectList<Nodecl::NodeclBase> new_ndrange, new_shmem;

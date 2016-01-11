@@ -5,7 +5,8 @@ preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
 preprocessor_options = -E
-options = --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+{!disable-intel-intrinsics} options = --enable-intel-intrinsics
 
 [plainicpc]
 language = C++
@@ -13,7 +14,8 @@ preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
 preprocessor_options = -E
-options = --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --enable-intel-vector-types
+options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
+{!disable-intel-intrinsics} options = --enable-intel-intrinsics
 
 [plainifort]
 language = Fortran

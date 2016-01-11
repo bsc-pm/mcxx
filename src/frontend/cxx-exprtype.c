@@ -10207,6 +10207,10 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
     }
     else
     {
+        first_op = nodecl_get_child(*nodecl_output, 0);
+        second_op = nodecl_get_child(*nodecl_output, 1);
+        third_op = nodecl_get_child(*nodecl_output, 2);
+
         if (nodecl_is_constant(first_op))
         {
             nodecl_t nodecl_final_expr = nodecl_null();
@@ -21639,9 +21643,12 @@ static char check_vector_type_initialization(
     {
         expr_elem_type = vector_type_get_element_type(no_ref(expr_elem_type));
 
+        cv_qualifier_t cv_expr_elem_type = CV_NONE;
+        advance_over_typedefs_with_cv_qualif(no_ref(expr_elem_type), &cv_expr_elem_type);
+
         expr_elem_type = get_cv_qualified_type(
                 expr_elem_type,
-                get_cv_qualifier(expr_elem_type)
+                cv_expr_elem_type
                 | get_cv_qualifier(expr_type));
 
         if (is_lvalue_reference_type(expr_type))
@@ -21655,9 +21662,13 @@ static char check_vector_type_initialization(
     }
 
     type_t* initialized_elem_type = vector_type_get_element_type(no_ref(initialized_vec_type));
+
+    cv_qualifier_t cv_initialized_vec_type = CV_NONE;
+    advance_over_typedefs_with_cv_qualif(no_ref(initialized_vec_type), &cv_initialized_vec_type);
+
     initialized_elem_type = get_cv_qualified_type(
             initialized_elem_type,
-            get_cv_qualifier(initialized_vec_type)
+            cv_initialized_vec_type
             | get_cv_qualifier(initialized_elem_type));
 
     if (is_lvalue_reference_type(initialized_vec_type))
@@ -23362,6 +23373,53 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
     }
 
     *nodecl_output = fun(nodecl_expr, result_type, locus);
+
+    if (is_lvalue_reference_type(result_type))
+    {
+        const_value_t* cval = compute_glvalue_constant(nodecl_expr, decl_context);
+        if (cval != NULL
+                && const_value_is_object(cval))
+        {
+            int num_accessors = const_value_object_get_num_accessors(cval) + 1;
+
+            subobject_accessor_t accessors[num_accessors];
+            scope_entry_t* base = const_value_object_get_base(cval);
+            const_value_object_get_all_accessors(cval, accessors);
+
+            // gcc represents _Complex like if they were a struct, so
+            // SUBOBJ_MEMBER seems appropiate here
+            accessors[num_accessors - 1].kind = SUBOBJ_MEMBER;
+            if (is_real)
+            {
+                accessors[num_accessors - 1].index = const_value_get_signed_int(0);
+            }
+            else
+            {
+                accessors[num_accessors - 1].index = const_value_get_signed_int(1);
+            }
+
+            cval = const_value_make_object(base, num_accessors, accessors);
+
+            nodecl_set_constant(*nodecl_output, cval);
+        }
+    }
+    else
+    {
+        if (nodecl_is_constant(nodecl_expr)
+                && const_value_is_complex(nodecl_get_constant(nodecl_expr)))
+        {
+            const_value_t* cval = nodecl_get_constant(nodecl_expr);
+            if (is_real)
+            {
+                cval = const_value_complex_get_real_part(cval);
+            }
+            else
+            {
+                cval = const_value_complex_get_imag_part(cval);
+            }
+            nodecl_set_constant(*nodecl_output, cval);
+        }
+    }
 }
 
 static void check_gcc_real_or_imag_part(AST expression, 
@@ -24914,7 +24972,8 @@ static const_value_t* compute_value_of_object_subobject(const_value_t* current_o
             current_object_value = const_value_get_element_num(current_object_value, idx);
         }
         else if (accessors[i].kind == SUBOBJ_MEMBER
-                && const_value_is_structured(current_object_value))
+                && (const_value_is_structured(current_object_value)
+                    || const_value_is_complex(current_object_value)))
         {
             int num_elements = const_value_get_num_elements(current_object_value);
             int idx = const_value_cast_to_signed_int(accessors[i].index);
@@ -30630,6 +30689,28 @@ static void instantiate_intel_assume_aligned(nodecl_instantiate_expr_visitor_t* 
             &v->nodecl_result);
 }
 
+static void instantiate_real_part(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr = instantiate_expr_walk(
+            v, nodecl_get_child(node, 0));
+
+    check_nodecl_gcc_real_or_imag_part(nodecl_expr, 
+            v->decl_context, /* is_real */ 1,
+            nodecl_get_locus(nodecl_expr),
+            &v->nodecl_result);
+}
+
+static void instantiate_imag_part(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr = instantiate_expr_walk(
+            v, nodecl_get_child(node, 0));
+
+    check_nodecl_gcc_real_or_imag_part(nodecl_expr, 
+            v->decl_context, /* is_real */ 0,
+            nodecl_get_locus(nodecl_expr),
+            &v->nodecl_result);
+}
+
 // Initialization
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, const decl_context_t* decl_context)
 {
@@ -30784,6 +30865,11 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     // Extensions
     NODECL_VISITOR(v)->visit_intel_assume = instantiate_expr_visitor_fun(instantiate_intel_assume);
     NODECL_VISITOR(v)->visit_intel_assume_aligned = instantiate_expr_visitor_fun(instantiate_intel_assume_aligned);
+
+    // __real__
+    NODECL_VISITOR(v)->visit_real_part = instantiate_expr_visitor_fun(instantiate_real_part);
+    // __imag__
+    NODECL_VISITOR(v)->visit_imag_part = instantiate_expr_visitor_fun(instantiate_imag_part);
 }
 
 

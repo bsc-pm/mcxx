@@ -156,7 +156,7 @@ static lexer_keyword_t ms_builtin_types[] =
     { NULL, 0 }
 };
 
-static lexer_keyword_t intel_builtins[] =
+static lexer_keyword_t intel_builtins_syntax[] =
 {
     {"__assume", INTEL_ASSUME},
     {"__assume_aligned", INTEL_ASSUME_ALIGNED},
@@ -348,6 +348,10 @@ binprefix   0[bB]
 
 newline ([\n]|[\r]|([\r][\n]))
 notnewline ([^\n\r])
+
+blanksinline [ \t\v\f]
+
+whitespace  (({newline})|({blanksinline}))
 
  /* C99 additional */
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
@@ -1153,7 +1157,7 @@ type {
 
  /* escaped new line does not end comment */
 <linecomment>\\\n   { update_location(); }
-<linecomment>.      { update_location(); }
+<linecomment>(([^\])|([\][^\n]))+      { update_location(); }
 <linecomment>\n     { update_location(); BEGIN(INITIAL); }
 
  /* long C comments. tags can be splitted across diferent lines */
@@ -1163,7 +1167,7 @@ type {
     BEGIN(longcomment); 
 }
 <longcomment>\n             { update_location(); }
-<longcomment>.              { update_location(); }
+<longcomment>(([^*])|("*"(\\\n)*[^/]))+  { update_location(); }
 <longcomment>"*"(\\\n)*"/"  { 
     update_location();
     BEGIN(INITIAL); 
@@ -1430,7 +1434,7 @@ type {
 
 "__assume" |
 "__assume_aligned" {
-    return lookup_keyword_in_table(intel_builtins, yytext, CURRENT_CONFIGURATION->enable_intel_builtins);
+    return lookup_keyword_in_table(intel_builtins_syntax, yytext, CURRENT_CONFIGURATION->enable_intel_builtins_syntax);
 }
 
 "__int128" {
@@ -1906,13 +1910,14 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 "*"         { parse_token_text(); update_location(); return '*'; }
  /*!if CPLUSPLUS*/
 "::"        { parse_token_text(); update_location(); return TWO_COLONS; }
+"::"{whitespace}*"*"  { parse_token_text(); update_location(); return TWO_COLONS_AND_STAR; }
  /*!endif*/
 "..."       { parse_token_text(); update_location(); return ELLIPSIS; }
 
 ".."        { parse_token_text(); update_location(); return TWO_DOTS; }
 
-{newline}   { update_location(); }
-[ \t\v\f]   { update_location(); }
+{newline}+        { update_location(); }
+{blanksinline}+   { update_location(); }
 <*>.           { 
     /* ignore bad characters */ 
     if (isgraph(*yytext))

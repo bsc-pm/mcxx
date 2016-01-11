@@ -1210,6 +1210,61 @@ static void build_scope_gcc_asm_definition(AST a, const decl_context_t* decl_con
     *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
 }
 
+static void keep_std_attributes_in_symbol(scope_entry_t* entry,
+        gather_decl_spec_t* gather_info)
+{
+    if (nodecl_is_null(gather_info->alignas_list))
+        return;
+
+    char is_dependent = 0;
+
+    int n = 0;
+    nodecl_t* list = nodecl_unpack_list(gather_info->alignas_list, &n);
+    int i;
+    for (i = 0; i < n && !is_dependent; i++)
+    {
+        if (nodecl_expr_is_value_dependent(list[i])
+                || nodecl_expr_is_type_dependent(list[i]))
+        {
+            is_dependent = 1;
+        }
+    }
+
+    if (!is_dependent)
+    {
+        // Compute the largest
+        nodecl_t max_expr = list[0];
+        const_value_t* max_value = nodecl_get_constant(list[0]);
+        ERROR_CONDITION(max_value == NULL, "Expecting a constant here", 0);
+        for (i = 1; i < n; i++)
+        {
+            const_value_t* current_value = nodecl_get_constant(list[i]);
+            ERROR_CONDITION(current_value == NULL, "Expecting a constant here", 0);
+
+            if (const_value_is_nonzero(const_value_gt(current_value, max_value)))
+            {
+                max_expr = list[i];
+            }
+        }
+
+        symbol_entity_specs_set_alignas_value(entry, nodecl_shallow_copy(max_expr));
+    }
+    else
+    {
+        nodecl_t dep_alignas = 
+            nodecl_make_cxx_alignas(
+                    gather_info->alignas_list,
+                    get_size_t_type(),
+                    nodecl_get_locus(gather_info->alignas_list));
+        nodecl_expr_set_is_value_dependent(dep_alignas, 1);
+
+        symbol_entity_specs_set_alignas_value(entry, dep_alignas);
+    }
+
+    xfree(list);
+}
+
+
 static void build_scope_explicit_instantiation(AST a,
         const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
@@ -1262,6 +1317,7 @@ static void build_scope_explicit_instantiation(AST a,
                 declarator_type,
                 &gather_info, decl_context);
 
+        keep_std_attributes_in_symbol(entry, &gather_info);
         keep_gcc_attributes_in_symbol(entry, &gather_info);
         keep_ms_declspecs_in_symbol(entry, &gather_info);
 
@@ -2262,7 +2318,7 @@ static void build_scope_simple_declaration(AST a, const decl_context_t* decl_con
                 set_is_transparent_union(entry->type_information, /* is_transparent_union */ 1);
             }
 
-            // Copy gcc attributes
+            keep_std_attributes_in_symbol(entry, &current_gather_info);
             keep_gcc_attributes_in_symbol(entry, &current_gather_info);
             keep_ms_declspecs_in_symbol(entry, &current_gather_info);
 
@@ -3060,6 +3116,49 @@ static void gather_std_attribute_spec(AST attribute_spec,
     }
 }
 
+static void gather_alignas(AST a, gather_decl_spec_t* gather_info, const decl_context_t* decl_context)
+{
+    // FIXME - Ellipsis
+    AST expr = ast_get_child(a, 0);
+    if (ASTKind(a) == AST_ALIGNAS_TYPE)
+    {
+        // alignas(type-id) must be equivalent to alignas(alignof(type-id))
+        expr = ASTMake1(AST_ALIGNOF_TYPE, ast_copy(expr), ast_get_locus(expr),  NULL);
+    }
+
+    nodecl_t nodecl_alignas_expr = nodecl_null();
+    check_expression_non_executable(expr, decl_context, &nodecl_alignas_expr);
+
+    if (nodecl_is_err_expr(nodecl_alignas_expr))
+        return;
+
+    type_t* alignas_type_expr = nodecl_get_type(nodecl_alignas_expr);
+    if (!is_dependent_type(alignas_type_expr)
+            && !is_integral_type(no_ref(alignas_type_expr)))
+    {
+        error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
+                "alignment-specifier expression does not have integral type");
+        return;
+    }
+
+    nodecl_alignas_expr = nodecl_expression_make_rvalue(nodecl_alignas_expr, decl_context);
+    if (!nodecl_expr_is_value_dependent(nodecl_alignas_expr)
+            && !nodecl_is_constant(nodecl_alignas_expr))
+    {
+        error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
+                "alignment-specifier expression is not an integral constant expression\n");
+        return;
+    }
+
+    gather_info->alignas_list = nodecl_append_to_list(
+            gather_info->alignas_list,
+            nodecl_alignas_expr);
+
+    if (ASTKind(a) == AST_ALIGNAS_TYPE)
+    {
+        ast_free(expr);
+    }
+}
 
 /*
  * This function gathers everything that is in a decl_spec and fills gather_info
@@ -3235,47 +3334,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
         case AST_ALIGNAS_TYPE:
         case AST_ALIGNAS:
             {
-                // FIXME - Ellipsis
-
-                AST expr = ast_get_child(a, 0);
-                if (ASTKind(a) == AST_ALIGNAS_TYPE)
-                {
-                    // alignas(type-id) must be equivalent to alignas(alignof(type-id))
-                    expr = ASTMake1(AST_ALIGNOF_TYPE, ast_copy(expr), ast_get_locus(expr),  NULL);
-                }
-
-                nodecl_t nodecl_alignas_expr = nodecl_null();
-                check_expression_non_executable(expr, decl_context, &nodecl_alignas_expr);
-
-                if (nodecl_is_err_expr(nodecl_alignas_expr))
-                    break;
-
-                type_t* alignas_type_expr = nodecl_get_type(nodecl_alignas_expr);
-                if (!is_dependent_type(alignas_type_expr)
-                        && !is_integral_type(no_ref(alignas_type_expr)))
-                {
-                    error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
-                            "alignment-specifier expression does not have integral type");
-                    break;
-                }
-
-                nodecl_alignas_expr = nodecl_expression_make_rvalue(nodecl_alignas_expr, decl_context);
-                if (!nodecl_expr_is_value_dependent(nodecl_alignas_expr)
-                        && !nodecl_is_constant(nodecl_alignas_expr))
-                {
-                    error_printf_at(nodecl_get_locus(nodecl_alignas_expr),
-                            "alignment-specifier expression is not an integral constant expression\n");
-                    break;
-                }
-
-                gather_info->alignas_list = nodecl_append_to_list(
-                        gather_info->alignas_list,
-                        nodecl_alignas_expr);
-
-                if (ASTKind(a) == AST_ALIGNAS_TYPE)
-                {
-                    ast_free(expr);
-                }
+                gather_alignas(a, gather_info, decl_context);
                 break;
             }
         case AST_AMBIGUITY:
@@ -3771,7 +3830,7 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
     if (is_qualified_id_expression(id_expression)
             || ASTKind(id_expression) == AST_TEMPLATE_ID)
     {
-        scope_entry_list_t* result_list = NULL;
+        scope_entry_list_t* entry_list = NULL;
 
         if (is_dependent_context)
         {
@@ -3781,19 +3840,9 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
             decl_flags |= DF_DEPENDENT_TYPENAME;
         }
         
-        result_list = query_id_expression_flags(
+        entry_list = query_id_expression_flags(
                 decl_context,
                 id_expression, NULL, decl_flags);
-        enum cxx_symbol_kind filter_classes[] =
-        {
-            SK_CLASS,
-            SK_TEMPLATE,
-            SK_DEPENDENT_ENTITY,
-        };
-
-        scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list,
-                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
-
         if (entry_list == NULL)
         {
             error_printf_at(ast_get_locus(id_expression), "class name '%s' not found\n",
@@ -3803,6 +3852,20 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
         }
 
         entry = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        entry = entry_advance_aliases(entry);
+
+        if (entry->kind != SK_CLASS
+                && (entry->kind != SK_TEMPLATE
+                    || !is_class_type(template_type_get_primary_type(entry->type_information)))
+                && entry->kind != SK_DEPENDENT_ENTITY)
+        {
+            error_printf_at(ast_get_locus(id_expression), "'%s' is not a class name\n",
+                    prettyprint_in_buffer(id_expression));
+            *type_info = get_error_type();
+            return;
+        }
     }
 
     if (entry == NULL)
@@ -4226,6 +4289,12 @@ static void gather_extra_attributes(AST a,
                     gather_ms_declspec(item, gather_info, decl_context);
                     break;
                 }
+            case AST_ALIGNAS:
+            case AST_ALIGNAS_TYPE:
+                {
+                    gather_alignas(item, gather_info, decl_context);
+                    break;
+                }
             case AST_UNKNOWN_PRAGMA:
                 {
                     if (CURRENT_CONFIGURATION->xl_compatibility)
@@ -4640,6 +4709,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 entry = NEW0(scope_entry_t);
                 *entry = *old_entry;
 
+                keep_std_attributes_in_symbol(entry, &class_gather_info);
                 keep_gcc_attributes_in_symbol(entry, &class_gather_info);
                 keep_ms_declspecs_in_symbol(entry, &class_gather_info);
             }
@@ -4730,6 +4800,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         symbol_entity_specs_set_is_instantiable(class_symbol_get_canonical_symbol(class_entry), 1);
     }
 
+    keep_std_attributes_in_symbol(class_entry, &class_gather_info);
     keep_gcc_attributes_in_symbol(class_entry, &class_gather_info);
     keep_ms_declspecs_in_symbol(class_entry, &class_gather_info);
 
@@ -10096,6 +10167,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     symbol_entity_specs_set_is_instantiable(class_entry, 1);
     symbol_entity_specs_set_is_instantiable(class_symbol_get_canonical_symbol(class_entry), 1);
 
+    keep_std_attributes_in_symbol(class_entry, gather_info);
     keep_gcc_attributes_in_symbol(class_entry, gather_info);
     keep_ms_declspecs_in_symbol(class_entry, gather_info);
 
@@ -10209,6 +10281,101 @@ void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
             /* prototype_context */ NULL, nodecl_output);
 }
 
+static template_parameter_list_t* duplicate_template_parameter_list(
+        template_parameter_list_t* orig_tpl_list)
+{
+    template_parameter_list_t *current_tpl_list = NEW(template_parameter_list_t);
+    *current_tpl_list = *orig_tpl_list;
+    current_tpl_list->parameters = NEW_VEC(template_parameter_t*, current_tpl_list->num_parameters);
+    memcpy(current_tpl_list->parameters,
+            orig_tpl_list->parameters,
+            sizeof(*orig_tpl_list->parameters) * orig_tpl_list->num_parameters);
+
+    return current_tpl_list;
+}
+
+static template_parameter_list_t* hide_template_parameters_because_of_members(
+        const decl_context_t* decl_context,
+        scope_entry_t* member,
+        template_parameter_list_t* orig_tpl_list)
+{
+    if (orig_tpl_list == NULL)
+        return NULL;
+
+    template_parameter_list_t* enclosing = hide_template_parameters_because_of_members(
+            decl_context,
+            member,
+            orig_tpl_list->enclosing);
+
+    template_parameter_list_t* current_tpl_list = orig_tpl_list;
+
+    if (enclosing != orig_tpl_list->enclosing)
+    {
+        // Duplicate the list if the enclosing list has changed
+        current_tpl_list = duplicate_template_parameter_list(orig_tpl_list);
+        current_tpl_list->enclosing = enclosing;
+    }
+
+    int i;
+    for (i = 0; i < current_tpl_list->num_parameters; i++)
+    {
+        template_parameter_t* current_tpl = current_tpl_list->parameters[i];
+
+        if (current_tpl == NULL
+                || current_tpl->entry == NULL
+                || current_tpl->entry->symbol_name == NULL)
+            continue;
+
+
+        nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(
+                current_tpl->entry->symbol_name,
+                current_tpl->entry->locus);
+
+        scope_entry_list_t *entry_list = query_nodecl_name_in_class(
+                decl_context,
+                member,
+                nodecl_name,
+                /* field_path */ NULL);
+
+        nodecl_free(nodecl_name);
+
+        char hidden_by_class = (entry_list != NULL);
+        entry_list_free(entry_list);
+
+        if (hidden_by_class)
+        {
+            if (current_tpl_list == orig_tpl_list)
+            {
+                // Duplicate the list if it has to change
+                current_tpl_list = duplicate_template_parameter_list(orig_tpl_list);
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "BUILDSCOPE: Hiding template parameter '%s' (%d, %d)\n",
+                        current_tpl->entry->symbol_name,
+                        symbol_entity_specs_get_template_parameter_nesting(current_tpl->entry),
+                        symbol_entity_specs_get_template_parameter_position(current_tpl->entry));
+            }
+
+            template_parameter_t* new_tpl = NEW(template_parameter_t);
+            *new_tpl = *current_tpl;
+
+            // Make a clone here
+            new_tpl->entry = NEW0(scope_entry_t);
+            *new_tpl->entry = *current_tpl->entry;
+            symbol_entity_specs_copy_from(new_tpl->entry, current_tpl->entry);
+            uniquestr_sprintf(&new_tpl->entry->symbol_name, "__hidden_tpl__param_%d_%d__",
+                    symbol_entity_specs_get_template_parameter_nesting(current_tpl->entry),
+                    symbol_entity_specs_get_template_parameter_position(current_tpl->entry));
+
+            current_tpl_list->parameters[i] = new_tpl;
+        }
+    }
+
+    return current_tpl_list;
+}
+
 /*
  * This is the actual implementation of 'compute_declarator_type'
  */
@@ -10309,7 +10476,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
                 name = ASTSon0(name);
             }
 
-            scope_entry_list_t* symbols = query_nested_name(decl_context, 
+            scope_entry_list_t* symbols = query_nested_name(decl_context,
                     global_op, nested_name, name, NULL);
 
             if (symbols == NULL)
@@ -10325,13 +10492,39 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
 
             // Update the entity context, inheriting the template_scope
             decl_context_t* updated_entity_context = decl_context_clone(first_symbol->decl_context);
-            updated_entity_context->template_parameters = decl_context->template_parameters;
+            if (symbol_entity_specs_get_is_member(first_symbol))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "BUILDSCOPE: The qualified symbol is a member, checking if we have to hide template parameters\n");
+                }
+                updated_entity_context->template_parameters =
+                    hide_template_parameters_because_of_members(decl_context,
+                            named_type_get_symbol(symbol_entity_specs_get_class_type(first_symbol)),
+                            decl_context->template_parameters);
+                DEBUG_CODE()
+                {
+                    if (updated_entity_context->template_parameters == decl_context->template_parameters)
+                    {
+                        fprintf(stderr, "BUILDSCOPE: No template parameter was hidden\n");
+                    }
+                    else
+                    {
+                        fprintf(stderr, "BUILDSCOPE: Some template parameters were hidden\n");
+                    }
+                }
+            }
+            else
+            {
+                updated_entity_context->template_parameters = decl_context->template_parameters;
+            }
 
             entity_context = updated_entity_context;
 
             if (prototype_context != NULL)
             {
                 decl_context_t* updated_prototype_context = decl_context_clone(*prototype_context);
+                updated_prototype_context->template_parameters = entity_context->template_parameters;
                 updated_prototype_context->current_scope->contained_in = first_symbol->decl_context->current_scope;
                 updated_prototype_context->namespace_scope = first_symbol->decl_context->namespace_scope;
                 updated_prototype_context->class_scope = first_symbol->decl_context->class_scope;
@@ -11094,7 +11287,7 @@ static void set_function_parameter_clause(type_t** function_type,
                 entry->do_not_print = 1;
             }
 
-            // Copy gcc attributes
+            keep_std_attributes_in_symbol(entry, &param_decl_gather_info);
             keep_gcc_attributes_in_symbol(entry, &param_decl_gather_info);
             keep_ms_declspecs_in_symbol(entry, &param_decl_gather_info);
 
@@ -13608,6 +13801,7 @@ static char find_function_declaration(AST declarator_id,
             }
 
             type_t* considered_type = considered_symbol->type_information;
+            type_t* considered_type_advanced_to_context = considered_type;
             type_t* function_type_being_declared_advanced_to_context = function_type_being_declared;
 
             if (IS_CXX_LANGUAGE
@@ -13647,13 +13841,13 @@ static char find_function_declaration(AST declarator_id,
                 // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [before] -> %s\n",
                 //         ast_location(declarator_id),
                 //         print_declarator(considered_type));
-                considered_type =
+                considered_type_advanced_to_context =
                     fix_dependent_typenames_in_context(considered_type,
                             entry->decl_context,
                             ast_get_locus(declarator_id));
                 // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [after] -> %s\n",
                 //         ast_location(declarator_id),
-                //         print_declarator(considered_type));
+                //         print_declarator(fixed_considered_type));
 
                 // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [before] -> %s\n",
                 //         ast_location(declarator_id),
@@ -13676,6 +13870,11 @@ static char find_function_declaration(AST declarator_id,
                         locus_to_str(considered_symbol->locus),
                         print_declarator(considered_symbol->type_information)
                        );
+                fprintf(stderr, "BUILDSCOPE: Types used for comparison will be\n"
+                                "BUILDSCOPE:    existing '%s'\n"
+                                "BUILDSCOPE:    current  '%s'\n",
+                        print_declarator(considered_type_advanced_to_context),
+                        print_declarator(function_type_being_declared_advanced_to_context));
             }
 
             if (entry->kind == SK_TEMPLATE)
@@ -13694,7 +13893,7 @@ static char find_function_declaration(AST declarator_id,
                 // {
                 // }
                 //
-                if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type))
+                if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type_advanced_to_context))
                 {
                     template_parameter_list_t* decl_template_parameters = decl_context->template_parameters;
 
@@ -13760,11 +13959,11 @@ static char find_function_declaration(AST declarator_id,
                 // Just attempt a match by type
                 function_matches = equivalent_function_types_may_differ_ref_qualifier(
                         function_type_being_declared_advanced_to_context,
-                        considered_type);
+                        considered_type_advanced_to_context);
 
                 CXX11_LANGUAGE()
                 {
-                    if ((function_type_get_ref_qualifier(function_type_being_declared_advanced_to_context) != REF_QUALIFIER_NONE)
+                    if ((function_type_get_ref_qualifier(function_type_being_declared) != REF_QUALIFIER_NONE)
                             != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
                     {
                         error_printf_at(ast_get_locus(declarator_id), "declaration cannot overload '%s'\n",
@@ -13796,10 +13995,15 @@ static char find_function_declaration(AST declarator_id,
                     if (!function_type_get_lacking_prototype(function_type_being_declared)
                             && !function_type_get_lacking_prototype(considered_type))
                     {
-                        error_printf_at(ast_get_locus(declarator_id), "function '%s' has been declared with different prototype (see '%s')\n",
-                                ASTText(declarator_id),
-                                locus_to_str(entry->locus)
-                                );
+                        error_printf_at(ast_get_locus(declarator_id),
+                                "function '%s' has been declared with different prototype\n",
+                                ASTText(declarator_id));
+                        info_printf_at(entry->locus,
+                                "previous declaration is '%s'\n",
+                                print_decl_type_str(considered_type, decl_context, entry->symbol_name));
+                        info_printf_at(ast_get_locus(declarator_id),
+                                "current declaration is '%s'\n",
+                                print_decl_type_str(function_type_being_declared, decl_context, entry->symbol_name));
                         return 0;
                     }
                     result_function_list = entry_list_add(result_function_list, considered_symbol);
@@ -14585,7 +14789,7 @@ static void build_scope_template_simple_declaration(AST a, const decl_context_t*
         if (!ok)
             return;
 
-        // Copy gcc attributes
+        keep_std_attributes_in_symbol(entry, &gather_info);
         keep_gcc_attributes_in_symbol(entry, &gather_info);
         keep_ms_declspecs_in_symbol(entry, &gather_info);
 
@@ -15052,8 +15256,9 @@ static void build_scope_nontype_template_parameter(AST a,
         template_parameter_name = uniquestr(prettyprint_in_buffer(declarator_name));
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Registering '%s' as a non-type template parameter at position %d\n", 
+            fprintf(stderr, "BUILDSCOPE: Registering '%s' as a non-type template parameter with nesting %d and position %d\n",
                     template_parameter_name,
+                    nesting,
                     template_parameters->num_parameters);
         }
     }
@@ -15271,7 +15476,7 @@ static void build_scope_namespace_definition(AST a,
         memset(&gather_info, 0, sizeof(gather_info));
         gather_extra_attributes(attributes, &gather_info, decl_context);
 
-        // Copy the gcc attributes
+        keep_std_attributes_in_symbol(entry, &gather_info);
         keep_gcc_attributes_in_symbol(entry, &gather_info);
         keep_ms_declspecs_in_symbol(entry, &gather_info);
 
@@ -15433,7 +15638,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 
                 entry->type_information = declarator_type;
 
-                // Copy gcc attributes
+                keep_std_attributes_in_symbol(entry, &current_gather_info);
                 keep_gcc_attributes_in_symbol(entry, &current_gather_info);
                 keep_ms_declspecs_in_symbol(entry, &current_gather_info);
 
@@ -15544,7 +15749,7 @@ static void common_defaulted_or_deleted(AST a, const decl_context_t* decl_contex
 
     set(entry, decl_context, ast_get_locus(a));
 
-    // Copy gcc attributes
+    keep_std_attributes_in_symbol(entry, &gather_info);
     keep_gcc_attributes_in_symbol(entry, &gather_info);
     keep_ms_declspecs_in_symbol(entry, &gather_info);
 
@@ -16343,7 +16548,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
         return NULL;
     }
 
-    // Copy gcc attributes
+    keep_std_attributes_in_symbol(entry, gather_info);
     keep_gcc_attributes_in_symbol(entry, gather_info);
     keep_ms_declspecs_in_symbol(entry, gather_info);
 
@@ -17583,7 +17788,7 @@ static void build_scope_default_or_delete_member_function_definition(
             }
     }
 
-    // Copy gcc attributes
+    keep_std_attributes_in_symbol(entry, &gather_info);
     keep_gcc_attributes_in_symbol(entry, &gather_info);
     keep_ms_declspecs_in_symbol(entry, &gather_info);
 
@@ -18111,6 +18316,7 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
                             P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, current_gather_info);
                         }
 
+                        keep_std_attributes_in_symbol(entry, &current_gather_info);
                         keep_gcc_attributes_in_symbol(entry, &current_gather_info);
                         keep_ms_declspecs_in_symbol(entry, &current_gather_info);
 
@@ -18880,6 +19086,7 @@ static void build_scope_condition(AST a, const decl_context_t* decl_context, nod
 
         *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
 
+        keep_std_attributes_in_symbol(entry, &gather_info);
         keep_gcc_attributes_in_symbol(entry, &gather_info);
         keep_ms_declspecs_in_symbol(entry, &gather_info);
     }
@@ -20396,6 +20603,7 @@ static void build_scope_try_block(AST a,
                 {
                     exception_name = nodecl_make_object_init(entry, ast_get_locus(declarator));
 
+                    keep_std_attributes_in_symbol(entry, &gather_info);
                     keep_gcc_attributes_in_symbol(entry, &gather_info);
                     keep_ms_declspecs_in_symbol(entry, &gather_info);
                 }

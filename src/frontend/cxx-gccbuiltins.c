@@ -3339,8 +3339,6 @@ DEF_GCC_BUILTIN        (BUILT_IN_SHUFFLE, "shuffle", BT_FN_BUILTIN_SHUFFLE, ATTR
 
 }
 
-static void sign_in_sse_builtins(const decl_context_t* global_context);
-
 void gcc_sign_in_builtins(const decl_context_t* global_context)
 {
     gcc_sign_in_builtins_0(global_context);
@@ -3539,6 +3537,18 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
     return NULL;
 }
 
+// MMX registers. Completely untyped
+static type_t* __m64_struct_type = NULL;
+type_t* get_m64_struct_type(void)
+{
+    return __m64_struct_type;
+}
+static scope_entry_t* __m64_typedef = NULL;
+scope_entry_t* get_m64_typedef(void)
+{
+    return __m64_typedef;
+}
+
 #define GET_MXX_STRUCT_TYPE(n) \
     static type_t* __m##n##_struct_type = NULL; \
     type_t* get_m##n##_struct_type(void) \
@@ -3577,7 +3587,14 @@ GET_MXX_STRUCT_TYPE(128)
 GET_MXX_STRUCT_TYPE(256)
 GET_MXX_STRUCT_TYPE(512)
 
-static void sign_in_sse_builtins(const decl_context_t* decl_context)
+
+static void sign_in_gcc_simd_builtins(const decl_context_t* decl_context)
+{
+    // Intel architecture gcc builtins
+#include "cxx-gccbuiltins-ia32.h"
+}
+
+static void sign_in_simd_builtins(const decl_context_t* decl_context)
 {
     struct {
        const char* name;
@@ -3585,6 +3602,8 @@ static void sign_in_sse_builtins(const decl_context_t* decl_context)
        scope_entry_t** typedef_name;
        enum type_tag_t type_tag;
     } vector_names[] = {
+        { "union __m64", &__m64_struct_type, &__m64_typedef, TT_UNION },
+
         { "struct __m128",  &__m128_struct_type,  &__m128_typedef,  TT_STRUCT },
         { "struct __m128d", &__m128d_struct_type, &__m128d_typedef, TT_STRUCT },
         { "union __m128i",  &__m128i_struct_type, &__m128i_typedef, TT_UNION  },
@@ -3660,18 +3679,35 @@ static void sign_in_sse_builtins(const decl_context_t* decl_context)
         }
     }
 
-    // Intel architecture gcc builtins
-#include "cxx-gccbuiltins-ia32.h"
+    sign_in_gcc_simd_builtins(decl_context);
 }
 
 extern void gcc_builtins_i386(const decl_context_t* global_context)
 {
-    sign_in_sse_builtins(global_context);
+    sign_in_simd_builtins(global_context);
+
+    if (CURRENT_CONFIGURATION->enable_intel_intrinsics)
+    {
+        warn_printf_at(NULL, "Intel intrinsics are not supported for i386 yet\n");
+    }
+}
+
+static void sign_in_icc_intrinsics(const decl_context_t* decl_context)
+{
+    // Xeon
+#include "cxx-iccbuiltins.h"
+    // Knights Corner (aka MIC)
+#include "cxx-iccbuiltins-knc.h"
 }
 
 extern void gcc_builtins_x86_64(const decl_context_t* global_context)
 {
-    sign_in_sse_builtins(global_context);
+    sign_in_simd_builtins(global_context);
+
+    if (CURRENT_CONFIGURATION->enable_intel_intrinsics)
+    {
+        sign_in_icc_intrinsics(global_context);
+    }
 }
 
 #ifndef HAVE_INT128
@@ -3923,6 +3959,8 @@ void prepend_intel_vector_typedefs(nodecl_t* nodecl_output)
     ERROR_CONDITION(!IS_CXX_LANGUAGE, "This function is only for C++", 0);
 
     scope_entry_t* (*fun_list[])(void) = {
+        get_m64_typedef,
+
         get_m128_typedef,
         get_m128d_typedef,
         get_m128i_typedef,
@@ -4084,47 +4122,6 @@ type_t* vector_type_get_intel_vector_struct_type(type_t* vector_type)
 
 #undef VECTOR_KIND
 }
-
-// This function allows conversion between logically equivalent vector types
-// and Intel structs
-#if 0
-char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest)
-{
-    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
-        return 0;
-
-    if (!is_vector_type(orig)
-            || is_vector_type(dest))
-        return 0;
-
-    int vector_size = vector_type_get_vector_size(no_ref(orig));
-    type_t* element_type = vector_type_get_element_type(no_ref(orig));
-    type_t* dest_struct = get_unqualified_type(no_ref(dest));
-
-    return (((vector_size == 16)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m128_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m128d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m128i_struct_type()))))
-            || ((vector_size == 32)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m256_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m256d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m256i_struct_type()))))
-            || ((vector_size == 64)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m512_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m512d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m512i_struct_type())))));
-
-}
-#endif
 
 // This function allows conversion between vector types of the same size as an Intel struct
 char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest)
