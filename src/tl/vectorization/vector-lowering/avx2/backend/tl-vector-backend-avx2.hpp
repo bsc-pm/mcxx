@@ -93,6 +93,8 @@ namespace TL
                 void visit_aligned_vector_store(const Nodecl::VectorStore& node);
                 void visit_unaligned_vector_store(const Nodecl::VectorStore& node);
 
+                void visit_reduction_add_4bytes_elements(const Nodecl::VectorReductionAdd& node);
+
             public:
 
                 AVX2VectorLowering();

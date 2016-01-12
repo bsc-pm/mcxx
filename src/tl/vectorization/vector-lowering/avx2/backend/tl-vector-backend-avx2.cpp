@@ -2205,23 +2205,34 @@ namespace Vectorization
         node.replace(n);
     }
 
-    void AVX2VectorLowering::visit(const Nodecl::VectorReductionAdd& node)
+    void AVX2VectorLowering::visit_reduction_add_4bytes_elements(
+            const Nodecl::VectorReductionAdd& node)
     {
         Nodecl::NodeclBase vector_src = node.get_vector_src();
-
         TL::Type vtype = vector_src.get_type().no_ref();
         TL::Type type = node.get_type().no_ref();
 
         walk(vector_src);
 
         TL::Source intrin_src, horizontal_256_op_src, horizontal_128_op_src,
-            horizontal_128_intrin_src, extract_op_src, extract_intrin_src,
-            sse_suffix_elem, avx_suffix_type;
+            add_128_op_src, horizontal_256_intrin_src,horizontal_128_intrin_src,
+            extract_op_src, extract_intrin_src, sse_suffix_type, avx_suffix_type,
+            temporal_128red_var, temporal_256red_var;
+
+        TL::Type v256_type = vtype;
+        TL::Type v128_type = type.get_vector_of_elements(
+                v256_type.vector_num_elements()/2);
 
         intrin_src             
             << "({"
+            << print_type_str(v256_type.get_internal_type(),
+                    node.retrieve_context().get_decl_context())
+            << " " << temporal_256red_var << ";"
+            << print_type_str(v128_type.get_internal_type(),
+                    node.retrieve_context().get_decl_context())
+            << " " << temporal_128red_var << ";"
             << horizontal_256_op_src
-            << horizontal_128_op_src
+            << add_128_op_src
             << horizontal_128_op_src
             << extract_op_src
             << "})";
@@ -2229,20 +2240,14 @@ namespace Vectorization
         if (type.is_float())
         {
             extract_intrin_src << "_mm_cvtss_f32";
-            sse_suffix_elem << "ps";
+            sse_suffix_type << "ps";
             avx_suffix_type << "ps";
-        }
-        else if (type.is_double())
-        {
-            extract_intrin_src << "_mm_cvtsd_f64";
-            sse_suffix_elem << "pd";
-            avx_suffix_type << "pd";
         }
         else if (type.is_signed_int() ||
                 type.is_unsigned_int())
         {
             extract_intrin_src << "_mm_cvtsi128_si32";
-            sse_suffix_elem << "epi32";
+            sse_suffix_type << "epi32";
             avx_suffix_type << "si256";
         }
         else
@@ -2253,46 +2258,60 @@ namespace Vectorization
         }
         //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
 
+        temporal_256red_var << "__rtmp256";
+        temporal_128red_var << "__rtmp128";
+
         horizontal_128_intrin_src
             << "_mm_hadd_"
-            << sse_suffix_elem
+            << sse_suffix_type
+            ;
+
+        horizontal_256_intrin_src
+            << "_mm256_hadd_"
+            << avx_suffix_type
             ;
 
         horizontal_256_op_src
-            << print_type_str(vtype.basic_type().get_vector_of_elements(
-                        vtype.vector_num_elements()/2).get_internal_type(),
-                    node.retrieve_context().get_decl_context())
-            << " __rtmp0"
+            << temporal_256red_var
             << " = "
-            << "_mm_add_" << sse_suffix_elem
-            << "("
-            << "_mm256_extractf128_" << avx_suffix_type
+            << horizontal_256_intrin_src
             << "("
             << as_expression(vector_src)
             << ", "
-            << "0"
-            << "),"
+            << as_expression(vector_src)
+            << ");";
+
+        add_128_op_src
+            << temporal_128red_var
+            << " = "
+            << "_mm_add_" << sse_suffix_type
+            << "("
+            << "_mm256_cast" << avx_suffix_type << "256_" << avx_suffix_type << "128("
+            << temporal_256red_var
+            << ")"
+            << ", "
             << "_mm256_extractf128_" << avx_suffix_type
             << "("
-            << as_expression(vector_src)
+            << temporal_256red_var
             << ", "
             << "1"
             << "));";
         ;
 
         horizontal_128_op_src
-            << "__rtmp0 = "
+            << temporal_128red_var
+            << " = "
             << horizontal_128_intrin_src
             << "("
-            << "__rtmp0"
+            << temporal_128red_var
             << ", "
-            << "__rtmp0"
+            << temporal_128red_var
             << ");";
 
         extract_op_src
             << extract_intrin_src
             << "("
-            << "__rtmp0"
+            << temporal_128red_var
             << ");";
 
         Nodecl::NodeclBase function_call =
@@ -2300,6 +2319,123 @@ namespace Vectorization
 
         node.replace(function_call);
     }
+
+    void AVX2VectorLowering::visit(const Nodecl::VectorReductionAdd& node)
+    {
+        Nodecl::NodeclBase vector_src = node.get_vector_src();
+
+        TL::Type vtype = vector_src.get_type().no_ref();
+        TL::Type type = node.get_type().no_ref();
+
+        if (type.get_size() == 4)
+        {
+            visit_reduction_add_4bytes_elements(node);
+        }
+        else
+        {
+            fatal_error("AVX2 Lowering: Node %s at %s with type size %d not implemented yet.",
+                    ast_print_node_type(node.get_kind()),
+                    locus_to_str(node.get_locus()),
+                    type.get_size());
+        }
+    }
+
+// OLD. It didn't compile?
+//    void AVX2VectorLowering::visit(const Nodecl::VectorReductionAdd& node)
+//    {
+//        Nodecl::NodeclBase vector_src = node.get_vector_src();
+//
+//        TL::Type vtype = vector_src.get_type().no_ref();
+//        TL::Type type = node.get_type().no_ref();
+//
+//        walk(vector_src);
+//
+//        TL::Source intrin_src, horizontal_256_op_src, horizontal_128_op_src,
+//            horizontal_128_intrin_src, extract_op_src, extract_intrin_src,
+//            sse_suffix_elem, avx_suffix_type;
+//
+//        intrin_src             
+//            << "({"
+//            << horizontal_256_op_src
+//            << horizontal_128_op_src
+//            << horizontal_128_op_src
+//            << extract_op_src
+//            << "})";
+//
+//        if (type.is_float())
+//        {
+//            extract_intrin_src << "_mm_cvtss_f32";
+//            sse_suffix_elem << "ps";
+//            avx_suffix_type << "ps";
+//        }
+//        else if (type.is_double())
+//        {
+//            extract_intrin_src << "_mm_cvtsd_f64";
+//            sse_suffix_elem << "pd";
+//            avx_suffix_type << "pd";
+//        }
+//        else if (type.is_signed_int() ||
+//                type.is_unsigned_int())
+//        {
+//            extract_intrin_src << "_mm_cvtsi128_si32";
+//            sse_suffix_elem << "epi32";
+//            avx_suffix_type << "si256";
+//        }
+//        else
+//        {
+//            fatal_error("AVX2 Lowering: Node %s at %s has an unsupported type.",
+//                    ast_print_node_type(node.get_kind()),
+//                    locus_to_str(node.get_locus()));
+//        }
+//        //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
+//
+//        horizontal_128_intrin_src
+//            << "_mm_hadd_"
+//            << sse_suffix_elem
+//            ;
+//
+//        horizontal_256_op_src
+//            << print_type_str(vtype.basic_type().get_vector_of_elements(
+//                        vtype.vector_num_elements()/2).get_internal_type(),
+//                    node.retrieve_context().get_decl_context())
+//            << " __rtmp0"
+//            << " = "
+//            << "_mm_add_" << sse_suffix_elem
+//            << "("
+//            << "_mm256_extractf128_" << avx_suffix_type
+//            << "("
+//            << as_expression(vector_src)
+//            << ", "
+//            << "0"
+//            << "),"
+//            << "_mm256_extractf128_" << avx_suffix_type
+//            << "("
+//            << as_expression(vector_src)
+//            << ", "
+//            << "1"
+//            << "));";
+//        ;
+//
+//        horizontal_128_op_src
+//            << "__rtmp0 = "
+//            << horizontal_128_intrin_src
+//            << "("
+//            << "__rtmp0"
+//            << ", "
+//            << "__rtmp0"
+//            << ");";
+//
+//        extract_op_src
+//            << extract_intrin_src
+//            << "("
+//            << "__rtmp0"
+//            << ");";
+//
+//        Nodecl::NodeclBase function_call =
+//            intrin_src.parse_expression(node.retrieve_context());
+//
+//        node.replace(function_call);
+//    }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorReductionMinus& node)
     {
