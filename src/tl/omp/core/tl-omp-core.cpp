@@ -1918,6 +1918,9 @@ namespace TL { namespace OpenMP {
         get_dependences_info(pragma_line, /* parsing_context */ loop,
                 data_environment, default_data_attr, extra_symbols);
 
+        get_dependences_info_from_reductions(pragma_line, data_environment,
+                default_data_attr, extra_symbols);
+
         get_data_implicit_attributes_task(construct, data_environment,
                 default_data_attr, there_is_default_clause);
 

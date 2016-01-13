@@ -530,7 +530,7 @@ void fatal_printf_at(const locus_t* locus, const char* format, ...)
         uniquestr_sprintf(&message, "fatal: %s", message);
     }
 
-    fatal_error(message);
+    fatal_error("%s", message);
 }
 
 void sorry_printf_at(const locus_t* locus, const char* format, ...)
@@ -552,5 +552,5 @@ void sorry_printf_at(const locus_t* locus, const char* format, ...)
         uniquestr_sprintf(&message, "sorry: %s", message);
     }
 
-    fatal_error(message);
+    fatal_error("%s", message);
 }

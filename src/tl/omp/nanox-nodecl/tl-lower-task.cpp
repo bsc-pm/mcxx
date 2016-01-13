@@ -1486,9 +1486,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
-                // Reductions are passed as if they were shared
                 case OutlineDataItem::SHARING_REDUCTION:
-                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         // 'this' is special in C++
                         if (IS_CXX_LANGUAGE
@@ -1649,9 +1647,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
-                // Reductions are passed as if they were shared variables
                 case OutlineDataItem::SHARING_REDUCTION:
-                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         TL::Type t = sym.get_type();
                         if (t.is_any_reference())

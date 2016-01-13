@@ -561,6 +561,9 @@ namespace TL
                 ObjectList<Nodecl::NodeclBase> dep_list_in;
                 ObjectList<Nodecl::NodeclBase> dep_list_out;
                 ObjectList<Nodecl::NodeclBase> dep_list_inout;
+                ObjectList<Nodecl::NodeclBase> dep_list_weakin;
+                ObjectList<Nodecl::NodeclBase> dep_list_weakout;
+                ObjectList<Nodecl::NodeclBase> dep_list_weakinout;
                 for (ObjectList<DependencyItem>::iterator it = dependences.begin();
                         it != dependences.end();
                         it++)
@@ -585,6 +588,21 @@ namespace TL
                         case DEP_OMPSS_COMMUTATIVE:
                             {
                                 p = &dep_list_inout;
+                                break;
+                            }
+                        case DEP_OMPSS_WEAK_IN:
+                            {
+                                p = &dep_list_weakin;
+                                break;
+                            }
+                        case DEP_OMPSS_WEAK_OUT:
+                            {
+                                p = &dep_list_weakout;
+                                break;
+                            }
+                        case DEP_OMPSS_WEAK_INOUT:
+                            {
+                                p = &dep_list_weakinout;
                                 break;
                             }
                         default:
@@ -613,6 +631,14 @@ namespace TL
                         TL::OmpSs::COPY_DIR_INOUT,
                         target_info,
                         in_ompss_mode());
+
+                if (!dep_list_weakin.empty()
+                        || !dep_list_weakout.empty()
+                        || !dep_list_weakinout.empty())
+                {
+                    warn_printf_at(construct.get_locus(),
+                            "weak dependences are not considered yet for copy_deps\n");
+                }
             }
 
             if (this->in_ompss_mode()

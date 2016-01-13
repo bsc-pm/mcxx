@@ -266,7 +266,7 @@ namespace TL { namespace OpenMP {
                         type_name = uniquestr(var_type.get_declaration(var_sym.get_scope(), "").c_str());
                     }
 
-                    ReductionSymbol red_sym(var_sym, var_type, reduction);
+                    ReductionSymbol red_sym(var_sym, var_tree, var_type, reduction);
                     sym_list.append(red_sym);
 
                     info_printf_at(

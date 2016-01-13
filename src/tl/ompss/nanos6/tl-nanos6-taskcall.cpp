@@ -196,7 +196,7 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<TL::Symbol>::iterator it_params = parameters.begin();
         Nodecl::List::iterator it_args = arguments.begin();
         for (;
-                it_params != parameters.end(), it_args != arguments.end();
+                it_params != parameters.end() && it_args != arguments.end();
                 it_params++, it_args++)
         {
             // Capture the value of the argument

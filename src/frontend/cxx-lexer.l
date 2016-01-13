@@ -156,7 +156,7 @@ static lexer_keyword_t ms_builtin_types[] =
     { NULL, 0 }
 };
 
-static lexer_keyword_t intel_builtins[] =
+static lexer_keyword_t intel_builtins_syntax[] =
 {
     {"__assume", INTEL_ASSUME},
     {"__assume_aligned", INTEL_ASSUME_ALIGNED},
@@ -1434,7 +1434,7 @@ type {
 
 "__assume" |
 "__assume_aligned" {
-    return lookup_keyword_in_table(intel_builtins, yytext, CURRENT_CONFIGURATION->enable_intel_builtins);
+    return lookup_keyword_in_table(intel_builtins_syntax, yytext, CURRENT_CONFIGURATION->enable_intel_builtins_syntax);
 }
 
 "__int128" {

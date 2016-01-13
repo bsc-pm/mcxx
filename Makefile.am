@@ -380,6 +380,9 @@ src_frontend_libgccbuiltins_la_SOURCES = \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
+  \
+  src/frontend/cxx-iccbuiltins.h \
+  src/frontend/cxx-iccbuiltins-knc.h \
   $(END)
 
 
@@ -3313,7 +3316,7 @@ DEBIAN_EXTRA=\
               $(END)
 
 #####################################
-# x86 builtins generator
+# x86 builtins generator for GCC
 #####################################
 
 LATEST_GXX_X86=g++-5.1
@@ -3383,6 +3386,36 @@ scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/simd/x86/builtins_ia32.cp
 CLEANFILES += scripts/generate_builtins_ia32.bin
 generate_builtins_ia32: scripts/generate_builtins_ia32.bin
 	./scripts/generate_builtins_ia32.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32.h
+
+#####################################
+# x86 builtins generator for ICC
+#####################################
+
+scripts/generate_builtins_icc.bin : $(srcdir)/scripts/simd/x86/builtins_icc.cpp scripts/simd/builtins-common.hpp scripts/simd/builtins-common-icc.hpp Makefile
+	icpc -std=c++11 -I$(srcdir)/scripts/simd \
+		-O0 -o scripts/generate_builtins_icc.bin \
+		$(srcdir)/scripts/simd/x86/builtins_icc.cpp
+
+# These files are only regenerated manually
+.PHONY: generate_builtins_icc
+CLEANFILES += scripts/generate_builtins_icc.bin
+generate_builtins_icc: scripts/generate_builtins_icc.bin
+	./scripts/generate_builtins_icc.bin > $(top_srcdir)/src/frontend/cxx-iccbuiltins.h
+
+#####################################
+# Knights Corner
+#####################################
+
+scripts/generate_builtins_icc_knc.bin : $(srcdir)/scripts/simd/x86/builtins_icc_knc.cpp scripts/simd/builtins-common.hpp scripts/simd/builtins-common-icc.hpp Makefile
+	icpc -std=c++11 -mmic -I$(srcdir)/scripts/simd \
+		-O0 -o scripts/generate_builtins_icc_knc.bin \
+		$(srcdir)/scripts/simd/x86/builtins_icc_knc.cpp
+
+# These files are only regenerated manually
+.PHONY: generate_builtins_icc_knc
+CLEANFILES += scripts/generate_builtins_icc_knc.bin
+generate_builtins_icc_knc: scripts/generate_builtins_icc_knc.bin
+	micnativeloadex ./scripts/generate_builtins_icc_knc.bin > $(top_srcdir)/src/frontend/cxx-iccbuiltins-knc.h
 
 #####################################
 # ARM NEON builtins generator
