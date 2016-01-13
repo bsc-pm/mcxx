@@ -11871,6 +11871,10 @@ static char same_level_pointer(type_t* t1, type_t* t2)
             || is_pointer_type(t2))
         return 0;
 
+    if (!equivalent_types(get_unqualified_type(t1),
+                get_unqualified_type(t2)))
+        return 0;
+
     return 1;
 }
 
@@ -11887,6 +11891,10 @@ static char same_level_pointer_to_member(type_t* t1, type_t* t2)
 
     if (is_pointer_to_member_type(t1)
             || is_pointer_to_member_type(t2))
+        return 0;
+
+    if (!equivalent_types(get_unqualified_type(t1),
+                get_unqualified_type(t2)))
         return 0;
 
     return 1;
