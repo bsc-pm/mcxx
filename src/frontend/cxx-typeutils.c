@@ -15945,7 +15945,7 @@ static void mask_type_compute_underlying_type(type_t* t)
 
     while (*it != NULL)
     {
-        if ((8 * type_get_size(*it)) == num_bits)
+        if (num_bits <= (8 * type_get_size(*it)))
         {
             t->type->vector_element = *it;
 
