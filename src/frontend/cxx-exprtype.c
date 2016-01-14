@@ -11589,7 +11589,7 @@ static char conversion_is_valid_static_cast(
         standard_conversion_t standard_conversion_sequence;
         type_t* dest_type_no_cv = get_unqualified_type(dest_type);
 
-        if (c_valid_initialization_types(orig_type, dest_type_no_cv, locus, &standard_conversion_sequence)
+        if (c_valid_initialization_types(dest_type_no_cv, orig_type, locus, &standard_conversion_sequence)
                 && standard_conversion_sequence.conv[1] != SCI_VOID_TO_POINTER_CONVERSION
                 && standard_conversion_sequence.conv[1] != SCI_POINTER_TO_POINTER_CONVERSION
                 && standard_conversion_sequence.conv[1] != SCI_INTEGRAL_TO_POINTER_CONVERSION
