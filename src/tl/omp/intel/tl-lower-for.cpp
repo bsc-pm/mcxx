@@ -444,7 +444,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         }
 
         TL::Symbol callback = emit_callback_for_reduction(
-                _lowering->simd_reductions_knc(),
+                _lowering->get_combiner_isa(),
                 reduction_items,
                 reduction_pack_symbol.get_type(),
                 construct, enclosing_function);
@@ -479,7 +479,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             Source reduction_data;
             Source reduction_extra_pre;
 
-            if (!_lowering->simd_reductions_knc())
+            if (!_lowering->simd_reductions())
             {
                 reduction_size << "sizeof(" << as_type(reduction_pack_symbol.get_type()) << ")";
                 reduction_data << "&" << as_symbol(reduction_pack_symbol);

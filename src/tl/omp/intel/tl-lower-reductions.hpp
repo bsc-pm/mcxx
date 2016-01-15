@@ -28,6 +28,8 @@
 #ifndef TL_LOWER_REDUCTIONS_HPP
 #define TL_LOWER_REDUCTIONS_HPP
 
+#include "tl-lowering-utils.hpp"
+
 #include "tl-omp.hpp"
 
 namespace TL { namespace Intel {
@@ -36,7 +38,7 @@ namespace TL { namespace Intel {
             Nodecl::NodeclBase location);
 
     TL::Symbol emit_callback_for_reduction(
-            bool simd_reduction,
+            CombinerISA combiner_isa,
             TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
@@ -48,13 +50,15 @@ namespace TL { namespace Intel {
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
 
+
     struct SIMDReductionPair
     {
         TL::Symbol horizontal_combiner;
         TL::Symbol vertical_combiner;
     };
 
-    SIMDReductionPair emit_callback_for_reduction_simd_knc(
+    SIMDReductionPair emit_callback_for_reduction_simd(
+            CombinerISA isa,
             Nodecl::OpenMP::ReductionItem &reduction_item,
             Nodecl::NodeclBase location,
             TL::Symbol current_function);

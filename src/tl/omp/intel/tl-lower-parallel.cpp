@@ -80,7 +80,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     Nodecl::List environment = construct.get_environment().as<Nodecl::List>();
 
     AccountReductions account_reductions;
-    if (_lowering->simd_reductions_knc())
+    if (_lowering->simd_reductions())
     {
         account_reductions.walk(environment);
         account_reductions.walk(statements);
@@ -391,7 +391,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     if (!reduction_items.empty())
     {
         TL::Symbol callback = emit_callback_for_reduction(
-                _lowering->simd_reductions_knc(),
+                _lowering->get_combiner_isa(),
                 reduction_items,
                 reduction_pack_symbol.get_type(),
                 construct, enclosing_function);
@@ -426,7 +426,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
             Source reduction_data;
             Source reduction_extra_pre;
 
-            if (!_lowering->simd_reductions_knc())
+            if (!_lowering->simd_reductions())
             {
                 reduction_size << "sizeof(" << as_type(reduction_pack_symbol.get_type()) << ")";
                 reduction_data << "&" << as_symbol(reduction_pack_symbol);
@@ -549,7 +549,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         ;
     }
 
-    if (_lowering->simd_reductions_knc())
+    if (_lowering->simd_reductions())
     {
         AccountReductions::reduction_list_t chosen_reduction;
         int current_max = -1;
