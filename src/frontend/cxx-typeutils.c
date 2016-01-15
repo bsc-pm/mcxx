@@ -13419,7 +13419,8 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
                 fprintf(stderr, "SCS: Applying pointer to pointer conversion\n");
                 fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
             }
-            (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+            // Note that we override conv[1] not conv[2]
+            (*result).conv[1] = SCI_POINTER_TO_POINTER_CONVERSION;
             orig = dest;
         }
     }

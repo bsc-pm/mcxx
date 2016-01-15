@@ -11438,6 +11438,11 @@ static char conversion_casts_away_constness(type_t* orig_type, type_t* dest_type
     return 0;
 }
 
+static char check_vector_type_initialization(
+        type_t* expr_type,
+        type_t* initialized_vec_type,
+        const locus_t* locus);
+
 #define RECURSION_PROTECTOR \
 static int reentrancy_counter = 0; \
 { \
@@ -11451,6 +11456,39 @@ do { \
     ERROR_CONDITION(reentrancy_counter < 0, "Underflow (%d) in recursion counter\n", reentrancy_counter); \
     return ret_; \
 } while (0)
+
+static char c_valid_initialization_types(
+        type_t* declared_type_no_cv,
+        type_t* initializer_expr_type,
+        const locus_t* locus,
+        standard_conversion_t *standard_conversion_sequence)
+{
+    char vector_initialization =
+        both_operands_are_compatible_vector_types(no_ref(initializer_expr_type), no_ref(declared_type_no_cv))
+        || is_vector_type(no_ref(declared_type_no_cv));
+
+    char can_be_initialized =
+        (is_string_literal_type(initializer_expr_type)
+         && is_array_type(declared_type_no_cv)
+         && ((is_character_type(array_type_get_element_type(declared_type_no_cv))
+                 && is_character_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+             || (is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
+                 && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
+        || (!vector_initialization
+                && standard_conversion_between_types(
+                    standard_conversion_sequence,
+                    initializer_expr_type,
+                    declared_type_no_cv,
+                    locus))
+        || (vector_initialization
+                && check_vector_type_initialization(
+                    initializer_expr_type,
+                    declared_type_no_cv,
+                    locus));
+    ;
+
+    return can_be_initialized;
+}
 
 static char conversion_is_valid_static_cast(
         nodecl_t *nodecl_expression,
@@ -11512,34 +11550,51 @@ static char conversion_is_valid_static_cast(
     // Otherwise an expression can be explicitly converted to a type T using a
     // static_cast<T>(e) if the declaration T t(e) is well formed for some
     // invented variable t
-    type_t* type_seq[1] = { nodecl_get_type(*nodecl_expression) };
-    nodecl_t nodecl_parenthesized_init =
-        nodecl_make_cxx_parenthesized_initializer(
-                nodecl_make_list_1(nodecl_shallow_copy(*nodecl_expression)),
-                get_sequence_of_types(1, type_seq),
-                nodecl_get_locus(*nodecl_expression));
-    nodecl_t nodecl_static_cast_output = nodecl_null();
-
-    diagnostic_context_push_buffered();
-    check_nodecl_parenthesized_initializer(
-            nodecl_parenthesized_init,
-            decl_context,
-            dest_type,
-            /* is_explicit */ 1,
-            /* is_explicit_type_cast */ 1,
-            /* emit_cast */ 0,
-            &nodecl_static_cast_output);
-    diagnostic_context_pop_and_discard();
-
-    if (!nodecl_is_err_expr(nodecl_static_cast_output))
+    CXX_LANGUAGE()
     {
-        nodecl_free(*nodecl_expression);
-        *nodecl_expression = nodecl_static_cast_output;
-        RETURN(1);
+        type_t* type_seq[1] = { nodecl_get_type(*nodecl_expression) };
+        nodecl_t nodecl_parenthesized_init =
+            nodecl_make_cxx_parenthesized_initializer(
+                    nodecl_make_list_1(nodecl_shallow_copy(*nodecl_expression)),
+                    get_sequence_of_types(1, type_seq),
+                    nodecl_get_locus(*nodecl_expression));
+        nodecl_t nodecl_static_cast_output = nodecl_null();
+
+        diagnostic_context_push_buffered();
+        check_nodecl_parenthesized_initializer(
+                nodecl_parenthesized_init,
+                decl_context,
+                dest_type,
+                /* is_explicit */ 1,
+                /* is_explicit_type_cast */ 1,
+                /* emit_cast */ 0,
+                &nodecl_static_cast_output);
+        diagnostic_context_pop_and_discard();
+
+        if (!nodecl_is_err_expr(nodecl_static_cast_output))
+        {
+            nodecl_free(*nodecl_expression);
+            *nodecl_expression = nodecl_static_cast_output;
+            RETURN(1);
+        }
+        else
+        {
+            nodecl_free(nodecl_static_cast_output);
+        }
     }
-    else
+
+    C_LANGUAGE()
     {
-        nodecl_free(nodecl_static_cast_output);
+        // Restricted set of the initialization of expressions in C
+        standard_conversion_t standard_conversion_sequence;
+        type_t* dest_type_no_cv = get_unqualified_type(dest_type);
+
+        if (c_valid_initialization_types(dest_type_no_cv, orig_type, locus, &standard_conversion_sequence)
+                && standard_conversion_sequence.conv[1] != SCI_VOID_TO_POINTER_CONVERSION
+                && standard_conversion_sequence.conv[1] != SCI_POINTER_TO_POINTER_CONVERSION
+                && standard_conversion_sequence.conv[1] != SCI_INTEGRAL_TO_POINTER_CONVERSION
+                && standard_conversion_sequence.conv[1] != SCI_POINTER_TO_INTEGRAL_CONVERSION)
+            RETURN(1);
     }
 
     // Any expression can be explicitly converted to cv void
@@ -11670,7 +11725,9 @@ static char conversion_is_valid_reinterpret_cast(
     // A pointer can be explicitly converted to any integral type
     if (is_pointer_type(orig_type)
             && is_integral_type(dest_type)
-            && type_get_size(orig_type) <= type_get_size(dest_type))
+            // In C++ losing precision is not allowed
+            && (!IS_CXX_LANGUAGE
+                || type_get_size(orig_type) <= type_get_size(dest_type)))
         RETURN(1);
 
     // A nullptr can be converted to integral
@@ -11871,6 +11928,10 @@ static char same_level_pointer(type_t* t1, type_t* t2)
             || is_pointer_type(t2))
         return 0;
 
+    if (!equivalent_types(get_unqualified_type(t1),
+                get_unqualified_type(t2)))
+        return 0;
+
     return 1;
 }
 
@@ -11887,6 +11948,10 @@ static char same_level_pointer_to_member(type_t* t1, type_t* t2)
 
     if (is_pointer_to_member_type(t1)
             || is_pointer_to_member_type(t2))
+        return 0;
+
+    if (!equivalent_types(get_unqualified_type(t1),
+                get_unqualified_type(t2)))
         return 0;
 
     return 1;
@@ -11920,7 +11985,9 @@ static char conversion_is_valid_const_cast(
     if (is_pointer_type(no_ref(orig_type))
             && is_pointer_type(no_ref(dest_type))
             && same_level_pointer(no_ref(orig_type), no_ref(dest_type)))
+    {
         RETURN(1);
+    }
 
     if (is_pointer_to_member_type(no_ref(orig_type))
             && is_pointer_to_member_type(no_ref(dest_type))
@@ -21734,32 +21801,8 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     C_LANGUAGE()
     {
         standard_conversion_t standard_conversion_sequence;
-
-        char vector_initialization =
-            both_operands_are_compatible_vector_types(no_ref(initializer_expr_type), no_ref(declared_type_no_cv))
-            || is_vector_type(no_ref(declared_type_no_cv));
-
-        char can_be_initialized =
-            (is_string_literal_type(initializer_expr_type)
-             && is_array_type(declared_type_no_cv)
-             && ((is_character_type(array_type_get_element_type(declared_type_no_cv))
-                     && is_character_type(array_type_get_element_type(no_ref(initializer_expr_type))))
-                 || (is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                     && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
-            || (!vector_initialization
-                    && standard_conversion_between_types(
-                    &standard_conversion_sequence,
-                    initializer_expr_type,
-                    declared_type_no_cv,
-                    locus))
-            || (vector_initialization
-                    && check_vector_type_initialization(
-                        initializer_expr_type,
-                        declared_type_no_cv,
-                        locus));
-            ;
-
-        if (!can_be_initialized)
+        if (!c_valid_initialization_types(declared_type_no_cv, initializer_expr_type,
+                    nodecl_get_locus(nodecl_expr), &standard_conversion_sequence))
         {
             error_printf_at(nodecl_get_locus(nodecl_expr), "initializer '%s' has type '%s' not convertible to '%s'\n",
                     codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
