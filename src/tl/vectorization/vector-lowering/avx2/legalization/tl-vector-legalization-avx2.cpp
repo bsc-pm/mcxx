@@ -109,6 +109,32 @@ namespace TL
             } 
         }
 
+        void AVX2VectorLegalization::visit(const Nodecl::Symbol& node) 
+        {
+            TL::Type type = node.get_type();
+            TL::Type uint_type = TL::Type::get_unsigned_int_type();
+
+            if (type.no_ref().is_mask())
+            {
+                TL::Symbol tl_sym = node.get_symbol();
+                TL::Type vtype = uint_type.get_vector_of_elements(NUM_4B_ELEMENTS);
+
+                if (tl_sym.get_type().is_mask())
+                {
+                    tl_sym.set_type(vtype);
+                }
+
+                // TODO ref
+
+                Nodecl::Symbol new_sym = node.shallow_copy().as<Nodecl::Symbol>();
+                if (type.is_lvalue_reference())
+                    vtype = vtype.get_lvalue_reference_to();
+
+                new_sym.set_type(vtype);                
+                node.replace(new_sym);
+            }
+        }
+
         void AVX2VectorLegalization::visit(const Nodecl::VectorGather& node) 
         {
             walk(node.get_base());

@@ -48,6 +48,8 @@ namespace TL
  
                 virtual void visit(const Nodecl::VectorConversion& node);
 
+                virtual void visit(const Nodecl::Symbol& node);
+
                 virtual void visit(const Nodecl::VectorGather& node);
                 virtual void visit(const Nodecl::VectorScatter& node);
 

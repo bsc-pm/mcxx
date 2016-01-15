@@ -24,12 +24,13 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
-#include "cxx-cexpr.h"
-#include "tl-nodecl-utils.hpp"
+#include "tl-vector-backend-avx2.hpp"
 
 #include "tl-vectorization-utils.hpp"
-#include "tl-vector-backend-avx2.hpp"
 #include "tl-source.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "cxx-cexpr.h"
+
 
 #define AVX2_VECTOR_BIT_SIZE 256
 #define AVX2_VECTOR_BYTE_SIZE 32
@@ -167,14 +168,13 @@ namespace Vectorization
         {
             result << AVX2_INTRIN_PREFIX << "_undefined_pd()";
         }
-        else if (type.is_signed_int() ||
-                type.is_unsigned_int())
+        else if (type.is_integral_type())
         {
             result << AVX2_INTRIN_PREFIX << "_undefined_si" << AVX2_VECTOR_BIT_SIZE << "()";
         }
         else
         {
-            fatal_error("AVX2 Lowering: undef intrinsic not supported");
+            fatal_error("AVX2 Lowering: undef intrinsic not supported for");
         }
 
         return result.str();
@@ -186,62 +186,12 @@ namespace Vectorization
     {
         if(!mask.is_null())
         {
-            TL::Source old;
-
             mask_prefix << "_mask";
-
-            if (_old_m512.empty())
-            {
-                old << get_undef_intrinsic(type);
-            }
-            else
-            {
-                old << "("
-                    << print_type_str(
-                            type.get_vector_to(_vector_length).get_internal_type(),
-                            mask.retrieve_context().get_decl_context())
-                    << ")"
-                    << as_expression(_old_m512.back());
-
-                if ((conf & AVX2ConfigMaskProcessing::KEEP_OLD) !=
-                        AVX2ConfigMaskProcessing::KEEP_OLD)
-                { // DEFAULT
-                    _old_m512.pop_back();
-                }
-            }
 
             walk(mask);
 
-            if((conf & AVX2ConfigMaskProcessing::ONLY_MASK) ==
-                    AVX2ConfigMaskProcessing::ONLY_MASK)
-            {
-                mask_args << as_expression(mask);
-            }
-            else // DEFAULT
-            {
-                mask_args << old.get_source()
-                    << ", "
-                    << as_expression(mask)
-                    ;
-            }
-
-            if((conf & AVX2ConfigMaskProcessing::NO_FINAL_COMMA) !=
-                    AVX2ConfigMaskProcessing::NO_FINAL_COMMA)
-            {
-                mask_args << ", ";
-            }
-        }
-        else if((conf & AVX2ConfigMaskProcessing::ALWAYS_OLD) ==
-                AVX2ConfigMaskProcessing::ALWAYS_OLD)
-        {
-            if (!_old_m512.empty())
-            {
-                internal_error("AVX2 Lowering: mask is null but old is not null. Old '%s'. At %s",
-                        _old_m512.back().prettyprint().c_str(),
-                        locus_to_str(mask.get_locus()));
-            }
-
-            mask_args << get_undef_intrinsic(type) << ", ";
+            mask_args << ", "
+                << as_expression(mask);
         }
     }
 
@@ -269,12 +219,10 @@ namespace Vectorization
 
         const Nodecl::NodeclBase lhs = binary_node.get_lhs();
         const Nodecl::NodeclBase rhs = binary_node.get_rhs();
-        const Nodecl::NodeclBase mask = binary_node.get_mask();
 
         TL::Type type = binary_node.get_type().basic_type();
 
-        TL::Source intrin_src, intrin_name, intrin_type_suffix,
-            mask_prefix, args, mask_args;
+        TL::Source intrin_src, intrin_name, intrin_type_suffix, args;
 
         intrin_src << intrin_name
             << "("
@@ -283,14 +231,11 @@ namespace Vectorization
             ;
 
         intrin_name << AVX2_INTRIN_PREFIX
-            << mask_prefix
             << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         if (type.is_float())
         {
@@ -305,6 +250,11 @@ namespace Vectorization
         {
             intrin_type_suffix << "epi32";
         }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
+        }
         else
         {
             internal_error("AVX2 Lowering: Node %s at %s has an unsupported type: %s.",
@@ -316,8 +266,7 @@ namespace Vectorization
         walk(lhs);
         walk(rhs);
 
-        args << mask_args
-            << as_expression(lhs)
+        args << as_expression(lhs)
             << ", "
             << as_expression(rhs)
             ;
@@ -334,12 +283,11 @@ namespace Vectorization
         const Nodecl::VectorRsqrt& unary_node = node.as<Nodecl::VectorRsqrt>();
 
         const Nodecl::NodeclBase rhs = unary_node.get_rhs();
-        const Nodecl::NodeclBase mask = unary_node.get_mask();
 
         TL::Type type = unary_node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix,
-            mask_prefix, args, mask_args;
+            args;
 
         intrin_src << intrin_name
             << "("
@@ -348,14 +296,11 @@ namespace Vectorization
             ;
 
         intrin_name << AVX2_INTRIN_PREFIX
-            << mask_prefix
             << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
             ;
-
-        process_mask_component(mask, mask_prefix, mask_args, type);
 
         if (type.is_float())
         {
@@ -380,9 +325,7 @@ namespace Vectorization
 
         walk(rhs);
 
-        args << mask_args
-            << as_expression(rhs)
-            ;
+        args << as_expression(rhs);
 
         Nodecl::NodeclBase function_call =
             intrin_src.parse_expression(node.retrieve_context());
@@ -397,14 +340,13 @@ namespace Vectorization
 
         const Nodecl::NodeclBase lhs = binary_node.get_lhs();
         const Nodecl::NodeclBase rhs = binary_node.get_rhs();
-        const Nodecl::NodeclBase mask = binary_node.get_mask();
 
         TL::Type type = binary_node.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix,
-            mask_prefix, args, mask_args;
+            args;
 
-        intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type)
+        intrin_src 
             << "("
             << intrin_name
             << "("
@@ -413,25 +355,21 @@ namespace Vectorization
             ;
 
         intrin_name << AVX2_INTRIN_PREFIX
-            << mask_prefix
             << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
             ;
 
-        process_mask_component(mask, mask_prefix, mask_args, type);
-
         if (type.is_float())
         {
-            intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
+            intrin_type_suffix << "ps";
         }
         else if (type.is_double())
         {
-            intrin_type_suffix << "epi64";
+            intrin_type_suffix << "pd";
         }
-        else if (type.is_signed_int() ||
-                type.is_unsigned_int())
+        else if (type.is_integral_type())
         {
             intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
         }
@@ -445,10 +383,9 @@ namespace Vectorization
         walk(lhs);
         walk(rhs);
 
-        args << mask_args
-            << get_casting_intrinsic(type, TL::Type::get_int_type()) << "(" << as_expression(lhs) << ")"
+        args << "(" << as_expression(lhs) << ")"
             << ", "
-            << get_casting_intrinsic(type, TL::Type::get_int_type()) << "(" << as_expression(rhs) << ")"
+            << "(" << as_expression(rhs) << ")"
             ;
 
         Nodecl::NodeclBase function_call =
@@ -1653,7 +1590,6 @@ namespace Vectorization
 
         intrin_name << AVX2_INTRIN_PREFIX
             << mask_prefix
-            << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
@@ -1673,8 +1609,7 @@ namespace Vectorization
         }
         else if (type.is_integral_type())
         {
-            intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-            casting_args << get_casting_to_scalar_pointer(vtype);
+            intrin_type_suffix << "epi32";
         }
         else
         {
@@ -1683,11 +1618,13 @@ namespace Vectorization
                     locus_to_str(node.get_locus()));
         }
 
+        casting_args << get_casting_to_scalar_pointer(type);
+
         walk(rhs);
 
-        args << mask_args
-            << casting_args
+        args << casting_args
             << as_expression(rhs)
+            << mask_args
             << extra_args
             ;
 
@@ -1717,7 +1654,6 @@ namespace Vectorization
 
         intrin_name << AVX2_INTRIN_PREFIX
             << mask_prefix
-            << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
@@ -1738,7 +1674,7 @@ namespace Vectorization
         else if (type.is_integral_type())
         {
             intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-            casting_args << get_casting_to_scalar_pointer(vtype);
+            //casting_args << get_casting_to_scalar_pointer(vtype);
         }
         else
         {
@@ -1795,7 +1731,6 @@ namespace Vectorization
 
         intrin_name << AVX2_INTRIN_PREFIX
             << mask_prefix
-            << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
@@ -1816,9 +1751,7 @@ namespace Vectorization
         }
         else if (type.is_integral_type())
         {
-            intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-            casting_args << get_casting_to_scalar_pointer(
-                    TL::Type::get_void_type());
+            intrin_type_suffix << "epi32";
         }
         else
         {
@@ -1826,6 +1759,8 @@ namespace Vectorization
                     ast_print_node_type(node.get_kind()),
                     locus_to_str(node.get_locus()));
         }
+        
+        casting_args << get_casting_to_scalar_pointer(type);
 
         walk(lhs);
         walk(rhs);
@@ -1834,8 +1769,8 @@ namespace Vectorization
             << casting_args
             << as_expression(lhs)
             << ")"
-            << ", "
             << mask_args
+            << ", "
             << as_expression(rhs)
             ;
 
@@ -1866,7 +1801,6 @@ namespace Vectorization
 
         intrin_name << AVX2_INTRIN_PREFIX
             << mask_prefix
-            << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
@@ -2217,6 +2151,7 @@ namespace Vectorization
         TL::Source intrin_src, horizontal_256_op_src, horizontal_128_op_src,
             add_128_op_src, horizontal_256_intrin_src,horizontal_128_intrin_src,
             extract_op_src, extract_intrin_src, sse_suffix_type, avx_suffix_type,
+            sse_suffix_size, avx_suffix_size,
             temporal_128red_var, temporal_256red_var;
 
         TL::Type v256_type = vtype;
@@ -2241,14 +2176,18 @@ namespace Vectorization
         {
             extract_intrin_src << "_mm_cvtss_f32";
             sse_suffix_type << "ps";
+            sse_suffix_size << "";
             avx_suffix_type << "ps";
+            avx_suffix_size << "";
         }
         else if (type.is_signed_int() ||
                 type.is_unsigned_int())
         {
             extract_intrin_src << "_mm_cvtsi128_si32";
-            sse_suffix_type << "epi32";
-            avx_suffix_type << "si256";
+            sse_suffix_type << "epi";
+            sse_suffix_size << "32";
+            avx_suffix_type << "si";
+            avx_suffix_size << "256";
         }
         else
         {
@@ -2264,11 +2203,13 @@ namespace Vectorization
         horizontal_128_intrin_src
             << "_mm_hadd_"
             << sse_suffix_type
+            << sse_suffix_size
             ;
 
         horizontal_256_intrin_src
             << "_mm256_hadd_"
-            << avx_suffix_type
+            << sse_suffix_type
+            << sse_suffix_size
             ;
 
         horizontal_256_op_src
@@ -2284,13 +2225,13 @@ namespace Vectorization
         add_128_op_src
             << temporal_128red_var
             << " = "
-            << "_mm_add_" << sse_suffix_type
+            << "_mm_add_" << sse_suffix_type << sse_suffix_size
             << "("
             << "_mm256_cast" << avx_suffix_type << "256_" << avx_suffix_type << "128("
             << temporal_256red_var
             << ")"
             << ", "
-            << "_mm256_extractf128_" << avx_suffix_type
+            << "_mm256_extractf128_" << avx_suffix_type << avx_suffix_size
             << "("
             << temporal_256red_var
             << ", "
@@ -2320,16 +2261,116 @@ namespace Vectorization
         node.replace(function_call);
     }
 
+    void AVX2VectorLowering::visit_reduction_add_8bytes_elements(
+            const Nodecl::VectorReductionAdd& node)
+    {
+        Nodecl::NodeclBase vector_src = node.get_vector_src();
+        TL::Type vtype = vector_src.get_type().no_ref();
+        TL::Type type = node.get_type().no_ref();
+
+        walk(vector_src);
+
+        TL::Source intrin_src, horizontal_256_op_src, 
+            add_128_op_src, horizontal_256_intrin_src,
+            extract_op_src, extract_intrin_src, sse_suffix_type, avx_suffix_type,
+            sse_suffix_size, avx_suffix_size,
+            temporal_128red_var, temporal_256red_var;
+
+        TL::Type v256_type = vtype;
+        TL::Type v128_type = type.get_vector_of_elements(
+                v256_type.vector_num_elements()/2);
+
+        intrin_src             
+            << "({"
+            << print_type_str(v256_type.get_internal_type(),
+                    node.retrieve_context().get_decl_context())
+            << " " << temporal_256red_var << ";"
+            << print_type_str(v128_type.get_internal_type(),
+                    node.retrieve_context().get_decl_context())
+            << " " << temporal_128red_var << ";"
+            << horizontal_256_op_src
+            << add_128_op_src
+            << extract_op_src
+            << "})";
+
+        if (type.is_double())
+        {
+            extract_intrin_src << "_mm_cvtsd_f64";
+            sse_suffix_type << "pd";
+            sse_suffix_type << "";
+            avx_suffix_type << "pd";
+            avx_suffix_type << "";
+        }
+        else
+        {
+            fatal_error("AVX2 Lowering: Node %s at %s has an unsupported type.",
+                    ast_print_node_type(node.get_kind()),
+                    locus_to_str(node.get_locus()));
+        }
+        //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
+
+        temporal_256red_var << "__rtmp256";
+        temporal_128red_var << "__rtmp128";
+
+        horizontal_256_intrin_src
+            << "_mm256_hadd_"
+            << avx_suffix_type
+            ;
+
+        horizontal_256_op_src
+            << temporal_256red_var
+            << " = "
+            << horizontal_256_intrin_src
+            << "("
+            << as_expression(vector_src)
+            << ", "
+            << as_expression(vector_src)
+            << ");";
+
+        add_128_op_src
+            << temporal_128red_var
+            << " = "
+            << "_mm_add_" << sse_suffix_type << sse_suffix_size
+            << "("
+            << "_mm256_cast" << avx_suffix_type << "256_" << avx_suffix_type << "128("
+            << temporal_256red_var
+            << ")"
+            << ", "
+            << "_mm256_extractf128_" << avx_suffix_type << avx_suffix_size
+            << "("
+            << temporal_256red_var
+            << ", "
+            << "1"
+            << "));";
+
+        extract_op_src
+            << extract_intrin_src
+            << "("
+            << temporal_128red_var
+            << ");";
+
+        Nodecl::NodeclBase function_call =
+            intrin_src.parse_expression(node.retrieve_context());
+
+        node.replace(function_call);
+    }
+
+
     void AVX2VectorLowering::visit(const Nodecl::VectorReductionAdd& node)
     {
         Nodecl::NodeclBase vector_src = node.get_vector_src();
 
         TL::Type vtype = vector_src.get_type().no_ref();
         TL::Type type = node.get_type().no_ref();
+        int type_size = type.get_size();
 
-        if (type.get_size() == 4)
+        if (type_size == 4)
         {
             visit_reduction_add_4bytes_elements(node);
+        }
+        else if (type_size == 8)
+        {
+            visit_reduction_add_8bytes_elements(node);
         }
         else
         {
