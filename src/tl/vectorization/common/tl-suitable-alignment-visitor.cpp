@@ -235,11 +235,12 @@ namespace Vectorization
         alignment_module = -1;
         _aligned_expressions = aligned_expressions;
 
-        Nodecl::NodeclBase deref_element = n.get_rhs();
+        Nodecl::NodeclBase deref_element = n.get_rhs().no_conv();
         TL::Type element_type = deref_element.get_type().basic_type();
 
         ERROR_CONDITION(!deref_element.is<Nodecl::Symbol>(),
-                "Unexpected Derefence %s\n", deref_element.get_kind());
+                "Unexpected Derefence to kind %s\n", 
+                ast_print_node_type(deref_element.get_kind()));
 
         alignment = get_pointer_alignment(deref_element.as<Nodecl::Symbol>());
 

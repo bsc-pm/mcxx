@@ -630,7 +630,7 @@ namespace Vectorization
 
             // TODO
             bool is_linear = Vectorizer::_vectorizer_analysis->
-                    is_linear(_environment._analysis_simd_scope, vaccess);
+                    is_linear(_environment._analysis_simd_scope, vaccess.no_conv());
             bool is_adjacent = Vectorizer::_vectorizer_analysis->
                     is_adjacent_access(_environment._analysis_simd_scope, n);
 
@@ -828,7 +828,7 @@ namespace Vectorization
 
             // TODO
             bool is_linear = Vectorizer::_vectorizer_analysis->
-                    is_linear(_environment._analysis_simd_scope, lhs_vaccess);
+                    is_linear(_environment._analysis_simd_scope, lhs_vaccess.no_conv());
             bool is_adjacent = Vectorizer::_vectorizer_analysis->
                     is_adjacent_access(_environment._analysis_simd_scope, lhs);
 
