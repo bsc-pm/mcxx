@@ -763,61 +763,13 @@ namespace TL { namespace Nanos6 {
         };
     }
 
-    TL::Type TaskProperties::rewrite_type_for_outline(TL::Type t, Nodecl::Utils::SymbolMap& symbol_map)
+    TL::Type TaskProperties::rewrite_type_for_outline(
+        TL::Type t, TL::Scope scope, Nodecl::Utils::SymbolMap &symbol_map)
     {
-        if (t.is_array())
-        {
-            TL::Type elem_type = rewrite_type_for_outline(t.array_element(), symbol_map);
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                Nodecl::NodeclBase new_size = t.array_get_size();
-                if (is_saved_expression(new_size))
-                {
-                    new_size = symbol_map.map(new_size.get_symbol()).make_nodecl(/* set_ref_type */ true);
-                }
-
-                return elem_type.get_array_to(new_size, TL::Scope::get_global_scope());
-            }
-            else if (IS_FORTRAN_LANGUAGE)
-            {
-                Nodecl::NodeclBase new_lower, new_upper;
-                t.array_get_bounds(new_lower, new_upper);
-
-                if (is_saved_expression(new_lower))
-                {
-                    new_lower = symbol_map.map(new_lower.get_symbol()).make_nodecl(/* set_ref_type */ true);
-                }
-                if (is_saved_expression(new_upper))
-                {
-                    new_upper = symbol_map.map(new_upper.get_symbol()).make_nodecl(/* set_ref_type */ true);
-                }
-
-                return elem_type.get_array_to(new_lower, new_upper, TL::Scope::get_global_scope());
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-
-        }
-        else if (t.is_lvalue_reference())
-        {
-            return rewrite_type_for_outline(t.no_ref(), symbol_map).get_lvalue_reference_to();
-        }
-        else if (t.is_rvalue_reference())
-        {
-            return rewrite_type_for_outline(t.no_ref(), symbol_map).get_rvalue_reference_to();
-        }
-        else if (t.is_pointer())
-        {
-            return rewrite_type_for_outline(t.points_to(), symbol_map)
-                .get_pointer_to()
-                .get_as_qualified_as(t);
-        }
-        else
-        {
-            return t;
-        }
+        return type_deep_copy(
+            t.get_internal_type(),
+            scope.get_decl_context(),
+            symbol_map.get_symbol_map());
     }
 
     void TaskProperties::create_outline_function()
@@ -936,7 +888,7 @@ namespace TL { namespace Nanos6 {
                 it != parameters_to_update_type.end();
                 it++)
         {
-            it->set_type(rewrite_type_for_outline(it->get_type(), symbol_map));
+            it->set_type(rewrite_type_for_outline(it->get_type(), unpacked_inside_scope, symbol_map));
         }
         if (!parameters_to_update_type.empty())
         {
@@ -1423,6 +1375,8 @@ namespace TL { namespace Nanos6 {
 
     bool same_value(const_value_t *v1, const_value_t *v2)
     {
+        if (v1 == NULL || v2 == NULL)
+            return false;
         return const_value_is_nonzero(const_value_eq(v1, v2));
     }
 
@@ -1451,20 +1405,24 @@ namespace TL { namespace Nanos6 {
                 data_type.array_get_region_bounds(lower_region_bound,
                                                   upper_region_bound);
 
-                // If something is non constant, give up
-                // FIXME: we could improve this for multidimensional VLAs
-                if (!lower_bound.is_constant() || !upper_bound.is_constant()
-                    || !lower_region_bound.is_constant()
-                    || !upper_region_bound.is_constant())
-                    return 0;
+                if (/* expanded ranges a[r] -> a[r:r] */
+                    same_value(lower_region_bound.get_constant(),
+                               upper_region_bound.get_constant())
+                    || Nodecl::Utils::structurally_equal_nodecls(
+                           lower_region_bound, upper_region_bound)
+                    /* whole array a[0:N-1] */
+                    || (same_value(lower_bound.get_constant(),
+                                   lower_region_bound.get_constant())
+                        && same_value(upper_bound.get_constant(),
+                                      upper_region_bound.get_constant()))
+                    || (Nodecl::Utils::structurally_equal_nodecls(
+                            lower_bound, lower_region_bound)
+                        && Nodecl::Utils::structurally_equal_nodecls(
+                               upper_bound, upper_region_bound)))
+                    return is_contiguous_region_(data_type.array_element(),
+                                                 n + 1);
 
-                if (!same_value(lower_bound.get_constant(),
-                                lower_region_bound.get_constant())
-                    && !same_value(upper_bound.get_constant(),
-                                   upper_region_bound.get_constant()))
-                    return 0;
-
-                return is_contiguous_region_(data_type.array_element(), n + 1);
+                return 0;
             }
         }
     }
@@ -1757,10 +1715,7 @@ namespace TL { namespace Nanos6 {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
                 Nodecl::NodeclBase new_size = t.array_get_size();
-                if (is_saved_expression(new_size))
-                {
-                    new_size = rewrite_expression_using_args(arg, new_size);
-                }
+                new_size = rewrite_expression_using_args(arg, new_size);
 
                 return elem_type.get_array_to(new_size, TL::Scope::get_global_scope());
             }

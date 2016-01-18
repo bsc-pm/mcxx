@@ -38,7 +38,7 @@ namespace TL { namespace Nanos6 {
 
     namespace {
 
-        struct TaskCallRewriter
+    struct TaskCallRewriterExpr : Nodecl::ExhaustiveVisitor<void>
         {
             private:
                 const TL::ObjectList<TL::Symbol>& _argument_captures_syms;
@@ -57,111 +57,277 @@ namespace TL { namespace Nanos6 {
                     return s;
                 }
 
+
             public:
-                void walk(Nodecl::NodeclBase n)
+              void visit(const Nodecl::OpenMP::Shared &n)
                 {
-                    if (n.is_null())
-                        return;
-
-                    if (n.is<Nodecl::List>())
+                    Nodecl::List sym_list = n.as<Nodecl::OpenMP::Shared>()
+                                                .get_symbols()
+                                                .as<Nodecl::List>();
+                    TL::ObjectList<Nodecl::NodeclBase> pruned_list;
+                    TL::ObjectList<Nodecl::NodeclBase> captured_arguments;
+                    for (Nodecl::List::iterator it = sym_list.begin();
+                         it != sym_list.end();
+                         it++)
                     {
-                        Nodecl::List l = n.as<Nodecl::List>();
-
-                        for (Nodecl::List::iterator it = l.begin();
-                                it != l.end();
-                                it++)
+                        TL::Symbol sym = it->get_symbol();
+                        if (!sym.is_parameter()
+                            || sym.get_parameter_position()
+                                   >= (int)_argument_captures_syms.size())
                         {
-                            walk(*it);
-                        }
-                    }
-                    // FIXME: turn this class into a visitor
-                    else if (n.is<Nodecl::OpenMP::Shared>())
-                    {
-                        Nodecl::List sym_list = n.as<Nodecl::OpenMP::Shared>()
-                            .get_symbols().as<Nodecl::List>();
-                        TL::ObjectList<Nodecl::NodeclBase> pruned_list;
-                        TL::ObjectList<Nodecl::NodeclBase> captured_arguments;
-                        for (Nodecl::List::iterator it = sym_list.begin();
-                                it != sym_list.end();
-                                it++)
-                        {
-                            TL::Symbol sym = it->get_symbol();
-                            if (!sym.is_parameter()
-                                    || sym.get_parameter_position() >= (int)_argument_captures_syms.size())
-                            {
-                                pruned_list.append(sym.make_nodecl());
-                            }
-                            else
-                            {
-                                // In Nanos6 we have to capture the arguments of the task call
-                                captured_arguments.append(sym.make_nodecl());
-                            }
-                        }
-                        if (!captured_arguments.empty())
-                        {
-                            // Capture arguments
-                            Nodecl::NodeclBase captured_arg_list =
-                                    Nodecl::OpenMP::Firstprivate::make(
-                                        Nodecl::List::make(captured_arguments),
-                                        n.get_locus());
-                            walk(captured_arg_list);
-                            n.prepend_sibling(captured_arg_list);
-                        }
-                        if (pruned_list.empty())
-                        {
-                            Nodecl::Utils::remove_from_enclosing_list(n);
+                            pruned_list.append(sym.make_nodecl());
                         }
                         else
                         {
-                            // FIXME: this is probably unlikely
-                            n.replace(
-                                    Nodecl::OpenMP::Shared::make(
-                                        Nodecl::List::make(pruned_list),
-                                        n.get_locus())
-                                    );
+                            // In Nanos6 we have to capture the arguments of the
+                            // task call
+                            captured_arguments.append(sym.make_nodecl());
+                        }
+                    }
+                    if (!captured_arguments.empty())
+                    {
+                        // Capture arguments
+                        Nodecl::NodeclBase captured_arg_list
+                            = Nodecl::OpenMP::Firstprivate::make(
+                                Nodecl::List::make(captured_arguments),
+                                n.get_locus());
+                        walk(captured_arg_list);
+                        n.prepend_sibling(captured_arg_list);
+                    }
+                    if (pruned_list.empty())
+                    {
+                        Nodecl::Utils::remove_from_enclosing_list(n);
+                    }
+                    else
+                    {
+                        // Note: this is unlikely
+                        n.replace(Nodecl::OpenMP::Shared::make(
+                            Nodecl::List::make(pruned_list), n.get_locus()));
+                    }
+                }
+
+                void visit(const Nodecl::Symbol &n)
+                {
+                    TL::Symbol s = n.get_symbol();
+                    if (!s.is_saved_expression())
+                    {
+                        TL::Symbol repl_s = replace_symbol(s);
+                        if (repl_s != s)
+                        {
+                            n.replace(repl_s.make_nodecl(
+                                /* set_ref_type */ true, n.get_locus()));
                         }
                     }
                     else
                     {
-                        if (n.get_symbol().is_valid())
-                        {
-                            n.set_symbol(replace_symbol(n.get_symbol()));
-                        }
-
-                        Nodecl::NodeclBase::Children c = n.children();
-                        for (Nodecl::NodeclBase::Children::iterator
-                                it = c.begin();
-                                it != c.end();
-                                it++)
-                        {
-                            walk(*it);
-                        }
+                        Nodecl::NodeclBase new_value = s.get_value().shallow_copy();
+                        walk(new_value);
+                        n.replace(new_value);
                     }
                 }
 
-                TaskCallRewriter(const TL::ObjectList<TL::Symbol>& argument_captures_syms)
+                TaskCallRewriterExpr(
+                    const TL::ObjectList<TL::Symbol> &argument_captures_syms)
                     : _argument_captures_syms(argument_captures_syms)
                 {
                 }
         };
 
+
+        struct TaskCallRewriterType
+        {
+          private:
+            TaskCallRewriterExpr &_r;
+
+          public:
+            TL::Type rewrite_type(TL::Type t)
+            {
+                if (!t.is_valid())
+                    return t;
+
+                if (t.is_pointer())
+                {
+                    return rewrite_type(t.points_to())
+                        .get_pointer_to()
+                        .get_as_qualified_as(t);
+                    }
+                    else if (t.is_array())
+                    {
+                        if (t.array_is_region())
+                        {
+                            Nodecl::NodeclBase lower_bound, upper_bound;
+                            t.array_get_bounds(lower_bound, upper_bound);
+                            lower_bound = lower_bound.shallow_copy();
+                            upper_bound = upper_bound.shallow_copy();
+
+                            _r.walk(lower_bound);
+                            _r.walk(upper_bound);
+
+                            Nodecl::NodeclBase lower_region_bound,
+                                upper_region_bound;
+                            t.array_get_region_bounds(lower_region_bound,
+                                                      upper_region_bound);
+                            lower_region_bound
+                                = lower_region_bound.shallow_copy();
+                            upper_region_bound
+                                = upper_region_bound.shallow_copy();
+
+                            _r.walk(lower_region_bound);
+                            _r.walk(upper_region_bound);
+
+                            return rewrite_type(t.array_element())
+                                .get_array_to_with_region(
+                                     lower_bound,
+                                     upper_bound,
+                                     lower_region_bound,
+                                     upper_region_bound,
+                                     TL::Scope::get_global_scope())
+                                .get_as_qualified_as(t);
+                        }
+                        else
+                        {
+                            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase s
+                                    = t.array_get_size().shallow_copy();
+                                _r.walk(s);
+
+                                return rewrite_type(t.array_element())
+                                    .get_array_to(s,
+                                                  TL::Scope::get_global_scope())
+                                    .get_as_qualified_as(t);
+                            }
+                            else if (IS_FORTRAN_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase lower_bound, upper_bound;
+                                t.array_get_bounds(lower_bound, upper_bound);
+                                lower_bound = lower_bound.shallow_copy();
+                                upper_bound = upper_bound.shallow_copy();
+
+                                _r.walk(lower_bound);
+                                _r.walk(upper_bound);
+
+                                return rewrite_type(t.array_element())
+                                    .get_array_to(lower_bound,
+                                                  upper_bound,
+                                                  TL::Scope::get_global_scope())
+                                    .get_as_qualified_as(t);
+                            }
+                            else
+                            {
+                                internal_error("Code unreachable", 0);
+                            }
+                        }
+                    }
+                    else if (t.is_lvalue_reference())
+                    {
+                        return rewrite_type(t.no_ref())
+                            .get_lvalue_reference_to();
+                    }
+                    else if (t.is_rvalue_reference())
+                    {
+                        return rewrite_type(t.no_ref())
+                            .get_rvalue_reference_to();
+                    }
+                    else if (t.is_vector())
+                    {
+                        return rewrite_type(t.vector_element())
+                            .get_vector_of_elements(t.vector_num_elements())
+                            .get_as_qualified_as(t);
+                    }
+
+                    return t;
+            }
+
+            void rewrite_types(Nodecl::NodeclBase n)
+            {
+                if (n.is_null())
+                    return;
+
+                if (n.is<Nodecl::List>())
+                {
+                    Nodecl::List l = n.as<Nodecl::List>();
+                    for (Nodecl::List::iterator it = l.begin(); it != l.end();
+                         it++)
+                        {
+                            rewrite_types(*it);
+                        }
+                    }
+                    else
+                    {
+                        n.set_type(rewrite_type(n.get_type()));
+
+                        Nodecl::NodeclBase::Children c = n.children();
+                        for (Nodecl::NodeclBase::Children::size_type i = 0;
+                             i < c.size();
+                             i++)
+                        {
+                            rewrite_types(c[i]);
+                        }
+                    }
+                }
+
+                TaskCallRewriterType(TaskCallRewriterExpr &r) : _r(r)
+                {
+                }
+        };
+
+        struct TaskCallRewriter
+        {
+          private:
+            const TL::ObjectList<TL::Symbol> &_argument_captures_syms;
+
+          public:
+            TaskCallRewriter(
+                const TL::ObjectList<TL::Symbol> &argument_captures_syms)
+                : _argument_captures_syms(argument_captures_syms)
+            {
+            }
+
+            void walk(Nodecl::NodeclBase n)
+            {
+                TaskCallRewriterExpr rewriter_expr(
+                    _argument_captures_syms);
+                rewriter_expr.walk(n);
+
+                TaskCallRewriterType rewriter_types(rewriter_expr);
+                rewriter_types.rewrite_types(n);
+            }
+        };
+
         Nodecl::NodeclBase rewrite_task_call_environment(
-                Nodecl::NodeclBase parameters_environment,
-                const TL::ObjectList<TL::Symbol>& argument_captures_syms)
+            Nodecl::NodeclBase parameters_environment,
+            const TL::ObjectList<TL::Symbol> &argument_captures_syms)
         {
             Nodecl::NodeclBase result = parameters_environment.shallow_copy();
 
-            TaskCallRewriter task_call_rewriter(argument_captures_syms);
+            TaskCallRewriter task_call_rewriter(
+                argument_captures_syms);
             task_call_rewriter.walk(result);
 
             return result;
+        }
+
+        TL::Type rewrite_type(
+            TL::Type t,
+            const TL::ObjectList<TL::Symbol> &argument_captures_syms)
+        {
+            TaskCallRewriterExpr rewriter_expr(
+                argument_captures_syms);
+
+            TaskCallRewriterType rewriter_types(rewriter_expr);
+            TL::Type res = rewriter_types.rewrite_type(t);
+
+            return res;
         }
     }
 
     void Lower::visit_task_call_c(const Nodecl::OmpSs::TaskCall& construct)
     {
         Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
-        ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
+        ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(),
+                        "Invalid TaskCall",
+                        0);
 
         TL::Symbol called_sym = function_call.get_called().get_symbol();
 
@@ -212,9 +378,11 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol new_symbol = new_block_context_sc.new_symbol(symbol_name);
 
-            // FIXME - VLAs
             new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-            new_symbol.get_internal_symbol()->type_information = it_params->get_type().get_internal_type();
+            new_symbol.get_internal_symbol()->type_information
+                = rewrite_type(it_params->get_type(),
+                               argument_captures_syms
+                               ).get_internal_type();
             symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
 
             new_symbol.get_internal_symbol()->value = it_args->shallow_copy().get_internal_nodecl();
@@ -272,9 +440,9 @@ namespace TL { namespace Nanos6 {
                         construct.get_locus())
                     );
 
-        Nodecl::NodeclBase new_omp_exec_environment =
-            rewrite_task_call_environment(parameters_environment,
-                    argument_captures_syms);
+        Nodecl::NodeclBase new_omp_exec_environment
+            = rewrite_task_call_environment(
+                parameters_environment, argument_captures_syms);
 
         Nodecl::NodeclBase new_task_construct =
             Nodecl::OpenMP::Task::make(
@@ -315,7 +483,9 @@ namespace TL { namespace Nanos6 {
         Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
         Nodecl::NodeclBase parameters_environment = construct.get_environment();
 
-        ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
+        ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(),
+                        "Invalid TaskCall",
+                        0);
 
         // For Fortran we create an adaptor function because otherwise it is
         // impossible to represent some arguments as temporaries. The adaptor

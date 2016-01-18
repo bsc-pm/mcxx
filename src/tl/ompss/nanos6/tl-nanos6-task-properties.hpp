@@ -92,7 +92,10 @@ namespace TL { namespace Nanos6 {
             void walk_type_for_saved_expressions(TL::Type t);
             static bool is_saved_expression(Nodecl::NodeclBase n);
             void handle_array_bound(Nodecl::NodeclBase n);
-            TL::Type rewrite_type_for_outline(TL::Type t, Nodecl::Utils::SymbolMap& symbol_map);
+            TL::Type rewrite_type_for_outline(
+                TL::Type t,
+                TL::Scope scope,
+                Nodecl::Utils::SymbolMap &symbol_map);
 
         public:
             TL::ObjectList<TL::Symbol> shared;
