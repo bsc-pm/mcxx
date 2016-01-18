@@ -3,7 +3,6 @@
 ##################################################################
 # SETTINGS
 # set path to clang-format binary
-CLANG_FORMAT_DIFF=${CLANG_FORMAT_DIFF:=clang-format-diff}
 
 # Fallback case
 if [ "$CLANG_FORMAT_DIFF" = none ];
@@ -11,16 +10,21 @@ then
     exit 0
 fi
 
-echo "Testing format..."
+CLANG_FORMAT_DIFF=${CLANG_FORMAT_DIFF:=clang-format-diff}
+CLANG_FORMAT_DIFF_PATH=$(which "$CLANG_FORMAT_DIFF")
 
-if [ ! -x $(which "$CLANG_FORMAT_DIFF") ];
+if [ -z "${CLANG_FORMAT_DIFF_PATH}" \
+    -o ! -e "${CLANG_FORMAT_DIFF_PATH}" \
+    -o ! -x "${CLANG_FORMAT_DIFF_PATH}"  ];
 then
-    echo "Could not test format."
+    echo "Could not test format using '${CLANG_FORMAT_DIFF}'"
     echo "Set variable CLANG_FORMAT_DIFF to the proper clang-format-diff path"
     exit 1
 fi
 
-diffs=$(git diff --cached -U0 HEAD | $CLANG_FORMAT_DIFF -p 1)
+echo "Testing format..."
+
+diffs=$(git diff --cached -U0 HEAD | "$CLANG_FORMAT_DIFF_PATH" -style file -p 1)
 
 if [ -z "$diffs" ]
 then
