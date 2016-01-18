@@ -77,6 +77,11 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol arg,
                     TL::Symbol register_fun,
                     Nodecl::List& register_statements);
+            void register_region_dependence(TL::DataReference &data_ref,
+                                            TL::Symbol handler,
+                                            TL::Symbol arg,
+                                            TL::Symbol register_fun,
+                                            Nodecl::List &register_statements);
             void register_dependence_for_array(
                     TL::DataReference& data_ref,
                     TL::Symbol handler,

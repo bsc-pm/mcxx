@@ -1418,6 +1418,86 @@ namespace TL { namespace Nanos6 {
         register_statements.append(function_call);
     }
 
+    namespace
+    {
+
+    bool same_value(const_value_t *v1, const_value_t *v2)
+    {
+        return const_value_is_nonzero(const_value_eq(v1, v2));
+    }
+
+    bool is_contiguous_region_(TL::Type data_type, int n)
+    {
+        if (n == 0)
+        {
+            ERROR_CONDITION(!data_type.array_is_region(),
+                            "We expect an array region here",
+                            0);
+            return is_contiguous_region_(data_type.array_element(), n + 1);
+        }
+        else
+        {
+            if (!data_type.is_array() || !data_type.array_is_region())
+                return 1;
+            else
+            {
+                // If it is a region it might designate the whole array
+                Nodecl::NodeclBase lower_bound;
+                Nodecl::NodeclBase upper_bound;
+                data_type.array_get_bounds(lower_bound, upper_bound);
+
+                Nodecl::NodeclBase lower_region_bound;
+                Nodecl::NodeclBase upper_region_bound;
+                data_type.array_get_region_bounds(lower_region_bound,
+                                                  upper_region_bound);
+
+                // If something is non constant, give up
+                // FIXME: we could improve this for multidimensional VLAs
+                if (!lower_bound.is_constant() || !upper_bound.is_constant()
+                    || !lower_region_bound.is_constant()
+                    || !upper_region_bound.is_constant())
+                    return 0;
+
+                if (!same_value(lower_bound.get_constant(),
+                                lower_region_bound.get_constant())
+                    && !same_value(upper_bound.get_constant(),
+                                   upper_region_bound.get_constant()))
+                    return 0;
+
+                return is_contiguous_region_(data_type.array_element(), n + 1);
+            }
+        }
+    }
+
+    bool is_contiguous_region(TL::DataReference &data_ref)
+    {
+        return is_contiguous_region_(data_ref.get_data_type(), 0);
+    }
+    }
+
+    void TaskProperties::register_region_dependence(
+        TL::DataReference &data_ref,
+        TL::Symbol handler,
+        TL::Symbol arg,
+        TL::Symbol register_fun,
+        Nodecl::List &register_statements)
+    {
+        if (!is_contiguous_region(data_ref))
+        {
+            error_printf_at(
+                data_ref.get_locus(),
+                "dependence '%s' has a region not known to be contiguous, this "
+                "is not supported yet\n",
+                data_ref.prettyprint().c_str());
+            return;
+        }
+
+        // This is a contiguous region, so it can be easily mapped onto a lineal
+        // one
+        return register_linear_dependence(
+            data_ref, handler, arg, register_fun, register_statements);
+    }
+
     void TaskProperties::register_dependence_for_array(
             TL::DataReference& data_ref,
             TL::Symbol handler,
@@ -1433,16 +1513,13 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(!data_type.is_array(), "Invalid data type here", 0);
         if (data_type.array_is_region())
         {
-            internal_error("Regions not implemented yet", 0);
+            register_region_dependence(
+                data_ref, handler, arg, register_fun, register_statements);
         }
         else
         {
             register_linear_dependence(
-                    data_ref,
-                    handler,
-                    arg,
-                    register_fun,
-                    register_statements);
+                data_ref, handler, arg, register_fun, register_statements);
         }
     }
 
