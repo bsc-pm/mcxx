@@ -1637,6 +1637,11 @@ namespace TL { namespace Nanos6 {
 
                 node.replace(new_expr);
             }
+
+            virtual void visit(const Nodecl::ClassMemberAccess &node)
+            {
+                walk(node.get_lhs());
+            }
         };
 
         RewriteExpression r(arg, field_map, shared);
