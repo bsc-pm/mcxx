@@ -28,7 +28,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
+test_generator="config/mercurium-ompss no-nanos6"
 test_compile_faulty=yes
 test_compile_fail=yes
 test_CFLAGS=--variable=enable_input_by_value_dependences:1
