@@ -2339,6 +2339,7 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 								 src/tl/ompss/nanos6/tl-nanos6-fortran-load-api.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-critical.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-unsupported.cpp \
 								 $(END)
 
 endif
