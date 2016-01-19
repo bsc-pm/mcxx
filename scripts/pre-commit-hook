@@ -24,17 +24,35 @@ fi
 
 echo "Testing format..."
 
-diffs=$(git diff --cached -U0 HEAD | "$CLANG_FORMAT_DIFF_PATH" -style file -p 1)
+TMPFILE=$(mktemp)
+git diff --cached -U0 HEAD | "$CLANG_FORMAT_DIFF_PATH" -style file -p 1 > "$TMPFILE"
+
+diffs=$(cat "$TMPFILE")
 
 if [ -z "$diffs" ]
 then
   echo "Format is OK"
   exit 0
 else
-  echo "Format is not OK"
+  echo "**********************************************************************************"
+  echo "**********************************************************************************"
+  cat "$TMPFILE"
+  echo "**********************************************************************************"
+  echo "**********************************************************************************"
   echo
-  echo "$diffs"
+  echo "Format is not OK."
   echo
-  echo "Please fix it using clang-format"
-  exit 1
+  exec < /dev/tty
+  echo -n "Do you want me to apply the changes above? (y/n) "
+  read -t 10 fixit
+  if [ "$fixit" = y -o "$fixit" = yes ];
+  then
+    abort=0
+    git apply --check -p0 "$TMPFILE" || abort=1
+  else
+    echo "Please fix it manually using clang-format"
+    abort=1
+  fi
+  rm -f $TMPFILE
+  exit $abort
 fi
