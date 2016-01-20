@@ -15529,7 +15529,11 @@ static void build_scope_namespace_definition(AST a,
                     entry);
         }
 
-        build_scope_declaration_sequence(ASTSon1(a), namespace_context, nodecl_output);
+        if (ASTSon1(a) != NULL)
+        {
+            build_scope_declaration_sequence(
+                ASTSon1(a), namespace_context, nodecl_output);
+        }
     }
 }
 
