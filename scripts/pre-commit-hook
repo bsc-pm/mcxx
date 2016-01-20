@@ -47,12 +47,12 @@ else
   read -t 10 fixit
   if [ "$fixit" = y -o "$fixit" = yes ];
   then
-    abort=0
-    git apply --check -p0 "$TMPFILE" || abort=1
+    git apply -p0 "$TMPFILE" || abort=1
+    echo
+    echo "Please commit again"
   else
     echo "Please fix it manually using clang-format"
-    abort=1
   fi
   rm -f $TMPFILE
-  exit $abort
+  exit 1
 fi
