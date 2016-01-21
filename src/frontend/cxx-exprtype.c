@@ -3756,24 +3756,34 @@ static char update_simplified_unresolved_overloaded_type(scope_entry_t* entry,
 
 
 // Generic function for binary typechecking in C and C++
-static
-void compute_bin_operator_generic(
-        nodecl_t* lhs, nodecl_t* rhs, 
-        // Operator name and context
-        AST operator, 
-        const decl_context_t* decl_context,
-        // Functions
-        char (*will_require_overload)(type_t*, type_t*),
-        nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus),
-        const_value_t* (*const_value_bin_fun)(const_value_t*, const_value_t*),
-        type_t* (*compute_type_no_overload)(nodecl_t*, nodecl_t*, const decl_context_t*, const locus_t* locus),
-        char types_allow_constant_evaluation(type_t*, type_t*, const locus_t* locus),
-        char (*overload_operator_predicate)(type_t*, type_t*, const locus_t* locus),
-        type_t* (*overload_operator_result_types)(type_t**, type_t**, const locus_t* locus),
-        // Locus
-        const locus_t* locus,
+static void compute_bin_operator_generic(
+    nodecl_t *lhs,
+    nodecl_t *rhs,
+    // Operator name and context
+    AST
+    operator,
+    const decl_context_t *decl_context,
+    // Functions
+    char (*will_require_overload)(type_t *, type_t *),
+    nodecl_t (*nodecl_bin_fun)(
+        nodecl_t, nodecl_t, type_t *, const locus_t *locus),
+    const_value_t *(*const_value_bin_fun)(const_value_t *, const_value_t *),
+    type_t *(*compute_type_no_overload)(
+        nodecl_t *, nodecl_t *, const decl_context_t *, const locus_t *locus),
+    char types_allow_constant_evaluation(type_t *,
+                                         type_t *,
+                                         const locus_t *locus),
+    char (*overload_operator_predicate)(type_t *,
+                                        type_t *,
+                                        const locus_t *locus),
+    type_t *(*overload_operator_result_types)(type_t **,
+                                              type_t **,
+                                              const locus_t *locus),
+    type_t *(*partial_type_application)(nodecl_t *lhs, nodecl_t *rhs),
+    // Locus
+    const locus_t *locus,
 
-        nodecl_t* nodecl_output)
+    nodecl_t *nodecl_output)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
@@ -3781,9 +3791,15 @@ void compute_bin_operator_generic(
     if (nodecl_expr_is_type_dependent(*lhs)
             || nodecl_expr_is_type_dependent(*rhs))
     {
-        *nodecl_output = nodecl_bin_fun(*lhs, *rhs,  
-                get_unknown_dependent_type(),
-                locus);
+        type_t *dependent_type = NULL;
+
+        if (partial_type_application != NULL)
+            dependent_type = partial_type_application(lhs, rhs);
+
+        if (dependent_type == NULL)
+            dependent_type = get_unknown_dependent_type();
+
+        *nodecl_output = nodecl_bin_fun(*lhs, *rhs, dependent_type, locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
 
         if (// If the expression can be constant and any of the operands is value dependent, so it is
@@ -4078,18 +4094,21 @@ void compute_bin_operator_add_type(nodecl_t* lhs, nodecl_t* rhs, const decl_cont
                 ASTLeaf(AST_ADD_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    compute_bin_operator_generic(lhs, rhs, 
-            operation_add_tree, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_make_add,
-            const_value_generalized_add,
-            compute_type_no_overload_add_operation,
-            both_operands_are_arithmetic_or_pointer_arithmetic_noref,
-            operator_bin_plus_builtin_pred,
-            operator_bin_plus_builtin_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(
+        lhs,
+        rhs,
+        operation_add_tree,
+        decl_context,
+        any_operand_is_class_or_enum,
+        nodecl_make_add,
+        const_value_generalized_add,
+        compute_type_no_overload_add_operation,
+        both_operands_are_arithmetic_or_pointer_arithmetic_noref,
+        operator_bin_plus_builtin_pred,
+        operator_bin_plus_builtin_result,
+        /* partial_type_application */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static
@@ -4101,18 +4120,20 @@ void compute_bin_operator_only_arithmetic_types(nodecl_t* lhs, nodecl_t* rhs,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_bin_fun,
-            const_value_bin_fun,
-            compute_type_no_overload_bin_arithmetic,
-            both_operands_are_arithmetic_noref,
-            operator_bin_only_arithmetic_pred,
-            operator_bin_only_arithmetic_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(lhs,
+                                 rhs,
+                                 operator,
+                                 decl_context,
+                                 any_operand_is_class_or_enum,
+                                 nodecl_bin_fun,
+                                 const_value_bin_fun,
+                                 compute_type_no_overload_bin_arithmetic,
+                                 both_operands_are_arithmetic_noref,
+                                 operator_bin_only_arithmetic_pred,
+                                 operator_bin_only_arithmetic_result,
+                                 /* partial_type_application */ NULL,
+                                 locus,
+                                 nodecl_output);
 }
 
 static
@@ -4288,18 +4309,20 @@ void compute_bin_operator_only_integer_types(nodecl_t* lhs, nodecl_t* rhs,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_bin_fun,
-            const_value_bin_fun,
-            compute_type_no_overload_bin_only_integer,
-            both_operands_are_arithmetic_noref,
-            operator_bin_only_integer_pred,
-            operator_bin_only_integer_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(lhs,
+                                 rhs,
+                                 operator,
+                                 decl_context,
+                                 any_operand_is_class_or_enum,
+                                 nodecl_bin_fun,
+                                 const_value_bin_fun,
+                                 compute_type_no_overload_bin_only_integer,
+                                 both_operands_are_arithmetic_noref,
+                                 operator_bin_only_integer_pred,
+                                 operator_bin_only_integer_result,
+                                 /* partial_type_application */ NULL,
+                                 locus,
+                                 nodecl_output);
 }
 
 static
@@ -4525,18 +4548,21 @@ void compute_bin_operator_sub_type(nodecl_t* lhs, nodecl_t* rhs, const decl_cont
                 ASTLeaf(AST_MINUS_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_make_minus,
-            const_value_generalized_sub,
-            compute_type_no_overload_sub,
-            both_operands_are_arithmetic_or_pointer_arithmetic_noref,
-            operator_bin_sub_builtin_pred,
-            operator_bin_sub_builtin_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(
+        lhs,
+        rhs,
+        operator,
+        decl_context,
+        any_operand_is_class_or_enum,
+        nodecl_make_minus,
+        const_value_generalized_sub,
+        compute_type_no_overload_sub,
+        both_operands_are_arithmetic_or_pointer_arithmetic_noref,
+        operator_bin_sub_builtin_pred,
+        operator_bin_sub_builtin_result,
+        /* partial_type_application */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static char operator_bin_left_integral_right_integral_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
@@ -4607,18 +4633,21 @@ void compute_bin_operator_only_integral_lhs_type(nodecl_t* lhs, nodecl_t* rhs,
         const_value_t* (const_value_bin_fun)(const_value_t*, const_value_t*),
         const locus_t* locus, nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_bin_fun,
-            const_value_bin_fun,
-            compute_type_no_overload_only_integral_lhs_type,
-            both_operands_are_integral_noref,
-            operator_bin_left_integral_right_integral_pred,
-            operator_bin_left_integral_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(
+        lhs,
+        rhs,
+        operator,
+        decl_context,
+        any_operand_is_class_or_enum,
+        nodecl_bin_fun,
+        const_value_bin_fun,
+        compute_type_no_overload_only_integral_lhs_type,
+        both_operands_are_integral_noref,
+        operator_bin_left_integral_right_integral_pred,
+        operator_bin_left_integral_result,
+        /* partial_type_application */ NULL,
+        locus,
+        nodecl_output);
 }
 
 void compute_bin_operator_bitwise_shl_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
@@ -5114,18 +5143,21 @@ static void compute_bin_operator_relational(nodecl_t* lhs, nodecl_t* rhs, AST op
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum_or_pointer_or_array_or_function,
-            nodecl_bin_fun,
-            const_value_bin_fun,
-            compute_type_no_overload_relational_operator,
-            both_operands_are_arithmetic_or_enum_or_pointer_noref,
-            operator_bin_arithmetic_pointer_or_enum_pred,
-            operator_bin_arithmetic_pointer_or_enum_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(
+        lhs,
+        rhs,
+        operator,
+        decl_context,
+        any_operand_is_class_or_enum_or_pointer_or_array_or_function,
+        nodecl_bin_fun,
+        const_value_bin_fun,
+        compute_type_no_overload_relational_operator,
+        both_operands_are_arithmetic_or_enum_or_pointer_noref,
+        operator_bin_arithmetic_pointer_or_enum_pred,
+        operator_bin_arithmetic_pointer_or_enum_result,
+        /* partial_type_application */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static void compute_bin_operator_relational_eq_or_neq(nodecl_t* lhs, nodecl_t* rhs, AST operator, const decl_context_t* decl_context,
@@ -5134,18 +5166,21 @@ static void compute_bin_operator_relational_eq_or_neq(nodecl_t* lhs, nodecl_t* r
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs,
-            operator,
-            decl_context,
-            any_operand_is_class_or_enum_or_pointer_or_array_or_function_or_pointer_to_member,
-            nodecl_bin_fun,
-            const_value_bin_fun,
-            compute_type_no_overload_relational_operator_eq_or_neq,
-            both_operands_are_arithmetic_or_enum_or_pointer_noref,
-            operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_pred,
-            operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(
+        lhs,
+        rhs,
+        operator,
+        decl_context,
+        any_operand_is_class_or_enum_or_pointer_or_array_or_function_or_pointer_to_member,
+        nodecl_bin_fun,
+        const_value_bin_fun,
+        compute_type_no_overload_relational_operator_eq_or_neq,
+        both_operands_are_arithmetic_or_enum_or_pointer_noref,
+        operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_pred,
+        operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result,
+        /* partial_type_application */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static const_value_t* const_value_lt_address(const_value_t* lhs, const_value_t* rhs)
@@ -5565,18 +5600,20 @@ static void compute_bin_logical_op_type(nodecl_t* lhs, nodecl_t* rhs, AST operat
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_bin_fun,
-            const_value_bin_fun,
-            compute_type_no_overload_logical_op,
-            both_operands_are_arithmetic_noref,
-            operator_bin_logical_types_pred,
-            operator_bin_logical_types_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(lhs,
+                                 rhs,
+                                 operator,
+                                 decl_context,
+                                 any_operand_is_class_or_enum,
+                                 nodecl_bin_fun,
+                                 const_value_bin_fun,
+                                 compute_type_no_overload_logical_op,
+                                 both_operands_are_arithmetic_noref,
+                                 operator_bin_logical_types_pred,
+                                 operator_bin_logical_types_result,
+                                 /* partial_type_application */ NULL,
+                                 locus,
+                                 nodecl_output);
 }
 
 static void compute_bin_operator_logical_or_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
@@ -5739,18 +5776,21 @@ static void compute_bin_operator_assig_only_integral_type(nodecl_t* lhs, nodecl_
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_bin_fun,
-            NULL, // No constants
-            compute_type_no_overload_assig_only_integral_type,
-            NULL,
-            operator_bin_assign_only_integer_pred,
-            operator_bin_assign_only_integer_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(
+        lhs,
+        rhs,
+        operator,
+        decl_context,
+        any_operand_is_class_or_enum,
+        nodecl_bin_fun,
+        NULL, // No constants
+        compute_type_no_overload_assig_only_integral_type,
+        NULL,
+        operator_bin_assign_only_integer_pred,
+        operator_bin_assign_only_integer_result,
+        /* partial_type_application */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static char operator_bin_assign_arithmetic_or_pointer_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
@@ -5836,18 +5876,21 @@ static void compute_bin_operator_assig_arithmetic_or_pointer_type(nodecl_t* lhs,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_bin_fun,
-            NULL, // No constants
-            compute_type_no_overload_assig_arithmetic_or_pointer_type,
-            NULL,
-            operator_bin_assign_arithmetic_or_pointer_pred,
-            operator_bin_assign_arithmetic_or_pointer_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(
+        lhs,
+        rhs,
+        operator,
+        decl_context,
+        any_operand_is_class_or_enum,
+        nodecl_bin_fun,
+        NULL, // No constants
+        compute_type_no_overload_assig_arithmetic_or_pointer_type,
+        NULL,
+        operator_bin_assign_arithmetic_or_pointer_pred,
+        operator_bin_assign_arithmetic_or_pointer_result,
+        /* partial_type_application */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static char operator_bin_assign_only_arithmetic_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
@@ -6161,18 +6204,21 @@ static void compute_bin_operator_assig_only_arithmetic_type(nodecl_t* lhs, nodec
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    compute_bin_operator_generic(lhs, rhs, 
-            operator, 
-            decl_context,
-            any_operand_is_class_or_enum,
-            nodecl_bin_fun,
-            NULL, // No constants
-            compute_type_no_overload_assig_only_arithmetic_type,
-            NULL,
-            operator_bin_assign_only_arithmetic_pred,
-            operator_bin_assign_only_arithmetic_result,
-            locus,
-            nodecl_output);
+    compute_bin_operator_generic(
+        lhs,
+        rhs,
+        operator,
+        decl_context,
+        any_operand_is_class_or_enum,
+        nodecl_bin_fun,
+        NULL, // No constants
+        compute_type_no_overload_assig_only_arithmetic_type,
+        NULL,
+        operator_bin_assign_only_arithmetic_pred,
+        operator_bin_assign_only_arithmetic_result,
+        /* partial_type_application */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static void compute_bin_operator_mod_assig_type(nodecl_t* lhs, nodecl_t* rhs,
@@ -6366,27 +6412,39 @@ static void compute_bin_operator_sub_assig_type(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static void compute_unary_operator_generic(
-        nodecl_t* op, 
-        // Operator name and context
-        AST operator,
-        const decl_context_t* decl_context, 
-        // Functions
-        char (*will_require_overload)(type_t*),
-        nodecl_t (*nodecl_unary_fun)(nodecl_t, type_t*, const locus_t* locus),
-        const_value_t* (*const_value_unary_fun)(const_value_t*),
-        type_t* (*compute_type_no_overload)(nodecl_t*, const decl_context_t*, const locus_t* locus),
-        char types_allow_constant_evaluation(type_t*, const locus_t* locus),
-        char (*overload_operator_predicate)(type_t*, const locus_t* locus),
-        type_t* (*overload_operator_result_types)(type_t**, const locus_t* locus),
-        // Locus
-        const locus_t* locus, 
-        nodecl_t* nodecl_output)
+    nodecl_t *op,
+    // Operator name and context
+    AST
+    operator,
+    const decl_context_t *decl_context,
+    // Functions
+    char (*will_require_overload)(type_t *),
+    nodecl_t (*nodecl_unary_fun)(nodecl_t, type_t *, const locus_t *locus),
+    const_value_t *(*const_value_unary_fun)(const_value_t *),
+    type_t *(*compute_type_no_overload)(nodecl_t *,
+                                        const decl_context_t *,
+                                        const locus_t *locus),
+    char types_allow_constant_evaluation(type_t *, const locus_t *locus),
+    char (*overload_operator_predicate)(type_t *, const locus_t *locus),
+    type_t *(*overload_operator_result_types)(type_t **, const locus_t *locus),
+    type_t *(*partial_type_application)(nodecl_t *op),
+    // Locus
+    const locus_t *locus,
+    nodecl_t *nodecl_output)
 {
     type_t* op_type = nodecl_get_type(*op);
 
     if (nodecl_expr_is_type_dependent(*op))
     {
-        *nodecl_output = nodecl_unary_fun(*op, get_unknown_dependent_type(), locus);
+        type_t *partially_dependent_type = NULL;
+
+        if (partial_type_application != NULL)
+            partially_dependent_type = partial_type_application(op);
+
+        if (partially_dependent_type == NULL)
+            partially_dependent_type = get_unknown_dependent_type();
+
+        *nodecl_output = nodecl_unary_fun(*op, partially_dependent_type, locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
 
         nodecl_expr_set_is_value_dependent(*nodecl_output, nodecl_expr_is_value_dependent(*op));
@@ -6625,6 +6683,50 @@ static scope_entry_t* create_symbol_for_value_object(const_value_t* value)
     return entry;
 }
 
+static type_t *type_of_dereference_of_dependent_types(nodecl_t *op)
+{
+    type_t *t = nodecl_get_type(*op);
+
+    // T* -> T&
+    if (is_pointer_type(t))
+    {
+        type_t *ret
+            = get_lvalue_reference_type(pointer_type_get_pointee_type(t));
+
+        return ret;
+    }
+    // T*& -> T&
+    // T*&& -> T&
+    else if (is_any_reference_type(t) && is_pointer_type(no_ref(t)))
+    {
+        type_t *ret = get_lvalue_reference_type(
+            pointer_type_get_pointee_type(no_ref(t)));
+
+        // We cannot use cxx_nodecl_make_conversion because that functions is
+        // for non-dependent types
+        // T*& -> T*
+        // T*&& -> T*
+        *op = nodecl_make_conversion(*op, no_ref(t), nodecl_get_locus(*op));
+
+        return ret;
+    }
+    // T(&)[] -> T&
+    // T(&&)[] -> T&
+    else if (is_any_reference_type(t) && is_array_type(no_ref(t)))
+    {
+        type_t *ret
+            = get_lvalue_reference_type(array_type_get_element_type(no_ref(t)));
+
+        // See comment above
+        // T(&)[] -> T*
+        // T(&&)[] -> T*
+        *op = nodecl_make_conversion(*op, ret, nodecl_get_locus(*op));
+
+        return ret;
+    }
+
+    return NULL;
+}
 
 static void compute_operator_dereference_type(
         nodecl_t *op, const decl_context_t* decl_context,
@@ -6639,16 +6741,18 @@ static void compute_operator_dereference_type(
     }
 
     compute_unary_operator_generic(op,
-            operation_tree, decl_context,
-            operand_is_class_or_enum,
-            nodecl_make_dereference,
-            NULL, // No constants
-            compute_type_no_overload_deref,
-            NULL,
-            operator_unary_deref_pred,
-            operator_unary_deref_result,
-            locus,
-            nodecl_output);
+                                   operation_tree,
+                                   decl_context,
+                                   operand_is_class_or_enum,
+                                   nodecl_make_dereference,
+                                   NULL, // No constants
+                                   compute_type_no_overload_deref,
+                                   NULL,
+                                   operator_unary_deref_pred,
+                                   operator_unary_deref_result,
+                                   type_of_dereference_of_dependent_types,
+                                   locus,
+                                   nodecl_output);
 
     if (nodecl_get_kind(*nodecl_output) == NODECL_DEREFERENCE)
     {
@@ -6764,17 +6868,20 @@ static void compute_operator_plus_type(nodecl_t* op,
                 ASTLeaf(AST_ADD_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    compute_unary_operator_generic(op, 
-            operation_tree, decl_context,
-            operand_is_class_or_enum,
-            nodecl_make_plus,
-            const_value_plus, 
-            compute_type_no_overload_plus,
-            operand_is_arithmetic_or_unscoped_enum_type_noref,
-            operator_unary_plus_pred,
-            operator_unary_plus_result,
-            locus,
-            nodecl_output);
+    compute_unary_operator_generic(
+        op,
+        operation_tree,
+        decl_context,
+        operand_is_class_or_enum,
+        nodecl_make_plus,
+        const_value_plus,
+        compute_type_no_overload_plus,
+        operand_is_arithmetic_or_unscoped_enum_type_noref,
+        operator_unary_plus_pred,
+        operator_unary_plus_result,
+        /* partial dependent type */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static char operator_unary_minus_pred(type_t* op_type, const locus_t* locus UNUSED_PARAMETER)
@@ -6848,17 +6955,20 @@ static void compute_operator_minus_type(nodecl_t* op, const decl_context_t* decl
                 ASTLeaf(AST_MINUS_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    compute_unary_operator_generic(op, 
-            operation_tree, decl_context,
-            operand_is_class_or_enum,
-            nodecl_make_neg,
-            const_value_neg, 
-            compute_type_no_overload_neg,
-            operand_is_arithmetic_or_unscoped_enum_type_noref,
-            operator_unary_minus_pred,
-            operator_unary_minus_result,
-            locus,
-            nodecl_output);
+    compute_unary_operator_generic(
+        op,
+        operation_tree,
+        decl_context,
+        operand_is_class_or_enum,
+        nodecl_make_neg,
+        const_value_neg,
+        compute_type_no_overload_neg,
+        operand_is_arithmetic_or_unscoped_enum_type_noref,
+        operator_unary_minus_pred,
+        operator_unary_minus_result,
+        /* partial dependent type */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static char operator_unary_complement_pred(type_t* op_type, const locus_t* locus UNUSED_PARAMETER)
@@ -6904,17 +7014,20 @@ static void compute_operator_complement_type(nodecl_t* op,
                 ASTLeaf(AST_BITWISE_NEG_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    compute_unary_operator_generic(op, 
-            operation_tree, decl_context,
-            operand_is_class_or_enum,
-            nodecl_make_bitwise_not,
-            const_value_bitnot, 
-            compute_type_no_overload_complement,
-            operand_is_integral_or_bool_or_unscoped_enum_type_noref,
-            operator_unary_complement_pred,
-            operator_unary_complement_result,
-            locus,
-            nodecl_output);
+    compute_unary_operator_generic(
+        op,
+        operation_tree,
+        decl_context,
+        operand_is_class_or_enum,
+        nodecl_make_bitwise_not,
+        const_value_bitnot,
+        compute_type_no_overload_complement,
+        operand_is_integral_or_bool_or_unscoped_enum_type_noref,
+        operator_unary_complement_pred,
+        operator_unary_complement_result,
+        /* partial dependent type */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static char operator_unary_not_pred(type_t* op_type, const locus_t* locus)
@@ -6984,17 +7097,20 @@ static void compute_operator_not_type(nodecl_t* op,
                 ASTLeaf(AST_LOGICAL_NOT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    compute_unary_operator_generic(op,
-            operation_tree, decl_context,
-            operand_is_class_or_enum,
-            nodecl_make_logical_not,
-            const_value_not,
-            compute_type_no_overload_logical_not,
-            operand_is_arithmetic_or_unscoped_enum_type_noref,
-            operator_unary_not_pred,
-            operator_unary_not_result,
-            locus,
-            nodecl_output);
+    compute_unary_operator_generic(
+        op,
+        operation_tree,
+        decl_context,
+        operand_is_class_or_enum,
+        nodecl_make_logical_not,
+        const_value_not,
+        compute_type_no_overload_logical_not,
+        operand_is_arithmetic_or_unscoped_enum_type_noref,
+        operator_unary_not_pred,
+        operator_unary_not_result,
+        /* partial dependent type */ NULL,
+        locus,
+        nodecl_output);
 }
 
 static char operator_unary_reference_pred(type_t* t, const locus_t* locus UNUSED_PARAMETER)
@@ -7309,18 +7425,20 @@ static void compute_operator_reference_type(nodecl_t* op,
             return;
         }
 
-        compute_unary_operator_generic(op, 
-                operation_tree, decl_context,
-                operand_is_class_or_enum,
-                nodecl_make_reference,
-                // No constants
-                NULL,
-                compute_type_no_overload_reference,
-                NULL,
-                operator_unary_reference_pred,
-                operator_unary_reference_result,
-                locus,
-                nodecl_output);
+        compute_unary_operator_generic(op,
+                                       operation_tree,
+                                       decl_context,
+                                       operand_is_class_or_enum,
+                                       nodecl_make_reference,
+                                       // No constants
+                                       NULL,
+                                       compute_type_no_overload_reference,
+                                       NULL,
+                                       operator_unary_reference_pred,
+                                       operator_unary_reference_result,
+                                       /* partial dependent type */ NULL,
+                                       locus,
+                                       nodecl_output);
 
         if (nodecl_get_kind(*nodecl_output) == NODECL_REFERENCE)
         {
@@ -8993,6 +9111,70 @@ static const_value_t* compute_value_of_array_lvalue(nodecl_t expr, const decl_co
     return NULL;
 }
 
+static type_t *type_of_array_subscript_of_dependent_types_(nodecl_t *lhs,
+                                                           nodecl_t *rhs
+                                                               UNUSED_PARAMETER)
+{
+    type_t *lhs_type = nodecl_get_type(*lhs);
+    // type_t *rhs_type = nodecl_get_type(rhs);
+
+    // Here we assume the right hand side is sensible
+    // T(&)[] -> T&
+    // T(&&)[] -> T&
+    if (is_any_reference_type(lhs_type) && is_array_type(no_ref(lhs_type)))
+    {
+        type_t *ret = get_lvalue_reference_type(
+            array_type_get_element_type(no_ref(lhs_type)));
+
+        // We cannot use cxx_nodecl_make_conversion because that function is
+        // for non dependent types
+        // T(&)[] -> T*
+        // T(&&)[] -> T*
+        *lhs = nodecl_make_conversion(
+            *lhs,
+            get_pointer_type(array_type_get_element_type(no_ref(lhs_type))),
+            nodecl_get_locus(*lhs));
+
+        return ret;
+    }
+    // T* -> T&
+    else if (is_pointer_type(lhs_type))
+    {
+        type_t *ret = get_lvalue_reference_type(
+            pointer_type_get_pointee_type(lhs_type));
+
+        return ret;
+    }
+    // T*& -> T&
+    // T*&& -> T&
+    else if (is_any_reference_type(lhs_type)
+             && is_pointer_type(no_ref(lhs_type)))
+    {
+        type_t *ret = get_lvalue_reference_type(
+            pointer_type_get_pointee_type(no_ref(lhs_type)));
+
+        // See comment above
+        // T*& -> T*
+        *lhs = nodecl_make_conversion(
+            *lhs, no_ref(lhs_type), nodecl_get_locus(*lhs));
+
+        return ret;
+    }
+
+    return NULL;
+}
+
+static type_t *type_of_array_subscript_of_dependent_types(nodecl_t *lhs,
+                                                          nodecl_t *rhs)
+{
+    type_t *t = type_of_array_subscript_of_dependent_types_(lhs, rhs);
+
+    // lhs[rhs] can also be interpreted as rhs[lhs] for builtin types
+    if (t == NULL)
+        t = type_of_array_subscript_of_dependent_types_(rhs, lhs);
+
+    return t;
+}
 
 static void check_nodecl_array_subscript_expression_cxx(
         nodecl_t nodecl_subscripted, 
@@ -9014,10 +9196,16 @@ static void check_nodecl_array_subscript_expression_cxx(
     if (nodecl_expr_is_type_dependent(nodecl_subscripted)
             || nodecl_expr_is_type_dependent(nodecl_subscript))
     {
-        *nodecl_output = nodecl_make_array_subscript(nodecl_subscripted, 
-                nodecl_make_list_1(nodecl_subscript),
-                get_unknown_dependent_type(), 
-                locus);
+        type_t *dependent_type = type_of_array_subscript_of_dependent_types(
+            &nodecl_subscripted, &nodecl_subscript);
+        if (dependent_type == NULL)
+            dependent_type = get_unknown_dependent_type();
+
+        *nodecl_output
+            = nodecl_make_array_subscript(nodecl_subscripted,
+                                          nodecl_make_list_1(nodecl_subscript),
+                                          dependent_type,
+                                          locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         return;
     }
