@@ -303,12 +303,93 @@ namespace TL { namespace Nanos6 {
             task_info_name = ss.str();
         }
 
-        task_info = TL::Scope::get_global_scope().new_symbol(task_info_name);
-        task_info.get_internal_symbol()->kind = SK_VARIABLE;
-        symbol_entity_specs_set_is_user_declared(
+        if (related_function.get_type().is_template_specialized_type())
+        {
+            // We want this symbol be in the anonymous namespace, so make sure
+            // it has been created
+            Source src;
+            src << "namespace { }";
+            src.parse_global(TL::Scope::get_global_scope());
+
+            TL::Symbol anonymous_namespace
+                = TL::Scope::get_global_scope().get_symbol_from_name(
+                    "(unnamed)");
+            ERROR_CONDITION(!anonymous_namespace.is_valid(),
+                            "Missing unnamed namespace",
+                            0);
+
+            std::string task_info_tpl_name;
+            {
+                std::stringstream ss;
+                TL::Counter &counter
+                    = TL::CounterManager::get_counter("nanos6-args");
+                ss << "task_info_tpl_" << (int)counter;
+                counter++;
+                task_info_tpl_name = ss.str();
+            }
+
+            template_parameter_list_t *tpl
+                = template_type_get_template_parameters(
+                    template_specialized_type_get_related_template_type(
+                        related_function.get_type().get_internal_type()));
+
+            TL::Symbol new_class_symbol = SymbolUtils::new_class_template(
+                task_info_tpl_name,
+                tpl,
+                anonymous_namespace.get_internal_symbol()->related_decl_context,
+                locus_of_task_creation);
+
+            TL::Scope class_scope(class_type_get_inner_context(
+                new_class_symbol.get_type().get_internal_type()));
+
+            // Now add the field
+            task_info = class_scope.new_symbol(task_info_name);
+            task_info.get_internal_symbol()->kind = SK_VARIABLE;
+            symbol_entity_specs_set_is_user_declared(
                 task_info.get_internal_symbol(), 1);
-        task_info.set_type(task_info_struct.get_user_defined_type());
-        symbol_entity_specs_set_is_static(task_info.get_internal_symbol(), 1);
+            task_info.set_type(task_info_struct.get_user_defined_type());
+            symbol_entity_specs_set_is_member(task_info.get_internal_symbol(),
+                                              1);
+            symbol_entity_specs_set_class_type(
+                task_info.get_internal_symbol(),
+                new_class_symbol.get_user_defined_type().get_internal_type());
+            symbol_entity_specs_set_is_static(task_info.get_internal_symbol(),
+                                              1);
+            symbol_entity_specs_set_access(task_info.get_internal_symbol(),
+                                           AS_PUBLIC);
+            class_type_add_member(
+                new_class_symbol.get_type().get_internal_type(),
+                task_info.get_internal_symbol(),
+                task_info.get_internal_symbol()->decl_context,
+                /* is_definition */ 0);
+
+            // Finish the template class
+            nodecl_t nodecl_output = nodecl_null();
+            finish_class_type(
+                new_class_symbol.get_type().get_internal_type(),
+                ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
+                new_class_symbol.get_scope().get_decl_context(),
+                locus_of_task_creation,
+                &nodecl_output);
+            set_is_complete_type(
+                new_class_symbol.get_type().get_internal_type(),
+                /* is_complete */ 1);
+            set_is_complete_type(
+                get_actual_class_type(
+                    new_class_symbol.get_type().get_internal_type()),
+                /* is_complete */ 1);
+        }
+        else
+        {
+            task_info
+                = TL::Scope::get_global_scope().new_symbol(task_info_name);
+            task_info.get_internal_symbol()->kind = SK_VARIABLE;
+            symbol_entity_specs_set_is_user_declared(
+                task_info.get_internal_symbol(), 1);
+            task_info.set_type(task_info_struct.get_user_defined_type());
+            symbol_entity_specs_set_is_static(task_info.get_internal_symbol(),
+                                              1);
+        }
 
         TL::ObjectList<TL::Symbol> fields = task_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field(fields);
@@ -476,9 +557,29 @@ namespace TL { namespace Nanos6 {
         {
             if (IS_CXX_LANGUAGE)
             {
-                Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                if (task_info.is_member())
+                {
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(
                         task_body,
-                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info));
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            task_info.get_class_type().get_symbol()));
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                        task_body,
+                        Nodecl::CxxDef::make(
+                            Nodecl::Context::make(Nodecl::NodeclBase::null(),
+                                                  task_info.get_class_type()
+                                                      .get_symbol()
+                                                      .get_scope()),
+                            task_info));
+                }
+                else
+                {
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                        task_body,
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                             task_info));
+                }
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(
                         task_body,
                         Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info));
@@ -625,9 +726,43 @@ namespace TL { namespace Nanos6 {
         }
 
         // Create the class symbol
+
         TL::Symbol new_class_symbol = sc.new_symbol(structure_name);
-        new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
-        type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
+        type_t *new_class_type
+            = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
+
+        if (related_function.get_type().is_template_specialized_type())
+        {
+            template_parameter_list_t *tpl
+                = template_type_get_template_parameters(
+                    template_specialized_type_get_related_template_type(
+                        related_function.get_type().get_internal_type()));
+
+            new_class_symbol.get_internal_symbol()->kind = SK_TEMPLATE;
+            type_t *template_type
+                = get_new_template_type(tpl,
+                                        new_class_type,
+                                        uniquestr(structure_name.c_str()),
+                                        sc.get_decl_context(),
+                                        locus_of_task_creation);
+            new_class_symbol.set_type(template_type);
+
+            ::template_type_set_related_symbol(
+                template_type, new_class_symbol.get_internal_symbol());
+
+            symbol_entity_specs_set_is_user_declared(
+                new_class_symbol.get_internal_symbol(), 1);
+
+            new_class_symbol
+                = TL::Type(::template_type_get_primary_type(
+                               new_class_symbol.get_type().get_internal_type()))
+                      .get_symbol();
+            new_class_type = new_class_symbol.get_type().get_internal_type();
+        }
+        else
+        {
+            new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
+        }
 
         symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
@@ -716,13 +851,24 @@ namespace TL { namespace Nanos6 {
             = data_env_struct
             = new_class_symbol.get_user_defined_type();
 
+        if (new_class_symbol.get_type().is_template_specialized_type())
+        {
+            args_size = Nodecl::Sizeof::make(
+                Nodecl::Type::make(info_structure, locus_of_task_creation),
+                Nodecl::NodeclBase::null(),
+                TL::Type::get_size_t_type(),
+                locus_of_task_creation);
+        }
         // FIXME - VLA
-        args_size = const_value_to_nodecl_with_basic_type(
+        else
+        {
+            args_size = const_value_to_nodecl_with_basic_type(
                 const_value_get_integer(
                     info_structure.get_size(),
                     /* bytes */ type_get_size(get_size_t_type()),
                     /* sign */ 0),
                 get_size_t_type());
+        }
 
         if (IS_CXX_LANGUAGE)
         {

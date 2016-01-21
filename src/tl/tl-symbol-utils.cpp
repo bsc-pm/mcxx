@@ -370,3 +370,61 @@ void SymbolUtils::build_empty_body_for_function(
             function_symbol.get_internal_symbol(),
             function_code.get_internal_nodecl());
 }
+
+TL::Symbol SymbolUtils::new_class_template(const std::string &template_name,
+                                           template_parameter_list_t *tpl,
+                                           TL::Scope orig_sc,
+                                           const locus_t *locus)
+{
+    ERROR_CONDITION(orig_sc.get_decl_context()->template_parameters != NULL,
+                    "Use a non templated context",
+                    0);
+
+    // Create a template class
+    decl_context_t *decl_context
+        = ::decl_context_clone(orig_sc.get_decl_context());
+    decl_context->template_parameters = tpl;
+
+    TL::Scope sc(decl_context);
+
+    TL::Symbol new_class_symbol = sc.new_symbol(template_name);
+    type_t *new_class_type
+        = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
+
+    new_class_symbol.get_internal_symbol()->kind = SK_TEMPLATE;
+    type_t *template_type
+        = get_new_template_type(tpl,
+                                new_class_type,
+                                uniquestr(template_name.c_str()),
+                                sc.get_decl_context(),
+                                locus);
+    new_class_symbol.set_type(template_type);
+
+    ::template_type_set_related_symbol(template_type,
+                                       new_class_symbol.get_internal_symbol());
+
+    symbol_entity_specs_set_is_user_declared(
+        new_class_symbol.get_internal_symbol(), 1);
+
+    new_class_symbol
+        = TL::Type(::template_type_get_primary_type(
+                       new_class_symbol.get_type().get_internal_type()))
+              .get_symbol();
+    new_class_type = new_class_symbol.get_type().get_internal_type();
+
+    symbol_entity_specs_set_is_user_declared(
+        new_class_symbol.get_internal_symbol(), 1);
+
+    symbol_entity_specs_set_is_user_declared(
+        new_class_symbol.get_internal_symbol(), 1);
+
+    const decl_context_t *class_context
+        = new_class_context(new_class_symbol.get_scope().get_decl_context(),
+                            new_class_symbol.get_internal_symbol());
+
+    class_type_set_inner_context(new_class_type, class_context);
+
+    new_class_symbol.get_internal_symbol()->type_information = new_class_type;
+
+    return new_class_symbol;
+}
