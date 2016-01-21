@@ -3746,16 +3746,19 @@ static void warn_preprocessor_flags(
         const char* input_filename,
         int num_arguments)
 {
-    // Precheck that the preprocessor is not implicitly enabled
     int i;
-    for (i = 0; CURRENT_CONFIGURATION->preprocessor_options[i] != NULL; i++)
-    {
-        const char* flag = CURRENT_CONFIGURATION->preprocessor_options[i];
 
-        if (strcmp(flag, "-M") == 0
-                || strcmp(flag, "-MM") == 0)
+    // Precheck that the preprocessor is not implicitly enabled
+    if (CURRENT_CONFIGURATION->preprocessor_options != NULL)
+    {
+        for (i = 0; CURRENT_CONFIGURATION->preprocessor_options[i] != NULL; i++)
         {
-            return;
+            const char *flag = CURRENT_CONFIGURATION->preprocessor_options[i];
+
+            if (strcmp(flag, "-M") == 0 || strcmp(flag, "-MM") == 0)
+            {
+                return;
+            }
         }
     }
 
@@ -3822,28 +3825,39 @@ static void warn_preprocessor_flags(
     struct prepro_info* current_prepro = NULL;
     char flag_seen = 0;
 
-    for (i = 0; (known_prepros[i].end_name != NULL) && !is_known_prepro && !flag_seen; i++)
+    if (prepro_name != NULL)
     {
-        if (str_ends_with(prepro_name, known_prepros[i].end_name))
+        for (i = 0; (known_prepros[i].end_name != NULL) && !is_known_prepro
+                        && !flag_seen;
+             i++)
         {
-            // We known this prepro
-            is_known_prepro = 1;
-            current_prepro = &known_prepros[i];
-            // Now check if any of the required flags have been set
-            int j;
-            for (j = 0; (current_prepro->required_args[j] != NULL) && !flag_seen; j++)
+            if (str_ends_with(prepro_name, known_prepros[i].end_name))
             {
-                const char * required_arg = current_prepro->required_args[j];
-
-                int k;
-                for (k = 0; (known_prepro_flags[k].flag != NULL) && !flag_seen; k++)
+                // We known this prepro
+                is_known_prepro = 1;
+                current_prepro = &known_prepros[i];
+                // Now check if any of the required flags have been set
+                int j;
+                for (j = 0;
+                     (current_prepro->required_args[j] != NULL) && !flag_seen;
+                     j++)
                 {
-                    struct prepro_flags* current_prepro_flag = &known_prepro_flags[k];
+                    const char *required_arg = current_prepro->required_args[j];
 
-                    if (current_prepro_flag->seen 
-                            && (strcmp(current_prepro_flag->flag, required_arg) == 0))
+                    int k;
+                    for (k = 0;
+                         (known_prepro_flags[k].flag != NULL) && !flag_seen;
+                         k++)
                     {
-                        flag_seen = 1;
+                        struct prepro_flags *current_prepro_flag
+                            = &known_prepro_flags[k];
+
+                        if (current_prepro_flag->seen
+                            && (strcmp(current_prepro_flag->flag, required_arg)
+                                == 0))
+                        {
+                            flag_seen = 1;
+                        }
                     }
                 }
             }
