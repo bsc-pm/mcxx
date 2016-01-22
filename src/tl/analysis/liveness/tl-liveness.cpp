@@ -205,6 +205,7 @@ namespace Analysis {
         }
 
         // 6.- Keep iterating normally within the task
+        exit_flush->set_visited(true);
         const ObjectList<Node*>& flush_parents = exit_flush->get_parents();
         for (ObjectList<Node*>::const_iterator it = flush_parents.begin(); it != flush_parents.end(); ++it)
             solve_live_equations_rec(*it, changed);
