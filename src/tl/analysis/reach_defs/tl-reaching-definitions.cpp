@@ -72,35 +72,35 @@ namespace Analysis {
     
     void ReachingDefinitions::gather_reaching_definitions_initial_information(Node* current)
     {
-        if(!current->is_visited())
+        if (current->is_visited())
+            return;
+
+        current->set_visited(true);
+
+        if (current->is_exit_node())
+            return;
+
+        if (current->is_graph_node())
         {
-            current->set_visited(true);
-
-            if(!current->is_exit_node())
+            Node* entry = current->get_graph_entry_node();
+            gather_reaching_definitions_initial_information(entry);
+            set_graph_node_reaching_definitions(current);
+        }
+        else if (!current->is_entry_node())
+        {
+            GeneratedStatementsVisitor rdv;
+            NodeclList stmts = current->get_statements();
+            for(NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
             {
-                if(current->is_graph_node())
-                {
-                    Node* entry = current->get_graph_entry_node();
-                    gather_reaching_definitions_initial_information(entry);
-                    set_graph_node_reaching_definitions(current);
-                }
-                else if(!current->is_entry_node())
-                {
-                    GeneratedStatementsVisitor rdv;
-                    NodeclList stmts = current->get_statements();
-                    for(NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
-                    {
-                        rdv.walk(*it);
-                    }
-                    current->set_generated_stmts(rdv.get_gen());
-                }
-
-                ObjectList<Edge*> exit_edges = current->get_exit_edges();
-                for(ObjectList<Edge*>::iterator it = exit_edges.begin(); it != exit_edges.end(); ++it)
-                {
-                    gather_reaching_definitions_initial_information((*it)->get_target());
-                }
+                rdv.walk(*it);
             }
+            current->set_generated_stmts(rdv.get_gen());
+        }
+
+        ObjectList<Node*> exits = current->get_children();
+        for (ObjectList<Node*>::iterator it = exits.begin(); it != exits.end(); ++it)
+        {
+            gather_reaching_definitions_initial_information(*it);
         }
     }
 
