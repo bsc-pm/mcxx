@@ -11,6 +11,7 @@ compiler_options =
 linker_name = @GCC@
 linker_options =
 {openmp} preprocessor_options = -I@PKGDATADIR@/intel-omp -D_OPENMP=200805
+{svml} preprocessor_options = -include math.h
 {openmp, simd-reductions} preprocessor_options = -DINTEL_OMP_SIMD
 {openmp} preprocessor_options = -include intel-omp.h
 {ompss} preprocessor_options = -D_OMPSS=1
