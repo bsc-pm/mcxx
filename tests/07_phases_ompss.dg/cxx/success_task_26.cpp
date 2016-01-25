@@ -56,10 +56,10 @@ struct GeneratePtr
 
 int main(int argc, char *argv[])
 {
-    std::vector<float *> fw(1000, NULL);
+    std::vector<float *> fw(1000, (float *)0);
     std::generate(fw.begin(), fw.end(), GeneratePtr<float>());
 
-    std::vector<int *> iw(1000, NULL);
+    std::vector<int *> iw(1000, (int *)0);
     std::generate(iw.begin(), iw.end(), GeneratePtr<int>());
 
     set(fw);
