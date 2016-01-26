@@ -16909,37 +16909,40 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
 
     if (is_named_type(orig))
     {
-
-        if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
-                && named_type_get_symbol(orig)->decl_context->current_scope != NULL
-                && named_type_get_symbol(orig)->decl_context->current_scope->kind == BLOCK_SCOPE)
+        scope_entry_t *sym = named_type_get_symbol(orig);
+        if (sym->kind == SK_TYPEDEF && sym->decl_context->current_scope != NULL
+            && sym->decl_context->current_scope->kind == BLOCK_SCOPE)
         {
             // typedefs declared inside functions are always advanced
-            result = rewrite_redundant_typedefs(named_type_get_symbol(orig)->type_information);
+            result = rewrite_redundant_typedefs(sym->type_information);
         }
-        else if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
-                && !is_dependent_type(named_type_get_symbol(orig)->type_information))
+        else if (sym->kind == SK_TYPEDEF
+                 && !is_dependent_type(sym->type_information))
         {
             // Avoid advancing typedefs that point to unqualified vector types
-            // because gcc does not handle them very well
-            type_t* dest = named_type_get_symbol(orig)->type_information;
-            if (!is_named_type(dest)
-                    && is_vector_type(dest)
-                    && !is_named_type(vector_type_get_element_type(dest))
-                    && get_cv_qualifier(dest) == CV_NONE
-                    // Maybe the next one is checking too much
-                    && get_cv_qualifier(vector_type_get_element_type(dest)) == CV_NONE)
+            // because gcc does not handle them very well inside template
+            // arguments
+            type_t *dest = sym->type_information;
+            if (!is_named_type(dest) && is_vector_type(dest)
+                && !is_named_type(vector_type_get_element_type(dest)))
             {
-                // bail out, this is likely __m128 or something similar
-                return orig;
+                // do nothing (result = orig above)
             }
-
-            // typedefs that are not local but are not dependent either
-            result = rewrite_redundant_typedefs(dest);
+            else
+            {
+                // typedefs that are not local but are not dependent either
+                result = rewrite_redundant_typedefs(dest);
+            }
+        }
+        else if (sym->kind == SK_TEMPLATE_ALIAS
+                 && !is_dependent_type(sym->type_information))
+        {
+            result = rewrite_redundant_typedefs(sym->type_information);
         }
         else
         {
-            // Early return to avoid altering in any way the value of this named type
+            // Early return to avoid altering in any further way the value of
+            // this named type
             return orig;
         }
     }
@@ -17090,6 +17093,19 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
         result = get_vector_type(
                 element_type,
                 vector_type_get_vector_size(orig));
+    }
+    else if (is_sequence_of_types(orig))
+    {
+        int n = sequence_of_types_get_num_types(orig);
+        type_t *fixed_types[n + 1];
+        int i;
+        for (i = 0; i < n; i++)
+        {
+            fixed_types[i] = rewrite_redundant_typedefs(
+                sequence_of_types_get_type_num(orig, i));
+        }
+
+        result = get_sequence_of_types(n, fixed_types);
     }
 
     cv_qualifier_t cv_qualif_orig = CV_NONE;
