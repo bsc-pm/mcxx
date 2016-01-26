@@ -291,6 +291,9 @@
 "                           action will be carried by the driver\n" \
 "  --enable-ms-builtins     Enables __int8, __int16, __int32 and\n" \
 "                           __int64 builtin types\n" \
+"  --enable-intel-intrinsics\n" \
+"                           Enables several Intel C/C++ intrinsics.\n" \
+"                           Use this option only for Intel 16 and later\n" \
 "  --enable-intel-builtins-syntax\n" \
 "                           Enables extra Intel C/C++ syntax\n" \
 "  --enable-intel-vector-types\n" \
