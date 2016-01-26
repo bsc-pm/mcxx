@@ -412,6 +412,15 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                 symbol_map,
                 initial_statements,
                 final_statements);
+
+        // new_function_symbol_unpacked will create a member function if the
+        // current function is member. Make sure the new function is not member
+        // at all
+        // See #2580
+        symbol_entity_specs_set_is_member(
+            unpacked_function.get_internal_symbol(), 0);
+        symbol_entity_specs_set_class_type(
+            unpacked_function.get_internal_symbol(), NULL);
     }
 
     Source ndrange_code;
