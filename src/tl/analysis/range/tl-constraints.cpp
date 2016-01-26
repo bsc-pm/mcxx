@@ -82,7 +82,7 @@ namespace {
 
             // 3. Build the constraint and insert it in the constraints map
             ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
-            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, Utils::ConstraintKind::__GlobalVar);
+            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, Utils::__GlobalVar);
             (*_input_constraints)[n] = c;
 
             n.replace(ssa_sym.make_nodecl(/*set_ref_type*/false));
@@ -111,7 +111,7 @@ namespace {
 
             // 3. Build the constraint and insert it in the constraints map
             ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
-            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, Utils::ConstraintKind::__GlobalVar);
+            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, Utils::__GlobalVar);
             (*_input_constraints)[n] = c;
 
             n.replace(ssa_sym.make_nodecl(/*set_ref_type*/false));
@@ -169,7 +169,7 @@ namespace {
                                                 const_value_to_nodecl(zero), t);
                 // 3. Build the constraint and insert it in the constraints map
                 ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
-                Utils::Constraint c = cbv.build_constraint(s, val, Utils::ConstraintKind::__GlobalVar);
+                Utils::Constraint c = cbv.build_constraint(s, val, Utils::__GlobalVar);
                 (*_input_constraints)[n] = c;
                 return;
             }
@@ -273,7 +273,7 @@ namespace {
                                             const_value_to_nodecl(zero), t);
 
             // Build the constraint and insert it in the constraints map
-            Utils::Constraint c = build_constraint(ssa_sym, val, Utils::ConstraintKind::__Parameter);
+            Utils::Constraint c = build_constraint(ssa_sym, val, Utils::__Parameter);
             _output_constraints[param_n] = c;
         }
     }
@@ -322,7 +322,7 @@ namespace {
             }
 
             // Build the constraint and insert it in the constraints map
-            Utils::Constraint c = build_constraint(ssa_sym, val, Utils::ConstraintKind::__NonLocalSym);
+            Utils::Constraint c = build_constraint(ssa_sym, val, Utils::__NonLocalSym);
             _output_constraints[occ] = c;
         }
     }
@@ -358,7 +358,7 @@ namespace {
                             plus_inf.shallow_copy(),
                             const_value_to_nodecl(zero), t),
                     t);
-            Utils::Constraint new_c_false = build_constraint(old_s, val_false, Utils::ConstraintKind::__Replace);
+            Utils::Constraint new_c_false = build_constraint(old_s, val_false, Utils::__Replace);
             _output_false_constraints[lhs] = new_c_false;
         }
         else if (n.is<Nodecl::LogicalAnd>() || n.is<Nodecl::Different>())
@@ -423,7 +423,7 @@ namespace {
         }
 
         // 3.- Build the constraint and insert it in the corresponding maps
-        Utils::Constraint c = build_constraint(ssa_sym, val, Utils::ConstraintKind::__BinaryOp);
+        Utils::Constraint c = build_constraint(ssa_sym, val, Utils::__BinaryOp);
         _input_constraints[lhs] = c;
         _output_constraints[lhs] = c;
     }
@@ -458,7 +458,7 @@ namespace {
             val = Nodecl::Minus::make(entry_ssa_sym.make_nodecl(/*set_ref_type*/false),
                                       const_value_to_nodecl(one), t);
         }
-        Utils::Constraint c = build_constraint(ssa_sym, val, Utils::ConstraintKind::__UnaryOp);
+        Utils::Constraint c = build_constraint(ssa_sym, val, Utils::__UnaryOp);
         _input_constraints[rhs] = c;
         _output_constraints[rhs] = c;
     }
@@ -488,7 +488,7 @@ namespace {
                                             const_value_to_nodecl(zero), t);
 
         // 3.- Build the constraint and insert it in the constraints map
-        Utils::Constraint c = build_constraint(ssa_sym, inf_val, Utils::ConstraintKind::__Array);
+        Utils::Constraint c = build_constraint(ssa_sym, inf_val, Utils::__Array);
         _input_constraints[n] = c;  // We add it in the input constraints, so
         // the rest of this algorithm works properly
         _output_constraints[n] = c;
@@ -843,10 +843,10 @@ namespace {
 
         // 3.3.- Build the TRUE and FALSE constraints and store them
         Utils::Constraint c_true
-                = build_constraint(s_true, val_true, Utils::ConstraintKind::__ComparatorTrue);
+                = build_constraint(s_true, val_true, Utils::__ComparatorTrue);
         _output_true_constraints[n] = c_true;
         Utils::Constraint c_false
-                = build_constraint(s_false, val_false, Utils::ConstraintKind::__ComparatorFalse);
+                = build_constraint(s_false, val_false, Utils::__ComparatorFalse);
         _output_false_constraints[n] = c_false;
     }
 
@@ -1153,7 +1153,7 @@ namespace {
                                     const_value_to_nodecl(zero), t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
-        Utils::Constraint c_true = build_constraint(s_true, val_true, Utils::ConstraintKind::__ModTrue);
+        Utils::Constraint c_true = build_constraint(s_true, val_true, Utils::__ModTrue);
         _output_true_constraints[lhs] = c_true;
         // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
         // x < c;       --FALSE-->      X1 = X0 ∩ ([-∞, -1] U [c, -∞])
@@ -1176,7 +1176,7 @@ namespace {
                     t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
-        Utils::Constraint c_false = build_constraint(s_false, val_false, Utils::ConstraintKind::__ModFalse);
+        Utils::Constraint c_false = build_constraint(s_false, val_false, Utils::__ModFalse);
         _output_false_constraints[lhs] = c_false;
     }
 

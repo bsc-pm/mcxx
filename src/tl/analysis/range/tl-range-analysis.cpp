@@ -1777,7 +1777,7 @@ namespace {
             // 2.4.4.- Build the new constraint and insert it in the proper list
             Utils::Constraint recomputed_c
                     = cbv.build_constraint(phi_ssa_sym, val,
-                                           Utils::ConstraintKind::__BackEdge);
+                                           Utils::__BackEdge);
             child_c = recomputed_c;
 
             // 2.4.5.- Reorder the new constraint in the proper place in the ordered list
