@@ -568,11 +568,6 @@ static void build_scope_translation_unit_post(
         {
             instantiation_instantiate_pending_functions(nodecl_output);
         }
-
-        if (CURRENT_CONFIGURATION->enable_intel_vector_types)
-        {
-            prepend_intel_vector_typedefs(nodecl_output);
-        }
     }
     C_LANGUAGE()
     {

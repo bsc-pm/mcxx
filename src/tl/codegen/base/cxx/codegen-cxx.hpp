@@ -459,6 +459,18 @@ namespace Codegen
                     void (CxxBase::* define_entities)(const Nodecl::NodeclBase&),
                     bool needs_definition = true);
 
+            void walk_vector_type(TL::Type t,
+                    void (CxxBase::* symbol_to_declare)(TL::Symbol),
+                    void (CxxBase::* symbol_to_define)(TL::Symbol),
+                    void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&),
+                    bool needs_definition);
+
+            void walk_mask_type(TL::Type t,
+                    void (CxxBase::* symbol_to_declare)(TL::Symbol),
+                    void (CxxBase::* symbol_to_define)(TL::Symbol),
+                    void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&),
+                    bool needs_definition);
+
             void entry_just_define(
                     const Nodecl::NodeclBase&,
                     TL::Symbol symbol,

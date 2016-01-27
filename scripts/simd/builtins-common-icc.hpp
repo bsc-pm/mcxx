@@ -11,7 +11,7 @@ struct generate_type<__##name>\
 {\
     static std::string g() \
     {\
-        return "get_" #name "_struct_type()";\
+        return "get_user_defined_type(get_" #name "_typedef())";\
     }\
 };
 

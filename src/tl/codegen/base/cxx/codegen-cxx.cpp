@@ -34,6 +34,7 @@
 #include "string_utils.h"
 #include "tl-compilerpipeline.hpp"
 #include "tl-counters.hpp"
+#include "cxx-intelsupport.h"
 #include <iomanip>
 #ifdef HAVE_QUADMATH_H
 MCXX_BEGIN_DECLS
@@ -7908,6 +7909,67 @@ void CxxBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
         visited_symbols.clear();
 }
 
+void CxxBase::walk_mask_type(TL::Type t,
+        void (CxxBase::* symbol_to_declare)(TL::Symbol),
+        void (CxxBase::* symbol_to_define)(TL::Symbol),
+        void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&),
+        bool needs_definition)
+{
+        if (CURRENT_CONFIGURATION->enable_intel_vector_types)
+        {
+            TL::Symbol mask_sym;
+            switch (8 * t.get_size())
+            {
+                case 16:
+                    mask_sym = TL::Scope::get_global_scope().get_symbol_from_name("__mmask16");
+                    break;
+                case 8:
+                    mask_sym = TL::Scope::get_global_scope().get_symbol_from_name("__mmask8");
+                    break;
+                default:
+                    break;
+            }
+
+            if (mask_sym.is_valid()
+                    && mask_sym.is_typedef())
+            {
+                walk_type_for_symbols(
+                        get_user_defined_type(mask_sym.get_internal_symbol()),
+                        symbol_to_declare,
+                        symbol_to_define,
+                        define_entities_in_tree);
+            }
+        }
+}
+
+void CxxBase::walk_vector_type(TL::Type t,
+        void (CxxBase::* symbol_to_declare)(TL::Symbol),
+        void (CxxBase::* symbol_to_define)(TL::Symbol),
+        void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&),
+        bool needs_definition)
+{
+    bool done = false;
+    // FIXME: Move this out of here
+    if (CURRENT_CONFIGURATION->enable_intel_vector_types)
+    {
+        scope_entry_t* intel_typedef = vector_type_get_intel_vector_typedef(t.get_internal_type());
+        if (intel_typedef != NULL)
+        {
+            walk_type_for_symbols(
+                    get_user_defined_type(intel_typedef),
+                    symbol_to_declare,
+                    symbol_to_define,
+                    define_entities_in_tree);
+            done = true;
+        }
+    }
+
+    if (!done)
+    {
+        walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
+    }
+}
+
 // This function is only for C
 // Do not call it in C++
 void CxxBase::walk_type_for_symbols(TL::Type t,
@@ -8002,7 +8064,19 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     else if (t.is_vector()
             && !is_intel_vector_struct_type(t.get_internal_type(), NULL))
     {
-        walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
+        walk_vector_type(t,
+                symbol_to_declare,
+                symbol_to_define,
+                define_entities_in_tree,
+                needs_definition);
+    }
+    else if (t.is_mask())
+    {
+        walk_mask_type(t,
+                symbol_to_declare,
+                symbol_to_define,
+                define_entities_in_tree,
+                needs_definition);
     }
     else if (t.is_named_class()
                 // Anonymous unions are handled as unnamed classes
