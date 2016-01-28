@@ -1665,7 +1665,12 @@ namespace Vectorization
         else if (type.is_integral_type())
         {
             intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-            //casting_args << get_casting_to_scalar_pointer(vtype);
+            TL::Symbol s
+                = TL::Scope::get_global_scope().get_symbol_from_name("__m256i");
+            ERROR_CONDITION(!s.is_valid(), "Symbol __m256i not found\n", 0);
+            casting_args << "("
+                         << as_type(s.get_user_defined_type().get_const_type().get_pointer_to())
+                         << ")";
         }
         else
         {
