@@ -47,6 +47,7 @@
 #include "cxx-instantiation.h"
 #include "cxx-typededuc.h"
 #include "cxx-diagnostic.h"
+#include "cxx-intelsupport.h"
 
 #include "cxx-symbol-deep-copy.h"
 

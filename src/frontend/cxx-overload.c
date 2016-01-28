@@ -39,6 +39,7 @@
 #include "cxx-exprtype.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-diagnostic.h"
+#include "cxx-intelsupport.h"
 
 #include <string.h>
 
