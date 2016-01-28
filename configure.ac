@@ -2216,6 +2216,9 @@ NO_VAR_TRACKING_ASSIGNMENTS=""
 AX_CHECK_COMPILE_FLAG([-fno-var-tracking-assignments], [NO_VAR_TRACKING_ASSIGNMENTS="-fno-var-tracking-assignments"])
 AC_SUBST([NO_VAR_TRACKING_ASSIGNMENTS])
 
+dnl Not all gccs support this
+AX_CHECK_COMPILE_FLAG([-Werror=implicit-function-declaration], [CFLAGS="${CFLAGS} -Werror=implicit-function-declaration"])
+
 dnl Check for 'open_memstream' used to generate strings after FILE*
 dnl in the prettyprinter
 AC_CHECK_FUNC([open_memstream],
