@@ -85,9 +85,20 @@ const int HINT_NT   = 0x1;
 const int FROUND_CUR_DIRECTION  = 0x04;
 };
 
-
 namespace TL
 {
+
+namespace
+{
+TL::Symbol get_m256i_symbol()
+{
+    TL::Symbol s
+        = TL::Scope::get_global_scope().get_symbol_from_name("__m256i");
+    ERROR_CONDITION(!s.is_valid(), "_m256i not found", 0);
+    return s;
+}
+}
+
 namespace Vectorization
 {
     AVX2VectorLowering::AVX2VectorLowering()
@@ -238,6 +249,8 @@ namespace Vectorization
             << intrin_type_suffix
             ;
 
+        Source cast_operand;
+
         if (type.is_float())
         {
             intrin_type_suffix << "ps";
@@ -249,6 +262,9 @@ namespace Vectorization
         else if (type.is_signed_int() ||
                 type.is_unsigned_int())
         {
+            cast_operand << "("
+                         << as_type(get_m256i_symbol().get_user_defined_type())
+                         << ")";
             intrin_type_suffix << "epi32";
         }
         else if (type.is_signed_long_long_int() ||
@@ -267,10 +283,8 @@ namespace Vectorization
         walk(lhs);
         walk(rhs);
 
-        args << as_expression(lhs)
-            << ", "
-            << as_expression(rhs)
-            ;
+        args << cast_operand << as_expression(lhs) << ", " << cast_operand
+             << as_expression(rhs);
 
         Nodecl::NodeclBase function_call =
             intrin_src.parse_expression(node.retrieve_context());
@@ -1661,9 +1675,7 @@ namespace Vectorization
         else if (type.is_integral_type())
         {
             intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-            TL::Symbol s
-                = TL::Scope::get_global_scope().get_symbol_from_name("__m256i");
-            ERROR_CONDITION(!s.is_valid(), "Symbol __m256i not found\n", 0);
+            TL::Symbol s = get_m256i_symbol();
             casting_args << "("
                          << as_type(s.get_user_defined_type().get_const_type().get_pointer_to())
                          << ")";
