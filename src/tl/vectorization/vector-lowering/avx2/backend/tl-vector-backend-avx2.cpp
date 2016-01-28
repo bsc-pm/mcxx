@@ -1281,19 +1281,10 @@ namespace Vectorization
             node.replace(node.get_nest());
             return;
         }
-        else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
-                (dst_type.is_signed_int() && src_type.is_unsigned_int()) ||
-                (src_type.is_signed_int() && dst_type.is_signed_long_int()) ||
-                (src_type.is_signed_int() && dst_type.is_unsigned_long_int()) ||
-                (src_type.is_unsigned_int() && dst_type.is_signed_long_int()) ||
-                (src_type.is_unsigned_int() && dst_type.is_unsigned_long_int()) ||
-                (src_type.is_signed_int() && src_type.is_signed_long_int()) ||
-                (src_type.is_signed_int() && src_type.is_unsigned_long_int()) ||
-                (src_type.is_unsigned_int() && src_type.is_signed_long_int()) ||
-                (src_type.is_unsigned_int() && src_type.is_unsigned_long_int()) ||
-                (src_type.is_signed_short_int() && dst_type.is_unsigned_short_int()) ||
-                (dst_type.is_signed_short_int() && src_type.is_unsigned_short_int()))
+        else if (src_type.is_integral_type() && dst_type.is_integral_type()
+                 && src_type.get_size() == dst_type.get_size())
         {
+            // This is a no-op conversion
             node.replace(node.get_nest());
             return;
         }
