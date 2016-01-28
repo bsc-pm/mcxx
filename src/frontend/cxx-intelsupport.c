@@ -448,7 +448,7 @@ scope_entry_t* vector_type_get_intel_vector_typedef(type_t* vector_type)
     {
         vector_size |= VEC_DOUBLE;
     }
-    else if (is_float_type(element_type))
+    else if (is_integral_type(element_type))
     {
         vector_size |= VEC_INTEGER;
     }
