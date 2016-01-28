@@ -435,7 +435,8 @@ scope_entry_t* vector_type_get_intel_vector_typedef(type_t* vector_type)
     type_t* element_type = vector_type_get_element_type(vector_type);
     int vector_size = vector_type_get_num_elements(vector_type) * type_get_size(element_type);
 
-    ERROR_CONDITION(vector_size > 64, "Vector too large", 0);
+    if (vector_size > 64)
+        return NULL;
 
     enum  { VEC_FLOAT = 1 << 10, VEC_DOUBLE = 1 << 11, VEC_INTEGER = 1 << 12 };
 
