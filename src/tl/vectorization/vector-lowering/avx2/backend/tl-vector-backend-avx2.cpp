@@ -1637,18 +1637,10 @@ namespace Vectorization
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
             mask_prefix, casting_args, args, mask_args, extra_args;
 
-        intrin_src << intrin_name
-            << "("
-            << args
-            << ")"
-            ;
+        intrin_src << intrin_name << "(" << args << ")";
 
-        intrin_name << AVX2_INTRIN_PREFIX
-            << mask_prefix
-            << intrin_op_name
-            << "_"
-            << intrin_type_suffix
-            ;
+        intrin_name << AVX2_INTRIN_PREFIX << mask_prefix << "_"
+                    << intrin_op_name << "_" << intrin_type_suffix;
 
         process_mask_component(mask, mask_prefix, mask_args, type);
 
