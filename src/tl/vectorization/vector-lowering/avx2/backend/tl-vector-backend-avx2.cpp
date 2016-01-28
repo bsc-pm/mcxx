@@ -30,6 +30,7 @@
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
+#include "cxx-intelsupport.h"
 
 
 #define AVX2_VECTOR_BIT_SIZE 256
@@ -1307,9 +1308,12 @@ namespace Vectorization
         }
         else
         {
-            fprintf(stderr, "AVX2 Lowering: Conversion at '%s' is not supported yet: %s\n",
+            fprintf(stderr,
+                    "AVX2 Lowering: Conversion at '%s' is not supported yet: "
+                    "%s -> %s\n",
                     locus_to_str(node.get_locus()),
-                    node.get_nest().prettyprint().c_str());
+                    print_declarator(src_type.get_internal_type()),
+                    print_declarator(dst_type.get_internal_type()));
         }
 
         Nodecl::NodeclBase function_call =
