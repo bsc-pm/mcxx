@@ -185,7 +185,7 @@ namespace Vectorization
             std::cerr << "FOUND!" << std::endl;
 
             internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy, %p %s",
-                    &(n.get_internal_nodecl()), n.prettyprint().c_str());
+                    nodecl_get_ast(n.get_internal_nodecl()), n.prettyprint().c_str());
         }
         //std::cerr << "Translation from O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
 
@@ -291,7 +291,7 @@ namespace Vectorization
 
             internal_error("VectorizerAnalysis: Error translating "\
                     "Nodecl from copy to origin %p %s",
-                    &(n.get_internal_nodecl()), n.prettyprint().c_str());
+                    nodecl_get_ast(n.get_internal_nodecl()), n.prettyprint().c_str());
 
             return n;
         }
