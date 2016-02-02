@@ -1572,15 +1572,15 @@ namespace Vectorization
         }
     }
 
-    bool is_compiler_node_function_call(TL::Symbol func_sym)
+    bool is_compiler_node_function_call(TL::Symbol func_name)
     {
         TL::Scope global_scope(CURRENT_COMPILED_FILE->global_decl_context);
-        if (func_sym == global_scope.get_symbol_from_name("fabsf")
-                || func_sym == global_scope.get_symbol_from_name("sqrtf")
-                || func_sym == global_scope.get_symbol_from_name("fabs")
-                || func_sym == global_scope.get_symbol_from_name("sqrt")
-                || func_sym == global_scope.get_symbol_from_name("sincosf")
-                || func_sym == global_scope.get_symbol_from_name("sincos"))
+        if (func_name == global_scope.get_symbol_from_name("fabsf")
+                || func_name == global_scope.get_symbol_from_name("sqrtf")
+                || func_name == global_scope.get_symbol_from_name("fabs")
+                || func_name == global_scope.get_symbol_from_name("sqrt")
+                || func_name == global_scope.get_symbol_from_name("sincosf")
+                || func_name == global_scope.get_symbol_from_name("sincos"))
         {
             return true;
         }
@@ -1599,11 +1599,11 @@ namespace Vectorization
 
         Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
         TL::Type call_type = n.get_type();
-        TL::Symbol func_sym = called_sym.get_symbol();
+        TL::Symbol func_name = called_sym.get_symbol();
 
         TL::Scope global_scope(CURRENT_COMPILED_FILE->global_decl_context);
-        if (func_sym == global_scope.get_symbol_from_name("_mm_prefetch") 
-                || func_sym == global_scope.get_symbol_from_name("_mm_prefetche"))
+        if (func_name == global_scope.get_symbol_from_name("_mm_prefetch") 
+                || func_name == global_scope.get_symbol_from_name("_mm_prefetche"))
         {
             VECTORIZATION_DEBUG()
             {
@@ -1614,7 +1614,7 @@ namespace Vectorization
             return;
         }
 
-        if (func_sym == global_scope.get_symbol_from_name("_mm_clevict"))
+        if (func_name == global_scope.get_symbol_from_name("_mm_clevict"))
         {
             VECTORIZATION_DEBUG()
             {
@@ -1636,9 +1636,9 @@ namespace Vectorization
         int function_target_type_size = function_target_type.is_void() ? 1 : function_target_type.get_size();
 
         // Get the best vector version of the function available
-        TL::Symbol best_version =
+        Nodecl::NodeclBase best_version =
             Vectorizer::_function_versioning.get_best_version(
-                    func_sym,
+                    func_name,
                     _environment._device,
                     _environment._vectorization_factor * function_target_type_size,
                     function_target_type,
@@ -1646,24 +1646,44 @@ namespace Vectorization
 
         bool is_svml = 
             Vectorizer::_function_versioning.is_svml_function(
-                    func_sym,
+                    func_name,
                     _environment._device,
                     _environment._vectorization_factor * function_target_type_size,
                     function_target_type,
                     !mask.is_null());
 
         bool vectorize_all_arguments = false;
-        if (best_version.is_valid())
+        if (!best_version.is_null())
         {
-            param_list = best_version.get_related_symbols();
-
-            need_vector_function = true;
-            VECTORIZATION_DEBUG()
+            if (best_version.is<Nodecl::FunctionCode>())
             {
-                fprintf(stderr, "func: %s\n", best_version.get_name().c_str());
+                param_list = best_version.as<Nodecl::FunctionCode>().get_symbol().
+                    get_related_symbols();
+
+                need_vector_function = true;
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "func: %s\n", best_version.as<Nodecl::FunctionCode>().get_symbol().get_name().c_str());
+                }
+            }
+            else if (best_version.is<Nodecl::Symbol>())
+            {
+                param_list = best_version.as<Nodecl::Symbol>().get_symbol().
+                    get_related_symbols();
+
+                need_vector_function = true;
+
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "func: %s\n", best_version.as<Nodecl::Symbol>().get_symbol().get_name().c_str());
+                }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
             }
         }
-        else if (is_compiler_node_function_call(func_sym))
+        else if (is_compiler_node_function_call(func_name))
         {
             need_vector_function = true;
             // FIXME: we are assuming that inline expanded vector functions
@@ -1756,11 +1776,11 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 std::cerr << "VECTORIZER: Vectorizing function call '"
-                    << func_sym.get_qualified_name() << "'" << std::endl;
+                    << func_name.get_qualified_name() << "'" << std::endl;
             }
 
-            if (func_sym == global_scope.get_symbol_from_name("fabsf") ||
-                    func_sym == global_scope.get_symbol_from_name("fabs"))
+            if (func_name == global_scope.get_symbol_from_name("fabsf") ||
+                    func_name == global_scope.get_symbol_from_name("fabs"))
             {
                 const Nodecl::VectorFabs vector_fabs_call =
                     Nodecl::VectorFabs::make(
@@ -1773,8 +1793,8 @@ namespace Vectorization
 
                 n.replace(vector_fabs_call);
             }
-            else if (func_sym == global_scope.get_symbol_from_name("sqrtf") ||
-                    func_sym == global_scope.get_symbol_from_name("sqrt"))
+            else if (func_name == global_scope.get_symbol_from_name("sqrtf") ||
+                    func_name == global_scope.get_symbol_from_name("sqrt"))
             {
                 const Nodecl::VectorSqrt vector_sqrt_call =
                     Nodecl::VectorSqrt::make(
@@ -1787,7 +1807,7 @@ namespace Vectorization
 
                 n.replace(vector_sqrt_call);
             }
-            else if (func_sym == global_scope.get_symbol_from_name("sincosf"))
+            else if (func_name == global_scope.get_symbol_from_name("sincosf"))
             {
                 Nodecl::List::iterator args = n.get_arguments().
                     as<Nodecl::List>().begin();
@@ -1824,19 +1844,26 @@ namespace Vectorization
                 //         (function_target_type.is_void() ? 1 : function_target_type.get_size());
                 // }
 
-                ERROR_CONDITION(best_version.is_invalid(), "Vectorizer: the best "\
-                        "vector function for '%s' is invalid", func_sym.get_qualified_name().c_str());
+                ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best "\
+                        "vector function for '%s' is null", func_name.get_qualified_name().c_str());
 
                 // Create new called symbol
                 Nodecl::Symbol new_called;
-                if (best_version.is_valid())
+                if (best_version.is<Nodecl::FunctionCode>())
                 {
-                    new_called = best_version.make_nodecl(true, n.get_locus());
+                    new_called = best_version.as<Nodecl::FunctionCode>().
+                        get_symbol().make_nodecl(true, n.get_locus());
+                }
+                else if (best_version.is<Nodecl::Symbol>())
+                {
+                    new_called = best_version.as<Nodecl::Symbol>().get_symbol().
+                        make_nodecl(true, n.get_locus());
                 }
                 else
                 {
-                    fatal_error("Vectorizer: invalid function found as vector function "\
-                            "version in function versioning: %s", func_sym.get_name().c_str());
+                    fatal_error("Vectorizer: %s found as vector function "\
+                            "version in function versioning.",
+                            ast_print_node_type(best_version.get_kind()));
                 }
 
                 Nodecl::List arguments = n.get_arguments().as<Nodecl::List>();
@@ -1878,7 +1905,7 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 std::cerr << "VECTORIZER: Function call '"
-                    << func_sym.get_qualified_name() << "' is kept scalar" << std::endl;
+                    << func_name.get_qualified_name() << "' is kept scalar" << std::endl;
             }
         }
     }

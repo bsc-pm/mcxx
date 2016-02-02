@@ -2156,7 +2156,7 @@ namespace TL { namespace OpenMP {
                         current_specialization.get_function_code().as<Nodecl::FunctionCode>();
 
                     info_printf_at(locus, "extending '#pragma omp declare simd' to function instantiation '%s'\n",
-                            current_specialization.get_qualified_name().c_str());
+                        current_specialization.get_qualified_name().c_str());
 
                     Nodecl::NodeclBase context_of_parameters_spec = function_code_spec.get_statements();
 
@@ -2171,8 +2171,8 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        //Nodecl::NodeclBase function_code = sym.get_function_code();
-        // ERROR_CONDITION(!function_code.is<Nodecl::FunctionCode>(), "Expecting a symbol with code", 0);
+        Nodecl::NodeclBase function_code = sym.get_function_code();
+        ERROR_CONDITION(!function_code.is<Nodecl::FunctionCode>(), "Expecting a symbol with code", 0);
 
         Nodecl::List environment = this->make_execution_environment(ds,
                 pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
@@ -2202,13 +2202,15 @@ namespace TL { namespace OpenMP {
                     Nodecl::OpenMP::NoMask::make(locus));
         }
 
+        // Now we replace the whole function code with a SimdFunction
+        // (vectorizer will later create a new FunctionCode for it)
         Nodecl::OpenMP::SimdFunction simd_func =
             Nodecl::OpenMP::SimdFunction::make(
+                    function_code.shallow_copy(),
                     environment,
-                    sym,
-                    locus);
+                    function_code.get_locus());
 
-        context_of_parameters.append_sibling(simd_func);
+        function_code.replace(simd_func);
     }
 #endif
 

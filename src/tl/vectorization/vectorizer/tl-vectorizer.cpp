@@ -76,7 +76,8 @@ namespace Vectorization
         }
         else if (enclosing_function.is<Nodecl::OpenMP::SimdFunction>())
         {
-            func = enclosing_function.as<Nodecl::OpenMP::SimdFunction>().get_symbol();
+            func = enclosing_function.as<Nodecl::OpenMP::SimdFunction>().
+                get_statement().as<Nodecl::FunctionCode>().get_symbol();
         }            
         else
         {
@@ -188,7 +189,7 @@ namespace Vectorization
     }
 
     void Vectorizer::vectorize_function_header(
-            TL::Symbol& func_sym,
+            Nodecl::FunctionCode& function_code,
             VectorizerEnvironment& environment,
             const TL::ObjectList<TL::Symbol> &uniform_symbols,
             const std::map<TL::Symbol, int> &linear_symbols,
@@ -197,7 +198,7 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing function '%s' HEADER -----\n",
-                    func_sym.get_name().c_str());
+                    function_code.get_symbol().get_name().c_str());
             if (environment._target_type.is_valid())
             {
                 fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
@@ -209,8 +210,7 @@ namespace Vectorization
                 uniform_symbols,
                 linear_symbols,
                 masked_version);
-
-        visitor_function_header.vectorize(func_sym);
+        visitor_function_header.walk(function_code);
 
         VECTORIZATION_DEBUG()
         {
@@ -234,7 +234,7 @@ namespace Vectorization
         }
 
         VectorizerVisitorFunction visitor_function(environment, masked_version);
-        visitor_function.vectorize(func_code);
+        visitor_function.walk(func_code);
 
         // Applying strenth reduction
         TL::Optimizations::canonicalize_and_fold(func_code, _fast_math_enabled);
@@ -411,18 +411,18 @@ namespace Vectorization
                 post_nodecls);
     }
 
-    void Vectorizer::add_vector_function_version(TL::Symbol func_symbol,
-            const TL::Symbol& vec_func_symbol,
+    void Vectorizer::add_vector_function_version(TL::Symbol func_name,
+            const Nodecl::NodeclBase& func_version,
             const std::string& device, const unsigned int vector_length,
             const TL::Type& target_type, const bool masked, const FunctionPriority priority,
             const bool is_svml)
     {
         VECTORIZATION_DEBUG()
         {
-            scope_entry_t* sym = func_symbol.get_internal_symbol();
+            scope_entry_t* sym = func_name.get_internal_symbol();
             fprintf(stderr, "VECTORIZER: Adding %p '%s' function version "\
                     "(device=%s, vector_length=%u, target_type=%s, masked=%d,"\
-                    " SVML=%d, priority=%d)\n",
+                    " SVML=%d priority=%d)\n",
                     sym,
                     print_decl_type_str(sym->type_information, sym->decl_context,
                         get_qualified_symbol_name(sym, sym->decl_context)),
@@ -431,8 +431,8 @@ namespace Vectorization
                     masked, is_svml, priority);
         }
 
-        _function_versioning.add_version(func_symbol,
-                VectorFunctionVersion(vec_func_symbol, device, vector_length, target_type,
+        _function_versioning.add_version(func_name,
+                VectorFunctionVersion(func_version, device, vector_length, target_type,
                     masked, priority, is_svml));
     }
 
@@ -482,7 +482,7 @@ namespace Vectorization
             TL::Symbol vector_function = scope.get_symbol_from_name(functions[i].vector_function);
             add_vector_function_version(
                     scope.get_symbol_from_name(functions[i].scalar_function),
-                    vector_function,
+                    vector_function.make_nodecl(true),
                     device, vec_factor, functions[i].return_type, functions[i].masked, DEFAULT_FUNC_PRIORITY, true);
 
             CXX_LANGUAGE()
@@ -532,7 +532,6 @@ namespace Vectorization
             TL::Scope global_scope = TL::Scope::get_global_scope();
             svml_sse_vector_math.parse_global(global_scope);
 
- 
             register_functions_info sse_functions[] =
             {
                 { "expf", "_mm_exp_ps"  ,   TL::Type::get_float_type(), false },
@@ -588,7 +587,6 @@ namespace Vectorization
             // Parse SVML declarations
             TL::Scope global_scope = TL::Scope::get_global_scope();
             svml_avx2_vector_math.parse_global(global_scope);
-
 
             register_functions_info avx2_functions[] =
             {
@@ -655,7 +653,6 @@ namespace Vectorization
         // Parse SVML declarations
         TL::Scope global_scope = TL::Scope::get_global_scope();
         svml_avx512_vector_math.parse_global(global_scope);
-
 
         register_functions_info avx512_functions[] =
         {

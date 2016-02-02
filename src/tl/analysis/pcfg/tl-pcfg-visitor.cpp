@@ -2610,7 +2610,7 @@ next_it:    ;
         
         // Traverse the associated function code
         _utils->_last_nodes = ObjectList<Node*>( 1, simd_function_entry );
-        //walk( n.get_symbol( ) );
+        walk( n.get_statement( ) );
         
         simd_function_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, simd_function_exit );

@@ -110,9 +110,9 @@ namespace Analysis {
 
             // If SimdFunction, we better associate nested
             // FunctionCode with PCFG
-            //if (func_nodecl.is<Nodecl::OpenMP::SimdFunction>())
-            //    func_nodecl = func_nodecl.as<Nodecl::OpenMP::SimdFunction>().
-            //        get_symbol();
+            if (func_nodecl.is<Nodecl::OpenMP::SimdFunction>())
+                func_nodecl = func_nodecl.as<Nodecl::OpenMP::SimdFunction>().
+                    get_statement();
 
             _func_to_pcfg_map[func_nodecl] = *it;
         }
