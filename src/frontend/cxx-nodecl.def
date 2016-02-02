@@ -597,6 +597,7 @@ omp-data-sharings-info : NODECL_OPEN_M_P*FIRSTPRIVATE([symbols]name-seq)
                        | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                        | NODECL_OPEN_M_P*REDUCTION([reductions]omp-reduction-item-seq)
                        | NODECL_OPEN_M_P*TASK_REDUCTION([reductions]omp-reduction-item-seq)
+                       | NODECL_OPEN_M_P*PRIVATE_INIT([value]expression-opt) symbol
 
 omp-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name, [reduction_type]type)
 
@@ -672,7 +673,7 @@ simd-constructs : simd-construct
                 | simd-parallel-construct
 
 simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [environment] omp-exec-environment-seq-opt)
-simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [environment] omp-exec-environment-seq-opt)
+simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([environment] omp-exec-environment-seq-opt) symbol
 simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] omp-for-construct, [environment] omp-exec-environment-seq-opt)
 parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [environment] omp-exec-environment-seq-opt)
 simd-parallel-construct : NODECL_OPEN_M_P*SIMD_PARALLEL([openmp_parallel] parallel-construct, [environment] omp-exec-environment-seq-opt)

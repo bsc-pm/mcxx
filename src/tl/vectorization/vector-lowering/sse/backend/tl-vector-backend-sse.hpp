@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef SSE_VECTOR_LOWERING_HPP
-#define SSE_VECTOR_LOWERING_HPP
+#ifndef SSE_VECTOR_BACKEND_HPP
+#define SSE_VECTOR_BACKEND_HPP
 
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-visitor.hpp"
@@ -34,11 +34,12 @@ namespace TL
 {
     namespace Vectorization
     {
-        class SSEVectorLowering : public Nodecl::ExhaustiveVisitor<void>
+        class SSEVectorBackend : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
                 std::string get_casting_intrinsic(const TL::Type& type_from,
-                        const TL::Type& type_to);
+                        const TL::Type& type_to,
+                        const locus_t* locus);
                 
                 void visit_aligned_vector_load(
                         const Nodecl::VectorLoad& node);
@@ -51,7 +52,7 @@ namespace TL
 
             public:
 
-                SSEVectorLowering();
+                SSEVectorBackend();
 
                 virtual void visit(const Nodecl::ObjectInit& node);
                 
@@ -91,12 +92,23 @@ namespace TL
                 virtual void visit(const Nodecl::ParenthesizedExpression& node);
 
                 virtual void visit(const Nodecl::VectorReductionAdd& node);
+                virtual void visit(const Nodecl::VectorReductionMinus& node);
 
                 virtual void visit(const Nodecl::VectorMaskAssignment& node);
                 virtual void visit(const Nodecl::VectorMaskNot& node);
+                virtual void visit(const Nodecl::VectorMaskConversion& node);
+                virtual void visit(const Nodecl::VectorMaskAnd& node);
+                virtual void visit(const Nodecl::VectorMaskOr& node);
+                virtual void visit(const Nodecl::VectorMaskAnd1Not& node);
+                virtual void visit(const Nodecl::VectorMaskAnd2Not& node);
+                virtual void visit(const Nodecl::VectorMaskXor& node);
+                virtual void visit(const Nodecl::MaskLiteral& node);
 
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                virtual void visit(const Nodecl::VectorSqrt& node);
+
+                virtual void visit(const Nodecl::VectorRcp& node);
+                virtual void visit(const Nodecl::VectorRsqrt& node);
         };
     }
 }
-#endif // SSE_VECTOR_LOWERING_HPP
+#endif // SSE_VECTOR_BACKEND_HPP

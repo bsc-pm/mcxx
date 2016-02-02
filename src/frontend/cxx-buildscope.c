@@ -1264,6 +1264,12 @@ static void keep_extra_attributes_in_symbol(scope_entry_t* entry, gather_decl_sp
     keep_std_attributes_in_symbol(entry, gather_info);
     keep_gcc_attributes_in_symbol(entry, gather_info);
     keep_ms_declspecs_in_symbol(entry, gather_info);
+
+    if (gather_info->is_mcc_hidden)
+    {
+        entry->do_not_print = 1;
+        symbol_entity_specs_set_is_user_declared(entry, 0);
+    }
 }
 
 static void build_scope_explicit_instantiation(AST a,
@@ -10405,7 +10411,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             }
             else
             {
-                *declarator_type = get_vector_type(gather_info->mode_type, 
+                *declarator_type = get_vector_type_by_bytes(gather_info->mode_type, 
                         gather_info->vector_size);
             }
         }
@@ -10427,7 +10433,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             else
             {
                 *declarator_type = get_cv_qualified_type(
-                        get_vector_type(base_vector_type,
+                        get_vector_type_by_bytes(base_vector_type,
                             gather_info->vector_size), 
                         cv_qualif);
             }

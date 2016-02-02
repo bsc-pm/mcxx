@@ -278,7 +278,7 @@ type_t* get_new_function_type_trailing_type(type_t* t,
         ref_qualifier_t ref_qualifier);
 LIBMCXX_EXTERN type_t* get_nonproto_function_type(type_t* t, int num_parameters);
 
-LIBMCXX_EXTERN type_t* get_vector_type(type_t* element_type, unsigned int vector_size);
+LIBMCXX_EXTERN type_t* get_vector_type_by_bytes(type_t* element_type, unsigned int vector_size);
 LIBMCXX_EXTERN type_t* get_vector_type_by_elements(type_t* element_type, unsigned int num_elements);
 
 LIBMCXX_EXTERN type_t* get_generic_vector_type(struct type_tag* element_type);
@@ -683,7 +683,7 @@ LIBMCXX_EXTERN void dependent_typename_get_components(type_t* t,
         scope_entry_t** dependent_entry, 
         nodecl_t* dependent_parts);
 
-LIBMCXX_EXTERN int vector_type_get_vector_size(type_t*);
+LIBMCXX_EXTERN int vector_type_get_vector_size_in_bytes(type_t*);
 LIBMCXX_EXTERN type_t* vector_type_get_element_type(type_t*);
 LIBMCXX_EXTERN int vector_type_get_num_elements(type_t*);
 

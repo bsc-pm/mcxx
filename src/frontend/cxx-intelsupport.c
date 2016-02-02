@@ -345,25 +345,25 @@ type_t* intel_vector_struct_type_get_vector_type(type_t* vector_type)
 {
     if (0);
     else if (equivalent_types(vector_type, get_m128i_struct_type()))
-        return get_vector_type(get_signed_int_type(), 16);
+        return get_vector_type_by_bytes(get_signed_int_type(), 16);
     else if (equivalent_types(vector_type, get_m128_struct_type()))
-        return get_vector_type(get_float_type(), 16);
+        return get_vector_type_by_bytes(get_float_type(), 16);
     else if (equivalent_types(vector_type, get_m128d_struct_type()))
-        return get_vector_type(get_double_type(), 16);
+        return get_vector_type_by_bytes(get_double_type(), 16);
 
     else if (equivalent_types(vector_type, get_m256i_struct_type()))
-        return get_vector_type(get_signed_int_type(), 32);
+        return get_vector_type_by_bytes(get_signed_int_type(), 32);
     else if (equivalent_types(vector_type, get_m256_struct_type()))
-        return get_vector_type(get_float_type(), 32);
+        return get_vector_type_by_bytes(get_float_type(), 32);
     else if (equivalent_types(vector_type, get_m256d_struct_type()))
-        return get_vector_type(get_double_type(), 32);
+        return get_vector_type_by_bytes(get_double_type(), 32);
 
     else if (equivalent_types(vector_type, get_m512i_struct_type()))
-        return get_vector_type(get_signed_int_type(), 64);
+        return get_vector_type_by_bytes(get_signed_int_type(), 64);
     else if (equivalent_types(vector_type, get_m512_struct_type()))
-        return get_vector_type(get_float_type(), 64);
+        return get_vector_type_by_bytes(get_float_type(), 64);
     else if (equivalent_types(vector_type, get_m512d_struct_type()))
-        return get_vector_type(get_double_type(), 64);
+        return get_vector_type_by_bytes(get_double_type(), 64);
 
     return NULL;
 }
@@ -499,7 +499,7 @@ char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* d
             || !is_intel_vector_struct_type(dest, NULL))
         return 0;
 
-    int vector_size = vector_type_get_vector_size(no_ref(orig));
+    int vector_size = vector_type_get_vector_size_in_bytes(no_ref(orig));
     // type_t* element_type = vector_type_get_element_type(no_ref(orig));
     type_t* dest_struct = get_unqualified_type(no_ref(dest));
 

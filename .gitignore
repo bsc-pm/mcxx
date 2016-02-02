@@ -169,6 +169,9 @@ config/50.config.omp.fpga
 config/50.config.omp.ocl
 config/57.config.omp.all
 config/55.config.omp.intel.fortran
+config/55.config.omp.ocl
+config/56.config.omp.intel.mpi
+config/56.config.omp.mpi
 src/frontend/cxx-asttype-str-internal.h
 src/frontend/cxx-asttype-str.gperf
 .clang-format

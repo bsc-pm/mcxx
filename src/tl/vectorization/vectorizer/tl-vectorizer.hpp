@@ -42,6 +42,14 @@ namespace TL
 {
     namespace Vectorization
     {
+        struct register_functions_info
+        {
+            const char* scalar_function;
+            const char* vector_function;
+            TL::Type return_type;
+            bool masked;
+        };
+
         class Vectorizer
         {
             public:
@@ -51,6 +59,7 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
                 static bool _gathers_scatters_disabled;
+                static bool _unaligned_accesses_disabled;
                 static TL::Symbol _analysis_func;
 
                 bool _svml_sse_enabled;
@@ -77,7 +86,7 @@ namespace TL
                 void vectorize_loop(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment);
                 void vectorize_function_header(
-                        Nodecl::FunctionCode& function_code,
+                        TL::Symbol& func_sym,
                         VectorizerEnvironment& environment,
                         const TL::ObjectList<TL::Symbol> &uniform_symbols,
                         const std::map<TL::Symbol, int> &linear_symbols,
@@ -125,8 +134,13 @@ namespace TL
                         Nodecl::List& pre_nodecls,
                         Nodecl::List& post_nodecls);
 
+                void register_svml_functions(const register_functions_info* functions,
+                        std::string device,
+                        int vec_factor,
+                        const TL::Scope& scope,
+                        const std::string& vtype_str);
                 void add_vector_function_version(TL::Symbol symbol,
-                        const Nodecl::NodeclBase& func_version, const std::string& device,
+                        const TL::Symbol& vec_func_symbol, const std::string& device,
                         const unsigned int vector_length, const TL::Type& target_type,
                         const bool masked, const FunctionPriority priority,
                         bool const is_svml_function);
@@ -142,6 +156,7 @@ namespace TL
                 void enable_svml_knl();
                 void enable_fast_math();
                 void disable_gathers_scatters();
+                void disable_unaligned_accesses();
         };
    }
 }

@@ -383,7 +383,7 @@ namespace TL
             TL::Type vector_type_of_scalar(TL::Type t)
             {
                 t = t.no_ref().get_unqualified_type();
-                return t.get_vector_to(_vector_width_bytes);
+                return t.get_vector_of_bytes(_vector_width_bytes);
             }
 
             TL::Type vector_mask_type_of_scalar(TL::Type t)

@@ -61,7 +61,7 @@ namespace Vectorization
 
     bool SuitableAlignmentVisitor::is_aligned_access(
             const Nodecl::ArraySubscript& n,
-            const std::map<TL::Symbol, int> aligned_expressions,
+            const map_nodecl_int_t aligned_expressions,
             int& alignment_module)
     {
         int i;
@@ -98,10 +98,11 @@ namespace Vectorization
             }
         }
 
-        ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
-                "Subscripted is not a Nodecl::Symbol", 0);
+        // Double pointers
+        //if (!subscripted.is<Nodecl::Symbol>())
+        //    return false;
 
-        alignment = get_pointer_alignment(subscripted.as<Nodecl::Symbol>());
+        alignment = get_pointer_alignment(subscripted);
 
         if(alignment == -1)
         {
@@ -228,7 +229,7 @@ namespace Vectorization
 
     bool SuitableAlignmentVisitor::is_aligned_access(
             const Nodecl::Dereference& n,
-            const std::map<TL::Symbol, int> aligned_expressions,
+            const map_nodecl_int_t aligned_expressions,
             int& alignment_module)
     {
         int alignment;
@@ -261,29 +262,74 @@ namespace Vectorization
     }
 
     int SuitableAlignmentVisitor::get_pointer_alignment(
-            const Nodecl::Symbol& n)
+            const Nodecl::NodeclBase& n)
     {
-        TL::Symbol tl_sym = n.get_symbol();
-        TL::Type sym_type = tl_sym.get_type();
-
-        // ERROR_CONDITION(!(sym_type.is_pointer() || sym_type.is_array()),
-        //         "SuitableAlignmentVisitor: %s is neither a pointer nor array\n",
-        //         tl_sym.get_name().c_str());
-
-        std::map<TL::Symbol, int>::const_iterator alignment_info =
-            _aligned_expressions.find(tl_sym);
-
-        if(alignment_info != _aligned_expressions.end())
+        if (n.is<Nodecl::Symbol>())
         {
-            // Get the alignment info of subscripted symbol
-            return alignment_info->second;
+            Nodecl::Symbol n_sym = n.as<Nodecl::Symbol>();
+            TL::Symbol tl_sym = n_sym.get_symbol();
+            TL::Type sym_type = tl_sym.get_type();
+
+            // ERROR_CONDITION(!(sym_type.is_pointer() || sym_type.is_array()),
+            //         "SuitableAlignmentVisitor: %s is neither a pointer nor array\n",
+            //         tl_sym.get_name().c_str());
+
+            for(const auto& aligned_expr : _aligned_expressions)
+            {
+                if (aligned_expr.first.is<Nodecl::Symbol>() &&
+                        aligned_expr.first.as<Nodecl::Symbol>().get_symbol() == tl_sym)
+                {
+                    return aligned_expr.second;
+                }
+            }
+
+            Nodecl::NodeclBase function_code = _scope.is<Nodecl::FunctionCode>() ? 
+                _scope : Nodecl::Utils::get_enclosing_function(_scope).get_function_code();
+
+            return _analysis->get_assume_aligned_attribute(
+                    function_code, n_sym);
+        }
+        else if (n.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript n_array = n.as<Nodecl::ArraySubscript>();
+            
+            Nodecl::NodeclBase n_subscripted = n_array.get_subscripted();
+            Nodecl::NodeclBase n_subscripts = n_array.get_subscripts();
+
+            for(const auto& aligned_expr : _aligned_expressions)
+            {
+                if (aligned_expr.first.is<Nodecl::ArraySubscript>())
+                {
+                    Nodecl::ArraySubscript aligned_expr_array = aligned_expr.first.as<Nodecl::ArraySubscript>();
+
+                    Nodecl::NodeclBase ae_subscripted = aligned_expr_array.get_subscripted();
+                    Nodecl::List ae_subscripts_list = aligned_expr_array.get_subscripts().as<Nodecl::List>();
+
+                    ERROR_CONDITION(ae_subscripts_list.size() != 1, "Unsupported aligned expression range: %s. Size != 1",
+                            aligned_expr_array.prettyprint().c_str());
+                    ERROR_CONDITION(!ae_subscripts_list.front().is<Nodecl::Range>(), "Unsupported aligned expression: %s. Range expected",
+                            aligned_expr_array.prettyprint().c_str());
+                    ERROR_CONDITION(!ae_subscripted.is<Nodecl::Symbol>(), "Unsupported aligned expression: %s. Symbol expected",
+                            aligned_expr_array.prettyprint().c_str());
+
+                    Nodecl::Range ae_range = ae_subscripts_list.front().as<Nodecl::Range>();
+                    ERROR_CONDITION(!ae_range.get_lower().is_constant(), "Unsupported aligned expression range (lower): %s",
+                            ae_range.prettyprint().c_str());
+                    ERROR_CONDITION(!ae_range.get_upper().is_null(), "Unsupported aligned expression range (upper): %s",
+                            ae_range.prettyprint().c_str());
+
+                    if (Nodecl::Utils::structurally_equal_nodecls(
+                                ae_subscripted, n_subscripted, true))
+                    {
+                        return aligned_expr.second;
+                    }
+                }
+            }
+
+            return -1; // Unaligned
         }
 
-        Nodecl::NodeclBase function_code = _scope.is<Nodecl::FunctionCode>() ? 
-            _scope : Nodecl::Utils::get_enclosing_function(_scope).get_function_code();
-
-        return _analysis->get_assume_aligned_attribute(
-                function_code, n);
+        internal_error("Unexpected expression as aligned expression", 0);
 
 /*
         int alignment = tl_sym.get_type().get_alignment_of();

@@ -599,6 +599,7 @@ namespace TL
                     : _outline_info(outline_info), _sc(sc) { }
 
                 void add_private(Symbol sym);
+                void add_private_with_init(Symbol sym, Nodecl::NodeclBase value);
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);

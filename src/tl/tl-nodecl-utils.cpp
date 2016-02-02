@@ -1400,6 +1400,50 @@ namespace Nodecl
         }
     }
 
+    void Utils::add_statements_at_beginning_of_function(Nodecl::NodeclBase current_location, Nodecl::NodeclBase new_stmts)
+    {
+        TL::Symbol symbol_function = Nodecl::Utils::get_enclosing_function(current_location);
+        ERROR_CONDITION(!symbol_function.is_valid(), "No symbol function found", 0);
+        ERROR_CONDITION(symbol_function.get_function_code().is_null(),
+                "Function does not have function code", 0);
+
+        Nodecl::NodeclBase ctx = symbol_function
+            .get_function_code()
+            .as<Nodecl::FunctionCode>()
+            .get_statements();
+
+        Nodecl::NodeclBase stmts = ctx.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(stmts.is_null(), "Not possible", 0);
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            Nodecl::List l = stmts.as<Nodecl::List>();
+            ERROR_CONDITION(l.size() != 1, "Invalid list", 0);
+            Nodecl::NodeclBase compound = l[0];
+            ERROR_CONDITION(!compound.is<Nodecl::CompoundStatement>(), "Invalid node", 0);
+            l = compound
+                .as<Nodecl::CompoundStatement>()
+                .get_statements()
+                .as<Nodecl::List>();
+            ERROR_CONDITION(l.is_null(), "Not possible", 0);
+
+            Nodecl::NodeclBase first_stmt = l[0];
+            first_stmt.prepend_sibling(new_stmts);
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::List l = stmts.as<Nodecl::List>();
+            ERROR_CONDITION(l.size() != 1, "Invalid list", 0);
+
+            Nodecl::NodeclBase first_stmt = l[0];
+            first_stmt.prepend_sibling(new_stmts);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+
     TL::ObjectList<Nodecl::NodeclBase> Utils::get_declarations_of_entity_at_top_level(TL::Symbol symbol)
     {
         TL::ObjectList<Nodecl::NodeclBase> result;

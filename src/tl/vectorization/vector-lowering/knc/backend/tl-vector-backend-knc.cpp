@@ -27,6 +27,7 @@
 #include "tl-vector-backend-knc.hpp"
 
 #include "tl-vectorization-prefetcher-common.hpp"
+#include "tl-vectorization-utils.hpp"
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-optimizations.hpp"
@@ -162,7 +163,7 @@ namespace Vectorization
             {
                 old << "("
                     << print_type_str(
-                            type.get_vector_to(_vector_length).get_internal_type(),
+                            type.get_vector_of_bytes(_vector_length).get_internal_type(),
                             mask.retrieve_context().get_decl_context())
                     << ")"
                     << as_expression(_old_m512.back());
@@ -212,21 +213,7 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::FunctionCode& n)
     {
-        // TODO: Do it more efficiently!
-        bool contains_vector_nodes =
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAssignment>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAdd>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMul>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConversion>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLiteral>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCode>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMaskAssignment>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLoad>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorStore>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorReductionAdd>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConditionalExpression>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCall>(n);
+        bool contains_vector_nodes = TL::Vectorization::Utils::contains_vector_nodes(n);
 
         if (contains_vector_nodes)
         {
@@ -968,7 +955,7 @@ namespace Vectorization
         if (type.is_float())
         {
             TL::Type vector_int_type =
-                TL::Type::get_int_type().get_vector_to(_vector_length);
+                TL::Type::get_int_type().get_vector_of_bytes(_vector_length);
 
             Nodecl::VectorBitwiseXor vector_xor =
                 Nodecl::VectorBitwiseXor::make(
@@ -992,7 +979,7 @@ namespace Vectorization
         else if (type.is_double())
         {
             TL::Type vector_int_type =
-                TL::Type::get_long_long_int_type().get_vector_to(_vector_length);
+                TL::Type::get_long_long_int_type().get_vector_of_bytes(_vector_length);
 
             Nodecl::VectorBitwiseXor vector_xor =
                 Nodecl::VectorBitwiseXor::make(
@@ -1017,7 +1004,7 @@ namespace Vectorization
                 type.is_unsigned_int())
         {
             TL::Type vector_int_type =
-                TL::Type::get_int_type().get_vector_to(_vector_length);
+                TL::Type::get_int_type().get_vector_of_bytes(_vector_length);
 
             Nodecl::VectorMinus vector_minus =
                 Nodecl::VectorMinus::make(

@@ -30,6 +30,7 @@
 #include "tl-vectorizer-prefetcher.hpp"
 #include "tl-pragmasupport.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-vectorization-common.hpp"
 
 namespace TL
 {
@@ -53,10 +54,12 @@ namespace TL
                 std::string _fast_math_enabled_str;
                 std::string _avx2_enabled_str;
                 std::string _neon_enabled_str;
+                std::string _romol_enabled_str;
                 std::string _knc_enabled_str;
                 std::string _knl_enabled_str;
                 std::string _spml_enabled_str;
                 std::string _only_adjacent_accesses_str;
+                std::string _only_aligned_accesses_str;
                 std::string _overlap_in_place_str;
 
                 bool _simd_enabled;
@@ -64,10 +67,12 @@ namespace TL
                 bool _fast_math_enabled;
                 bool _avx2_enabled;
                 bool _neon_enabled;
+                bool _romol_enabled;
                 bool _knc_enabled;
                 bool _knl_enabled;
                 bool _spml_enabled;
                 bool _only_adjacent_accesses_enabled;
+                bool _only_aligned_accesses_enabled;
                 bool _overlap_in_place;
 
                 void set_simd(const std::string simd_enabled_str);
@@ -75,10 +80,12 @@ namespace TL
                 void set_fast_math(const std::string fast_math_enabled_str);
                 void set_avx2(const std::string avx2_enabled_str);
                 void set_neon(const std::string neon_enabled_str);
+                void set_romol(const std::string romol_enabled_str);
                 void set_knc(const std::string knc_enabled_str);
                 void set_knl(const std::string knl_enabled_str);
                 void set_spml(const std::string spml_enabled_str);
                 void set_only_adjcent_accesses(const std::string only_adjacent_accesses_str);
+                void set_only_aligned_accesses(const std::string only_aligned_accesses_str);
                 void set_overlap_in_place(const std::string overlap_in_place_str);
         };
 
@@ -89,13 +96,24 @@ namespace TL
 
                 std::string _device_name;
                 unsigned int _vector_length;
+                unsigned int _fixed_vectorization_factor;
                 bool _support_masking;
                 unsigned int _mask_size;
                 bool _fast_math_enabled;
                 bool _overlap_in_place;
 
+                void process_func_simd_clause(const Nodecl::List& omp_environment,
+                        Vectorization::map_nodecl_int_t& aligned_expressions,
+                        Vectorization::map_tlsym_int_t& linear_symbols,
+                        Vectorization::objlist_tlsym_t& uniform_symbols,
+                        Vectorization::objlist_nodecl_t& suitable_expressions,
+                        Vectorization::map_tlsym_objlist_t& nontemporal_expressions,
+                        Vectorization::map_tlsym_objlist_int_t& overlap_symbols,
+                        Vectorization::prefetch_info_t& prefetch_info,
+                        TL::Type& vectorlengthfor_type);
+
                 void process_aligned_clause(const Nodecl::List& environment,
-                        TL::Vectorization::map_tlsym_int_t& aligned_expressions_map);
+                        TL::Vectorization::map_nodecl_int_t& aligned_expressions_map);
                 void process_linear_clause(const Nodecl::List& environment,
                         TL::Vectorization::map_tlsym_int_t& linear_symbols_map);
                 void process_uniform_clause(const Nodecl::List& environment,
@@ -121,6 +139,7 @@ namespace TL
                 SimdProcessingBase(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses,
+                        bool only_aligned_accesses,
                         bool overlap_in_place);
         };
 
@@ -136,8 +155,10 @@ namespace TL
                 SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses,
+                        bool only_aligned_accesses,
                         bool overlap_in_place);
                 ~SimdVisitor();
+
 
                 virtual void visit(const Nodecl::FunctionCode& func_code);
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
@@ -155,10 +176,17 @@ namespace TL
                         const Nodecl::OpenMP::SimdFunction& simd_node,
                         const bool masked_version);
 
+                void simd_function_def_preregister(const Nodecl::OpenMP::SimdFunction& simd_node,
+                        bool masked_version);
+                void simd_function_decl_preregister(const Nodecl::OpenMP::SimdFunction& simd_node,
+                        bool masked_version);
+
+
             public:
                 SimdPreregisterVisitor(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses,
+                        bool only_aligned_accesses,
                         bool overlap_in_place);
                 ~SimdPreregisterVisitor();
 
@@ -169,8 +197,11 @@ namespace TL
         {
             public:
                 SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled,
-                        bool only_adjacent_accesses, bool overlap_in_place);
+                        bool fast_math_enabled,
+                        bool svml_enabled,
+                        bool only_adjacent_accesses,
+                        bool only_aligned_accesses,
+                        bool overlap_in_place);
 
                 using SimdVisitor::visit;
                 virtual void visit(const Nodecl::OpenMP::SimdParallel& simd_node);

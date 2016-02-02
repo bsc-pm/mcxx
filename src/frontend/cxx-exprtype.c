@@ -2824,7 +2824,7 @@ static char both_operands_are_same_sized_vector_types(type_t* lhs_type, type_t* 
         && is_arithmetic_type(vector_type_get_element_type(lhs_type))
         && is_vector_type(rhs_type)
         && is_arithmetic_type(vector_type_get_element_type(rhs_type))
-        && vector_type_get_vector_size(lhs_type) == vector_type_get_vector_size(rhs_type);
+        && vector_type_get_vector_size_in_bytes(lhs_type) == vector_type_get_vector_size_in_bytes(rhs_type);
 }
 #endif
 
@@ -5101,8 +5101,8 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
             return get_error_type();
         }
 
-        type_t* result_type = get_vector_type(ret_elem_type,
-                vector_type_get_vector_size(common_vec_type));
+        type_t* result_type = get_vector_type_by_bytes(ret_elem_type,
+                vector_type_get_vector_size_in_bytes(common_vec_type));
 
         ERROR_CONDITION(vector_type_get_num_elements(result_type)
                 != vector_type_get_num_elements(common_vec_type),
@@ -5560,7 +5560,7 @@ static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs,
     {
         if (is_vector_op)
         {
-            type_t* result = get_vector_type(conversion_type, vector_size);
+            type_t* result = get_vector_type_by_bytes(conversion_type, vector_size);
 
             binary_record_conversion_to_result(result, lhs, rhs, decl_context);
 
@@ -9829,7 +9829,7 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
     }
     else
     {
-        converted_type = get_vector_type(get_signed_int_type(), vector_type_get_vector_size(no_ref(first_type)));
+        converted_type = get_vector_type_by_bytes(get_signed_int_type(), vector_type_get_vector_size_in_bytes(no_ref(first_type)));
     }
 
     if (is_void_type(no_ref(second_type))
@@ -12975,6 +12975,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
 typedef
 struct check_arg_data_tag
 {
+    scope_entry_t* function;
     const decl_context_t* decl_context;
 } check_arg_data_t;
 
@@ -13007,13 +13008,27 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
         }
         if (!found_a_conversion)
         {
-            error_printf_at(
-                    nodecl_get_locus(*arg),
-                    "argument %d of type '%s' cannot be "
-                    "converted to type '%s' of parameter\n",
-                    num_parameter + 1,
-                    print_type_str(no_ref(arg_type), p->decl_context),
-                    print_type_str(param_type, p->decl_context));
+            if (p->function != NULL)
+            {
+                error_printf_at(
+                        nodecl_get_locus(*arg),
+                        "in call to function '%s', argument %d of type '%s' cannot be "
+                        "converted to type '%s' of parameter\n",
+                        p->function->symbol_name,
+                        num_parameter + 1,
+                        print_type_str(no_ref(arg_type), p->decl_context),
+                        print_type_str(param_type, p->decl_context));
+            }
+            else
+            {
+                error_printf_at(
+                        nodecl_get_locus(*arg),
+                        "in function call, argument %d of type '%s' cannot be "
+                        "converted to type '%s' of parameter\n",
+                        num_parameter + 1,
+                        print_type_str(no_ref(arg_type), p->decl_context),
+                        print_type_str(param_type, p->decl_context));
+            }
         }
     }
     return found_a_conversion;
@@ -13502,6 +13517,11 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
 
     check_arg_data_t data;
     data.decl_context = decl_context;
+    if (nodecl_get_kind(nodecl_called) == NODECL_SYMBOL
+            && nodecl_get_symbol(nodecl_called)->kind == SK_FUNCTION)
+    {
+        data.function = nodecl_get_symbol(nodecl_called);
+    }
 
     nodecl_t nodecl_argument_list_output = nodecl_null();
     if (!check_argument_types_of_call(
@@ -19530,8 +19550,7 @@ static const_value_t* generate_aggregate_constant(struct type_init_stack_t *type
         }
         else if (is_vector_type(initializer_type))
         {
-            int num_items = vector_type_get_vector_size(initializer_type) 
-                / type_get_size(vector_type_get_element_type(initializer_type));
+            int num_items = vector_type_get_num_elements(initializer_type);
             ERROR_CONDITION(type_stack[type_stack_idx].num_values != num_items,
                     "Inconsistency %d != %d",
                     type_stack[type_stack_idx].num_values,
@@ -19805,10 +19824,7 @@ void check_nodecl_braced_initializer(
                         type_stack[type_stack_idx].num_values = -1;
                     }
                     else
-                    {
-                        type_stack[type_stack_idx].num_items =
-                            vector_type_get_vector_size(declared_type) / type_get_size(vector_type_get_element_type(declared_type));
-                    }
+                        type_stack[type_stack_idx].num_items = vector_type_get_num_elements(declared_type);
                 }
                 else if (is_complex_type(declared_type))
                 {

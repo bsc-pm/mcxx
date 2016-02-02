@@ -46,7 +46,7 @@ __attribute__((noinline)) int foo(
 
     int tmp = 0.0f;
 
-#pragma omp simd for simd_reduction(+:tmp) nowait 
+#pragma omp simd for reduction(+:tmp)
         for(i=0; i<(N-16); i++)
         {
             tmp += b[i] * 

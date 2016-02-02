@@ -49,12 +49,12 @@ namespace Vectorization{
         const int _unroll_factor;
         const int _type_size;
         const int _alignment;
-        map_tlsym_int_t _aligned_expressions;
+        map_nodecl_int_t _aligned_expressions;
         VectorizationAnalysisInterface* _analysis;
 
         bool is_suitable_expression(Nodecl::NodeclBase n);
         bool is_suitable_constant(int n);
-        int get_pointer_alignment(const Nodecl::Symbol& n);
+        int get_pointer_alignment(const Nodecl::NodeclBase& n);
  
     public:
         // *** Constructor *** //
@@ -66,10 +66,10 @@ namespace Vectorization{
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );
         bool is_aligned_access( const Nodecl::Dereference& n,
-                const std::map<TL::Symbol, int> aligned_expressions,
+                const map_nodecl_int_t aligned_expressions,
                 int& alignment_module);
         bool is_aligned_access( const Nodecl::ArraySubscript& n,
-                const std::map<TL::Symbol, int> aligned_expressions,
+                const map_nodecl_int_t aligned_expressions,
                 int& alignment_module);
 
         Ret visit( const Nodecl::Add& n );

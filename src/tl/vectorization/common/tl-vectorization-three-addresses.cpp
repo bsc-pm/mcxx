@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorization-three-addresses.hpp"
+#include "tl-vectorization-utils.hpp"
 #include "tl-nodecl-utils.hpp"
 
 namespace TL
@@ -75,7 +76,14 @@ namespace Vectorization
                 n.is<Nodecl::VectorFunctionCall>() ||
                 n.is<Nodecl::VectorConversion>() ||
                 n.is<Nodecl::VectorConditionalExpression>() ||
-                n.is<Nodecl::VectorAlignRight>())
+                n.is<Nodecl::VectorAlignRight>() ||
+                n.is<Nodecl::VectorMaskNot>() ||
+                n.is<Nodecl::VectorMaskAnd>() ||
+                n.is<Nodecl::VectorMaskOr>() ||
+                n.is<Nodecl::VectorMaskXor>() ||
+                n.is<Nodecl::VectorMaskAnd1Not>() ||
+                n.is<Nodecl::VectorMaskAnd2Not>()
+                )
             return true;
 
         return false;
@@ -277,7 +285,15 @@ namespace Vectorization
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorFunctionCall& n)
     {
-        visit_vector_unary(n);
+        ERROR_CONDITION(!n.get_function_call().is<Nodecl::FunctionCall>(), "Invalid node", 0);
+        Nodecl::FunctionCall call = n.get_function_call().as<Nodecl::FunctionCall>();
+
+        Nodecl::List args = call.get_arguments().as<Nodecl::List>();
+        for (Nodecl::List::iterator it = args.begin(); it != args.end(); it++)
+        {
+            if (TL::Vectorization::Utils::contains_vector_nodes(*it))
+                visit_expression(*it);
+        }
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorAlignRight& n)
     {
@@ -312,6 +328,10 @@ namespace Vectorization
         visit_vector_binary(n);
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseShr& n)
+    {
+        visit_vector_binary(n);
+    }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseShl& n)
     {
         visit_vector_binary(n);
     }
@@ -413,15 +433,75 @@ namespace Vectorization
     {
         visit_vector_ternary(n);
     }
-    void VectorizationThreeAddresses::visit(const Nodecl::ForStatement& n)
+    void VectorizationThreeAddresses::visit(const Nodecl::LoopControl& n)
     {
-        // Do not walk through LoopHeader!
-        walk(n.get_statement());
+        // The vectorizer may add vector code in the condition but does not
+        // seem to ever do this in the other bits of the loop control
+        if (TL::Vectorization::Utils::contains_vector_nodes(n.get_next()))
+            visit_expression(n.get_next());
     }
     void VectorizationThreeAddresses::visit(const Nodecl::WhileStatement& n)
     {
-        // Do not walk through LoopHeader!
+        if (TL::Vectorization::Utils::contains_vector_nodes(n.get_condition()))
+            visit_expression(n.get_condition());
+
         walk(n.get_statement());
+    }
+
+    void VectorizationThreeAddresses::visit_expression(const Nodecl::NodeclBase &n)
+    {
+        // Wrap the expression inside a new CompoundExpression and walk it
+        TL::Scope sc = n.retrieve_context();
+        TL::Scope new_scope = new_block_context(sc.get_decl_context());
+        Nodecl::NodeclBase new_expr = n.shallow_copy();
+        Nodecl::NodeclBase compound_expr =
+            Nodecl::CompoundExpression::make(
+                    Nodecl::Context::make(
+                        Nodecl::List::make(
+                            Nodecl::CompoundStatement::make(
+                                Nodecl::List::make(
+                                    Nodecl::ExpressionStatement::make(new_expr, n.get_locus())
+                                    ),
+                                Nodecl::NodeclBase::null(),
+                                n.get_locus())),
+                        new_scope,
+                        n.get_locus()),
+                    n.get_type(),
+                    n.get_locus());
+        compound_expr.set_constant(n.get_constant());
+
+        walk(new_expr);
+
+        Nodecl::List new_list = compound_expr
+            .as<Nodecl::CompoundExpression>().get_nest()
+            .as<Nodecl::Context>().get_in_context().as<Nodecl::List>()[0]
+            .as<Nodecl::CompoundStatement>().get_statements()
+            .as<Nodecl::List>();
+
+        // Leave this expression alone
+        if (new_list.size() == 1)
+        {
+            nodecl_free(compound_expr.get_internal_nodecl());
+        }
+        else
+        {
+            // Otherwise replace it
+            // Force a side effect
+            if (!n.get_type().is_void())
+            {
+                Nodecl::NodeclBase last_stmt = new_list.back();
+                if (last_stmt.is<Nodecl::ExpressionStatement>())
+                {
+                    Nodecl::NodeclBase last_expr =
+                        last_stmt.as<Nodecl::ExpressionStatement>().get_nest();
+                    if (needs_decomposition(last_expr))
+                    {
+                        decomp(last_expr);
+                    }
+                }
+            }
+            n.replace(compound_expr);
+        }
     }
 }
 }

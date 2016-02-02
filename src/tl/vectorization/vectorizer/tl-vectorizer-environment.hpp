@@ -40,10 +40,11 @@ namespace Vectorization
         public:
             const std::string& _device;
             const unsigned int _vector_length;
+            unsigned int _fixed_vectorization_factor;
             const bool _support_masking;
             const unsigned int _mask_size;
             const bool _fast_math;
-            const map_tlsym_int_t& _aligned_symbols_map;
+            const map_nodecl_int_t& _aligned_symbols_map;
             const map_tlsym_int_t& _linear_symbols_map;
             const objlist_tlsym_t& _uniform_symbols_list;
             const objlist_nodecl_t& _suitable_exprs_list;
@@ -71,11 +72,12 @@ namespace Vectorization
 
             VectorizerEnvironment(const std::string& device,
                     const unsigned int vector_length,
+                    const unsigned int fixed_vectorization_factor,
                     const bool support_masking,
                     const unsigned int mask_size,
                     const bool fast_math,
                     const TL::Type& target_type,
-                    const map_tlsym_int_t& aligned_symbol_map,
+                    const map_nodecl_int_t& aligned_symbol_map,
                     const map_tlsym_int_t& linear_symbol_map,
                     const objlist_tlsym_t& uniform_expr_list,
                     const objlist_nodecl_t& suitable_expr_list,

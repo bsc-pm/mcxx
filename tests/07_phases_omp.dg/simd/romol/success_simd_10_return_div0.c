@@ -26,14 +26,17 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-serial-simd-avx2 
+test_CFLAGS=--only-adjacent-accesses
+test_generator=config/mercurium-serial-simd-romol 
 </testinfo>
 */
 
 
-#pragma omp simd 
+#pragma omp simd linear(n) 
 int foo(int n)
 {
+    int result;
+
     if (n > 2)
     {
         if (n < 100)
@@ -44,13 +47,13 @@ int foo(int n)
         }
         else
         {
-            n = n / 0;
+            result = n / 0;
         }
 
-        n = n / 0;
+        result = n / 0;
     }
 
-    return n;
+    return result;
 }
 
 int main()

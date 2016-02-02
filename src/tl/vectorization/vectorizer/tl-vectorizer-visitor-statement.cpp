@@ -396,7 +396,7 @@ namespace Vectorization
                 if_mask_value = Nodecl::VectorMaskAnd::make(
                         prev_mask.shallow_copy(),
                         mask_condition_symbol.shallow_copy(), //condition.shallow_copy(),
-                        prev_mask.get_type(),
+                        prev_mask.get_type().no_ref(),
                         n.get_locus());
             }
 
@@ -444,7 +444,7 @@ namespace Vectorization
             {
                 else_mask_value = Nodecl::VectorMaskNot::make(
                         if_mask_symbol.shallow_copy(),
-                        if_mask_symbol.get_type(),
+                        if_mask_symbol.get_type().no_ref(),
                         n.get_locus());
             }
             else // mask = prev_mask & !if_cond
@@ -452,7 +452,7 @@ namespace Vectorization
                 else_mask_value = Nodecl::VectorMaskAnd2Not::make(
                         prev_mask.shallow_copy(),
                         mask_condition_symbol.shallow_copy(),
-                        prev_mask.get_type(),
+                        prev_mask.get_type().no_ref(),
                         n.get_locus());
             }
 
@@ -597,7 +597,7 @@ namespace Vectorization
                                 Nodecl::VectorMaskOr::make(
                                     if_mask_symbol.shallow_copy(),
                                     else_mask_symbol.shallow_copy(),
-                                    if_mask_symbol.get_type(),
+                                    if_mask_symbol.get_type().no_ref(),
                                     make_locus("", 0, 0)),
                                 if_mask_symbol.get_type(),
                                 make_locus("", 0, 0)));
@@ -752,12 +752,23 @@ namespace Vectorization
                                       n.get_locus());
                  */
                 // Update current mask
+                // Nodecl::ExpressionStatement mask_exp =
+                //     Nodecl::ExpressionStatement::make(
+                //             Nodecl::VectorMaskAssignment::make(
+                //                 mask.shallow_copy(),
+                //                 Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                //                     const_value_get_zero(2, 0),
+                //                     n.get_locus()),
+                //                 mask.get_type(),
+                //                 make_locus("", 0, 0)));
+
                 Nodecl::ExpressionStatement mask_exp =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::VectorMaskAssignment::make(
                                 mask.shallow_copy(),
-                                Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
-                                    const_value_get_zero(2, 0),
+                                Nodecl::MaskLiteral::make(
+                                    mask.get_type().no_ref(),
+                                    const_value_get_signed_int(0),
                                     n.get_locus()),
                                 mask.get_type(),
                                 make_locus("", 0, 0)));

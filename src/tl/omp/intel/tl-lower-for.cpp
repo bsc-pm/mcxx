@@ -236,6 +236,14 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
 
         // Initialize every member with the neuter
         TL::ObjectList<TL::Symbol> fields = reduction_pack_symbol.get_type().get_fields();
+        CXX_LANGUAGE()
+        {
+            stmt_placeholder.prepend_sibling(
+                    Nodecl::CxxDef::make(
+                        /* context */ Nodecl::NodeclBase::null(),
+                        reduction_pack_symbol));
+        }
+
         TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
         for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
                 it != reduction_items.end();
@@ -252,14 +260,6 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
                 ;
             Nodecl::NodeclBase init_field_tree = init_field.parse_statement(stmt_placeholder);
             stmt_placeholder.prepend_sibling(init_field_tree);
-        }
-
-        CXX_LANGUAGE()
-        {
-            stmt_placeholder.prepend_sibling(
-                    Nodecl::CxxDef::make(
-                        /* context */ Nodecl::NodeclBase::null(),
-                        reduction_pack_symbol));
         }
     }
 

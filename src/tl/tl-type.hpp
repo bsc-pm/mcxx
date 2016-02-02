@@ -219,7 +219,7 @@ namespace TL
             /*!
              * \param vector_size The size of the vector in bytes.
              */
-            Type get_vector_to(unsigned int vector_size) const;
+            Type get_vector_of_bytes(unsigned int vector_size) const;
 
             //! Returns a vector to the current type
             /*!

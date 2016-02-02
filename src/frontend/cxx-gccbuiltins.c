@@ -3815,3 +3815,49 @@ extern void gcc_builtins_arm64(const decl_context_t* global_context)
     gcc_builtins_neon_arm64(global_context);
 }
 
+void prepend_intel_vector_typedefs(nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(!IS_CXX_LANGUAGE, "This function is only for C++", 0);
+
+    scope_entry_t* (*fun_list[])(void) = {
+        get_m64_typedef,
+
+        get_m128_typedef,
+        get_m128d_typedef,
+        get_m128i_typedef,
+
+        get_m256_typedef,
+        get_m256d_typedef,
+        get_m256i_typedef,
+
+        get_m512_typedef,
+        get_m512d_typedef,
+        get_m512i_typedef,
+        NULL
+    };
+
+    nodecl_t nodecl_vector_defs = nodecl_null();
+
+    int i;
+    for (i = 0; fun_list[i] != NULL; i++)
+    {
+        scope_entry_t* sym = (fun_list[i])();
+
+        type_t* struct_type = advance_over_typedefs(sym->type_information);
+
+        if (is_complete_type(struct_type))
+        {
+            nodecl_vector_defs =
+                nodecl_append_to_list(
+                        nodecl_vector_defs,
+                        nodecl_make_cxx_def(
+                            nodecl_null(),
+                            sym,
+                            NULL));
+        }
+    }
+
+    *nodecl_output = nodecl_concat_lists(
+            nodecl_vector_defs,
+            *nodecl_output);
+}

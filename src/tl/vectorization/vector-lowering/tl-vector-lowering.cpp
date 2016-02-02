@@ -25,7 +25,8 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vector-lowering.hpp"
-#include "tl-vector-lowering-sse.hpp"
+#include "tl-vector-legalization-sse.hpp"
+#include "tl-vector-backend-sse.hpp"
 #include "tl-vector-legalization-knc.hpp"
 #include "tl-vector-backend-knc.hpp"
 #include "tl-vector-legalization-knl.hpp"
@@ -34,6 +35,9 @@
 #include "tl-vector-backend-avx2.hpp"
 #include "tl-vector-legalization-neon.hpp"
 #include "tl-vector-backend-neon.hpp"
+#include "tl-vector-legalization-romol.hpp"
+#include "tl-vector-backend-romol.hpp"
+#include "tl-vector-romol-regalloc.hpp"
 #include "tl-vectorization-three-addresses.hpp"
 
 
@@ -41,11 +45,19 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorLoweringPhase::VectorLoweringPhase() : _knl_enabled(false), _knc_enabled(false), _avx2_enabled(false), _neon_enabled(false)
+        VectorLoweringPhase::VectorLoweringPhase()
+            : _knl_enabled(false),
+            _knc_enabled(false),
+            _avx2_enabled(false),
+            _neon_enabled(false),
+            _romol_enabled(false),
+            _prefer_gather_scatter(false),
+            _prefer_mask_gather_scatter(false),
+            _valib_sim_header(false)
         {
             set_phase_name("Vector Lowering Phase");
             set_phase_description("This phase lowers Vector IR to builtin calls. "
-                    "By default targets SSE but AVX, AVX2, KNC, KNL and NEON are implemented as well");
+                    "By default targets SSE but AVX, AVX2, KNC, KNL, NEON and RoMoL are implemented as well");
 
             register_parameter("knl_enabled",
                     "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
@@ -67,6 +79,11 @@ namespace TL
                     _neon_enabled_str,
                     "0").connect(std::bind(&VectorLoweringPhase::set_neon, this, std::placeholders::_1));
 
+            register_parameter("romol_enabled",
+                    "If set to '1' enables compilation for RoMoL architecture, otherwise it is disabled",
+                    _romol_enabled_str,
+                    "0").connect(std::bind(&VectorLoweringPhase::set_romol, this, std::placeholders::_1));
+
             register_parameter("prefer_mask_gather_scatter",
                     "If set to '1' enables gather/scatter generation for unaligned load/stores with masks",
                     _prefer_mask_gather_scatter_str,
@@ -76,30 +93,40 @@ namespace TL
                     "If set to '1' enables gather/scatter generation for unaligned load/stores",
                     _prefer_gather_scatter_str,
                     "0").connect(std::bind(&VectorLoweringPhase::set_prefer_gather_scatter, this, std::placeholders::_1));
+
+            register_parameter("valib_sim_header",
+                    "If set to '1' prepends at the beginning of the output '#include <valib-sim.h>'",
+                    _valib_sim_header_str,
+                    "0").connect(std::bind(&VectorLoweringPhase::set_valib_sim_header, this, std::placeholders::_1));
         }
 
-        void VectorLoweringPhase::set_knl(const std::string knl_enabled_str)
+        void VectorLoweringPhase::set_knl(const std::string& knl_enabled_str)
         {
             parse_boolean_option("knl_enabled", knl_enabled_str, _knl_enabled, "Invalid value for knl_enabled");
         }
 
-        void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
+        void VectorLoweringPhase::set_knc(const std::string& knc_enabled_str)
         {
             parse_boolean_option("knc_enabled", knc_enabled_str, _knc_enabled, "Invalid value for knc_enabled");
         }
 
-        void VectorLoweringPhase::set_avx2(const std::string avx2_enabled_str)
+        void VectorLoweringPhase::set_avx2(const std::string& avx2_enabled_str)
         {
             parse_boolean_option("avx2_enabled", avx2_enabled_str, _avx2_enabled, "Invalid value for avx2_enabled");
         }
 
-        void VectorLoweringPhase::set_neon(const std::string neon_enabled_str)
+        void VectorLoweringPhase::set_neon(const std::string& neon_enabled_str)
         {
             parse_boolean_option("neon_enabled", neon_enabled_str, _neon_enabled, "Invalid value for neon_enabled");
         }
 
+        void VectorLoweringPhase::set_romol(const std::string& romol_enabled_str)
+        {
+            parse_boolean_option("romol_enabled", romol_enabled_str, _romol_enabled, "Invalid value for romol_enabled");
+        }
+
         void VectorLoweringPhase::set_prefer_gather_scatter(
-                const std::string prefer_gather_scatter_str)
+                const std::string& prefer_gather_scatter_str)
         {
             if (prefer_gather_scatter_str == "1")
             {
@@ -107,8 +134,14 @@ namespace TL
             }
         }
 
+        void VectorLoweringPhase::set_valib_sim_header(
+                const std::string& str)
+        {
+            parse_boolean_option("valib_sim_header", str, _valib_sim_header, "Invalid value for valib_sim_header");
+        }
+
         void VectorLoweringPhase::set_prefer_mask_gather_scatter(
-                const std::string prefer_mask_gather_scatter_str)
+                const std::string& prefer_mask_gather_scatter_str)
         {
             if (prefer_mask_gather_scatter_str == "1")
             {
@@ -131,6 +164,7 @@ namespace TL
                 { _knc_enabled, "KNC" },
                 { _knl_enabled, "KNL" },
                 { _neon_enabled, "NEON" },
+                { _romol_enabled, "RoMoL" },
             };
 
             const int N = sizeof(backend_flag) / sizeof(*backend_flag);
@@ -151,11 +185,14 @@ namespace TL
 
             if(_avx2_enabled)
             {
-                // KNC Legalization phase
+                // AVX2 Legalization phase
                 AVX2VectorLegalization avx2_vector_legalization;
                 avx2_vector_legalization.walk(translation_unit);
 
-                // Lowering to intrinsics
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
+                // AVX2 Lowering to intrinsics
                 AVX2VectorLowering avx2_vector_lowering;
                 avx2_vector_lowering.walk(translation_unit);
             }
@@ -193,14 +230,45 @@ namespace TL
                 NeonVectorLegalization neon_vector_legalization;
                 neon_vector_legalization.walk(translation_unit);
 
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
                 // Lower to NEON intrinsics
                 NeonVectorBackend neon_vector_backend;
                 neon_vector_backend.walk(translation_unit);
             }
+            else if (_romol_enabled)
+            {
+                RomolVectorLegalization romol_vector_legalization;
+                romol_vector_legalization.walk(translation_unit);
+
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
+                RomolVectorRegAlloc romol_vector_ra;
+                romol_vector_ra.walk(translation_unit);
+
+                RomolVectorBackend romol_vector_backend;
+                romol_vector_backend.walk(translation_unit);
+
+                if (_valib_sim_header)
+                {
+                    Nodecl::Utils::prepend_to_top_level_nodecl(
+                            Nodecl::PreprocessorLine::make(
+                                "#include <valib-sim.h>",
+                                /* locus */ 0));
+                }
+            }
             else
             {
-                SSEVectorLowering sse_vector_lowering;
-                sse_vector_lowering.walk(translation_unit);
+                SSEVectorLegalization sse_vector_legalization;
+                sse_vector_legalization.walk(translation_unit);
+
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
+                SSEVectorBackend sse_vector_backend;
+                sse_vector_backend.walk(translation_unit);
             }
         }
 

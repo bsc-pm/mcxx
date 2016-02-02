@@ -24,7 +24,7 @@ struct generate_type<__simd##BITS##_##T> \
     {\
         std::stringstream ss;\
 \
-        ss << "get_vector_type(" << generate_type<element_type>::g() << ", " << (size) << ")";\
+        ss << "get_vector_type_by_bytes(" << generate_type<element_type>::g() << ", " << (size) << ")";\
 \
         return ss.str();\
     }\

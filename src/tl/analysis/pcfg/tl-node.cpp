@@ -41,7 +41,7 @@ namespace Analysis {
     // ******************************** Constructors ******************************** //
 
     Node::Node(unsigned int& id, NodeType type, Node* outer_node)
-            : _id(++id), _type(type), _outer_node(outer_node),
+            : _id(++id), _num(), _type(type), _outer_node(outer_node),
               _entry_edges(), _exit_edges(), _has_assertion(false),
               _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
@@ -54,7 +54,7 @@ namespace Analysis {
     }
 
     Node::Node(unsigned int& id, NodeType type, Node* outer_node, const NodeclList& nodecls)
-            : _id(++id), _type(type), _outer_node(outer_node),
+            : _id(++id), _num(),_type(type), _outer_node(outer_node),
               _entry_edges(), _exit_edges(), _has_assertion(false),
               _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
@@ -62,7 +62,7 @@ namespace Analysis {
     }
 
     Node::Node(unsigned int& id, NodeType type, Node* outer_node, const NBase& nodecl)
-            : _id(++id), _type(type), _outer_node(outer_node),
+            : _id(++id), _num(),_type(type), _outer_node(outer_node),
               _entry_edges(), _exit_edges(), _has_assertion(false),
               _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
@@ -232,6 +232,16 @@ namespace Analysis {
     void Node::set_visited_extgraph_aux(bool visited)
     {
         _visited_extgraph_aux = visited;
+    }
+
+    int Node::get_num() const
+    {
+        return _num;
+    }
+
+    void Node::set_num(int num)
+    {
+        _num = num;
     }
 
     // ********************** END Data-members getters/setters ********************** //

@@ -2445,6 +2445,13 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::PrivateInit& n )
+    {
+        _utils->_pragma_nodes.top( )._clauses.append(n);
+        return ObjectList<Node*>( );
+    }
+
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
     {
         walk( n.get_reductions( ) );
@@ -2603,7 +2610,7 @@ next_it:    ;
         
         // Traverse the associated function code
         _utils->_last_nodes = ObjectList<Node*>( 1, simd_function_entry );
-        walk( n.get_statement( ) );
+        //walk( n.get_symbol( ) );
         
         simd_function_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, simd_function_exit );

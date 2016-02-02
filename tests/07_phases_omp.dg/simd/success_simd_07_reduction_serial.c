@@ -37,13 +37,12 @@ int main()
 {
     int i;
     int s = 0;
-    int t = 0;
     int d = 0;
     float e = 0.0f;
     float f = 0.0f;
     int N = 104;
 
-#pragma omp simd reduction(+:s,t) 
+#pragma omp simd reduction(+:s,f) 
     for(i=0; i<N; i++)
     {
         s += (i+1);

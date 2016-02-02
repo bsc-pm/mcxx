@@ -54,8 +54,6 @@ namespace TL
                 virtual void visit(const Nodecl::VectorAssignment& n);
                 virtual void visit(const Nodecl::VectorLoad& n);
                 virtual void visit(const Nodecl::VectorStore& n);
-
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
 
     }

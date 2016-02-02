@@ -38,6 +38,9 @@ namespace TL
     {
         namespace Utils
         {
+            bool is_vector_node(Nodecl::NodeclBase n);
+            bool contains_vector_nodes(Nodecl::NodeclBase n);
+
             class MaskCheckCostEstimation : public Nodecl::ExhaustiveVisitor<void>
             {
                 private:
@@ -85,9 +88,10 @@ namespace TL
 //            bool is_declared_in_scope(const scope_t *const  target_scope,
 //                    const scope_t *const symbol_scope);
             bool is_declared_in_inner_scope(const Nodecl::NodeclBase& target_node,
-                    const TL::Symbol& tl_symbol); 
+                    const TL::Symbol& tl_symbol);
 
             bool is_all_one_mask(const Nodecl::NodeclBase& n);
+            Nodecl::MaskLiteral get_all_one_mask(const int num_elements);
 
             Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask);
 
@@ -110,7 +114,8 @@ namespace TL
                     const Nodecl::NodeclBase& then);
 
             Nodecl::MaskLiteral get_contiguous_mask_literal(
-                    const int size, const int num_active_lanes);
+                    const int size,
+                    const int num_active_lanes);
             Nodecl::List get_vector_offset_list(
                     const int start_value, const int increment,
                     const int vector_size);

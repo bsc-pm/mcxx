@@ -499,7 +499,7 @@ namespace Vectorization
                     Nodecl::VectorMaskAnd::make(
                             prev_mask.shallow_copy(),
                             condition.shallow_copy(),
-                            mask_type,
+                            mask_type.no_ref(),
                             n.get_locus());
 
                 Nodecl::ExpressionStatement true_mask_exp =
@@ -726,15 +726,21 @@ namespace Vectorization
                 }
 
             }
-            else if (alignment_output != -1)
+            else
             {
-                load_flags.append(Nodecl::AlignmentInfo::make(
-                            const_value_get_signed_int(alignment_output)));
-
-                VECTORIZATION_DEBUG()
+                ERROR_CONDITION(Vectorizer::_unaligned_accesses_disabled,
+                        "%s is an unaligned vector load. Unaligned accesses are disabled",
+                        n.prettyprint().c_str());
+                if (alignment_output != -1) // a known unaligned load
                 {
-                    fprintf(stderr, " (alignment info = %d)",
-                            alignment_output);
+                    load_flags.append(Nodecl::AlignmentInfo::make(
+                                const_value_get_signed_int(alignment_output)));
+
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr, " (alignment info = %d)",
+                                alignment_output);
+                    }
                 }
             }
 
@@ -799,10 +805,16 @@ namespace Vectorization
                     lhs_type.get_pointer_to(),
                     lhs.get_locus());
 
-            ERROR_CONDITION(lhs.as<Nodecl::ArraySubscript>().
-                    get_subscripts().as<Nodecl::List>().size() > 1,
+            ERROR_CONDITION(array.get_subscripts().as<Nodecl::List>().size() > 1,
                     "Vectorizer: ArraySubscript has not been linearized: %s",
                     lhs.prettyprint().c_str());
+
+
+            while (subscripted.is<Nodecl::ArraySubscript>())
+            {
+                subscripted = subscripted.as<Nodecl::ArraySubscript>().
+                    get_subscripted().no_conv();
+            }
 
             ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
                     "Vectorizer: ArraySubscript form not supported yet: %s",
@@ -812,10 +824,59 @@ namespace Vectorization
 
             // Get a scatter for real scatter or unaligned store extra flag
             lhs_scatter_copy = Vectorizer::_vectorizer_analysis->shallow_copy(array);
-            base = lhs_scatter_copy.as<Nodecl::ArraySubscript>().get_subscripted();
-            // The array must have been linearized
-            strides = lhs_scatter_copy.as<Nodecl::ArraySubscript>().
-                get_subscripts().as<Nodecl::List>().front();
+
+            if (subscripted.is<Nodecl::Symbol>())
+            {
+                lhs_symbol = subscripted.as<Nodecl::Symbol>();
+
+                base = lhs_scatter_copy.as<Nodecl::ArraySubscript>().get_subscripted();
+                // The array must have been linearized
+                strides = lhs_scatter_copy.as<Nodecl::ArraySubscript>().
+                    get_subscripts().as<Nodecl::List>().front();
+            }
+            else if (subscripted.is<Nodecl::ArraySubscript>())
+            {
+                base = lhs_scatter_copy.as<Nodecl::ArraySubscript>().get_subscripted();
+                strides = lhs_scatter_copy.as<Nodecl::ArraySubscript>().
+                    get_subscripts().as<Nodecl::List>().front();
+
+                while (subscripted.is<Nodecl::ArraySubscript>() &&
+                        !Vectorizer::_vectorizer_analysis->
+                        is_uniform(_environment._analysis_simd_scope, subscripted, subscripted))
+                {
+                    subscripted = subscripted.as<Nodecl::ArraySubscript>().get_subscripted();
+                    
+                    // TODO: Fix. Gather/statter is not ready for multi-dimensional arrays
+                    // The array must have been linearized
+                    strides = base.as<Nodecl::ArraySubscript>().
+                        get_subscripts().as<Nodecl::List>().front();
+                   
+                    base = base.as<Nodecl::ArraySubscript>().get_subscripted();
+                }
+
+                Nodecl::NodeclBase subscripted_sym = subscripted;
+
+                while (subscripted_sym.is<Nodecl::ArraySubscript>())
+                {
+                    subscripted_sym = subscripted_sym.as<Nodecl::ArraySubscript>().
+                        get_subscripted().no_conv();
+                }
+
+                if (subscripted_sym.is<Nodecl::Symbol>())
+                {
+                    lhs_symbol = subscripted_sym.as<Nodecl::Symbol>();
+                }
+                else
+                {
+                    internal_error("Vectorizer: Symbol not found in base of ArraySubscript. ArraySubscript form not supported yet: %s",
+                            lhs.prettyprint().c_str());
+                }
+            }
+            else
+            {
+                internal_error("Vectorizer: ArraySubscript form not supported yet: %s",
+                    lhs.prettyprint().c_str());
+            }
 
             // Vectorize strides
             walk(strides);
@@ -937,15 +998,21 @@ namespace Vectorization
                     fprintf(stderr, " (aligned)");
                 }
             }
-            else if (alignment_output != -1)
+            else
             {
-                store_flags.append(Nodecl::AlignmentInfo::make(
-                            const_value_get_signed_int(alignment_output)));
-
-                VECTORIZATION_DEBUG()
+                ERROR_CONDITION(Vectorizer::_unaligned_accesses_disabled,
+                        "%s is an unaligned vector store. Unaligned accesses are disabled",
+                        lhs.prettyprint().c_str());
+                if (alignment_output != -1) // a known unaligned store
                 {
-                    fprintf(stderr, " (alignment info = %d)",
-                            alignment_output);
+                    store_flags.append(Nodecl::AlignmentInfo::make(
+                                const_value_get_signed_int(alignment_output)));
+
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr, " (alignment info = %d)",
+                                alignment_output);
+                    }
                 }
             }
 
@@ -1351,55 +1418,59 @@ namespace Vectorization
     {
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
                 _environment._mask_list.back());
-
-        Nodecl::NodeclBase nest = n.get_nest();
-        walk(nest);
+        walk(n.get_nest());
 
         // If false, someone (TL::Symbol) moves/replaces my tree.
         // Therefore do nothing, I'm no longer a Conversion!!
-        if (n.is<Nodecl::Conversion>())
+        if (!n.is<Nodecl::Conversion>())
+            return;
+
+        Nodecl::NodeclBase nest = n.get_nest();
+
+        TL::Type src_vector_type = nest.get_type().no_ref();
+        TL::Type dst_type = n.get_type();
+
+        if (src_vector_type.is_vector())
         {
-            // Update nest
-            nest = n.get_nest();
-
-            TL::Type src_vector_type = nest.get_type().no_ref();
-            TL::Type dst_type = n.get_type();           
-
-            if (src_vector_type.is_vector())
+            // Remove lvalue conversions.
+            // In a vector code they are explicit loads ops.
+            if (src_vector_type.basic_type().is_same_type(dst_type) &&
+                    // FIXME - is this next check too restrictive?
+                    (nest.is<Nodecl::VectorLoad>() ||
+                     nest.is<Nodecl::VectorGather>()))
             {
-                // Remove lvalue conversions.
-                // In a vector code they are explicit loads ops.
-                if (src_vector_type.basic_type().is_same_type(dst_type) &&
-                        (nest.is<Nodecl::VectorLoad>() ||
-                         nest.is<Nodecl::VectorGather>()))
-                {
-                    n.replace(nest.shallow_copy());
-                }
+                // There is no conversion
+                n.replace(nest);
+            }
+            else if (src_vector_type.basic_type().is_same_type(dst_type))
+            {
+                // There is no conversion
+                n.replace(nest);
+            }
+            else
+            {
+                TL::Type dst_vec_type;
+
+                if (dst_type.is_bool())
+                    dst_vec_type = TL::Type::get_mask_type(
+                            _environment._vectorization_factor);
                 else
-                {
-                    TL::Type dst_vec_type;
-
-                    if (dst_type.is_bool())
-                        dst_vec_type = TL::Type::get_mask_type(
-                                _environment._vectorization_factor);
-                    else
-                        dst_vec_type = Utils::get_qualified_vector_to(dst_type,
-                                _environment._vectorization_factor);
+                    dst_vec_type = Utils::get_qualified_vector_to(dst_type,
+                            _environment._vectorization_factor);
 
 
-                    Nodecl::VectorConversion vector_conv =
-                        Nodecl::VectorConversion::make(
-                                n.get_nest().shallow_copy(),
-                                mask,
-                                dst_vec_type,
-                                n.get_locus());
+                Nodecl::VectorConversion vector_conv =
+                    Nodecl::VectorConversion::make(
+                            n.get_nest().shallow_copy(),
+                            mask,
+                            dst_vec_type,
+                            n.get_locus());
 
-                    vector_conv.set_constant(const_value_convert_to_type(
-                                n.get_nest().get_constant(),
-                                dst_vec_type.get_internal_type()));
+                vector_conv.set_constant(const_value_convert_to_type(
+                            n.get_nest().get_constant(),
+                            dst_vec_type.get_internal_type()));
 
-                    n.replace(vector_conv);
-                }
+                n.replace(vector_conv);
             }
         }
     }
@@ -1501,15 +1572,15 @@ namespace Vectorization
         }
     }
 
-    bool is_compiler_node_function_call(TL::Symbol func_name)
+    bool is_compiler_node_function_call(TL::Symbol func_sym)
     {
         TL::Scope global_scope(CURRENT_COMPILED_FILE->global_decl_context);
-        if (func_name == global_scope.get_symbol_from_name("fabsf")
-                || func_name == global_scope.get_symbol_from_name("sqrtf")
-                || func_name == global_scope.get_symbol_from_name("fabs")
-                || func_name == global_scope.get_symbol_from_name("sqrt")
-                || func_name == global_scope.get_symbol_from_name("sincosf")
-                || func_name == global_scope.get_symbol_from_name("sincos"))
+        if (func_sym == global_scope.get_symbol_from_name("fabsf")
+                || func_sym == global_scope.get_symbol_from_name("sqrtf")
+                || func_sym == global_scope.get_symbol_from_name("fabs")
+                || func_sym == global_scope.get_symbol_from_name("sqrt")
+                || func_sym == global_scope.get_symbol_from_name("sincosf")
+                || func_sym == global_scope.get_symbol_from_name("sincos"))
         {
             return true;
         }
@@ -1528,11 +1599,11 @@ namespace Vectorization
 
         Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
         TL::Type call_type = n.get_type();
-        TL::Symbol func_name = called_sym.get_symbol();
+        TL::Symbol func_sym = called_sym.get_symbol();
 
         TL::Scope global_scope(CURRENT_COMPILED_FILE->global_decl_context);
-        if (func_name == global_scope.get_symbol_from_name("_mm_prefetch") 
-                || func_name == global_scope.get_symbol_from_name("_mm_prefetche"))
+        if (func_sym == global_scope.get_symbol_from_name("_mm_prefetch") 
+                || func_sym == global_scope.get_symbol_from_name("_mm_prefetche"))
         {
             VECTORIZATION_DEBUG()
             {
@@ -1543,7 +1614,7 @@ namespace Vectorization
             return;
         }
 
-        if (func_name == global_scope.get_symbol_from_name("_mm_clevict"))
+        if (func_sym == global_scope.get_symbol_from_name("_mm_clevict"))
         {
             VECTORIZATION_DEBUG()
             {
@@ -1565,9 +1636,9 @@ namespace Vectorization
         int function_target_type_size = function_target_type.is_void() ? 1 : function_target_type.get_size();
 
         // Get the best vector version of the function available
-        Nodecl::NodeclBase best_version =
+        TL::Symbol best_version =
             Vectorizer::_function_versioning.get_best_version(
-                    func_name,
+                    func_sym,
                     _environment._device,
                     _environment._vectorization_factor * function_target_type_size,
                     function_target_type,
@@ -1575,44 +1646,24 @@ namespace Vectorization
 
         bool is_svml = 
             Vectorizer::_function_versioning.is_svml_function(
-                    func_name,
+                    func_sym,
                     _environment._device,
                     _environment._vectorization_factor * function_target_type_size,
                     function_target_type,
                     !mask.is_null());
 
         bool vectorize_all_arguments = false;
-        if (!best_version.is_null())
+        if (best_version.is_valid())
         {
-            if (best_version.is<Nodecl::FunctionCode>())
-            {
-                param_list = best_version.as<Nodecl::FunctionCode>().get_symbol().
-                    get_related_symbols();
+            param_list = best_version.get_related_symbols();
 
-                need_vector_function = true;
-                VECTORIZATION_DEBUG()
-                {
-                    fprintf(stderr, "func: %s\n", best_version.as<Nodecl::FunctionCode>().get_symbol().get_name().c_str());
-                }
-            }
-            else if (best_version.is<Nodecl::Symbol>())
+            need_vector_function = true;
+            VECTORIZATION_DEBUG()
             {
-                param_list = best_version.as<Nodecl::Symbol>().get_symbol().
-                    get_related_symbols();
-
-                need_vector_function = true;
-
-                VECTORIZATION_DEBUG()
-                {
-                    fprintf(stderr, "func: %s\n", best_version.as<Nodecl::Symbol>().get_symbol().get_name().c_str());
-                }
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
+                fprintf(stderr, "func: %s\n", best_version.get_name().c_str());
             }
         }
-        else if (is_compiler_node_function_call(func_name))
+        else if (is_compiler_node_function_call(func_sym))
         {
             need_vector_function = true;
             // FIXME: we are assuming that inline expanded vector functions
@@ -1705,11 +1756,11 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 std::cerr << "VECTORIZER: Vectorizing function call '"
-                    << func_name.get_qualified_name() << "'" << std::endl;
+                    << func_sym.get_qualified_name() << "'" << std::endl;
             }
 
-            if (func_name == global_scope.get_symbol_from_name("fabsf") ||
-                    func_name == global_scope.get_symbol_from_name("fabs"))
+            if (func_sym == global_scope.get_symbol_from_name("fabsf") ||
+                    func_sym == global_scope.get_symbol_from_name("fabs"))
             {
                 const Nodecl::VectorFabs vector_fabs_call =
                     Nodecl::VectorFabs::make(
@@ -1722,8 +1773,8 @@ namespace Vectorization
 
                 n.replace(vector_fabs_call);
             }
-            else if (func_name == global_scope.get_symbol_from_name("sqrtf") ||
-                    func_name == global_scope.get_symbol_from_name("sqrt"))
+            else if (func_sym == global_scope.get_symbol_from_name("sqrtf") ||
+                    func_sym == global_scope.get_symbol_from_name("sqrt"))
             {
                 const Nodecl::VectorSqrt vector_sqrt_call =
                     Nodecl::VectorSqrt::make(
@@ -1736,7 +1787,7 @@ namespace Vectorization
 
                 n.replace(vector_sqrt_call);
             }
-            else if (func_name == global_scope.get_symbol_from_name("sincosf"))
+            else if (func_sym == global_scope.get_symbol_from_name("sincosf"))
             {
                 Nodecl::List::iterator args = n.get_arguments().
                     as<Nodecl::List>().begin();
@@ -1765,47 +1816,41 @@ namespace Vectorization
             {
                 // If _target_type and call_type have the same size, we use call_type as
                 // this function should have been registered with this type
-                if (call_type.is_void() || 
-                        _environment._target_type.get_size() == call_type.get_size())
-                {
-                    function_target_type = call_type;
-                    function_target_type_size =
-                        (function_target_type.is_void() ? 1 : function_target_type.get_size());
-                }
+                // if (call_type.is_void() || 
+                //         _environment._target_type.get_size() == call_type.get_size())
+                // {
+                //     function_target_type = call_type;
+                //     function_target_type_size =
+                //         (function_target_type.is_void() ? 1 : function_target_type.get_size());
+                // }
 
-                ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best "\
-                        "vector function for '%s' is null", func_name.get_qualified_name().c_str());
+                ERROR_CONDITION(best_version.is_invalid(), "Vectorizer: the best "\
+                        "vector function for '%s' is invalid", func_sym.get_qualified_name().c_str());
 
                 // Create new called symbol
                 Nodecl::Symbol new_called;
-                if (best_version.is<Nodecl::FunctionCode>())
+                if (best_version.is_valid())
                 {
-                    new_called = best_version.as<Nodecl::FunctionCode>().
-                        get_symbol().make_nodecl(true, n.get_locus());
-                }
-                else if (best_version.is<Nodecl::Symbol>())
-                {
-                    new_called = best_version.as<Nodecl::Symbol>().get_symbol().
-                        make_nodecl(true, n.get_locus());
+                    new_called = best_version.make_nodecl(true, n.get_locus());
                 }
                 else
                 {
-                    fatal_error("Vectorizer: %s found as vector function "\
-                            "version in function versioning.",
-                            ast_print_node_type(best_version.get_kind()));
+                    fatal_error("Vectorizer: invalid function found as vector function "\
+                            "version in function versioning: %s", func_sym.get_name().c_str());
                 }
 
-                Nodecl::List new_arguments = n.get_arguments().shallow_copy().as<Nodecl::List>();
+                Nodecl::List arguments = n.get_arguments().as<Nodecl::List>();
+
                 if (!mask.is_null())
                 {
-                    new_arguments.append(mask.shallow_copy());
+                    arguments.append(mask.shallow_copy());
                     if (is_svml)
                     {
                         VECTORIZATION_DEBUG()
                         {
                             std::cerr << "SPECIAL CASE FOR SVML"  << new_called.prettyprint() << std::endl;
                         }
-                        new_arguments.append(new_arguments[0].shallow_copy());
+                        arguments.append(arguments[0].shallow_copy());
                     }
                 }
 
@@ -1813,7 +1858,7 @@ namespace Vectorization
                     Nodecl::VectorFunctionCall::make(
                             Nodecl::FunctionCall::make(
                                 new_called,
-                                new_arguments,
+                                arguments,
                                 n.get_alternate_name().shallow_copy(),
                                 n.get_function_form().shallow_copy(),
                                 Utils::get_qualified_vector_to(call_type,
@@ -1833,7 +1878,7 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 std::cerr << "VECTORIZER: Function call '"
-                    << func_name.get_qualified_name() << "' is kept scalar" << std::endl;
+                    << func_sym.get_qualified_name() << "' is kept scalar" << std::endl;
             }
         }
     }
