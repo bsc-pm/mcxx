@@ -46,7 +46,12 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         const Nodecl::NodeclBase &prependix,
         const Nodecl::NodeclBase &appendix)
 {
-#if 0
+    if (!prependix.is_null() || !appendix.is_null())
+    {
+        fatal_printf_at(construct.get_locus(),
+                        "prependix or appendix are not supported");
+    }
+
     TL::ForStatement for_statement(construct.get_loop().as<Nodecl::Context>().
             get_in_context().as<Nodecl::List>().front().as<Nodecl::ForStatement>());
 
@@ -75,62 +80,61 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
 
     Nodecl::OpenMP::BarrierAtEnd barrier_at_end = environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
 
-    bool is_static_schedule = (schedule.get_text() == "static");
-
     TL::ObjectList<TL::Symbol> private_symbols;
     TL::ObjectList<TL::Symbol> firstprivate_symbols;
     TL::ObjectList<TL::Symbol> lastprivate_symbols;
     if (!private_list.empty())
     {
-        TL::ObjectList<Symbol> tmp =
-            private_list  // TL::ObjectList<OpenMP::Private>
-            .map(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
+        TL::ObjectList<Symbol> tmp
+            = private_list.map<Nodecl::NodeclBase>(
+                               &Nodecl::OpenMP::Private::get_symbols)
+                  .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+                  .map<TL::ObjectList<Nodecl::NodeclBase> >(
+                       &Nodecl::List::to_object_list)
+                  .reduction(TL::append_two_lists<Nodecl::NodeclBase>)
+                  .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         private_symbols.insert(tmp);
     }
     if (!firstprivate_list.empty())
     {
-        TL::ObjectList<Symbol> tmp =
-            firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-            .map(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
+        TL::ObjectList<Symbol> tmp
+            = firstprivate_list.map<Nodecl::NodeclBase>(
+                                    &Nodecl::OpenMP::Firstprivate::get_symbols)
+                  .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+                  .map<TL::ObjectList<Nodecl::NodeclBase> >(
+                       &Nodecl::List::to_object_list)
+                  .reduction(TL::append_two_lists<Nodecl::NodeclBase>)
+                  .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         private_symbols.insert(tmp);
         firstprivate_symbols.insert(tmp);
     }
     if (!lastprivate_list.empty())
     {
-        TL::ObjectList<Symbol> tmp =
-            lastprivate_list  // TL::ObjectList<OpenMP::Lastprivate>
-            .map(&Nodecl::OpenMP::Lastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
+        TL::ObjectList<Symbol> tmp
+            = lastprivate_list.map<Nodecl::NodeclBase>(
+                                   &Nodecl::OpenMP::Lastprivate::get_symbols)
+                  .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+                  .map<TL::ObjectList<Nodecl::NodeclBase> >(
+                       &Nodecl::List::to_object_list)
+                  .reduction(TL::append_two_lists<Nodecl::NodeclBase>)
+                  .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         private_symbols.insert(tmp);
         lastprivate_symbols.insert(tmp);
     }
     if (!firstlastprivate_list.empty())
     {
-        TL::ObjectList<Symbol> tmp =
-            firstlastprivate_list  // TL::ObjectList<OpenMP::FirstLastprivate>
-            .map(&Nodecl::OpenMP::FirstLastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
+        TL::ObjectList<Symbol> tmp
+            = firstlastprivate_list
+                  .map<Nodecl::NodeclBase>(
+                       &Nodecl::OpenMP::FirstLastprivate::get_symbols)
+                  .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+                  .map<TL::ObjectList<Nodecl::NodeclBase> >(
+                       &Nodecl::List::to_object_list)
+                  .reduction(TL::append_two_lists<Nodecl::NodeclBase>)
+                  .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         private_symbols.insert(tmp);
         firstprivate_symbols.insert(tmp);
@@ -138,12 +142,14 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     }
 
     TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items
-        = reduction_list
-        .map(&Nodecl::OpenMP::Reduction::get_reductions)
-        .map(&Nodecl::NodeclBase::as<Nodecl::List>)
-        .map(&Nodecl::List::to_object_list)
-        .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
-        .map(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
+        = reduction_list.map<Nodecl::NodeclBase>(
+                             &Nodecl::OpenMP::Reduction::get_reductions)
+              .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+              .map<TL::ObjectList<Nodecl::NodeclBase> >(
+                   &Nodecl::List::to_object_list)
+              .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
+              .map<Nodecl::OpenMP::ReductionItem>(
+                  &Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
 
     Source loop_construct;
     Nodecl::NodeclBase stmt_placeholder;
@@ -206,12 +212,17 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         }
     }
 
-    TL::Symbol reduction_pack_symbol;
+    // TL::Symbol reduction_pack_symbol;
     if (!reduction_items.empty())
     {
-        TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+        fatal_printf_at(construct.get_locus(),
+                        "reductions not yet implemented");
+#if 0
+        TL::ObjectList<Symbol> reduction_symbols
+            = reduction_items
+                  .map<Nodecl::NodeclBase>(
+                       &Nodecl::OpenMP::ReductionItem::get_reduced_symbol)
+                  .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
 
         TL::Symbol reduction_pack_type = declare_reduction_pack(reduction_symbols, construct);
         reduction_pack_symbol = GOMP::new_private_symbol(
@@ -247,35 +258,32 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
                         /* context */ Nodecl::NodeclBase::null(),
                         reduction_pack_symbol));
         }
+#endif
     }
 
-    Source type_kind; // 4, 4u, 8, 8u
-    type_kind << induction_var_type.get_size();
-    if (is_unsigned_integral_type(induction_var_type.get_internal_type()))
-        type_kind << "u";
-
-    Source static_init, lower, upper, step, lastiter, chunk_size, stride;
+    Source static_init, lower, upper, step, chunk_size, istart, iend, not_done;
     lower << "lower_" << (int)private_num;
     upper << "upper_" << (int)private_num;
     step << "step_" << (int)private_num;
-    lastiter << "lastiter_" << (int)private_num;
     chunk_size << "chunk_size_" << (int)private_num;
-    stride << "stride_" << (int)private_num;
+    istart << "istart_" << (int)private_num;
+    iend << "iend_" << (int)private_num;
+    not_done << "not_done_" << (int)private_num;
     private_num++;
 
     Source common_initialization;
     common_initialization
-            << as_type(induction_var_type) << " " << lower << " = "
-            <<                      as_expression(for_statement.get_lower_bound().shallow_copy()) << ";"
-            << as_type(induction_var_type) << " " << upper << " = "
-            <<                      as_expression(for_statement.get_upper_bound().shallow_copy()) << ";"
-            << as_type(induction_var_type) << " " << step << " = "
-            <<                      as_expression(for_statement.get_step().shallow_copy()) << ";"
-            << as_type(induction_var_type) << " " << chunk_size << " = "
-            <<                                       as_expression(schedule.get_chunk().shallow_copy()) << ";"
-            << as_type(induction_var_type) << " " << stride << ";"
-            << "kmp_int32 " << lastiter << " = 0;"
-            ;
+        << as_type(induction_var_type) << " " << lower << " = "
+        << as_expression(for_statement.get_lower_bound().shallow_copy()) << ";"
+        << as_type(induction_var_type) << " " << upper << " = "
+        << as_expression(for_statement.get_upper_bound().shallow_copy()) << ";"
+        << as_type(induction_var_type) << " " << step << " = "
+        << as_expression(for_statement.get_step().shallow_copy()) << ";"
+        << as_type(induction_var_type) << " " << chunk_size << " = "
+        << as_expression(schedule.get_chunk().shallow_copy()) << ";"
+        << "long " << istart << ";"
+        << "long " << iend << ";" << as_type(TL::Type::get_bool_type()) << " "
+        << not_done << ";";
 
     Source pragma_noprefetch;
     Nodecl::OpenMP::NoPrefetch no_prefetch_node = environment.find_first<Nodecl::OpenMP::NoPrefetch>();
@@ -289,15 +297,14 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     TL::Symbol private_induction_var = symbol_map.map(induction_var);
     ERROR_CONDITION(private_induction_var == induction_var, "Induction variable was not privatized", 0);
 
-    TL::Symbol ident_symbol = GOMP::new_global_ident_symbol(construct);
-
-    Nodecl::NodeclBase loop_body, reduction_code, prependix_code, appendix_code, barrier_code;
+    Nodecl::NodeclBase loop_body, reduction_code, barrier_code;
 
     TL::Source lastprivate_code;
 
     if (!lastprivate_symbols.empty())
     {
-        lastprivate_code << "if (" << lastiter << ") {";
+        lastprivate_code << "if (" << as_symbol(private_induction_var)
+                         << " == " << upper << ") {";
     }
 
     for (TL::ObjectList<TL::Symbol>::iterator it = lastprivate_symbols.begin();
@@ -324,105 +331,68 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         lastprivate_code << "}";
     }
 
-    if (is_static_schedule)
+    typedef std::map<std::string, std::pair<std::string, std::string> >
+        schedule_map_t;
+
+
+    schedule_map_t valid_schedules;
+    valid_schedules.insert(std::make_pair(
+        "static",
+        std::make_pair("GOMP_loop_static_start", "GOMP_loop_static_next")));
+    valid_schedules.insert(std::make_pair(
+        "dynamic",
+        std::make_pair("GOMP_loop_dynamic_start", "GOMP_loop_dynamic_next")));
+    valid_schedules.insert(std::make_pair(
+        "guided",
+        std::make_pair("GOMP_loop_guided_start", "GOMP_loop_guided_next")));
+    // GOMP maps auto to static
+    valid_schedules.insert(std::make_pair(
+        "auto",
+        std::make_pair("GOMP_loop_static_start", "GOMP_loop_static_next")));
+    valid_schedules.insert(std::make_pair(
+        "runtime",
+        std::make_pair("GOMP_loop_runtime_start", "GOMP_loop_runtime_next")));
+
+    Source loop_start, loop_next;
+    schedule_map_t::iterator schedule_info
+        = valid_schedules.find(schedule.get_text());
+    if (schedule_info == valid_schedules.end())
     {
-        Source static_loop;
-        static_loop
-            << common_initialization
-            << "__kmpc_for_static_init_" << type_kind << "(&" << as_symbol(ident_symbol)
-            <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
-            <<                ", kmp_sch_static"
-            <<                ", &" << lastiter
-            <<                ", &" << lower
-            <<                ", &" << upper
-            <<                ", &" << stride
-            <<                ", " << step
-            <<                ", " << chunk_size << ");"
-            << statement_placeholder(prependix_code)
-            << pragma_noprefetch
-            << "for (" << as_symbol(private_induction_var) << " = " << lower << "; "
-            <<            as_symbol(private_induction_var) << "<=" << upper << ";"
-            <<            as_symbol(private_induction_var) << "+=" << step << ")"
-            << "{"
-            <<     statement_placeholder(loop_body)
-            << "}"
-            << lastprivate_code
-            << "__kmpc_for_static_fini(&" << as_symbol(ident_symbol) << ", __kmpc_global_thread_num("
-            <<                  "&" << as_symbol(ident_symbol) << "));"
-            << statement_placeholder(appendix_code)
-            << statement_placeholder(reduction_code)
-            << statement_placeholder(barrier_code)
-            ;
-
-        Nodecl::NodeclBase static_loop_tree = static_loop.parse_statement(stmt_placeholder);
-        stmt_placeholder.prepend_sibling(static_loop_tree);
+        error_printf_at(construct.get_locus(),
+                        "'%s' is not a valid OpenMP schedule\n",
+                        schedule.get_text().c_str());
+        schedule_info = valid_schedules.find("static");
     }
-    else
-    {
-        Source dynamic_loop;
-        Source sched_type, sched_init;
-        sched_type << "_sched_" << (int)private_num;
-        private_num++;
+    ERROR_CONDITION(
+        schedule_info == valid_schedules.end(), "Invalid schedule", 0);
 
-        std::map<std::string, std::string> valid_schedules;
-        valid_schedules.insert(std::make_pair("dynamic", "kmp_sch_dynamic_chunked"));
-        valid_schedules.insert(std::make_pair("guided", "kmp_sch_guided_chunked"));
-        valid_schedules.insert(std::make_pair("auto", "kmp_sch_auto"));
-        valid_schedules.insert(std::make_pair("runtime", "kmp_sch_runtime"));
+    loop_start << schedule_info->second.first;
+    loop_next << schedule_info->second.second;
 
-        if (valid_schedules.find(schedule.get_text()) != valid_schedules.end())
-        {
-            sched_init
-                << sched_type << " = " << valid_schedules.find(schedule.get_text())->second << ";"
-                ;
-        }
-        else
-        {
-            error_printf("%s: error '%s' is not a valid OpenMP schedule\n",
-                    construct.get_locus_str().c_str(),
-                    schedule.get_text().c_str());
-        }
+    Source sched_loop;
+    sched_loop << common_initialization << not_done << " = " << loop_start
+               << " (" << lower << ", 1 + (" << upper << "), " << step << ", "
+               << chunk_size << ", &" << istart << ", &" << iend << ");"
+               << "while (" << not_done << ") {"
+               << "for (" << as_symbol(private_induction_var) << " = " << istart
+               << "; " << as_symbol(private_induction_var) << " < " << iend
+               << ";" << as_symbol(private_induction_var) << "+=" << step << ")"
+               << "{" << statement_placeholder(loop_body) << "}" << not_done
+               << " = " << loop_next << "(&" << istart << ", &" << iend << ");"
+               << "}" << lastprivate_code
+               << statement_placeholder(reduction_code)
+               << statement_placeholder(barrier_code);
 
-        dynamic_loop
-            << "enum sched_type " << sched_type << ";"
-            << sched_init
-            << common_initialization
-            << "__kmpc_dispatch_init_" << type_kind << "(&" << as_symbol(ident_symbol)
-            <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
-            <<                "," << sched_type
-            <<                "," << lower
-            <<                "," << upper
-            <<                "," << step
-            <<                "," << chunk_size << ");"
-            << pragma_noprefetch
-            << "while (__kmpc_dispatch_next_" << type_kind << "(&" << as_symbol(ident_symbol)
-            <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
-            <<                ",&" << lastiter
-            <<                ",&" << lower
-            <<                ",&" << upper
-            <<                ",&" << step << "))"
-            << "{"
-            << statement_placeholder(prependix_code)
-            <<     "for (" << as_symbol(private_induction_var) << " = " << lower << ";"
-            <<                as_symbol(private_induction_var) << "<=" << upper << ";"
-            <<                as_symbol(private_induction_var) << "+=" << step << ")"
-            <<     "{"
-            <<         statement_placeholder(loop_body)
-            <<     "}"
-            << "}"
-            << lastprivate_code
-            << statement_placeholder(appendix_code)
-            << statement_placeholder(reduction_code)
-            << statement_placeholder(barrier_code)
-            ;
-
-        Nodecl::NodeclBase dynamic_loop_tree = dynamic_loop.parse_statement(stmt_placeholder);
-        stmt_placeholder.prepend_sibling(dynamic_loop_tree);
-    }
+    Nodecl::NodeclBase sched_loop_tree
+        = sched_loop.parse_statement(stmt_placeholder);
+    stmt_placeholder.prepend_sibling(sched_loop_tree);
 
     TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
     if (!reduction_items.empty())
     {
+        fatal_printf_at(construct.get_locus(),
+                        "reductions not yet implemented");
+#if 0
         Source nowait;
         if (barrier_at_end.is_null())
         {
@@ -487,52 +457,25 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             Nodecl::NodeclBase reduction_tree = reduction_src.parse_statement(stmt_placeholder);
             reduction_code.prepend_sibling(reduction_tree);
         }
+#endif
     }
 
-    if (!prependix.is_null())
+    Source barrier_src;
+    if (barrier_at_end.is_null())
     {
-        Nodecl::NodeclBase lower_node =
-            lower.parse_expression(stmt_placeholder);
-
-        // Replace IV by IV LB
-        Nodecl::Utils::nodecl_replace_nodecl_by_structure(
-                prependix, /* haystack */
-                induction_var.make_nodecl(true), /* needle */
-                lower_node /* replacement */);
-
-        Nodecl::NodeclBase prep =
-                Nodecl::Utils::deep_copy(prependix, prependix_code, symbol_map);
-        update_reduction_uses(prep, reduction_items, reduction_pack_symbol);
-        prependix_code.prepend_sibling(prep);
+        barrier_src << "GOMP_loop_end_nowait();";
     }
-
-    if (!appendix.is_null())
+    else
     {
-        Nodecl::NodeclBase appe = Nodecl::Utils::deep_copy(appendix, appendix_code, symbol_map);
-        update_reduction_uses(appe, reduction_items, reduction_pack_symbol);
-        appendix_code.prepend_sibling(appe);
+        barrier_src << "GOMP_loop_end();";
     }
-
-    // If we have to do a barrier, do it only if the reduction list is empty
-    // otherwise we piggybacked the barrier in the reductions themselves
-    if (!barrier_at_end.is_null() && reduction_items.empty())
-    {
-        barrier_code.prepend_sibling(
-                emit_barrier(construct)
-                );
-    }
+    barrier_code.replace(barrier_src.parse_statement(barrier_code));
 
     Nodecl::NodeclBase new_statements = Nodecl::Utils::deep_copy(statements,
             loop_body, symbol_map);
-    if (!reduction_items.empty())
-    {
-        update_reduction_uses(new_statements, reduction_items, reduction_pack_symbol);
-    }
-
     loop_body.replace(new_statements);
 
     construct.replace(loop_construct_tree);
-#endif
 }
 
 } }
