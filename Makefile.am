@@ -316,8 +316,6 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-mssupport.h \
   src/frontend/cxx-mssupport.c \
-  src/frontend/cxx-intelsupport.h \
-  src/frontend/cxx-intelsupport.c \
   src/frontend/cxx-pragma.h \
   src/frontend/cxx-pragma.c \
   src/frontend/cxx-upc.c \
@@ -383,6 +381,8 @@ src_frontend_libgccbuiltins_la_SOURCES = \
   \
   src/frontend/cxx-iccbuiltins.h \
   src/frontend/cxx-iccbuiltins-knc.h \
+  src/frontend/cxx-intelsupport.h \
+  src/frontend/cxx-intelsupport.c \
   $(END)
 
 
