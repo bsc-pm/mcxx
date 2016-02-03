@@ -49,6 +49,7 @@ namespace Vectorization
         public:
             VectorizationThreeAddresses();
 
+            void visit(const Nodecl::Comma& n);
             void visit(const Nodecl::ObjectInit& n);
 
             void visit(const Nodecl::VectorAdd& n);

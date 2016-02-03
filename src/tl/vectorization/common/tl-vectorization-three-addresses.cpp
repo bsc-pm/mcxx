@@ -228,6 +228,22 @@ namespace Vectorization
         }
     }
 
+    void VectorizationThreeAddresses::visit(const Nodecl::Comma &n)
+    {
+        std::cerr << "COMMA: " << n.prettyprint() << std::endl;
+
+        if (TL::Vectorization::Utils::contains_vector_nodes(n.get_lhs()))
+        {
+            std::cerr << "LHS does" << std::endl;
+            visit_expression(n.get_lhs());
+        }
+        if (TL::Vectorization::Utils::contains_vector_nodes(n.get_rhs()))
+        {
+            std::cerr << "RHS does" << std::endl;
+            visit_expression(n.get_rhs());
+        }
+    }
+
     void VectorizationThreeAddresses::visit(const Nodecl::ObjectInit& n)
     {
         _object_init = n;
@@ -435,8 +451,10 @@ namespace Vectorization
     }
     void VectorizationThreeAddresses::visit(const Nodecl::LoopControl& n)
     {
-        // The vectorizer may add vector code in the condition but does not
-        // seem to ever do this in the other bits of the loop control
+        if (TL::Vectorization::Utils::contains_vector_nodes(n.get_init()))
+            visit_expression(n.get_init());
+        if (TL::Vectorization::Utils::contains_vector_nodes(n.get_cond()))
+            visit_expression(n.get_cond());
         if (TL::Vectorization::Utils::contains_vector_nodes(n.get_next()))
             visit_expression(n.get_next());
     }
@@ -481,6 +499,9 @@ namespace Vectorization
         // Leave this expression alone
         if (new_list.size() == 1)
         {
+            // Shallow-copied node could have be turned into a
+            // CompoundExpression
+            n.replace(new_expr.shallow_copy());
             nodecl_free(compound_expr.get_internal_nodecl());
         }
         else
