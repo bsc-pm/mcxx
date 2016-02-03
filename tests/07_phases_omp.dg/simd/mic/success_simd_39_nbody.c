@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_CFLAGS="--only-adjacent-accesses"
+test_CFLAGS="--only-adjacent-accesses --only-aligned-accesses"
 test_generator=config/mercurium-parallel-simd-mic
 </testinfo>
 */
@@ -94,7 +94,7 @@ static void init_particles(soa_particle_t* QUAL particles, const int num_particl
   }
 }
 
-#pragma omp simd uniform(px, py, pz, pvx, pvy, pvz, pm, fx, fy, fz) linear(i)
+#pragma omp simd uniform(px, py, pz, pvx, pvy, pvz, pm, fx, fy, fz) linear(i) aligned(px, py, pz, pvx, pvy, pvz, pm, fx, fy, fz)
 void __attribute__((noinline)) update_particle_soa(float* QUAL px, float* QUAL py, float* QUAL pz, 
                                 float* QUAL pvx, float* QUAL pvy, float* QUAL pvz,
                                 float* QUAL pm, //float* QUAL pGm, 
