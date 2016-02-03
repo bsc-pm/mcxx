@@ -149,7 +149,8 @@ namespace Vectorization
             if(dimension_size_node.is<Nodecl::Symbol>() &&
                     dimension_size_node.get_symbol().is_saved_expression())
             {
-                dimension_size_node = dimension_size_node.get_symbol().get_value();
+                dimension_size_node
+                    = dimension_size_node.get_symbol().get_value().no_conv();
             }
 
             int dimension_size = -1;
@@ -363,9 +364,9 @@ namespace Vectorization
             //VLA dimension
             if (tl_sym.is_saved_expression())
             {
-               if(Nodecl::Utils::list_contains_nodecl_by_structure(
-                           _suitable_expressions, tl_sym.get_value()))
-                   result = true;
+                if (Nodecl::Utils::list_contains_nodecl_by_structure(
+                        _suitable_expressions, tl_sym.get_value().no_conv()))
+                    result = true;
             }
         }
 
