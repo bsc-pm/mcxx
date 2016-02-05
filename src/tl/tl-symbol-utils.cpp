@@ -376,10 +376,6 @@ TL::Symbol SymbolUtils::new_class_template(const std::string &template_name,
                                            TL::Scope orig_sc,
                                            const locus_t *locus)
 {
-    ERROR_CONDITION(orig_sc.get_decl_context()->template_parameters != NULL,
-                    "Use a non templated context",
-                    0);
-
     // Create a template class
     decl_context_t *decl_context
         = ::decl_context_clone(orig_sc.get_decl_context());
