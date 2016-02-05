@@ -1895,6 +1895,8 @@ src_tl_omp_simd_libtlomp_simd_la_LIBADD = $(phases_libadd) \
 src_tl_omp_simd_libtlomp_simd_la_SOURCES = \
    src/tl/omp/simd/tl-omp-simd.hpp \
    src/tl/omp/simd/tl-omp-simd.cpp \
+   src/tl/omp/simd/tl-omp-simd-visitor.hpp \
+   src/tl/omp/simd/tl-omp-simd-visitor.cpp \
    $(END)
 
 endif
