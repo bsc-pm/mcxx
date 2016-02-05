@@ -670,13 +670,11 @@ top-level : simd-func-construct
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
-                | simd-parallel-construct
 
 simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [environment] omp-exec-environment-seq-opt)
 simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [environment] omp-exec-environment-seq-opt)
 simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] omp-for-construct, [environment] omp-exec-environment-seq-opt)
 parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [environment] omp-exec-environment-seq-opt)
-simd-parallel-construct : NODECL_OPEN_M_P*SIMD_PARALLEL([openmp_parallel] parallel-construct, [environment] omp-exec-environment-seq-opt)
 
 omp-for-construct : NODECL_OPEN_M_P*FOR_APPENDIX([environment]omp-exec-environment-seq-opt, [loop]statement, [prependix]statement-seq-opt, [appendix]statement-seq-opt)
 

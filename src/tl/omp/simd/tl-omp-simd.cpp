@@ -52,7 +52,6 @@ namespace TL {
             _romol_enabled(false),
             _knc_enabled(false),
             _knl_enabled(false),
-            _spml_enabled(false),
             _only_adjacent_accesses_enabled(false),
             _only_aligned_accesses_enabled(false),
             _overlap_in_place(false)
@@ -98,11 +97,6 @@ namespace TL {
                     "If set to '1' enables compilation for RoMoL instruction set, otherwise it is disabled",
                     _romol_enabled_str,
                     "0").connect(std::bind(&Simd::set_romol, this, std::placeholders::_1));
-
-            register_parameter("spml_enabled",
-                    "If set to '1' enables SPML OpenMP mode, otherwise it is disabled",
-                    _spml_enabled_str,
-                    "0").connect(std::bind(&Simd::set_spml, this, std::placeholders::_1));
 
             register_parameter("only_adjacent_accesses",
                     "If set to '1' disables emission of gather/scatter vector instructions",
@@ -159,11 +153,6 @@ namespace TL {
         void Simd::set_romol(const std::string romol_enabled_str)
         {
             parse_boolean_option("romol_enabled", romol_enabled_str, _romol_enabled, "Invalid romol_enabled value");
-        }
-
-        void Simd::set_spml(const std::string spml_enabled_str)
-        {
-            parse_boolean_option("spml_enabled", spml_enabled_str, _spml_enabled, "Invalid spml_enabled value");
         }
 
         void Simd::set_only_adjcent_accesses(
@@ -252,39 +241,22 @@ namespace TL {
                     fatal_error("SVML cannot be used with RoMoL\n");
                 }
 
-                if (_spml_enabled)
-                {
-                    if (_neon_enabled)
-                    {
-                        fatal_error("SPML cannot be used with NEON\n");
-                    }
-                    if (_romol_enabled)
-                    {
-                        fatal_error("SPML cannot be used with RoMoL\n");
-                    }
+                SimdPreregisterVisitor simd_preregister_visitor(
+                    simd_isa,
+                    _fast_math_enabled,
+                    _svml_enabled,
+                    _only_adjacent_accesses_enabled,
+                    _only_aligned_accesses_enabled,
+                    _overlap_in_place);
+                simd_preregister_visitor.walk(translation_unit);
 
-                    fprintf(stderr, " -- SPML OpenMP enabled -- \n");
-                    SimdSPMLVisitor spml_visitor(
-                            simd_isa, _fast_math_enabled, _svml_enabled,
-                            _only_adjacent_accesses_enabled,
-                            _only_aligned_accesses_enabled,
-                            _overlap_in_place);
-                    spml_visitor.walk(translation_unit);
-                }
-                else
-                {
-                    SimdPreregisterVisitor simd_preregister_visitor(simd_isa, _fast_math_enabled, _svml_enabled,
-                            _only_adjacent_accesses_enabled,
-                            _only_aligned_accesses_enabled,
-                            _overlap_in_place);
-                    simd_preregister_visitor.walk(translation_unit);
-
-                    SimdVisitor simd_visitor(simd_isa, _fast_math_enabled, _svml_enabled,
-                            _only_adjacent_accesses_enabled,
-                            _only_aligned_accesses_enabled,
-                            _overlap_in_place);
-                    simd_visitor.walk(translation_unit);
-                }
+                SimdVisitor simd_visitor(simd_isa,
+                                         _fast_math_enabled,
+                                         _svml_enabled,
+                                         _only_adjacent_accesses_enabled,
+                                         _only_aligned_accesses_enabled,
+                                         _overlap_in_place);
+                simd_visitor.walk(translation_unit);
             }
         }
 
@@ -463,16 +435,12 @@ namespace TL {
                 Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::OpenMP::Simd>(n);
             TL::ObjectList<Nodecl::NodeclBase> omp_simd_for_list = 
                 Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::OpenMP::SimdFor>(n);
-            TL::ObjectList<Nodecl::NodeclBase> omp_simd_parallel_list =
-                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::OpenMP::SimdParallel>(n);
 
             for (const auto& node : omp_simd_list) _vectorizer.preprocess_code(node);
             for (const auto& node : omp_simd_for_list) _vectorizer.preprocess_code(node);
-            for (const auto& node : omp_simd_parallel_list) _vectorizer.preprocess_code(node);
 
             if (!omp_simd_list.empty()
-                    || !omp_simd_for_list.empty()
-                    || !omp_simd_parallel_list.empty())
+                    || !omp_simd_for_list.empty())
             {
                 _vectorizer.initialize_analysis(n);
                 walk(n.get_statements());
@@ -480,7 +448,6 @@ namespace TL {
 
             for (const auto& node : omp_simd_list) _vectorizer.postprocess_code(node);
             for (const auto& node : omp_simd_for_list) _vectorizer.postprocess_code(node);
-            for (const auto& node : omp_simd_parallel_list) _vectorizer.postprocess_code(node);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_input_node)
@@ -1690,185 +1657,6 @@ namespace TL {
             //_vectorizer.finalize_analysis();
 
             // Prostprocess code
-        }
-
-        SimdSPMLVisitor::SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                bool fast_math_enabled,
-                bool svml_enabled,
-                bool only_adjacent_accesses,
-                bool only_aligned_accesses,
-                bool overlap_in_place)
-            : SimdVisitor(simd_isa,
-                    fast_math_enabled,
-                    svml_enabled,
-                    only_adjacent_accesses,
-                    only_aligned_accesses,
-                    overlap_in_place)
-        {
-        }
-
-        void SimdSPMLVisitor::visit(const Nodecl::OpenMP::SimdParallel& simd_node)
-        {
-            Nodecl::OpenMP::Parallel omp_parallel = simd_node.
-                get_openmp_parallel().as<Nodecl::OpenMP::Parallel>();
-            Nodecl::List omp_simd_parallel_environment = simd_node.
-                get_environment().as<Nodecl::List>();
-            Nodecl::List omp_parallel_environment = omp_parallel.
-                get_environment().as<Nodecl::List>();
-
-            // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase parallel_statements = omp_parallel.get_statements().
-                as<Nodecl::List>().front();
-
-            //TODO
-            walk(parallel_statements);
-
-            // Aligned clause
-            map_nodecl_int_t aligned_expressions;
-            process_aligned_clause(omp_simd_parallel_environment, aligned_expressions);
-
-            // Linear clause
-            map_tlsym_int_t linear_symbols;
-            process_linear_clause(omp_simd_parallel_environment, linear_symbols);
-
-            // Uniform clause
-            objlist_tlsym_t uniform_symbols;
-            process_uniform_clause(omp_simd_parallel_environment, uniform_symbols);
-
-            // Suitable clause
-            objlist_nodecl_t suitable_expressions;
-            process_suitable_clause(omp_simd_parallel_environment, suitable_expressions);
-
-            // Nontemporal clause
-            map_tlsym_objlist_t nontemporal_expressions;
-            process_nontemporal_clause(omp_simd_parallel_environment, nontemporal_expressions);
-
-            // Overlap clause
-            map_tlsym_objlist_int_t overlap_symbols;
-            process_overlap_clause(omp_simd_parallel_environment, overlap_symbols);
-
-            // Prefetch clause
-            Vectorization::prefetch_info_t prefetch_info;
-            process_prefetch_clause(omp_simd_parallel_environment, prefetch_info);
-
-            // Vectorlengthfor clause
-            TL::Type vectorlengthfor_type;
-            process_vectorlengthfor_clause(omp_simd_parallel_environment, vectorlengthfor_type);
-
-            // External symbols (loop)
-            std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
-
-            // Reduction clause
-            objlist_tlsym_t reductions;
-            Nodecl::List omp_reduction_list =
-                process_reduction_clause(omp_parallel_environment,
-                        reductions, new_external_vector_symbol_map,
-                        parallel_statements.retrieve_context());
-
-            // Vectorizer Environment
-            VectorizerEnvironment parallel_environment(
-                    _device_name,
-                    _vector_length,
-                    _fixed_vectorization_factor,
-                    _support_masking,
-                    _mask_size,
-                    _fast_math_enabled,
-                    vectorlengthfor_type,
-                    aligned_expressions,
-                    linear_symbols,
-                    uniform_symbols,
-                    suitable_expressions,
-                    nontemporal_expressions,
-                    overlap_symbols,
-                    &reductions,
-                    &new_external_vector_symbol_map);
-
-            // Add scopes, default masks, etc.
-            parallel_environment.load_environment(parallel_statements);
-            // Set target type
-            if (!parallel_environment._target_type.is_valid())
-            {
-                VectorizerTargetTypeHeuristic target_type_heuristic;
-                parallel_environment.set_target_type(
-                        target_type_heuristic.get_target_type(parallel_statements));
-            }
-
-            // Register new simd nodes in analysis //TODO?
-
-            // Overlap init
-//            vectorizer_overlap.declare_overlap_symbols(
-//                    parallel_statements.retrieve_context(), parallel_environment);
-//            simd_node.prepend_sibling(vectorizer_overlap.get_init_statements(
-//                        parallel_environment));
-
-            // VECTORIZE PARALLEL STATEMENTS
-                _vectorizer.vectorize_parallel(parallel_statements,
-                        parallel_environment);
-
-            // Add new vector symbols
-            Nodecl::List pre_parallel_nodecls, post_parallel_nodecls;
-
-            if (!new_external_vector_symbol_map.empty())
-            {
-                // REDUCTIONS
-                for(Nodecl::List::iterator it = omp_reduction_list.begin();
-                        it != omp_reduction_list.end();
-                        it++)
-                {
-                    // Prepare reduction information to be used in vectorizer
-                    Nodecl::OpenMP::ReductionItem omp_red_item = (*it).as<Nodecl::OpenMP::ReductionItem>();
-                    TL::OpenMP::Reduction omp_red = *(OpenMP::Reduction::get_reduction_info_from_symbol(
-                                omp_red_item.get_reductor().get_symbol()));
-
-                    // Symbols
-                    std::map<TL::Symbol, TL::Symbol>::iterator new_external_symbol_pair =
-                        new_external_vector_symbol_map.find(omp_red_item.get_reduced_symbol().get_symbol());
-
-                    TL::Symbol scalar_tl_symbol = new_external_symbol_pair->first;
-                    TL::Symbol vector_tl_symbol = new_external_symbol_pair->second;
-
-                    // Reduction info
-                    Nodecl::NodeclBase reduction_initializer = omp_red.get_initializer();
-                    std::string reduction_name = omp_red.get_name();
-                    TL::Type reduction_type = omp_red.get_type();
-
-                    // Vectorize reductions
-                    if(_vectorizer.is_supported_reduction(
-                                omp_red.is_builtin(),
-                                reduction_name,
-                                reduction_type,
-                                parallel_environment))
-                    {
-                        _vectorizer.vectorize_reduction(scalar_tl_symbol,
-                                vector_tl_symbol,
-                                reduction_initializer,
-                                reduction_name,
-                                reduction_type,
-                                parallel_environment,
-                                pre_parallel_nodecls,
-                                post_parallel_nodecls);
-                    }
-                    else
-                    {
-                        fatal_error("SIMD: reduction '%s:%s' (%s) is not supported",
-                                reduction_name.c_str(), scalar_tl_symbol.get_name().c_str(),
-                                reduction_type.get_simple_declaration(
-                                    parallel_statements.retrieve_context(), "").c_str());
-                    }
-                }
-
-                simd_node.prepend_sibling(pre_parallel_nodecls);
-                // Final reduction after the epilog (to reduce also elements from masked epilogs)
-                //single_epilog.append_sibling(post_parallel_nodecls);
-            }
-
-            parallel_environment.unload_environment();
-
-            // Remove SIMD node
-            simd_node.replace(omp_parallel);
-
-            // Free analysis
-            //_vectorizer.finalize_analysis();
         }
 
         void SimdProcessingBase::process_aligned_clause(const Nodecl::List& environment,

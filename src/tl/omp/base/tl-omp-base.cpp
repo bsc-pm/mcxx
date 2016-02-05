@@ -299,7 +299,6 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(for)
         INVALID_DECLARATION_HANDLER(simd_for)
-        INVALID_DECLARATION_HANDLER(simd_parallel)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
         INVALID_DECLARATION_HANDLER(sections)
@@ -2324,41 +2323,6 @@ namespace TL { namespace OpenMP {
     warn_printf_at(stmt.get_locus(), "ignoring #pragma omp parallel simd for\n");
 #endif
     }
-
-    // SIMD Parallel
-    void Base::simd_parallel_handler_pre(TL::PragmaCustomStatement stmt) 
-    {
-        parallel_handler_pre(stmt);
-    }
-
-    void Base::simd_parallel_handler_post(TL::PragmaCustomStatement stmt)
-    {
-#ifndef VECTORIZATION_DISABLED
-        if (_simd_enabled)
-        {
-            // SIMD Clauses
-            PragmaCustomLine pragma_line = stmt.get_pragma_line();
-            Nodecl::List environment;
-
-            process_common_simd_clauses(pragma_line, stmt, environment);
-
-            parallel_handler_post(stmt);
-
-            Nodecl::OpenMP::SimdParallel omp_simd_parallel_node =
-               Nodecl::OpenMP::SimdParallel::make(
-                       stmt.shallow_copy(), // it's been replaced by an                        
-                       environment,         // OpenMP::Parallel in parallel_handler_post
-                       stmt.get_locus());
-
-            // Removing #pragma
-            pragma_line.diagnostic_unused_clauses();
-            stmt.replace(omp_simd_parallel_node);
-        }
-#else
-    warn_printf_at(stmt.get_locus(), "ignoring #pragma omp simd parallel\n");
-#endif
-    }
-
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
     void Base::sections_handler_post(TL::PragmaCustomStatement directive)

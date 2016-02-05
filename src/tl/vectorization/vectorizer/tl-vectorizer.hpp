@@ -94,8 +94,6 @@ namespace TL
                 void vectorize_function(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
-                void vectorize_parallel(Nodecl::NodeclBase& statements,
-                        VectorizerEnvironment& environment);
                 void opt_overlapped_accesses(Nodecl::NodeclBase& statements,
                         VectorizerEnvironment& environment,
                         const bool is_simd_for,

@@ -32,7 +32,6 @@
 #include "tl-vectorizer-visitor-postprocessor.hpp"
 #include "tl-vectorizer-visitor-loop.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
-#include "tl-spml-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
 #include "tl-vectorization-utils.hpp"
@@ -238,28 +237,6 @@ namespace Vectorization
 
         // Applying strenth reduction
         TL::Optimizations::canonicalize_and_fold(func_code, _fast_math_enabled);
-
-        VECTORIZATION_DEBUG()
-        {
-            fprintf(stderr, "\n");
-        }
-    }
-
-    void Vectorizer::vectorize_parallel(Nodecl::NodeclBase& statements,
-            VectorizerEnvironment& environment)
-    {
-        VECTORIZATION_DEBUG()
-        {
-            fprintf(stderr, "VECTORIZER: ----- Vectorizing Parallel -----\n");
-            if (environment._target_type.is_valid())
-            {
-                fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
-            }
-            fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
-        }
-
-        SPMLVectorizerVisitorStatement spml_visitor_stmt(environment);
-        spml_visitor_stmt.walk(statements);
 
         VECTORIZATION_DEBUG()
         {
