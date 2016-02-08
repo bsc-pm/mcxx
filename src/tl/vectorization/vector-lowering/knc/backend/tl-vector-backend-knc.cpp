@@ -2261,7 +2261,6 @@ namespace Vectorization
             if(_vectorizer.is_svml_function(scalar_sym,
                         "knc",
                         vector_type.is_void() ? 1 : vector_type.get_size(),
-                        scalar_type,
                         /*masked*/ !mask.is_null()))
             {
                 process_mask_component(mask, mask_prefix, mask_args, scalar_type,

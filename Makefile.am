@@ -1648,6 +1648,8 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-analysis-internals.cpp \
                            src/tl/vectorization/common/tl-vectorization-three-addresses.hpp \
                            src/tl/vectorization/common/tl-vectorization-three-addresses.cpp \
+                           src/tl/vectorization/common/tl-vector-isa-description.hpp \
+                           src/tl/vectorization/common/tl-vector-isa-description.cpp \
                            $(END)
 endif
 

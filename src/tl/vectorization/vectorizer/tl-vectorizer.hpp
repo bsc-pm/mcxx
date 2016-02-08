@@ -139,13 +139,12 @@ namespace TL
                         const std::string& vtype_str);
                 void add_vector_function_version(TL::Symbol symbol,
                         const Nodecl::NodeclBase& func_version, const std::string& device,
-                        const unsigned int vector_length, const TL::Type& target_type,
+                        const unsigned int vector_length,
                         const bool masked, const FunctionPriority priority,
                         bool const is_svml_function);
                 bool is_svml_function(TL::Symbol symbol,
                         const std::string& device,
                         const unsigned int vector_length,
-                        const TL::Type& target_type,
                         const bool masked) const;
 
                 void enable_svml_sse();

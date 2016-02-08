@@ -64,7 +64,7 @@ namespace Vectorization
         else if (tl_sym_type.is_scalar_type())
         {
             vector_type = Utils::get_qualified_vector_to(tl_sym_type,
-                    _environment._vectorization_factor);
+                    _environment._vec_factor);
 
             VECTORIZATION_DEBUG()
             {
@@ -116,13 +116,13 @@ namespace Vectorization
                 if (tl_sym_type.is_bool())
                 {
                     vector_type = TL::Type::get_mask_type(
-                            _environment._vectorization_factor);
+                            _environment._vec_factor);
                 }
                 else if (tl_sym_type.is_integral_type()
                         || tl_sym_type.is_floating_type())
                 {
                     vector_type = Utils::get_qualified_vector_to(
-                            tl_sym_type, _environment._vectorization_factor);
+                            tl_sym_type, _environment._vec_factor);
                 }
                 else if (tl_sym_type.is_class()
                         && Utils::class_type_can_be_vectorized(tl_sym_type))
@@ -130,7 +130,7 @@ namespace Vectorization
                     bool is_new = false;
                     vector_type = Utils::get_class_of_vector_fields(
                             tl_sym_type,
-                            _environment._vectorization_factor,
+                            _environment._vec_factor,
                             is_new);
                     if (is_new
                             && IS_CXX_LANGUAGE)
@@ -397,9 +397,8 @@ namespace Vectorization
                 {
                     best_version_node = Vectorizer::_function_versioning.get_best_version(
                             n.get_called().get_symbol(),
-                            _environment._device,
-                            _environment._vectorization_factor * function_target_type_size,
-                            function_target_type,
+                            _environment._vector_isa_desc.get_id(),
+                            _environment._vec_factor * function_target_type_size,
                             /* mask */ false);
                 }
 
