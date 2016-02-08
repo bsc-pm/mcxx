@@ -34,10 +34,11 @@
 #include <string>
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
-#include "tl-symbol-fwd.hpp"
 #include "tl-scope-fwd.hpp"
 #include "tl-type-fwd.hpp"
 #include "tl-nodecl-fwd.hpp"
+
+#include "tl-symbol.hpp"
 
 #include "cxx-scope.h"
 
