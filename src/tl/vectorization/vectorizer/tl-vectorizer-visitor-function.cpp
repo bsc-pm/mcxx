@@ -78,13 +78,13 @@ namespace TL
                     if (tl_sym_type.is_bool())
                     {
                         vector_type = TL::Type::get_mask_type(
-                                _environment._vectorization_factor);
+                                _environment._vec_factor);
                     }
                     else if (tl_sym_type.is_integral_type()
                             || tl_sym_type.is_floating_type())
                     {
                         vector_type = Utils::get_qualified_vector_to(
-                                tl_sym_type, _environment._vectorization_factor);
+                                tl_sym_type, _environment._vec_factor);
                     }
                     else if (tl_sym_type.is_class()
                             && Utils::class_type_can_be_vectorized(tl_sym_type))
@@ -92,7 +92,7 @@ namespace TL
                         bool is_new = false;
                         vector_type = Utils::get_class_of_vector_fields(
                                 tl_sym_type,
-                                _environment._vectorization_factor,
+                                _environment._vec_factor,
                                 is_new);
                         if (is_new
                                 && IS_CXX_LANGUAGE)
@@ -155,7 +155,7 @@ namespace TL
                 TL::Symbol mask_sym = scope.new_symbol("__mask_param");
                 mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 symbol_entity_specs_set_is_user_declared(mask_sym.get_internal_symbol(), 1);
-                mask_sym.set_type(TL::Type::get_mask_type(_environment._vectorization_factor));
+                mask_sym.set_type(TL::Type::get_mask_type(_environment._vec_factor));
 
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(),
                         vect_func_sym.get_internal_symbol(),
@@ -185,7 +185,7 @@ namespace TL
             }
 
             vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
-                        _environment._vectorization_factor).get_function_returning(
+                        _environment._vec_factor).get_function_returning(
                             parameters_vector_type));
         }
 

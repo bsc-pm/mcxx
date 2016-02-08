@@ -52,9 +52,8 @@ namespace TL
         typedef std::list<Nodecl::NodeclBase> stdlist_nodecl_t;
         typedef std::list<TL::Scope> stdlist_scope_t;
 
-        enum SIMDInstructionSet {
+        enum VectorInstructionSet {
             SSE4_2_ISA, // default
-            AVX_ISA,
             AVX2_ISA,
             KNC_ISA,
             KNL_ISA,

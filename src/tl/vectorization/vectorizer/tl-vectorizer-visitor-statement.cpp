@@ -109,7 +109,7 @@ namespace Vectorization
 
         Nodecl::NodeclBase mask_condition_symbol = 
             Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
-                    _environment._vectorization_factor,
+                    _environment._vec_factor,
                     true /*ref_type*/);
 
         if (init_next_need_vectorization || condition_needs_vectorization)
@@ -359,7 +359,7 @@ namespace Vectorization
             // Condition mask
             Nodecl::NodeclBase mask_condition_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
-                        _environment._vectorization_factor,
+                        _environment._vec_factor,
                         true /*ref_type*/);
 
             Nodecl::ExpressionStatement mask_condition_exp =
@@ -382,7 +382,7 @@ namespace Vectorization
             // If mask symbol
             Nodecl::NodeclBase if_mask_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
-                        _environment._vectorization_factor,
+                        _environment._vec_factor,
                         true /*ref_type*/);
 
             // Mask value
@@ -435,7 +435,7 @@ namespace Vectorization
             // New symbol mask
             Nodecl::NodeclBase else_mask_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
-                        _environment._vectorization_factor,
+                        _environment._vec_factor,
                         true);
 
             // Mask value
@@ -587,7 +587,8 @@ namespace Vectorization
                 //_environment._mask_list.pop_back();
 
                 Nodecl::NodeclBase new_exit_mask = Utils::get_new_mask_symbol(
-                    _environment._analysis_simd_scope, _environment._mask_size,
+                    _environment._analysis_simd_scope,
+                    _environment._vector_isa_desc.get_mask_max_elements(),
                     /* ref_type */ true);
 
                 Nodecl::ExpressionStatement new_mask_exp = 

@@ -186,13 +186,13 @@ namespace TL {
 
             if (_simd_enabled)
             {
-                TL::Vectorization::SIMDInstructionSet simd_isa;
+                TL::Vectorization::VectorInstructionSet simd_isa;
 
                 struct isa_flag_t
                 {
                     bool flag;
                     const char* name;
-                    Vectorization::SIMDInstructionSet isa;
+                    Vectorization::VectorInstructionSet isa;
                 } isa_flag[] =
                 {
                     { _avx2_enabled, "AVX2", AVX2_ISA, },

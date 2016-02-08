@@ -629,6 +629,7 @@ omp-execution-control : NODECL_OPEN_M_P*IF([condition]expression)
 omp-critical-info: NODECL_OPEN_M_P*CRITICAL_NAME() text
 
 omp-simd-info: NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression)
+             | NODECL_OPEN_M_P*VECTOR_LENGTH([vector_length] expression) 
              | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
              | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
              | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)

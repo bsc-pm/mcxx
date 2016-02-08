@@ -148,11 +148,7 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: ----- Vectorizing main ForStatement -----\n");
-                if (environment._target_type.is_valid())
-                {
-                    fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
-                }
-                fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
+                fprintf(stderr, "Vectorization factor: %d\n", environment._vec_factor);
             }
 
             VectorizerVisitorLoop visitor_for(environment);
@@ -166,11 +162,7 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: ----- Vectorizing main WhileStatement -----\n");
-                if (environment._target_type.is_valid())
-                {
-                    fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
-                }
-                fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
+                fprintf(stderr, "Vectorization factor: %d\n", environment._vec_factor);
             }
 
             VectorizerVisitorLoop visitor_for(environment);
@@ -198,11 +190,7 @@ namespace Vectorization
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing function '%s' HEADER -----\n",
                     function_code.get_symbol().get_name().c_str());
-            if (environment._target_type.is_valid())
-            {
-                fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
-            }
-            fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
+            fprintf(stderr, "Vectorization factor: %d\n", environment._vec_factor);
         }
 
         VectorizerVisitorFunctionHeader visitor_function_header(environment,
@@ -225,11 +213,7 @@ namespace Vectorization
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing function '%s' CODE -----\n",
                     func_code.get_symbol().get_name().c_str());
-            if (environment._target_type.is_valid())
-            {
-                fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
-            }
-            fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
+            fprintf(stderr, "Vectorization factor: %d\n", environment._vec_factor);
         }
 
         VectorizerVisitorFunction visitor_function(environment, masked_version);
@@ -296,11 +280,7 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing epilog -----\n");
-            if (environment._target_type.is_valid())
-            {
-                fprintf(stderr, "Target type size: %d bytes.\n", environment._target_type.get_size());
-            }
-            fprintf(stderr, "Vectorization factor: %d\n", environment._vectorization_factor);
+            fprintf(stderr, "Vectorization factor: %d\n", environment._vec_factor);
         }
 
         VectorizerVisitorLoopEpilog visitor_epilog(environment,
@@ -328,7 +308,7 @@ namespace Vectorization
             bool is_parallel_loop)
     {
         // Clean up vector epilog
-        if (environment._support_masking
+        if (environment._vector_isa_desc.support_masking()
                 || epilog_iterations == 1)
         {
             VECTORIZATION_DEBUG()
@@ -391,36 +371,34 @@ namespace Vectorization
     void Vectorizer::add_vector_function_version(TL::Symbol func_name,
             const Nodecl::NodeclBase& func_version,
             const std::string& device, const unsigned int vector_length,
-            const TL::Type& target_type, const bool masked, const FunctionPriority priority,
+            const bool masked, const FunctionPriority priority,
             const bool is_svml)
     {
         VECTORIZATION_DEBUG()
         {
             scope_entry_t* sym = func_name.get_internal_symbol();
             fprintf(stderr, "VECTORIZER: Adding %p '%s' function version "\
-                    "(device=%s, vector_length=%u, target_type=%s, masked=%d,"\
+                    "(device=%s, vector_length=%u, masked=%d,"\
                     " SVML=%d priority=%d)\n",
                     sym,
                     print_decl_type_str(sym->type_information, sym->decl_context,
                         get_qualified_symbol_name(sym, sym->decl_context)),
                     device.c_str(), vector_length,
-                    target_type.get_simple_declaration(TL::Scope::get_global_scope(), "").c_str(),
                     masked, is_svml, priority);
         }
 
         _function_versioning.add_version(func_name,
-                VectorFunctionVersion(func_version, device, vector_length, target_type,
+                VectorFunctionVersion(func_version, device, vector_length,
                     masked, priority, is_svml));
     }
 
     bool Vectorizer::is_svml_function(TL::Symbol func_name,
             const std::string& device,
             const unsigned int vector_length,
-            const TL::Type& target_type,
             const bool masked) const
     {
         return _function_versioning.is_svml_function(func_name,
-                device, vector_length, target_type, masked);
+                device, vector_length, masked);
     }
 
     void Vectorizer::register_svml_functions(const register_functions_info* functions,
@@ -460,7 +438,7 @@ namespace Vectorization
             add_vector_function_version(
                     scope.get_symbol_from_name(functions[i].scalar_function),
                     vector_function.make_nodecl(true),
-                    device, vec_factor, functions[i].return_type, functions[i].masked, DEFAULT_FUNC_PRIORITY, true);
+                    device, vec_factor, functions[i].masked, DEFAULT_FUNC_PRIORITY, true);
 
             CXX_LANGUAGE()
             {

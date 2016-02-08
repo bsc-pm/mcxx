@@ -215,7 +215,7 @@ namespace Vectorization
                     <Nodecl::Mul>(
                             step.shallow_copy(),
                             const_value_to_nodecl(const_value_get_signed_int(
-                                _environment._vectorization_factor)),
+                                _environment._vec_factor)),
                             TL::Type::get_int_type(),
                             const_value_mul);
             }
@@ -261,7 +261,7 @@ namespace Vectorization
                 new_step = Vectorization::Utils::make_scalar_binary_node<Nodecl::Mul>(
                         step.shallow_copy(),
                         const_value_to_nodecl(
-                            const_value_get_signed_int(_environment._vectorization_factor)),
+                            const_value_get_signed_int(_environment._vec_factor)),
                         step.get_type(),
                         const_value_mul);
             }
@@ -354,7 +354,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& loop_statement,
             Nodecl::NodeclBase& net_epilog_node)
     {
-        if(_environment._support_masking) // Vector epilog
+        if (_environment._vector_isa_desc.support_masking()) // Vector epilog
         {
             Nodecl::NodeclBase loop_cond_copy;
 
@@ -439,7 +439,7 @@ namespace Vectorization
 
         Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
                 _environment._analysis_simd_scope,
-                _environment._vectorization_factor, true);
+                _environment._vec_factor, true);
 
 
         Nodecl::List result_stmt_list;
@@ -474,7 +474,7 @@ namespace Vectorization
             if (_epilog_iterations > 0 || _only_epilog) // Constant value
             {
                 mask_value = Vectorization::Utils::get_contiguous_mask_literal(
-                        _environment._vectorization_factor,
+                        _environment._vec_factor,
                         _epilog_iterations);
             }
             else // Unknown number of iterations
@@ -486,8 +486,8 @@ namespace Vectorization
                 // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
                 Nodecl::MaskLiteral all_one_mask =
                     Vectorization::Utils::get_contiguous_mask_literal(
-                            _environment._vectorization_factor,
-                            _environment._vectorization_factor);
+                            _environment._vec_factor,
+                            _environment._vec_factor);
                 _environment._mask_list.push_back(all_one_mask);
 
                 // Vectorising mask
@@ -597,7 +597,7 @@ namespace Vectorization
 
         Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
                 _environment._analysis_simd_scope,
-                _environment._vectorization_factor, true);
+                _environment._vec_factor, true);
 
 
         Nodecl::List result_stmt_list;
@@ -632,7 +632,7 @@ namespace Vectorization
             if (_epilog_iterations > 0 || _only_epilog) // Constant value
             {
                 mask_value = Vectorization::Utils::get_contiguous_mask_literal(
-                        _environment._vectorization_factor,
+                        _environment._vec_factor,
                         _epilog_iterations);
             }
             else // Unknown number of iterations
@@ -644,8 +644,8 @@ namespace Vectorization
                 // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
                 Nodecl::MaskLiteral all_one_mask =
                     Vectorization::Utils::get_contiguous_mask_literal(
-                            _environment._vectorization_factor,
-                            _environment._vectorization_factor);
+                            _environment._vec_factor,
+                            _environment._vec_factor);
                 _environment._mask_list.push_back(all_one_mask);
 
                 // Vectorising mask
@@ -799,7 +799,7 @@ namespace Vectorization
                         iv_type,
                         const_value_sub),
                     const_value_to_nodecl(
-                        const_value_get_signed_int(_environment._vectorization_factor)),
+                        const_value_get_signed_int(_environment._vec_factor)),
                     iv_type,
                     const_value_mod),
                 iv_type,

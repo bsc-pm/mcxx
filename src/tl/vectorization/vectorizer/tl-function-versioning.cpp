@@ -24,9 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-vectorization-utils.hpp"
-
 #include "tl-function-versioning.hpp"
+#include "tl-vectorization-utils.hpp"
 
 namespace TL
 {
@@ -35,12 +34,11 @@ namespace TL
         VectorFunctionVersion::VectorFunctionVersion(const Nodecl::NodeclBase& func_version,
                 const std::string& device,
                 const unsigned int vector_length,
-                const TL::Type& target_type,
                 const bool masked,
                 const FunctionPriority priority,
                 const bool is_svml) :
             _func_version(func_version), _priority(priority), _device(device),
-            _vector_length(vector_length), _target_type(target_type), _masked(masked),
+            _vector_length(vector_length), _masked(masked),
             _is_svml(is_svml)
         {
         }
@@ -52,17 +50,10 @@ namespace TL
 
         bool VectorFunctionVersion::has_kind(const std::string& device,
                 const unsigned int vector_length,
-                const TL::Type& target_type,
                 const bool masked) const
         {
-            int _target_type_size = _target_type.is_void() ? 1 : _target_type.get_size();
-            int target_type_size = target_type.is_void() ? 1 : target_type.get_size();
-
-            bool compatible_type = (_target_type_size == target_type_size);
-
             return (_device == device) &&
                 (_vector_length == vector_length) &&
-                compatible_type &&
                 (_masked == masked);
         }
 
@@ -96,7 +87,6 @@ namespace TL
                 TL::Symbol func_name,
                 const std::string& device,
                 const unsigned int vector_length,
-                const Type& target_type,
                 const bool masked) const
         {
             std::pair<versions_map_t::const_iterator, versions_map_t::const_iterator> func_range =
@@ -109,7 +99,7 @@ namespace TL
                     it != func_range.second;
                     it++)
             {
-                if (it->second.has_kind(device, vector_length, target_type, masked))
+                if (it->second.has_kind(device, vector_length, masked))
                 {
                     best_version = it;
                     break;
@@ -119,7 +109,7 @@ namespace TL
             for (;it != func_range.second;
                     it++)
             {
-                if (it->second.has_kind(device, vector_length, target_type, masked) &&
+                if (it->second.has_kind(device, vector_length, masked) &&
                         it->second.is_better_than(best_version->second))
                 {
                     best_version = it;
@@ -132,20 +122,21 @@ namespace TL
         const VectorFunctionVersion* FunctionVersioning::get_best_function_version(TL::Symbol func_name,
                 const std::string& device,
                 const unsigned int vector_length,
-                const Type& target_type,
                 const bool masked) const
         {
             versions_map_t::const_iterator best_version = 
                 find_best_function(func_name, device, 
-                    vector_length, target_type, masked);
+                    vector_length, masked);
 
             if (best_version == _versions.end())
             {
-                fprintf(stderr, "Warning: There is no vector version of function %p '%s' for '%s', '%s', '%d', 'mask=%d'\n",
+                fprintf(stderr,
+                        "Warning: There is no vector version of function %p "
+                        "'%s' for '%s', 'mask=%d'\n",
                         func_name.get_internal_symbol(),
-                        func_name.get_qualified_name().c_str(), device.c_str(),
-                        target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
-                        vector_length, masked);
+                        func_name.get_qualified_name().c_str(),
+                        device.c_str(),
+                        masked);
 
                 // TODO
                 // Generate Naive Function.
@@ -158,11 +149,14 @@ namespace TL
             {
                 VECTORIZATION_DEBUG()
                 {
-                    fprintf(stderr, "Found vector version of function %p '%s' for '%s', '%s', '%d', 'mask=%d'\n",
+                    fprintf(stderr,
+                            "Found vector version of function %p '%s' for "
+                            "'%s', %d, 'mask=%d'\n",
                             func_name.get_internal_symbol(),
-                            func_name.get_qualified_name().c_str(), device.c_str(),
-                            target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
-                            vector_length, masked);
+                            func_name.get_qualified_name().c_str(),
+                            device.c_str(),
+                            vector_length,
+                            masked);
                 }
             }
 
@@ -171,7 +165,6 @@ namespace TL
                 return NULL;
                 //fatal_error("Error: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'",
                 //    func_name.c_str(), device.c_str(),
-                //    target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
                 //    vector_length, masked);
             }
 
@@ -181,12 +174,11 @@ namespace TL
         const Nodecl::NodeclBase FunctionVersioning::get_best_version(TL::Symbol func_name,
                 const std::string& device,
                 const unsigned int vector_length,
-                const Type& target_type,
                 const bool masked) const
         {
             const VectorFunctionVersion* best_func = get_best_function_version(func_name,
                     device, vector_length,
-                    target_type, masked);
+                    masked);
 
             if (best_func == NULL)
                 return Nodecl::NodeclBase::null();
@@ -197,12 +189,11 @@ namespace TL
         bool FunctionVersioning::is_svml_function(TL::Symbol func_name,
                 const std::string& device,
                 const unsigned int vector_length,
-                const Type& target_type,
                 const bool masked) const
         {
             versions_map_t::const_iterator best_version = 
                 find_best_function(func_name, device, 
-                    vector_length, target_type, masked);
+                    vector_length, masked);
 
             if (best_version == _versions.end())
                 return false;

@@ -211,7 +211,7 @@ namespace Vectorization
                             Nodecl::Mul::make(
                                 Vectorizer::_vectorizer_analysis->get_linear_step(_loop, lv).shallow_copy(),
                                 const_value_to_nodecl(const_value_get_signed_int(
-                                        _environment._vectorization_factor)),
+                                        _environment._vec_factor)),
                                 lv.get_type()),
                             const_value_to_nodecl(const_value_get_signed_int(distance)),
                             lv.get_type()),

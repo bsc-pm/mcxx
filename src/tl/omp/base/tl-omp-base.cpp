@@ -1811,6 +1811,21 @@ namespace TL { namespace OpenMP {
                         pragma_line.get_locus()));
         }
 
+        // VectorLength
+        PragmaCustomClause vectorlength_clause = pragma_line.get_clause("vectorlength");
+
+        if (vectorlength_clause.is_defined())
+        {
+            environment.append(Nodecl::OpenMP::VectorLength::make(
+                Nodecl::IntegerLiteral::make(
+                    TL::Type::get_int_type(),
+                    vectorlength_clause.get_arguments_as_expressions()
+                        .front()
+                        .get_constant(),
+                    pragma_line.get_locus()),
+                pragma_line.get_locus()));
+        }
+
         // VectorLengthFor
         PragmaCustomClause vectorlengthfor_clause = pragma_line.get_clause("vectorlengthfor");
 
