@@ -9,7 +9,7 @@
 
 namespace TL { namespace Vectorization {
 
-#define DEBUG_RA 1
+//#define DEBUG_RA 1
 
     void RomolVectorRegAlloc::visit(const Nodecl::TopLevel& node)
     {
