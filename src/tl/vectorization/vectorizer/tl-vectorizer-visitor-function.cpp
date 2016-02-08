@@ -248,13 +248,14 @@ namespace TL
                     .get_in_context().as<Nodecl::List>()
                     .front().as<Nodecl::CompoundStatement>().get_statements()
                     .as<Nodecl::List>().append(return_stmt);
+
+                // Uninitialize function_return symbol
+                _environment._function_return = TL::Symbol();
             }
 
             // Remove mask of masked version
             if(_masked_version)
                 _environment._mask_list.pop_back();
-
-            _environment._function_return = TL::Symbol();
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n)
