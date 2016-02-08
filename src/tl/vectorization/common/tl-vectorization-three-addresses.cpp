@@ -230,16 +230,12 @@ namespace Vectorization
 
     void VectorizationThreeAddresses::visit(const Nodecl::Comma &n)
     {
-        std::cerr << "COMMA: " << n.prettyprint() << std::endl;
-
         if (TL::Vectorization::Utils::contains_vector_nodes(n.get_lhs()))
         {
-            std::cerr << "LHS does" << std::endl;
             visit_expression(n.get_lhs());
         }
         if (TL::Vectorization::Utils::contains_vector_nodes(n.get_rhs()))
         {
-            std::cerr << "RHS does" << std::endl;
             visit_expression(n.get_rhs());
         }
     }
