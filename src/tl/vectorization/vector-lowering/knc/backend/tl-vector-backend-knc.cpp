@@ -2254,8 +2254,6 @@ namespace Vectorization
             intrin_name << function_call.get_called().
                 as<Nodecl::Symbol>().get_symbol().get_name();
 
-            TL::Symbol scalar_sym =
-                n.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
             TL::Symbol vector_sym =
                 function_call.get_called().as<Nodecl::Symbol>().get_symbol();
 

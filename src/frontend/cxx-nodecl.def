@@ -223,7 +223,7 @@ expression : literal
            | NODECL_VECTOR_LANE_ID() type const-value
            | NODECL_VECTOR_CONVERSION([nest] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_CAST([rhs]expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression, [scalar_symbol] name, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_FABS([argument] argument, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_SINCOS([source] argument, [sin_pointer] argument, [cos_pointer] argument, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt

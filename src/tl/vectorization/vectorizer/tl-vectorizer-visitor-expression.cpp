@@ -1876,21 +1876,20 @@ namespace Vectorization
                     }
                 }
 
-                const Nodecl::VectorFunctionCall vector_function_call =
-                    Nodecl::VectorFunctionCall::make(
-                            Nodecl::FunctionCall::make(
-                                new_called,
-                                arguments,
-                                n.get_alternate_name().shallow_copy(),
-                                n.get_function_form().shallow_copy(),
-                                Utils::get_qualified_vector_to(call_type,
-                                    _environment._vec_factor),
-                                n.get_locus()),
-                            called_sym.shallow_copy(),
-                            mask,
-                            Utils::get_qualified_vector_to(call_type,
-                                _environment._vec_factor),
-                            n.get_locus());
+                const Nodecl::VectorFunctionCall vector_function_call
+                    = Nodecl::VectorFunctionCall::make(
+                        Nodecl::FunctionCall::make(
+                            new_called,
+                            arguments,
+                            n.get_alternate_name().shallow_copy(),
+                            n.get_function_form().shallow_copy(),
+                            Utils::get_qualified_vector_to(
+                                call_type, _environment._vec_factor),
+                            n.get_locus()),
+                        mask,
+                        Utils::get_qualified_vector_to(
+                            call_type, _environment._vec_factor),
+                        n.get_locus());
 
                 n.replace(vector_function_call);
             }
