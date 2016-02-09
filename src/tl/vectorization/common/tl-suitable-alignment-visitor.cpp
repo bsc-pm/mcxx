@@ -40,10 +40,10 @@ namespace Vectorization
     SuitableAlignmentVisitor::SuitableAlignmentVisitor(
             const Nodecl::NodeclBase& scope,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int type_size, int alignment,
+            int vec_factor, int type_size, int alignment,
             VectorizationAnalysisInterface* analysis)
         : _scope( scope ), _suitable_expressions(suitable_expressions),
-        _unroll_factor( unroll_factor ),
+        _vec_factor( vec_factor ),
         _type_size( type_size ), _alignment( alignment ),
         _analysis(analysis)
     {
@@ -567,7 +567,7 @@ namespace Vectorization
             int incr_mod = walk(incr);
 
             if (lb_mod != -1 && incr_mod != -1)
-                return lb_mod + incr_mod * _unroll_factor;
+                return lb_mod + incr_mod * _vec_factor;
         }
         else // Try to get information of the evolution of 'n'
         {
@@ -594,8 +594,8 @@ namespace Vectorization
                         int incr_mod = walk(incr);
 
                         if (lb_mod != -1 && incr_mod != -1 &&
-                                ((lb_mod % _unroll_factor) == 0) &&
-                                ((incr_mod % _unroll_factor) == 0))
+                                ((lb_mod % _vec_factor) == 0) &&
+                                ((incr_mod % _vec_factor) == 0))
                         {
                             return lb_mod + incr_mod;
                         }
