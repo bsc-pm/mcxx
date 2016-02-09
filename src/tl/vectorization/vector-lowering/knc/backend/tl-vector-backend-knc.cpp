@@ -2261,38 +2261,39 @@ namespace Vectorization
             auto find_iter = std::find(vec_math_library_funcs.begin(),
                                        vec_math_library_funcs.end(),
                                        vector_sym);
+
+            // THIS SEEMS NOT NECESSARY
+
             // TODO: If svml is enabled
-            if(find_iter != vec_math_library_funcs.end())
-            {
-                fatal_error("This branch seems not to be executed");
+            //if(find_iter != vec_math_library_funcs.end())
+            //{
+            //    process_mask_component(mask, mask_prefix, mask_args, scalar_type,
+            //            KNCConfigMaskProcessing::NO_FINAL_COMMA);
 
-                process_mask_component(mask, mask_prefix, mask_args, scalar_type,
-                        KNCConfigMaskProcessing::NO_FINAL_COMMA);
+            //    walk(arguments);
 
-                walk(arguments);
+            //    args << mask_args;
+            //    int num = 0;
+            //    Nodecl::List::const_iterator it = arguments.begin();
+            //    for (;
+            //            it != arguments.end();
+            //            it++, num++)
+            //    {
+            //        // Skip the first two when there is mask
+            //        if (!mask.is_null()
+            //                && (num < 2))
+            //            continue;
 
-                args << mask_args;
-                int num = 0;
-                Nodecl::List::const_iterator it = arguments.begin();
-                for (;
-                        it != arguments.end();
-                        it++, num++)
-                {
-                    // Skip the first two when there is mask
-                    if (!mask.is_null()
-                            && (num < 2))
-                        continue;
+            //        args.append_with_separator(as_expression(*it), ", ");
+            //    }
 
-                    args.append_with_separator(as_expression(*it), ", ");
-                }
+            //    Nodecl::NodeclBase intrin_function_call =
+            //        intrin_src.parse_expression(n.retrieve_context());
 
-                Nodecl::NodeclBase intrin_function_call =
-                    intrin_src.parse_expression(n.retrieve_context());
-
-                n.replace(intrin_function_call);
-            }
-            else // DISABLED: Conditional Expression to avoid infinite recursion
-            {
+            //    n.replace(intrin_function_call);
+            //}
+            //else // DISABLED: Conditional Expression to avoid infinite recursion
+            //{
                 TL::Source conditional_exp, mask_casting;
 
                 process_mask_component(mask, mask_prefix, mask_args, scalar_type,
@@ -2329,7 +2330,7 @@ namespace Vectorization
                     conditional_exp.parse_expression(n.retrieve_context());
 
                 n.replace(conditional_exp_node);
-            }
+            //}
         }
     }
 

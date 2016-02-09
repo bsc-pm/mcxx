@@ -1641,11 +1641,14 @@ namespace Vectorization
             _environment._vec_factor,
             !mask.is_null());
 
-        bool is_svml = vec_func_versioning.is_svml_function(
-            func_name,
-            _environment._vector_isa_desc.get_id(),
-            _environment._vec_factor,
-            !mask.is_null());
+        bool is_svml = false;
+        if (!best_version.is_null())
+        {
+            is_svml = std::find(vec_math_library_funcs.begin(),
+                                vec_math_library_funcs.end(),
+                                best_version.get_symbol())
+                      != vec_math_library_funcs.end();
+        }
 
         bool vectorize_all_arguments = false;
         if (!best_version.is_null())

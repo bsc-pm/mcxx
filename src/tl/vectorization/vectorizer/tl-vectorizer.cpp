@@ -400,14 +400,18 @@ namespace Vectorization
         for (int i = 0; functions[i].scalar_function != NULL; i++)
         {
             TL::Symbol vector_function = scope.get_symbol_from_name(functions[i].vector_function);
+
+            // Add vector version to function versioning
             vec_func_versioning.add_version(
                 scope.get_symbol_from_name(functions[i].scalar_function),
                 vector_function.make_nodecl(true),
                 device,
                 vec_factor,
                 functions[i].masked,
-                DEFAULT_FUNC_PRIORITY,
-                true);
+                DEFAULT_FUNC_PRIORITY);
+
+            // Register vector version as vector math library function
+            vec_math_library_funcs.push_back(vector_function);
 
             CXX_LANGUAGE()
             {

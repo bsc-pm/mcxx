@@ -34,15 +34,17 @@ namespace TL
         FunctionVersioning vec_func_versioning;
         std::list<TL::Symbol> vec_math_library_funcs;
 
-        VectorFunctionVersion::VectorFunctionVersion(const Nodecl::NodeclBase& func_version,
-                const std::string& device,
-                const unsigned int vec_factor,
-                const bool masked,
-                const FunctionPriority priority,
-                const bool is_svml) :
-            _func_version(func_version), _priority(priority), _device(device),
-            _vec_factor(vec_factor), _masked(masked),
-            _is_svml(is_svml)
+        VectorFunctionVersion::VectorFunctionVersion(
+            const Nodecl::NodeclBase &func_version,
+            const std::string &device,
+            const unsigned int vec_factor,
+            const bool masked,
+            const FunctionPriority priority)
+            : _func_version(func_version),
+              _priority(priority),
+              _device(device),
+              _vec_factor(vec_factor),
+              _masked(masked)
         {
         }
 
@@ -65,11 +67,6 @@ namespace TL
             return _priority < func_version._priority;
         }
 
-        bool VectorFunctionVersion::is_svml_function() const
-        {
-            return _is_svml;
-        }
-
         FunctionVersioning::FunctionVersioning()
         {
         }
@@ -85,8 +82,7 @@ namespace TL
             const std::string &device,
             const unsigned int vec_factor,
             const bool masked,
-            const FunctionPriority priority,
-            const bool is_svml)
+            const FunctionPriority priority)
         {
             VECTORIZATION_DEBUG()
             {
@@ -94,7 +90,7 @@ namespace TL
                 fprintf(stderr,
                         "Function Versioning: Adding %p '%s' function version "
                         "(device=%s, vec_factor=%u, masked=%d,"
-                        " SVML=%d priority=%d)\n",
+                        " priority=%d)\n",
                         sym,
                         print_decl_type_str(
                             sym->type_information,
@@ -103,7 +99,6 @@ namespace TL
                         device.c_str(),
                         vec_factor,
                         masked,
-                        is_svml,
                         priority);
             }
 
@@ -112,8 +107,7 @@ namespace TL
                                                                    device,
                                                                    vec_factor,
                                                                    masked,
-                                                                   priority,
-                                                                   is_svml)));
+                                                                   priority)));
         }
 
         FunctionVersioning::versions_map_t::const_iterator 
@@ -218,22 +212,6 @@ namespace TL
                 return Nodecl::NodeclBase::null();
             else
                 return best_func->get_version();
-        }
-
-        bool FunctionVersioning::is_svml_function(TL::Symbol func_name,
-                const std::string& device,
-                const unsigned int vec_factor,
-                const bool masked) const
-        {
-            versions_map_t::const_iterator best_version = 
-                find_best_function(func_name, device, 
-                    vec_factor, masked);
-
-            if (best_version == _versions.end())
-                return false;
-            else
-                return best_version->second
-                    .is_svml_function();
         }
     };
 }

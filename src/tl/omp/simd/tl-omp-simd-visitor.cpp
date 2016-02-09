@@ -1183,9 +1183,7 @@ void SimdPreregisterVisitor::common_simd_function_preregister(
                                     _vector_isa_desc.get_id(),
                                     function_environment._vec_factor,
                                     masked_version,
-                                    TL::Vectorization::SIMD_FUNC_PRIORITY,
-                                    false);
-
+                                    TL::Vectorization::SIMD_FUNC_PRIORITY);
 
     _vectorizer.vectorize_function_header(vector_func_code,
                                           function_environment,
