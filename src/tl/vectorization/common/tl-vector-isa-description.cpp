@@ -48,7 +48,12 @@ const std::string& VectorIsaDescription::get_id() const
 
 bool VectorIsaDescription::support_masking() const
 {
-    return _masking_supported;
+    if (_masking_supported == SUPPORT_MASKING) return true;
+    else if (_masking_supported == DONT_SUPPORT_MASKING) return false;
+    else
+    {
+       fatal_error("Unexpected value for masking supported"); 
+    }
 }
 
 unsigned int VectorIsaDescription::get_mask_max_elements() const
