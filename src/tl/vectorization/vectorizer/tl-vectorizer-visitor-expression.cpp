@@ -1633,20 +1633,19 @@ namespace Vectorization
 
         // Get list of params;
         TL::Type function_target_type = call_type.no_ref();
-        int function_target_type_size = function_target_type.is_void() ? 1 : function_target_type.get_size();
 
         // Get the best vector version of the function available
         Nodecl::NodeclBase best_version =
             Vectorizer::_function_versioning.get_best_version(
                     func_name,
                     _environment._vector_isa_desc.get_id(),
-                    _environment._vec_factor * function_target_type_size,
+                    _environment._vec_factor,
                     !mask.is_null());
 
         bool is_svml = Vectorizer::_function_versioning.is_svml_function(
             func_name,
             _environment._vector_isa_desc.get_id(),
-            _environment._vec_factor * function_target_type_size,
+            _environment._vec_factor,
             !mask.is_null());
 
         bool vectorize_all_arguments = false;

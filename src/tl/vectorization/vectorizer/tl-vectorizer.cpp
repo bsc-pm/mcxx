@@ -370,7 +370,7 @@ namespace Vectorization
 
     void Vectorizer::add_vector_function_version(TL::Symbol func_name,
             const Nodecl::NodeclBase& func_version,
-            const std::string& device, const unsigned int vector_length,
+            const std::string& device, const unsigned int vec_factor,
             const bool masked, const FunctionPriority priority,
             const bool is_svml)
     {
@@ -378,27 +378,27 @@ namespace Vectorization
         {
             scope_entry_t* sym = func_name.get_internal_symbol();
             fprintf(stderr, "VECTORIZER: Adding %p '%s' function version "\
-                    "(device=%s, vector_length=%u, masked=%d,"\
+                    "(device=%s, vec_factor=%u, masked=%d,"\
                     " SVML=%d priority=%d)\n",
                     sym,
                     print_decl_type_str(sym->type_information, sym->decl_context,
                         get_qualified_symbol_name(sym, sym->decl_context)),
-                    device.c_str(), vector_length,
+                    device.c_str(), vec_factor,
                     masked, is_svml, priority);
         }
 
         _function_versioning.add_version(func_name,
-                VectorFunctionVersion(func_version, device, vector_length,
+                VectorFunctionVersion(func_version, device, vec_factor,
                     masked, priority, is_svml));
     }
 
     bool Vectorizer::is_svml_function(TL::Symbol func_name,
             const std::string& device,
-            const unsigned int vector_length,
+            const unsigned int vec_factor,
             const bool masked) const
     {
         return _function_versioning.is_svml_function(func_name,
-                device, vector_length, masked);
+                device, vec_factor, masked);
     }
 
     void Vectorizer::register_svml_functions(const register_functions_info* functions,
@@ -505,7 +505,7 @@ namespace Vectorization
                 { NULL, NULL, TL::Type::get_void_type(), false }
             };
 
-            register_svml_functions(sse_functions, "smp", 16, global_scope, "__m128");
+            register_svml_functions(sse_functions, "smp", 4, global_scope, "__m128");
         }
     }
 
@@ -562,7 +562,7 @@ namespace Vectorization
                 { NULL, NULL, TL::Type::get_void_type(), false }
             };
 
-            register_svml_functions(avx2_functions, "avx2", 32, global_scope, "__m256");
+            register_svml_functions(avx2_functions, "avx2", 8, global_scope, "__m256");
         }
     }
 
@@ -648,7 +648,7 @@ namespace Vectorization
             { NULL, NULL, TL::Type::get_void_type(), false }
         };
 
-        register_svml_functions(avx512_functions, device, 64, global_scope, "__m512");
+        register_svml_functions(avx512_functions, device, 16, global_scope, "__m512");
     }
 
     void Vectorizer::enable_svml_knc()

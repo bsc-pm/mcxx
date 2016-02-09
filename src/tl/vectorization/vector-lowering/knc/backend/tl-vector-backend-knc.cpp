@@ -2234,6 +2234,30 @@ namespace Vectorization
         TL::Type scalar_type = vector_type.basic_type();
         Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 
+        // TODO: I don't like this way of retrieveing VF but currently there is
+        // no other way
+        int vec_factor = 0;
+        if (vector_type.is_vector())
+            vec_factor = vector_type.vector_num_elements();
+        else
+        {
+            // Looking for a vector argument
+            for (const auto& arg : arguments)
+            {
+                TL::Type arg_type = arg.get_type();
+                if (arg_type.is_vector())
+                {
+                    vec_factor = arg_type.vector_num_elements();
+                    break;
+                }
+            }
+        }
+
+        ERROR_CONDITION(
+            vec_factor == 0,
+            "There is no way of retrieving the vectorization factor",
+            0);
+
         if (mask.is_null()) // UNMASKED FUNCTION CALLS
         {
             walk(arguments);
@@ -2260,7 +2284,7 @@ namespace Vectorization
             // Use scalar symbol to look up
             if(_vectorizer.is_svml_function(scalar_sym,
                         "knc",
-                        vector_type.is_void() ? 1 : vector_type.get_size(),
+                        vec_factor,
                         /*masked*/ !mask.is_null()))
             {
                 process_mask_component(mask, mask_prefix, mask_args, scalar_type,

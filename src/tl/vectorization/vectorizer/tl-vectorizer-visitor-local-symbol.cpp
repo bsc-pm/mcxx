@@ -389,7 +389,6 @@ namespace Vectorization
                 Nodecl::List::iterator it_arg = arguments.begin();
 
                 TL::Type function_target_type = n.get_type().no_ref();
-                int function_target_type_size = function_target_type.is_void() ? 1 : function_target_type.get_size();
 
                 // Get the best vector version of the function available
                 Nodecl::NodeclBase best_version_node;
@@ -398,7 +397,7 @@ namespace Vectorization
                     best_version_node = Vectorizer::_function_versioning.get_best_version(
                             n.get_called().get_symbol(),
                             _environment._vector_isa_desc.get_id(),
-                            _environment._vec_factor * function_target_type_size,
+                            _environment._vec_factor,
                             /* mask */ false);
                 }
 

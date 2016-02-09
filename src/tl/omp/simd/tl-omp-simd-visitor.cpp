@@ -1177,13 +1177,12 @@ void SimdPreregisterVisitor::common_simd_function_preregister(
 
     // Add SIMD version to vector function versioning
     TL::Type function_return_type = func_sym.get_type().returns();
-    int function_return_type_size
-        = function_return_type.is_void() ? 1 : function_return_type.get_size();
+    
     _vectorizer.add_vector_function_version(
         func_sym,
         vector_func_code,
         _vector_isa_desc.get_id(),
-        function_environment._vec_factor * function_return_type_size,
+        function_environment._vec_factor,
         masked_version,
         TL::Vectorization::SIMD_FUNC_PRIORITY,
         false);
@@ -1292,16 +1291,13 @@ void SimdVisitor::common_simd_function(
             = _vector_isa_desc.get_vec_factor_from_type(target_type);
 
         TL::Type function_return_type = func_sym.get_type().returns();
-        vector_func_code
-            = Vectorizer::_function_versioning
-                  .get_best_version(func_sym,
-                                    _vector_isa_desc.get_id(),
-                                    _vec_factor
-                                        * (function_return_type.is_void() ?
-                                               1 :
-                                               function_return_type.get_size()),
-                                    masked_version)
-                  .as<Nodecl::FunctionCode>();
+
+        vector_func_code = Vectorizer::_function_versioning
+                               .get_best_version(func_sym,
+                                                 _vector_isa_desc.get_id(),
+                                                 _vec_factor,
+                                                 masked_version)
+                               .as<Nodecl::FunctionCode>();
 
         ERROR_CONDITION(vector_func_code.is_null()
                             || !vector_func_code.is<Nodecl::FunctionCode>(),
