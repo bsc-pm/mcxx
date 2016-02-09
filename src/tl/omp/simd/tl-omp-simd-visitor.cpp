@@ -1177,15 +1177,14 @@ void SimdPreregisterVisitor::common_simd_function_preregister(
 
     // Add SIMD version to vector function versioning
     TL::Type function_return_type = func_sym.get_type().returns();
-    
-    _vectorizer.add_vector_function_version(
-        func_sym,
-        vector_func_code,
-        _vector_isa_desc.get_id(),
-        function_environment._vec_factor,
-        masked_version,
-        TL::Vectorization::SIMD_FUNC_PRIORITY,
-        false);
+
+    vec_func_versioning.add_version(func_sym,
+                                    vector_func_code,
+                                    _vector_isa_desc.get_id(),
+                                    function_environment._vec_factor,
+                                    masked_version,
+                                    TL::Vectorization::SIMD_FUNC_PRIORITY,
+                                    false);
 
 
     _vectorizer.vectorize_function_header(vector_func_code,
@@ -1292,7 +1291,7 @@ void SimdVisitor::common_simd_function(
 
         TL::Type function_return_type = func_sym.get_type().returns();
 
-        vector_func_code = Vectorizer::_function_versioning
+        vector_func_code = vec_func_versioning
                                .get_best_version(func_sym,
                                                  _vector_isa_desc.get_id(),
                                                  _vec_factor,

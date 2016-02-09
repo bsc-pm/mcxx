@@ -31,6 +31,9 @@ namespace TL
 {
     namespace Vectorization
     {
+        FunctionVersioning vec_func_versioning;
+        std::list<TL::Symbol> vec_math_library_funcs;
+
         VectorFunctionVersion::VectorFunctionVersion(const Nodecl::NodeclBase& func_version,
                 const std::string& device,
                 const unsigned int vec_factor,
@@ -76,10 +79,41 @@ namespace TL
             _versions.clear();
         }
 
-        void FunctionVersioning::add_version(TL::Symbol func_name,
-                const VectorFunctionVersion& value)
+        void FunctionVersioning::add_version(
+            TL::Symbol scalar_func_sym,
+            const Nodecl::NodeclBase &func_version,
+            const std::string &device,
+            const unsigned int vec_factor,
+            const bool masked,
+            const FunctionPriority priority,
+            const bool is_svml)
         {
-            _versions.insert(std::make_pair(func_name, value));
+            VECTORIZATION_DEBUG()
+            {
+                scope_entry_t *sym = scalar_func_sym.get_internal_symbol();
+                fprintf(stderr,
+                        "Function Versioning: Adding %p '%s' function version "
+                        "(device=%s, vec_factor=%u, masked=%d,"
+                        " SVML=%d priority=%d)\n",
+                        sym,
+                        print_decl_type_str(
+                            sym->type_information,
+                            sym->decl_context,
+                            get_qualified_symbol_name(sym, sym->decl_context)),
+                        device.c_str(),
+                        vec_factor,
+                        masked,
+                        is_svml,
+                        priority);
+            }
+
+            _versions.insert(std::make_pair(scalar_func_sym,
+                                             VectorFunctionVersion(func_version,
+                                                                   device,
+                                                                   vec_factor,
+                                                                   masked,
+                                                                   priority,
+                                                                   is_svml)));
         }
 
         FunctionVersioning::versions_map_t::const_iterator 

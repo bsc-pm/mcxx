@@ -29,6 +29,7 @@
 
 #include "tl-nodecl-base.hpp"
 #include <map>
+#include <list>
 
 
 namespace TL 
@@ -84,7 +85,13 @@ namespace TL
                 FunctionVersioning();
 
                 void clear();
-                void add_version(TL::Symbol func_name, const VectorFunctionVersion& func_version);
+                void add_version(TL::Symbol scalar_func_sym,
+                                 const Nodecl::NodeclBase &func_version,
+                                 const std::string &device,
+                                 const unsigned int vec_factor,
+                                 const bool masked,
+                                 const FunctionPriority priority,
+                                 const bool is_svml);
                 const Nodecl::NodeclBase get_best_version(TL::Symbol func_name, 
                         const std::string& device,
                         const unsigned int vec_factor,
@@ -95,6 +102,9 @@ namespace TL
                         const unsigned int vec_factor,
                         const bool masked) const;
         };
+
+        extern FunctionVersioning vec_func_versioning;
+        extern std::list<TL::Symbol> vec_math_library_funcs;
     }
 }
 

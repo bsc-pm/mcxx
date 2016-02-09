@@ -1650,6 +1650,8 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-three-addresses.cpp \
                            src/tl/vectorization/common/tl-vector-isa-description.hpp \
                            src/tl/vectorization/common/tl-vector-isa-description.cpp \
+                           src/tl/vectorization/common/tl-function-versioning.hpp \
+                           src/tl/vectorization/common/tl-function-versioning.cpp \
                            $(END)
 endif
 
@@ -1690,8 +1692,6 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.cpp \
-                           src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
-                           src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-common.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-common.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-optimizer.hpp \

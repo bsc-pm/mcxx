@@ -394,11 +394,11 @@ namespace Vectorization
                 Nodecl::NodeclBase best_version_node;
                 if (n.get_called().is<Nodecl::Symbol>())
                 {
-                    best_version_node = Vectorizer::_function_versioning.get_best_version(
-                            n.get_called().get_symbol(),
-                            _environment._vector_isa_desc.get_id(),
-                            _environment._vec_factor,
-                            /* mask */ false);
+                    best_version_node = vec_func_versioning.get_best_version(
+                        n.get_called().get_symbol(),
+                        _environment._vector_isa_desc.get_id(),
+                        _environment._vec_factor,
+                        /* mask */ false);
                 }
 
                 TL::Symbol vector_function;

@@ -33,9 +33,10 @@
 #include "tl-nodecl-base.hpp"
 
 #include "tl-vectorization-analysis-interface.hpp"
-#include "tl-function-versioning.hpp"
 #include "tl-vectorizer-prefetcher.hpp"
 #include "tl-vectorization-common.hpp"
+
+#include "tl-function-versioning.hpp"
 
 
 namespace TL
@@ -57,7 +58,6 @@ namespace TL
             //private:
                 static VectorizationAnalysisInterface* _vectorizer_analysis;
                 static Vectorizer* _vectorizer;
-                static FunctionVersioning _function_versioning;
                 static bool _gathers_scatters_disabled;
                 static bool _unaligned_accesses_disabled;
                 static TL::Symbol _analysis_func;
@@ -137,15 +137,6 @@ namespace TL
                         int vec_factor,
                         const TL::Scope& scope,
                         const std::string& vtype_str);
-                void add_vector_function_version(TL::Symbol symbol,
-                        const Nodecl::NodeclBase& func_version, const std::string& device,
-                        const unsigned int vec_factor,
-                        const bool masked, const FunctionPriority priority,
-                        bool const is_svml_function);
-                bool is_svml_function(TL::Symbol symbol,
-                        const std::string& device,
-                        const unsigned int vec_factor,
-                        const bool masked) const;
 
                 void enable_svml_sse();
                 void enable_svml_avx2();

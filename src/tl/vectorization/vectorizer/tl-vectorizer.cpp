@@ -48,7 +48,6 @@ namespace TL
 namespace Vectorization
 {
     Vectorizer *Vectorizer::_vectorizer = 0;
-    FunctionVersioning Vectorizer::_function_versioning;
     VectorizationAnalysisInterface *Vectorizer::_vectorizer_analysis = 0;
     bool Vectorizer::_gathers_scatters_disabled(false);
     bool Vectorizer::_unaligned_accesses_disabled(false);
@@ -118,7 +117,6 @@ namespace Vectorization
         if (_vectorizer_analysis != NULL)
             finalize_analysis();
         
-        _function_versioning.clear();
         _analysis_func = Symbol();
     }
 
@@ -368,39 +366,6 @@ namespace Vectorization
                 post_nodecls);
     }
 
-    void Vectorizer::add_vector_function_version(TL::Symbol func_name,
-            const Nodecl::NodeclBase& func_version,
-            const std::string& device, const unsigned int vec_factor,
-            const bool masked, const FunctionPriority priority,
-            const bool is_svml)
-    {
-        VECTORIZATION_DEBUG()
-        {
-            scope_entry_t* sym = func_name.get_internal_symbol();
-            fprintf(stderr, "VECTORIZER: Adding %p '%s' function version "\
-                    "(device=%s, vec_factor=%u, masked=%d,"\
-                    " SVML=%d priority=%d)\n",
-                    sym,
-                    print_decl_type_str(sym->type_information, sym->decl_context,
-                        get_qualified_symbol_name(sym, sym->decl_context)),
-                    device.c_str(), vec_factor,
-                    masked, is_svml, priority);
-        }
-
-        _function_versioning.add_version(func_name,
-                VectorFunctionVersion(func_version, device, vec_factor,
-                    masked, priority, is_svml));
-    }
-
-    bool Vectorizer::is_svml_function(TL::Symbol func_name,
-            const std::string& device,
-            const unsigned int vec_factor,
-            const bool masked) const
-    {
-        return _function_versioning.is_svml_function(func_name,
-                device, vec_factor, masked);
-    }
-
     void Vectorizer::register_svml_functions(const register_functions_info* functions,
             std::string device,
             int vec_factor,
@@ -435,10 +400,14 @@ namespace Vectorization
         for (int i = 0; functions[i].scalar_function != NULL; i++)
         {
             TL::Symbol vector_function = scope.get_symbol_from_name(functions[i].vector_function);
-            add_vector_function_version(
-                    scope.get_symbol_from_name(functions[i].scalar_function),
-                    vector_function.make_nodecl(true),
-                    device, vec_factor, functions[i].masked, DEFAULT_FUNC_PRIORITY, true);
+            vec_func_versioning.add_version(
+                scope.get_symbol_from_name(functions[i].scalar_function),
+                vector_function.make_nodecl(true),
+                device,
+                vec_factor,
+                functions[i].masked,
+                DEFAULT_FUNC_PRIORITY,
+                true);
 
             CXX_LANGUAGE()
             {
