@@ -27,7 +27,7 @@
 #ifndef TL_OMP_SIMD_VISITOR_HPP
 #define TL_OMP_SIMD_VISITOR_HPP
 
-#include "tl-vector-isa-description.hpp"
+#include "tl-vector-isa-descriptor.hpp"
 #include "tl-vectorizer.hpp"
 
 
@@ -40,7 +40,7 @@ class SimdProcessingBase
   protected:
     TL::Vectorization::Vectorizer &_vectorizer;
 
-    const TL::Vectorization::VectorIsaDescription& _vector_isa_desc;
+    const TL::Vectorization::VectorIsaDescriptor& _vector_isa_desc;
     bool _fast_math_enabled;
     bool _overlap_in_place;
 

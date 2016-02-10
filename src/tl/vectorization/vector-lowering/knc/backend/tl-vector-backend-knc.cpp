@@ -2258,9 +2258,9 @@ namespace Vectorization
                 function_call.get_called().as<Nodecl::Symbol>().get_symbol();
 
             // Use scalar symbol to look up for math library functions
-            auto find_iter = std::find(vec_math_library_funcs.begin(),
-                                       vec_math_library_funcs.end(),
-                                       vector_sym);
+            //auto find_iter = std::find(vec_math_library_funcs.begin(),
+            //                           vec_math_library_funcs.end(),
+            //                           vector_sym);
 
             // THIS SEEMS NOT NECESSARY
 

@@ -35,7 +35,7 @@ namespace TL
 namespace Vectorization
 {
 VectorizerEnvironment::VectorizerEnvironment(
-    const VectorIsaDescription &vector_isa_desc,
+    const VectorIsaDescriptor &vector_isa_desc,
     const unsigned int vec_factor,
     const bool fast_math,
     const map_nodecl_int_t &aligned_symbols_map,
