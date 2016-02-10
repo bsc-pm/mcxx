@@ -1899,6 +1899,8 @@ src_tl_omp_simd_libtlomp_simd_la_SOURCES = \
    src/tl/omp/simd/tl-omp-simd.cpp \
    src/tl/omp/simd/tl-omp-simd-visitor.hpp \
    src/tl/omp/simd/tl-omp-simd-visitor.cpp \
+   src/tl/omp/simd/tl-omp-simd-clauses-processor.hpp \
+   src/tl/omp/simd/tl-omp-simd-clauses-processor.cpp \
    $(END)
 
 endif

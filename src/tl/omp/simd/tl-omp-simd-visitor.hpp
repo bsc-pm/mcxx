@@ -44,42 +44,6 @@ class SimdProcessingBase
     bool _fast_math_enabled;
     bool _overlap_in_place;
 
-    void process_aligned_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::map_nodecl_int_t &aligned_expressions_map);
-    void process_linear_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::map_tlsym_int_t &linear_symbols_map);
-    void process_uniform_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::objlist_tlsym_t &uniform_symbols);
-    void process_suitable_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::objlist_nodecl_t &suitable_expressions);
-    void process_nontemporal_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::map_tlsym_objlist_t &nontemporal_expressions);
-    int process_unroll_clause(const Nodecl::List &environment);
-    int process_unroll_and_jam_clause(const Nodecl::List &environment);
-
-    void process_vectorlength_clause(const Nodecl::List &environment,
-                                     int &vectorlength);
-    void process_vectorlengthfor_clause(const Nodecl::List &environment,
-                                        TL::Type &vectorlengthfor_type);
-
-    void process_overlap_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::map_tlsym_objlist_int_t &overlap_expressions);
-    void process_prefetch_clause(const Nodecl::List &environment,
-                                 Vectorization::prefetch_info_t &prefetch_info);
-
-    Nodecl::List process_reduction_clause(
-        const Nodecl::List &environment,
-        TL::ObjectList<TL::Symbol> &reductions,
-        std::map<TL::Symbol, TL::Symbol> &new_external_vector_symbol_map,
-        TL::Scope enclosing_scope,
-        unsigned int vec_factor);
-
     SimdProcessingBase(Vectorization::VectorInstructionSet simd_isa,
                        bool fast_math_enabled,
                        bool svml_enabled,
