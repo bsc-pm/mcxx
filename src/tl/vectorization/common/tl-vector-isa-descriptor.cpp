@@ -24,13 +24,13 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-vector-isa-description.hpp"
+#include "tl-vector-isa-descriptor.hpp"
 
 namespace TL
 {
 namespace Vectorization
 {
-VectorIsaDescription::VectorIsaDescription(const std::string& id,
+VectorIsaDescriptor::VectorIsaDescriptor(const std::string& id,
                                            unsigned int vector_length,
                                            unsigned int mask_size_elements,
                                            MaskingSupport masking_supported)
@@ -41,12 +41,12 @@ VectorIsaDescription::VectorIsaDescription(const std::string& id,
 {
 }
 
-const std::string& VectorIsaDescription::get_id() const
+const std::string& VectorIsaDescriptor::get_id() const
 {
     return _id;
 }
 
-bool VectorIsaDescription::support_masking() const
+bool VectorIsaDescriptor::support_masking() const
 {
     if (_masking_supported == SUPPORT_MASKING) return true;
     else if (_masking_supported == DONT_SUPPORT_MASKING) return false;
@@ -56,7 +56,7 @@ bool VectorIsaDescription::support_masking() const
     }
 }
 
-unsigned int VectorIsaDescription::get_mask_max_elements() const
+unsigned int VectorIsaDescriptor::get_mask_max_elements() const
 {
     return _mask_size_elements;
 }
@@ -65,7 +65,7 @@ SimdIsa::SimdIsa(const std::string &id,
                  unsigned int vector_length,
                  unsigned int mask_size_elements,
                  MaskingSupport masking_supported)
-    : VectorIsaDescription(
+    : VectorIsaDescriptor(
           id, vector_length, mask_size_elements, masking_supported)
 {
 }
@@ -85,7 +85,7 @@ VectorIsa::VectorIsa(const std::string &id,
                      unsigned int vector_length,
                      unsigned int mask_size_elements,
                      MaskingSupport masking_supported)
-    : VectorIsaDescription(id, vector_length, mask_size_elements, masking_supported)
+    : VectorIsaDescriptor(id, vector_length, mask_size_elements, masking_supported)
 {
 }
 
@@ -111,7 +111,7 @@ namespace {
 }
 
 
-VectorIsaDescription &get_vector_isa_description(const VectorInstructionSet isa)
+VectorIsaDescriptor &get_vector_isa_description(const VectorInstructionSet isa)
 {
     switch (isa)
     {

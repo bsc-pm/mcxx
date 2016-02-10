@@ -197,7 +197,7 @@ unsigned int compute_vec_factor(
     const Nodecl::NodeclBase &scalar_code,
     int vectorlength_in_elements,
     TL::Type target_type,
-    const VectorIsaDescription &vector_isa_desc)
+    const VectorIsaDescriptor &vector_isa_desc)
 {
     if (vectorlength_in_elements != 0 && target_type.is_valid())
         fatal_error("SIMD: vectorlength and target_type cannot be both valid");

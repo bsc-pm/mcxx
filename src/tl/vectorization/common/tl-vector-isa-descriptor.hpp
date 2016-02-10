@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTOR_ISA_DESCRIPTION_HPP
-#define TL_VECTOR_ISA_DESCRIPTION_HPP
+#ifndef TL_VECTOR_ISA_DESCRIPTOR_HPP
+#define TL_VECTOR_ISA_DESCRIPTOR_HPP
 
 #include "tl-vectorization-common.hpp"
 #include "tl-type.hpp"
@@ -41,7 +41,7 @@ enum MaskingSupport
     DONT_SUPPORT_MASKING,
 };
 
-class VectorIsaDescription
+class VectorIsaDescriptor
 {
   protected:
     // In bytes for SIMD, in elements for RoMoL
@@ -52,7 +52,7 @@ class VectorIsaDescription
     const unsigned int _mask_size_elements;
     const MaskingSupport _masking_supported;
 
-    VectorIsaDescription(const std::string &id,
+    VectorIsaDescriptor(const std::string &id,
                          unsigned int vector_length,
                          unsigned int mask_size_elements,
                          MaskingSupport masking_supported);
@@ -67,7 +67,7 @@ class VectorIsaDescription
     virtual unsigned int get_memory_alignment_in_bytes() const = 0;
 };
 
-class SimdIsa : public VectorIsaDescription
+class SimdIsa : public VectorIsaDescriptor
 {
   public:
     SimdIsa(const std::string& id,
@@ -79,7 +79,7 @@ class SimdIsa : public VectorIsaDescription
     unsigned int get_memory_alignment_in_bytes() const;
 };
 
-class VectorIsa : public VectorIsaDescription
+class VectorIsa : public VectorIsaDescriptor
 {
   public:
     VectorIsa(const std::string& id,
@@ -91,9 +91,9 @@ class VectorIsa : public VectorIsaDescription
     unsigned int get_memory_alignment_in_bytes() const;
 };
 
-VectorIsaDescription &get_vector_isa_description(const VectorInstructionSet isa);
+VectorIsaDescriptor &get_vector_isa_description(const VectorInstructionSet isa);
 
 }
 }
 
-#endif // TL_VECTOR_ISA_DESCRIPTION_HPP
+#endif // TL_VECTOR_ISA_DESCRIPTOR_HPP

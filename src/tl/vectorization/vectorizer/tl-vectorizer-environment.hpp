@@ -29,7 +29,7 @@
 
 
 #include "tl-vectorization-common.hpp"
-#include "tl-vector-isa-description.hpp"
+#include "tl-vector-isa-descriptor.hpp"
 #include "tl-nodecl-base.hpp"
 
 namespace TL
@@ -39,7 +39,7 @@ namespace Vectorization
     class VectorizerEnvironment
     {
         public:
-            const VectorIsaDescription& _vector_isa_desc;
+            const VectorIsaDescriptor& _vector_isa_desc;
             unsigned int _vec_factor;
             const bool _fast_math;
             const map_nodecl_int_t& _aligned_symbols_map;
@@ -66,7 +66,7 @@ namespace Vectorization
             TL::ObjectList<VectorizedClass> _vectorized_classes;
 
             VectorizerEnvironment(
-                const VectorIsaDescription &vector_isa_desc,
+                const VectorIsaDescriptor &vector_isa_desc,
                 const unsigned int vec_factor,
                 const bool fast_math,
                 const map_nodecl_int_t &aligned_symbol_map,
