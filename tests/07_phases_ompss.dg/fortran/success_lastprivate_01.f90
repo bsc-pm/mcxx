@@ -1,5 +1,6 @@
 ! <testinfo>
-! test_generator=config/mercurium-ompss
+! test_generator="config/mercurium-ompss"
+! test_compile_fail_nanos6_mercurium=yes
 ! </testinfo>
 PROGRAM MAIN
   IMPLICIT NONE

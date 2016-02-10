@@ -62,5 +62,15 @@ void Lower::visit(const Nodecl::OmpSs::WaitOnDependences &n)
 {
     unsupported(n);
 }
+
+void Lower::visit(const Nodecl::OpenMP::Atomic &n)
+{
+    unsupported(n);
+}
+
+void Lower::visit(const Nodecl::OpenMP::FlushMemory &n)
+{
+    unsupported(n);
+}
 }
 }
