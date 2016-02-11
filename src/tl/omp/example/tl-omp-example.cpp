@@ -114,7 +114,7 @@ namespace TL { namespace OpenMPExample {
         // compiler_phase=... option in the profile of Mercurium.
         std::cerr << __PRETTY_FUNCTION__<< std::endl;
 
-        Nodecl::NodeclBase n = dto["nodecl"];
+        Nodecl::NodeclBase n = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
         // n is the root node of the translation file (i.e. the file),
         // typically one uses an exhaustive visitor and defines visitors for
         // the nodes you may be interested.

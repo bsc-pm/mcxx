@@ -46,7 +46,7 @@ namespace TL
         register_parameter("param2",
                 "This is the parameter number two",
                 _parameter_2_value,
-                "val2").connect(functor(&ExampleParameters::check_param2, *this));
+                "val2").connect(std::bind(&ExampleParameters::check_param2, this, std::placeholders::_1));
     }
 
     void ExampleParameters::check_param2(const std::string& str)
