@@ -1776,6 +1776,7 @@ namespace Vectorization
 
         intrin_name << AVX2_INTRIN_PREFIX
             << mask_prefix
+            << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
