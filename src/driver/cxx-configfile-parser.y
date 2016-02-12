@@ -350,7 +350,10 @@ static void add_to_option_list(option_list_t* list, p_compilation_configuration_
 
 void yyerror(const char *c)
 {
-    fprintf(stderr, "warning: error encountered when parsing configuration file: %s\n", c);
+  fprintf(
+      stderr,
+      "%s:%d:%d: warning: error encountered when parsing configuration file: %s\n",
+      yylloc.filename, yylloc.first_line, yylloc.first_column, c);
 }
 
 static void register_implicit_names(flag_expr_t* flag_expr)
