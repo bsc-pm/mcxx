@@ -2103,7 +2103,15 @@ namespace TL { namespace Nanos6 {
             TL::Symbol register_fun,
             Nodecl::List& register_statements)
     {
-        Nodecl::NodeclBase base_addr = data_ref.get_base_address();
+        Nodecl::NodeclBase conv;
+        Nodecl::NodeclBase base_addr = Nodecl::Add::make(
+            conv = Nodecl::Conversion::make(
+                data_ref.get_base_address().shallow_copy(),
+                TL::Type::get_char_type().get_pointer_to()),
+            data_ref.get_offsetof_dependence().shallow_copy(),
+            TL::Type::get_char_type().get_pointer_to());
+        conv.set_text("C");
+
         base_addr = rewrite_expression_using_args(arg, base_addr);
 
         TL::Type data_type = data_ref.get_data_type();
