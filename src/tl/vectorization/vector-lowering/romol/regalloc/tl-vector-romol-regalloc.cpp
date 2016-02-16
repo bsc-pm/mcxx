@@ -329,7 +329,9 @@ namespace TL { namespace Vectorization {
                     }
                 }
 
+#ifdef DEBUG_RA
                 std::cerr << "\n\n";
+#endif
             }
         }
 
