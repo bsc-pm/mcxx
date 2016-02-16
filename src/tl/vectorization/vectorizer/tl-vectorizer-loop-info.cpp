@@ -177,7 +177,7 @@ namespace Vectorization
                                   lb,
                                   _environment._suitable_exprs_list,
                                   _environment._vec_factor,
-                                  _environment._vector_isa_desc
+                                  _environment._vec_isa_desc
                                       .get_memory_alignment_in_bytes(),
                                   lb_vector_size_module);
 
@@ -225,7 +225,7 @@ namespace Vectorization
                                   ub,
                                   _environment._suitable_exprs_list,
                                   _environment._vec_factor,
-                                  _environment._vector_isa_desc
+                                  _environment._vec_isa_desc
                                       .get_memory_alignment_in_bytes(),
                                   ub_vector_size_module);
 

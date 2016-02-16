@@ -354,7 +354,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& loop_statement,
             Nodecl::NodeclBase& net_epilog_node)
     {
-        if (_environment._vector_isa_desc.support_masking()) // Vector epilog
+        if (_environment._vec_isa_desc.support_masking()) // Vector epilog
         {
             Nodecl::NodeclBase loop_cond_copy;
 
@@ -437,10 +437,12 @@ namespace Vectorization
         VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
         visitor_local_symbol.walk(loop_statement);
 
-        Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
-                _environment._analysis_simd_scope,
-                _environment._vec_factor, true);
+        unsigned int actual_vec_fact
+            = _environment._vec_isa_desc.get_vec_factor_for_type(
+                TL::Type::get_float_type(), _environment._vec_factor);
 
+        Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
+            _environment._analysis_simd_scope, actual_vec_fact, true);
 
         Nodecl::List result_stmt_list;
 
@@ -474,7 +476,7 @@ namespace Vectorization
             if (_epilog_iterations > 0 || _only_epilog) // Constant value
             {
                 mask_value = Vectorization::Utils::get_contiguous_mask_literal(
-                        _environment._vec_factor,
+                        actual_vec_fact,
                         _epilog_iterations);
             }
             else // Unknown number of iterations
@@ -486,7 +488,7 @@ namespace Vectorization
                 // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
                 Nodecl::MaskLiteral all_one_mask =
                     Vectorization::Utils::get_contiguous_mask_literal(
-                            _environment._vec_factor,
+                            actual_vec_fact,
                             _environment._vec_factor);
                 _environment._mask_list.push_back(all_one_mask);
 

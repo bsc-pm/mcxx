@@ -75,6 +75,19 @@ unsigned int SimdIsa::get_vec_factor_from_type(const TL::Type target_type) const
     return _vector_length / target_type.get_size();
 }
 
+unsigned int SimdIsa::get_vec_factor_for_type(const TL::Type target_type,
+                                              unsigned int input_vec_factor) const
+{
+    unsigned int raw_vec_factor = get_vec_factor_from_type(target_type);
+
+    if (input_vec_factor >= raw_vec_factor) 
+        return input_vec_factor;
+    else
+    {
+        return raw_vec_factor;
+    }
+}
+
 unsigned int SimdIsa::get_memory_alignment_in_bytes() const
 {
     return _vector_length;
@@ -93,6 +106,12 @@ unsigned int VectorIsa::get_vec_factor_from_type(
     const TL::Type target_type) const
 {
     return _vector_length;
+}
+
+unsigned int VectorIsa::get_vec_factor_for_type(
+    const TL::Type target_type, unsigned int input_vec_factor) const
+{
+    return input_vec_factor;
 }
 
 unsigned int VectorIsa::get_memory_alignment_in_bytes() const

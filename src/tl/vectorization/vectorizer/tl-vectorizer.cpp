@@ -306,7 +306,7 @@ namespace Vectorization
             bool is_parallel_loop)
     {
         // Clean up vector epilog
-        if (environment._vector_isa_desc.support_masking()
+        if (environment._vec_isa_desc.support_masking()
                 || epilog_iterations == 1)
         {
             VECTORIZATION_DEBUG()

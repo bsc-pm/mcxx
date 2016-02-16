@@ -64,6 +64,9 @@ class VectorIsaDescriptor
 
     virtual unsigned int get_vec_factor_from_type(
         const TL::Type target_type) const = 0;
+    virtual unsigned int get_vec_factor_for_type(
+        const TL::Type target_type, unsigned int input_vec_factor) const = 0;
+
     virtual unsigned int get_memory_alignment_in_bytes() const = 0;
 };
 
@@ -76,6 +79,9 @@ class SimdIsa : public VectorIsaDescriptor
             MaskingSupport masking_supported);
 
     unsigned int get_vec_factor_from_type(const TL::Type target_type) const;
+    unsigned int get_vec_factor_for_type(const TL::Type target_type,
+                                         unsigned int input_vec_factor) const;
+
     unsigned int get_memory_alignment_in_bytes() const;
 };
 
@@ -88,6 +94,9 @@ class VectorIsa : public VectorIsaDescriptor
               MaskingSupport masking_supported);
 
     unsigned int get_vec_factor_from_type(const TL::Type target_type) const;
+    unsigned int get_vec_factor_for_type(const TL::Type target_type,
+                                         unsigned int input_vec_factor) const;
+
     unsigned int get_memory_alignment_in_bytes() const;
 };
 

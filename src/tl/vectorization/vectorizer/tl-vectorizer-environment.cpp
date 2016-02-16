@@ -35,7 +35,7 @@ namespace TL
 namespace Vectorization
 {
 VectorizerEnvironment::VectorizerEnvironment(
-    const VectorIsaDescriptor &vector_isa_desc,
+    const VectorIsaDescriptor &vec_isa_desc,
     const unsigned int vec_factor,
     const bool fast_math,
     const map_nodecl_int_t &aligned_symbols_map,
@@ -46,7 +46,7 @@ VectorizerEnvironment::VectorizerEnvironment(
     const map_tlsym_objlist_int_t &overlap_symbols_map,
     const objlist_tlsym_t *reduction_list,
     std::map<TL::Symbol, TL::Symbol> *new_external_vector_symbol_map)
-    : _vector_isa_desc(vector_isa_desc),
+    : _vec_isa_desc(vec_isa_desc),
       _vec_factor(vec_factor),
       _fast_math(fast_math),
       _aligned_symbols_map(aligned_symbols_map),

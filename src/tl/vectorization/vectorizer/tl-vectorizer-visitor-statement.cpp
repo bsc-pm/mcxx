@@ -588,7 +588,7 @@ namespace Vectorization
 
                 Nodecl::NodeclBase new_exit_mask = Utils::get_new_mask_symbol(
                     _environment._analysis_simd_scope,
-                    _environment._vector_isa_desc.get_mask_max_elements(),
+                    _environment._vec_isa_desc.get_mask_max_elements(),
                     /* ref_type */ true);
 
                 Nodecl::ExpressionStatement new_mask_exp = 

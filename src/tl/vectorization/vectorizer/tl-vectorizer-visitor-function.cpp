@@ -84,16 +84,19 @@ namespace TL
                             || tl_sym_type.is_floating_type())
                     {
                         vector_type = Utils::get_qualified_vector_to(
-                                tl_sym_type, _environment._vec_factor);
+                            tl_sym_type,
+                            _environment._vec_isa_desc.get_vec_factor_for_type(
+                                tl_sym_type, _environment._vec_factor));
                     }
                     else if (tl_sym_type.is_class()
                             && Utils::class_type_can_be_vectorized(tl_sym_type))
                     {
                         bool is_new = false;
-                        vector_type = Utils::get_class_of_vector_fields(
+                        vector_type = Utils::get_class_of_vector_fields_for_isa(
                                 tl_sym_type,
                                 _environment._vec_factor,
-                                is_new);
+                                is_new,
+                                _environment._vec_isa_desc);
                         if (is_new
                                 && IS_CXX_LANGUAGE)
                         {
@@ -184,9 +187,12 @@ namespace TL
                 }
             }
 
-            vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
-                        _environment._vec_factor).get_function_returning(
-                            parameters_vector_type));
+            vect_func_sym.set_type(
+                Utils::get_qualified_vector_to(
+                    func_type.returns(),
+                    _environment._vec_isa_desc.get_vec_factor_for_type(
+                        func_type.returns(), _environment._vec_factor))
+                    .get_function_returning(parameters_vector_type));
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunctionHeader::unhandled_node(const Nodecl::NodeclBase& n)

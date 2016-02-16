@@ -67,7 +67,7 @@ namespace TL
                 std::string red_name = canonicalize_reduction_name(reduction_name);
 
                 // TODO: Improve implementation without using strings
-                if (_environment._vector_isa_desc.get_id().compare("smp") == 0)
+                if (_environment._vec_isa_desc.get_id().compare("smp") == 0)
                 {
                     if((red_name.compare("+") == 0) ||
                             (red_name.compare("-") == 0))
@@ -86,7 +86,7 @@ namespace TL
                         }
                     }
                 }
-                else if (_environment._vector_isa_desc.get_id().compare("avx2")
+                else if (_environment._vec_isa_desc.get_id().compare("avx2")
                          == 0)
                 {
                     if((red_name.compare("+") == 0) ||
@@ -106,7 +106,7 @@ namespace TL
                         }
                     }
                 }
-                else if (_environment._vector_isa_desc.get_id().compare("knc")
+                else if (_environment._vec_isa_desc.get_id().compare("knc")
                          == 0)
                 {
                     if((red_name.compare("+") == 0) ||
@@ -126,7 +126,7 @@ namespace TL
                         }
                     }
                 }
-                else if (_environment._vector_isa_desc.get_id().compare("romol")
+                else if (_environment._vec_isa_desc.get_id().compare("romol")
                          == 0)
                 {
                     if((red_name.compare("+") == 0) ||
