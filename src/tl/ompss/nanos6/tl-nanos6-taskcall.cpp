@@ -347,7 +347,7 @@ namespace TL { namespace Nanos6 {
             {
                 // Capture the address of this
                 result.as<Nodecl::List>().append(
-                    Nodecl::OpenMP::Shared::make(Nodecl::List::make(
+                    Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(
                         Nodecl::Symbol::make(argument_captures_syms[0]))));
             }
 
