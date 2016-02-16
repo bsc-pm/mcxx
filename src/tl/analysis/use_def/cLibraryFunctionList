@@ -239,7 +239,7 @@ __attribute__((analysis_ue(str, *str)))
 long long int atoll (const char* str);
 
 __attribute__((analysis_ue(num, size)))
-void* calloc (size_t num, size_t size);
+void* calloc (mercurium_size_t num, mercurium_size_t size);
 
 __attribute__((analysis_void))
 void exit (int);
@@ -248,13 +248,13 @@ __attribute__((analysis_ue(ptr)))
 void free (void* ptr);
 
 __attribute__((analysis_ue(size)))
-void* malloc (size_t size);
+void* malloc (mercurium_size_t size);
 
 __attribute__((analysis_ue(base, num, size), analysis_def(base[0:num-1])))
-void qsort (void* base, size_t num, size_t size, int (*compar)(const void*,const void*));
+void qsort (void* base, mercurium_size_t num, mercurium_size_t size, int (*compar)(const void*,const void*));
 
 __attribute__((analysis_ue(ptr, size)))
-void* realloc (void * ptr, size_t size);
+void* realloc (void * ptr, mercurium_size_t size);
 
 // ***************************** STDLIB ***************************** //
 // ****************************************************************** //
@@ -264,10 +264,10 @@ void* realloc (void * ptr, size_t size);
 // ***************************** STRING ***************************** //
 
 __attribute__((analysis_ue(*str)))
-size_t strlen (const char * str);
+mercurium_size_t strlen (const char * str);
 
 __attribute__((analysis_ue(source, destination, num, source[0:num-1]), analysis_def(destination[0:num-1])))
-char* strncpy (char * destination, const char * source, size_t num);
+char* strncpy (char * destination, const char * source, mercurium_size_t num);
 
 // ***************************** STRING ***************************** //
 // ****************************************************************** //
