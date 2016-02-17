@@ -184,15 +184,15 @@ namespace Vectorization
             walk(lhs);
             walk(rhs);
 
-            unsigned int actual_vec_factor
+            unsigned int isa_vec_factor
                 = _environment._vec_isa_desc.get_vec_factor_for_type(
                     n_type, _environment._vec_factor);
 
             TL::Type vector_type
                 = returns_mask_type ?
-                      TL::Type::get_mask_type(actual_vec_factor) :
+                      TL::Type::get_mask_type(isa_vec_factor) :
                       Utils::get_qualified_vector_to(n.get_type(),
-                                                     actual_vec_factor);
+                                                     isa_vec_factor);
 
             VectorNode vector_node = VectorNode::make(lhs.shallow_copy(),
                                                       rhs.shallow_copy(),
@@ -202,7 +202,7 @@ namespace Vectorization
 
             if (n.is_constant())
                 vector_node.set_constant(const_value_make_vector_from_scalar(
-                    actual_vec_factor, n.get_constant()));
+                    isa_vec_factor, n.get_constant()));
 
             n.replace(vector_node);
         }
@@ -238,15 +238,15 @@ namespace Vectorization
                         n.prettyprint().c_str());
             }
                
-            unsigned int actual_vec_factor
+            unsigned int isa_vec_factor
                 = _environment._vec_isa_desc.get_vec_factor_for_type(
                     n.get_type(), _environment._vec_factor);
 
             TL::Type vector_type
                 = returns_mask_type ?
-                      TL::Type::get_mask_type(actual_vec_factor) :
+                      TL::Type::get_mask_type(isa_vec_factor) :
                       Utils::get_qualified_vector_to(n.get_type(),
-                                                     actual_vec_factor);
+                                                     isa_vec_factor);
 
             if (returns_mask_type)
             {
@@ -260,7 +260,7 @@ namespace Vectorization
                 if (n.is_constant())
                     vector_node.set_constant(
                             const_value_make_vector_from_scalar(
-                                actual_vec_factor,
+                                isa_vec_factor,
                                 n.get_constant()));
 
                 n.replace(vector_node);
@@ -278,7 +278,7 @@ namespace Vectorization
                 if (n.is_constant())
                     vector_node.set_constant(
                             const_value_make_vector_from_scalar(
-                                actual_vec_factor,
+                                isa_vec_factor,
                                 n.get_constant()));
 
                 n.replace(vector_node);
@@ -319,11 +319,11 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = n.get_rhs();
 
         TL::Type scalar_type = n.get_type();
-        unsigned int actual_vec_factor
+        unsigned int isa_vec_factor
             = _environment._vec_isa_desc.get_vec_factor_for_type(
                 n.get_type(), _environment._vec_factor);
         TL::Type vector_type
-            = Utils::get_qualified_vector_to(scalar_type, actual_vec_factor);
+            = Utils::get_qualified_vector_to(scalar_type, isa_vec_factor);
 
         if (rhs.is<Nodecl::IntegerLiteral>() || // -1
                 rhs.is<Nodecl::FloatingLiteral>())
@@ -336,7 +336,7 @@ namespace Vectorization
                         n.get_locus());
 
             vector_prom.set_constant(const_value_make_vector_from_scalar(
-                        actual_vec_factor, 
+                        isa_vec_factor, 
                         n.get_constant()));
 
             n.replace(vector_prom);
@@ -354,7 +354,7 @@ namespace Vectorization
 
             if(n.is_constant())
                 vector_neg.set_constant(const_value_make_vector_from_scalar(
-                            actual_vec_factor,
+                            isa_vec_factor,
                             n.get_constant()));
 
             n.replace(vector_neg);
@@ -473,7 +473,7 @@ namespace Vectorization
     {
         Nodecl::NodeclBase condition = n.get_condition();
 
-        unsigned int actual_vec_factor
+        unsigned int isa_vec_factor
             = _environment._vec_isa_desc.get_vec_factor_for_type(
                 n.get_type(), _environment._vec_factor);
 
@@ -481,7 +481,7 @@ namespace Vectorization
 
         if(_environment._vec_isa_desc.support_masking())
         {
-            TL::Type mask_type = TL::Type::get_mask_type(actual_vec_factor);
+            TL::Type mask_type = TL::Type::get_mask_type(isa_vec_factor);
 
             Nodecl::NodeclBase prev_mask =
                 _environment._mask_list.back();
@@ -509,7 +509,7 @@ namespace Vectorization
                 Nodecl::NodeclBase true_mask_nodecl_sym = 
                     Utils::get_new_mask_symbol(
                             _environment._analysis_simd_scope,
-                            actual_vec_factor,
+                            isa_vec_factor,
                             true /*ref_type*/);
 
                 Nodecl::NodeclBase true_mask_value =
@@ -548,7 +548,7 @@ namespace Vectorization
                 Nodecl::NodeclBase false_mask_nodecl_sym =
                     Utils::get_new_mask_symbol(
                             _environment._analysis_simd_scope, 
-                            actual_vec_factor,
+                            isa_vec_factor,
                             true /*ref_type*/);
 
                 Nodecl::NodeclBase false_mask_value =
@@ -594,7 +594,7 @@ namespace Vectorization
                 condition.shallow_copy(),
                 n.get_true().shallow_copy(),
                 n.get_false().shallow_copy(),
-                Utils::get_qualified_vector_to(n.get_type(), actual_vec_factor),
+                Utils::get_qualified_vector_to(n.get_type(), isa_vec_factor),
                 n.get_locus());
 
         n.replace(vector_cond);
@@ -606,11 +606,11 @@ namespace Vectorization
                 _environment._mask_list.back());
 
         TL::Type n_type = n.get_type().no_ref();
-        unsigned int actual_vec_factor
+        unsigned int isa_vec_factor
             = _environment._vec_isa_desc.get_vec_factor_for_type(
                 n_type, _environment._vec_factor);
         TL::Type vector_type = Utils::get_qualified_vector_to(
-            n_type, actual_vec_factor);
+            n_type, isa_vec_factor);
 
         Nodecl::NodeclBase gather_copy;
         Nodecl::NodeclBase base;
@@ -672,7 +672,7 @@ namespace Vectorization
                         = Vectorization::Utils::get_vector_offset_list(
                             0 /*start value*/,
                             iv_increment,
-                            actual_vec_factor);
+                            isa_vec_factor);
 
                     // VectorLiteral {0, 1, 2, ..., VL-1}
                     Nodecl::VectorLiteral offset_vector_literal
@@ -680,7 +680,7 @@ namespace Vectorization
                             offset_list,
                             Utils::get_null_mask(),
                             Utils::get_qualified_vector_to(
-                                TL::Type::get_int_type(), actual_vec_factor),
+                                TL::Type::get_int_type(), isa_vec_factor),
                             n.get_locus());
 
                     offset_vector_literal.set_constant(
@@ -805,12 +805,12 @@ namespace Vectorization
         TL::Type assignment_type = type.no_ref();
         TL::Type lhs_type = lhs.get_type().no_ref();
 
-        unsigned int actual_vec_factor
+        unsigned int isa_vec_factor
             = _environment._vec_isa_desc.get_vec_factor_for_type(
                 lhs_type, _environment._vec_factor);
         TL::Type vector_type
             = Utils::get_qualified_vector_to(assignment_type,
-                                            actual_vec_factor);
+                                            isa_vec_factor);
         Nodecl::Symbol lhs_symbol;
 
         Nodecl::NodeclBase lhs_scatter_copy;
@@ -936,7 +936,7 @@ namespace Vectorization
                         = Vectorization::Utils::get_vector_offset_list(
                             0 /*start value*/,
                             iv_increment,
-                            actual_vec_factor);
+                            isa_vec_factor);
 
                     // VectorLiteral {0, 1, 2, ..., VL-1}
                     Nodecl::VectorLiteral offset_vector_literal =
@@ -944,7 +944,7 @@ namespace Vectorization
                                 offset_list,
                                 Utils::get_null_mask(),
                                 Utils::get_qualified_vector_to(TL::Type::get_int_type(),
-                                    actual_vec_factor),
+                                    isa_vec_factor),
                                 lhs.get_locus());
 
                     offset_vector_literal.set_constant(
@@ -1143,7 +1143,7 @@ namespace Vectorization
         }
         */
 
-        unsigned int actual_vec_factor
+        unsigned int isa_vec_factor
             = _environment._vec_isa_desc.get_vec_factor_for_type(
                 assignment_type, _environment._vec_factor);
 
@@ -1159,7 +1159,7 @@ namespace Vectorization
             // Computing new vector type
             TL::Type vector_type
                 = Utils::get_qualified_vector_to(assignment_type,
-                        actual_vec_factor);
+                        isa_vec_factor);
 
             // IV vectorization: i = i + 3 --> i = i + (vec_factor * 3)
             if(Vectorizer::_vectorizer_analysis->
@@ -1479,18 +1479,18 @@ namespace Vectorization
             }
             else
             {
-                unsigned int actual_vec_factor
+                unsigned int isa_vec_factor
                     = _environment._vec_isa_desc.get_vec_factor_for_type(
                         dst_type, _environment._vec_factor);
                 TL::Type dst_vec_type;
 
                 if (dst_type.is_bool())
                     dst_vec_type = TL::Type::get_mask_type(
-                            actual_vec_factor);
+                            isa_vec_factor);
                 else
                     dst_vec_type = Utils::get_qualified_vector_to(
                         dst_type,
-                        actual_vec_factor);
+                        isa_vec_factor);
 
                 Nodecl::VectorConversion vector_conv =
                     Nodecl::VectorConversion::make(
@@ -1534,7 +1534,7 @@ namespace Vectorization
 
             TL::Type encapsulated_symbol_type = encapsulated_symbol.get_type();
 
-            unsigned int actual_vec_factor
+            unsigned int isa_vec_factor
                 = _environment._vec_isa_desc.get_vec_factor_for_type(
                     encapsulated_symbol_type, _environment._vec_factor);
 
@@ -1542,7 +1542,7 @@ namespace Vectorization
                 encapsulated_symbol.shallow_copy(),
                 mask,
                 Utils::get_qualified_vector_to(encapsulated_symbol_type,
-                                               actual_vec_factor),
+                                               isa_vec_factor),
                 n.get_locus());
 
             vector_prom.set_constant(const_value);
@@ -2059,7 +2059,7 @@ namespace Vectorization
                     fprintf(stderr,"VECTORIZER: Promotion '%s'\n",
                             n.prettyprint().c_str());
                 }
-                unsigned int actual_vec_factor
+                unsigned int isa_vec_factor
                     = _environment._vec_isa_desc.get_vec_factor_for_type(
                         encapsulated_symbol_type, _environment._vec_factor);
 
@@ -2068,13 +2068,13 @@ namespace Vectorization
                         encapsulated_symbol.shallow_copy(),
                         Utils::get_null_mask(),
                         Utils::get_qualified_vector_to(encapsulated_symbol_type,
-                                                       actual_vec_factor),
+                                                       isa_vec_factor),
                         n.get_locus());
 
                 if(encapsulated_symbol.is_constant())
                     vector_prom.set_constant(
                             const_value_make_vector_from_scalar(
-                                actual_vec_factor,
+                                isa_vec_factor,
                                 encapsulated_symbol.get_constant()));
 
                 encapsulated_symbol.replace(vector_prom);
@@ -2153,12 +2153,12 @@ namespace Vectorization
 
             walk(class_object);
 
-            unsigned int actual_vec_factor
+            unsigned int isa_vec_factor
                 = _environment._vec_isa_desc.get_vec_factor_for_type(
                     n_original.get_type(), _environment._vec_factor);
 
             TL::Type vector_type = Utils::get_qualified_vector_to(
-                n_original.get_type(), actual_vec_factor);
+                n_original.get_type(), isa_vec_factor);
 
             // Gather
             if(class_object.is<Nodecl::VectorLoad>())
@@ -2262,7 +2262,7 @@ namespace Vectorization
                     n.prettyprint().c_str());
         }
 
-        unsigned int actual_vec_factor
+        unsigned int isa_vec_factor
             = _environment._vec_isa_desc.get_vec_factor_for_type(
                 n.get_type(), _environment._vec_factor);
 
@@ -2270,11 +2270,11 @@ namespace Vectorization
             n.shallow_copy(),
             Utils::get_null_mask(),
             Utils::get_qualified_vector_to(n.get_type(),
-                                          actual_vec_factor),
+                                          isa_vec_factor),
             n.get_locus());
 
         vector_prom.set_constant(const_value_make_vector_from_scalar(
-                    actual_vec_factor,
+                    isa_vec_factor,
                     n.get_constant()));
 
         n.replace(vector_prom);
@@ -2288,18 +2288,18 @@ namespace Vectorization
                     n.prettyprint().c_str());
         }
 
-        unsigned int actual_vec_factor
+        unsigned int isa_vec_factor
             = _environment._vec_isa_desc.get_vec_factor_for_type(
                 n.get_type(), _environment._vec_factor);
 
         Nodecl::VectorPromotion vector_prom = Nodecl::VectorPromotion::make(
             n.shallow_copy(),
             Utils::get_null_mask(),
-            Utils::get_qualified_vector_to(n.get_type(), actual_vec_factor),
+            Utils::get_qualified_vector_to(n.get_type(), isa_vec_factor),
             n.get_locus());
 
         vector_prom.set_constant(const_value_make_vector_from_scalar(
-                    actual_vec_factor,
+                    isa_vec_factor,
                     n.get_constant()));
 
         n.replace(vector_prom);
@@ -2355,7 +2355,7 @@ namespace Vectorization
     {
         TL::Type n_type = n.get_type();
 
-        unsigned int actual_vec_factor
+        unsigned int isa_vec_factor
             = _environment._vec_isa_desc.get_vec_factor_for_type(
                 n_type, _environment._vec_factor);
 
@@ -2364,7 +2364,7 @@ namespace Vectorization
             = Vectorization::Utils::get_vector_offset_list(
                 /* start value */ 0,
                 /* stride value */ 1,
-                /* size */ actual_vec_factor);
+                /* size */ isa_vec_factor);
 
         // VectorLiteral {0, 1, 2, ..., VL-1}
         Nodecl::VectorLiteral offset_vector_literal
@@ -2372,7 +2372,7 @@ namespace Vectorization
                 offset_list,
                 Utils::get_null_mask(),
                 Utils::get_qualified_vector_to(n_type,
-                                              actual_vec_factor),
+                                              isa_vec_factor),
                 n.get_locus());
 
         offset_vector_literal.set_constant(

@@ -221,14 +221,14 @@ void set_initial_mask(VectorizerEnvironment &environment,
 {
     // Add MaskLiteral to mask_list
     // TODO: get_float_type
-    unsigned int actual_vec_factor
+    unsigned int isa_vec_factor
         = environment._vec_isa_desc.get_vec_factor_for_type(
             TL::Type::get_float_type(), environment._vec_factor);
 
     // Initial mask
     Nodecl::MaskLiteral contiguous_mask
         = Vectorization::Utils::get_contiguous_mask_literal(
-            actual_vec_factor, environment._vec_factor);
+            isa_vec_factor, environment._vec_factor);
 
     // We do not create a symbol if mask is all ones
     if (Utils::is_all_one_mask(contiguous_mask))
@@ -239,7 +239,7 @@ void set_initial_mask(VectorizerEnvironment &environment,
     {
         Nodecl::NodeclBase initial_mask_symbol
             = Utils::get_new_mask_symbol(environment._analysis_simd_scope,
-                                         actual_vec_factor,
+                                         isa_vec_factor,
                                          true /*ref_type*/);
 
         Nodecl::ExpressionStatement initial_mask_exp
