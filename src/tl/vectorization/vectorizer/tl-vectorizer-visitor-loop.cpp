@@ -486,17 +486,17 @@ namespace Vectorization
                 mask_value = loop_cond;
 
                 // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
-                Nodecl::MaskLiteral all_one_mask =
-                    Vectorization::Utils::get_contiguous_mask_literal(
-                            actual_vec_fact,
-                            _environment._vec_factor);
-                _environment._mask_list.push_back(all_one_mask);
+//                Nodecl::MaskLiteral all_one_mask =
+//                    Vectorization::Utils::get_contiguous_mask_literal(
+//                            actual_vec_fact,
+//                            _environment._vec_factor);
+//                _environment._mask_list.push_back(all_one_mask);
 
                 // Vectorising mask
                 VectorizerVisitorExpression visitor_mask(_environment);
                 visitor_mask.walk(mask_value);
 
-                _environment._mask_list.pop_back();
+//                _environment._mask_list.pop_back();
             }
 
 

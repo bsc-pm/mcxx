@@ -28,6 +28,7 @@
 #include "tl-omp-simd-clauses-processor.hpp"
 
 #include "tl-vectorizer-target-type-heuristic.hpp"
+#include "tl-vectorization-utils.hpp"
 #include "tl-vectorization-common.hpp"
 
 #include "tl-counters.hpp"
@@ -215,6 +216,54 @@ unsigned int compute_vec_factor(
     }
 }
 
+void set_initial_mask(VectorizerEnvironment &environment,
+                      const Nodecl::NodeclBase &sibling_ref_node)
+{
+    // Add MaskLiteral to mask_list
+    // TODO: get_float_type
+    unsigned int actual_vec_factor
+        = environment._vec_isa_desc.get_vec_factor_for_type(
+            TL::Type::get_float_type(), environment._vec_factor);
+
+    // Initial mask
+    Nodecl::MaskLiteral contiguous_mask
+        = Vectorization::Utils::get_contiguous_mask_literal(
+            actual_vec_factor, environment._vec_factor);
+
+    // We do not create a symbol if mask is all ones
+    if (Utils::is_all_one_mask(contiguous_mask))
+    {
+        environment._mask_list.push_back(contiguous_mask);
+    }
+    else
+    {
+        Nodecl::NodeclBase initial_mask_symbol
+            = Utils::get_new_mask_symbol(environment._analysis_simd_scope,
+                                         actual_vec_factor,
+                                         true /*ref_type*/);
+
+        Nodecl::ExpressionStatement initial_mask_exp
+            = Nodecl::ExpressionStatement::make(
+                Nodecl::VectorMaskAssignment::make(
+                    initial_mask_symbol.shallow_copy(),
+                    contiguous_mask,
+                    initial_mask_symbol.get_type(),
+                    sibling_ref_node.get_locus()));
+
+        sibling_ref_node.prepend_sibling(initial_mask_exp);
+
+        environment._mask_list.push_back(initial_mask_symbol);
+
+        CXX_LANGUAGE()
+        {
+            sibling_ref_node.prepend_sibling(
+                Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                     initial_mask_symbol.get_symbol(),
+                                     initial_mask_symbol.get_locus()));
+        }
+    }
+}
+
 void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
 {
     Nodecl::NodeclBase simd_enclosing_node = simd_input_node.get_parent();
@@ -327,6 +376,8 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
     int epilog_iterations = _vectorizer.get_epilog_info(
         loop_statement, loop_environment, only_epilog);
 
+    // Set initial mask for vectorization
+    set_initial_mask(loop_environment, simd_node_main_loop);
 
     // MAIN LOOP VECTORIZATION
     if (!only_epilog)
@@ -439,7 +490,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
         // firstprivate in SIMD
     }
 
-    loop_environment.unload_environment();
+    loop_environment.unload_environment(false /*Do not clean masks*/);
 
     // Process epilog
     if (epilog_iterations != 0)
@@ -459,7 +510,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
 
         // Reload environment
         // 'epilog_for_statement' could be no longer a ForStatement
-        loop_environment.unload_environment();
+        loop_environment.unload_environment(false /*Do not clean masks*/);
         loop_environment.load_environment(net_epilog_node);
 
         // Overlap
@@ -667,6 +718,9 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
     //                    for_environment);
     //            simd_node_for.prepend_sibling(vectorizer_overlap.get_init_statements(for_environment));
 
+    // Set initial mask for vectorization
+    set_initial_mask(for_environment, simd_node_for);
+
     // VECTORIZE FOR
     if (!only_epilog)
     {
@@ -765,7 +819,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
         // single_epilog.append_sibling(post_for_nodecls);
     }
 
-    for_environment.unload_environment();
+    for_environment.unload_environment(false /*Do not clean masks*/);
 
     Nodecl::NodeclBase net_epilog_node;
     Nodecl::ForStatement epilog_for_statement;
@@ -790,7 +844,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
 
         // Reload environment
         // 'epilog_for_statement' could be no longer a ForStatement
-        for_environment.unload_environment();
+        for_environment.unload_environment(false /*Do not clean masks*/);
         for_environment.load_environment(net_epilog_node);
 
         Nodecl::List single_stmts_list;
@@ -1142,6 +1196,7 @@ void SimdPreregisterVisitor::common_simd_function_preregister(
 
     // Add scopes, default masks, etc.
     function_environment.load_environment(vector_func_code);
+    //set_initial_mask(_environment, loop_statement);
 
     // Add SIMD version to vector function versioning
     TL::Type function_return_type = func_sym.get_type().returns();
@@ -1341,6 +1396,11 @@ void SimdVisitor::common_simd_function(
     //         function_environment._vec_factor,
     //         function_return_type, masked_version,
     //         TL::Vectorization::SIMD_FUNC_PRIORITY, false);
+
+    // Set initial mask for vectorization
+    set_initial_mask(function_environment,
+                     Nodecl::Utils::skip_contexts_and_lists(
+                         vector_func_code.get_statements()));
 
     _vectorizer.vectorize_function(
         vector_func_code, function_environment, masked_version);

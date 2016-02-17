@@ -82,7 +82,7 @@ namespace Vectorization
             ~VectorizerEnvironment();
 
             void load_environment(const Nodecl::NodeclBase& for_statement);
-            void unload_environment();
+            void unload_environment(const bool clean_masks = true);
     };
 }
 }
