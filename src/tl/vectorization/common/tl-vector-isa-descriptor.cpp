@@ -72,7 +72,14 @@ SimdIsa::SimdIsa(const std::string &id,
 
 unsigned int SimdIsa::get_vec_factor_from_type(const TL::Type target_type) const
 {
-    return _vector_length / target_type.get_size();
+    if (target_type.is_void()) // Assume void == float
+    {
+        return TL::Type::get_float_type().get_size();
+    }
+    else
+    {
+        return _vector_length / target_type.get_size();
+    }
 }
 
 unsigned int SimdIsa::get_vec_factor_for_type(const TL::Type target_type,

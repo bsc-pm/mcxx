@@ -1634,6 +1634,15 @@ namespace Vectorization
 
         Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
         TL::Type call_type = n.get_type();
+        TL::Type vec_func_type = Utils::get_qualified_vector_to(
+            call_type,
+            _environment._vec_isa_desc.get_vec_factor_for_type(
+                call_type, _environment._vec_factor));
+
+        unsigned int actual_vec_fact
+            = _environment._vec_isa_desc.get_vec_factor_for_type(
+                call_type, _environment._vec_factor);
+
         TL::Symbol func_name = called_sym.get_symbol();
 
         TL::Scope global_scope(CURRENT_COMPILED_FILE->global_decl_context);
@@ -1816,17 +1825,13 @@ namespace Vectorization
                     func_name == global_scope.get_symbol_from_name("fabs"))
             {
                 const Nodecl::VectorFabs vector_fabs_call
-                    = Nodecl::VectorFabs::make(
-                        n.get_arguments()
-                            .as<Nodecl::List>()
-                            .front()
-                            .shallow_copy(),
-                        mask,
-                        Utils::get_qualified_vector_to(
-                            call_type,
-                            _environment._vec_isa_desc.get_vec_factor_for_type(
-                                call_type, _environment._vec_factor)),
-                        n.get_locus());
+                    = Nodecl::VectorFabs::make(n.get_arguments()
+                                                   .as<Nodecl::List>()
+                                                   .front()
+                                                   .shallow_copy(),
+                                               mask,
+                                               vec_func_type,
+                                               n.get_locus());
 
                 n.replace(vector_fabs_call);
             }
@@ -1840,10 +1845,7 @@ namespace Vectorization
                             .front()
                             .shallow_copy(),
                         mask,
-                        Utils::get_qualified_vector_to(
-                            call_type,
-                            _environment._vec_isa_desc.get_vec_factor_for_type(
-                                call_type, _environment._vec_factor)),
+                        vec_func_type,
                         n.get_locus());
 
                 n.replace(vector_sqrt_call);
@@ -1923,11 +1925,6 @@ namespace Vectorization
                         arguments.append(arguments[0].shallow_copy());
                     }
                 }
-
-                TL::Type vec_func_type = Utils::get_qualified_vector_to(
-                    call_type,
-                    _environment._vec_isa_desc.get_vec_factor_for_type(
-                        call_type, _environment._vec_factor));
 
                 const Nodecl::VectorFunctionCall vector_function_call
                     = Nodecl::VectorFunctionCall::make(

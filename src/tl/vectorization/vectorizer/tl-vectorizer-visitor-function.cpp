@@ -56,6 +56,7 @@ namespace TL
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
+            TL::Type func_ret_type = vect_func_sym.get_type().returns();
 
             objlist_tlsym_t parameters = vect_func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_vector_type;
@@ -187,12 +188,20 @@ namespace TL
                 }
             }
 
-            vect_func_sym.set_type(
-                Utils::get_qualified_vector_to(
-                    func_type.returns(),
-                    _environment._vec_isa_desc.get_vec_factor_for_type(
-                        func_type.returns(), _environment._vec_factor))
-                    .get_function_returning(parameters_vector_type));
+            if (func_ret_type.is_void()) // We do not vectorize void types
+            {
+                vect_func_sym.set_type(func_ret_type.get_function_returning(
+                    parameters_vector_type));
+            }
+            else
+            {
+                vect_func_sym.set_type(
+                    Utils::get_qualified_vector_to(
+                        func_ret_type,
+                        _environment._vec_isa_desc.get_vec_factor_for_type(
+                            func_ret_type, _environment._vec_factor))
+                        .get_function_returning(parameters_vector_type));
+            }
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunctionHeader::unhandled_node(const Nodecl::NodeclBase& n)
