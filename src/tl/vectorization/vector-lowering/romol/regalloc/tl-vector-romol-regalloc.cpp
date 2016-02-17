@@ -9,7 +9,10 @@
 
 namespace TL { namespace Vectorization {
 
-//#define DEBUG_RA 1
+#define DEBUG_RA 1
+
+const int total_num_vector_registers = 32;
+const int total_num_mask_registers = 8;
 
     void RomolVectorRegAlloc::visit(const Nodecl::TopLevel& node)
     {
@@ -329,7 +332,9 @@ namespace TL { namespace Vectorization {
                     }
                 }
 
+#ifdef DEBUG_RA
                 std::cerr << "\n\n";
+#endif
             }
         }
 
@@ -503,16 +508,37 @@ namespace TL { namespace Vectorization {
                 LiveRangeMap& live_range_map;
                 bool (*relevant_symbol)(TL::Symbol);
                 TL::Symbol (*get_register_symbol)(int regid);
+                int sink_register_id;
 
             public:
+              RewriteVariables(LiveRangeMap &live_range_map_,
+                               bool (*relevant_symbol_)(TL::Symbol),
+                               TL::Symbol (*get_register_symbol_)(int),
+                               int sink_register_id_)
+                  : live_range_map(live_range_map_),
+                    relevant_symbol(relevant_symbol_),
+                    get_register_symbol(get_register_symbol_),
+                    sink_register_id(sink_register_id_)
+              {
+              }
 
-                RewriteVariables(LiveRangeMap& live_range_map_,
-                        bool (*relevant_symbol_)(TL::Symbol),
-                        TL::Symbol (*get_register_symbol_)(int))
-                    : live_range_map(live_range_map_),
-                      relevant_symbol(relevant_symbol_),
-                      get_register_symbol(get_register_symbol_)
+              template <typename T>
+              void rewrite_symbol(const T &node,
+                                  std::shared_ptr<LiveRange> range)
                 {
+                    int register_id;
+                    if (range == nullptr)
+                        // Likely a useless assignment
+                        // that has not been removed yet
+                        // We may want to make this an error
+                        register_id = sink_register_id;
+                    else
+                        register_id = range->register_number;
+
+                    // FIXME: this is ugly
+                    // Just switch the symbol but leave the type as is
+                    const_cast<T &>(node)
+                        .set_symbol(get_register_symbol(register_id));
                 }
 
                 virtual void visit(const Nodecl::Symbol& node)
@@ -523,21 +549,14 @@ namespace TL { namespace Vectorization {
 
                     std::shared_ptr<LiveRange> range = live_range_map.get_range(sym);
 
-                    ERROR_CONDITION(range.get() == nullptr,
-                            "Invalid range for symbol '%s'\n",
-                            sym.get_name().c_str());
-
-                    if (range->register_number < 0)
+                    if (range == nullptr || range->register_number >= 0)
+                    {
+                        rewrite_symbol(node, range);
+                    }
+                    else if (range->register_number < 0)
                     {
                         // FIXME: We need to introduce a reload here
                         internal_error("Not yet implemented", 0);
-                    }
-                    else
-                    {
-                        // FIXME: this is ugly
-                        // Just switch the symbol but leave the type as is
-                        const_cast<Nodecl::Symbol&>(node)
-                            .set_symbol(get_register_symbol(range->register_number));
                     }
                 }
 
@@ -549,21 +568,14 @@ namespace TL { namespace Vectorization {
 
                     std::shared_ptr<LiveRange> range = live_range_map.get_range(sym);
 
-                    ERROR_CONDITION(range.get() == nullptr,
-                            "Invalid range for symbol '%s'\n",
-                            sym.get_name().c_str());
-
-                    if (range->register_number < 0)
+                    if (range == nullptr || range->register_number >= 0)
+                    {
+                        rewrite_symbol(node, range);
+                    }
+                    else if (range->register_number < 0)
                     {
                         // FIXME: We need to introduce a reload here
                         internal_error("Not yet implemented", 0);
-                    }
-                    else
-                    {
-                        // FIXME: this is ugly
-                        // Just switch the symbol but leave the type as is
-                        const_cast<Nodecl::ObjectInit&>(node)
-                            .set_symbol(get_register_symbol(range->register_number));
                     }
 
                     // Initialization
@@ -572,15 +584,16 @@ namespace TL { namespace Vectorization {
         };
 
         void rewrite_temporaries_as_registers(
-                Nodecl::NodeclBase n,
-                LiveRangeMap& live_range_map,
-                bool (*relevant_symbol)(TL::Symbol),
-                TL::Symbol (*get_register_symbol)(int))
+            Nodecl::NodeclBase n,
+            LiveRangeMap &live_range_map,
+            bool (*relevant_symbol)(TL::Symbol),
+            TL::Symbol (*get_register_symbol)(int),
+            int sink_register_id)
         {
-            RewriteVariables rewrite_vars(
-                    live_range_map,
-                    relevant_symbol,
-                    get_register_symbol);
+            RewriteVariables rewrite_vars(live_range_map,
+                                          relevant_symbol,
+                                          get_register_symbol,
+                                          sink_register_id);
 
             rewrite_vars.walk(n);
         }
@@ -638,22 +651,26 @@ namespace TL { namespace Vectorization {
             print_live_ranges(live_range_map_vectors, upper_dfo);
 #endif
 
-            // In RoMoL we have 32 registers of vector type, we reserve 3 of them
-            // for spilling purposes
-            const int num_vector_registers = 32 - 3;
+            // Reserve 3 registers for spilling purposes
+            const int num_vector_registers = total_num_vector_registers - 3;
+            // Use the last register for sink operations (i.e. dead assignments
+            // that have not yet been removed)
+            const int sink_vector_register = total_num_vector_registers - 1;
 #ifdef DEBUG_RA
             std::cerr << "Assigning vector registers" << std::endl;
 #endif
-            linear_scan_register_allocation(live_range_map_vectors, num_vector_registers);
+            linear_scan_register_allocation(live_range_map_vectors,
+                                            num_vector_registers);
 
 #ifdef DEBUG_RA
             print_register_assignments(live_range_map_vectors, "V");
 #endif
 
             rewrite_temporaries_as_registers(node,
-                    live_range_map_vectors,
-                    variable_is_vector,
-                    get_vector_register_symbol);
+                                             live_range_map_vectors,
+                                             variable_is_vector,
+                                             get_vector_register_symbol,
+                                             sink_vector_register);
         }
 
         // --------------------------------
@@ -671,21 +688,25 @@ namespace TL { namespace Vectorization {
 #ifdef DEBUG_RA
             print_live_ranges(live_range_map_masks, upper_dfo);
 #endif
-            // In RoMoL we have 7 registers of mask type, we reserve 3 of them
-            // for spilling purposes
-            const int num_mask_registers = 7 - 3;
+            // Reserve 3 registers for spilling purposes
+            const int num_mask_registers = total_num_mask_registers - 3;
+            // Use the last register for sink operations (i.e. dead assignments
+            // that have not yet been removed)
+            const int sink_mask_register = total_num_mask_registers - 1;
 #ifdef DEBUG_RA
             std::cerr << "Assigning mask registers" << std::endl;
 #endif
-            linear_scan_register_allocation(live_range_map_masks, num_mask_registers);
+            linear_scan_register_allocation(live_range_map_masks,
+                                            num_mask_registers);
 
 #ifdef DEBUG_RA
             print_register_assignments(live_range_map_masks, "M");
 #endif
             rewrite_temporaries_as_registers(node,
-                    live_range_map_masks,
-                    variable_is_mask,
-                    get_mask_register_symbol);
+                                             live_range_map_masks,
+                                             variable_is_mask,
+                                             get_mask_register_symbol,
+                                             sink_mask_register);
         }
     }
 
