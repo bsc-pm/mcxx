@@ -76,12 +76,45 @@ VectorizerEnvironment::VectorizerEnvironment(
         _analysis_scopes.push_back(n);
 
         // Add MaskLiteral to mask_list
+        unsigned int actual_vec_factor
+            = _vec_isa_desc.get_vec_factor_for_type(
+                TL::Type::get_float_type(), _vec_factor);
 
-        Nodecl::MaskLiteral all_one_mask =
-            Vectorization::Utils::get_all_one_mask(
-                    _vec_factor);
-        
-        _mask_list.push_back(all_one_mask);
+        // Initial mask
+        Nodecl::MaskLiteral contiguous_mask
+            = Utils::get_contiguous_mask_literal(actual_vec_factor,
+                                                 _vec_factor);
+
+        // We do not create a symbol if mask is all ones 
+        if (Utils::is_all_one_mask(contiguous_mask))
+        {
+            _mask_list.push_back(contiguous_mask);
+        }
+        else
+        {
+            Nodecl::NodeclBase initial_mask_symbol = Utils::get_new_mask_symbol(
+                _analysis_simd_scope, actual_vec_factor, true /*ref_type*/);
+
+            Nodecl::ExpressionStatement initial_mask_exp
+                = Nodecl::ExpressionStatement::make(
+                    Nodecl::VectorMaskAssignment::make(
+                        initial_mask_symbol.shallow_copy(),
+                        contiguous_mask,
+                        initial_mask_symbol.get_type(),
+                        n.get_locus()));
+
+            n.prepend_sibling(initial_mask_exp);
+
+            _mask_list.push_back(initial_mask_symbol);
+
+            CXX_LANGUAGE()
+            {
+                n.prepend_sibling(
+                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                         initial_mask_symbol.get_symbol(),
+                                         initial_mask_symbol.get_locus()));
+            }
+        }
     }
 
     void VectorizerEnvironment::unload_environment()

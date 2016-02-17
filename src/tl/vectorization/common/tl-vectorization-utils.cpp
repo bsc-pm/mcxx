@@ -243,8 +243,11 @@ namespace Utils
         else if (n.is<Nodecl::ForStatement>() ||
                 n.is<Nodecl::WhileStatement>())
         {
-            scope = n.get_parent().get_parent().
-                get_parent().get_parent().retrieve_context();
+            scope = n.get_parent()
+                        .get_parent()
+                        .get_parent()
+                        .get_parent()
+                        .retrieve_context();
         }
         else
         {
@@ -313,7 +316,7 @@ namespace Utils
 
         return Nodecl::MaskLiteral::make(
                 TL::Type::get_mask_type(num_elements),
-                    const_value_get_minus_one(mask_bytes, 1));
+                    const_value_get_minus_one(mask_bytes, /* sign */1));
     }
 
     Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask)
@@ -439,7 +442,7 @@ namespace Utils
         {
             return Nodecl::MaskLiteral::make(
                     TL::Type::get_mask_type(/* bits */ size),
-                    const_value_get_minus_one(bytes, /* sign */ 0));
+                    const_value_get_minus_one(bytes, /* sign */ 1));
         }
 
         const_value_t* mask_value;

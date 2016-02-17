@@ -220,6 +220,13 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
     Nodecl::NodeclBase simd_enclosing_node = simd_input_node.get_parent();
     Nodecl::OpenMP::Simd simd_node_main_loop
         = simd_input_node.shallow_copy().as<Nodecl::OpenMP::Simd>();
+
+    // This is ugly but some routines below expect this tree
+    // to be usable with retrieve_context
+    nodecl_set_parent(
+            simd_node_main_loop.get_internal_nodecl(),
+            nodecl_get_parent(simd_input_node.get_internal_nodecl()));
+
     Nodecl::NodeclBase loop_statement = simd_node_main_loop.get_statement();
     Nodecl::List simd_environment
         = simd_node_main_loop.get_environment().as<Nodecl::List>();
