@@ -51,14 +51,14 @@ namespace Vectorization
             const Nodecl::NodeclBase& n,
             const map_nodecl_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int alignment,
+            int vec_factor, int alignment,
             int& alignment_output,
             VectorizationAnalysisInterface* analysis);
 
      bool is_suitable_expression_internal(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
             const objlist_nodecl_t& suitable_expressions, 
-            int unroll_factor, int alignment, int& vector_size_module,
+            int vec_factor, int alignment, int& vector_size_module,
             VectorizationAnalysisInterface* analysis);
 }
 }

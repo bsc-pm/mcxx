@@ -109,7 +109,7 @@ namespace Vectorization
 
         Nodecl::NodeclBase mask_condition_symbol = 
             Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
-                    _environment._vectorization_factor,
+                    _environment._vec_factor,
                     true /*ref_type*/);
 
         if (init_next_need_vectorization || condition_needs_vectorization)
@@ -359,7 +359,7 @@ namespace Vectorization
             // Condition mask
             Nodecl::NodeclBase mask_condition_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
-                        _environment._vectorization_factor,
+                        _environment._vec_factor,
                         true /*ref_type*/);
 
             Nodecl::ExpressionStatement mask_condition_exp =
@@ -382,7 +382,7 @@ namespace Vectorization
             // If mask symbol
             Nodecl::NodeclBase if_mask_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
-                        _environment._vectorization_factor,
+                        _environment._vec_factor,
                         true /*ref_type*/);
 
             // Mask value
@@ -435,7 +435,7 @@ namespace Vectorization
             // New symbol mask
             Nodecl::NodeclBase else_mask_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
-                        _environment._vectorization_factor,
+                        _environment._vec_factor,
                         true);
 
             // Mask value
@@ -587,7 +587,8 @@ namespace Vectorization
                 //_environment._mask_list.pop_back();
 
                 Nodecl::NodeclBase new_exit_mask = Utils::get_new_mask_symbol(
-                    _environment._analysis_simd_scope, _environment._mask_size,
+                    _environment._analysis_simd_scope,
+                    _environment._vec_isa_desc.get_mask_max_elements(),
                     /* ref_type */ true);
 
                 Nodecl::ExpressionStatement new_mask_exp = 
@@ -679,17 +680,35 @@ namespace Vectorization
                 (_environment._function_return.is_invalid()) &&
                 (!mask.is_null()))
         {
-            // New return special symbol
-            _environment._function_return = Nodecl::Utils::get_enclosing_function(n).
-                get_function_code().retrieve_context().new_symbol("__function_return");
-            _environment._function_return.get_internal_symbol()->kind = SK_VARIABLE;
-            symbol_entity_specs_set_is_user_declared(_environment._function_return.get_internal_symbol(), 1);
+            const std::string func_ret_sym_name("__function_return");
 
-            TL::Type return_type = return_value.get_type();
-            if(return_type.is_any_reference())
-                return_type = return_type.references_to();
+            TL::Scope func_scope = Nodecl::Utils::get_enclosing_function(n)
+                                       .get_function_code()
+                                       .as<Nodecl::FunctionCode>()
+                                       .get_statements()
+                                       .retrieve_context();
 
-            _environment._function_return.set_type(return_type);
+            // Try to reuse the symbol if it already exists in the function
+            // NOTE: This should happen when vectorizing simd loops but return
+            // statements, which is currently not supported
+            TL::Symbol func_ret_symbol = func_scope.get_symbol_from_name(func_ret_sym_name);
+
+            if (func_ret_symbol.is_invalid())
+            {
+                // New return special symbol
+                func_ret_symbol = func_scope.new_symbol(func_ret_sym_name);
+                func_ret_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                symbol_entity_specs_set_is_user_declared(
+                    func_ret_symbol.get_internal_symbol(), 1);
+
+                TL::Type return_type = return_value.get_type();
+                if (return_type.is_any_reference())
+                    return_type = return_type.references_to();
+
+                func_ret_symbol.set_type(return_type);
+            }
+        
+            _environment._function_return = func_ret_symbol;
         }
 
         // Return special symbol if it exists

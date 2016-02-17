@@ -1648,6 +1648,10 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-analysis-internals.cpp \
                            src/tl/vectorization/common/tl-vectorization-three-addresses.hpp \
                            src/tl/vectorization/common/tl-vectorization-three-addresses.cpp \
+                           src/tl/vectorization/common/tl-vector-isa-descriptor.hpp \
+                           src/tl/vectorization/common/tl-vector-isa-descriptor.cpp \
+                           src/tl/vectorization/common/tl-function-versioning.hpp \
+                           src/tl/vectorization/common/tl-function-versioning.cpp \
                            $(END)
 endif
 
@@ -1688,8 +1692,6 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.cpp \
-                           src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
-                           src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-common.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-common.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-optimizer.hpp \
@@ -1897,6 +1899,8 @@ src_tl_omp_simd_libtlomp_simd_la_SOURCES = \
    src/tl/omp/simd/tl-omp-simd.cpp \
    src/tl/omp/simd/tl-omp-simd-visitor.hpp \
    src/tl/omp/simd/tl-omp-simd-visitor.cpp \
+   src/tl/omp/simd/tl-omp-simd-clauses-processor.hpp \
+   src/tl/omp/simd/tl-omp-simd-clauses-processor.cpp \
    $(END)
 
 endif

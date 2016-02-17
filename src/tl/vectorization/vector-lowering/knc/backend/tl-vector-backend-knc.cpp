@@ -2254,43 +2254,46 @@ namespace Vectorization
             intrin_name << function_call.get_called().
                 as<Nodecl::Symbol>().get_symbol().get_name();
 
-            TL::Symbol scalar_sym =
-                n.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
+            TL::Symbol vector_sym =
+                function_call.get_called().as<Nodecl::Symbol>().get_symbol();
 
-            // Use scalar symbol to look up
-            if(_vectorizer.is_svml_function(scalar_sym,
-                        "knc",
-                        vector_type.is_void() ? 1 : vector_type.get_size(),
-                        scalar_type,
-                        /*masked*/ !mask.is_null()))
-            {
-                process_mask_component(mask, mask_prefix, mask_args, scalar_type,
-                        KNCConfigMaskProcessing::NO_FINAL_COMMA);
+            // Use scalar symbol to look up for math library functions
+            //auto find_iter = std::find(vec_math_library_funcs.begin(),
+            //                           vec_math_library_funcs.end(),
+            //                           vector_sym);
 
-                walk(arguments);
+            // THIS SEEMS NOT NECESSARY
 
-                args << mask_args;
-                int num = 0;
-                Nodecl::List::const_iterator it = arguments.begin();
-                for (;
-                        it != arguments.end();
-                        it++, num++)
-                {
-                    // Skip the first two when there is mask
-                    if (!mask.is_null()
-                            && (num < 2))
-                        continue;
+            // TODO: If svml is enabled
+            //if(find_iter != vec_math_library_funcs.end())
+            //{
+            //    process_mask_component(mask, mask_prefix, mask_args, scalar_type,
+            //            KNCConfigMaskProcessing::NO_FINAL_COMMA);
 
-                    args.append_with_separator(as_expression(*it), ", ");
-                }
+            //    walk(arguments);
 
-                Nodecl::NodeclBase intrin_function_call =
-                    intrin_src.parse_expression(n.retrieve_context());
+            //    args << mask_args;
+            //    int num = 0;
+            //    Nodecl::List::const_iterator it = arguments.begin();
+            //    for (;
+            //            it != arguments.end();
+            //            it++, num++)
+            //    {
+            //        // Skip the first two when there is mask
+            //        if (!mask.is_null()
+            //                && (num < 2))
+            //            continue;
 
-                n.replace(intrin_function_call);
-            }
-            else // DISABLED: Conditional Expression to avoid infinite recursion
-            {
+            //        args.append_with_separator(as_expression(*it), ", ");
+            //    }
+
+            //    Nodecl::NodeclBase intrin_function_call =
+            //        intrin_src.parse_expression(n.retrieve_context());
+
+            //    n.replace(intrin_function_call);
+            //}
+            //else // DISABLED: Conditional Expression to avoid infinite recursion
+            //{
                 TL::Source conditional_exp, mask_casting;
 
                 process_mask_component(mask, mask_prefix, mask_args, scalar_type,
@@ -2327,7 +2330,7 @@ namespace Vectorization
                     conditional_exp.parse_expression(n.retrieve_context());
 
                 n.replace(conditional_exp_node);
-            }
+            //}
         }
     }
 

@@ -594,7 +594,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& n,
             const map_nodecl_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int alignment,
+            int vec_factor, int alignment,
             int& alignment_output)
     {
         //DO NOT TRANSLATE
@@ -626,7 +626,7 @@ namespace Vectorization
         // New 
         bool result = is_simd_aligned_access_internal(
                     scope, n, aligned_expressions,
-                    suitable_expressions, unroll_factor,
+                    suitable_expressions, vec_factor,
                     alignment, alignment_output, this);
 
         scope_it->second.simd_aligned_nodes.insert(
@@ -652,12 +652,12 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_suitable_expression(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int alignment, int& vector_size_module)
+            int vec_factor, int alignment, int& vector_size_module)
     {
         // Do not translate n!
         return is_suitable_expression_internal(scope,
                 n, suitable_expressions,
-                unroll_factor, alignment,
+                vec_factor, alignment,
                 vector_size_module, this);
     }
 

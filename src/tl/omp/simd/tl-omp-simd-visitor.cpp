@@ -25,8 +25,10 @@
   --------------------------------------------------------------------*/
 
 #include "tl-omp-simd-visitor.hpp"
+#include "tl-omp-simd-clauses-processor.hpp"
 
 #include "tl-vectorizer-target-type-heuristic.hpp"
+#include "tl-vectorization-utils.hpp"
 #include "tl-vectorization-common.hpp"
 
 #include "tl-counters.hpp"
@@ -40,13 +42,14 @@ namespace TL
 namespace OpenMP
 {
 SimdProcessingBase::SimdProcessingBase(
-    Vectorization::SIMDInstructionSet simd_isa,
+    Vectorization::VectorInstructionSet vector_isa,
     bool fast_math_enabled,
     bool svml_enabled,
     bool only_adjacent_accesses,
     bool only_aligned_accesses,
     bool overlap_in_place)
     : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer()),
+      _vector_isa_desc(TL::Vectorization::get_vector_isa_description(vector_isa)),
       _fast_math_enabled(fast_math_enabled),
       _overlap_in_place(overlap_in_place)
 {
@@ -65,69 +68,36 @@ SimdProcessingBase::SimdProcessingBase(
         _vectorizer.disable_unaligned_accesses();
     }
 
-    _fixed_vectorization_factor = 0;
-    switch (simd_isa)
+    switch (vector_isa)
     {
-        case ROMOL_ISA:
-            _vector_length = 512;
-            _fixed_vectorization_factor = 64;
-            _device_name = "romol";
-            _support_masking = true;
-            // number of lanes we want to mask
-            // the size of the mask register is _mask_size / 8
-            _mask_size = 64;
-
+        case SSE4_2_ISA:
+            if (svml_enabled)
+                _vectorizer.enable_svml_sse();
             break;
-        case KNC_ISA:
-            _vector_length = 64;
-            _device_name = "knc";
-            _support_masking = true;
-            _mask_size = 16;
 
+        case KNC_ISA:
             if (svml_enabled)
                 _vectorizer.enable_svml_knc();
             break;
 
         case KNL_ISA:
-            _vector_length = 64;
-            _device_name = "knl";
-            _support_masking = true;
-            _mask_size = 16;
-
             if (svml_enabled)
                 _vectorizer.enable_svml_knl();
             break;
 
         case AVX2_ISA:
-            _vector_length = 32;
-            _device_name = "avx2";
-            _support_masking = false;
-            _mask_size = 0;
-
             if (svml_enabled)
                 _vectorizer.enable_svml_avx2();
             break;
 
         case NEON_ISA:
-            _vector_length = 16;
-            _device_name = "neon";
-            _support_masking = false;
-            _mask_size = 0;
-
             break;
 
-        case SSE4_2_ISA:
-            _vector_length = 16;
-            _device_name = "smp";
-            _support_masking = false;
-            _mask_size = 0;
-
-            if (svml_enabled)
-                _vectorizer.enable_svml_sse();
-
+        case ROMOL_ISA:
             break;
+
         default:
-            fatal_error("SIMD: Unsupported SIMD ISA: %d", simd_isa);
+            fatal_error("SIMD: Unsupported vector ISA: %d", vector_isa);
     }
 }
 
@@ -151,7 +121,7 @@ Nodecl::UnknownPragma get_epilogue_loop_count_pragma(int epilogue_iterations,
 
 
 SimdPreregisterVisitor::SimdPreregisterVisitor(
-    Vectorization::SIMDInstructionSet simd_isa,
+    Vectorization::VectorInstructionSet simd_isa,
     bool fast_math_enabled,
     bool svml_enabled,
     bool only_adjacent_accesses,
@@ -171,7 +141,7 @@ SimdPreregisterVisitor::~SimdPreregisterVisitor()
     _vectorizer.finalize_analysis();
 }
 
-SimdVisitor::SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
+SimdVisitor::SimdVisitor(Vectorization::VectorInstructionSet simd_isa,
                          bool fast_math_enabled,
                          bool svml_enabled,
                          bool only_adjacent_accesses,
@@ -225,54 +195,132 @@ void SimdVisitor::visit(const Nodecl::FunctionCode &n)
         _vectorizer.postprocess_code(node);
 }
 
+unsigned int compute_vec_factor(
+    const Nodecl::NodeclBase &scalar_code,
+    int vectorlength_in_elements,
+    TL::Type target_type,
+    const VectorIsaDescriptor &vector_isa_desc)
+{
+    if (vectorlength_in_elements != 0 && target_type.is_valid())
+        fatal_error("SIMD: vectorlength and target_type cannot be both valid");
+
+    if (vectorlength_in_elements != 0)
+        return vectorlength_in_elements;
+    if (target_type.is_valid())
+        return vector_isa_desc.get_vec_factor_from_type(target_type);
+    else
+    {
+        VectorizerTargetTypeHeuristic target_type_heuristic;
+        TL::Type heuristic_type = target_type_heuristic.get_target_type(scalar_code);
+        return vector_isa_desc.get_vec_factor_from_type(heuristic_type);
+    }
+}
+
+void set_initial_mask(VectorizerEnvironment &environment,
+                      const Nodecl::NodeclBase &sibling_ref_node)
+{
+    // Add MaskLiteral to mask_list
+    // TODO: get_float_type
+    unsigned int actual_vec_factor
+        = environment._vec_isa_desc.get_vec_factor_for_type(
+            TL::Type::get_float_type(), environment._vec_factor);
+
+    // Initial mask
+    Nodecl::MaskLiteral contiguous_mask
+        = Vectorization::Utils::get_contiguous_mask_literal(
+            actual_vec_factor, environment._vec_factor);
+
+    // We do not create a symbol if mask is all ones
+    if (Utils::is_all_one_mask(contiguous_mask))
+    {
+        environment._mask_list.push_back(contiguous_mask);
+    }
+    else
+    {
+        Nodecl::NodeclBase initial_mask_symbol
+            = Utils::get_new_mask_symbol(environment._analysis_simd_scope,
+                                         actual_vec_factor,
+                                         true /*ref_type*/);
+
+        Nodecl::ExpressionStatement initial_mask_exp
+            = Nodecl::ExpressionStatement::make(
+                Nodecl::VectorMaskAssignment::make(
+                    initial_mask_symbol.shallow_copy(),
+                    contiguous_mask,
+                    initial_mask_symbol.get_type(),
+                    sibling_ref_node.get_locus()));
+
+        sibling_ref_node.prepend_sibling(initial_mask_exp);
+
+        environment._mask_list.push_back(initial_mask_symbol);
+
+        CXX_LANGUAGE()
+        {
+            sibling_ref_node.prepend_sibling(
+                Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                     initial_mask_symbol.get_symbol(),
+                                     initial_mask_symbol.get_locus()));
+        }
+    }
+}
+
 void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
 {
     Nodecl::NodeclBase simd_enclosing_node = simd_input_node.get_parent();
     Nodecl::OpenMP::Simd simd_node_main_loop
         = simd_input_node.shallow_copy().as<Nodecl::OpenMP::Simd>();
+
+    // This is ugly but some routines below expect this tree
+    // to be usable with retrieve_context
+    nodecl_set_parent(
+            simd_node_main_loop.get_internal_nodecl(),
+            nodecl_get_parent(simd_input_node.get_internal_nodecl()));
+
     Nodecl::NodeclBase loop_statement = simd_node_main_loop.get_statement();
     Nodecl::List simd_environment
         = simd_node_main_loop.get_environment().as<Nodecl::List>();
 
-    // Aligned clause
+    // Process common simd clauses
     map_nodecl_int_t aligned_expressions;
-    process_aligned_clause(simd_environment, aligned_expressions);
-
-    // Linear clause
     map_tlsym_int_t linear_symbols;
-    process_linear_clause(simd_environment, linear_symbols);
-
-    // Uniform clause
     objlist_tlsym_t uniform_symbols;
-    process_uniform_clause(simd_environment, uniform_symbols);
-
-    // Suitable clause
     objlist_nodecl_t suitable_expressions;
-    process_suitable_clause(simd_environment, suitable_expressions);
-
-    // Nontemporal clause
     map_tlsym_objlist_t nontemporal_expressions;
-    process_nontemporal_clause(simd_environment, nontemporal_expressions);
-
-    // Vectorlengthfor clause
-    TL::Type target_type;
-    process_vectorlengthfor_clause(simd_environment, target_type);
-
-    // Overlap clause
+    unsigned int vectorlength_in_elements;
+    TL::Type vectorlengthfor_type;
     map_tlsym_objlist_int_t overlap_symbols;
-    process_overlap_clause(simd_environment, overlap_symbols);
+    Vectorization::prefetch_info_t prefetch_info;
 
-    // Unroll clause
-    int unroll_clause_arg = process_unroll_clause(simd_environment);
+    process_common_simd_clauses(simd_environment,
+                                aligned_expressions,
+                                linear_symbols,
+                                uniform_symbols,
+                                suitable_expressions,
+                                vectorlength_in_elements,
+                                vectorlengthfor_type,
+                                nontemporal_expressions,
+                                overlap_symbols,
+                                prefetch_info);
+
+    // Process loop-specific simd clauses
+    unsigned int unroll_factor;
+    unsigned int unroll_and_jam_factor;
     bool loop_unrolled = false;
 
-    // Prefetch clause
-    Vectorization::prefetch_info_t prefetch_info;
-    process_prefetch_clause(simd_environment, prefetch_info);
+    process_loop_simd_clauses(simd_environment,
+            unroll_factor,
+            unroll_and_jam_factor);
+
+
+    // Compute the vec factor based on the information of the clauses,
+    // if any, or analyzing the code
+    unsigned int vec_factor = compute_vec_factor(loop_statement,
+                                                 vectorlength_in_elements,
+                                                 vectorlengthfor_type,
+                                                 _vector_isa_desc);
 
     // External symbols (loop)
     std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
-
     // Reduction and simd_reduction clauses
     objlist_tlsym_t reductions;
 
@@ -280,16 +328,14 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
         = process_reduction_clause(simd_environment,
                                    reductions,
                                    new_external_vector_symbol_map,
-                                   simd_enclosing_node.retrieve_context());
+                                   simd_enclosing_node.retrieve_context(),
+                                   vec_factor);
+
 
     // Vectorizer Environment
-    VectorizerEnvironment loop_environment(_device_name,
-                                           _vector_length,
-                                           _fixed_vectorization_factor,
-                                           _support_masking,
-                                           _mask_size,
+    VectorizerEnvironment loop_environment(_vector_isa_desc,
+                                           vec_factor,
                                            _fast_math_enabled,
-                                           target_type,
                                            aligned_expressions,
                                            linear_symbols,
                                            uniform_symbols,
@@ -301,14 +347,6 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
 
     // Add scopes, default masks, etc.
     loop_environment.load_environment(loop_statement);
-    // Set target type
-    if (_fixed_vectorization_factor == 0
-        && !loop_environment._target_type.is_valid())
-    {
-        VectorizerTargetTypeHeuristic target_type_heuristic;
-        target_type = target_type_heuristic.get_target_type(loop_statement);
-        loop_environment.set_target_type(target_type);
-    }
 
     // Add epilog before vectorization
     Nodecl::OpenMP::Simd simd_node_epilog
@@ -338,6 +376,8 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
     int epilog_iterations = _vectorizer.get_epilog_info(
         loop_statement, loop_environment, only_epilog);
 
+    // Set initial mask for vectorization
+    set_initial_mask(loop_environment, simd_node_main_loop);
 
     // MAIN LOOP VECTORIZATION
     if (!only_epilog)
@@ -348,11 +388,11 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
         {
 
             // If unroll clause and overlap clause, apply unroll before overlap
-            if (unroll_clause_arg > 0)
+            if (unroll_factor > 0)
             {
                 TL::HLT::LoopUnroll loop_unroller;
                 loop_unroller.set_loop(loop_statement)
-                    .set_unroll_factor(unroll_clause_arg)
+                    .set_unroll_factor(unroll_factor)
                     .unroll();
 
                 // Nodecl::NodeclBase whole_main_transformation =
@@ -364,7 +404,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
                 // last_epilog = loop_unroller.get_epilog_loop()
                 //    .as<Nodecl::ForStatement>();
                 std::cerr << "Vectorized Loop Unrolled with UF="
-                          << unroll_clause_arg << std::endl;
+                          << unroll_factor << std::endl;
 
                 loop_unrolled = true;
             }
@@ -450,7 +490,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
         // firstprivate in SIMD
     }
 
-    loop_environment.unload_environment();
+    loop_environment.unload_environment(false /*Do not clean masks*/);
 
     // Process epilog
     if (epilog_iterations != 0)
@@ -470,7 +510,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
 
         // Reload environment
         // 'epilog_for_statement' could be no longer a ForStatement
-        loop_environment.unload_environment();
+        loop_environment.unload_environment(false /*Do not clean masks*/);
         loop_environment.load_environment(net_epilog_node);
 
         // Overlap
@@ -505,7 +545,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
             Nodecl::UnknownPragma loop_count_pragma
                 = get_epilogue_loop_count_pragma(
                     epilog_iterations /*aprox iterations*/,
-                    _vector_length / target_type.get_size() /*VF*/);
+                    vec_factor);
 
             net_epilog_node.prepend_sibling(loop_count_pragma);
         }
@@ -528,11 +568,11 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
         // Remove Simd node from loop_statement
         simd_node_main_loop.replace(loop_statement);
 
-        if (!loop_unrolled && unroll_clause_arg > 0)
+        if (!loop_unrolled && unroll_factor > 0)
         {
             std::stringstream unroll_pragma_strm;
             unroll_pragma_strm << "unroll(";
-            unroll_pragma_strm << unroll_clause_arg;
+            unroll_pragma_strm << unroll_factor;
             unroll_pragma_strm << ")";
 
             Nodecl::UnknownPragma unroll_pragma
@@ -542,13 +582,11 @@ void SimdVisitor::visit(const Nodecl::OpenMP::Simd &simd_input_node)
         }
 
         // Unroll and Jam clause
-        int unroll_and_jam_clause_arg
-            = process_unroll_and_jam_clause(simd_environment);
-        if (unroll_and_jam_clause_arg > 0)
+        if (unroll_and_jam_factor > 0)
         {
             std::stringstream unroll_and_jam_pragma_strm;
             unroll_and_jam_pragma_strm << "unroll_and_jam(";
-            unroll_and_jam_pragma_strm << unroll_and_jam_clause_arg;
+            unroll_and_jam_pragma_strm << unroll_and_jam_factor;
             unroll_and_jam_pragma_strm << ")";
 
             Nodecl::UnknownPragma unroll_and_jam_pragma
@@ -589,62 +627,59 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
 
     Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
-    // Aligned clause
+    // Process common simd clauses
     map_nodecl_int_t aligned_expressions;
-    process_aligned_clause(omp_simd_for_environment, aligned_expressions);
-
-    // Linear clause
     map_tlsym_int_t linear_symbols;
-    process_linear_clause(omp_simd_for_environment, linear_symbols);
-
-    // Uniform clause
     objlist_tlsym_t uniform_symbols;
-    process_uniform_clause(omp_simd_for_environment, uniform_symbols);
-
-    // Suitable clause
     objlist_nodecl_t suitable_expressions;
-    process_suitable_clause(omp_simd_for_environment, suitable_expressions);
-
-    // Nontemporal clause
     map_tlsym_objlist_t nontemporal_expressions;
-    process_nontemporal_clause(omp_simd_for_environment,
-                               nontemporal_expressions);
-
-    // Unroll clause
-    int unroll_clause_arg = process_unroll_clause(omp_simd_for_environment);
-    // bool loop_unrolled = false;
-
-    // Overlap clause
+    unsigned int vectorlength_in_elements;
+    TL::Type vectorlengthfor_type;
     map_tlsym_objlist_int_t overlap_symbols;
-    process_overlap_clause(omp_simd_for_environment, overlap_symbols);
-
-    // Prefetch clause
     Vectorization::prefetch_info_t prefetch_info;
-    process_prefetch_clause(omp_simd_for_environment, prefetch_info);
 
-    // Vectorlengthfor clause
-    TL::Type target_type;
-    process_vectorlengthfor_clause(omp_simd_for_environment, target_type);
+    process_common_simd_clauses(omp_simd_for_environment,
+                             aligned_expressions,
+                             linear_symbols,
+                             uniform_symbols,
+                             suitable_expressions,
+                             vectorlength_in_elements,
+                             vectorlengthfor_type,
+                             nontemporal_expressions,
+                             overlap_symbols,
+                             prefetch_info);
+
+    // Process loop-specific simd clauses
+    unsigned int unroll_factor;
+    unsigned int unroll_and_jam_factor;
+
+    process_loop_simd_clauses(omp_for_environment,
+            unroll_factor,
+            unroll_and_jam_factor);
+
+
+    // Compute the vec factor based on the information of the clauses,
+    // if any, or analyzing the code
+    unsigned int vec_factor = compute_vec_factor(for_statement,
+                                                 vectorlength_in_elements,
+                                                 vectorlengthfor_type,
+                                                 _vector_isa_desc);
 
     // External symbols (loop)
     std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
-
     // Reduction clause
     objlist_tlsym_t reductions;
     Nodecl::List omp_reduction_list
         = process_reduction_clause(omp_for_environment,
                                    reductions,
                                    new_external_vector_symbol_map,
-                                   simd_enclosing_node.retrieve_context());
+                                   simd_enclosing_node.retrieve_context(),
+                                   vec_factor);
 
     // Vectorizer Environment
-    VectorizerEnvironment for_environment(_device_name,
-                                          _vector_length,
-                                          _fixed_vectorization_factor,
-                                          _support_masking,
-                                          _mask_size,
+    VectorizerEnvironment for_environment(_vector_isa_desc,
+                                          vec_factor,
                                           _fast_math_enabled,
-                                          target_type,
                                           aligned_expressions,
                                           linear_symbols,
                                           uniform_symbols,
@@ -659,13 +694,6 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
 
     // Add scopes, default masks, etc.
     for_environment.load_environment(for_statement);
-    // Set target type
-    if (!for_environment._target_type.is_valid())
-    {
-        VectorizerTargetTypeHeuristic target_type_heuristic;
-        target_type = target_type_heuristic.get_target_type(for_statement);
-        for_environment.set_target_type(target_type);
-    }
 
     // Add epilog before vectorization
     Nodecl::OpenMP::SimdFor simd_node_epilog
@@ -689,6 +717,9 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
     //                    simd_enclosing_node.retrieve_context(),
     //                    for_environment);
     //            simd_node_for.prepend_sibling(vectorizer_overlap.get_init_statements(for_environment));
+
+    // Set initial mask for vectorization
+    set_initial_mask(for_environment, simd_node_for);
 
     // VECTORIZE FOR
     if (!only_epilog)
@@ -788,7 +819,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
         // single_epilog.append_sibling(post_for_nodecls);
     }
 
-    for_environment.unload_environment();
+    for_environment.unload_environment(false /*Do not clean masks*/);
 
     Nodecl::NodeclBase net_epilog_node;
     Nodecl::ForStatement epilog_for_statement;
@@ -813,7 +844,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
 
         // Reload environment
         // 'epilog_for_statement' could be no longer a ForStatement
-        for_environment.unload_environment();
+        for_environment.unload_environment(false /*Do not clean masks*/);
         for_environment.load_environment(net_epilog_node);
 
         Nodecl::List single_stmts_list;
@@ -843,7 +874,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
             Nodecl::UnknownPragma loop_count_pragma
                 = get_epilogue_loop_count_pragma(
                     epilog_iterations /*aprox iterations*/,
-                    _vector_length / target_type.get_size() /*VF*/);
+                    vec_factor);
 
             single_stmts_list.append(loop_count_pragma);
         }
@@ -882,12 +913,12 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor &simd_input_node)
     else
     {
         // Unroll the vectorized loop!
-        if (unroll_clause_arg != 0)
+        if (unroll_factor != 0)
         {
             // Main Loop
             TL::HLT::LoopUnroll loop_unroller;
             loop_unroller.set_loop(for_statement)
-                .set_unroll_factor(unroll_clause_arg)
+                .set_unroll_factor(unroll_factor)
                 .unroll();
 
             Nodecl::NodeclBase unrolled_transformation
@@ -1001,7 +1032,7 @@ void SimdPreregisterVisitor::visit(
             "time\n");
     }
 
-    if ((!omp_mask.is_null()) && (!_support_masking))
+    if ((!omp_mask.is_null()) && (!_vector_isa_desc.support_masking()))
     {
         fatal_error(
             "SIMD: 'mask' clause detected. Masking is not supported by the "
@@ -1009,7 +1040,7 @@ void SimdPreregisterVisitor::visit(
     }
 
     // Mask Version
-    if (_support_masking && omp_nomask.is_null())
+    if (_vector_isa_desc.support_masking() && omp_nomask.is_null())
     {
         common_simd_function_preregister(simd_node, true);
     }
@@ -1044,7 +1075,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction &simd_node)
             "time\n");
     }
 
-    if ((!omp_mask.is_null()) && (!_support_masking))
+    if ((!omp_mask.is_null()) && (!_vector_isa_desc.support_masking()))
     {
         fatal_error(
             "SIMD: 'mask' clause detected. Masking is not supported by the "
@@ -1052,7 +1083,7 @@ void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction &simd_node)
     }
 
     // Mask Version
-    if (_support_masking && omp_nomask.is_null())
+    if (_vector_isa_desc.support_masking() && omp_nomask.is_null())
     {
         common_simd_function(simd_node, true);
     }
@@ -1081,7 +1112,7 @@ void SimdPreregisterVisitor::common_simd_function_preregister(
 
     TL::Counter &counter = TL::CounterManager::get_counter("simd-function");
     vector_func_name << "__" << orig_func_name << "_" << (int)counter << "_"
-                     << _device_name << "_" << _vector_length;
+                     << _vector_isa_desc.get_id(); 
     counter++;
 
     if (masked_version)
@@ -1118,49 +1149,39 @@ void SimdPreregisterVisitor::common_simd_function_preregister(
     // Process clauses FROM THE COPY
     Nodecl::List omp_environment
         = simd_node_copy.get_environment().as<Nodecl::List>();
-
-    // Aligned clause
+    // Process common simd clauses
     map_nodecl_int_t aligned_expressions;
-    process_aligned_clause(omp_environment, aligned_expressions);
-
-    // Linear clause
     map_tlsym_int_t linear_symbols;
-    process_linear_clause(omp_environment, linear_symbols);
-
-    // Uniform clause
     objlist_tlsym_t uniform_symbols;
-    process_uniform_clause(omp_environment, uniform_symbols);
-
-    // Suitable clause
     objlist_nodecl_t suitable_expressions;
-    process_suitable_clause(omp_environment, suitable_expressions);
-
-    // Nontemporal clause
     map_tlsym_objlist_t nontemporal_expressions;
-    process_nontemporal_clause(omp_environment, nontemporal_expressions);
-
-    // Overlap clause
-    map_tlsym_objlist_int_t overlap_symbols;
-    process_overlap_clause(omp_environment, overlap_symbols);
-    //            VectorizerOverlap vectorizer_overlap(overlap_symbols);
-
-    // Prefetch clause
-    prefetch_info_t prefetch_info;
-    process_prefetch_clause(omp_environment, prefetch_info);
-
-    // Vectorlengthfor clause
+    unsigned int vectorlength_in_elements;
     TL::Type vectorlengthfor_type;
-    process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
-    TL::Type target_type = vectorlengthfor_type;
+    map_tlsym_objlist_int_t overlap_symbols;
+    Vectorization::prefetch_info_t prefetch_info;
+
+    process_common_simd_clauses(omp_environment,
+                             aligned_expressions,
+                             linear_symbols,
+                             uniform_symbols,
+                             suitable_expressions,
+                             vectorlength_in_elements,
+                             vectorlengthfor_type,
+                             nontemporal_expressions,
+                             overlap_symbols,
+                             prefetch_info);
+
+    // Compute the vec factor based on the information of the clauses,
+    // if any, or analyzing the code
+    unsigned int vec_factor = compute_vec_factor(vector_func_code,
+                                                 vectorlength_in_elements,
+                                                 vectorlengthfor_type,
+                                                 _vector_isa_desc);
 
     // Vectorizer Environment
-    VectorizerEnvironment function_environment(_device_name,
-                                               _vector_length,
-                                               _fixed_vectorization_factor,
-                                               _support_masking,
-                                               _mask_size,
+    VectorizerEnvironment function_environment(_vector_isa_desc,
+                                               vec_factor,
                                                _fast_math_enabled,
-                                               target_type,
                                                aligned_expressions,
                                                linear_symbols,
                                                uniform_symbols,
@@ -1175,28 +1196,17 @@ void SimdPreregisterVisitor::common_simd_function_preregister(
 
     // Add scopes, default masks, etc.
     function_environment.load_environment(vector_func_code);
-    // Set target type
-    if (!function_environment._target_type.is_valid())
-    {
-        VectorizerTargetTypeHeuristic target_type_heuristic;
-        function_environment.set_target_type(
-            target_type_heuristic.get_target_type(vector_func_code));
-    }
+    //set_initial_mask(_environment, loop_statement);
 
     // Add SIMD version to vector function versioning
     TL::Type function_return_type = func_sym.get_type().returns();
-    int function_return_type_size
-        = function_return_type.is_void() ? 1 : function_return_type.get_size();
-    _vectorizer.add_vector_function_version(
-        func_sym,
-        vector_func_code,
-        _device_name,
-        function_environment._vectorization_factor * function_return_type_size,
-        function_return_type,
-        masked_version,
-        TL::Vectorization::SIMD_FUNC_PRIORITY,
-        false);
 
+    vec_func_versioning.add_version(func_sym,
+                                    vector_func_code,
+                                    _vector_isa_desc.get_id(),
+                                    function_environment._vec_factor,
+                                    masked_version,
+                                    TL::Vectorization::SIMD_FUNC_PRIORITY);
 
     _vectorizer.vectorize_function_header(vector_func_code,
                                           function_environment,
@@ -1297,20 +1307,17 @@ void SimdVisitor::common_simd_function(
         TL::Type target_type
             = target_type_heuristic.get_target_type(function_code);
 
-        int _vectorization_factor = _vector_length / target_type.get_size();
+        int _vec_factor
+            = _vector_isa_desc.get_vec_factor_from_type(target_type);
 
         TL::Type function_return_type = func_sym.get_type().returns();
-        vector_func_code
-            = Vectorizer::_function_versioning
-                  .get_best_version(func_sym,
-                                    _device_name,
-                                    _vectorization_factor
-                                        * (function_return_type.is_void() ?
-                                               1 :
-                                               function_return_type.get_size()),
-                                    function_return_type,
-                                    masked_version)
-                  .as<Nodecl::FunctionCode>();
+
+        vector_func_code = vec_func_versioning
+                               .get_best_version(func_sym,
+                                                 _vector_isa_desc.get_id(),
+                                                 _vec_factor,
+                                                 masked_version)
+                               .as<Nodecl::FunctionCode>();
 
         ERROR_CONDITION(vector_func_code.is_null()
                             || !vector_func_code.is<Nodecl::FunctionCode>(),
@@ -1329,48 +1336,39 @@ void SimdVisitor::common_simd_function(
               .get_environment()
               .as<Nodecl::List>();
 
-    // Aligned clause
+    // Process common simd clauses
     map_nodecl_int_t aligned_expressions;
-    process_aligned_clause(omp_environment, aligned_expressions);
-
-    // Linear clause
     map_tlsym_int_t linear_symbols;
-    process_linear_clause(omp_environment, linear_symbols);
-
-    // Uniform clause
     objlist_tlsym_t uniform_symbols;
-    process_uniform_clause(omp_environment, uniform_symbols);
-
-    // Suitable clause
     objlist_nodecl_t suitable_expressions;
-    process_suitable_clause(omp_environment, suitable_expressions);
-
-    // Nontemporal clause
     map_tlsym_objlist_t nontemporal_expressions;
-    process_nontemporal_clause(omp_environment, nontemporal_expressions);
-
-    // Overlap clause
-    map_tlsym_objlist_int_t overlap_symbols;
-    process_overlap_clause(omp_environment, overlap_symbols);
-    //            VectorizerOverlap vectorizer_overlap(overlap_symbols);
-
-    // Prefetch clause
-    prefetch_info_t prefetch_info;
-    process_prefetch_clause(omp_environment, prefetch_info);
-
-
-    // Vectorlengthfor clause
+    unsigned int vectorlength_in_elements;
     TL::Type vectorlengthfor_type;
-    process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
+    map_tlsym_objlist_int_t overlap_symbols;
+    Vectorization::prefetch_info_t prefetch_info;
+
+    process_common_simd_clauses(omp_environment,
+                             aligned_expressions,
+                             linear_symbols,
+                             uniform_symbols,
+                             suitable_expressions,
+                             vectorlength_in_elements,
+                             vectorlengthfor_type,
+                             nontemporal_expressions,
+                             overlap_symbols,
+                             prefetch_info);
+
+    // Compute the vec factor based on the information of the clauses,
+    // if any, or analyzing the code
+    unsigned int vec_factor = compute_vec_factor(vector_func_code,
+                                                 vectorlength_in_elements,
+                                                 vectorlengthfor_type,
+                                                 _vector_isa_desc);
 
     // Vectorizer Environment
-    VectorizerEnvironment function_environment(_device_name,
-                                               _vector_length,
-                                               _fixed_vectorization_factor,
-                                               _support_masking,
-                                               _mask_size,
+    VectorizerEnvironment function_environment(_vector_isa_desc,
+                                               vec_factor,
                                                _fast_math_enabled,
-                                               vectorlengthfor_type,
                                                aligned_expressions,
                                                linear_symbols,
                                                uniform_symbols,
@@ -1379,14 +1377,6 @@ void SimdVisitor::common_simd_function(
                                                overlap_symbols,
                                                NULL,
                                                NULL);
-
-    // Set target type
-    if (!function_environment._target_type.is_valid())
-    {
-        VectorizerTargetTypeHeuristic target_type_heuristic;
-        function_environment.set_target_type(
-            target_type_heuristic.get_target_type(function_code));
-    }
 
     function_environment.load_environment(vector_func_code);
 
@@ -1397,23 +1387,20 @@ void SimdVisitor::common_simd_function(
     // Append vectorized function code to scalar function
     simd_node.append_sibling(vector_func_code);
 
-    // // Set target type
-    // if (!function_environment._target_type.is_valid())
-    // {
-    //     VectorizerTargetTypeHeuristic target_type_heuristic;
-    //     function_environment.set_target_type(
-    //             target_type_heuristic.get_target_type(vector_func_code));
-    // }
-
     // // Add SIMD version to vector function versioning
     // TL::Type function_return_type = func_sym.get_type().returns();
     // _vectorizer.add_vector_function_version(
     //         func_sym,
     //         vector_func_code, _device_name,
     //         function_return_type.get_size() *
-    //         function_environment._vectorization_factor,
+    //         function_environment._vec_factor,
     //         function_return_type, masked_version,
     //         TL::Vectorization::SIMD_FUNC_PRIORITY, false);
+
+    // Set initial mask for vectorization
+    set_initial_mask(function_environment,
+                     Nodecl::Utils::skip_contexts_and_lists(
+                         vector_func_code.get_statements()));
 
     _vectorizer.vectorize_function(
         vector_func_code, function_environment, masked_version);
@@ -1476,368 +1463,6 @@ void SimdVisitor::common_simd_function(
     //_vectorizer.finalize_analysis();
 
     // Prostprocess code
-}
-
-void SimdProcessingBase::process_aligned_clause(
-    const Nodecl::List &environment, map_nodecl_int_t &aligned_expressions_map)
-{
-    TL::ObjectList<Nodecl::OpenMP::Aligned> omp_aligned_list
-        = environment.find_all<Nodecl::OpenMP::Aligned>();
-
-    for (TL::ObjectList<Nodecl::OpenMP::Aligned>::iterator it
-         = omp_aligned_list.begin();
-         it != omp_aligned_list.end();
-         it++)
-    {
-        Nodecl::OpenMP::Aligned &omp_aligned = *it;
-
-        objlist_nodecl_t aligned_expressions_list
-            = omp_aligned.get_aligned_expressions()
-                  .as<Nodecl::List>()
-                  .to_object_list();
-
-        int alignment
-            = const_value_cast_to_signed_int(omp_aligned.get_alignment()
-                                                 .as<Nodecl::IntegerLiteral>()
-                                                 .get_constant());
-
-        for (const auto &it2 : aligned_expressions_list)
-        {
-            if (!aligned_expressions_map
-                     .insert(std::pair<Nodecl::NodeclBase, int>(it2, alignment))
-                     .second)
-            {
-                fatal_error(
-                    "SIMD: multiple instances of the same variable in the "
-                    "'aligned' clause detected\n");
-            }
-        }
-    }
-}
-
-void SimdProcessingBase::process_linear_clause(
-    const Nodecl::List &environment, map_tlsym_int_t &linear_symbols_map)
-{
-    TL::ObjectList<Nodecl::OpenMP::Linear> omp_linear_list
-        = environment.find_all<Nodecl::OpenMP::Linear>();
-
-    for (TL::ObjectList<Nodecl::OpenMP::Linear>::iterator it
-         = omp_linear_list.begin();
-         it != omp_linear_list.end();
-         it++)
-    {
-        Nodecl::OpenMP::Linear &omp_linear = *it;
-
-        objlist_nodecl_t linear_symbols_list
-            = omp_linear.get_linear_expressions()
-                  .as<Nodecl::List>()
-                  .to_object_list();
-
-        int step = const_value_cast_to_signed_int(
-            omp_linear.get_step().as<Nodecl::IntegerLiteral>().get_constant());
-
-        for (objlist_nodecl_t::iterator it2 = linear_symbols_list.begin();
-             it2 != linear_symbols_list.end();
-             it2++)
-        {
-
-            if (!linear_symbols_map
-                     .insert(std::pair<TL::Symbol, int>(
-                         it2->as<Nodecl::Symbol>().get_symbol(), step))
-                     .second)
-            {
-                fatal_error(
-                    "SIMD: multiple instances of the same variable "
-                    "in the 'linear' clause detected\n");
-            }
-        }
-    }
-}
-
-void SimdProcessingBase::process_uniform_clause(
-    const Nodecl::List &environment, objlist_tlsym_t &uniform_symbols)
-{
-    Nodecl::OpenMP::Uniform omp_uniform
-        = environment.find_first<Nodecl::OpenMP::Uniform>();
-
-    if (!omp_uniform.is_null())
-    {
-        objlist_nodecl_t uniform_symbols_list
-            = omp_uniform.get_uniform_expressions()
-                  .as<Nodecl::List>()
-                  .to_object_list();
-
-        for (objlist_nodecl_t::iterator it2 = uniform_symbols_list.begin();
-             it2 != uniform_symbols_list.end();
-             it2++)
-        {
-            uniform_symbols.insert(it2->as<Nodecl::Symbol>().get_symbol());
-        }
-    }
-}
-
-void SimdProcessingBase::process_suitable_clause(
-    const Nodecl::List &environment, objlist_nodecl_t &suitable_expressions)
-{
-    Nodecl::OpenMP::Suitable omp_suitable
-        = environment.find_first<Nodecl::OpenMP::Suitable>();
-
-    if (!omp_suitable.is_null())
-    {
-        suitable_expressions = omp_suitable.get_suitable_expressions()
-                                   .as<Nodecl::List>()
-                                   .to_object_list();
-    }
-}
-
-void SimdProcessingBase::process_nontemporal_clause(
-    const Nodecl::List &environment,
-    map_tlsym_objlist_t &nontemporal_expressions)
-{
-    TL::ObjectList<Nodecl::OpenMP::Nontemporal> omp_nontemporal_list
-        = environment.find_all<Nodecl::OpenMP::Nontemporal>();
-
-    for (const auto &omp_nontemporal : omp_nontemporal_list)
-    {
-        objlist_nodecl_t nontemporal_expressions_list
-            = omp_nontemporal.get_nontemporal_expressions()
-                  .as<Nodecl::List>()
-                  .to_object_list();
-
-        objlist_nodecl_t nontemporal_flags
-            = omp_nontemporal.get_flags().as<Nodecl::List>().to_object_list();
-
-        for (objlist_nodecl_t::iterator it2
-             = nontemporal_expressions_list.begin();
-             it2 != nontemporal_expressions_list.end();
-             it2++)
-        {
-
-            if (!nontemporal_expressions
-                     .insert(
-                         std::make_pair(it2->as<Nodecl::Symbol>().get_symbol(),
-                                        nontemporal_flags))
-                     .second)
-            {
-                fatal_error(
-                    "SIMD: multiple instances of the same variable in the "
-                    "'aligned' clause detectedn\n");
-            }
-        }
-    }
-}
-
-int SimdProcessingBase::process_unroll_clause(const Nodecl::List &environment)
-{
-    Nodecl::OpenMP::Unroll omp_unroll
-        = environment.find_first<Nodecl::OpenMP::Unroll>();
-
-    if (!omp_unroll.is_null())
-    {
-        Nodecl::NodeclBase unroll_factor = omp_unroll.get_unroll_factor();
-
-        if (unroll_factor.is_constant())
-        {
-            return const_value_cast_to_4(unroll_factor.get_constant());
-        }
-    }
-
-    return 0;
-}
-
-int SimdProcessingBase::process_unroll_and_jam_clause(
-    const Nodecl::List &environment)
-{
-    Nodecl::OpenMP::UnrollAndJam omp_unroll
-        = environment.find_first<Nodecl::OpenMP::UnrollAndJam>();
-
-    if (!omp_unroll.is_null())
-    {
-        Nodecl::NodeclBase unroll_factor = omp_unroll.get_unroll_factor();
-
-        if (unroll_factor.is_constant())
-        {
-            return const_value_cast_to_4(unroll_factor.get_constant());
-        }
-    }
-
-    return 0;
-}
-
-void SimdProcessingBase::process_vectorlengthfor_clause(
-    const Nodecl::List &environment, TL::Type &vectorlengthfor_type)
-{
-    Nodecl::OpenMP::VectorLengthFor omp_vector_length_for
-        = environment.find_first<Nodecl::OpenMP::VectorLengthFor>();
-
-    if (!omp_vector_length_for.is_null())
-    {
-        if (_fixed_vectorization_factor == 0)
-        {
-            vectorlengthfor_type = omp_vector_length_for.get_type();
-        }
-        else
-        {
-            warn_printf_at(omp_vector_length_for.get_locus(),
-                           "ignoring 'vectorlengthfor' clause because in this "
-                           "architecture the vector length is fixed\n");
-        }
-    }
-}
-
-void SimdProcessingBase::process_overlap_clause(
-    const Nodecl::List &environment, map_tlsym_objlist_int_t &overlap_symbols)
-{
-    TL::ObjectList<Nodecl::OpenMP::Overlap> omp_overlap_list
-        = environment.find_all<Nodecl::OpenMP::Overlap>();
-
-    for (TL::ObjectList<Nodecl::OpenMP::Overlap>::iterator it
-         = omp_overlap_list.begin();
-         it != omp_overlap_list.end();
-         it++)
-    {
-        Nodecl::OpenMP::Overlap &omp_overlap = *it;
-
-        objlist_nodecl_t overlap_symbols_list
-            = omp_overlap.get_overlap_expressions()
-                  .as<Nodecl::List>()
-                  .to_object_list();
-
-        int min_group_loads = const_value_cast_to_signed_int(
-            it->get_min_group_loads().get_constant());
-        int max_group_registers = const_value_cast_to_signed_int(
-            it->get_max_group_registers().get_constant());
-        int max_groups = const_value_cast_to_signed_int(
-            it->get_max_groups().get_constant());
-
-        for (objlist_nodecl_t::iterator it2 = overlap_symbols_list.begin();
-             it2 != overlap_symbols_list.end();
-             it2++)
-        {
-            objlist_int_t overlap_params(3);
-            overlap_params[0] = min_group_loads;
-            overlap_params[1] = max_group_registers;
-            overlap_params[2] = max_groups;
-
-
-            if (!overlap_symbols
-                     .insert(std::pair<TL::Symbol, objlist_int_t>(
-                         it2->as<Nodecl::Symbol>().get_symbol(),
-                         overlap_params))
-                     .second)
-            {
-                fatal_error(
-                    "SIMD: multiple instances of the same variable in the "
-                    "'overlap' clause detected\n");
-            }
-        }
-    }
-}
-
-void SimdProcessingBase::process_prefetch_clause(
-    const Nodecl::List &environment,
-    Vectorization::prefetch_info_t &prefetch_info)
-{
-    TL::ObjectList<Nodecl::OpenMP::Prefetch> omp_prefetch_list
-        = environment.find_all<Nodecl::OpenMP::Prefetch>();
-
-    ERROR_CONDITION(
-        omp_prefetch_list.size() > 1, "Too many OpenMP::Prefetch nodes", 0);
-
-    if (omp_prefetch_list.size() == 1)
-    {
-        Nodecl::OpenMP::Prefetch &omp_prefetch = *omp_prefetch_list.begin();
-
-        objlist_nodecl_t prefetch_distances_list
-            = omp_prefetch.get_distances().as<Nodecl::List>().to_object_list();
-
-        ERROR_CONDITION(prefetch_distances_list.size() != 2,
-                        "Prefetch distances must be 2",
-                        0);
-
-        prefetch_info.enabled = true;
-
-        prefetch_info.distances[1] = const_value_cast_to_signed_int(
-            prefetch_distances_list[0].get_constant()); // L2 distance
-        prefetch_info.distances[0] = const_value_cast_to_signed_int(
-            prefetch_distances_list[1].get_constant()); // L1 distance
-
-        Nodecl::NodeclBase strategy = omp_prefetch.get_strategy();
-
-        if (strategy.is<Nodecl::OnTopFlag>())
-            prefetch_info.in_place = false;
-        else if (strategy.is<Nodecl::InPlaceFlag>())
-            prefetch_info.in_place = true;
-        else
-        {
-            internal_error(
-                "Prefetch strategy is neither OnTopFlag nor InPlaceFlag\n", 0);
-        }
-    }
-    else
-    {
-        prefetch_info.enabled = false;
-    }
-}
-
-Nodecl::List SimdProcessingBase::process_reduction_clause(
-    const Nodecl::List &environment,
-    TL::ObjectList<TL::Symbol> &reductions,
-    std::map<TL::Symbol, TL::Symbol> &new_external_vector_symbol_map,
-    TL::Scope enclosing_scope)
-{
-    Nodecl::List omp_reduction_list;
-
-    for (Nodecl::List::const_iterator it = environment.begin();
-         it != environment.end();
-         it++)
-    {
-        if (it->is<Nodecl::OpenMP::Reduction>()
-            || it->is<Nodecl::OpenMP::SimdReduction>())
-        {
-            Nodecl::OpenMP::Reduction omp_reductions
-                = it->as<Nodecl::OpenMP::Reduction>();
-
-            // Extract reduced Nodecl::Symbol from ReductionItems
-            omp_reduction_list
-                = omp_reductions.get_reductions().as<Nodecl::List>();
-            for (Nodecl::List::iterator it2 = omp_reduction_list.begin();
-                 it2 != omp_reduction_list.end();
-                 it2++)
-            {
-                TL::Symbol red_sym = it2->as<Nodecl::OpenMP::ReductionItem>()
-                                         .get_reduced_symbol()
-                                         .as<Nodecl::Symbol>()
-                                         .get_symbol();
-
-                reductions.append(red_sym);
-
-                // Add new vector TL::Symbol in the enclosing context
-                TL::Symbol new_red_sym = enclosing_scope.new_symbol(
-                    "__vred_" + red_sym.get_name());
-                new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                symbol_entity_specs_set_is_user_declared(
-                    new_red_sym.get_internal_symbol(), 1);
-                if (_fixed_vectorization_factor == 0)
-                {
-                    new_red_sym.set_type(
-                        red_sym.get_type().get_vector_of_bytes(_vector_length));
-                }
-                else
-                {
-                    new_red_sym.set_type(
-                        red_sym.get_type().get_vector_of_elements(
-                            _fixed_vectorization_factor));
-                }
-
-                // Add new TL::Symbol to map
-                new_external_vector_symbol_map.insert(
-                    std::pair<TL::Symbol, TL::Symbol>(red_sym, new_red_sym));
-            }
-        }
-    }
-
-    return omp_reduction_list;
 }
 
 FunctionDeepCopyFixVisitor::FunctionDeepCopyFixVisitor(

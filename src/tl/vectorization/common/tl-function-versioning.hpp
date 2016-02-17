@@ -29,6 +29,7 @@
 
 #include "tl-nodecl-base.hpp"
 #include <map>
+#include <list>
 
 
 namespace TL 
@@ -43,27 +44,21 @@ namespace TL
                 const Nodecl::NodeclBase _func_version;
                 const FunctionPriority _priority;
                 const std::string _device;
-                const unsigned int _vector_length;
-                const TL::Type _target_type;
+                const unsigned int _vec_factor;
                 const bool _masked;
-                const bool _is_svml;
 
             public:
                 VectorFunctionVersion(const Nodecl::NodeclBase& func_version, 
                         const std::string& device, 
-                        const unsigned int vector_length, 
-                        const TL::Type& _target_type,
+                        const unsigned int vec_factor, 
                         const bool masked,
-                        const FunctionPriority priority,
-                        const bool is_svml);
+                        const FunctionPriority priority);
 
                 const Nodecl::NodeclBase get_version() const;
                 bool has_kind(const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& target_type,
+                        const unsigned int vec_factor,
                         const bool masked) const;
                 bool is_better_than(const VectorFunctionVersion& func_version) const;
-                bool is_svml_function() const;
         };
 
 
@@ -75,33 +70,32 @@ namespace TL
             private:
                 const VectorFunctionVersion* get_best_function_version(TL::Symbol func_name, 
                         const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& _target_type,
+                        const unsigned int vec_factor,
                         const bool masked) const;
 
                 versions_map_t::const_iterator find_best_function(TL::Symbol func_name,
                         const std::string& device,
-                        const unsigned int vector_length,
-                        const Type& target_type,
+                        const unsigned int vec_factor,
                         const bool masked) const;
  
             public:
                 FunctionVersioning();
 
                 void clear();
-                void add_version(TL::Symbol func_name, const VectorFunctionVersion& func_version);
+                void add_version(TL::Symbol scalar_func_sym,
+                                 const Nodecl::NodeclBase &func_version,
+                                 const std::string &device,
+                                 const unsigned int vec_factor,
+                                 const bool masked,
+                                 const FunctionPriority priority);
                 const Nodecl::NodeclBase get_best_version(TL::Symbol func_name, 
                         const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& _target_type,
-                        const bool masked) const;
-
-                bool is_svml_function(TL::Symbol func_name, 
-                        const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& _target_type,
+                        const unsigned int vec_factor,
                         const bool masked) const;
         };
+
+        extern FunctionVersioning vec_func_versioning;
+        extern std::list<TL::Symbol> vec_math_library_funcs;
     }
 }
 

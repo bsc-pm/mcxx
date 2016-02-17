@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorization-utils.hpp"
+
 #include "tl-nodecl-utils.hpp"
 #include "tl-counters.hpp"
 #include "cxx-cexpr.h"
@@ -242,8 +243,11 @@ namespace Utils
         else if (n.is<Nodecl::ForStatement>() ||
                 n.is<Nodecl::WhileStatement>())
         {
-            scope = n.get_parent().get_parent().
-                get_parent().get_parent().retrieve_context();
+            scope = n.get_parent()
+                        .get_parent()
+                        .get_parent()
+                        .get_parent()
+                        .retrieve_context();
         }
         else
         {
@@ -312,7 +316,7 @@ namespace Utils
 
         return Nodecl::MaskLiteral::make(
                 TL::Type::get_mask_type(num_elements),
-                    const_value_get_minus_one(mask_bytes, 1));
+                    const_value_get_minus_one(mask_bytes, /* sign */1));
     }
 
     Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask)
@@ -438,7 +442,7 @@ namespace Utils
         {
             return Nodecl::MaskLiteral::make(
                     TL::Type::get_mask_type(/* bits */ size),
-                    const_value_get_minus_one(bytes, /* sign */ 0));
+                    const_value_get_minus_one(bytes, /* sign */ 1));
         }
 
         const_value_t* mask_value;
@@ -480,11 +484,10 @@ namespace Utils
     {
         TL::ObjectList<Nodecl::NodeclBase> literal_list;
 
-        const_value_t* i = const_value_get_signed_int(start_value);
-        const_value_t* c_increment = const_value_get_signed_int(increment);
-        for(int j = 0;
-                j < vector_size;
-                i = const_value_add(i, c_increment), j++)
+        const_value_t *i = const_value_get_signed_int(start_value);
+        const_value_t *c_increment = const_value_get_signed_int(increment);
+        for (int j = 0; j < vector_size;
+             i = const_value_add(i, c_increment), j++)
         {
             literal_list.prepend(const_value_to_nodecl(i));
         }
@@ -694,9 +697,10 @@ namespace Utils
         return _class_of_vector_field_maps.find(type) != _class_of_vector_field_maps.end();
     }
 
-    TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
-            const unsigned int size,
-            bool &is_new)
+    TL::Type get_class_of_vector_fields_for_isa(TL::Type orig_class_type,
+            const unsigned int vec_factor,
+            bool &is_new,
+            const VectorIsaDescriptor &vec_isa_desc)
     {
         {
             std::map<TL::Type, TL::Type>::iterator it = _cache_of_class_types.find(orig_class_type);
@@ -714,7 +718,7 @@ namespace Utils
 
         TL::Counter &counter = TL::CounterManager::get_counter("simd-struct-of-vectors");
         std::stringstream ss;
-        ss << "__vector_" << orig_class.get_name() << "_" << size << "_" << (int)counter;
+        ss << "__vector_" << orig_class.get_name() << "_" << vec_factor << "_" << (int)counter;
         counter++;
 
         std::string structure_name;
@@ -759,7 +763,10 @@ namespace Utils
             field.get_internal_symbol()->kind = SK_VARIABLE;
             symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
-            field.set_type( Utils::get_qualified_vector_to( orig_field_type, size ) );
+            field.set_type(
+                get_qualified_vector_to(orig_field_type,
+                                        vec_isa_desc.get_vec_factor_for_type(
+                                            orig_field_type, vec_factor)));
             field.get_internal_symbol()->locus = it->get_locus();
             symbol_entity_specs_set_access(field.get_internal_symbol(),
                     symbol_entity_specs_get_access(it->get_internal_symbol()));
@@ -786,11 +793,14 @@ namespace Utils
         return result_type;
     }
 
-    TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
-            const unsigned int size)
+    TL::Type get_class_of_vector_fields_for_isa(
+        TL::Type orig_class_type,
+        const unsigned int vec_factor,
+        const VectorIsaDescriptor &vec_isa_desc)
     {
         bool dummy;
-        return get_class_of_vector_fields(orig_class_type, size, dummy);
+        return get_class_of_vector_fields_for_isa(
+            orig_class_type, vec_factor, dummy, vec_isa_desc);
     }
 }
 }

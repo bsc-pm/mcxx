@@ -27,7 +27,9 @@
 #ifndef TL_OMP_SIMD_VISITOR_HPP
 #define TL_OMP_SIMD_VISITOR_HPP
 
+#include "tl-vector-isa-descriptor.hpp"
 #include "tl-vectorizer.hpp"
+
 
 namespace TL
 {
@@ -38,46 +40,11 @@ class SimdProcessingBase
   protected:
     TL::Vectorization::Vectorizer &_vectorizer;
 
-    std::string _device_name;
-    unsigned int _vector_length;
-    unsigned int _fixed_vectorization_factor;
-    bool _support_masking;
-    unsigned int _mask_size;
+    const TL::Vectorization::VectorIsaDescriptor& _vector_isa_desc;
     bool _fast_math_enabled;
     bool _overlap_in_place;
 
-    void process_aligned_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::map_nodecl_int_t &aligned_expressions_map);
-    void process_linear_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::map_tlsym_int_t &linear_symbols_map);
-    void process_uniform_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::objlist_tlsym_t &uniform_symbols);
-    void process_suitable_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::objlist_nodecl_t &suitable_expressions);
-    void process_nontemporal_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::map_tlsym_objlist_t &nontemporal_expressions);
-    int process_unroll_clause(const Nodecl::List &environment);
-    int process_unroll_and_jam_clause(const Nodecl::List &environment);
-    void process_vectorlengthfor_clause(const Nodecl::List &environment,
-                                        TL::Type &vectorlengthfor_type);
-    void process_overlap_clause(
-        const Nodecl::List &environment,
-        TL::Vectorization::map_tlsym_objlist_int_t &overlap_expressions);
-    void process_prefetch_clause(const Nodecl::List &environment,
-                                 Vectorization::prefetch_info_t &prefetch_info);
-
-    Nodecl::List process_reduction_clause(
-        const Nodecl::List &environment,
-        TL::ObjectList<TL::Symbol> &reductions,
-        std::map<TL::Symbol, TL::Symbol> &new_external_vector_symbol_map,
-        TL::Scope enclosing_scope);
-
-    SimdProcessingBase(Vectorization::SIMDInstructionSet simd_isa,
+    SimdProcessingBase(Vectorization::VectorInstructionSet simd_isa,
                        bool fast_math_enabled,
                        bool svml_enabled,
                        bool only_adjacent_accesses,
@@ -93,7 +60,7 @@ class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>,
                               const bool masked_version);
 
   public:
-    SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
+    SimdVisitor(Vectorization::VectorInstructionSet simd_isa,
                 bool fast_math_enabled,
                 bool svml_enabled,
                 bool only_adjacent_accesses,
@@ -118,7 +85,7 @@ class SimdPreregisterVisitor : public Nodecl::ExhaustiveVisitor<void>,
         const bool masked_version);
 
   public:
-    SimdPreregisterVisitor(Vectorization::SIMDInstructionSet simd_isa,
+    SimdPreregisterVisitor(Vectorization::VectorInstructionSet simd_isa,
                            bool fast_math_enabled,
                            bool svml_enabled,
                            bool only_adjacent_accesses,

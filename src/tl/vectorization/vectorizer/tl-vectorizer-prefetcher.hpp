@@ -39,16 +39,6 @@ namespace TL
 {
     namespace Vectorization
     {
-        typedef struct prefetch_info
-        {
-            int distances[2];
-            bool enabled;
-            bool in_place;
-
-            prefetch_info() : enabled(false), in_place(false) {}
-        } prefetch_info_t;        
-
-
         typedef std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase> pair_nodecl_nodecl_t;
         typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> map_nodecl_nodecl_t;
         class Prefetcher : 

@@ -29,6 +29,7 @@
 
 
 #include "tl-vectorization-common.hpp"
+#include "tl-vector-isa-descriptor.hpp"
 #include "tl-nodecl-base.hpp"
 
 namespace TL
@@ -38,11 +39,8 @@ namespace Vectorization
     class VectorizerEnvironment
     {
         public:
-            const std::string& _device;
-            const unsigned int _vector_length;
-            unsigned int _fixed_vectorization_factor;
-            const bool _support_masking;
-            const unsigned int _mask_size;
+            const VectorIsaDescriptor& _vec_isa_desc;
+            unsigned int _vec_factor;
             const bool _fast_math;
             const map_nodecl_int_t& _aligned_symbols_map;
             const map_tlsym_int_t& _linear_symbols_map;
@@ -53,9 +51,6 @@ namespace Vectorization
 
             const objlist_tlsym_t* _reduction_list;
             std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
-
-            TL::Type _target_type;
-            unsigned int _vectorization_factor;
 
             stdlist_nodecl_t _analysis_scopes;              // Stack of useful scopes (If, FunctionCode and For) for the analysis
             Nodecl::NodeclBase _analysis_simd_scope;        // SIMD scope
@@ -70,28 +65,24 @@ namespace Vectorization
             typedef std::pair<TL::Type, TL::Type> VectorizedClass;
             TL::ObjectList<VectorizedClass> _vectorized_classes;
 
-            VectorizerEnvironment(const std::string& device,
-                    const unsigned int vector_length,
-                    const unsigned int fixed_vectorization_factor,
-                    const bool support_masking,
-                    const unsigned int mask_size,
-                    const bool fast_math,
-                    const TL::Type& target_type,
-                    const map_nodecl_int_t& aligned_symbol_map,
-                    const map_tlsym_int_t& linear_symbol_map,
-                    const objlist_tlsym_t& uniform_expr_list,
-                    const objlist_nodecl_t& suitable_expr_list,
-                    const map_tlsym_objlist_t& nontemporal_expr_map,
-                    const map_tlsym_objlist_int_t& overlap_symbols_map,
-                    const objlist_tlsym_t* reduction_list,
-                    std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
+            VectorizerEnvironment(
+                const VectorIsaDescriptor &vec_isa_desc,
+                const unsigned int vec_factor,
+                const bool fast_math,
+                const map_nodecl_int_t &aligned_symbol_map,
+                const map_tlsym_int_t &linear_symbol_map,
+                const objlist_tlsym_t &uniform_expr_list,
+                const objlist_nodecl_t &suitable_expr_list,
+                const map_tlsym_objlist_t &nontemporal_expr_map,
+                const map_tlsym_objlist_int_t &overlap_symbols_map,
+                const objlist_tlsym_t *reduction_list,
+                std::map<TL::Symbol, TL::Symbol>
+                    *new_external_vector_symbol_map);
 
             ~VectorizerEnvironment();
 
-            void set_target_type(TL::Type target_type);
-
             void load_environment(const Nodecl::NodeclBase& for_statement);
-            void unload_environment();
+            void unload_environment(const bool clean_masks = true);
     };
 }
 }

@@ -46,7 +46,7 @@ namespace Vectorization{
     private:
         const Nodecl::NodeclBase _scope;
         const objlist_nodecl_t _suitable_expressions;
-        const int _unroll_factor;
+        const int _vec_factor;
         const int _type_size;
         const int _alignment;
         map_nodecl_int_t _aligned_expressions;
@@ -60,7 +60,7 @@ namespace Vectorization{
         // *** Constructor *** //
         SuitableAlignmentVisitor( const Nodecl::NodeclBase& scope,
                 const objlist_nodecl_t& suitable_expressions,
-                int unroll_factor, int type_size, int alignment,
+                int vec_factor, int type_size, int alignment,
                 VectorizationAnalysisInterface* analysis );
 
         // *** Visiting methods *** //

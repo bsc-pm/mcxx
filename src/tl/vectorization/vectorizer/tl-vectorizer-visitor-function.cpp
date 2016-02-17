@@ -56,6 +56,7 @@ namespace TL
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
+            TL::Type func_ret_type = vect_func_sym.get_type().returns();
 
             objlist_tlsym_t parameters = vect_func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_vector_type;
@@ -78,22 +79,25 @@ namespace TL
                     if (tl_sym_type.is_bool())
                     {
                         vector_type = TL::Type::get_mask_type(
-                                _environment._vectorization_factor);
+                                _environment._vec_factor);
                     }
                     else if (tl_sym_type.is_integral_type()
                             || tl_sym_type.is_floating_type())
                     {
                         vector_type = Utils::get_qualified_vector_to(
-                                tl_sym_type, _environment._vectorization_factor);
+                            tl_sym_type,
+                            _environment._vec_isa_desc.get_vec_factor_for_type(
+                                tl_sym_type, _environment._vec_factor));
                     }
                     else if (tl_sym_type.is_class()
                             && Utils::class_type_can_be_vectorized(tl_sym_type))
                     {
                         bool is_new = false;
-                        vector_type = Utils::get_class_of_vector_fields(
+                        vector_type = Utils::get_class_of_vector_fields_for_isa(
                                 tl_sym_type,
-                                _environment._vectorization_factor,
-                                is_new);
+                                _environment._vec_factor,
+                                is_new,
+                                _environment._vec_isa_desc);
                         if (is_new
                                 && IS_CXX_LANGUAGE)
                         {
@@ -155,7 +159,7 @@ namespace TL
                 TL::Symbol mask_sym = scope.new_symbol("__mask_param");
                 mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 symbol_entity_specs_set_is_user_declared(mask_sym.get_internal_symbol(), 1);
-                mask_sym.set_type(TL::Type::get_mask_type(_environment._vectorization_factor));
+                mask_sym.set_type(TL::Type::get_mask_type(_environment._vec_factor));
 
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(),
                         vect_func_sym.get_internal_symbol(),
@@ -184,9 +188,20 @@ namespace TL
                 }
             }
 
-            vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
-                        _environment._vectorization_factor).get_function_returning(
-                            parameters_vector_type));
+            if (func_ret_type.is_void()) // We do not vectorize void types
+            {
+                vect_func_sym.set_type(func_ret_type.get_function_returning(
+                    parameters_vector_type));
+            }
+            else
+            {
+                vect_func_sym.set_type(
+                    Utils::get_qualified_vector_to(
+                        func_ret_type,
+                        _environment._vec_isa_desc.get_vec_factor_for_type(
+                            func_ret_type, _environment._vec_factor))
+                        .get_function_returning(parameters_vector_type));
+            }
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunctionHeader::unhandled_node(const Nodecl::NodeclBase& n)
@@ -248,13 +263,14 @@ namespace TL
                     .get_in_context().as<Nodecl::List>()
                     .front().as<Nodecl::CompoundStatement>().get_statements()
                     .as<Nodecl::List>().append(return_stmt);
+
+                // Uninitialize function_return symbol
+                _environment._function_return = TL::Symbol();
             }
 
             // Remove mask of masked version
             if(_masked_version)
                 _environment._mask_list.pop_back();
-
-            _environment._function_return = TL::Symbol();
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n)

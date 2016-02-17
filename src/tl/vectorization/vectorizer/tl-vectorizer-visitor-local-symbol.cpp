@@ -64,7 +64,7 @@ namespace Vectorization
         else if (tl_sym_type.is_scalar_type())
         {
             vector_type = Utils::get_qualified_vector_to(tl_sym_type,
-                    _environment._vectorization_factor);
+                    _environment._vec_factor);
 
             VECTORIZATION_DEBUG()
             {
@@ -116,22 +116,25 @@ namespace Vectorization
                 if (tl_sym_type.is_bool())
                 {
                     vector_type = TL::Type::get_mask_type(
-                            _environment._vectorization_factor);
+                            _environment._vec_factor);
                 }
                 else if (tl_sym_type.is_integral_type()
                         || tl_sym_type.is_floating_type())
                 {
                     vector_type = Utils::get_qualified_vector_to(
-                            tl_sym_type, _environment._vectorization_factor);
+                        tl_sym_type,
+                        _environment._vec_isa_desc.get_vec_factor_for_type(
+                            tl_sym_type, _environment._vec_factor));
                 }
                 else if (tl_sym_type.is_class()
                         && Utils::class_type_can_be_vectorized(tl_sym_type))
                 {
                     bool is_new = false;
-                    vector_type = Utils::get_class_of_vector_fields(
+                    vector_type = Utils::get_class_of_vector_fields_for_isa(
                             tl_sym_type,
-                            _environment._vectorization_factor,
-                            is_new);
+                            _environment._vec_factor,
+                            is_new,
+                            _environment._vec_isa_desc);
                     if (is_new
                             && IS_CXX_LANGUAGE)
                     {
@@ -389,18 +392,16 @@ namespace Vectorization
                 Nodecl::List::iterator it_arg = arguments.begin();
 
                 TL::Type function_target_type = n.get_type().no_ref();
-                int function_target_type_size = function_target_type.is_void() ? 1 : function_target_type.get_size();
 
                 // Get the best vector version of the function available
                 Nodecl::NodeclBase best_version_node;
                 if (n.get_called().is<Nodecl::Symbol>())
                 {
-                    best_version_node = Vectorizer::_function_versioning.get_best_version(
-                            n.get_called().get_symbol(),
-                            _environment._device,
-                            _environment._vectorization_factor * function_target_type_size,
-                            function_target_type,
-                            /* mask */ false);
+                    best_version_node = vec_func_versioning.get_best_version(
+                        n.get_called().get_symbol(),
+                        _environment._vec_isa_desc.get_id(),
+                        _environment._vec_factor,
+                        /* mask */ false);
                 }
 
                 TL::Symbol vector_function;

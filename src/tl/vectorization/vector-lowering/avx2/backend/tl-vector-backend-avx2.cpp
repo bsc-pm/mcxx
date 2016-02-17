@@ -1631,6 +1631,7 @@ namespace Vectorization
 
         intrin_name << AVX2_INTRIN_PREFIX
             << mask_prefix
+            << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
@@ -1775,6 +1776,7 @@ namespace Vectorization
 
         intrin_name << AVX2_INTRIN_PREFIX
             << mask_prefix
+            << "_"
             << intrin_op_name
             << "_"
             << intrin_type_suffix
@@ -1846,12 +1848,8 @@ namespace Vectorization
             << ")"
             ;
 
-        intrin_name << AVX2_INTRIN_PREFIX
-            << mask_prefix
-            << intrin_op_name
-            << "_"
-            << intrin_type_suffix
-            ;
+        intrin_name << AVX2_INTRIN_PREFIX << mask_prefix << "_"
+                    << intrin_op_name << "_" << intrin_type_suffix;
 
         intrin_op_name << "storeu";
 
@@ -2062,7 +2060,7 @@ namespace Vectorization
         walk(sin_pointer);
         walk(cos_pointer);
 
-        fatal_printf_at(node.get_locus(), "AVX2 Lowering: Sincos is unsupported.", 0);
+        fatal_printf_at(node.get_locus(), "AVX2 Lowering: Sincos is unsupported.");
 
         if (type.is_float())
         {

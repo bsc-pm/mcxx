@@ -762,9 +762,9 @@ namespace Vectorization
         Nodecl::List outer_stmt = loop_stmts;
 
         int num_unrolled_blocks = 
-            (_environment._vectorization_factor % block_size) == 0 ? 
-            (_environment._vectorization_factor / block_size) -1 :
-            _environment._vectorization_factor / block_size;
+            (_environment._vec_factor % block_size) == 0 ? 
+            (_environment._vec_factor / block_size) -1 :
+            _environment._vec_factor / block_size;
 
         for (int i=1; i<num_unrolled_blocks; i++)
         {
@@ -905,7 +905,7 @@ namespace Vectorization
     { 
         Nodecl::NodeclBase leftmost_index = 
             Utils::get_vector_load_subscript(ogroup._leftmost_group_vload);
-        int vectorization_factor = ogroup._vector_type.vector_num_elements();
+        int vec_factor = ogroup._vector_type.vector_num_elements();
 
         // Declare group registers
         for (int i=0; i<ogroup._num_registers; i++)
@@ -957,7 +957,7 @@ namespace Vectorization
                         const_value_to_nodecl(const_value_mul(
                                 const_value_get_signed_int(i),
                                 const_value_get_signed_int(
-                                    vectorization_factor))),
+                                    vec_factor))),
                         leftmost_index.get_type());
 
                 Optimizations::canonicalize_and_fold(
@@ -1060,11 +1060,11 @@ namespace Vectorization
                 const_value_t* mod = const_value_mod(
                             shifted_elements.get_constant(),
                             const_value_get_signed_int(
-                                _environment._vectorization_factor));
+                                _environment._vec_factor));
                 const_value_t* div = const_value_div(
                             shifted_elements.get_constant(),
                             const_value_get_signed_int(
-                                _environment._vectorization_factor));
+                                _environment._vec_factor));
 
                 int first_register = const_value_cast_to_signed_int(div);
                 int final_offset = const_value_cast_to_signed_int(mod);

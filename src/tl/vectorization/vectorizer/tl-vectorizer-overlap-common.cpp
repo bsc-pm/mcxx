@@ -312,7 +312,7 @@ namespace Vectorization
                 int alignment = const_value_cast_to_signed_int(alignment_node.get_constant());
 
                 int max_vload_type_size = max_vload.get_type().basic_type().get_size();
-                int positive_num_elements = environment._vectorization_factor -
+                int positive_num_elements = environment._vec_factor -
                     alignment/max_vload_type_size;
 
                 VECTORIZATION_DEBUG()
@@ -392,11 +392,11 @@ namespace Vectorization
             const_value_t* mod = const_value_mod(
                     minus.get_constant(),
                     const_value_get_signed_int(
-                        environment._vectorization_factor));
+                        environment._vec_factor));
 
             if (!const_value_is_zero(mod))
             {
-                int positive_num_elements = environment._vectorization_factor -
+                int positive_num_elements = environment._vec_factor -
                     const_value_cast_to_signed_int(mod);
                 
                 // Max vload flags == Min vload flags
@@ -495,11 +495,11 @@ namespace Vectorization
         const_value_t* mod = const_value_mod(
                 minus.get_constant(),
                 const_value_get_signed_int(
-                    environment._vectorization_factor));
+                    environment._vec_factor));
         const_value_t* div = const_value_div(
                 minus.get_constant(),
                 const_value_get_signed_int(
-                    environment._vectorization_factor));
+                    environment._vec_factor));
 
         VECTORIZATION_DEBUG()
         {
