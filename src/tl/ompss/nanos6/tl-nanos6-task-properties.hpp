@@ -45,6 +45,9 @@ namespace TL { namespace Nanos6 {
             typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
             field_map_t field_map;
 
+            typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
+            array_descriptor_map_t array_descriptor_map;
+
             void create_outline_function();
             void create_dependences_function();
             void create_dependences_function_c();
@@ -56,11 +59,15 @@ namespace TL { namespace Nanos6 {
 
             void create_copies_function();
 
-            void add_field_to_class(
-                    TL::Symbol class_symbol,
-                    TL::Scope class_scope,
-                    TL::Symbol var,
-                    TL::Type field_type);
+            TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
+                                          TL::Scope class_scope,
+                                          const std::string &var_name,
+                                          const locus_t *var_locus,
+                                          TL::Type field_type);
+            TL::Symbol add_field_to_class(TL::Symbol class_symbol,
+                                          TL::Scope class_scope,
+                                          TL::Symbol var,
+                                          TL::Type field_type);
 
             TL::Scope compute_scope_for_environment_structure();
 

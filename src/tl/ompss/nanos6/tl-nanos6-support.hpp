@@ -25,8 +25,8 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef TL_NANOS6_FORTRAN_SUPPORT_HPP
-#define TL_NANOS6_FORTRAN_SUPPORT_HPP
+#ifndef TL_NANOS6_SUPPORT_HPP
+#define TL_NANOS6_SUPPORT_HPP
 
 #include "tl-objectlist.hpp"
 #include "tl-scope.hpp"
@@ -37,33 +37,14 @@ namespace TL
 {
 namespace Nanos6
 {
-void fortran_add_types(const TL::ObjectList<TL::Symbol> &sym_list,
-                       TL::Scope sc);
-
-Nodecl::List duplicate_internal_subprograms(
-        TL::ObjectList<Nodecl::NodeclBase> &internal_function_codes,
-        TL::Scope scope_of_unpacked, Nodecl::Utils::SimpleSymbolMap &symbol_map);
 
 void add_extra_mappings_for_vla_types(
-    TL::Type t, Scope sc, Nodecl::Utils::SimpleSymbolMap &symbol_map);
-
-Symbol fortran_get_function_ptr_of(TL::Symbol sym,
-                                   TL::Scope original_scope,
-                                   Nodecl::List &extra_c_code);
-Symbol fortran_get_function_ptr_of(TL::Type t,
-                                   TL::Scope original_scope,
-                                   Nodecl::List &extra_c_code);
-
-Symbol fortran_get_function_ptr_conversion(TL::Type return_type,
-                                           TL::Type argument_type,
-                                           TL::Scope original_scope,
-                                           Nodecl::List &extra_c_code);
-
-Symbol fortran_get_copy_descriptor_function(TL::Symbol orig_sym,
-                                            TL::Symbol dest_sym,
-                                            TL::Scope original_scope,
-                                            Nodecl::List &extra_c_code);
+    TL::Type t,
+    Scope sc,
+    /* out */
+    Nodecl::Utils::SimpleSymbolMap &symbol_map,
+    TL::ObjectList<TL::Symbol> &vla_vars);
 }
 }
 
-#endif // TL_NANOS6_FORTRAN_SUPPORT_HPP
+#endif // TL_NANOS6_SUPPORT_HPP
