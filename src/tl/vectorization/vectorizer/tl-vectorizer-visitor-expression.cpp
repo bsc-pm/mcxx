@@ -735,8 +735,7 @@ namespace Vectorization
                     _environment._aligned_symbols_map,
                     _environment._suitable_exprs_list,
                     _environment._vec_factor,
-                    _environment._vec_isa_desc
-                        .get_memory_alignment_in_bytes(),
+                    _environment._vec_isa_desc.get_memory_alignment_in_bytes(),
                     alignment_output))
             {
                 load_flags.append(Nodecl::AlignedFlag::make());
@@ -1008,15 +1007,14 @@ namespace Vectorization
 
             // Aligned
             int alignment_output;
-            if(Vectorizer::_vectorizer_analysis->is_simd_aligned_access(
-                        _environment._analysis_simd_scope,
-                        lhs,
-                        _environment._aligned_symbols_map,
-                        _environment._suitable_exprs_list,
-                        _environment._vec_factor,
-                        _environment._vec_factor *
-                        assignment_type.get_size(),
-                        alignment_output))
+            if (Vectorizer::_vectorizer_analysis->is_simd_aligned_access(
+                    _environment._analysis_simd_scope,
+                    lhs,
+                    _environment._aligned_symbols_map,
+                    _environment._suitable_exprs_list,
+                    _environment._vec_factor,
+                    _environment._vec_isa_desc.get_memory_alignment_in_bytes(),
+                    alignment_output))
             {
                 store_flags.append(Nodecl::AlignedFlag::make());
 
