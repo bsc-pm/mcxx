@@ -27,6 +27,8 @@
 /*
 <testinfo>
 test_generator=config/mercurium-serial-simd-romol
+test_ignore=yes
+test_ignore_reason="Function call ABI is not defined yet in RoMoL"
 </testinfo>
 */
 
