@@ -2338,6 +2338,8 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 								 src/tl/ompss/nanos6/tl-nanos6-taskcall.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-task-properties.hpp \
 								 src/tl/ompss/nanos6/tl-nanos6-task-properties.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-support.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-support.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-fortran-load-api.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.hpp \
 								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.cpp \

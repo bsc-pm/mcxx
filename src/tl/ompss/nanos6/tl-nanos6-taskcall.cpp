@@ -27,6 +27,7 @@
 
 #include "tl-nanos6-lower.hpp"
 #include "tl-nanos6-task-properties.hpp"
+#include "tl-nanos6-support.hpp"
 #include "tl-nanos6-fortran-support.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
@@ -678,14 +679,17 @@ namespace TL { namespace Nanos6 {
         }
 
         // Add extra mappings for VLAs
+        TL::ObjectList<TL::Symbol> new_vlas;
         for (TL::ObjectList<TL::Symbol>::iterator it_new
              = new_parameter_symbols.begin();
              it_new != new_parameter_symbols.end();
              it_new++)
         {
-            fortran_add_extra_mappings_for_vla_types(it_new->get_type(),
-                                                     scope_inside_new_function,
-                                                     parameter_symbol_map);
+            add_extra_mappings_for_vla_types(it_new->get_type(),
+                                             scope_inside_new_function,
+                                             /* out */
+                                             parameter_symbol_map,
+                                             new_vlas);
         }
 
         // Now rewrite types
@@ -776,6 +780,13 @@ namespace TL { namespace Nanos6 {
                 parameters_environment,
                 scope_inside_new_function,
                 parameter_symbol_map);
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = new_vlas.begin();
+             it != new_vlas.end();
+             it++)
+        {
+            empty_stmt.prepend_sibling(Nodecl::ObjectInit::make(*it));
+        }
 
         Nodecl::NodeclBase new_task_construct =
             Nodecl::OpenMP::Task::make(
