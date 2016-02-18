@@ -149,8 +149,10 @@ namespace Vectorization
                 vec_factor, type_size, alignment, analysis);
         int subscript_alignment = sa_v.walk( n );
 
-        vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment :
-                                                               (subscript_alignment % alignment)/type_size );
+        vector_size_module = (subscript_alignment == -1) ?
+                                 subscript_alignment :
+                                 (subscript_alignment / type_size) % vec_factor;
+        //(subscript_alignment % alignment)/type_size );
 
         if( vector_size_module == 0 )
             result = true;
