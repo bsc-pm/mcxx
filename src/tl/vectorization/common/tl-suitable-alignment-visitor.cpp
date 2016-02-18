@@ -67,6 +67,11 @@ namespace Vectorization
         int i;
         int alignment;
         alignment_module = -1;
+
+        // We assume that _alignment == 0 means that alignment is not required
+        // by the ISA
+        if (_alignment == 0 ) return false;
+
         _aligned_expressions = aligned_expressions;
 
         Nodecl::NodeclBase subscripted = n.get_subscripted( );
