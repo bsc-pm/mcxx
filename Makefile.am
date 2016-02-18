@@ -316,8 +316,6 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-mssupport.h \
   src/frontend/cxx-mssupport.c \
-  src/frontend/cxx-intelsupport.h \
-  src/frontend/cxx-intelsupport.c \
   src/frontend/cxx-pragma.h \
   src/frontend/cxx-pragma.c \
   src/frontend/cxx-upc.c \
@@ -383,6 +381,8 @@ src_frontend_libgccbuiltins_la_SOURCES = \
   \
   src/frontend/cxx-iccbuiltins.h \
   src/frontend/cxx-iccbuiltins-knc.h \
+  src/frontend/cxx-intelsupport.h \
+  src/frontend/cxx-intelsupport.c \
   $(END)
 
 
@@ -2339,6 +2339,8 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 								 src/tl/ompss/nanos6/tl-nanos6-task-properties.hpp \
 								 src/tl/ompss/nanos6/tl-nanos6-task-properties.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-fortran-load-api.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-critical.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-unsupported.cpp \

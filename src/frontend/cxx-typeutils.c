@@ -14956,7 +14956,11 @@ static char type_depends_on_nonconstant_values_rec(type_t* t, struct type_set_t*
 
     if (is_array_type(t))
     {
-        return array_type_is_vla(t);
+        return array_type_is_vla(t)
+               || (array_type_has_region(t)
+                   && (nodecl_is_constant(array_type_get_region_lower_bound(t))
+                       || nodecl_is_constant(
+                              array_type_get_region_upper_bound(t))));
     }
     else if (is_class_type(t))
     {

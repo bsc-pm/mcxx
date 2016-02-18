@@ -25,10 +25,10 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
+test_generator="config/mercurium-ompss"
+test_compile_fail_nanos6_mercurium=yes
 test_CXXFLAGS=--variable=enable_input_by_value_dependences:1
 test_compile_faulty=yes
 test_compile_fail=yes

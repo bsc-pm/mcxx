@@ -1284,7 +1284,6 @@ AC_ARG_ENABLE([nanox-opencl-device],
 
 if test x$opencl_enabled = xyes -a x$opencl_valid = xno;
 then
-   ENABLE_OPENCL=":true:"
    AC_MSG_CHECKING([if nanox has opencl header installed])
    #tests if opencl headers are usable and correct
    #backup vars before we do the tests
@@ -1306,6 +1305,7 @@ fi
 if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
     COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
+    ENABLE_OPENCL=":true:"
 else
     ENABLE_OPENCL=":false:"
 fi
@@ -1854,7 +1854,7 @@ then
     AC_MSG_CHECKING([flex version])
     flex_ver=`$FLEX --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${flex_ver} in
-      x2.5.4 | x2.5.3? )
+      x2.5.4 | x2.5.3? | x2.6*)
        AC_MSG_RESULT([${flex_ver}])
        if test x${flex_ver} = x2.5.31 -o x${flex_ver} = x2.5.34;
        then
