@@ -177,8 +177,7 @@ namespace Vectorization
                                   lb,
                                   _environment._suitable_exprs_list,
                                   _environment._vec_factor,
-                                  _environment._vec_isa_desc
-                                      .get_memory_alignment_in_bytes(),
+                                  _environment._vec_factor,
                                   lb_vector_size_module);
 
                     _environment._analysis_scopes.pop_back();
@@ -218,16 +217,14 @@ namespace Vectorization
 
                     // Suitable UB
                     // ub is normalized to <= so +1 is needed
-                    ub_is_suitable
-                        = Vectorizer::_vectorizer_analysis
-                              ->is_suitable_expression(
-                                  _loop,
-                                  ub,
-                                  _environment._suitable_exprs_list,
-                                  _environment._vec_factor,
-                                  _environment._vec_isa_desc
-                                      .get_memory_alignment_in_bytes(),
-                                  ub_vector_size_module);
+                    ub_is_suitable = Vectorizer::_vectorizer_analysis
+                                         ->is_suitable_expression(
+                                             _loop,
+                                             ub,
+                                             _environment._suitable_exprs_list,
+                                             _environment._vec_factor,
+                                             _environment._vec_factor,
+                                             ub_vector_size_module);
 
                     _environment._analysis_scopes.pop_back();
 

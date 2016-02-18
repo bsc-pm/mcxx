@@ -1638,8 +1638,8 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-utils.hpp \
                            src/tl/vectorization/common/tl-vectorization-utils.cpp \
                            src/tl/vectorization/common/tl-vectorization-prefetcher-common.hpp \
-                           src/tl/vectorization/common/tl-suitable-alignment-visitor.hpp \
-                           src/tl/vectorization/common/tl-suitable-alignment-visitor.cpp \
+                           src/tl/vectorization/common/tl-suitable-visitor.hpp \
+                           src/tl/vectorization/common/tl-suitable-visitor.cpp \
                            src/tl/vectorization/common/tl-expression-evolution-visitor.hpp \
                            src/tl/vectorization/common/tl-expression-evolution-visitor.cpp \
                            src/tl/vectorization/common/tl-vectorization-analysis-interface.hpp \

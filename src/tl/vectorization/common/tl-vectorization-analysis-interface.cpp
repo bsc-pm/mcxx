@@ -27,7 +27,6 @@
 #include "tl-vectorization-analysis-interface.hpp"
 
 #include "tl-vectorization-analysis-internals.hpp"
-#include "tl-suitable-alignment-visitor.hpp"
 #include "tl-extensible-graph.hpp"
 
 #include "cxx-cexpr.h"
@@ -650,15 +649,21 @@ namespace Vectorization
     }
 
     bool VectorizationAnalysisInterface::is_suitable_expression(
-            const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
-            const objlist_nodecl_t& suitable_expressions,
-            int vec_factor, int alignment, int& vector_size_module)
+        const Nodecl::NodeclBase &scope,
+        const Nodecl::NodeclBase &n,
+        const objlist_nodecl_t &suitable_expressions,
+        unsigned int suitable_factor,
+        unsigned int vec_factor,
+        int &suitable_module)
     {
         // Do not translate n!
         return is_suitable_expression_internal(scope,
-                n, suitable_expressions,
-                vec_factor, alignment,
-                vector_size_module, this);
+                                               n,
+                                               suitable_expressions,
+                                               suitable_factor,
+                                               vec_factor,
+                                               suitable_module,
+                                               this);
     }
 
     bool VectorizationAnalysisInterface::is_adjacent_access(

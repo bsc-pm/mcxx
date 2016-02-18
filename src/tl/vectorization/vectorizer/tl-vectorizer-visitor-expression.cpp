@@ -1637,10 +1637,6 @@ namespace Vectorization
             _environment._vec_isa_desc.get_vec_factor_for_type(
                 call_type, _environment._vec_factor));
 
-        unsigned int actual_vec_fact
-            = _environment._vec_isa_desc.get_vec_factor_for_type(
-                call_type, _environment._vec_factor);
-
         TL::Symbol func_name = called_sym.get_symbol();
 
         TL::Scope global_scope(CURRENT_COMPILED_FILE->global_decl_context);

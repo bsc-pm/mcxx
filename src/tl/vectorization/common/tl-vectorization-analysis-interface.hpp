@@ -157,9 +157,12 @@ namespace Vectorization
                     const Nodecl::Symbol& n);
 
             virtual bool is_suitable_expression(
-                    const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
-                    const objlist_nodecl_t& suitable_expressions,
-                    int vec_factor, int alignment, int& vector_size_module);
+                const Nodecl::NodeclBase &scope,
+                const Nodecl::NodeclBase &n,
+                const objlist_nodecl_t &suitable_expressions,
+                unsigned int suitable_factor,
+                unsigned int vec_factor,
+                int &suitable_module);
 
             virtual void register_identical_copy(
                     const Nodecl::NodeclBase& n,
