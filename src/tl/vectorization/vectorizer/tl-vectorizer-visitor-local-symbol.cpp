@@ -173,7 +173,7 @@ namespace Vectorization
                 VECTORIZATION_DEBUG()
                 {
                     fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type promotion from '%s'"\
-                            " to '%s' (%s)\n", n.prettyprint().c_str(),
+                            " to '%s' (%s)\n", tl_sym.get_name().c_str(),
                             tl_sym_type.get_simple_declaration(
                                 n.retrieve_context(), "").c_str(),
                             vector_type.get_simple_declaration(
