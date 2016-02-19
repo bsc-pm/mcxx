@@ -49,13 +49,11 @@ namespace Vectorization
     {
         TL::Symbol tl_sym = n.get_symbol();
         TL::Type tl_sym_type = tl_sym.get_type().no_ref();
-        TL::Type vector_type;
+        TL::Type vector_type = tl_sym_type;
 
         //TL::Symbol
         if (tl_sym_type.is_mask())
         {
-            vector_type = tl_sym_type;
-
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr,"VECTORIZER: '%s' mask type vectorization "\
@@ -81,12 +79,11 @@ namespace Vectorization
             }
 
             tl_sym.set_type(vector_type);
-            tl_sym_type = tl_sym.get_type();
         }
 
         //Nodecl::Symbol
         Nodecl::Symbol new_sym = Nodecl::Symbol::make(tl_sym, n.get_locus());
-        new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
+        new_sym.set_type(vector_type.get_lvalue_reference_to());
 
         n.replace(new_sym);
     }
@@ -1457,14 +1454,15 @@ namespace Vectorization
 
         Nodecl::NodeclBase nest = n.get_nest();
 
-        TL::Type src_vector_type = nest.get_type().no_ref();
+        TL::Type src_vector_type = nest.get_type();
+        TL::Type src_vector_type_noref = src_vector_type.no_ref();
         TL::Type dst_type = n.get_type();
 
-        if (src_vector_type.is_vector())
+        if (src_vector_type_noref.is_vector())
         {
             // Remove lvalue conversions.
             // In a vector code they are explicit loads ops.
-            if (src_vector_type.basic_type().is_same_type(dst_type) &&
+            if (src_vector_type_noref.basic_type().is_same_type(dst_type) &&
                     // FIXME - is this next check too restrictive?
                     (nest.is<Nodecl::VectorLoad>() ||
                      nest.is<Nodecl::VectorGather>()))
@@ -1472,7 +1470,7 @@ namespace Vectorization
                 // There is no conversion
                 n.replace(nest);
             }
-            else if (src_vector_type.basic_type().is_same_type(dst_type))
+            else if (src_vector_type_noref.basic_type().is_same_type(dst_type))
             {
                 // There is no conversion
                 n.replace(nest);
@@ -1504,6 +1502,29 @@ namespace Vectorization
                             dst_vec_type.get_internal_type()));
 
                 n.replace(vector_conv);
+            }
+        }
+        else if (src_vector_type_noref.is_mask())
+        {
+            // Update the type of the conversion. A mask type can be generated
+            // from a bool type
+            if (src_vector_type.is_lvalue_reference())
+            {
+                Nodecl::VectorMaskConversion mask_conv
+                    = Nodecl::VectorMaskConversion::make(
+                        n.get_nest().shallow_copy(),
+                        src_vector_type_noref,
+                        n.get_locus());
+
+                mask_conv.set_constant(n.get_nest().get_constant());
+                n.replace(mask_conv);
+            }
+            else
+            {
+                // TODO: Conversion between different mask types?
+                fatal_error(
+                    "Vectorizer: Conversions between different mask types are "
+                    "not supported yet");
             }
         }
     }
