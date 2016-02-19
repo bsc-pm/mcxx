@@ -58,6 +58,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMaskXor &node);
 
                 virtual void visit(const Nodecl::VectorMaskNot& n);
+                virtual void visit(const Nodecl::VectorMaskConversion& n);
         };
     }
 }

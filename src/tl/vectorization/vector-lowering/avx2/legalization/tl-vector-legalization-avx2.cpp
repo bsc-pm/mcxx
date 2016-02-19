@@ -224,12 +224,32 @@ namespace TL
         BINARY_MASK_OPS(VectorMaskAnd2Not)
         BINARY_MASK_OPS(VectorMaskXor)
 
-        void AVX2VectorLegalization::visit(const Nodecl::VectorMaskNot& n)
-        {
-            walk(n.get_rhs());
-            fix_comparison_type(n);
+#define UNARY_MASK_OPS(Node) \
+        void AVX2VectorLegalization::visit(const Nodecl::Node& n) \
+        { \
+            walk(n.children()[0]); \
+            fix_comparison_type(n); \
         }
 
+        UNARY_MASK_OPS(VectorMaskNot)
+
+        void AVX2VectorLegalization::visit(
+            const Nodecl::VectorMaskConversion &node)
+        {
+            walk(node.get_nest());
+
+            Nodecl::VectorConversion vec_conv = Nodecl::VectorConversion::make(
+                    node.get_nest().shallow_copy(),
+                    Nodecl::NodeclBase::null() /* mask */,
+                    node.get_type(),
+                    node.get_locus());
+
+            fix_comparison_type(vec_conv);
+            node.replace(vec_conv);
+
+            //Visit new VectorConversion
+            walk(node);
+        }
 
         AVX2StrideVisitorConv::AVX2StrideVisitorConv(unsigned int vector_num_elements)
             : _vector_num_elements(vector_num_elements)
