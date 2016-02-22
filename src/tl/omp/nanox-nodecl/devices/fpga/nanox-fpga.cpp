@@ -116,11 +116,11 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            running_error("There is no fortran support for FPGA devices\n");
+            fatal_error("There is no fortran support for FPGA devices\n");
         }
         else
         {
-            running_error("Inline tasks not supported yet\n");
+            fatal_error("Inline tasks not supported yet\n");
         }
 
     }
@@ -404,8 +404,7 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         Nodecl::NodeclBase onto_acc = onto_clause[0];
         if (onto_clause.size() > 1)
         {
-            warn_printf("%s: warning: More than one argument in onto clause. Using only first one\n",
-                    onto_acc.get_locus_str().c_str());
+            warn_printf_at(onto_acc.get_locus(), "More than one argument in onto clause. Using only first one\n");
         }
 
         if (onto_clause[0].is_constant())
@@ -413,7 +412,7 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
             const_value_t *ct_val = onto_acc.get_constant();
             if (!const_value_is_integer(ct_val))
             {
-                error_printf("%s: error: Constant is not integer type in onto clause\n", onto_acc.get_locus_str().c_str());
+                error_printf_at(onto_acc.get_locus(), "Constant is not integer type in onto clause\n");
             }
             else
             {
