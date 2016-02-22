@@ -121,16 +121,6 @@ enum lexing_substate
 typedef
 struct fixed_form_state_tag
 {
-    // // Sequence of keywords we expect. It is zero if no specific initial keyword is
-    // // expected (i.e. assignment statements)
-    // int num_keywords;
-    // int keywords[MAX_KEYWORDS_PER_STMT];
-
-    // // Inside IF or ELSEIF
-    // char in_if_statement:1;
-    // // Parentheses level used to track in_if_statement
-    // int if_statement_paren_level;
-
     // Language part: non-executable vs executable
     language_part_t language_part;
 
@@ -187,16 +177,8 @@ struct new_lexer_state_t
     fixed_form_state_t fixed_form;
 } lexer_state;
 
-static void reset_fixed_form(void)
-{
-    // lexer_state.fixed_form.num_keywords = 0;
-    // lexer_state.fixed_form.in_if_statement = 0;
-    // lexer_state.fixed_form.if_statement_paren_level = 0;
-}
-
 static void init_fixed_form(void)
 {
-    reset_fixed_form();
     lexer_state.fixed_form.language_part = LANG_TOP_LEVEL;
 }
 
@@ -3636,7 +3618,6 @@ extern int new_mf03lex(void)
             {
                 case EOF:
                     {
-                        reset_fixed_form();
                         char emit_extra_eos = 0;
                         char end_of_scan = process_end_of_file(&emit_extra_eos);
 
@@ -3674,7 +3655,6 @@ extern int new_mf03lex(void)
                 case '\n':
                 case '\r':
                     {
-                        reset_fixed_form();
                         // Regarding \r\n in DOS, the get function will always skip \n if it finds it right after \r
                         if (!lexer_state.last_eos)
                         {

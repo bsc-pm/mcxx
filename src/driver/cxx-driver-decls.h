@@ -562,6 +562,7 @@ typedef struct compilation_configuration_tag
 
     // Vector flavor
     print_vector_type_fun print_vector_type;
+    print_vector_type_fun print_mask_type;
 
     // C/C++ FE does not preserve parentheses
     // unless this flag is set

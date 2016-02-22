@@ -25,11 +25,11 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
 test_ENV="NX_THROTTLE=dummy"
+test_compile_fail_nanos6_mercurium=yes
 </testinfo>
 */
 

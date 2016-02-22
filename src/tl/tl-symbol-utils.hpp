@@ -75,6 +75,13 @@ namespace SymbolUtils
             TL::Symbol function_symbol,
             Nodecl::NodeclBase &function_code,
             Nodecl::NodeclBase &empty_stmt);
+
+    // This function creates a new class template and returns the symbol
+    // of its primary class template
+    TL::Symbol new_class_template(const std::string &template_name,
+                                  template_parameter_list_t *tpl,
+                                  TL::Scope orig_sc,
+                                  const locus_t *locus);
 }
 
 #endif //TL_SYMBOL_UTILS_HPP

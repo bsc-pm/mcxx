@@ -3292,7 +3292,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                 type_t* element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context,
                         /* character_length_out */ NULL);
                 // Generic vector
-                result = get_vector_type(element_type, 0);
+                result = get_vector_type_by_bytes(element_type, 0);
                 break;
             }
         case AST_PIXEL_TYPE:

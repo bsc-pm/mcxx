@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_CFLAGS="--variable=prefetch_distance:4,1 --prefetch-in-place"
+test_CFLAGS="--variable=prefetch_distance:4,1 --prefetch-in-place --only-aligned-accesses"
 test_generator=config/mercurium-serial-simd-mic
 </testinfo>
 */
@@ -54,7 +54,7 @@ void __attribute((noinline)) cholesky_in_place(int N, float a[N][N])
             int k;
             float a_ij = a[i1][j];
             
-#pragma omp simd simd_reduction(-:a_ij) aligned(a:64) suitable(N)
+#pragma omp simd simd_reduction(-:a_ij) aligned(a:64) suitable(N) //, mcc_vla_0)
             for (k = 0; k < j; k++)
             {
                 a_ij -=  a[i1][k] * a[j][k];

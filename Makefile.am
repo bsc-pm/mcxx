@@ -316,8 +316,6 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-mssupport.h \
   src/frontend/cxx-mssupport.c \
-  src/frontend/cxx-intelsupport.h \
-  src/frontend/cxx-intelsupport.c \
   src/frontend/cxx-pragma.h \
   src/frontend/cxx-pragma.c \
   src/frontend/cxx-upc.c \
@@ -383,6 +381,8 @@ src_frontend_libgccbuiltins_la_SOURCES = \
   \
   src/frontend/cxx-iccbuiltins.h \
   src/frontend/cxx-iccbuiltins-knc.h \
+  src/frontend/cxx-intelsupport.h \
+  src/frontend/cxx-intelsupport.c \
   $(END)
 
 
@@ -1638,8 +1638,8 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-utils.hpp \
                            src/tl/vectorization/common/tl-vectorization-utils.cpp \
                            src/tl/vectorization/common/tl-vectorization-prefetcher-common.hpp \
-                           src/tl/vectorization/common/tl-suitable-alignment-visitor.hpp \
-                           src/tl/vectorization/common/tl-suitable-alignment-visitor.cpp \
+                           src/tl/vectorization/common/tl-suitable-visitor.hpp \
+                           src/tl/vectorization/common/tl-suitable-visitor.cpp \
                            src/tl/vectorization/common/tl-expression-evolution-visitor.hpp \
                            src/tl/vectorization/common/tl-expression-evolution-visitor.cpp \
                            src/tl/vectorization/common/tl-vectorization-analysis-interface.hpp \
@@ -1648,6 +1648,10 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-analysis-internals.cpp \
                            src/tl/vectorization/common/tl-vectorization-three-addresses.hpp \
                            src/tl/vectorization/common/tl-vectorization-three-addresses.cpp \
+                           src/tl/vectorization/common/tl-vector-isa-descriptor.hpp \
+                           src/tl/vectorization/common/tl-vector-isa-descriptor.cpp \
+                           src/tl/vectorization/common/tl-function-versioning.hpp \
+                           src/tl/vectorization/common/tl-function-versioning.cpp \
                            $(END)
 endif
 
@@ -1664,7 +1668,6 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
                               -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knc/backend \
                               -I $(top_srcdir)/src/tl/vectorization/common \
                               -I $(top_srcdir)/src/tl/vectorization/vectorizer \
-                              -I $(top_srcdir)/src/tl/vectorization/vectorizer/spml \
                               -I $(top_srcdir)/src/tl/analysis/interface \
                               -I $(top_srcdir)/src/tl/analysis/common \
                               -I $(top_srcdir)/src/tl/analysis/pcfg \
@@ -1689,8 +1692,6 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.cpp \
-                           src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
-                           src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-common.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-common.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-optimizer.hpp \
@@ -1722,10 +1723,6 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.cpp \
-                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.hpp \
-                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.cpp \
-                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.hpp \
-                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.cpp \
                            $(END)
 endif
 
@@ -1900,6 +1897,10 @@ src_tl_omp_simd_libtlomp_simd_la_LIBADD = $(phases_libadd) \
 src_tl_omp_simd_libtlomp_simd_la_SOURCES = \
    src/tl/omp/simd/tl-omp-simd.hpp \
    src/tl/omp/simd/tl-omp-simd.cpp \
+   src/tl/omp/simd/tl-omp-simd-visitor.hpp \
+   src/tl/omp/simd/tl-omp-simd-visitor.cpp \
+   src/tl/omp/simd/tl-omp-simd-clauses-processor.hpp \
+   src/tl/omp/simd/tl-omp-simd-clauses-processor.cpp \
    $(END)
 
 endif
@@ -1986,6 +1987,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-barrier.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-parallel.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-for.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-for-appendix.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-for-worksharing.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-for-slicer.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-sections.cpp \
@@ -2336,9 +2338,14 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 								 src/tl/ompss/nanos6/tl-nanos6-taskcall.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-task-properties.hpp \
 								 src/tl/ompss/nanos6/tl-nanos6-task-properties.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-support.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-support.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-fortran-load-api.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-critical.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-unsupported.cpp \
 								 $(END)
 
 endif
@@ -2487,8 +2494,10 @@ src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_LIBADD = \
 	$(END)
 
 src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_SOURCES = \
-	 src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.hpp \
-	 src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.cpp \
+     src/tl/vectorization/vector-lowering/sse/legalization/tl-vector-legalization-sse.hpp \
+     src/tl/vectorization/vector-lowering/sse/legalization/tl-vector-legalization-sse.cpp \
+	 src/tl/vectorization/vector-lowering/sse/backend/tl-vector-backend-sse.hpp \
+	 src/tl/vectorization/vector-lowering/sse/backend/tl-vector-backend-sse.cpp \
   	 $(END)
 endif
 
@@ -2606,6 +2615,37 @@ src_tl_vectorization_vector_lowering_neon_libtlvector_lowering_neon_la_SOURCES =
 endif
 
 ##########################################################################
+# src/tl/vectorization/vector-lowering/romol
+##########################################################################
+
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/vector-lowering/romol/libtlvector-lowering-romol.la
+
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_CFLAGS = $(tl_cflags)
+
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_CXXFLAGS = $(tl_cflags) \
+                              $(vector_lowering_cflags) \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/romol/legalization \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/romol/backend \
+                              $(END)
+
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+	$(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
+$(END)
+
+src_tl_vectorization_vector_lowering_romol_libtlvector_lowering_romol_la_SOURCES = \
+     src/tl/vectorization/vector-lowering/romol/legalization/tl-vector-legalization-romol.hpp \
+     src/tl/vectorization/vector-lowering/romol/legalization/tl-vector-legalization-romol.cpp \
+     src/tl/vectorization/vector-lowering/romol/backend/tl-vector-backend-romol.hpp \
+     src/tl/vectorization/vector-lowering/romol/backend/tl-vector-backend-romol.cpp \
+     src/tl/vectorization/vector-lowering/romol/regalloc/tl-vector-romol-regalloc.hpp \
+     src/tl/vectorization/vector-lowering/romol/regalloc/tl-vector-romol-regalloc.cpp \
+     $(END)
+endif
+
+##########################################################################
 # src/tl/vectorization/vector-lowering
 ##########################################################################
 
@@ -2617,6 +2657,8 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CFLAGS = $(phases_c
 src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cxxflags)\
                  $(vector_lowering_cflags) \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/sse/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/sse/legalization \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/sse/backend \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/ \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/legalization \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/backend \
@@ -2629,6 +2671,10 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_c
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/ \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/legalization \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/neon/backend \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/legalization \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/backend \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/romol/regalloc \
                  $(END)
 
 src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)
@@ -2644,6 +2690,7 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LIBADD = \
     $(top_builddir)/src/tl/vectorization/vector-lowering/knc/libtlvector-lowering-knc.la \
     $(top_builddir)/src/tl/vectorization/vector-lowering/knl/libtlvector-lowering-knl.la \
     $(top_builddir)/src/tl/vectorization/vector-lowering/neon/libtlvector-lowering-neon.la \
+    $(top_builddir)/src/tl/vectorization/vector-lowering/romol/libtlvector-lowering-romol.la \
     $(END)
 endif
 
@@ -3688,6 +3735,24 @@ support/mpi/openmpi/mpi.mf03 : $(srcdir)/support/mpi/openmpi/attr_fn-f90-interfa
 		  $(srcdir)/support/mpi/openmpi/mpif-mpi-io.h \
 		  $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null -J support/mpi/openmpi $(srcdir)/support/mpi/openmpi/mpi.F90
+
+##########################################################################
+# support/romol
+##########################################################################
+
+if BUILD_VECTORIZATION
+
+romoldir=$(pkgdatadir)/romol
+
+romol_DATA = \
+			  support/romol/valib.h \
+			  $(END)
+
+endif
+
+EXTRA_DIST += \
+			support/romol/valib.h \
+			$(END)
 
 ##########################################################################
 # Hooks

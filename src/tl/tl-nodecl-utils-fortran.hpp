@@ -85,6 +85,14 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             }
 
         public:
+            ExtraDeclsVisitor(Nodecl::Utils::SimpleSymbolMap& symbol_map,
+                    TL::Scope new_scope,
+                    TL::Symbol reference_function)
+                : _symbol_map(&symbol_map), _scope(new_scope), _reference_function(reference_function)
+            {
+                _functions_visited.insert(reference_function);
+            }
+
             ExtraDeclsVisitor(Nodecl::Utils::SimpleSymbolMap*& symbol_map,
                     TL::Scope new_scope,
                     TL::Symbol reference_function)
@@ -121,16 +129,7 @@ namespace Nodecl { namespace Utils { namespace Fortran {
 
                 if (sym.is_function())
                 {
-                    // An statement function has to be duplicated because its expression
-                    // may use a dummy argument (see #2280)
-                    if (sym.is_statement_function_statement())
-                    {
-                        _extra_new_sym.insert(sym);
-                    }
-                    else
-                    {
-                        _extra_insert_sym.insert(sym);
-                    }
+                    _extra_new_sym.insert(sym);
 
                     if (sym.is_nested_function())
                     {

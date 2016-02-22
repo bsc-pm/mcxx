@@ -47,6 +47,7 @@
 #include "cxx-instantiation.h"
 #include "cxx-typededuc.h"
 #include "cxx-diagnostic.h"
+#include "cxx-intelsupport.h"
 
 #include "cxx-symbol-deep-copy.h"
 
@@ -5238,7 +5239,7 @@ static dhash_ptr_t* get_vector_sized_hash(unsigned int vector_size)
     return result;
 }
 
-extern inline type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
+extern inline type_t* get_vector_type_by_bytes(type_t* element_type, unsigned int vector_size)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid type", 0);
 
@@ -5268,7 +5269,7 @@ extern inline type_t* get_vector_type(type_t* element_type, unsigned int vector_
 
 extern inline type_t* get_vector_type_by_elements(type_t* element_type, unsigned int num_elements)
 {
-    return get_vector_type(
+    return get_vector_type_by_bytes(
             element_type,
             num_elements * type_get_size(element_type));
 }
@@ -5286,7 +5287,7 @@ extern inline char is_vector_type(type_t* t)
 
 extern inline type_t* get_generic_vector_type(type_t* element_type)
 {
-    return get_vector_type(element_type, 0);
+    return get_vector_type_by_bytes(element_type, 0);
 }
 
 extern inline char is_generic_vector_type(type_t* t)
@@ -5295,7 +5296,7 @@ extern inline char is_generic_vector_type(type_t* t)
     return (is_vector_type(t) && t->type->vector_size == 0);
 }
 
-extern inline int vector_type_get_vector_size(type_t* t)
+extern inline int vector_type_get_vector_size_in_bytes(type_t* t)
 {
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
@@ -5303,7 +5304,7 @@ extern inline int vector_type_get_vector_size(type_t* t)
     int intel_vector_size = 0;
     if (is_intel_vector_struct_type(t, &intel_vector_size))
     {
-        return vector_type_get_vector_size(
+        return vector_type_get_vector_size_in_bytes(
                 intel_vector_struct_type_get_vector_type(t));
     }
     else
@@ -5333,7 +5334,7 @@ extern inline int vector_type_get_num_elements(type_t* t)
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
 
-    return vector_type_get_vector_size(t) / type_get_size(vector_type_get_element_type(t));
+    return vector_type_get_vector_size_in_bytes(t) / type_get_size(vector_type_get_element_type(t));
 }
 
 static type_t* _get_new_function_type(type_t* t,
@@ -9982,14 +9983,15 @@ extern inline const char* print_gnu_vector_type(
     // Workaround for i386 and x86-64 MMX and SSE vectors, which happen to be may_alias
     if ((strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
                 || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
-            && (vector_type_get_vector_size(t) == 8
-                || vector_type_get_vector_size(t) == 16))
+            && (vector_type_get_vector_size_in_bytes(t) == 8       // MMX
+                || vector_type_get_vector_size_in_bytes(t) == 16   // SSE
+                || vector_type_get_vector_size_in_bytes(t) == 32)) // AVX2
     {
         may_alias = " __attribute__((__may_alias__))";
     }
 
     uniquestr_sprintf(&c, "__attribute__((vector_size(%d)))%s %s",
-            vector_type_get_vector_size(t),
+            vector_type_get_vector_size_in_bytes(t),
             may_alias,
             typename);
 
@@ -10003,7 +10005,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
         void* print_symbol_data)
 {
     type_t* element_type = vector_type_get_element_type(t);
-    int size = vector_type_get_vector_size(t);
+    int size = vector_type_get_vector_size_in_bytes(t);
 
     switch (size)
     {
@@ -10081,7 +10083,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
     const char* c = NULL;
     uniquestr_sprintf(&c, "<<intel-vector-%s-%d>>",
             typename,
-            vector_type_get_vector_size(t));
+            vector_type_get_vector_size_in_bytes(t));
     return c;
 }
 
@@ -10096,7 +10098,7 @@ extern inline const char* print_altivec_vector_type(
             print_symbol_fun,
             print_symbol_data);
 
-    int size = vector_type_get_vector_size(t);
+    int size = vector_type_get_vector_size_in_bytes(t);
 
     const char* c = NULL;
     if (size == 16)
@@ -10108,7 +10110,7 @@ extern inline const char* print_altivec_vector_type(
     {
         uniquestr_sprintf(&c, "<<altivec-vector-%s-%d>>",
                 typename,
-                vector_type_get_vector_size(t));
+                vector_type_get_vector_size_in_bytes(t));
     }
 
     return c;
@@ -10120,7 +10122,7 @@ extern inline const char* print_opencl_vector_type(
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
 {
-    int size = vector_type_get_vector_size(t);
+    int size = vector_type_get_vector_size_in_bytes(t);
     type_t* element_type = vector_type_get_element_type(t);
 
     const char* c = NULL;
@@ -10201,7 +10203,7 @@ extern inline const char* print_opencl_vector_type(
             print_symbol_data);
     uniquestr_sprintf(&c, "<<opencl-vector-%s-%d>>",
             typename,
-            vector_type_get_vector_size(t));
+            vector_type_get_vector_size_in_bytes(t));
     return c;
 }
 
@@ -10211,7 +10213,7 @@ extern inline const char* print_neon_vector_type(
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
 {
-    int size = vector_type_get_vector_size(t);
+    int size = vector_type_get_vector_size_in_bytes(t);
     int num_elements = vector_type_get_num_elements(t);
     type_t* element_type = vector_type_get_element_type(t);
 
@@ -10245,60 +10247,60 @@ extern inline const char* print_neon_vector_type(
             print_symbol_data);
     uniquestr_sprintf(&c, "<<neon-vector-%s-%d>>",
             typename,
-            vector_type_get_vector_size(t));
+            vector_type_get_vector_size_in_bytes(t));
+    return c;
+}
+
+// Improve this
+enum { ROMOL_VECTOR_LENGTH = 64 };
+
+extern inline const char* print_romol_vector_type(
+        const decl_context_t* decl_context,
+        type_t* t,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    int num_elements = vector_type_get_num_elements(t);
+    if (num_elements == ROMOL_VECTOR_LENGTH)
+    {
+        return "valib_vector_t";
+    }
+
+    const char* typename = get_simple_type_name_string_internal_impl(decl_context,
+            vector_type_get_element_type(t),
+            print_symbol_fun,
+            print_symbol_data);
+    const char *c = NULL;
+    uniquestr_sprintf(&c, "<<romol-vector-%s-%d>>",
+            typename,
+            num_elements);
     return c;
 }
 
 // Arrays 'vector_flavors' and 'print_vector_functions' are parallel arrays
 #define VECTOR_FLAVORS \
-    VECTOR_FLAVOR(gnu, print_gnu_vector_type) \
-    VECTOR_FLAVOR(intel, print_intel_sse_avx_vector_type) \
-    VECTOR_FLAVOR(altivec, print_altivec_vector_type) \
-    VECTOR_FLAVOR(opencl, print_opencl_vector_type) \
-    VECTOR_FLAVOR(neon, print_neon_vector_type)
+    VECTOR_FLAVOR(gnu, print_gnu_vector_type, NULL) \
+    VECTOR_FLAVOR(intel, print_intel_sse_avx_vector_type, print_intel_mask_type) \
+    VECTOR_FLAVOR(altivec, print_altivec_vector_type, NULL) \
+    VECTOR_FLAVOR(opencl, print_opencl_vector_type, NULL) \
+    VECTOR_FLAVOR(neon, print_neon_vector_type, NULL) \
+    VECTOR_FLAVOR(romol, print_romol_vector_type, print_romol_mask_type)
 
-#define VECTOR_FLAVOR(name, _) #name,
+#define VECTOR_FLAVOR(name, _, __) #name,
 const char* vector_flavors[] = {
     VECTOR_FLAVORS
     NULL
 };
 #undef VECTOR_FLAVOR
 
-#define VECTOR_FLAVOR(_, function) function,
+#define VECTOR_FLAVOR(_, function, __) function,
 const print_vector_type_fun print_vector_type_functions[] = {
     VECTOR_FLAVORS
     NULL
 };
 #undef VECTOR_FLAVOR
 
-
-extern inline void vector_types_set_flavor(const char* c)
-{
-    int i;
-    for (i = 0; vector_flavors[i] != NULL; i++)
-    {
-        if (strcmp(vector_flavors[i], c) == 0)
-        {
-            CURRENT_CONFIGURATION->print_vector_type = print_vector_type_functions[i];
-            break;
-        }
-    }
-}
-
-extern inline const char* vector_types_get_vector_flavor(void)
-{
-    int i;
-    for (i = 0; vector_flavors[i] != NULL; i++)
-    {
-        if (CURRENT_CONFIGURATION->print_vector_type == print_vector_type_functions[i])
-        {
-            return vector_flavors[i];
-        }
-    }
-    return NULL;
-}
-
-extern inline const char* print_mask_type_intel(
+extern inline const char* print_intel_mask_type(
         const decl_context_t* decl_context UNUSED_PARAMETER,
         type_t* t,
         print_symbol_callback_t print_symbol_fun UNUSED_PARAMETER,
@@ -10331,14 +10333,56 @@ extern inline const char* print_mask_type_intel(
     return result;
 }
 
-extern inline const char* print_mask_type(
-        const decl_context_t* decl_context,
+extern inline const char* print_romol_mask_type(
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         type_t* t,
-        print_symbol_callback_t print_symbol_fun,
-        void* print_symbol_data)
+        print_symbol_callback_t print_symbol_fun UNUSED_PARAMETER,
+        void* print_symbol_data UNUSED_PARAMETER)
 {
-    // Do we want to make a flavor of these?
-    return print_mask_type_intel(decl_context, t, print_symbol_fun, print_symbol_data);
+    unsigned int num_bits = mask_type_get_num_bits(t);
+
+    if (num_bits == ROMOL_VECTOR_LENGTH)
+        return "valib_mask_t";
+
+    const char* result = NULL;
+    uniquestr_sprintf(&result, "<<romol-vector-mask-%d>>", num_bits);
+
+    return result;
+}
+
+#define VECTOR_FLAVOR(_, __, mask_function) mask_function,
+// Note that we use print_vector_type_fun as well
+const print_vector_type_fun print_mask_type_functions[] = {
+    VECTOR_FLAVORS
+    NULL
+};
+#undef VECTOR_FLAVOR
+
+extern inline void vector_types_set_flavor(const char* c)
+{
+    int i;
+    for (i = 0; vector_flavors[i] != NULL; i++)
+    {
+        if (strcmp(vector_flavors[i], c) == 0)
+        {
+            CURRENT_CONFIGURATION->print_vector_type = print_vector_type_functions[i];
+            CURRENT_CONFIGURATION->print_mask_type = print_mask_type_functions[i];
+            break;
+        }
+    }
+}
+
+extern inline const char* vector_types_get_vector_flavor(void)
+{
+    int i;
+    for (i = 0; vector_flavors[i] != NULL; i++)
+    {
+        if (CURRENT_CONFIGURATION->print_vector_type == print_vector_type_functions[i])
+        {
+            return vector_flavors[i];
+        }
+    }
+    return NULL;
 }
 
 // Returns a string with the name of this simple type
@@ -10563,7 +10607,15 @@ static const char* get_simple_type_name_string_internal_impl(const decl_context_
             }
         case STK_MASK:
             {
-                result = print_mask_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                if (CURRENT_CONFIGURATION->print_mask_type == NULL)
+                {
+                    // FIXME: Devise a better fallback
+                    print_intel_mask_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                }
+                else
+                {
+                    result = CURRENT_CONFIGURATION->print_mask_type(decl_context, t, print_symbol_fun, print_symbol_data);
+                }
                 break;
             }
         case STK_CLASS :
@@ -11852,8 +11904,11 @@ static const char* get_builtin_type_name(type_t* type_info)
         case STK_VECTOR:
             {
                 const char* c;
-                uniquestr_sprintf(&c, "vector of size %d of ", 
-                        simple_type_info->vector_size);
+                int num_elements = vector_type_get_num_elements(type_info);
+
+                uniquestr_sprintf(&c, "vector (bytes=%d) of %d elements of ", 
+                        simple_type_info->vector_size,
+                        num_elements);
                 result = strappend(result, c);
                 result = strappend(result, print_declarator(simple_type_info->vector_element));
                 break;
@@ -11964,6 +12019,14 @@ static const char* get_builtin_type_name(type_t* type_info)
         case STK_TYPE_DEP_EXPR:
             {
                 result = strappend(result, "< dependent expression type >");
+                break;
+            }
+        case STK_MASK:
+            {
+                const char* c;
+                uniquestr_sprintf(&c, "mask type of %d bits", 
+                        type_info->type->vector_size);
+                result = strappend(result, c);
                 break;
             }
         default :
@@ -13361,6 +13424,23 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             // these types be transparently compatible
             orig = dest;
         }
+        // workaround for SSE types that are incorrectly declared
+        else if ((strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
+                    || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
+                && (is_vector_type(orig)
+                    && is_vector_type(dest)
+                    && (vector_type_get_vector_size_in_bytes(orig) == 8      // MMX
+                        || vector_type_get_vector_size_in_bytes(orig) == 16  // SSE
+                        || vector_type_get_vector_size_in_bytes(orig) == 32) // AVX2
+                    && (vector_type_get_vector_size_in_bytes(orig)
+                        == vector_type_get_vector_size_in_bytes(dest))
+                    && (is_integral_type(vector_type_get_element_type(orig)) == is_integral_type(vector_type_get_element_type(dest))
+                        || is_floating_type(vector_type_get_element_type(orig)) == is_floating_type(vector_type_get_element_type(dest)))))
+        {
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
     }
 
     // Third kind of conversion
@@ -13419,7 +13499,8 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
                 fprintf(stderr, "SCS: Applying pointer to pointer conversion\n");
                 fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
             }
-            (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+            // Note that we override conv[1] not conv[2]
+            (*result).conv[1] = SCI_POINTER_TO_POINTER_CONVERSION;
             orig = dest;
         }
     }
@@ -14875,7 +14956,11 @@ static char type_depends_on_nonconstant_values_rec(type_t* t, struct type_set_t*
 
     if (is_array_type(t))
     {
-        return array_type_is_vla(t);
+        return array_type_is_vla(t)
+               || (array_type_has_region(t)
+                   && (nodecl_is_constant(array_type_get_region_lower_bound(t))
+                       || nodecl_is_constant(
+                              array_type_get_region_upper_bound(t))));
     }
     else if (is_class_type(t))
     {
@@ -15780,9 +15865,9 @@ extern inline type_t* type_deep_copy_compute_maps(
                 new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
-        result = get_vector_type(
+        result = get_vector_type_by_bytes(
                 element_type,
-                vector_type_get_vector_size(orig));
+                vector_type_get_vector_size_in_bytes(orig));
     }
     else if (is_class_type(orig))
     {
@@ -15945,7 +16030,7 @@ static void mask_type_compute_underlying_type(type_t* t)
 
     while (*it != NULL)
     {
-        if ((8 * type_get_size(*it)) == num_bits)
+        if (num_bits <= (8 * type_get_size(*it)))
         {
             t->type->vector_element = *it;
 
@@ -16908,22 +16993,40 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
 
     if (is_named_type(orig))
     {
-        if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
-                && named_type_get_symbol(orig)->decl_context->current_scope != NULL
-                && named_type_get_symbol(orig)->decl_context->current_scope->kind == BLOCK_SCOPE)
+        scope_entry_t *sym = named_type_get_symbol(orig);
+        if (sym->kind == SK_TYPEDEF && sym->decl_context->current_scope != NULL
+            && sym->decl_context->current_scope->kind == BLOCK_SCOPE)
         {
             // typedefs declared inside functions are always advanced
-            result = rewrite_redundant_typedefs(named_type_get_symbol(orig)->type_information);
+            result = rewrite_redundant_typedefs(sym->type_information);
         }
-        else if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
-                && !is_dependent_type(named_type_get_symbol(orig)->type_information))
+        else if (sym->kind == SK_TYPEDEF
+                 && !is_dependent_type(sym->type_information))
         {
-            // typedefs that are not local but are not dependent either
-            result = rewrite_redundant_typedefs(named_type_get_symbol(orig)->type_information);
+            // Avoid advancing typedefs that point to unqualified vector types
+            // because gcc does not handle them very well inside template
+            // arguments
+            type_t *dest = sym->type_information;
+            if (!is_named_type(dest) && is_vector_type(dest)
+                && !is_named_type(vector_type_get_element_type(dest)))
+            {
+                // do nothing (result = orig above)
+            }
+            else
+            {
+                // typedefs that are not local but are not dependent either
+                result = rewrite_redundant_typedefs(dest);
+            }
+        }
+        else if (sym->kind == SK_TEMPLATE_ALIAS
+                 && !is_dependent_type(sym->type_information))
+        {
+            result = rewrite_redundant_typedefs(sym->type_information);
         }
         else
         {
-            // Early return to avoid altering in any way the value of this named type
+            // Early return to avoid altering in any further way the value of
+            // this named type
             return orig;
         }
     }
@@ -17071,9 +17174,22 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
         type_t * element_type = vector_type_get_element_type(orig);
         element_type = rewrite_redundant_typedefs(element_type);
 
-        result = get_vector_type(
+        result = get_vector_type_by_bytes(
                 element_type,
-                vector_type_get_vector_size(orig));
+                vector_type_get_vector_size_in_bytes(orig));
+    }
+    else if (is_sequence_of_types(orig))
+    {
+        int n = sequence_of_types_get_num_types(orig);
+        type_t *fixed_types[n + 1];
+        int i;
+        for (i = 0; i < n; i++)
+        {
+            fixed_types[i] = rewrite_redundant_typedefs(
+                sequence_of_types_get_type_num(orig, i));
+        }
+
+        result = get_sequence_of_types(n, fixed_types);
     }
 
     cv_qualifier_t cv_qualif_orig = CV_NONE;

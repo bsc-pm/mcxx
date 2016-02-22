@@ -33,15 +33,24 @@
 #include "tl-nodecl-base.hpp"
 
 #include "tl-vectorization-analysis-interface.hpp"
-#include "tl-function-versioning.hpp"
 #include "tl-vectorizer-prefetcher.hpp"
 #include "tl-vectorization-common.hpp"
+
+#include "tl-function-versioning.hpp"
 
 
 namespace TL
 {
     namespace Vectorization
     {
+        struct register_functions_info
+        {
+            const char* scalar_function;
+            const char* vector_function;
+            TL::Type return_type;
+            bool masked;
+        };
+
         class Vectorizer
         {
             public:
@@ -49,8 +58,8 @@ namespace TL
             //private:
                 static VectorizationAnalysisInterface* _vectorizer_analysis;
                 static Vectorizer* _vectorizer;
-                static FunctionVersioning _function_versioning;
                 static bool _gathers_scatters_disabled;
+                static bool _unaligned_accesses_disabled;
                 static TL::Symbol _analysis_func;
 
                 bool _svml_sse_enabled;
@@ -85,8 +94,6 @@ namespace TL
                 void vectorize_function(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
-                void vectorize_parallel(Nodecl::NodeclBase& statements,
-                        VectorizerEnvironment& environment);
                 void opt_overlapped_accesses(Nodecl::NodeclBase& statements,
                         VectorizerEnvironment& environment,
                         const bool is_simd_for,
@@ -125,16 +132,11 @@ namespace TL
                         Nodecl::List& pre_nodecls,
                         Nodecl::List& post_nodecls);
 
-                void add_vector_function_version(TL::Symbol symbol,
-                        const Nodecl::NodeclBase& func_version, const std::string& device,
-                        const unsigned int vector_length, const TL::Type& target_type,
-                        const bool masked, const FunctionPriority priority,
-                        bool const is_svml_function);
-                bool is_svml_function(TL::Symbol symbol,
-                        const std::string& device,
-                        const unsigned int vector_length,
-                        const TL::Type& target_type,
-                        const bool masked) const;
+                void register_svml_functions(const register_functions_info* functions,
+                        std::string device,
+                        int vec_factor,
+                        const TL::Scope& scope,
+                        const std::string& vtype_str);
 
                 void enable_svml_sse();
                 void enable_svml_avx2();
@@ -142,6 +144,7 @@ namespace TL
                 void enable_svml_knl();
                 void enable_fast_math();
                 void disable_gathers_scatters();
+                void disable_unaligned_accesses();
         };
    }
 }

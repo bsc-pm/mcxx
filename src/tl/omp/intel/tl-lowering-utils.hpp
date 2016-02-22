@@ -32,6 +32,13 @@
 
 namespace TL { namespace Intel {
 
+    enum CombinerISA
+    {
+        COMBINER_SCALAR,
+        COMBINER_KNC,
+        COMBINER_AVX2,
+    };
+
     TL::Symbol new_global_ident_symbol(Nodecl::NodeclBase location);
     TL::Symbol new_private_symbol(TL::Symbol original_symbol, TL::Scope private_scope);
     TL::Symbol new_private_symbol(const std::string& base_name,

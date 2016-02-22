@@ -799,37 +799,53 @@ dnl SIMD Support
 AX_EXT
 
 simd_version="no (SSE 4.1 or higher not detected)."
-simd_math_version="(SVML not detected)"
+simd_math_version="(SVML not enabled)"
 svml_enabled="no"
 simd_flags=
 simd_includes=
+nanox_avx2="no"
 nanox_sse="no"
 
-  if test "$ax_cv_have_sse42_ext" = yes;
-  then
-        simd_version="SSE4.2"
-        simd_flags="-msse4.2"
-        simd_includes="-msse4.2 -include nmmintrin.h"
-        nanox_sse="yes"
-  else if test "$ax_cv_have_sse41_ext" = yes;
-  then
-        simd_version="SSE4.1"
-        simd_flags="-msse4.1"
-        simd_includes="-msse4.1 -include smmintrin.h"
-        nanox_sse="yes"
-  fi
-  fi
+if test "$ax_cv_have_avx2_ext" = yes;
+then
+  simd_version="AVX2"
+  simd_flags="-mavx2"
+  simd_includes="-mavx2 -include immintrin.h"
+  nanox_avx2="yes"
+  nanox_sse="yes"
+elif test "$ax_cv_have_sse42_ext" = yes;
+then
+  simd_version="SSE4.2"
+  simd_flags="-msse4.2"
+  simd_includes="-msse4.2 -include nmmintrin.h"
+  nanox_sse="yes"
+elif test "$ax_cv_have_sse41_ext" = yes;
+then
+  simd_version="SSE4.1"
+  simd_flags="-msse4.1"
+  simd_includes="-msse4.1 -include smmintrin.h"
+  nanox_sse="yes"
+fi
 
-AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"; svml_enabled="yes"], [])
+AC_ARG_WITH([svml],
+       AS_HELP_STRING([--with-svml=dir], [Directory of the SVML library]),
+       [
+        svml_enabled="yes"
+        svml_lib="${withval}"
+        simd_math_version="(SVML)"
+       ]
+)
 
 SIMD_FLAGS=$simd_flags
 SIMD_INCLUDES=$simd_includes
 SVML_ENABLED=$svml_enabled
 NANOX_SSE=$nanox_sse
+NANOX_AVX2=$nanox_avx2
 
 AC_SUBST([SIMD_FLAGS])
 AC_SUBST([SIMD_INCLUDES])
 AC_SUBST([NANOX_SSE])
+AC_SUBST([NANOX_AVX2])
 AC_SUBST([SVML_ENABLED])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
@@ -1268,7 +1284,6 @@ AC_ARG_ENABLE([nanox-opencl-device],
 
 if test x$opencl_enabled = xyes -a x$opencl_valid = xno;
 then
-   ENABLE_OPENCL=":true:"
    AC_MSG_CHECKING([if nanox has opencl header installed])
    #tests if opencl headers are usable and correct
    #backup vars before we do the tests
@@ -1290,6 +1305,7 @@ fi
 if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
     COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
+    ENABLE_OPENCL=":true:"
 else
     ENABLE_OPENCL=":false:"
 fi
@@ -1838,7 +1854,7 @@ then
     AC_MSG_CHECKING([flex version])
     flex_ver=`$FLEX --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${flex_ver} in
-      x2.5.4 | x2.5.3? )
+      x2.5.4 | x2.5.3? | x2.6*)
        AC_MSG_RESULT([${flex_ver}])
        if test x${flex_ver} = x2.5.31 -o x${flex_ver} = x2.5.34;
        then
@@ -2216,6 +2232,9 @@ NO_VAR_TRACKING_ASSIGNMENTS=""
 AX_CHECK_COMPILE_FLAG([-fno-var-tracking-assignments], [NO_VAR_TRACKING_ASSIGNMENTS="-fno-var-tracking-assignments"])
 AC_SUBST([NO_VAR_TRACKING_ASSIGNMENTS])
 
+dnl Not all gccs support this
+AX_CHECK_COMPILE_FLAG([-Werror=implicit-function-declaration], [CFLAGS="${CFLAGS} -Werror=implicit-function-declaration"])
+
 dnl Check for 'open_memstream' used to generate strings after FILE*
 dnl in the prettyprinter
 AC_CHECK_FUNC([open_memstream],
@@ -2354,6 +2373,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-parallel-simd-avx2
            tests/config/mercurium-serial-simd-mic
            tests/config/mercurium-parallel-simd-mic
+           tests/config/mercurium-serial-simd-romol
            tests/config/mercurium-cuda
            tests/config/mercurium-opencl
            tests/config/mercurium-analysis

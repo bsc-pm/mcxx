@@ -46,7 +46,10 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase &lastprivate1,
             Nodecl::NodeclBase &lastprivate2,
             Nodecl::NodeclBase &reduction_initialization,
-            Nodecl::NodeclBase &reduction_code)
+            Nodecl::NodeclBase &reduction_code,
+            // Only used for OpenMP::ForAppendix
+            Nodecl::NodeclBase &placeholder_prependix,
+            Nodecl::NodeclBase &placeholder_appendix)
     {
         Source for_code, barrier_code;
         Source instrument_before_opt, instrument_loop_opt, instrument_after_opt;
@@ -219,6 +222,7 @@ namespace TL { namespace Nanox {
         Source distribute_loop_source, reduction_initialization_src, reduction_code_src;
         distribute_loop_source
             << "{"
+            << statement_placeholder(placeholder_prependix)
             << reduction_initialization_src
             << "nanos_ws_item_loop_t nanos_item_loop;"
             << "nanos_err_t nanos_err;"
@@ -227,6 +231,7 @@ namespace TL { namespace Nanox {
             <<     "nanos_handle_error(nanos_err);"
             << instrument_before_opt
             << for_code
+            << statement_placeholder(placeholder_appendix)
             << instrument_after_opt
             << reduction_code_src
             << "}"
@@ -254,6 +259,8 @@ namespace TL { namespace Nanox {
            Nodecl::RangeLoopControl& range,
            OutlineInfo& outline_info,
            Nodecl::NodeclBase& statements,
+           // Used only for OpenMP::ForAppendix
+           Nodecl::NodeclBase& prependix, Nodecl::NodeclBase& appendix,
            TL::Symbol slicer_descriptor,
            Source &outline_distribute_loop_source,
            // Loop (in the outline distributed code)
@@ -263,7 +270,10 @@ namespace TL { namespace Nanox {
            Nodecl::NodeclBase& lastprivate1,
            Nodecl::NodeclBase& lastprivate2,
            Nodecl::NodeclBase& reduction_initialization,
-           Nodecl::NodeclBase& reduction_code)
+           Nodecl::NodeclBase& reduction_code,
+           // Used only for OpenMP::ForAppendix
+           Nodecl::NodeclBase& placeholder_prependix,
+           Nodecl::NodeclBase& placeholder_appendix)
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -288,7 +298,6 @@ namespace TL { namespace Nanox {
         OutlineInfo::implementation_table_t::iterator implementation_it = implementation_table.find(enclosing_function);
         ERROR_CONDITION(implementation_it == implementation_table.end(),
                 "No information from the implementation table", 0)
-
 
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
@@ -317,7 +326,6 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase outline_placeholder, output_statements;
             Nodecl::Utils::SimpleSymbolMap *symbol_map = NULL;
             device->create_outline(info, outline_placeholder, output_statements, symbol_map);
-
 
             Source extended_outline_distribute_loop_source;
             extended_outline_distribute_loop_source
@@ -387,6 +395,28 @@ namespace TL { namespace Nanox {
                 perform_partial_reduction(outline_info, reduction_code);
             }
 
+            if (!prependix.is_null())
+            {
+                placeholder_prependix.replace(prependix.shallow_copy());
+                placeholder_prependix.prepend_sibling(Nodecl::SourceComment::make("SIMD Prependix"));
+                placeholder_prependix.append_sibling(Nodecl::SourceComment::make("End of SIMD Prependix"));
+            }
+            else
+            {
+                Nodecl::Utils::remove_from_enclosing_list(placeholder_prependix);
+            }
+
+            if (!appendix.is_null())
+            {
+                placeholder_appendix.replace(appendix.shallow_copy());
+                placeholder_appendix.prepend_sibling(Nodecl::SourceComment::make("SIMD Appendix"));
+                placeholder_appendix.append_sibling(Nodecl::SourceComment::make("End of SIMD Appendix"));
+            }
+            else
+            {
+                Nodecl::Utils::remove_from_enclosing_list(placeholder_appendix);
+            }
+
             Nodecl::NodeclBase updated_outline_code = Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map);
             outline_placeholder.replace(updated_outline_code);
 
@@ -403,7 +433,10 @@ namespace TL { namespace Nanox {
                 task_label);
     }
 
-    void LoweringVisitor::lower_for_worksharing(const Nodecl::OpenMP::For& construct)
+    void LoweringVisitor::lower_for_worksharing(const Nodecl::OpenMP::For& construct,
+            // These two are only non-null for OpenMP::ForAppendix
+            Nodecl::NodeclBase prependix,
+            Nodecl::NodeclBase appendix)
     {
         TL::ForStatement for_statement(construct.get_loop().as<Nodecl::Context>().
                 get_in_context().as<Nodecl::List>().front().as<Nodecl::ForStatement>());
@@ -425,6 +458,10 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase statements = for_statement.get_statement();
 
         walk(statements);
+
+        // Only used for OpenMP::ForAppendix
+        walk(prependix);
+        walk(appendix);
 
         // Slicer descriptor
         TL::Symbol nanos_ws_desc_t_sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
@@ -478,7 +515,8 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase outline_placeholder1, outline_placeholder2,
             lastprivate1, lastprivate2,
-            reduction_initialization, reduction_code;
+            reduction_initialization, reduction_code,
+            placeholder_prependix, placeholder_appendix;
         Source outline_distribute_loop_source = get_loop_distribution_source_worksharing(construct,
                 distribute_environment,
                 range,
@@ -489,12 +527,16 @@ namespace TL { namespace Nanox {
                 lastprivate1,
                 lastprivate2,
                 reduction_initialization,
-                reduction_code);
+                reduction_code,
+                placeholder_prependix,
+                placeholder_appendix);
 
         distribute_loop_with_outline_worksharing(construct,
                 distribute_environment, range,
                 outline_info,
                 statements,
+                // Used only for OpenMP::ForAppendix
+                prependix, appendix,
                 slicer_descriptor,
                 outline_distribute_loop_source,
                 outline_placeholder1,
@@ -502,7 +544,16 @@ namespace TL { namespace Nanox {
                 lastprivate1,
                 lastprivate2,
                 reduction_initialization,
-                reduction_code);
+                reduction_code,
+                placeholder_prependix,
+                placeholder_appendix);
+    }
+
+    void LoweringVisitor::lower_for_worksharing(const Nodecl::OpenMP::For& construct)
+    {
+        lower_for_worksharing(construct,
+                Nodecl::NodeclBase::null(),
+                Nodecl::NodeclBase::null());
     }
 
 } }

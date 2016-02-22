@@ -37,25 +37,54 @@ namespace TL
 {
     namespace Vectorization
     {
+        namespace {
+            TL::Type avx2_comparison_type()
+            {
+                return TL::Type::get_int_type().get_vector_of_elements(8);
+            }
+
+            void fix_mask_symbol(TL::Symbol sym)
+            {
+                if (sym.get_type().is_mask())
+                {
+                    sym.set_type(avx2_comparison_type());
+                }
+            }
+
+            void fix_comparison_type(Nodecl::NodeclBase node)
+            {
+                // There is no mask type in SSE, __m128i is used instead
+                if (node.get_type().is_mask())
+                    node.set_type(avx2_comparison_type());
+                else if (node.get_type().is_lvalue_reference()
+                        && node.get_type().no_ref().is_mask())
+                    node.set_type(avx2_comparison_type().get_lvalue_reference_to());
+            }
+        }
+
         AVX2VectorLegalization::AVX2VectorLegalization() 
         {
             std::cerr << "--- AVX2 legalization phase ---" << std::endl;
         }
 
+        void AVX2VectorLegalization::visit(const Nodecl::Symbol& node)
+        {
+            fix_mask_symbol(node.get_symbol());
+            fix_comparison_type(node);
+        }
+
         void AVX2VectorLegalization::visit(const Nodecl::ObjectInit& node) 
         {
             TL::Source intrin_src;
-            
-            if(node.has_symbol())
-            {
-                TL::Symbol sym = node.get_symbol();
 
-                // Vectorizing initialization
-                Nodecl::NodeclBase init = sym.get_value();
-                if(!init.is_null())
-                {
-                    walk(init);
-                }
+            TL::Symbol sym = node.get_symbol();
+            fix_mask_symbol(sym);
+
+            // Vectorizing initialization
+            Nodecl::NodeclBase init = sym.get_value();
+            if(!init.is_null())
+            {
+                walk(init);
             }
         }
 
@@ -174,15 +203,53 @@ namespace TL
             }
         }
 
-        Nodecl::NodeclVisitor<void>::Ret AVX2VectorLegalization::unhandled_node(const Nodecl::NodeclBase& n) 
-        { 
-            fatal_error("AVX2 Legalization: Unknown node %s at %s.",
-                    ast_print_node_type(n.get_kind()),
-                    locus_to_str(n.get_locus())); 
-
-            return Ret(); 
+#define BINARY_MASK_OPS(Node) \
+        void AVX2VectorLegalization::visit(const Nodecl::Node& n) \
+        { \
+            walk(n.get_lhs()); \
+            walk(n.get_rhs()); \
+            fix_comparison_type(n); \
         }
 
+        BINARY_MASK_OPS(VectorMaskAssignment)
+        BINARY_MASK_OPS(VectorLowerThan)
+        BINARY_MASK_OPS(VectorLowerOrEqualThan)
+        BINARY_MASK_OPS(VectorGreaterThan)
+        BINARY_MASK_OPS(VectorGreaterOrEqualThan)
+        BINARY_MASK_OPS(VectorEqual)
+        BINARY_MASK_OPS(VectorDifferent)
+        BINARY_MASK_OPS(VectorMaskOr)
+        BINARY_MASK_OPS(VectorMaskAnd)
+        BINARY_MASK_OPS(VectorMaskAnd1Not)
+        BINARY_MASK_OPS(VectorMaskAnd2Not)
+        BINARY_MASK_OPS(VectorMaskXor)
+
+#define UNARY_MASK_OPS(Node) \
+        void AVX2VectorLegalization::visit(const Nodecl::Node& n) \
+        { \
+            walk(n.children()[0]); \
+            fix_comparison_type(n); \
+        }
+
+        UNARY_MASK_OPS(VectorMaskNot)
+
+        void AVX2VectorLegalization::visit(
+            const Nodecl::VectorMaskConversion &node)
+        {
+            walk(node.get_nest());
+
+            Nodecl::VectorConversion vec_conv = Nodecl::VectorConversion::make(
+                    node.get_nest().shallow_copy(),
+                    Nodecl::NodeclBase::null() /* mask */,
+                    node.get_type(),
+                    node.get_locus());
+
+            fix_comparison_type(vec_conv);
+            node.replace(vec_conv);
+
+            //Visit new VectorConversion
+            walk(node);
+        }
 
         AVX2StrideVisitorConv::AVX2StrideVisitorConv(unsigned int vector_num_elements)
             : _vector_num_elements(vector_num_elements)

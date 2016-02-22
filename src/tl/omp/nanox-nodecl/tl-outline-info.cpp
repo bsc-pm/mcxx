@@ -423,7 +423,8 @@ namespace TL { namespace Nanox {
 #endif
     }
 
-    void OutlineInfoRegisterEntities::add_private(Symbol sym)
+    void OutlineInfoRegisterEntities::add_private_with_init(Symbol sym,
+            Nodecl::NodeclBase init)
     {
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
 
@@ -443,8 +444,14 @@ namespace TL { namespace Nanox {
 
         outline_info.set_in_outline_type(in_outline_type);
 
-
         outline_info.set_private_type(t);
+
+        outline_info.set_captured_value(init);
+    }
+
+    void OutlineInfoRegisterEntities::add_private(Symbol sym)
+    {
+        add_private_with_init(sym, Nodecl::NodeclBase::null());
     }
 
     void OutlineInfoRegisterEntities::add_shared_with_private_storage(Symbol sym, bool captured)
@@ -1224,19 +1231,19 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OmpSs::DepWeakIn& dep_weak)
             {
                 error_printf_at(dep_weak.get_locus(),
-                        "weak dependences are not supported in Nanos++");
+                        "weak dependences are not supported in Nanos++\n");
             }
 
             void visit(const Nodecl::OmpSs::DepWeakOut& dep_weak)
             {
                 error_printf_at(dep_weak.get_locus(),
-                        "weak dependences are not supported in Nanos++");
+                        "weak dependences are not supported in Nanos++\n");
             }
 
             void visit(const Nodecl::OmpSs::DepWeakInout& dep_weak)
             {
                 error_printf_at(dep_weak.get_locus(),
-                        "weak dependences are not supported in Nanos++");
+                        "weak dependences are not supported in Nanos++\n");
             }
 
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
@@ -1371,6 +1378,20 @@ namespace TL { namespace Nanox {
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     add_private(sym);
+                }
+            }
+
+            void visit(const Nodecl::OpenMP::PrivateInit& private_init)
+            {
+                TL::Symbol sym = private_init.get_symbol();
+
+                if (private_init.get_value().is_null())
+                {
+                    add_private_with_init(sym, sym.get_value());
+                }
+                else
+                {
+                    add_private_with_init(sym, private_init.get_value());
                 }
             }
 

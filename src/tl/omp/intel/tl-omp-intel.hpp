@@ -27,6 +27,7 @@
 #ifndef TL_OMP_INTEL_HPP
 #define TL_OMP_INTEL_HPP
 
+#include "tl-lowering-utils.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-nodecl.hpp"
 
@@ -43,8 +44,9 @@ namespace TL { namespace Intel {
             virtual void pre_run(DTO& dto);
 
             bool instrumentation_enabled() const;
-
-            bool simd_reductions_knc() const;
+            
+            bool simd_reductions() const;
+            CombinerISA get_combiner_isa() const;
 
         private:
             std::string _openmp_dry_run;
@@ -53,9 +55,17 @@ namespace TL { namespace Intel {
             bool _instrumentation_enabled;
             void set_instrumentation(const std::string& str);
 
-            std::string _simd_reductions_knc_str;
-            bool _simd_reductions_knc;
-            void set_simd_reduction_knc(const std::string &str);
+            std::string _simd_reductions_str;
+            bool _simd_reductions;
+            void set_simd_reductions(const std::string &str);
+
+            std::string _knc_enabled_str;
+            bool _knc_enabled;
+            void set_knc(const std::string &str);
+
+            std::string _avx2_enabled_str;
+            bool _avx2_enabled;
+            void set_avx2(const std::string &str);
     };
 
 } }

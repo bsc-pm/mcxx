@@ -201,6 +201,17 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
         new_ident_sym->value = value.get_internal_nodecl();
 
         result = new_ident_sym;
+
+        CXX_LANGUAGE()
+        {
+            Nodecl::NodeclBase cxx_def = Nodecl::CxxDef::make(
+                    Nodecl::NodeclBase::null(),
+                    result,
+                    location.get_locus());
+
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(location,
+                    cxx_def);
+        }
     }
     else
     {

@@ -1,0 +1,58 @@
+#!/bin/bash
+
+##################################################################
+# SETTINGS
+# set path to clang-format binary
+
+# Fallback case
+if [ "$CLANG_FORMAT_DIFF" = none ];
+then
+    exit 0
+fi
+
+CLANG_FORMAT_DIFF=${CLANG_FORMAT_DIFF:=clang-format-diff}
+CLANG_FORMAT_DIFF_PATH=$(which "$CLANG_FORMAT_DIFF")
+
+if [ -z "${CLANG_FORMAT_DIFF_PATH}" \
+    -o ! -e "${CLANG_FORMAT_DIFF_PATH}" \
+    -o ! -x "${CLANG_FORMAT_DIFF_PATH}"  ];
+then
+    echo "Could not test format using '${CLANG_FORMAT_DIFF}'"
+    echo "Set variable CLANG_FORMAT_DIFF to the proper clang-format-diff path"
+    exit 1
+fi
+
+echo "Testing format..."
+
+TMPFILE=$(mktemp)
+git diff --cached -U0 HEAD | "$CLANG_FORMAT_DIFF_PATH" -style file -p 1 > "$TMPFILE"
+
+diffs=$(cat "$TMPFILE")
+
+if [ -z "$diffs" ]
+then
+  echo "Format is OK"
+  exit 0
+else
+  echo "**********************************************************************************"
+  echo "**********************************************************************************"
+  cat "$TMPFILE"
+  echo "**********************************************************************************"
+  echo "**********************************************************************************"
+  echo
+  echo "Format is not OK."
+  echo
+  exec < /dev/tty
+  echo -n "Do you want me to apply the changes above? (y/n) "
+  read -t 10 fixit
+  if [ "$fixit" = y -o "$fixit" = yes ];
+  then
+    git apply -p0 "$TMPFILE" || abort=1
+    echo
+    echo "Please commit again"
+  else
+    echo "Please fix it manually using clang-format"
+  fi
+  rm -f $TMPFILE
+  exit 1
+fi

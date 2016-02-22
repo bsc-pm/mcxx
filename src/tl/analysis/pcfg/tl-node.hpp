@@ -48,6 +48,7 @@ namespace Analysis {
         private:
             // *** Class attributes *** //
             unsigned int _id;
+            int _num;
             NodeType _type;
             Node* _outer_node;
             EdgeList _entry_edges;
@@ -200,6 +201,10 @@ namespace Analysis {
             void set_visited_aux(bool visited);
             void set_visited_extgraph(bool visited);
             void set_visited_extgraph_aux(bool visited);
+
+            // Arbitrary number that can be used for ordering
+            void set_num(int n);
+            int get_num() const;
 
             // ********************** END Data-members getters/setters ********************** //
             // ****************************************************************************** //

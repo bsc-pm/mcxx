@@ -568,11 +568,6 @@ static void build_scope_translation_unit_post(
         {
             instantiation_instantiate_pending_functions(nodecl_output);
         }
-
-        if (CURRENT_CONFIGURATION->enable_intel_vector_types)
-        {
-            prepend_intel_vector_typedefs(nodecl_output);
-        }
     }
     C_LANGUAGE()
     {
@@ -1264,6 +1259,18 @@ static void keep_std_attributes_in_symbol(scope_entry_t* entry,
     xfree(list);
 }
 
+static void keep_extra_attributes_in_symbol(scope_entry_t* entry, gather_decl_spec_t *gather_info)
+{
+    keep_std_attributes_in_symbol(entry, gather_info);
+    keep_gcc_attributes_in_symbol(entry, gather_info);
+    keep_ms_declspecs_in_symbol(entry, gather_info);
+
+    if (gather_info->is_mcc_hidden)
+    {
+        entry->do_not_print = 1;
+        symbol_entity_specs_set_is_user_declared(entry, 0);
+    }
+}
 
 static void build_scope_explicit_instantiation(AST a,
         const decl_context_t* decl_context,
@@ -1317,9 +1324,7 @@ static void build_scope_explicit_instantiation(AST a,
                 declarator_type,
                 &gather_info, decl_context);
 
-        keep_std_attributes_in_symbol(entry, &gather_info);
-        keep_gcc_attributes_in_symbol(entry, &gather_info);
-        keep_ms_declspecs_in_symbol(entry, &gather_info);
+        keep_extra_attributes_in_symbol(entry, &gather_info);
 
         AST id_expr = get_declarator_id_expression(declarator, decl_context);
         compute_nodecl_name_from_id_expression(ASTSon0(id_expr), decl_context, &declarator_name_opt);
@@ -2065,14 +2070,6 @@ static void build_scope_member_alias_declaration(AST a, const decl_context_t* de
             /* is_member_declaration */ 1, class_info, access_specifier);
 }
 
-static void gather_cxx11_attributes(AST a, gather_decl_spec_t* gather_info UNUSED_PARAMETER)
-{
-    if (a != NULL)
-    {
-        internal_error("C++11 attributes not yet implemented\n", 0);
-    }
-}
-
 static void copy_gather_info(gather_decl_spec_t* dest, gather_decl_spec_t* src)
 {
     *dest = *src;
@@ -2318,9 +2315,7 @@ static void build_scope_simple_declaration(AST a, const decl_context_t* decl_con
                 set_is_transparent_union(entry->type_information, /* is_transparent_union */ 1);
             }
 
-            keep_std_attributes_in_symbol(entry, &current_gather_info);
-            keep_gcc_attributes_in_symbol(entry, &current_gather_info);
-            keep_ms_declspecs_in_symbol(entry, &current_gather_info);
+            keep_extra_attributes_in_symbol(entry, &current_gather_info);
 
             // Propagate the __extension__ attribute to the symbol
             symbol_entity_specs_set_gcc_extension(entry, gcc_extension);
@@ -4303,6 +4298,15 @@ static void gather_extra_attributes(AST a,
                     }
                     break;
                 }
+            case AST_ATTRIBUTE_SPECIFIER:
+                {
+                    AST attr_list = ASTSon1(item);
+                    if (attr_list != NULL)
+                    {
+                        warn_printf_at(ast_get_locus(attr_list), "ignoring attribute-specifier\n");
+                    }
+                    break;
+                }
             default:
                 {
                     internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(item)));
@@ -4709,9 +4713,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 entry = NEW0(scope_entry_t);
                 *entry = *old_entry;
 
-                keep_std_attributes_in_symbol(entry, &class_gather_info);
-                keep_gcc_attributes_in_symbol(entry, &class_gather_info);
-                keep_ms_declspecs_in_symbol(entry, &class_gather_info);
+                keep_extra_attributes_in_symbol(entry, &class_gather_info);
             }
             return;
         }
@@ -4800,9 +4802,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         symbol_entity_specs_set_is_instantiable(class_symbol_get_canonical_symbol(class_entry), 1);
     }
 
-    keep_std_attributes_in_symbol(class_entry, &class_gather_info);
-    keep_gcc_attributes_in_symbol(class_entry, &class_gather_info);
-    keep_ms_declspecs_in_symbol(class_entry, &class_gather_info);
+    keep_extra_attributes_in_symbol(class_entry, &class_gather_info);
 
     *type_info = get_user_defined_type(class_entry);
 
@@ -4835,7 +4835,9 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     AST id_expression = ASTSon0(a);
     AST enum_base = ASTSon2(a);
 
-    gather_cxx11_attributes(enum_attribute_specifier, gather_info);
+    gather_decl_spec_t enum_gather_info;
+    copy_gather_info(&enum_gather_info, gather_info);
+    gather_extra_attributes(enum_attribute_specifier, &enum_gather_info, decl_context);
 
     char enum_is_scoped = ASTKind(enum_key) == AST_SCOPED_ENUM_KEY;
 
@@ -5031,6 +5033,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         enum_type_set_underlying_type_is_fixed(entry->type_information, 1);
     }
 
+    keep_extra_attributes_in_symbol(entry, &enum_gather_info);
+
     CXX_LANGUAGE()
     {
         nodecl_t nodecl_context =
@@ -5046,6 +5050,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
                             entry,
                             ast_get_locus(a))));
     }
+
+
 }
 
 #if 0
@@ -5398,7 +5404,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         warn_printf_at(ast_get_locus(enum_key), "scoped enumerators are only valid in C++11\n");
     }
 
-    gather_cxx11_attributes(enum_attribute_specifier, gather_info);
+    gather_decl_spec_t enum_gather_info;
+    copy_gather_info(&enum_gather_info, gather_info);
+    gather_extra_attributes(enum_attribute_specifier, &enum_gather_info, decl_context);
 
     scope_entry_t* new_enum = NULL;
 
@@ -5794,6 +5802,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     enum_type_set_underlying_type_is_fixed(new_enum->type_information, underlying_type_is_fixed);
 
     set_is_complete_type(enum_type, /* is_complete */ 1);
+
+    keep_extra_attributes_in_symbol(new_enum, &enum_gather_info);
 
     CXX_LANGUAGE()
     {
@@ -10167,9 +10177,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     symbol_entity_specs_set_is_instantiable(class_entry, 1);
     symbol_entity_specs_set_is_instantiable(class_symbol_get_canonical_symbol(class_entry), 1);
 
-    keep_std_attributes_in_symbol(class_entry, gather_info);
-    keep_gcc_attributes_in_symbol(class_entry, gather_info);
-    keep_ms_declspecs_in_symbol(class_entry, gather_info);
+    keep_extra_attributes_in_symbol(class_entry, gather_info);
 
     // Keep class-virt-specifiers
     symbol_entity_specs_set_is_explicit(class_entry, gather_info->is_explicit);
@@ -10403,7 +10411,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             }
             else
             {
-                *declarator_type = get_vector_type(gather_info->mode_type, 
+                *declarator_type = get_vector_type_by_bytes(gather_info->mode_type, 
                         gather_info->vector_size);
             }
         }
@@ -10425,7 +10433,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             else
             {
                 *declarator_type = get_cv_qualified_type(
-                        get_vector_type(base_vector_type,
+                        get_vector_type_by_bytes(base_vector_type,
                             gather_info->vector_size), 
                         cv_qualif);
             }
@@ -10506,11 +10514,12 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
                 {
                     if (updated_entity_context->template_parameters == decl_context->template_parameters)
                     {
-                        fprintf(stderr, "BUILDSCOPE: No template parameter was hidden\n");
+                        // fprintf(stderr, "BUILDSCOPE: No template parameter was hidden\n");
                     }
                     else
                     {
-                        fprintf(stderr, "BUILDSCOPE: Some template parameters were hidden\n");
+                        fprintf(stderr, "BUILDSCOPE: %s Some template parameters were hidden\n",
+                                ast_location(declarator_name));
                     }
                 }
             }
@@ -11287,9 +11296,7 @@ static void set_function_parameter_clause(type_t** function_type,
                 entry->do_not_print = 1;
             }
 
-            keep_std_attributes_in_symbol(entry, &param_decl_gather_info);
-            keep_gcc_attributes_in_symbol(entry, &param_decl_gather_info);
-            keep_ms_declspecs_in_symbol(entry, &param_decl_gather_info);
+            keep_extra_attributes_in_symbol(entry, &param_decl_gather_info);
 
             // Now normalize the types
 
@@ -14789,9 +14796,7 @@ static void build_scope_template_simple_declaration(AST a, const decl_context_t*
         if (!ok)
             return;
 
-        keep_std_attributes_in_symbol(entry, &gather_info);
-        keep_gcc_attributes_in_symbol(entry, &gather_info);
-        keep_ms_declspecs_in_symbol(entry, &gather_info);
+        keep_extra_attributes_in_symbol(entry, &gather_info);
 
         // Propagate the __extension__ attribute to the symbol
         symbol_entity_specs_set_gcc_extension(entry, gcc_extension);
@@ -15476,9 +15481,7 @@ static void build_scope_namespace_definition(AST a,
         memset(&gather_info, 0, sizeof(gather_info));
         gather_extra_attributes(attributes, &gather_info, decl_context);
 
-        keep_std_attributes_in_symbol(entry, &gather_info);
-        keep_gcc_attributes_in_symbol(entry, &gather_info);
-        keep_ms_declspecs_in_symbol(entry, &gather_info);
+        keep_extra_attributes_in_symbol(entry, &gather_info);
 
         entry_list_free(list);
 
@@ -15528,7 +15531,11 @@ static void build_scope_namespace_definition(AST a,
                     entry);
         }
 
-        build_scope_declaration_sequence(ASTSon1(a), namespace_context, nodecl_output);
+        if (ASTSon1(a) != NULL)
+        {
+            build_scope_declaration_sequence(
+                ASTSon1(a), namespace_context, nodecl_output);
+        }
     }
 }
 
@@ -15638,9 +15645,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 
                 entry->type_information = declarator_type;
 
-                keep_std_attributes_in_symbol(entry, &current_gather_info);
-                keep_gcc_attributes_in_symbol(entry, &current_gather_info);
-                keep_ms_declspecs_in_symbol(entry, &current_gather_info);
+                keep_extra_attributes_in_symbol(entry, &current_gather_info);
 
                 int parameter_position = -1;
 
@@ -15749,9 +15754,7 @@ static void common_defaulted_or_deleted(AST a, const decl_context_t* decl_contex
 
     set(entry, decl_context, ast_get_locus(a));
 
-    keep_std_attributes_in_symbol(entry, &gather_info);
-    keep_gcc_attributes_in_symbol(entry, &gather_info);
-    keep_ms_declspecs_in_symbol(entry, &gather_info);
+    keep_extra_attributes_in_symbol(entry, &gather_info);
 
     if (declared_symbols != NULL)
     {
@@ -16548,9 +16551,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
         return NULL;
     }
 
-    keep_std_attributes_in_symbol(entry, gather_info);
-    keep_gcc_attributes_in_symbol(entry, gather_info);
-    keep_ms_declspecs_in_symbol(entry, gather_info);
+    keep_extra_attributes_in_symbol(entry, gather_info);
 
     // Propagate the __extension__ attribute to the symbol
     symbol_entity_specs_set_gcc_extension(entry, gcc_extension);
@@ -17788,9 +17789,7 @@ static void build_scope_default_or_delete_member_function_definition(
             }
     }
 
-    keep_std_attributes_in_symbol(entry, &gather_info);
-    keep_gcc_attributes_in_symbol(entry, &gather_info);
-    keep_ms_declspecs_in_symbol(entry, &gather_info);
+    keep_extra_attributes_in_symbol(entry, &gather_info);
 
     // Propagate the __extension__ attribute to the symbol
     symbol_entity_specs_set_gcc_extension(entry, gcc_extension);
@@ -18316,9 +18315,7 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
                             P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, current_gather_info);
                         }
 
-                        keep_std_attributes_in_symbol(entry, &current_gather_info);
-                        keep_gcc_attributes_in_symbol(entry, &current_gather_info);
-                        keep_ms_declspecs_in_symbol(entry, &current_gather_info);
+                        keep_extra_attributes_in_symbol(entry, &current_gather_info);
 
                         // Propagate the __extension__ attribute to the symbol
                         symbol_entity_specs_set_gcc_extension(entry, gcc_extension);
@@ -19086,9 +19083,7 @@ static void build_scope_condition(AST a, const decl_context_t* decl_context, nod
 
         *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
 
-        keep_std_attributes_in_symbol(entry, &gather_info);
-        keep_gcc_attributes_in_symbol(entry, &gather_info);
-        keep_ms_declspecs_in_symbol(entry, &gather_info);
+        keep_extra_attributes_in_symbol(entry, &gather_info);
     }
     else
     {
@@ -20603,9 +20598,7 @@ static void build_scope_try_block(AST a,
                 {
                     exception_name = nodecl_make_object_init(entry, ast_get_locus(declarator));
 
-                    keep_std_attributes_in_symbol(entry, &gather_info);
-                    keep_gcc_attributes_in_symbol(entry, &gather_info);
-                    keep_ms_declspecs_in_symbol(entry, &gather_info);
+                    keep_extra_attributes_in_symbol(entry, &gather_info);
                 }
             }
 

@@ -60,7 +60,7 @@ void foo_scalar(float * __restrict__ __attribute__((__aligned__(VECTOR_SIZE))) b
 {
     int i, j;
 
-#pragma novec
+#pragma novector
     for(i=N-16; i<N; i++)
     {
         int j;

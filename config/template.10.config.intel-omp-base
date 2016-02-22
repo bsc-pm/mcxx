@@ -11,6 +11,7 @@ compiler_options =
 linker_name = @GCC@
 linker_options =
 {openmp} preprocessor_options = -I@PKGDATADIR@/intel-omp -D_OPENMP=200805
+{svml} preprocessor_options = -include math.h
 {openmp, simd-reductions} preprocessor_options = -DINTEL_OMP_SIMD
 {openmp} preprocessor_options = -include intel-omp.h
 {ompss} preprocessor_options = -D_OMPSS=1
@@ -31,7 +32,9 @@ linker_options =
 {simd, knl} options = --variable=knl_enabled:1
 {simd, mmic} options = --variable=mic_enabled:1
 {simd, avx2} options = --variable=avx2_enabled:1
+{simd, (romol|valib)} options = --variable=romol_enabled:1
 {simd, (mmic|knl)} preprocessor_options = -include immintrin.h
+{simd, (romol|valib)} preprocessor_options = -I @PKGDATADIR@/romol -include valib.h
 {simd, avx2} preprocessor_options = -include immintrin.h
 linker_options = -Xlinker --enable-new-dtags
 linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -liomp5
@@ -41,5 +44,6 @@ linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -lio
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
 {only-adjacent-accesses} options = --variable=only_adjacent_accesses:1
+{only-aligned-accesses} options = --variable=only_aligned_accesses:1
 {overlap-in-place} options = --variable=overlap_in_place:1
-{simd-reductions} options = --variable=simd-reduction-knc:1
+{simd-reductions} options = --variable=simd-reductions:1
