@@ -851,9 +851,6 @@ AC_SUBST([NANOX_SSE])
 NANOX_AVX2=$nanox_avx2
 AC_SUBST([NANOX_AVX2])
 
-VECTORIZATION_ENABLED=$is_enabled_vectorization
-AC_SUBST([VECTORIZATION_ENABLED])
-
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -1755,6 +1752,8 @@ AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_HLT],           test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
 
+VECTORIZATION_ENABLED=$is_enabled_vectorization
+AC_SUBST([VECTORIZATION_ENABLED])
 
 CORRECTNESS_LOG_DIR=""
 
