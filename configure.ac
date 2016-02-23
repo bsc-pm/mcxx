@@ -837,16 +837,23 @@ AC_ARG_WITH([svml],
 )
 
 SIMD_FLAGS=$simd_flags
-SIMD_INCLUDES=$simd_includes
-SVML_ENABLED=$svml_enabled
-NANOX_SSE=$nanox_sse
-NANOX_AVX2=$nanox_avx2
-
 AC_SUBST([SIMD_FLAGS])
+
+SIMD_INCLUDES=$simd_includes
 AC_SUBST([SIMD_INCLUDES])
-AC_SUBST([NANOX_SSE])
-AC_SUBST([NANOX_AVX2])
+
+SVML_ENABLED=$svml_enabled
 AC_SUBST([SVML_ENABLED])
+
+NANOX_SSE=$nanox_sse
+AC_SUBST([NANOX_SSE])
+
+NANOX_AVX2=$nanox_avx2
+AC_SUBST([NANOX_AVX2])
+
+VECTORIZATION_ENABLED=$is_enabled_vectorization
+AC_SUBST([VECTORIZATION_ENABLED])
+
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -1690,7 +1697,7 @@ then
         ])
 else
     is_enabled_vectorization="no"
-    AC_MSG_RESULT([no (gcc 4.7 or higher is requested)])
+    AC_MSG_RESULT([no (gcc 4.7 or higher is required)])
 fi
 
 
