@@ -78,6 +78,14 @@ fi
 if [ ! -z "@ICC@" ];
 then
 
+DISABLE_INTEL_INTRINSICS=""
+ICC_VERSION=$(icc -v 2>&1 | sed -e "s/^icc version \([0-9]\+\)\(\.[0-9]\+\)*.*$/\1/i")
+if [ -n "$ICC_VERSION" -a "$ICC_VERSION" -le 15 ];
+then
+    DISABLE_INTEL_INTRINSICS="--disable-intel-intrinsics"
+fi
+
+
 if [ "$1" = "svml" ]; then
 
 cat <<EOF
@@ -86,8 +94,8 @@ IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tes
 compile_versions="\${compile_versions} nanox_imcc_svml"
 test_CC_nanox_imcc_svml="\${IMCC}"
 
-test_CFLAGS_nanox_imcc_svml="--simd --debug-flags=vectorization_verbose --openmp --svml -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_CXXFLAGS_nanox_imcc_svml="--simd --debug-flags=vectorization_verbose --openmp --svml -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_imcc_svml="--simd --debug-flags=vectorization_verbose --openmp --svml -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE} ${DISABLE_INTEL_INTRINSICS}"
+test_CXXFLAGS_nanox_imcc_svml="--simd --debug-flags=vectorization_verbose --openmp --svml -std=gnu99  --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE} ${DISABLE_INTEL_INTRINSICS}"
 test_LDFLAGS_nanox_imcc_svml="@abs_top_builddir@/lib/perish.o"
 
 compile_versions="\${compile_versions} nanox_imcc_svml_fast_math"
@@ -107,8 +115,8 @@ IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tes
 compile_versions="\${compile_versions} nanox_imcc"
 test_CC_nanox_imcc="\${IMCC}"
 
-test_CFLAGS_nanox_imcc="--simd --debug-flags=vectorization_verbose --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_CXXFLAGS_nanox_imcc="--simd --debug-flags=vectorization_verbose --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_imcc="--simd --debug-flags=vectorization_verbose --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE} ${DISABLE_INTEL_INTRINSICS}"
+test_CXXFLAGS_nanox_imcc="--simd --debug-flags=vectorization_verbose --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${COMMON_NANOX_CFLAGS} ${NANOX_GATE} ${DISABLE_INTEL_INTRINSICS}"
 test_LDFLAGS_nanox_imcc="@abs_top_builddir@/lib/perish.o"
 
 EOF
