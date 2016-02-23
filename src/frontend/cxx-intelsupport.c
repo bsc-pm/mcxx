@@ -563,9 +563,12 @@ char intel_vector_struct_to_intel_vector_struct_reinterpret_type(type_t* orig, t
 
 void sign_in_icc_intrinsics(const decl_context_t* decl_context)
 {
+    const locus_t* builtins_locus = make_locus("(intel-builtins)", 0, 0);
     // Xeon
 #include "cxx-iccbuiltins.h"
+
     // Knights Corner (aka MIC)
+    builtins_locus = make_locus("(intel-builtins-knc)", 0, 0);
 #include "cxx-iccbuiltins-knc.h"
 }
 

@@ -805,6 +805,7 @@ void f(const std::string& str)
         << "scope_entry_t* sym_" << str << " = new_symbol(decl_context, decl_context->current_scope, uniquestr(\"" << str << "\"));\n"
         << "sym_" << str << "->kind = SK_FUNCTION;"
         << "sym_" << str << "->do_not_print = 1;\n"
+        << "sym_" << str << "->locus = builtins_locus;\n"
         << "sym_" << str << "->type_information = " << generate_type<T>::g() << ";\n"
         << "symbol_entity_specs_set_is_builtin(sym_" << str << ", 1);\n"
         << "}\n"

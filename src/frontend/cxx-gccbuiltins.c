@@ -1132,7 +1132,7 @@ DEF_FUNCTION_TYPE_0(0, BT_VOID)
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
       symbol_entity_specs_set_is_builtin(new_builtin, 1); \
       new_builtin->do_not_print = 1; \
-      new_builtin->locus = make_locus("(builtin-function)", 0, 0); \
+      new_builtin->locus = make_locus("(gcc-builtin)", 0, 0); \
       if (is_function_type(new_builtin->type_information)) \
       { \
           symbol_entity_specs_reserve_default_argument_info(new_builtin, symbol_entity_specs_get_num_parameters(new_builtin)); \
@@ -3541,6 +3541,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
 static void sign_in_gcc_simd_builtins(const decl_context_t* decl_context)
 {
     // Intel architecture gcc builtins
+    const locus_t* builtins_locus = make_locus("(gcc-builtin-ia32)", 0, 0);
 #include "cxx-gccbuiltins-ia32.h"
 }
 
@@ -3693,6 +3694,7 @@ static void gcc_builtins_neon(const decl_context_t* decl_context)
         symbol_entity_specs_set_is_builtin(sym, 1);
     }
 
+    const locus_t* builtins_locus = make_locus("(gcc-builtin-arm)", 0, 0);
 #include "cxx-gccbuiltins-arm-neon.h"
 }
 
@@ -3807,6 +3809,7 @@ static void gcc_builtins_neon_arm64(const decl_context_t* decl_context)
         symbol_entity_specs_set_is_builtin(sym, 1);
     }
 
+    const locus_t* builtins_locus = make_locus("(gcc-builtin-aarch64)", 0, 0);
 #include "cxx-gccbuiltins-arm64-neon.h"
 }
 
