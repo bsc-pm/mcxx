@@ -11507,6 +11507,10 @@ static const_value_t* cxx_nodecl_make_value_conversion(
     {
         // do nothing
     }
+    else if (is_nullptr_type(orig_type) && is_nullptr_type(dest_type))
+    {
+        // do nothing
+    }
     // class values
     else if (is_class_type(orig_type)
             && is_class_type(dest_type)
