@@ -930,16 +930,51 @@ AC_SUBST([NANOS6_GATE])
 
 AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
 
+DEFAULT_OMPSS_RUNTIME=""
+if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
+then
+  AC_MSG_CHECKING([default OmpSs runtime])
+  AC_ARG_WITH([default-ompss-runtime],
+         AS_HELP_STRING([--with-default-ompss-runtime=nanos++|nanos6], [Select default OmpSs runtime. Only used if both Nanos++ and Nanos 6 are enabled]),
+         [
+          case ${withval} in
+             nanos6|nanos++)
+              DEFAULT_OMPSS_RUNTIME="${withval}"
+              AC_MSG_RESULT([${withval}])
+              ;;
+             *)
+              AC_MSG_ERROR([This option only allows 'nanos++' or 'nanos6'])
+              ;;
+          esac
+         ],
+         [
+              DEFAULT_OMPSS_RUNTIME="nanos++"
+              AC_MSG_RESULT([nanos++ (by default)])
+         ]
+  )
+
+  if test "${DEFAULT_OMPSS_RUNTIME}" = "nanos++";
+  then
+    NANOX_GATE='!nanos6'
+    NANOS6_GATE='nanos6'
+  else
+    if test "${DEFAULT_OMPSS_RUNTIME}" = "nanos6";
+    then
+      NANOX_GATE='nanox'
+      NANOS6_GATE='!nanox'
+    else
+      # Should not happen
+      AC_MSG_ERROR([invalid value for DEFAULT_OMPSS_RUNTIME])
+    fi
+  fi
+
+fi
+
+AC_SUBST([DEFAULT_OMPSS_RUNTIME])
+
 if test x$is_enabled_tl_ompss_nanos6 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
-fi
-
-if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
-then
-    NANOX_GATE="nanox"
-    NANOS6_GATE='!nanox'
-    AC_MSG_NOTICE([Nanos++ and Nanos 6 support enabled at the same time. Mercurium will default to Nanos6. Nanos++ will require --nanox])
 fi
 
 dnl ---------------------- End of Support for Nanos 6 -----------------------------------------
@@ -2490,15 +2525,6 @@ then
 fi
 
 echo ""
-echo " * Dynamic Load Balancing (DLB) :" $is_enabled_dlb
-if test x$is_enabled_dlb = xyes;
-then
-  echo ""
-  echo "   DLB includes :" $dlb_include
-  echo "   DLB libraries:" $dlb_lib
-fi
-
-echo ""
 echo " * Nanos 6 OmpSs :" $is_enabled_tl_ompss_nanos6
 if test x$is_enabled_tl_ompss_nanos6 = xyes;
 then
@@ -2510,6 +2536,21 @@ then
   then
      AC_MSG_WARN([directory '${nanos6_include}' does not seem to exist, compilation is likely to fail])
   fi
+fi
+
+if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
+then
+  echo ""
+  echo " * Default OmpSs runtime: " ${DEFAULT_OMPSS_RUNTIME}
+fi
+
+echo ""
+echo " * Dynamic Load Balancing (DLB) :" $is_enabled_dlb
+if test x$is_enabled_dlb = xyes;
+then
+  echo ""
+  echo "   DLB includes :" $dlb_include
+  echo "   DLB libraries:" $dlb_lib
 fi
 
 echo ""
@@ -2539,7 +2580,6 @@ echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
-
 
 echo " * Optional phases :"
 echo ""

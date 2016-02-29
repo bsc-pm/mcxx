@@ -81,11 +81,10 @@ fi
 COMMON_NANOX_CFLAGS="-DNANOX"
 
 NANOX_GATE=""
-if [ "@NANOS6_ENABLED@" = "yes" ];
+if [ "@DEFAULT_OMPSS_RUNTIME@" = "nanos6" ];
 then
     NANOX_GATE="--nanox"
 fi
-
 
 cat <<EOF
 compile_versions="\${compile_versions} nanox_mercurium"
