@@ -2,6 +2,7 @@
 ! test_generator=config/mercurium-ompss
 ! test_FFLAGS="--no-copy-deps"
 ! test_compile_fail_nanos6_mercurium=yes
+! test_compile_fail_nanos6_imfc=yes
 ! </testinfo>
 module work
 

@@ -31,6 +31,7 @@
 test_generator=config/mercurium-ompss
 test_CFLAGS="--no-copy-deps"
 test_compile_fail_nanos6_mercurium=yes
+test_compile_fail_nanos6_imcc=yes
 </testinfo>
 */
 
