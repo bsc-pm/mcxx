@@ -1,1 +1,0 @@
-This content has been moved to [http://pm.bsc.es/ompss-docs/user-guide/installation.html#mercurium-build-requirements]
