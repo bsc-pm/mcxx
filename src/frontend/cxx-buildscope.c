@@ -16784,39 +16784,8 @@ static void build_scope_function_definition_body(
         }
     }
 
-    nodecl_t nodecl_initializers = nodecl_null();
-    CXX_LANGUAGE()
-    {
-        AST ctor_initializer = ASTSon1(function_definition);
-        if (symbol_entity_specs_get_is_member(entry)
-                && symbol_entity_specs_get_is_constructor(entry))
-        {
-            AST location = ctor_initializer;
-            if (ctor_initializer == NULL)
-                location = function_definition;
-            build_scope_ctor_initializer(ctor_initializer, 
-                    entry, block_context, 
-                    ast_get_locus(location),
-                    &nodecl_initializers);
-        }
-        else
-        {
-            if (ctor_initializer != NULL)
-            {
-                error_printf_at(ast_get_locus(function_definition), "member-initializer-lists are only valid in constructors\n");
-            }
-        }
-    }
-
-    // FIXME - Think how to make this better maintained
-    if (CURRENT_CONFIGURATION->enable_cuda
-            && (gather_info->cuda.is_global
-                || gather_info->cuda.is_device))
-    {
-        cuda_kernel_symbols_for_function_body(function_body, gather_info, entry->decl_context, block_context);
-    }
-
-    // Sign in __func__ (C99) and GCC's __FUNCTION__ and __PRETTY_FUNCTION__
+    // Sign in __func__ (C99/C++11) and GCC's __FUNCTION__ and
+    // __PRETTY_FUNCTION__
     scope_entry_t* mercurium_pretty_function = NULL;
     {
         nodecl_t nodecl_expr = const_value_to_nodecl(
@@ -16867,6 +16836,42 @@ static void build_scope_function_definition_body(
             mercurium_pretty_function = register_mercurium_pretty_print(entry, block_context);
         }
     }
+
+    nodecl_t nodecl_initializers = nodecl_null();
+    CXX_LANGUAGE()
+    {
+        AST ctor_initializer = ASTSon1(function_definition);
+        if (symbol_entity_specs_get_is_member(entry)
+            && symbol_entity_specs_get_is_constructor(entry))
+        {
+            AST location = ctor_initializer;
+            if (ctor_initializer == NULL)
+                location = function_definition;
+            build_scope_ctor_initializer(ctor_initializer,
+                                         entry,
+                                         block_context,
+                                         ast_get_locus(location),
+                                         &nodecl_initializers);
+        }
+        else
+        {
+            if (ctor_initializer != NULL)
+            {
+                error_printf_at(ast_get_locus(function_definition),
+                                "member-initializer-lists are only valid in "
+                                "constructors\n");
+            }
+        }
+    }
+
+    // FIXME - Think how to make this better maintained
+    if (CURRENT_CONFIGURATION->enable_cuda
+        && (gather_info->cuda.is_global || gather_info->cuda.is_device))
+    {
+        cuda_kernel_symbols_for_function_body(
+            function_body, gather_info, entry->decl_context, block_context);
+    }
+
 
     // Result symbol only if the function returns something
     if (function_type_get_return_type(entry->type_information) != NULL
