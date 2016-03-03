@@ -1008,10 +1008,14 @@ AC_ARG_WITH([dlb-lib],
 DLB_INCLUDE=$dlb_include
 DLB_LIB=$dlb_lib
 
+DLB_GATE=":false:"
 if test -n "$dlb_include" -a -n "$dlb_lib";
 then
     is_enabled_dlb="yes"
+    DLB_GATE="dlb"
 fi
+
+AC_SUBST([DLB_GATE])
 
 AC_SUBST([DLB_INCLUDE])
 AC_SUBST([DLB_LIB])

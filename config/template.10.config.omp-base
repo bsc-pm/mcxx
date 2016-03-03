@@ -108,7 +108,7 @@ linker_name = @GCC@
 
 [omp-base : omp-base-common]
 #dlb
-{dlb} preprocessor_options = -I@DLB_INCLUDE@
+{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
 #
 linker_options =
 
@@ -144,16 +144,16 @@ linker_options = -Xlinker --enable-new-dtags
 {@NANOS6_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
 # dlb
-{dlb} linker_options = -L@DLB_LIB@
-{dlb,!(instrument|instrumentation|debug)} linker_options= -ldlb
-{dlb,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
-{dlb,(instrument|instrumentation),!debug} linker_options  = -ldlb_instr
-{dlb,(instrument|instrumentation),debug} linker_options  = -ldlb_instr_dbg
-{dlb} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
+{@DLB_GATE@} linker_options = -L@DLB_LIB@
+{@DLB_GATE@,!(instrument|instrumentation|debug)} linker_options= -ldlb
+{@DLB_GATE@,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
+{@DLB_GATE@,(instrument|instrumentation),!debug} linker_options  = -ldlb_instr
+{@DLB_GATE@,(instrument|instrumentation),debug} linker_options  = -ldlb_instr_dbg
+{@DLB_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
 
 [omp-base-ibm : omp-base-common]
 #dlb
-{dlb} preprocessor_options = -I@DLB_INCLUDE@
+{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
 #
 linker_options =
 #nanos++
@@ -174,9 +174,9 @@ linker_options = -Wl,--enable-new-dtags
 # needed for the new link mechanism
 {@NANOX_GATE@} linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 # dlb
-{dlb} linker_options = -L@DLB_LIB@
-{dlb,!(instrument|instrumentation|debug)} linker_options = -ldlb
-{dlb,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
-{dlb,(instrument|instrumentation),!debug} linker_options = -ldlb_instr
-{dlb,(instrument|instrumentation),debug} linker_options = -ldlb_instr_dbg
-{dlb} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
+{@DLB_GATE@} linker_options = -L@DLB_LIB@
+{@DLB_GATE@,!(instrument|instrumentation|debug)} linker_options = -ldlb
+{@DLB_GATE@,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
+{@DLB_GATE@,(instrument|instrumentation),!debug} linker_options = -ldlb_instr
+{@DLB_GATE@,(instrument|instrumentation),debug} linker_options = -ldlb_instr_dbg
+{@DLB_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
