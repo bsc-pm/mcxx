@@ -65,8 +65,6 @@ namespace TL
                 virtual void visit(const Nodecl::VectorStore& n);
                 virtual void visit(const Nodecl::VectorGather& n);
                 virtual void visit(const Nodecl::VectorScatter& n);
-
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
 
         class KNCStrideVisitorConv : public Nodecl::NodeclVisitor<void>

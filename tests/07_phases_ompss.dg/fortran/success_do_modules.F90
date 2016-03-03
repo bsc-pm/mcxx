@@ -1,8 +1,10 @@
 ! <testinfo>
-! test_generator=config/mercurium-ompss
+! test_generator="config/mercurium-ompss"
 ! compile_versions="nanox_mercurium_mod0 nanox_mercurium_mod1"
 ! test_FFLAGS_nanox_mercurium_mod0="-DMOD0"
 ! test_FFLAGS_nanox_mercurium_mod1="-DMOD1"
+! test_compile_fail_nanox_mercurium_mod0_nanos6_mercurium=yes
+! test_compile_fail_nanox_mercurium_mod1_nanos6_mercurium=yes
 ! </testinfo>
 
 #ifdef MOD0

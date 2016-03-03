@@ -79,19 +79,18 @@ namespace TL
                         const std::string& intrin_op_name);
 
                 std::string get_casting_intrinsic(const TL::Type& type_from,
-                        const TL::Type& type_to);
+                        const TL::Type& type_to,
+                        const locus_t* locus);
                 std::string get_casting_to_scalar_pointer(const TL::Type& type_to);
-                std::string get_undef_intrinsic(const TL::Type& type);
-
-                void process_mask_component(const Nodecl::NodeclBase& mask,
-                        TL::Source& mask_prefix, TL::Source& mask_params,
-                        const TL::Type& type,
-                        AVX2ConfigMaskProcessing conf = AVX2ConfigMaskProcessing::MASK_DEFAULT );
 
                 void visit_aligned_vector_load(const Nodecl::VectorLoad& node);
                 void visit_unaligned_vector_load(const Nodecl::VectorLoad& node);
                 void visit_aligned_vector_store(const Nodecl::VectorStore& node);
                 void visit_unaligned_vector_store(const Nodecl::VectorStore& node);
+
+                void visit_reduction_add_4bytes_elements(const Nodecl::VectorReductionAdd& node);
+                void visit_reduction_add_8bytes_elements(const Nodecl::VectorReductionAdd& node);
+
 
             public:
 
@@ -157,8 +156,6 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMaskXor& node);
 
                 virtual void visit(const Nodecl::MaskLiteral& node);
-
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
     }
 }

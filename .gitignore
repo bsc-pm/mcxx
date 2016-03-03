@@ -56,9 +56,13 @@ config/50.config.omp.mercurium
 config/55.config.omp.nvidia
 config/55.config.omp.intel
 config/55.config.omp.intel.fortran
+config/55.config.omp.ocl
+config/56.config.omp.intel.mpi
+config/56.config.omp.mpi
 config/57.config.omp.smp
 config/57.config.omp.smp.intel
 config/config.mcxx
+config/driver-scripts
 doc/doxygen_tl
 doc/html/
 lib/tpp
@@ -69,6 +73,7 @@ src/driver/cxx-configfile-parser.c
 src/driver/cxx-configfile-parser.output
 src/driver/cxx-configoptions.c
 src/driver/cxx-debugflags.c
+src/driver/cxx-driver-build-info.h
 src/driver/cxx-fileextensions.c
 src/driver/cxx-target-tools.h
 src/driver/fortran/mf03-prescanner
@@ -132,6 +137,7 @@ tests/config/bets
 tests/config/libraries-libtool.cache
 tests/config/mercurium
 tests/config/mercurium-analysis
+tests/config/mercurium-c11
 tests/config/mercurium-cuda
 tests/config/mercurium-cxx11
 tests/config/mercurium-cxx14
@@ -140,6 +146,7 @@ tests/config/mercurium-fe-only
 tests/config/mercurium-fortran
 tests/config/mercurium-hlt
 tests/config/mercurium-libraries
+tests/config/mercurium-nanos6
 tests/config/mercurium-nanox
 tests/config/mercurium-omp
 tests/config/mercurium-ompss
@@ -150,6 +157,7 @@ tests/config/mercurium-run
 tests/config/mercurium-serial-simd
 tests/config/mercurium-serial-simd-avx2
 tests/config/mercurium-serial-simd-mic
+tests/config/mercurium-serial-simd-romol
 tests/config/mercurium-opencl
 tests/test.log
 tests/test.log.xml
@@ -161,5 +169,11 @@ config/50.config.omp.fpga
 config/50.config.omp.ocl
 config/57.config.omp.all
 config/55.config.omp.intel.fortran
+config/55.config.omp.ocl
+config/56.config.omp.intel.mpi
+config/56.config.omp.mpi
 src/frontend/cxx-asttype-str-internal.h
 src/frontend/cxx-asttype-str.gperf
+.clang-format
+.ycm_extra_conf.py*
+tags

@@ -28,6 +28,7 @@
 
 #include <fstream>
 
+#include "cxx-diagnostic.h"
 #include "tl-devices.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "tl-multifile.hpp"
@@ -37,7 +38,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-driver-utils.h"
 #include "cxx-process.h"
-#include "cxx-cexpr-fwd.h"
+#include "cxx-cexpr.h"
 
 #include "nanox-fpga.hpp"
 
@@ -82,7 +83,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     const TL::Symbol& arguments_struct = info._arguments_struct;
     const TL::Symbol& called_task = info._called_task;
 
-    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap(&_copied_fpga_functions);
 
     TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function())
@@ -91,7 +92,38 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             fatal_printf_at(original_statements.get_locus(), "nested functions are not supported\n");
     }
 
-    // const TL::Scope & called_scope = called_task.get_scope();
+    // Add the user function to the intermediate file -> to HLS
+    if (called_task.is_valid())//is a function task
+    {
+        if ( (IS_C_LANGUAGE || IS_CXX_LANGUAGE) && !called_task.get_function_code().is_null())
+        {
+
+
+            if (_copied_fpga_functions.map(called_task) == called_task)
+            {
+                //new task-> add it to the list
+                TL::Symbol new_function = SymbolUtils::new_function_symbol_for_deep_copy(
+                        called_task,
+                        called_task.get_name() + "_hls");
+
+                _copied_fpga_functions.add_map(called_task, new_function);
+                _fpga_file_code.append (Nodecl::Utils::deep_copy(
+                            called_task.get_function_code(),
+                            called_task.get_scope(),
+                            *symbol_map)
+                        );
+            }
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            fatal_error("There is no fortran support for FPGA devices\n");
+        }
+        else
+        {
+            fatal_error("Inline tasks not supported yet\n");
+        }
+
+    }
     Source unpacked_arguments, private_entities;
 
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
@@ -167,61 +199,11 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 }
             default:
                 {
-                    internal_error("Unexpected data sharing kind", 0);
+                    std::cerr << "Warning: Cannot copy function code to the device file" << std::endl;
                 }
         }
     }
 
-    // Add the user function to the intermediate file -> to HLS
-    if (called_task.is_valid())
-    {
-        //find out if the function is already in the list
-        //Currently ckecking function name only
-        bool found = false;
-        const std::string &orig_name = called_task.get_name();
-        for (Nodecl::List::iterator it = _fpga_file_code.begin();
-                it != _fpga_file_code.end() && !found;
-                it++)
-        {
-            found = (it->get_symbol().get_name() == orig_name);
-        }
-
-
-        //if function is in the list, do not add it again
-        if (!found)
-        {
-            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_hls");
-
-            Nodecl::Utils::SimpleSymbolMap map;
-            map.add_map(called_task, new_function);
-            Nodecl::NodeclBase tmp_task = Nodecl::Utils::deep_copy(
-                    called_task.get_function_code(),
-                    called_task.get_scope(),
-                    map);
-
-            if (_dump_ast != "0")
-            {
-                //write ast to a file
-                std::string filename = called_task.get_name() + "_ast.dot";
-                //include cxx-nodecl.hpp
-                FILE* out_file = fopen(filename.c_str(), "w");
-                ast_dump_graphviz(
-                        nodecl_get_ast(called_task.get_function_code().get_internal_nodecl()),
-                        out_file);
-                fclose(out_file);
-            }
-
-            //add pragmas to the output code (only when working in stream mode)
-//            add_hls_pragmas(tmp_task, outline_info);
-
-
-//            Nodecl::NodeclBase wrapper = gen_hls_wrapper(new_function, info._data_items);
-//
-            _fpga_file_code.append(tmp_task);
-//            _fpga_file_code.append(wrapper);
-            //TODO: Add inline pragma to called task #pragma HLS inline
-        }
-    }
 
 
     // Create the new unpacked function
@@ -252,7 +234,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     //FIXME: We are not generating any code to pass parameters right now
 //    if (task_has_scalars(data_items))
 //    {
-//        fpga_params = fpga_param_code(info._data_items, symbol_map, called_scope);
+//        fpga_params = fpga_param_code(info._data_items, symbol_map, called_task.get_scope());
 //    }
 
     Source unpacked_source;
@@ -344,9 +326,6 @@ DeviceFPGA::DeviceFPGA()
 {
     set_phase_name("Nanox FPGA support");
     set_phase_description("This phase is used by Nanox phases to implement FPGA device support");
-    register_parameter("dump_fpga_ast",
-            "Dumps ast of functions to be implemented in the FPGA into a dot file",
-            _dump_ast, "0");
 }
 
 void DeviceFPGA::pre_run(DTO& dto)
@@ -411,6 +390,53 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
     // Restore the original name of the current function
     current_function.set_name(original_name);
 
+    //get onto information
+    ObjectList<Nodecl::NodeclBase> onto_clause = info._target_info.get_onto();
+    Nodecl::Utils::SimpleSymbolMap param_to_args_map = info._target_info.get_param_arg_map();
+
+    std::string acc_num = "-1";
+    if (onto_clause.size() >= 1)
+    {
+        //TODO
+        //Process list of values in onto clause. Multiple values mean that the task
+        //can be run in several accelerators
+
+        Nodecl::NodeclBase onto_acc = onto_clause[0];
+        if (onto_clause.size() > 1)
+        {
+            warn_printf_at(onto_acc.get_locus(), "More than one argument in onto clause. Using only first one\n");
+        }
+
+        if (onto_clause[0].is_constant())
+        {
+            const_value_t *ct_val = onto_acc.get_constant();
+            if (!const_value_is_integer(ct_val))
+            {
+                error_printf_at(onto_acc.get_locus(), "Constant is not integer type in onto clause\n");
+            }
+            else
+            {
+                int acc = const_value_cast_to_signed_int(ct_val);
+                std::stringstream tmp_str;
+                tmp_str << acc;
+                acc_num = tmp_str.str();
+            }
+        }
+        else
+        {
+            if (onto_acc.get_symbol().is_valid() ) {
+                acc_num = as_symbol(onto_acc.get_symbol());
+                //as_symbol(param_to_args_map.map(onto_acc.get_symbol()));
+            }
+        }
+    }
+    else
+    {
+        //warning??
+    }
+
+
+
     if (!IS_FORTRAN_LANGUAGE)
     {
         // Extra cast for solving some issues of GCC 4.6.* and lowers (this
@@ -418,10 +444,14 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         std::string ref = IS_CXX_LANGUAGE ? "&" : "*";
         std::string extra_cast = "(void(*)(" + arguments_struct + ref + "))";
 
+        Source args_name;
+        args_name << outline_name << "_args";
+
         ancillary_device_description
-            << "static nanos_smp_args_t " << outline_name << "_args = {"
-            << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name
-            << "};"
+            << comment("device argument type")
+            << "static nanos_fpga_args_t " << args_name << ";"
+            << args_name << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name << ";"
+            << args_name << ".acc_num = " << acc_num << ";"
             ;
         device_descriptor
             << "{"
@@ -438,7 +468,7 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
 
 bool DeviceFPGA::remove_function_task_from_original_source() const
 {
-    return false;
+    return true;
 }
 
 //write/close intermediate files, free temporal nodes, etc.
@@ -950,9 +980,8 @@ void DeviceFPGA::copy_stuff_to_device_file(
             TL::Symbol function = it->get_symbol();
             TL::Symbol new_function = SymbolUtils::new_function_symbol(function, function.get_name() + "_hls");
 
-            Nodecl::Utils::SimpleSymbolMap symbol_map;
-            symbol_map.add_map(function, new_function);
-            _fpga_file_code.append(Nodecl::Utils::deep_copy(*it, *it, symbol_map));
+            _copied_fpga_functions.add_map(function, new_function);
+            _fpga_file_code.append(Nodecl::Utils::deep_copy(*it, *it, _copied_fpga_functions));
         }
         else
         {

@@ -568,11 +568,6 @@ static void build_scope_translation_unit_post(
         {
             instantiation_instantiate_pending_functions(nodecl_output);
         }
-
-        if (CURRENT_CONFIGURATION->enable_intel_vector_types)
-        {
-            prepend_intel_vector_typedefs(nodecl_output);
-        }
     }
     C_LANGUAGE()
     {
@@ -1269,6 +1264,12 @@ static void keep_extra_attributes_in_symbol(scope_entry_t* entry, gather_decl_sp
     keep_std_attributes_in_symbol(entry, gather_info);
     keep_gcc_attributes_in_symbol(entry, gather_info);
     keep_ms_declspecs_in_symbol(entry, gather_info);
+
+    if (gather_info->is_mcc_hidden)
+    {
+        entry->do_not_print = 1;
+        symbol_entity_specs_set_is_user_declared(entry, 0);
+    }
 }
 
 static void build_scope_explicit_instantiation(AST a,
@@ -10410,7 +10411,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             }
             else
             {
-                *declarator_type = get_vector_type(gather_info->mode_type, 
+                *declarator_type = get_vector_type_by_bytes(gather_info->mode_type, 
                         gather_info->vector_size);
             }
         }
@@ -10432,7 +10433,7 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             else
             {
                 *declarator_type = get_cv_qualified_type(
-                        get_vector_type(base_vector_type,
+                        get_vector_type_by_bytes(base_vector_type,
                             gather_info->vector_size), 
                         cv_qualif);
             }
@@ -10513,11 +10514,12 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
                 {
                     if (updated_entity_context->template_parameters == decl_context->template_parameters)
                     {
-                        fprintf(stderr, "BUILDSCOPE: No template parameter was hidden\n");
+                        // fprintf(stderr, "BUILDSCOPE: No template parameter was hidden\n");
                     }
                     else
                     {
-                        fprintf(stderr, "BUILDSCOPE: Some template parameters were hidden\n");
+                        fprintf(stderr, "BUILDSCOPE: %s Some template parameters were hidden\n",
+                                ast_location(declarator_name));
                     }
                 }
             }
@@ -15529,7 +15531,11 @@ static void build_scope_namespace_definition(AST a,
                     entry);
         }
 
-        build_scope_declaration_sequence(ASTSon1(a), namespace_context, nodecl_output);
+        if (ASTSon1(a) != NULL)
+        {
+            build_scope_declaration_sequence(
+                ASTSon1(a), namespace_context, nodecl_output);
+        }
     }
 }
 
@@ -16778,39 +16784,8 @@ static void build_scope_function_definition_body(
         }
     }
 
-    nodecl_t nodecl_initializers = nodecl_null();
-    CXX_LANGUAGE()
-    {
-        AST ctor_initializer = ASTSon1(function_definition);
-        if (symbol_entity_specs_get_is_member(entry)
-                && symbol_entity_specs_get_is_constructor(entry))
-        {
-            AST location = ctor_initializer;
-            if (ctor_initializer == NULL)
-                location = function_definition;
-            build_scope_ctor_initializer(ctor_initializer, 
-                    entry, block_context, 
-                    ast_get_locus(location),
-                    &nodecl_initializers);
-        }
-        else
-        {
-            if (ctor_initializer != NULL)
-            {
-                error_printf_at(ast_get_locus(function_definition), "member-initializer-lists are only valid in constructors\n");
-            }
-        }
-    }
-
-    // FIXME - Think how to make this better maintained
-    if (CURRENT_CONFIGURATION->enable_cuda
-            && (gather_info->cuda.is_global
-                || gather_info->cuda.is_device))
-    {
-        cuda_kernel_symbols_for_function_body(function_body, gather_info, entry->decl_context, block_context);
-    }
-
-    // Sign in __func__ (C99) and GCC's __FUNCTION__ and __PRETTY_FUNCTION__
+    // Sign in __func__ (C99/C++11) and GCC's __FUNCTION__ and
+    // __PRETTY_FUNCTION__
     scope_entry_t* mercurium_pretty_function = NULL;
     {
         nodecl_t nodecl_expr = const_value_to_nodecl(
@@ -16861,6 +16836,42 @@ static void build_scope_function_definition_body(
             mercurium_pretty_function = register_mercurium_pretty_print(entry, block_context);
         }
     }
+
+    nodecl_t nodecl_initializers = nodecl_null();
+    CXX_LANGUAGE()
+    {
+        AST ctor_initializer = ASTSon1(function_definition);
+        if (symbol_entity_specs_get_is_member(entry)
+            && symbol_entity_specs_get_is_constructor(entry))
+        {
+            AST location = ctor_initializer;
+            if (ctor_initializer == NULL)
+                location = function_definition;
+            build_scope_ctor_initializer(ctor_initializer,
+                                         entry,
+                                         block_context,
+                                         ast_get_locus(location),
+                                         &nodecl_initializers);
+        }
+        else
+        {
+            if (ctor_initializer != NULL)
+            {
+                error_printf_at(ast_get_locus(function_definition),
+                                "member-initializer-lists are only valid in "
+                                "constructors\n");
+            }
+        }
+    }
+
+    // FIXME - Think how to make this better maintained
+    if (CURRENT_CONFIGURATION->enable_cuda
+        && (gather_info->cuda.is_global || gather_info->cuda.is_device))
+    {
+        cuda_kernel_symbols_for_function_body(
+            function_body, gather_info, entry->decl_context, block_context);
+    }
+
 
     // Result symbol only if the function returns something
     if (function_type_get_return_type(entry->type_information) != NULL

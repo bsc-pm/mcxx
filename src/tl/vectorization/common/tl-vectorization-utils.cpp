@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorization-utils.hpp"
+
 #include "tl-nodecl-utils.hpp"
 #include "tl-counters.hpp"
 #include "cxx-cexpr.h"
@@ -35,6 +36,96 @@ namespace Vectorization
 {
 namespace Utils
 {
+    bool is_vector_node(Nodecl::NodeclBase n)
+    {
+        switch (n.get_kind())
+        {
+            // FIXME - Make this list automatic
+            case NODECL_VECTOR_ADD :
+            case NODECL_VECTOR_ALIGN_RIGHT :
+            case NODECL_VECTOR_ARITHMETIC_SHR :
+            case NODECL_VECTOR_ASSIGNMENT :
+            case NODECL_VECTOR_BITWISE_AND :
+            case NODECL_VECTOR_BITWISE_NOT :
+            case NODECL_VECTOR_BITWISE_OR :
+            case NODECL_VECTOR_BITWISE_SHL :
+            case NODECL_VECTOR_BITWISE_SHR :
+            case NODECL_VECTOR_BITWISE_XOR :
+            case NODECL_VECTOR_CAST :
+            case NODECL_VECTOR_CONDITIONAL_EXPRESSION :
+            case NODECL_VECTOR_CONVERSION :
+            case NODECL_VECTOR_DIFFERENT :
+            case NODECL_VECTOR_DIV :
+            case NODECL_VECTOR_EQUAL :
+            case NODECL_VECTOR_FABS :
+            case NODECL_VECTOR_FMADD :
+            case NODECL_VECTOR_FMMINUS :
+            case NODECL_VECTOR_FUNCTION_CALL :
+            case NODECL_VECTOR_FUNCTION_CODE :
+            case NODECL_VECTOR_GATHER :
+            case NODECL_VECTOR_GREATER_OR_EQUAL_THAN :
+            case NODECL_VECTOR_GREATER_THAN :
+            case NODECL_VECTOR_LANE_ID :
+            case NODECL_VECTOR_LITERAL :
+            case NODECL_VECTOR_LOAD :
+            case NODECL_VECTOR_LOGICAL_AND :
+            case NODECL_VECTOR_LOGICAL_NOT :
+            case NODECL_VECTOR_LOGICAL_OR :
+            case NODECL_VECTOR_LOOP :
+            case NODECL_VECTOR_LOWER_OR_EQUAL_THAN :
+            case NODECL_VECTOR_LOWER_THAN :
+            case NODECL_VECTOR_MASK_AND :
+            case NODECL_VECTOR_MASK_AND_1_NOT :
+            case NODECL_VECTOR_MASK_AND_2_NOT :
+            case NODECL_VECTOR_MASK_ASSIGNMENT :
+            case NODECL_VECTOR_MASK_CONVERSION :
+            case NODECL_VECTOR_MASK_NOT :
+            case NODECL_VECTOR_MASK_OR :
+            case NODECL_VECTOR_MASK_XOR :
+            case NODECL_VECTOR_MINUS :
+            case NODECL_VECTOR_MOD :
+            case NODECL_VECTOR_MUL :
+            case NODECL_VECTOR_NEG :
+            case NODECL_VECTOR_PREFETCH :
+            case NODECL_VECTOR_PROMOTION :
+            case NODECL_VECTOR_RCP :
+            case NODECL_VECTOR_REDUCTION_ADD :
+            case NODECL_VECTOR_REDUCTION_MINUS :
+            case NODECL_VECTOR_REDUCTION_MUL :
+            case NODECL_VECTOR_RSQRT :
+            case NODECL_VECTOR_SCATTER :
+            case NODECL_VECTOR_SINCOS :
+            case NODECL_VECTOR_SQRT :
+            case NODECL_VECTOR_STORE :
+            case NODECL_VECTOR_SUBSCRIPT :
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool contains_vector_nodes(Nodecl::NodeclBase n)
+    {
+        if (n.is_null())
+            return false;
+
+        if (is_vector_node(n))
+            return true;
+        else
+        {
+            Nodecl::NodeclBase::Children c = n.children();
+            for (Nodecl::NodeclBase::Children::iterator it = c.begin();
+                    it != c.end();
+                    it++)
+            {
+                if (contains_vector_nodes(*it))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     static unsigned int _var_counter = 0;
 
     MaskCheckCostEstimation::MaskCheckCostEstimation()
@@ -152,8 +243,11 @@ namespace Utils
         else if (n.is<Nodecl::ForStatement>() ||
                 n.is<Nodecl::WhileStatement>())
         {
-            scope = n.get_parent().get_parent().
-                get_parent().get_parent().retrieve_context();
+            scope = n.get_parent()
+                        .get_parent()
+                        .get_parent()
+                        .get_parent()
+                        .retrieve_context();
         }
         else
         {
@@ -212,6 +306,17 @@ namespace Utils
         }
 
         return false;
+    }
+
+    Nodecl::MaskLiteral get_all_one_mask(const int num_elements)
+    {
+        int mask_bytes = num_elements / 8;
+        if (mask_bytes == 0)
+            mask_bytes = 1;
+
+        return Nodecl::MaskLiteral::make(
+                TL::Type::get_mask_type(num_elements),
+                    const_value_get_minus_one(mask_bytes, /* sign */1));
     }
 
     Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask)
@@ -319,24 +424,37 @@ namespace Utils
         }
     }
 
-    Nodecl::MaskLiteral get_contiguous_mask_literal(const int size, const int num_active_lanes)
+    Nodecl::MaskLiteral get_contiguous_mask_literal(const int size,
+            const int num_active_lanes)
     {
+        int bytes = size / 8;
+        if (bytes == 0) bytes = 1;
+
         if (num_active_lanes == 0)
         {
+
             return Nodecl::MaskLiteral::make(
-                    TL::Type::get_mask_type(size),
-                    const_value_get_zero(size, 1));
+                    TL::Type::get_mask_type(/* bits */ size),
+                    const_value_get_zero(bytes, /* sign */ 0));
         }
 
         if ( size == num_active_lanes)
         {
             return Nodecl::MaskLiteral::make(
-                    TL::Type::get_mask_type(size),
-                    const_value_get_minus_one(size, 1));
+                    TL::Type::get_mask_type(/* bits */ size),
+                    const_value_get_minus_one(bytes, /* sign */ 1));
         }
 
         const_value_t* mask_value;
 
+        cvalue_uint_t value = 0;
+        value = ~value;
+        value <<= num_active_lanes;
+        value = ~value;
+
+        mask_value = const_value_get_integer(value, bytes, 0);
+
+#if 0
         if (size == 16)
         {
             unsigned short int value =
@@ -355,6 +473,7 @@ namespace Utils
         {
             internal_error("Vectorization Utils: Unsupported mask size", 0);
         }
+#endif
 
         return Nodecl::MaskLiteral::make(
                 TL::Type::get_mask_type(size),
@@ -365,11 +484,10 @@ namespace Utils
     {
         TL::ObjectList<Nodecl::NodeclBase> literal_list;
 
-        const_value_t* i = const_value_get_signed_int(start_value);
-        const_value_t* c_increment = const_value_get_signed_int(increment);
-        for(int j = 0;
-                j < vector_size;
-                i = const_value_add(i, c_increment), j++)
+        const_value_t *i = const_value_get_signed_int(start_value);
+        const_value_t *c_increment = const_value_get_signed_int(increment);
+        for (int j = 0; j < vector_size;
+             i = const_value_add(i, c_increment), j++)
         {
             literal_list.prepend(const_value_to_nodecl(i));
         }
@@ -579,9 +697,10 @@ namespace Utils
         return _class_of_vector_field_maps.find(type) != _class_of_vector_field_maps.end();
     }
 
-    TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
-            const unsigned int size,
-            bool &is_new)
+    TL::Type get_class_of_vector_fields_for_isa(TL::Type orig_class_type,
+            const unsigned int vec_factor,
+            bool &is_new,
+            const VectorIsaDescriptor &vec_isa_desc)
     {
         {
             std::map<TL::Type, TL::Type>::iterator it = _cache_of_class_types.find(orig_class_type);
@@ -599,7 +718,7 @@ namespace Utils
 
         TL::Counter &counter = TL::CounterManager::get_counter("simd-struct-of-vectors");
         std::stringstream ss;
-        ss << "__vector_" << orig_class.get_name() << "_" << size << "_" << (int)counter;
+        ss << "__vector_" << orig_class.get_name() << "_" << vec_factor << "_" << (int)counter;
         counter++;
 
         std::string structure_name;
@@ -644,7 +763,10 @@ namespace Utils
             field.get_internal_symbol()->kind = SK_VARIABLE;
             symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
-            field.set_type( Utils::get_qualified_vector_to( orig_field_type, size ) );
+            field.set_type(
+                get_qualified_vector_to(orig_field_type,
+                                        vec_isa_desc.get_vec_factor_for_type(
+                                            orig_field_type, vec_factor)));
             field.get_internal_symbol()->locus = it->get_locus();
             symbol_entity_specs_set_access(field.get_internal_symbol(),
                     symbol_entity_specs_get_access(it->get_internal_symbol()));
@@ -671,11 +793,14 @@ namespace Utils
         return result_type;
     }
 
-    TL::Type get_class_of_vector_fields(TL::Type orig_class_type,
-            const unsigned int size)
+    TL::Type get_class_of_vector_fields_for_isa(
+        TL::Type orig_class_type,
+        const unsigned int vec_factor,
+        const VectorIsaDescriptor &vec_isa_desc)
     {
         bool dummy;
-        return get_class_of_vector_fields(orig_class_type, size, dummy);
+        return get_class_of_vector_fields_for_isa(
+            orig_class_type, vec_factor, dummy, vec_isa_desc);
     }
 }
 }

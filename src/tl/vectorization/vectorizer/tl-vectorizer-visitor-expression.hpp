@@ -90,8 +90,6 @@ namespace TL
                 virtual void visit(const Nodecl::IntegerLiteral& n);
                 virtual void visit(const Nodecl::FloatingLiteral& n);
 
-                virtual void visit(const Nodecl::ParenthesizedExpression& n);
-
                 virtual void visit(const Nodecl::Reference& n);
                 virtual void visit(const Nodecl::Dereference& n);
 

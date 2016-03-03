@@ -510,7 +510,6 @@ connect_node:
             case __OmpSections:
             case __OmpSimd:
             case __OmpSimdFor:
-            case __OmpSimdParallel:
             case __OmpSimdParallelFor:
             case __OmpSimdFunction:
             case __OmpSingle:
@@ -534,74 +533,76 @@ connect_node:
     void ExtensibleGraph::get_node_dot_data(Node* current, std::string& dot_graph, std::string& graph_analysis_info, std::string indent)
     {
         std::stringstream ss; ss << current->get_id();
+        std::stringstream ss_num; ss_num << current->get_num();
         std::string basic_attrs = "margin=\"0.1,0.1, height=0.1, width=0.1\"";
 
         switch(current->get_type())
         {
             case __Entry:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] ENTRY\", shape=box, fillcolor=lightgray, style=filled];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] ENTRY\", shape=box, fillcolor=lightgray, style=filled];\n";
                 break;
             }
             case __Exit:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
                 break;
             }
             case __UnclassifiedNode:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] UNCLASSIFIED_NODE\"];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] UNCLASSIFIED_NODE\"];\n";
                 break;
             }
             case __OmpBarrier:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] BARRIER\", shape=diamond];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] BARRIER\", shape=diamond];\n";
                 if(_ranges)
                     print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __OmpFlush:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] FLUSH\", shape=ellipse];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] FLUSH\", shape=ellipse];\n";
                 break;
             }
             case __OmpTaskwait:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] TASKWAIT\", shape=ellipse];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] TASKWAIT\", shape=ellipse];\n";
                 if(_ranges)
                     print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __OmpWaitonDeps:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] WAITON_DEPS\", shape=ellipse];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] WAITON_DEPS\", shape=ellipse];\n";
                 break;
             }
             case __OmpVirtualTaskSync:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] POST_SYNC\", shape=ellipse];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] POST_SYNC\", shape=ellipse];\n";
                 break;
             }
             case __OmpTaskCreation:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] TASK_CREATION\", shape=ellipse];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] TASK_CREATION\", shape=ellipse];\n";
                 if(_ranges)
                     print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __Break:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] BREAK\", shape=diamond];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] BREAK\", shape=diamond];\n";
                 break;
             }
             case __Continue:
             {
-                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] CONTINUE\", shape=diamond];\n";
+                dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] CONTINUE\", shape=diamond];\n";
                 break;
             }
             case __AsmOp:
             case __Goto:
             case __Normal:
+            case __VectorNormal:
             case __Labeled:
             case __FunctionCall:
             case __Return:
@@ -629,7 +630,7 @@ connect_node:
                 }
                 basic_block = basic_block.substr(0, basic_block.size() - 2);   // Remove the last back space
 
-                dot_graph += indent + ss.str() + "[label=\"{[" + ss.str() + "] " + basic_block + "}\", shape=record, "
+                dot_graph += indent + ss.str() + "[label=\"{[" + ss.str() + " #" + ss_num.str() + "] " + basic_block + "}\", shape=record, "
                            + basic_attrs + "];\n";
 
                 print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
@@ -639,7 +640,7 @@ connect_node:
             {
                 if(current->is_vector_node())
                 {   // No codegen for these nodes, we generate a node containing only the type in the DOT file
-                    dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] " + current->get_type_as_string() + "\", shape=hexagon];\n";
+                    dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + " #" + ss_num.str() + "] " + current->get_type_as_string() + "\", shape=hexagon];\n";
                 }
                 else
                 {

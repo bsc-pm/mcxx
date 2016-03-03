@@ -66,7 +66,7 @@ namespace TL
                          const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
             private:
                 Nodecl::List _fpga_file_code;
-                std::string _dump_ast;
+                Nodecl::Utils::SimpleSymbolMap _copied_fpga_functions;
 
                 TL::Source fpga_param_code(
                         TL::ObjectList<OutlineDataItem*> &data_items,

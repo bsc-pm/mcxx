@@ -55,7 +55,7 @@ namespace TL {
 
     void VisitorExamplePhase::run(TL::DTO& dto)
     {
-        Nodecl::NodeclBase top_level = dto["nodecl"];
+        Nodecl::NodeclBase top_level = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         SimpleExhaustiveVisitor simple_exhaustive_visitor;
         simple_exhaustive_visitor.walk(top_level);

@@ -404,10 +404,12 @@ runner_taskset ()
    cat /dev/null > $tmpfile
    (
       # We need to evaluate ENV to pass ${TASKSET_NUM_CPUS}
-      echo set -x >> $tmpfile
+      echo "set -x" >> $tmpfile
       eval $env;
       echo $env taskset -c 0-$((${TASKSET_NUM_CPUS}-1)) $tmpdir/$exec $args >> $tmpfile
-      echo set +x >> $tmpfile
+      echo "ret=\$?" >> $tmpfile
+      echo "set +x" >> $tmpfile
+      echo "exit \$ret" >> $tmpfile
    )
 
    echo "=== TMPFILE ========" >> $logfile
@@ -446,12 +448,12 @@ execute ()
 
 merge_common_compile_vars ()
 {
-   eval test_nolink_$1="\${test_nolink_$2:=\$test_nolink_$3}"
+   eval test_nolink_$1="\${test_nolink_$2:-\$test_nolink_$3}"
 }
 
 merge_c_compile_vars ()
 {
-   eval test_CC_$1="\${test_CC_$2:=\$test_CC_$3}"
+   eval test_CC_$1="\${test_CC_$2:-\$test_CC_$3}"
    eval test_CPPFLAGS_$1=\"\${test_CPPFLAGS_$2} \${test_CPPFLAGS_$3}\"
    eval test_CFLAGS_$1=\"\${test_CFLAGS_$2} \${test_CFLAGS_$3}\"
    eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"
@@ -459,14 +461,14 @@ merge_c_compile_vars ()
 
 merge_fortran_compile_vars ()
 {
-   eval test_FC_$1="\${test_FC_$2:=\$test_FC_$3}"
+   eval test_FC_$1="\${test_FC_$2:-\$test_FC_$3}"
    eval test_FFLAGS_$1=\"\${test_FFLAGS_$2} \${test_FFLAGS_$3}\"
    eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"
 }
 
 merge_cpp_compile_vars ()
 {
-   eval test_CXX_$1="\${test_CXX_$2:=\$test_CXX_$3}"
+   eval test_CXX_$1="\${test_CXX_$2:-\$test_CXX_$3}"
    eval test_CPPFLAGS_$1=\"\${test_CPPFLAGS_$2} \${test_CPPFLAGS_$3}\"
    eval test_CXXFLAGS_$1=\"\${test_CXXFLAGS_$2} \${test_CXXFLAGS_$3}\"
    eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"

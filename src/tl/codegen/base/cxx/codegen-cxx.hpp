@@ -196,6 +196,8 @@ namespace Codegen
             Ret visit(const Nodecl::Typeid &);
             Ret visit(const Nodecl::Unknown &);
             Ret visit(const Nodecl::VirtualFunctionCall &);
+
+#if 0
             Ret visit(const Nodecl::VectorAdd &);
             Ret visit(const Nodecl::VectorAlignRight &);
             Ret visit(const Nodecl::VectorArithmeticShr &);
@@ -223,7 +225,9 @@ namespace Codegen
             Ret visit(const Nodecl::VectorMod &);
             Ret visit(const Nodecl::VectorMul &);
             Ret visit(const Nodecl::VectorPromotion &);
+#endif
             Ret visit(const Nodecl::VectorSubscript &);
+
             Ret visit(const Nodecl::WhileStatement &);
 
             Ret visit(const Nodecl::AsmDefinition& node);
@@ -458,6 +462,18 @@ namespace Codegen
                     void (CxxBase::* define_fun)(TL::Symbol),
                     void (CxxBase::* define_entities)(const Nodecl::NodeclBase&),
                     bool needs_definition = true);
+
+            void walk_vector_type(TL::Type t,
+                    void (CxxBase::* symbol_to_declare)(TL::Symbol),
+                    void (CxxBase::* symbol_to_define)(TL::Symbol),
+                    void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&),
+                    bool needs_definition);
+
+            void walk_mask_type(TL::Type t,
+                    void (CxxBase::* symbol_to_declare)(TL::Symbol),
+                    void (CxxBase::* symbol_to_define)(TL::Symbol),
+                    void (CxxBase::* define_entities_in_tree)(const Nodecl::NodeclBase&),
+                    bool needs_definition);
 
             void entry_just_define(
                     const Nodecl::NodeclBase&,

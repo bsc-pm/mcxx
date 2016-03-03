@@ -27,9 +27,7 @@
 #ifndef TL_OMP_SIMD_HPP
 #define TL_OMP_SIMD_HPP
 
-#include "tl-vectorizer-prefetcher.hpp"
 #include "tl-pragmasupport.hpp"
-#include "tl-vectorizer.hpp"
 
 namespace TL
 {
@@ -53,10 +51,11 @@ namespace TL
                 std::string _fast_math_enabled_str;
                 std::string _avx2_enabled_str;
                 std::string _neon_enabled_str;
+                std::string _romol_enabled_str;
                 std::string _knc_enabled_str;
                 std::string _knl_enabled_str;
-                std::string _spml_enabled_str;
                 std::string _only_adjacent_accesses_str;
+                std::string _only_aligned_accesses_str;
                 std::string _overlap_in_place_str;
 
                 bool _simd_enabled;
@@ -64,10 +63,11 @@ namespace TL
                 bool _fast_math_enabled;
                 bool _avx2_enabled;
                 bool _neon_enabled;
+                bool _romol_enabled;
                 bool _knc_enabled;
                 bool _knl_enabled;
-                bool _spml_enabled;
                 bool _only_adjacent_accesses_enabled;
+                bool _only_aligned_accesses_enabled;
                 bool _overlap_in_place;
 
                 void set_simd(const std::string simd_enabled_str);
@@ -75,120 +75,12 @@ namespace TL
                 void set_fast_math(const std::string fast_math_enabled_str);
                 void set_avx2(const std::string avx2_enabled_str);
                 void set_neon(const std::string neon_enabled_str);
+                void set_romol(const std::string romol_enabled_str);
                 void set_knc(const std::string knc_enabled_str);
                 void set_knl(const std::string knl_enabled_str);
-                void set_spml(const std::string spml_enabled_str);
                 void set_only_adjcent_accesses(const std::string only_adjacent_accesses_str);
+                void set_only_aligned_accesses(const std::string only_aligned_accesses_str);
                 void set_overlap_in_place(const std::string overlap_in_place_str);
-        };
-
-        class SimdProcessingBase
-        {
-            protected:
-                TL::Vectorization::Vectorizer& _vectorizer;
-
-                std::string _device_name;
-                unsigned int _vector_length;
-                bool _support_masking;
-                unsigned int _mask_size;
-                bool _fast_math_enabled;
-                bool _overlap_in_place;
-
-                void process_aligned_clause(const Nodecl::List& environment,
-                        TL::Vectorization::map_tlsym_int_t& aligned_expressions_map);
-                void process_linear_clause(const Nodecl::List& environment,
-                        TL::Vectorization::map_tlsym_int_t& linear_symbols_map);
-                void process_uniform_clause(const Nodecl::List& environment,
-                        TL::Vectorization::objlist_tlsym_t& uniform_symbols);
-                void process_suitable_clause(const Nodecl::List& environment,
-                        TL::Vectorization::objlist_nodecl_t& suitable_expressions);
-                void process_nontemporal_clause(const Nodecl::List& environment,
-                        TL::Vectorization::map_tlsym_objlist_t& nontemporal_expressions);
-                int process_unroll_clause(const Nodecl::List& environment);
-                int process_unroll_and_jam_clause(const Nodecl::List& environment);
-                void process_vectorlengthfor_clause(const Nodecl::List& environment,
-                        TL::Type& vectorlengthfor_type);
-                void process_overlap_clause(const Nodecl::List& environment,
-                        TL::Vectorization::map_tlsym_objlist_int_t& overlap_expressions);
-                void process_prefetch_clause(const Nodecl::List& environment,
-                        Vectorization::prefetch_info_t& prefetch_info);
-
-                Nodecl::List process_reduction_clause(const Nodecl::List& environment,
-                        TL::ObjectList<TL::Symbol>& reductions,
-                        std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
-                        TL::Scope enclosing_scope);
-
-                SimdProcessingBase(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled,
-                        bool only_adjacent_accesses,
-                        bool overlap_in_place);
-        };
-
-        class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>, public SimdProcessingBase
-        {
-            protected:
-
-                void common_simd_function(
-                        const Nodecl::OpenMP::SimdFunction& simd_node,
-                        const bool masked_version);
-
-            public:
-                SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled,
-                        bool only_adjacent_accesses,
-                        bool overlap_in_place);
-                ~SimdVisitor();
-
-                virtual void visit(const Nodecl::FunctionCode& func_code);
-                virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
-                virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
-                virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
-
-                virtual void visit(const Nodecl::TemplateFunctionCode& func_code);
-        };
-
-        class SimdPreregisterVisitor : public Nodecl::ExhaustiveVisitor<void>, public SimdProcessingBase
-        {
-            protected:
-
-                void common_simd_function_preregister(
-                        const Nodecl::OpenMP::SimdFunction& simd_node,
-                        const bool masked_version);
-
-            public:
-                SimdPreregisterVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled,
-                        bool only_adjacent_accesses,
-                        bool overlap_in_place);
-                ~SimdPreregisterVisitor();
-
-                virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
-        };
-
-        class SimdSPMLVisitor : public SimdVisitor
-        {
-            public:
-                SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled,
-                        bool only_adjacent_accesses, bool overlap_in_place);
-
-                using SimdVisitor::visit;
-                virtual void visit(const Nodecl::OpenMP::SimdParallel& simd_node);
-        };
-
-
-
-        class FunctionDeepCopyFixVisitor : public Nodecl::ExhaustiveVisitor<void>
-        {
-            private:
-                const TL::Symbol& _orig_symbol;
-                const TL::Symbol& _new_symbol;
-
-            public:
-                FunctionDeepCopyFixVisitor(const TL::Symbol& orig_symbol,
-                        const TL::Symbol& new_symbol);
-
-                virtual void visit(const Nodecl::Symbol& n);
         };
     }
 }

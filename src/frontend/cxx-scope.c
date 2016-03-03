@@ -2880,9 +2880,9 @@ type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
     else if (is_vector_type(t))
     {
         return get_cv_qualified_type(
-                get_vector_type(
+                get_vector_type_by_bytes(
                     update_type_for_auto(vector_type_get_element_type(t), template_parameter),
-                    vector_type_get_vector_size(t)),
+                    vector_type_get_vector_size_in_bytes(t)),
                 get_cv_qualifier(t));
     }
     else

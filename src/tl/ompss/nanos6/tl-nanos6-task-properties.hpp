@@ -45,15 +45,29 @@ namespace TL { namespace Nanos6 {
             typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
             field_map_t field_map;
 
+            typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
+            array_descriptor_map_t array_descriptor_map;
+
             void create_outline_function();
             void create_dependences_function();
+            void create_dependences_function_c();
+
+            void create_dependences_function_fortran();
+            void create_dependences_function_fortran_proper();
+            void create_dependences_function_fortran_forward();
+            void create_dependences_function_fortran_mangled();
+
             void create_copies_function();
 
-            void add_field_to_class(
-                    TL::Symbol class_symbol,
-                    TL::Scope class_scope,
-                    TL::Symbol var,
-                    TL::Type field_type);
+            TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
+                                          TL::Scope class_scope,
+                                          const std::string &var_name,
+                                          const locus_t *var_locus,
+                                          TL::Type field_type);
+            TL::Symbol add_field_to_class(TL::Symbol class_symbol,
+                                          TL::Scope class_scope,
+                                          TL::Symbol var,
+                                          TL::Type field_type);
 
             TL::Scope compute_scope_for_environment_structure();
 
@@ -77,17 +91,93 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol arg,
                     TL::Symbol register_fun,
                     Nodecl::List& register_statements);
+            void register_fortran_linear_dependence(
+                TL::DataReference &data_ref,
+                TL::Symbol handler,
+                Nodecl::Utils::SymbolMap &,
+                TL::Symbol register_fun,
+                Nodecl::List &register_statements);
+
+            void register_region_dependence(TL::DataReference &data_ref,
+                                            TL::Symbol handler,
+                                            TL::Symbol arg,
+                                            TL::Symbol register_fun,
+                                            Nodecl::List &register_statements);
+
+            void register_fortran_region_dependence(
+                TL::DataReference &data_ref,
+                TL::Symbol handler,
+                Nodecl::Utils::SymbolMap &,
+                TL::Symbol register_fun,
+                Nodecl::List &register_statements);
+
             void register_dependence_for_array(
                     TL::DataReference& data_ref,
                     TL::Symbol handler,
                     TL::Symbol arg,
                     TL::Symbol register_fun,
                     Nodecl::List& register_statements);
+            void register_fortran_dependence_for_array(
+                TL::DataReference &data_ref,
+                TL::Symbol handler,
+                Nodecl::Utils::SymbolMap &,
+                TL::Symbol register_fun,
+                Nodecl::List &register_statements);
 
             void walk_type_for_saved_expressions(TL::Type t);
             static bool is_saved_expression(Nodecl::NodeclBase n);
             void handle_array_bound(Nodecl::NodeclBase n);
-            TL::Type rewrite_type_for_outline(TL::Type t, Nodecl::Utils::SymbolMap& symbol_map);
+            TL::Type rewrite_type_for_outline(
+                TL::Type t,
+                TL::Scope scope,
+                Nodecl::Utils::SymbolMap &symbol_map);
+
+            void create_task_invocation_info(
+                TL::Symbol task_info,
+                /* out */ TL::Symbol &task_invocation_info);
+            void create_task_info_regular_function(
+                TL::Symbol task_info_struct,
+                const std::string &task_info_name,
+                /* out */
+                TL::Symbol &task_info,
+                TL::Symbol &task_invocation_info,
+                Nodecl::NodeclBase &local_init);
+            void create_task_info_nondependent_function(
+                TL::Symbol task_info_struct,
+                const std::string &task_info_name,
+                /* out */
+                TL::Symbol &task_info,
+                TL::Symbol &task_invocation_info,
+                Nodecl::NodeclBase &local_init);
+            void create_task_info_dependent_function(
+                TL::Symbol task_info_struct,
+                const std::string &task_info_name,
+                /* out */
+                TL::Symbol &task_info,
+                TL::Symbol &task_invocation_info,
+                Nodecl::NodeclBase &local_init);
+
+            void create_task_info_nondependent_member_function(
+                TL::Symbol task_info_struct,
+                const std::string &task_info_name,
+                /* out */
+                TL::Symbol &task_info,
+                TL::Symbol &task_invocation_info,
+                Nodecl::NodeclBase &local_init);
+            void create_task_info_dependent_nonmember_function(
+                TL::Symbol task_info_struct,
+                const std::string &task_info_name,
+                /* out */
+                TL::Symbol &task_info,
+                TL::Symbol &task_invocation_info,
+                Nodecl::NodeclBase &local_init);
+            void create_task_info_dependent_member_function(
+                TL::Symbol task_info_struct,
+                const std::string &task_info_name,
+                /* out */
+                TL::Symbol &task_info,
+                TL::Symbol &task_invocation_info,
+                Nodecl::NodeclBase &local_init);
 
         public:
             TL::ObjectList<TL::Symbol> shared;
@@ -148,6 +238,10 @@ namespace TL { namespace Nanos6 {
                     Nodecl::NodeclBase& capture_env);
 
             void compute_captured_values();
+            void remove_data_sharing_of_this();
+            void fix_data_sharing_of_this();
+
+            void fortran_add_types(TL::Scope sc);
     };
 
 } }

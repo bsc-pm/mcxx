@@ -799,38 +799,58 @@ dnl SIMD Support
 AX_EXT
 
 simd_version="no (SSE 4.1 or higher not detected)."
-simd_math_version="(SVML not detected)"
+simd_math_version="(SVML not enabled)"
 svml_enabled="no"
 simd_flags=
 simd_includes=
+nanox_avx2="no"
 nanox_sse="no"
 
-  if test "$ax_cv_have_sse42_ext" = yes;
-  then
-        simd_version="SSE4.2"
-        simd_flags="-msse4.2"
-        simd_includes="-msse4.2 -include nmmintrin.h"
-        nanox_sse="yes"
-  else if test "$ax_cv_have_sse41_ext" = yes;
-  then
-        simd_version="SSE4.1"
-        simd_flags="-msse4.1"
-        simd_includes="-msse4.1 -include smmintrin.h"
-        nanox_sse="yes"
-  fi
-  fi
+if test "$ax_cv_have_avx2_ext" = yes;
+then
+  simd_version="AVX2"
+  simd_flags="-mavx2"
+  simd_includes="-mavx2 -include immintrin.h"
+  nanox_avx2="yes"
+  nanox_sse="yes"
+elif test "$ax_cv_have_sse42_ext" = yes;
+then
+  simd_version="SSE4.2"
+  simd_flags="-msse4.2"
+  simd_includes="-msse4.2 -include nmmintrin.h"
+  nanox_sse="yes"
+elif test "$ax_cv_have_sse41_ext" = yes;
+then
+  simd_version="SSE4.1"
+  simd_flags="-msse4.1"
+  simd_includes="-msse4.1 -include smmintrin.h"
+  nanox_sse="yes"
+fi
 
-AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"; svml_enabled="yes"], [])
+AC_ARG_WITH([svml],
+       AS_HELP_STRING([--with-svml=dir], [Directory of the SVML library]),
+       [
+        svml_enabled="yes"
+        svml_lib="${withval}"
+        simd_math_version="(SVML)"
+       ]
+)
 
 SIMD_FLAGS=$simd_flags
-SIMD_INCLUDES=$simd_includes
-SVML_ENABLED=$svml_enabled
-NANOX_SSE=$nanox_sse
-
 AC_SUBST([SIMD_FLAGS])
+
+SIMD_INCLUDES=$simd_includes
 AC_SUBST([SIMD_INCLUDES])
-AC_SUBST([NANOX_SSE])
+
+SVML_ENABLED=$svml_enabled
 AC_SUBST([SVML_ENABLED])
+
+NANOX_SSE=$nanox_sse
+AC_SUBST([NANOX_SSE])
+
+NANOX_AVX2=$nanox_avx2
+AC_SUBST([NANOX_AVX2])
+
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -910,16 +930,51 @@ AC_SUBST([NANOS6_GATE])
 
 AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
 
+DEFAULT_OMPSS_RUNTIME=""
+if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
+then
+  AC_MSG_CHECKING([default OmpSs runtime])
+  AC_ARG_WITH([default-ompss-runtime],
+         AS_HELP_STRING([--with-default-ompss-runtime=nanos++|nanos6], [Select default OmpSs runtime. Only used if both Nanos++ and Nanos 6 are enabled]),
+         [
+          case ${withval} in
+             nanos6|nanos++)
+              DEFAULT_OMPSS_RUNTIME="${withval}"
+              AC_MSG_RESULT([${withval}])
+              ;;
+             *)
+              AC_MSG_ERROR([This option only allows 'nanos++' or 'nanos6'])
+              ;;
+          esac
+         ],
+         [
+              DEFAULT_OMPSS_RUNTIME="nanos++"
+              AC_MSG_RESULT([nanos++ (by default)])
+         ]
+  )
+
+  if test "${DEFAULT_OMPSS_RUNTIME}" = "nanos++";
+  then
+    NANOX_GATE='!nanos6'
+    NANOS6_GATE='nanos6'
+  else
+    if test "${DEFAULT_OMPSS_RUNTIME}" = "nanos6";
+    then
+      NANOX_GATE='nanox'
+      NANOS6_GATE='!nanox'
+    else
+      # Should not happen
+      AC_MSG_ERROR([invalid value for DEFAULT_OMPSS_RUNTIME])
+    fi
+  fi
+
+fi
+
+AC_SUBST([DEFAULT_OMPSS_RUNTIME])
+
 if test x$is_enabled_tl_ompss_nanos6 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
-fi
-
-if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
-then
-    NANOX_GATE="nanox"
-    NANOS6_GATE='!nanox'
-    AC_MSG_NOTICE([Nanos++ and Nanos 6 support enabled at the same time. Mercurium will default to Nanos6. Nanos++ will require --nanox])
 fi
 
 dnl ---------------------- End of Support for Nanos 6 -----------------------------------------
@@ -953,10 +1008,14 @@ AC_ARG_WITH([dlb-lib],
 DLB_INCLUDE=$dlb_include
 DLB_LIB=$dlb_lib
 
+DLB_GATE=":false:"
 if test -n "$dlb_include" -a -n "$dlb_lib";
 then
     is_enabled_dlb="yes"
+    DLB_GATE="dlb"
 fi
+
+AC_SUBST([DLB_GATE])
 
 AC_SUBST([DLB_INCLUDE])
 AC_SUBST([DLB_LIB])
@@ -1268,7 +1327,6 @@ AC_ARG_ENABLE([nanox-opencl-device],
 
 if test x$opencl_enabled = xyes -a x$opencl_valid = xno;
 then
-   ENABLE_OPENCL=":true:"
    AC_MSG_CHECKING([if nanox has opencl header installed])
    #tests if opencl headers are usable and correct
    #backup vars before we do the tests
@@ -1290,6 +1348,7 @@ fi
 if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
     COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
+    ENABLE_OPENCL=":true:"
 else
     ENABLE_OPENCL=":false:"
 fi
@@ -1674,7 +1733,7 @@ then
         ])
 else
     is_enabled_vectorization="no"
-    AC_MSG_RESULT([no (gcc 4.7 or higher is requested)])
+    AC_MSG_RESULT([no (gcc 4.7 or higher is required)])
 fi
 
 
@@ -1732,6 +1791,8 @@ AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_HLT],           test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
 
+VECTORIZATION_ENABLED=$is_enabled_vectorization
+AC_SUBST([VECTORIZATION_ENABLED])
 
 CORRECTNESS_LOG_DIR=""
 
@@ -1838,7 +1899,7 @@ then
     AC_MSG_CHECKING([flex version])
     flex_ver=`$FLEX --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${flex_ver} in
-      x2.5.4 | x2.5.3? )
+      x2.5.4 | x2.5.3? | x2.6*)
        AC_MSG_RESULT([${flex_ver}])
        if test x${flex_ver} = x2.5.31 -o x${flex_ver} = x2.5.34;
        then
@@ -2216,6 +2277,9 @@ NO_VAR_TRACKING_ASSIGNMENTS=""
 AX_CHECK_COMPILE_FLAG([-fno-var-tracking-assignments], [NO_VAR_TRACKING_ASSIGNMENTS="-fno-var-tracking-assignments"])
 AC_SUBST([NO_VAR_TRACKING_ASSIGNMENTS])
 
+dnl Not all gccs support this
+AX_CHECK_COMPILE_FLAG([-Werror=implicit-function-declaration], [CFLAGS="${CFLAGS} -Werror=implicit-function-declaration"])
+
 dnl Check for 'open_memstream' used to generate strings after FILE*
 dnl in the prettyprinter
 AC_CHECK_FUNC([open_memstream],
@@ -2354,6 +2418,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-parallel-simd-avx2
            tests/config/mercurium-serial-simd-mic
            tests/config/mercurium-parallel-simd-mic
+           tests/config/mercurium-serial-simd-romol
            tests/config/mercurium-cuda
            tests/config/mercurium-opencl
            tests/config/mercurium-analysis
@@ -2464,15 +2529,6 @@ then
 fi
 
 echo ""
-echo " * Dynamic Load Balancing (DLB) :" $is_enabled_dlb
-if test x$is_enabled_dlb = xyes;
-then
-  echo ""
-  echo "   DLB includes :" $dlb_include
-  echo "   DLB libraries:" $dlb_lib
-fi
-
-echo ""
 echo " * Nanos 6 OmpSs :" $is_enabled_tl_ompss_nanos6
 if test x$is_enabled_tl_ompss_nanos6 = xyes;
 then
@@ -2484,6 +2540,21 @@ then
   then
      AC_MSG_WARN([directory '${nanos6_include}' does not seem to exist, compilation is likely to fail])
   fi
+fi
+
+if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
+then
+  echo ""
+  echo " * Default OmpSs runtime: " ${DEFAULT_OMPSS_RUNTIME}
+fi
+
+echo ""
+echo " * Dynamic Load Balancing (DLB) :" $is_enabled_dlb
+if test x$is_enabled_dlb = xyes;
+then
+  echo ""
+  echo "   DLB includes :" $dlb_include
+  echo "   DLB libraries:" $dlb_lib
 fi
 
 echo ""
@@ -2513,7 +2584,6 @@ echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
-
 
 echo " * Optional phases :"
 echo ""

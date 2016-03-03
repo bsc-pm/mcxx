@@ -44,8 +44,9 @@ linker_name = @GCC@
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
 
 #simd
-{simd, !(mmic|knl|avx2|neon)} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
-{simd, !(mmic|knl|avx2|neon)} compiler_options = @SIMD_FLAGS@
+{svml} preprocessor_options = -include math.h
+{simd, !(mmic|knl|avx2|neon|romol)} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !(mmic|knl|avx2|neon|romol)} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
@@ -58,12 +59,19 @@ linker_name = @GCC@
 {simd, mmic} options = --variable=mic_enabled:1
 {simd, avx2} options = --variable=avx2_enabled:1
 {simd, neon} options = --variable=neon_enabled:1
+{simd, (romol|valib)} options = --variable=romol_enabled:1
+{simd, (romol|valib)} preprocessor_options = -I @PKGDATADIR@/romol -include valib.h
+{simd, (romol|valib), valib-sim} preprocessor_options = -DVALIB_HIDE_DECLS
+{simd, (romol|valib), valib-sim} options = --variable=valib_sim_header:1
 {(mmic|knl)} preprocessor_options = -include immintrin.h
-{simd, avx2} preprocessor_options = -include immintrin.h
+{simd, avx2} preprocessor_options = -O -mavx2 -include immintrin.h
+{simd, avx2} compiler_options = -mavx2
 {simd,neon} preprocessor_options = -mfpu=neon -include arm_neon.h
 {simd,neon} compiler_options = -mfpu=neon
 {simd,neon} linker_options = -mfpu=neon
 {neon} options = --vector-flavor=neon
+{romol} options = --vector-flavor=romol
+{!(neon|romol)} options = --vector-flavor=gnu
 
 {@NANOX_GATE@,cluster} options = --variable=nanos_main_enabled:1
 
@@ -95,11 +103,12 @@ linker_name = @GCC@
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
 {only-adjacent-accesses} options = --variable=only_adjacent_accesses:1
+{only-aligned-accesses} options = --variable=only_aligned_accesses:1
 {overlap-in-place} options = --variable=overlap_in_place:1
 
 [omp-base : omp-base-common]
 #dlb
-{dlb} preprocessor_options = -I@DLB_INCLUDE@
+{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
 #
 linker_options =
 
@@ -135,16 +144,16 @@ linker_options = -Xlinker --enable-new-dtags
 {@NANOS6_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
 # dlb
-{dlb} linker_options = -L@DLB_LIB@
-{dlb,!(instrument|instrumentation|debug)} linker_options= -ldlb
-{dlb,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
-{dlb,(instrument|instrumentation),!debug} linker_options  = -ldlb_instr
-{dlb,(instrument|instrumentation),debug} linker_options  = -ldlb_instr_dbg
-{dlb} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
+{@DLB_GATE@} linker_options = -L@DLB_LIB@
+{@DLB_GATE@,!(instrument|instrumentation|debug)} linker_options= -ldlb
+{@DLB_GATE@,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
+{@DLB_GATE@,(instrument|instrumentation),!debug} linker_options  = -ldlb_instr
+{@DLB_GATE@,(instrument|instrumentation),debug} linker_options  = -ldlb_instr_dbg
+{@DLB_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
 
 [omp-base-ibm : omp-base-common]
 #dlb
-{dlb} preprocessor_options = -I@DLB_INCLUDE@
+{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
 #
 linker_options =
 #nanos++
@@ -165,9 +174,9 @@ linker_options = -Wl,--enable-new-dtags
 # needed for the new link mechanism
 {@NANOX_GATE@} linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 # dlb
-{dlb} linker_options = -L@DLB_LIB@
-{dlb,!(instrument|instrumentation|debug)} linker_options = -ldlb
-{dlb,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
-{dlb,(instrument|instrumentation),!debug} linker_options = -ldlb_instr
-{dlb,(instrument|instrumentation),debug} linker_options = -ldlb_instr_dbg
-{dlb} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
+{@DLB_GATE@} linker_options = -L@DLB_LIB@
+{@DLB_GATE@,!(instrument|instrumentation|debug)} linker_options = -ldlb
+{@DLB_GATE@,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
+{@DLB_GATE@,(instrument|instrumentation),!debug} linker_options = -ldlb_instr
+{@DLB_GATE@,(instrument|instrumentation),debug} linker_options = -ldlb_instr_dbg
+{@DLB_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@

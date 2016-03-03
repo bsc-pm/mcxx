@@ -29,15 +29,27 @@
 
 namespace TL
 {
-    namespace Vectorization
+namespace Vectorization
+{
+enum PrefetchKind
+{
+    L1_READ = 1,
+    L2_READ = 2,
+    L1_WRITE = 3,
+    L2_WRITE = 4
+};
+
+typedef struct prefetch_info
+{
+    int distances[2];
+    bool enabled;
+    bool in_place;
+
+    prefetch_info() : enabled(false), in_place(false)
     {
-        enum PrefetchKind{
-            L1_READ = 1,
-            L2_READ = 2,
-            L1_WRITE = 3,
-            L2_WRITE = 4
-        };
     }
+} prefetch_info_t;
+}
 }
 
 #endif //TL_VECTORIZATION_PREFETCHER_COMMON_HPP

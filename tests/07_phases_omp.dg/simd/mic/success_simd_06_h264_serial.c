@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_CFLAGS=--only-adjacent-accesses
+test_CFLAGS="--only-adjacent-accesses"
 test_generator=config/mercurium-serial-simd-mic
 </testinfo>
 */
@@ -51,7 +51,7 @@ void __attribute__((noinline)) h264(
 
     for (i = 0; i <= 24; i++)
     {
-#pragma omp simd
+#pragma omp simd aligned(X)
        for (j = 0; j <= 24; j++)
         {
             X[i][j] = PI * j;
@@ -59,7 +59,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
+#pragma omp simd aligned(H, X)
         for (j = 0; j <= 24; j++)
         {
             H[i][j] =
@@ -69,7 +69,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
+#pragma omp simd aligned(K, H)
         for (j = 0; j <= 14; j++)
         {
             K[i][j] =
@@ -79,7 +79,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
+#pragma omp simd aligned(Y, K, H)
         for (j = 0; j <= 14; j++)
         {
             Y[i][j] = K[i][j] + H[i][j];
@@ -87,7 +87,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
+#pragma omp simd aligned(output, Y)
         for (j = 0; j <= 14; j++)
         {
             output[i][j] = Y[i][j];

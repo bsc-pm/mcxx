@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+if [ "@VECTORIZATION_ENABLED@" = "no" ];
+then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="Vectorization not enabled"
+EOF
+
+exit
+
+fi
+
+if [ "@NANOX_ENABLED@" = "no" ];
+then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="Nanos++ not available"
+EOF
+
+exit
+
+fi
+
+if [ "$1" = "svml" ];
+then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="SVML not supported"
+EOF
+
+exit
+
+fi
+
+source @abs_builddir@/mercurium-libraries
+
+COMMON_NANOX_CFLAGS=-DNANOX
+
+NANOX_GATE=""
+if [ "@NANOS6_ENABLED@" = "yes" ];
+then
+    NANOX_GATE="--nanox"
+fi
+
+
+cat <<EOF
+MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
+
+compile_versions="\${compile_versions} nanox_mercurium"
+
+test_CC_nanox_mercurium="\${MCC}"
+test_CXX_nanox_mercurium="\${MCXX}"
+
+test_CFLAGS_nanox_mercurium="--simd --debug-flags=vectorization_verbose --openmp --romol -std=gnu99 ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CXXFLAGS_nanox_mercurium="--simd --debug-flags=vectorization_verbose --openmp --romol ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_LDFLAGS_nanox_mercurium="--romol @abs_top_builddir@/lib/perish.o"
+test_nolink=yes
+
+EOF

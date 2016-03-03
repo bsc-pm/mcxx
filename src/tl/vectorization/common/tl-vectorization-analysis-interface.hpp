@@ -148,18 +148,21 @@ namespace Vectorization
             virtual bool is_simd_aligned_access(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n,
-                    const map_tlsym_int_t& aligned_expressions,
+                    const map_nodecl_int_t& aligned_expressions,
                     const objlist_nodecl_t& suitable_expressions,
-                    int unroll_factor, int alignment,
+                    int vec_factor, int alignment,
                     int& alignment_module);
             virtual int get_assume_aligned_attribute(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::Symbol& n);
 
             virtual bool is_suitable_expression(
-                    const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
-                    const objlist_nodecl_t& suitable_expressions,
-                    int unroll_factor, int alignment, int& vector_size_module);
+                const Nodecl::NodeclBase &scope,
+                const Nodecl::NodeclBase &n,
+                const objlist_nodecl_t &suitable_expressions,
+                unsigned int suitable_factor,
+                unsigned int vec_factor,
+                int &suitable_module);
 
             virtual void register_identical_copy(
                     const Nodecl::NodeclBase& n,

@@ -2,7 +2,6 @@
 [mcc : omp-base]
 language = C
 options = -std=gnu99
-options = --vector-flavor=gnu
 {simd} compiler_options = -flax-vector-conversions
 #cuda
 {@NANOX_GATE@,@ENABLE_CUDA@} options = --cuda
@@ -18,7 +17,6 @@ options = --vector-flavor=gnu
 [mcxx : omp-base]
 language = C++
 {openmp} preprocessor_options = -include new
-options = --vector-flavor=gnu
 {simd} compiler_options = -flax-vector-conversions
 preprocessor_name = @G++@
 compiler_name = @G++@

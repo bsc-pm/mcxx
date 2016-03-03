@@ -78,7 +78,6 @@ OMP_CONSTRUCT_NOEND("simd", simd_fortran, IS_FORTRAN_LANGUAGE)
 // These are nonstandard
 OMP_CONSTRUCT("simd|for", simd_for, true)
 OMP_CONSTRUCT("parallel|simd|for", parallel_simd_for, true)
-OMP_CONSTRUCT("simd|parallel", simd_parallel, true)
 
 // OpenMP 4.0
 // -- Already defined for OmpSs

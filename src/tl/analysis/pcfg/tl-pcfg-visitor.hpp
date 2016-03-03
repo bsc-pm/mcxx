@@ -395,6 +395,7 @@ namespace Analysis {
         Ret visit(const Nodecl::OpenMP::Prefetch& n);
         Ret visit(const Nodecl::OpenMP::Priority& n);
         Ret visit(const Nodecl::OpenMP::Private& n);
+        Ret visit(const Nodecl::OpenMP::PrivateInit& n);
         Ret visit(const Nodecl::OpenMP::Reduction& n);
         Ret visit(const Nodecl::OpenMP::ReductionItem& n);
         Ret visit(const Nodecl::OpenMP::Schedule& n);
@@ -404,7 +405,6 @@ namespace Analysis {
         Ret visit(const Nodecl::OpenMP::Simd& n);
         Ret visit(const Nodecl::OpenMP::SimdFor& n);
         Ret visit(const Nodecl::OpenMP::SimdFunction& n);
-        Ret visit(const Nodecl::OpenMP::SimdParallel& n);
         Ret visit(const Nodecl::OpenMP::SimdReduction& n);
         Ret visit(const Nodecl::OpenMP::Single& n);
         Ret visit(const Nodecl::OpenMP::Suitable& n);
@@ -441,8 +441,8 @@ namespace Analysis {
         Ret visit(const Nodecl::Text& n);
         Ret visit(const Nodecl::Throw& n);
 //      Ret visit(const Nodecl::TopLevel& n); // This method is not implemented because PCFGVisitor must visit
-                                                // sections of code creating a unique PCFG.
-                                                // Use AnalysisSingleton methods instead.
+                                              // sections of code creating a unique PCFG.
+                                              // Use AnalysisSingleton methods instead.
 
         Ret visit(const Nodecl::TryBlock& n);
         Ret visit(const Nodecl::Type& n);

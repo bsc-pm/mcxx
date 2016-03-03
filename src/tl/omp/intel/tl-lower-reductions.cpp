@@ -26,6 +26,7 @@
 
 
 #include "tl-lower-reductions.hpp"
+#include "tl-lowering-utils.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-counters.hpp"
@@ -106,7 +107,9 @@ namespace TL
         }
     };
 
-    struct ReplaceInOutSIMDKNC : Nodecl::ExhaustiveVisitor<void>
+    typedef Nodecl::ExhaustiveVisitor<void> ReplaceInOutSIMD;
+
+    struct ReplaceInOutSIMDKNC : ReplaceInOutSIMD
     {
         TL::Symbol _orig_omp_in, _new_omp_in;
         TL::Symbol _orig_omp_out, _new_omp_out;
@@ -207,40 +210,48 @@ namespace TL
     }
 
     TL::Symbol Intel::emit_callback_for_reduction(
-            bool simd_knc,
+            CombinerISA isa,
             TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
             TL::Symbol current_function)
     {
-        if (simd_knc)
+        switch (isa)
         {
-            // When a SIMD KNC reduction is requested, we do not return a function but
-            // an array of functions
-            TL::ObjectList<SIMDReductionPair> pairs;
+            case COMBINER_AVX2:
+            case COMBINER_KNC:
+                {
+                    // When a SIMD KNC reduction is requested, we do not return a function but
+                    // an array of functions
+                    TL::ObjectList<SIMDReductionPair> pairs;
 
-            for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
-                   it != reduction_items.end();
-                   it++)
-            {
-                SIMDReductionPair p = emit_callback_for_reduction_simd_knc(
-                        *it,
-                        location,
-                        current_function);
+                    for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
+                            it != reduction_items.end();
+                            it++)
+                    {
+                        SIMDReductionPair p = emit_callback_for_reduction_simd(
+                                isa,
+                                *it,
+                                location,
+                                current_function);
 
-                pairs.append(p);
-            }
+                        pairs.append(p);
+                    }
 
-            return emit_array_of_reduction_simd_functions(pairs, location, current_function);
+                    return emit_array_of_reduction_simd_functions(pairs, location, current_function);
+                }
+            case COMBINER_SCALAR:
+                {
+                    return emit_callback_for_reduction_scalar(
+                            reduction_items,
+                            reduction_pack_type,
+                            location,
+                            current_function);
+                }
+            default:
+                internal_error("Code unreachable", 0);
         }
-        else
-        {
-            return emit_callback_for_reduction_scalar(
-                    reduction_items,
-                    reduction_pack_type,
-                    location,
-                    current_function);
-        }
+
     }
 
     struct UpdateReductionUses : Nodecl::ExhaustiveVisitor<void>
@@ -341,14 +352,20 @@ namespace TL
             TL::Symbol _orig_omp_out, _new_omp_out;
             TL::Symbol _new_omp_mask;
 
-            ReplaceInOutSIMDKNC * _replace_inout;
+            int _vector_width_bytes;
 
-            SIMDizeCombiner() : _replace_inout(NULL) { }
+            ReplaceInOutSIMD * _replace_inout;
+
+            SIMDizeCombiner(int vector_width_bytes) :
+                _vector_width_bytes(vector_width_bytes), _replace_inout(NULL) 
+            {
+            }
 
             void init(
                     TL::Symbol orig_omp_in,  TL::Symbol new_omp_in,
                     TL::Symbol orig_omp_out, TL::Symbol new_omp_out,
-                                             TL::Symbol new_omp_mask)
+                                             TL::Symbol new_omp_mask,
+                    ReplaceInOutSIMD * replace_inout)
             {
                 _orig_omp_in = orig_omp_in;
                 _new_omp_in = new_omp_in;
@@ -356,22 +373,26 @@ namespace TL
                 _new_omp_out = new_omp_out;
                 _new_omp_mask = new_omp_mask;
 
-                delete _replace_inout;
-                _replace_inout = new ReplaceInOutSIMDKNC(
-                        orig_omp_in, new_omp_in,
-                        orig_omp_out, new_omp_out);
+                _replace_inout = replace_inout;
             }
 
             virtual ~SIMDizeCombiner()
             {
-                delete _replace_inout;
             }
 
             TL::Type vector_type_of_scalar(TL::Type t)
             {
                 t = t.no_ref().get_unqualified_type();
-                return t.get_vector_to(64);
+                return t.get_vector_of_bytes(_vector_width_bytes);
             }
+
+            TL::Type vector_mask_type_of_scalar(TL::Type t)
+            {
+                return TL::Type::get_mask_type(
+                        _vector_width_bytes/t.get_size());
+            }
+
+
 
             private:
                 // Do not copy
@@ -380,7 +401,12 @@ namespace TL
                 SIMDizeCombiner& operator=(const SIMDizeCombiner&);
         };
 
-        struct SIMDizeVerticalCombiner : SIMDizeCombiner
+        struct SIMDizeCombinerKNC : SIMDizeCombiner
+        {
+            SIMDizeCombinerKNC() : SIMDizeCombiner(64) {}
+        };
+
+        struct SIMDizeVerticalCombinerKNC : SIMDizeCombinerKNC
         {
             virtual void visit(const Nodecl::ExpressionStatement& node)
             {
@@ -431,7 +457,7 @@ namespace TL
             }
         };
 
-        struct SIMDizeHorizontalCombiner : SIMDizeCombiner
+        struct SIMDizeHorizontalCombinerKNC : SIMDizeCombinerKNC
         {
             virtual void visit(const Nodecl::ExpressionStatement& node)
             {
@@ -469,7 +495,107 @@ namespace TL
             }
         };
 
-        TL::Symbol generate_simd_combiner_knc(SIMDizeCombiner &simdizer,
+        struct SIMDizeCombinerAVX2 : SIMDizeCombiner
+        {
+            SIMDizeCombinerAVX2() : SIMDizeCombiner(32) {}
+        };
+
+        struct SIMDizeVerticalCombinerAVX2 : SIMDizeCombinerAVX2
+        {
+            virtual void visit(const Nodecl::ExpressionStatement& node)
+            {
+                walk(node.get_nest());
+            }
+
+            virtual void visit(const Nodecl::AddAssignment& node)
+            {
+                _replace_inout->walk(node.get_lhs());
+                _replace_inout->walk(node.get_rhs());
+
+                Nodecl::NodeclBase vector_add = Nodecl::VectorAdd::make(
+                        Nodecl::VectorLoad::make(
+                            Nodecl::Reference::make(
+                                node.get_lhs().shallow_copy(),
+                                node.get_lhs().get_type().no_ref().get_pointer_to()),
+                            _new_omp_mask.make_nodecl(),
+                            Nodecl::List::make(
+                                Nodecl::AlignedFlag::make()),
+                            vector_type_of_scalar(node.get_lhs().get_type()).get_lvalue_reference_to()),
+                        Nodecl::VectorLoad::make(
+                            Nodecl::Reference::make(
+                                node.get_rhs().shallow_copy(),
+                                node.get_rhs().get_type().no_ref().get_pointer_to()),
+                            _new_omp_mask.make_nodecl(),
+                            Nodecl::List::make(
+                                Nodecl::AlignedFlag::make()),
+                            vector_type_of_scalar(node.get_rhs().get_type()).get_lvalue_reference_to()),
+                        _new_omp_mask.make_nodecl(),
+                        vector_type_of_scalar(node.get_type()));
+
+                Nodecl::NodeclBase vector_store = Nodecl::VectorStore::make(
+                        Nodecl::Reference::make(
+                            node.get_lhs().shallow_copy(),
+                            vector_type_of_scalar(node.get_type()).get_pointer_to()),
+                        vector_add,
+                        _new_omp_mask.make_nodecl(),
+                        Nodecl::List::make(
+                            Nodecl::AlignedFlag::make()),
+                        vector_type_of_scalar(node.get_type()));
+
+                node.replace(vector_store);
+            }
+
+            virtual void unhandled_node(const Nodecl::NodeclBase& n)
+            {
+                internal_error("Unhandled node '%s'\n", ast_print_node_type(n.get_kind()));
+            }
+        };
+
+        struct SIMDizeHorizontalCombinerAVX2 : SIMDizeCombinerAVX2
+        {
+            virtual void visit(const Nodecl::ExpressionStatement& node)
+            {
+                walk(node.get_nest());
+            }
+
+            virtual void visit(const Nodecl::AddAssignment& node)
+            {
+                _replace_inout->walk(node.get_lhs());
+                _replace_inout->walk(node.get_rhs());
+
+                TL::Type vector_type =
+                    vector_type_of_scalar(node.get_rhs().get_type()).no_ref();
+
+                // Do not emit AddAssigment: old value is already in lane 0
+                Nodecl::NodeclBase assignment =
+                    Nodecl::Assignment::make(
+                            node.get_lhs().shallow_copy(),
+                            Nodecl::VectorReductionAdd::make(
+                                Nodecl::VectorLoad::make(
+                                    Nodecl::Reference::make(
+                                        node.get_rhs().shallow_copy(),
+                                        node.get_rhs().get_type().no_ref().get_pointer_to()),
+                                    _new_omp_mask.make_nodecl(),
+                                    Nodecl::List::make(
+                                        Nodecl::AlignedFlag::make()),
+                                    vector_type),
+                                _new_omp_mask.make_nodecl(),
+                                node.get_type()),
+                            node.get_type());
+
+                node.replace(assignment);
+            }
+
+            virtual void unhandled_node(const Nodecl::NodeclBase& n)
+            {
+                internal_error("Unhandled node '%s'\n", ast_print_node_type(n.get_kind()));
+            }
+        };
+
+
+        TL::Symbol generate_simd_combiner(
+                TL::Intel::CombinerISA isa,
+                SIMDizeCombiner &simdizer,
                 Nodecl::OpenMP::ReductionItem &reduction_item,
                 Nodecl::NodeclBase location,
                 TL::Symbol current_function)
@@ -483,11 +609,13 @@ namespace TL
             parameter_names.append("red_omp_in");
             parameter_types.append(reduction_item.get_reduction_type().get_type().get_lvalue_reference_to());
 
-            TL::Symbol mmask_16_typedef = current_function.get_scope().get_symbol_from_name("__mmask16");
-            ERROR_CONDITION(!mmask_16_typedef.is_valid(), "__mmask16 not found in the scope", 0);
+//            TL::Symbol mmask_16_typedef = current_function.get_scope().get_symbol_from_name("__mmask16");
+//            ERROR_CONDITION(!mmask_16_typedef.is_valid(), "__mmask16 not found in the scope", 0);
 
             parameter_names.append("red_omp_mask");
-            parameter_types.append(mmask_16_typedef.get_user_defined_type());
+            parameter_types.append(simdizer.vector_mask_type_of_scalar(
+                        reduction_item.get_reduction_type().get_type()));
+            //mmask_16_typedef.get_user_defined_type());
 
             TL::Counter &counters = TL::CounterManager::get_counter("intel-omp-reduction");
             std::stringstream ss;
@@ -519,11 +647,29 @@ namespace TL
 
             Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
 
+            ReplaceInOutSIMD *replace_inout_simd;
+
+            switch (isa)
+            {
+                case TL::Intel::COMBINER_AVX2:
+                    //TODO
+                case TL::Intel::COMBINER_KNC:
+                    replace_inout_simd = new ReplaceInOutSIMDKNC(
+                            reduction->get_omp_in(), red_omp_in,
+                            reduction->get_omp_out(), red_omp_out);
+                    break;
+                default:
+                    internal_error("Code unreachable", 0);
+            }
+
             simdizer.init(
                     reduction->get_omp_in(), red_omp_in,
                     reduction->get_omp_out(), red_omp_out,
-                    red_omp_mask);
+                    red_omp_mask,
+                    replace_inout_simd);
             simdizer.walk(combiner_expr);
+
+            delete replace_inout_simd;
 
             combiner << as_expression(combiner_expr) << ";"
                 ;
@@ -596,30 +742,57 @@ namespace TL
         return array_of_pf;
     }
 
-    // SIMD - KNC
-    Intel::SIMDReductionPair Intel::emit_callback_for_reduction_simd_knc(
+    template <typename VerticalSimdizer, typename HorizontalSimdizer>
+    Intel::SIMDReductionPair
+    generate_simd_combiners(
+            Intel::CombinerISA isa,
             Nodecl::OpenMP::ReductionItem &reduction_item,
             Nodecl::NodeclBase location,
             TL::Symbol current_function)
     {
-        SIMDizeVerticalCombiner vertical_simdizer;
-        TL::Symbol vertical_combiner = generate_simd_combiner_knc(
+        VerticalSimdizer vertical_simdizer;
+        HorizontalSimdizer horizontal_simdizer;
+
+        Intel::SIMDReductionPair p;
+        p.vertical_combiner = generate_simd_combiner(
+                isa,
                 vertical_simdizer,
                 reduction_item,
                 location,
                 current_function);
 
-        SIMDizeHorizontalCombiner horizontal_simdizer;
-        TL::Symbol horizontal_combiner = generate_simd_combiner_knc(
+        p.horizontal_combiner = generate_simd_combiner(
+                isa,
                 horizontal_simdizer,
                 reduction_item,
                 location,
                 current_function);
-
-        SIMDReductionPair p;
-        p.horizontal_combiner = horizontal_combiner;
-        p.vertical_combiner = vertical_combiner;
-
         return p;
+    }
+
+    // SIMD - KNC
+    Intel::SIMDReductionPair Intel::emit_callback_for_reduction_simd(
+            CombinerISA isa,
+            Nodecl::OpenMP::ReductionItem &reduction_item,
+            Nodecl::NodeclBase location,
+            TL::Symbol current_function)
+    {
+        switch (isa)
+        {
+            case TL::Intel::COMBINER_AVX2:
+                return generate_simd_combiners<SIMDizeVerticalCombinerAVX2, SIMDizeHorizontalCombinerAVX2>(
+                        isa,
+                        reduction_item,
+                        location,
+                        current_function);
+            case TL::Intel::COMBINER_KNC:
+                return generate_simd_combiners<SIMDizeVerticalCombinerKNC, SIMDizeHorizontalCombinerKNC>(
+                        isa,
+                        reduction_item,
+                        location,
+                        current_function);
+            default:
+                internal_error("Code unreachable", 0);
+        }
     }
 }

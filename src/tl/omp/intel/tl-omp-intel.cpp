@@ -32,7 +32,7 @@
 namespace TL { namespace Intel {
 
     Lowering::Lowering()
-        : _simd_reductions_knc(false)
+        : _simd_reductions(false), _knc_enabled(false), _avx2_enabled(false)
     {
         set_phase_name("Intel OpenMP RTL lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR into real code involving Intel OpenMP RTL");
@@ -42,10 +42,20 @@ namespace TL { namespace Intel {
                 _openmp_dry_run,
                 "0");
 
-        register_parameter("simd-reduction-knc",
-                "Emits reductions using SIMD instructions from KNC",
-                _simd_reductions_knc_str,
-                "0").connect(std::bind(&Lowering::set_simd_reduction_knc, this, std::placeholders::_1));
+        register_parameter("simd-reductions",
+                "Emits reductions using SIMD instructions",
+                _simd_reductions_str,
+                "0").connect(std::bind(&Lowering::set_simd_reductions, this, std::placeholders::_1));
+
+        register_parameter("mic_enabled",
+                "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
+                _knc_enabled_str,
+                "0").connect(std::bind(&Lowering::set_knc, this, std::placeholders::_1));
+
+        register_parameter("avx2_enabled",
+                "If set to '1' enables compilation for AVX2 instruction set, otherwise it is disabled",
+                _avx2_enabled_str,
+                "0").connect(std::bind(&Lowering::set_avx2, this, std::placeholders::_1));
     }
 
     void Lowering::pre_run(DTO& dto)
@@ -70,9 +80,19 @@ namespace TL { namespace Intel {
         cache_calls_visitor.walk(n);
     }
 
-    void Lowering::set_simd_reduction_knc(const std::string &str)
+    void Lowering::set_simd_reductions(const std::string &str)
     {
-        parse_boolean_option("simd-reduction-knc", str, _simd_reductions_knc, "Assuming false.");
+        parse_boolean_option("simd-reductions", str, _simd_reductions, "Assuming false.");
+    }
+
+    void Lowering::set_knc(const std::string& str)
+    {
+        parse_boolean_option("knc_enabled", str, _knc_enabled, "Invalid knc_enabled value");
+    }
+
+    void Lowering::set_avx2(const std::string& str)
+    {
+        parse_boolean_option("avx2_enabled", str, _avx2_enabled, "Invalid avx2_enabled value");
     }
 
     void Lowering::set_instrumentation(const std::string& str)
@@ -80,15 +100,32 @@ namespace TL { namespace Intel {
         parse_boolean_option("instrument", str, _instrumentation_enabled, "Assuming false.");
     }
 
-
     bool Lowering::instrumentation_enabled() const
     {
         return _instrumentation_enabled;
     }
 
-    bool Lowering::simd_reductions_knc() const
+    bool Lowering::simd_reductions() const
     {
-        return _simd_reductions_knc;
+        return _simd_reductions;
+    }
+
+    CombinerISA Lowering::get_combiner_isa() const
+    {
+        CombinerISA combiner_isa;
+        if (_simd_reductions)
+        {
+            if (_knc_enabled)
+                combiner_isa = CombinerISA::COMBINER_KNC;
+            if (_avx2_enabled)
+                combiner_isa = CombinerISA::COMBINER_AVX2;
+        }
+        else
+        {
+            combiner_isa = CombinerISA::COMBINER_SCALAR;
+        }
+
+        return combiner_isa;
     }
 
     void Lowering::phase_cleanup(DTO& data_flow)

@@ -34,10 +34,11 @@
 #include <string>
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
-#include "tl-symbol-fwd.hpp"
 #include "tl-scope-fwd.hpp"
 #include "tl-type-fwd.hpp"
 #include "tl-nodecl-fwd.hpp"
+
+#include "tl-symbol.hpp"
 
 #include "cxx-scope.h"
 
@@ -219,7 +220,7 @@ namespace TL
             /*!
              * \param vector_size The size of the vector in bytes.
              */
-            Type get_vector_to(unsigned int vector_size) const;
+            Type get_vector_of_bytes(unsigned int vector_size) const;
 
             //! Returns a vector to the current type
             /*!

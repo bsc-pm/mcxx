@@ -3368,6 +3368,7 @@ OPERATOR_TABLE
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         if (entry.get_result_variable().is_valid())
             related_symbols.append(entry.get_result_variable());
+
         if (used_modules.is_valid())
         {
             UseStmtInfo use_stmt_info;
@@ -3396,6 +3397,14 @@ OPERATOR_TABLE
             else
             {
                 emit_collected_use_statements(use_stmt_info);
+            }
+        }
+        else
+        {
+            if (entry.is_bind_c())
+            {
+                indent();
+                *(file) << "USE, INTRINSIC :: iso_c_binding\n";
             }
         }
 
@@ -3773,8 +3782,9 @@ OPERATOR_TABLE
                                     nodecl_null(),
                                     entry.get_scope().get_decl_context()) );
                     }
-                    else /* if (entry.get_type().points_to().is_void()
-                            || entry.get_type().points_to().is_pointer()) */
+                    else if (!state.emit_interoperable_types
+                             /* if (entry.get_type().points_to().is_void()
+                            || entry.get_type().points_to().is_pointer()) */)
                     {
                         declared_type = TL::Type(get_size_t_type());
                         if (!CURRENT_CONFIGURATION->ifort_compatibility
@@ -3784,10 +3794,10 @@ OPERATOR_TABLE
                         }
                         has_value_attribute = true;
                     }
-                    // else
-                    // {
-                    //     declared_type = entry.get_type().points_to();
-                    // }
+                    else if (!entry.is_optional())
+                    {
+                        attribute_list += ", VALUE";
+                    }
                 }
                 else if (entry.get_type().is_array())
                 {
@@ -5804,6 +5814,16 @@ OPERATOR_TABLE
                 {
                     interoperable_name = "C_BOOL";
                 }
+                else if (t.is_pointer())
+                {
+                    interoperable_name = "C_INTPTR_T";
+                }
+                // size_t is unsigned so it will not be matched by any other
+                // type above
+                else if (t.is_same_type(TL::Type::get_size_t_type()))
+                {
+                    interoperable_name = "C_SIZE_T";
+                }
                 else
                 {
                     solved_type = false;
@@ -5883,17 +5903,21 @@ OPERATOR_TABLE
             }
             else
             {
-                ss << "CHARACTER(LEN=*)";
+                if (!state.emit_interoperable_types)
+                    ss << "CHARACTER(LEN=*)";
+                else
+                    ss << "CHARACTER(KIND=C_SIGNED_CHAR), DIMENSION(*)";
             }
 
             type_specifier = ss.str();
         }
         // Special case for char* / const char*
-        else if (t.is_pointer()
-                && t.points_to().is_char()
-                && !state.emit_interoperable_types)
+        else if (t.is_pointer() && t.points_to().is_char())
         {
-            type_specifier = "CHARACTER(LEN=*)";
+            if (!state.emit_interoperable_types)
+                type_specifier = "CHARACTER(LEN=*)";
+            else
+                type_specifier = "CHARACTER(KIND=C_SIGNED_CHAR), DIMENSION(*)";
         }
         // Note: This is NOT a Fortran pointer, Fortran pointers will have
         // their basic type simplified at this point
