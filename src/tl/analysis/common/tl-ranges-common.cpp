@@ -430,6 +430,19 @@ namespace {
         return b;
     }
 
+    /* If we deal with constant values, natural values or +-inf,
+     * apply the following rules:
+     *     [pos1, pos2] x [pos3, pos4] = [pos1 x neg3, pos2 x pos4]
+     *     [pos1, pos2] x [neg, pos3] = [pos2 x neg, pos2 x pos3]
+     *     [pos1, pos2] x [neg1, neg2] = [pos2 x neg2, pos1 x neg1]
+     *     [neg1, pos1] x [pos2, pos3]   = [neg1 x pos2, pos1 x pos3]
+     *     [neg1, pos1] x [neg2, pos2]   = [min(neg1 x pos2, pos1 x neg2), max(neg1 x neg2, pos1 x pos2)]
+     *     [neg1, pos] x [neg2, neg3]   = [pos x neg3, neg1 x neg3]
+     *     [neg1, neg2] x [pos1, pos2]   = [neg2 x pos2, neg1 x pos1]
+     *     [neg1, neg2] x [neg3, pos]   = [neg2 x pos, neg2 x neg3]
+     *     [neg1, neg2] x [neg3, neg4]   = [neg1 x neg3, neg2 x neg4]
+     * Otherwise, return [-inf, +inf]
+     */
     NBase range_multiplication(const NBase& r1, const NBase& r2)
     {
         // 1.- Check the integrity of the operands
@@ -441,32 +454,57 @@ namespace {
         NBase r1_ub = r1.as<Nodecl::Range>().get_upper();
         NBase r2_lb = r2.as<Nodecl::Range>().get_lower();
         NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
-        TL::Type t = r1_lb.get_type();
 
-        // 3.- Compute the lower bound
-        NBase lb = boundary_multiplication(r1_lb, r2_lb);
-
-        // 4.- Compute the upper bound
-        NBase ub = boundary_multiplication(r1_ub, r2_ub);
-
-        // 5.- Base case
-        // The increment of a range not representing an induction variable is always 0
+        // 3.- Base case
         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
-        if (lb.is_null() || ub.is_null())
-            return Nodecl::Range::make(
-                    minus_inf.shallow_copy(),
-                    plus_inf.shallow_copy(),
-                    zero_nodecl,
-                    Type::get_int_type());
+        return Nodecl::Range::make(
+                minus_inf.shallow_copy(),
+                plus_inf.shallow_copy(),
+                zero_nodecl,
+                Type::get_int_type());
 
-        // 6.- Build the range
-        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
+// TODO
+//         else if (r1.get_type().is_unsigned_integral()
+//                 && r2.get_type().is_unsigned_integral())
+//         {   // Both ranges must be positive
+//             std::cerr << "========= r1=" << r1.prettyprint()
+//                 << " and r2=" << r2.prettyprint() << " are unsigned integrals" << std::endl;
+//         }
+//         else if (r1_lb.is_constant() && r1_ub.is_constant()
+//                 && r2_lb.is_constant() && r2_ub.is_constant())
+//         {   // Create a range depending on the sign of each value
+//             std::cerr << "========= r1=" << r1.prettyprint()
+//                 << " and r2=" << r2.prettyprint() << " are constants" << std::endl;
+//         }
+//         else
+//         {   // We cannot compute the range -> [-inf, +inf]
+//             std::cerr << "========= r1=" << r1.prettyprint()
+//                 << " and r2=" << r2.prettyprint() << " cannot be multiplied" << std::endl;
+//         }
 
-        if (RANGES_DEBUG)
-            std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
-                      << " = " << result.prettyprint() << std::endl;
-
-        return result;
+//         // 3.- Compute the lower bound
+//         NBase lb = boundary_multiplication(r1_lb, r2_lb);
+//
+//         // 4.- Compute the upper bound
+//         NBase ub = boundary_multiplication(r1_ub, r2_ub);
+//
+//         // 5.- Base case
+//         // The increment of a range not representing an induction variable is always 0
+//         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
+//         if (lb.is_null() || ub.is_null())
+//             return Nodecl::Range::make(
+//                     minus_inf.shallow_copy(),
+//                     plus_inf.shallow_copy(),
+//                     zero_nodecl,
+//                     Type::get_int_type());
+//         // 6.- Build the range
+//         NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
+//
+//         if (RANGES_DEBUG)
+//             std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
+//                       << " = " << result.prettyprint() << std::endl;
+//
+//         return result;
     }
 
     NBase boundary_division(const NBase& b1, const NBase& b2)
@@ -591,32 +629,39 @@ namespace {
         NBase r1_ub = r1.as<Nodecl::Range>().get_upper();
         NBase r2_lb = r2.as<Nodecl::Range>().get_lower();
         NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
-        TL::Type t = r1_lb.get_type();
 
-        // 3.- Compute the lower bound
-        NBase lb = boundary_division(r1_lb, r2_lb);
-
-        // 4.- Compute the upper bound
-        NBase ub = boundary_division(r1_ub, r2_ub);
-
-        // 5.- Base case
-        // The increment of a range not representing an induction variable is always 0
+        // 3.- Base case
         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
-        if (lb.is_null() || ub.is_null())
-            return Nodecl::Range::make(
+        return Nodecl::Range::make(
                 minus_inf.shallow_copy(),
-                                       plus_inf.shallow_copy(),
-                                       zero_nodecl,
-                                       Type::get_int_type());
+                plus_inf.shallow_copy(),
+                zero_nodecl,
+                Type::get_int_type());
 
-        // 6.- Build the range
-        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
-
-        if (RANGES_DEBUG)
-            std::cerr << "        Range Division " << r1.prettyprint() << " / " << r2.prettyprint()
-                      << " = " << result.prettyprint() << std::endl;
-
-        return result;
+//         // 3.- Compute the lower bound
+//         NBase lb = boundary_division(r1_lb, r2_lb);
+//
+//         // 4.- Compute the upper bound
+//         NBase ub = boundary_division(r1_ub, r2_ub);
+//
+//         // 5.- Base case
+//         // The increment of a range not representing an induction variable is always 0
+//         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
+//         if (lb.is_null() || ub.is_null())
+//             return Nodecl::Range::make(
+//                 minus_inf.shallow_copy(),
+//                                        plus_inf.shallow_copy(),
+//                                        zero_nodecl,
+//                                        Type::get_int_type());
+//
+//         // 6.- Build the range
+//         NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
+//
+//         if (RANGES_DEBUG)
+//             std::cerr << "        Range Division " << r1.prettyprint() << " / " << r2.prettyprint()
+//                       << " = " << result.prettyprint() << std::endl;
+//
+//         return result;
     }
 
     // A[al, au] − B[bl, bu] =  ∅, A and B completely overlap or B contains A
