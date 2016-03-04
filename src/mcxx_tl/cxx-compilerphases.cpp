@@ -427,7 +427,7 @@ namespace TL
                     {
                         std::cerr << "Variable --variable="
                             << std::string(ext_var->name)
-                            << " it is not registered by any phase" << std::endl;
+                            << " is not registered by any phase" << std::endl;
                     }
                 }
             }

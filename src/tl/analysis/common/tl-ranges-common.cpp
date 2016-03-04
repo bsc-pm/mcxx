@@ -1224,7 +1224,7 @@ namespace {
 
     Constraint::Constraint()
         : _ssa_sym(Symbol()), _value(NBase::null()),
-          _kind(ConstraintKind::__Undefined)
+          _kind(__Undefined)
     {}
 
     Constraint::Constraint(const TL::Symbol& ssa_sym,

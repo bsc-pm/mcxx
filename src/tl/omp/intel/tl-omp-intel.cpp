@@ -116,13 +116,13 @@ namespace TL { namespace Intel {
         if (_simd_reductions)
         {
             if (_knc_enabled)
-                combiner_isa = CombinerISA::COMBINER_KNC;
+                combiner_isa = COMBINER_KNC;
             if (_avx2_enabled)
-                combiner_isa = CombinerISA::COMBINER_AVX2;
+                combiner_isa = COMBINER_AVX2;
         }
         else
         {
-            combiner_isa = CombinerISA::COMBINER_SCALAR;
+            combiner_isa = COMBINER_SCALAR;
         }
 
         return combiner_isa;
