@@ -507,7 +507,8 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (!const_value_is_signed(n_const))
+        if (n_const != NULL
+                && !const_value_is_signed(n_const))
             n_const = const_value_cast_as_another(n_const, one);
 
         // 1.- Build the TRUE constraint value
@@ -921,7 +922,7 @@ namespace {
             }
 
             // 2.1.2.- Create fake input constraint if necessary
-            if (rhs.is<Nodecl::ArraySubscript>())
+            if (rhs_no_conv.is<Nodecl::ArraySubscript>())
             {
                 create_array_fake_constraint(rhs);
             }
@@ -982,23 +983,23 @@ namespace {
             }
 
             // 2.3.2.- Create fake input constraint if necessary
-            if (lhs.is<Nodecl::ArraySubscript>())
+            if (lhs_no_conv.is<Nodecl::ArraySubscript>())
             {
                 create_array_fake_constraint(lhs);
             }
-            if (rhs.is<Nodecl::ArraySubscript>())
+            if (rhs_no_conv.is<Nodecl::ArraySubscript>())
             {
                 create_array_fake_constraint(rhs);
             }
 
             // 2.3.3.- Compute the constraints generated from the condition
             NBase val_true, val_false;
-            // 2.3.3.1.- Call for the symbol at the lhs
+            // 2.3.3.1.- Call for the symbol in the lhs
             compute_comparison_constraint(
                     lhs_no_conv, rhs,
                     comparison_kind,
                     val_true, val_false);
-            // 2.3.3.2.- Call for the symbol at the rhs
+            // 2.3.3.2.- Call for the symbol in the rhs
             //           Since the order of the operands is inverted,
             //           the operation must be inverted too
             // FIXME We assume the RHS is not modified within the loop
