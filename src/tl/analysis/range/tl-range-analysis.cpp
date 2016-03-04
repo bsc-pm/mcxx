@@ -1951,7 +1951,7 @@ namespace {
                                     input_constrs.erase(orig_var);
                                 // 2.2.1.1.4.- Build the current constraint and insert it in the proper list
                                 Utils::Constraint new_c = cbv_propagated.build_constraint(ssa_var, new_constraint_val,
-                                                                                          Utils::ConstraintKind::__Propagated);
+                                                                                          Utils::__Propagated);
                                 merged_input_constrs[orig_var] = new_c;
                             }
                             else
@@ -2028,7 +2028,7 @@ namespace {
                                     input_constrs.erase(orig_var);
                                 // 2.2.1.2.2.4.- Build the current constraint and insert it in the proper list
                                 Utils::Constraint new_c = cbv_propagated.build_constraint(ssa_var, new_value,
-                                                                                          Utils::ConstraintKind::__Propagated);
+                                                                                          Utils::__Propagated);
                                 merged_input_constrs[orig_var] = new_c;
                             }
                         }

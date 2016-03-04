@@ -740,7 +740,7 @@ namespace {
 
 
     AnalysisCheckPhase::AnalysisCheckPhase()
-        : PragmaCustomCompilerPhase(), _analysis_mask(WhichAnalysis::Analysis_tag::NONE), _correctness_log_path("")
+        : PragmaCustomCompilerPhase(), _analysis_mask(WhichAnalysis::NONE), _correctness_log_path("")
     {
         set_phase_name("Phase checking the correctness of different analysis");
         set_phase_description("This phase checks first the robustness of a PCFG and then "\
@@ -781,7 +781,7 @@ namespace {
                 Nodecl::Analysis::UpperExposed::make(
                     Nodecl::List::make(upper_exposed_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::USAGE_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::USAGE_ANALYSIS;
         }
         if (pragma_line.get_clause("defined").is_defined())
         {
@@ -791,7 +791,7 @@ namespace {
                 Nodecl::Analysis::Defined::make(
                     Nodecl::List::make(defined_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::USAGE_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::USAGE_ANALYSIS;
         }
         if (pragma_line.get_clause("undefined").is_defined())
         {
@@ -801,7 +801,7 @@ namespace {
                 Nodecl::Analysis::Undefined::make(
                     Nodecl::List::make(undefined_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::USAGE_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::USAGE_ANALYSIS;
         }
 
         // Liveness analysis clauses
@@ -814,7 +814,7 @@ namespace {
                 Nodecl::Analysis::LiveIn::make(
                     Nodecl::List::make(live_in_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::LIVENESS_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::LIVENESS_ANALYSIS;
         }
         if (pragma_line.get_clause("live_out").is_defined())
         {
@@ -824,7 +824,7 @@ namespace {
                 Nodecl::Analysis::LiveOut::make(
                     Nodecl::List::make(live_out_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::LIVENESS_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::LIVENESS_ANALYSIS;
         }
         if (pragma_line.get_clause("dead").is_defined())
         {
@@ -834,7 +834,7 @@ namespace {
                 Nodecl::Analysis::Dead::make(
                     Nodecl::List::make(dead_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::LIVENESS_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::LIVENESS_ANALYSIS;
         }
 
         // Reaching definition analysis clauses
@@ -848,7 +848,7 @@ namespace {
 
             environment.append(Nodecl::Analysis::ReachingDefinitionIn::make(reach_defs_in, loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::REACHING_DEFS_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::REACHING_DEFS_ANALYSIS;
         }
         if (pragma_line.get_clause("reaching_definition_out").is_defined())
         {
@@ -860,7 +860,7 @@ namespace {
 
             environment.append(Nodecl::Analysis::ReachingDefinitionOut::make(reach_defs_out, loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::REACHING_DEFS_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::REACHING_DEFS_ANALYSIS;
         }
 
         // Induction variables analysis clauses
@@ -874,7 +874,7 @@ namespace {
 
             environment.append(Nodecl::Analysis::InductionVariable::make(induction_vars, loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::INDUCTION_VARS_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::INDUCTION_VARS_ANALYSIS;
         }
 
         // Auto-scope analysis clauses
@@ -886,7 +886,7 @@ namespace {
                 Nodecl::Analysis::AutoScope::Firstprivate::make(
                     Nodecl::List::make(auto_sc_fp_vars_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::AUTO_SCOPING;
+            _analysis_mask = _analysis_mask | WhichAnalysis::AUTO_SCOPING;
         }
         if (pragma_line.get_clause("auto_sc_private").is_defined())
         {
@@ -896,7 +896,7 @@ namespace {
                 Nodecl::Analysis::AutoScope::Private::make(
                     Nodecl::List::make(auto_sc_p_vars_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::AUTO_SCOPING;
+            _analysis_mask = _analysis_mask | WhichAnalysis::AUTO_SCOPING;
         }
         if (pragma_line.get_clause("auto_sc_shared").is_defined())
         {
@@ -906,7 +906,7 @@ namespace {
                 Nodecl::Analysis::AutoScope::Shared::make(
                     Nodecl::List::make(auto_sc_s_vars_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::AUTO_SCOPING;
+            _analysis_mask = _analysis_mask | WhichAnalysis::AUTO_SCOPING;
         }
 
         // Range clauses
@@ -919,7 +919,7 @@ namespace {
                                                          pragma_line.retrieve_context());
 
             environment.append(Nodecl::Analysis::Range::make(range_vars, loc));
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::RANGE_ANALYSIS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::RANGE_ANALYSIS;
         }
 
         // Correctness clauses
@@ -930,7 +930,7 @@ namespace {
                 Nodecl::Analysis::Correctness::AutoStorage::make(
                     Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_dead").is_defined())
         {
@@ -939,7 +939,7 @@ namespace {
                 Nodecl::Analysis::Correctness::Dead::make(
                     Nodecl::List::make(correctness_dead_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_auto_storage").is_defined())
         {
@@ -948,7 +948,7 @@ namespace {
                 Nodecl::Analysis::Correctness::AutoStorage::make(
                     Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_incoherent_fp").is_defined())
         {
@@ -957,7 +957,7 @@ namespace {
                 Nodecl::Analysis::Correctness::IncoherentFp::make(
                     Nodecl::List::make(correctness_incoherent_fp_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_incoherent_p").is_defined())
         {
@@ -966,7 +966,7 @@ namespace {
                 Nodecl::Analysis::Correctness::IncoherentP::make(
                     Nodecl::List::make(correctness_incoherent_p_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_incoherent_in").is_defined())
         {
@@ -975,7 +975,7 @@ namespace {
                 Nodecl::Analysis::Correctness::IncoherentIn::make(
                     Nodecl::List::make(correctness_incoherent_in_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_incoherent_in_pointed").is_defined())
         {
@@ -984,7 +984,7 @@ namespace {
                 Nodecl::Analysis::Correctness::IncoherentInPointed::make(
                     Nodecl::List::make(correctness_incoherent_in_pointed_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_incoherent_out").is_defined())
         {
@@ -993,7 +993,7 @@ namespace {
                 Nodecl::Analysis::Correctness::IncoherentOut::make(
                     Nodecl::List::make(correctness_incoherent_out_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_incoherent_out_pointed").is_defined())
         {
@@ -1002,7 +1002,7 @@ namespace {
                 Nodecl::Analysis::Correctness::IncoherentOutPointed::make(
                     Nodecl::List::make(correctness_incoherent_out_pointed_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
         if (pragma_line.get_clause("correctness_race").is_defined())
         {
@@ -1011,7 +1011,7 @@ namespace {
                 Nodecl::Analysis::Correctness::Race::make(
                     Nodecl::List::make(correctness_race_clause.get_arguments_as_expressions()), loc));
 
-            _analysis_mask = _analysis_mask | WhichAnalysis::Analysis_tag::CORRECTNESS;
+            _analysis_mask = _analysis_mask | WhichAnalysis::CORRECTNESS;
         }
     }
 
