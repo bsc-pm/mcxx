@@ -59,7 +59,7 @@ LIBMCXXPROCESS_EXTERN void fatal_error(const char* message, ...) NORETURN CHECK_
 LIBMCXXPROCESS_EXTERN void fatal_vprintf(const char* message, va_list ap) NORETURN;
 
 #define BUG_URL "\nPlease report a bug at " \
-                "http://pm.bsc.es/projects/mcxx/newticket " \
+                "pm-tools@bsc.es " \
                 "with preprocessed source if possible\n"
 
 #define internal_error(message, ...) \
