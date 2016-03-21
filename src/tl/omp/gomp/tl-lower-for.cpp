@@ -285,15 +285,6 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         << "long " << iend << ";" << as_type(TL::Type::get_bool_type()) << " "
         << not_done << ";";
 
-    Source pragma_noprefetch;
-    Nodecl::OpenMP::NoPrefetch no_prefetch_node = environment.find_first<Nodecl::OpenMP::NoPrefetch>();
-    if (!no_prefetch_node.is_null())
-    {
-        pragma_noprefetch
-            << "\n"
-            << "#pragma noprefetch\n";
-    }
-
     TL::Symbol private_induction_var = symbol_map.map(induction_var);
     ERROR_CONDITION(private_induction_var == induction_var, "Induction variable was not privatized", 0);
 
