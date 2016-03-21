@@ -340,17 +340,80 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         set_task_flags << task_flags_name << " |= GOMP_TASK_MERGEABLE;"
             ;
     }
+
+    Source dependence_addresses;
     if (!environment.find_first<Nodecl::OpenMP::DepIn>().is_null()
             || !environment.find_first<Nodecl::OpenMP::DepOut>().is_null()
             || !environment.find_first<Nodecl::OpenMP::DepInout>().is_null())
     {
-        set_task_flags << " |= GOMP_TASK_DEPEND;"
-            ;
-        sorry_printf_at(construct.get_locus(), "TASK dependences not yet implemented\n");
+        set_task_flags << task_flags_name << " |= GOMP_TASK_DEPEND;";
+
+        TL::Counter &c = TL::CounterManager::get_counter("gomp-omp-task-deps");
+
+        std::stringstream ss;
+        ss << "gomp_task_deps_" << (int)c;
+        Source deps_buffer_name;
+        deps_buffer_name << ss.str();
+
+        Source size, outs, addresses;
+        setup_data << "void *" << deps_buffer_name << "[] = {" << size << outs
+                   << addresses << "};";
+        int num_out_deps = 0;
+        int num_in_deps = 0;
+
+        Nodecl::NodeclBase dep_in
+            = environment.find_first<Nodecl::OpenMP::DepIn>();
+        if (!dep_in.is_null())
+            dep_in = dep_in.as<Nodecl::OpenMP::DepIn>().get_in_deps();
+        Nodecl::NodeclBase dep_out
+            = environment.find_first<Nodecl::OpenMP::DepOut>();
+        if (!dep_out.is_null())
+            dep_out = dep_out.as<Nodecl::OpenMP::DepOut>().get_out_deps();
+        Nodecl::NodeclBase dep_inout
+            = environment.find_first<Nodecl::OpenMP::DepInout>();
+        if (!dep_inout.is_null())
+            dep_inout
+                = dep_inout.as<Nodecl::OpenMP::DepInout>().get_inout_deps();
+
+        struct all_deps_info_tag
+        {
+            Nodecl::NodeclBase &deps;
+            int &counter;
+        } all_deps_info[] = { { dep_out, num_out_deps },
+                              { dep_inout, num_out_deps },
+                              // The order is important: input
+                              // dependences must go the last
+                              { dep_in, num_in_deps } };
+
+        for (all_deps_info_tag *p = all_deps_info;
+             p < (all_deps_info_tag *)(&all_deps_info + 1);
+             p++)
+        {
+            if (p->deps.is_null())
+                continue;
+
+            Nodecl::List l = p->deps.as<Nodecl::List>();
+
+            for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
+            {
+                DataReference data_ref(*it);
+                p->counter++;
+
+                addresses << as_expression(
+                                 data_ref.get_base_address().shallow_copy())
+                          << ",";
+            }
+        }
+
+        size << "(void*)" << (num_in_deps + num_out_deps) << "U,";
+        outs << "(void*)" << num_out_deps << "U,";
+        dependence_addresses << deps_buffer_name;
+    }
+    else
+    {
+        dependence_addresses << "0";
     }
 
-    Source dependence_addresses;
-    dependence_addresses << "0";
 
     // FIXME: we do not use the copy function because it seems to involve
     // another struct type. We do the copy here instead.
