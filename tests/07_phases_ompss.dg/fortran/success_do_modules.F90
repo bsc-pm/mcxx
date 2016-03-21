@@ -5,6 +5,9 @@
 ! test_FFLAGS_nanox_mercurium_mod1="-DMOD1"
 ! test_compile_fail_nanox_mercurium_mod0_nanos6_mercurium=yes
 ! test_compile_fail_nanox_mercurium_mod1_nanos6_mercurium=yes
+! test_compile_fail_nanox_mercurium_mod0_nanos6_imfc=yes
+! test_compile_fail_nanox_mercurium_mod1_nanos6_imfc=yes
+! test_compile_fail_nanox_mercurium_mod1_nanox_imfc=yes
 ! </testinfo>
 
 #ifdef MOD0
