@@ -667,8 +667,8 @@ run_gen_test ()
       if [ "$compile_versions" -a ! "$test_ignore" ]; then
         if [ "$all_compile_versions" ]; then
           local tmp=
-          for v1 in $all_compile_versions; do
-             for v2 in $compile_versions; do
+          for v1 in $compile_versions; do
+             for v2 in $all_compile_versions; do
                 v="$v1"_"$v2"
                 tmp="$tmp $v" 
 
