@@ -50,7 +50,11 @@ END PROGRAM MAIN
 
 #ifndef MOD0
 ! We need it to link
+#ifdef __INTEL_COMPILER
+SUBROUTINE FOO_BAR(X) BIND(C, NAME="two_mp_bar_")
+#else
 SUBROUTINE FOO_BAR(X) BIND(C, NAME="__two_MOD_bar")
+#endif
     USE ISO_C_BINDING
     INTEGER(KIND=C_INT) :: X
     X = X + 1
