@@ -1,8 +1,8 @@
 ! <testinfo>
 ! test_generator=config/mercurium-ompss
-! compile_versions="nanox_mercurium_mod0 nanox_mercurium_mod1"
-! test_FFLAGS_nanox_mercurium_mod0="-DMOD0"
-! test_FFLAGS_nanox_mercurium_mod1="-DMOD1"
+! compile_versions="mod0 mod1"
+! test_FFLAGS_mod0="-DMOD0"
+! test_FFLAGS_mod1="-DMOD1"
 ! </testinfo>
 
 #ifdef MOD0
