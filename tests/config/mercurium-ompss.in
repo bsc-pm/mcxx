@@ -61,7 +61,7 @@ filter_nanox_nanos6()
     case \$v in
         nanox*)
             case \$e in
-                nanox*)
+                *nanox*)
                     return 0;
                     ;;
                 *)
@@ -71,7 +71,7 @@ filter_nanox_nanos6()
             ;;
         nanos6*)
             case \$e in
-                nanos6*)
+                *nanos6*)
                     return 0;
                     ;;
                 *)
