@@ -23407,20 +23407,71 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
         return;
     }
 
+    // compute the size
+    (void)type_get_size(accessed_type);
+
     ERROR_CONDITION(designated_path.num_items == 0, "Invalid designation", 0);
-    ERROR_CONDITION(designated_path.items[designated_path.num_items - 1].kind != NODECL_FIELD_DESIGNATOR,
-            "Invalid designator kind", 0);
+    // The first must be a field designator
+    ERROR_CONDITION(designated_path.items[0].kind != NODECL_FIELD_DESIGNATOR,
+                    "Invalid designator kind",
+                    0);
 
-    scope_entry_t* designated_field = nodecl_get_symbol(designated_path.items[designated_path.num_items - 1].value);
+    type_t *current_type = accessed_type;
+    char is_constant = 1;
+    size_t offset_item = 0;
+    int i;
+    for (i = 0; i < designated_path.num_items && is_constant; i++)
+    {
+        switch (designated_path.items[i].kind)
+        {
+            case NODECL_FIELD_DESIGNATOR:
+            {
+                scope_entry_t *designated_field
+                    = nodecl_get_symbol(designated_path.items[i].value);
+                offset_item
+                    += symbol_entity_specs_get_field_offset(designated_field);
 
-    type_get_size(accessed_type);
-    size_t offset_field = symbol_entity_specs_get_field_offset(designated_field);
+                current_type = designated_field->type_information;
+                break;
+            }
+            case NODECL_INDEX_DESIGNATOR:
+            {
+                const_value_t *cval
+                    = nodecl_get_constant(designated_path.items[i].value);
+                if (cval == NULL)
+                    is_constant = 0;
+                else
+                {
+                    ERROR_CONDITION(
+                        !is_array_type(current_type), "Invalid type", 0);
+                    type_t *elem_type
+                        = array_type_get_element_type(current_type);
+
+                    offset_item
+                        += type_get_size(elem_type)
+                           * const_value_cast_to_unsigned_long_int(cval);
+
+                    current_type = elem_type;
+                }
+                break;
+            }
+            default:
+                internal_error("Code unreachable", 0);
+        }
+    }
+
 
     *nodecl_output = nodecl_make_offsetof(nodecl_make_type(accessed_type, locus),
             nodecl_designator, get_signed_int_type(),locus);
 
-    const_value_t* cval = const_value_get_integer(offset_field,sizeof(size_t),0);
-    nodecl_set_constant(*nodecl_output, cval);
+    if (is_constant)
+    {
+        nodecl_set_constant(
+            *nodecl_output,
+            const_value_get_integer(offset_item,
+                                    type_get_size(get_size_t_type()),
+                                    /* sign */ 0));
+    }
 }
 
 static void check_gcc_builtin_offsetof(AST expression,
