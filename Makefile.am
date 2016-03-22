@@ -2231,6 +2231,7 @@ src_tl_omp_gomp_libtlgomp_omp_lowering_la_SOURCES=\
 								   src/tl/omp/gomp/tl-lower-barrier.cpp \
 								   src/tl/omp/gomp/tl-lower-critical.cpp \
 								   src/tl/omp/gomp/tl-lower-for.cpp \
+								   src/tl/omp/gomp/tl-lower-atomic.cpp \
 								   src/tl/omp/gomp/tl-lower-reductions.hpp \
 								   src/tl/omp/gomp/tl-lower-reductions.cpp \
 								   $(END)
