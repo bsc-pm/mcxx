@@ -3174,6 +3174,7 @@ namespace TL { namespace Nanos6 {
             ERROR_CONDITION(field_map.find(*it) == field_map.end(),
                     "Symbol is not mapped", 0);
 
+            Nodecl::NodeclBase lhs;
             if (it->get_type().is_dependent()
                 && !is_standard_layout_type(
                        it->get_type().no_ref().get_internal_type()))
@@ -3190,7 +3191,7 @@ namespace TL { namespace Nanos6 {
                 TL::Type lhs_type =
                     field_map[*it].get_type().no_ref().get_lvalue_reference_to();
 
-                Nodecl::NodeclBase lhs =
+                lhs =
                     Nodecl::ClassMemberAccess::make(
                             Nodecl::Dereference::make(
                                 args.make_nodecl(/* set_ref_type */ true),
@@ -3215,7 +3216,7 @@ namespace TL { namespace Nanos6 {
                 TL::Type lhs_type =
                     field_map[*it].get_type().no_ref().get_lvalue_reference_to();
 
-                Nodecl::NodeclBase lhs =
+                lhs =
                     Nodecl::ClassMemberAccess::make(
                             Nodecl::Dereference::make(
                                 args.make_nodecl(/* set_ref_type */ true),
@@ -3240,7 +3241,7 @@ namespace TL { namespace Nanos6 {
                 TL::Type lhs_type =
                     field_map[*it].get_type().no_ref().get_lvalue_reference_to();
 
-                Nodecl::NodeclBase lhs =
+                lhs =
                     Nodecl::Reference::make(
                             Nodecl::ClassMemberAccess::make(
                                 Nodecl::Dereference::make(
@@ -3299,9 +3300,18 @@ namespace TL { namespace Nanos6 {
             {
                 Source conditional_capture_src;
 
+                Nodecl::NodeclBase capture_null = 
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                lhs.shallow_copy(),
+                                Source("MERCURIUM_NULL()").parse_expression(related_function.get_related_scope()),
+                                TL::Type::get_void_type().get_pointer_to()));
+
                 conditional_capture_src
                     << "IF (PRESENT(" << as_symbol(*it) << ")) THEN\n"
                     <<    as_statement(current_captured_stmt)
+                    << "ELSE\n"
+                    <<    as_statement(capture_null)
                     << "END IF\n"
                     ;
 
@@ -3429,11 +3439,20 @@ namespace TL { namespace Nanos6 {
                     && it->is_parameter()
                     && it->is_optional())
             {
+                Nodecl::NodeclBase capture_null = 
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                lhs.shallow_copy(),
+                                Source("MERCURIUM_NULL()").parse_expression(related_function.get_related_scope()),
+                                TL::Type::get_void_type().get_pointer_to()));
+
                 Source conditional_capture_src;
 
                 conditional_capture_src
                     << "IF (PRESENT(" << as_symbol(*it) << ")) THEN\n"
                     <<    as_statement(current_captured_stmt)
+                    << "ELSE\n"
+                    <<    as_statement(capture_null)
                     << "END IF\n"
                     ;
 
