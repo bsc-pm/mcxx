@@ -39,12 +39,6 @@ LoweringVisitor::~LoweringVisitor()
 {
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::Atomic& construct)
-{
-    error_printf_at(construct.get_locus(), "OpenMP Atomic construct not yet implemented\n");
-}
-
-
 void LoweringVisitor::visit(const Nodecl::OpenMP::FlushMemory& construct)
 {
     error_printf_at(construct.get_locus(), " OpenMP FlushMemory construct not yet implemented\n");
