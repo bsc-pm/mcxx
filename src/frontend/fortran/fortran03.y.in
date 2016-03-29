@@ -522,7 +522,6 @@ static const char* safe_asttext(AST a)
 %type<ast> nullify_stmt
 %type<ast> language_binding_spec
 %type<ast> language_binding_spec_c
-%type<ast> language_binding_spec_opencl
 %type<ast> named_constant_def
 %type<ast> sync_memory_stmt
 %type<ast> mask_elsewhere_part
@@ -1962,20 +1961,20 @@ access_spec : TOKEN_PUBLIC
 proc_language_binding_spec : language_binding_spec
 ;
 language_binding_spec : language_binding_spec_c
-| language_binding_spec_opencl
 ;
 language_binding_spec_c : TOKEN_BIND '(' TOKEN_C ',' TOKEN_NAME '=' default_char_constant_expr ')'
 {
-    $$ = ASTMake1(AST_BIND_C_SPEC, $7, make_locus(@1.first_filename, @1.first_line, @1.first_column), "bind");
+    $$ = ASTMake2(AST_ATTR_SPEC,
+            ASTLeaf(AST_BIND_KIND, make_locus(@3.first_filename, @3.first_line, @3.first_column), "c"),
+            $7,
+            make_locus(@1.first_filename, @1.first_line, @1.first_column), "bind");
 }
 | TOKEN_BIND '(' TOKEN_C ')'
 {
-    $$ = ASTMake1(AST_BIND_C_SPEC, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), "bind");
-}
-;
-language_binding_spec_opencl : TOKEN_BIND '(' TOKEN_OPENCL ',' TOKEN_NAME '=' default_char_constant_expr ',' TOKEN_FILE '=' default_char_constant_expr ')'
-{
-    $$ = ASTMake1(AST_BIND_OPENCL_SPEC, $7, make_locus(@1.first_filename, @1.first_line, @1.first_column), "bind");
+    $$ = ASTMake2(AST_ATTR_SPEC,
+                  ASTLeaf(AST_BIND_KIND, make_locus(@3.first_filename, @3.first_line, @3.first_column), "c"),
+                  NULL,
+                  make_locus(@1.first_filename, @1.first_line, @1.first_column), "bind");
 }
 ;
 coarray_spec : array_spec
