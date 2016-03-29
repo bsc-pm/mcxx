@@ -449,7 +449,6 @@ fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [value
                     | NODECL_FORTRAN_EQUIVALENCE([first]expression, [second]expression-seq)
                     | NODECL_FORTRAN_BOZ_LITERAL() type text const-value
                     | NODECL_FORTRAN_BIND_C([name] expression-opt)
-                    | NODECL_FORTRAN_BIND_OPENCL([name] expression, [file] expression)
                     | NODECL_FORTRAN_HOLLERITH() type text const-value
                     | NODECL_FORTRAN_USE([module]name, [renamed_items]name-seq-opt)
                     | NODECL_FORTRAN_USE_ONLY([module]name, [only_items]name-seq)

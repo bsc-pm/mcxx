@@ -1589,100 +1589,9 @@ static type_t* fortran_gather_type_from_declaration_type_spec_of_component(AST a
     return result;
 }
 
-static nodecl_t check_bind_c(AST bind_c_spec,
-        const decl_context_t* decl_context)
-{
-    ERROR_CONDITION(ASTKind(bind_c_spec) != AST_BIND_C_SPEC, "Invalid node", 0);
-
-    AST bind_name_expr = ASTSon0(bind_c_spec);
-    if (bind_name_expr == NULL)
-        return nodecl_make_fortran_bind_c(nodecl_null(), ast_get_locus(bind_c_spec));
-
-    nodecl_t nodecl_bind_name = nodecl_null();
-    if (bind_name_expr != NULL)
-    {
-        fortran_check_expression(bind_name_expr, decl_context, &nodecl_bind_name);
-        if (nodecl_is_err_expr(nodecl_bind_name))
-        {
-            return nodecl_null();
-        }
-        else if (!nodecl_is_constant(nodecl_bind_name)
-                || !fortran_is_character_type(no_ref(nodecl_get_type(nodecl_bind_name))))
-        {
-            error_printf_at(ast_get_locus(bind_name_expr), "NAME of BIND(C) must be a constant character expression\n");
-            return nodecl_null();
-        }
-    }
-
-    return nodecl_make_fortran_bind_c(nodecl_bind_name, ast_get_locus(bind_c_spec));
-}
-
-static nodecl_t check_bind_opencl(AST bind_c_spec,
-        const decl_context_t* decl_context)
-{
-    ERROR_CONDITION(ASTKind(bind_c_spec) != AST_BIND_OPENCL_SPEC, "Invalid node", 0);
-
-    AST bind_name_expr = ASTSon0(bind_c_spec);
-    if (bind_name_expr == NULL)
-        return nodecl_null();
-
-    nodecl_t nodecl_bind_name = nodecl_null();
-    if (bind_name_expr != NULL)
-    {
-        fortran_check_expression(bind_name_expr, decl_context, &nodecl_bind_name);
-        if (nodecl_is_err_expr(nodecl_bind_name))
-        {
-            return nodecl_null();
-        }
-        else if (!nodecl_is_constant(nodecl_bind_name)
-                || !fortran_is_character_type(no_ref(nodecl_get_type(nodecl_bind_name))))
-        {
-            error_printf_at(ast_get_locus(bind_name_expr), "NAME of BIND(OPENCL) must be a constant character expression\n");
-            return nodecl_null();
-        }
-    }
-
-    AST bind_file_expr = ASTSon0(bind_c_spec);
-    if (bind_file_expr == NULL)
-        return nodecl_null();
-
-    nodecl_t nodecl_bind_file = nodecl_null();
-    if (bind_file_expr != NULL)
-    {
-        fortran_check_expression(bind_file_expr, decl_context, &nodecl_bind_file);
-        if (nodecl_is_err_expr(nodecl_bind_file))
-        {
-            return nodecl_null();
-        }
-        else if (!nodecl_is_constant(nodecl_bind_file)
-                || !fortran_is_character_type(no_ref(nodecl_get_type(nodecl_bind_file))))
-        {
-            error_printf_at(ast_get_locus(bind_file_expr), "FILE of BIND(OPENCL) must be a constant character expression\n");
-            return nodecl_null();
-        }
-    }
-
-    return nodecl_make_fortran_bind_opencl(nodecl_bind_name, nodecl_bind_file, 
-            ast_get_locus(bind_c_spec));
-}
-
-static void check_bind_spec(scope_entry_t* entry, AST bind_spec, const decl_context_t* decl_context)
-{
-    if (ASTKind(bind_spec) == AST_BIND_C_SPEC)
-    {
-        symbol_entity_specs_set_bind_info(entry, check_bind_c(bind_spec, decl_context));
-    }
-    else if (ASTKind(bind_spec) == AST_BIND_OPENCL_SPEC
-            // FIXME - Add a flag to enable opencl binding
-            /* && opencl_is_enabled */)
-    {
-        symbol_entity_specs_set_bind_info(entry, check_bind_opencl(bind_spec, decl_context));
-    }
-    else
-    {
-        error_printf_at(ast_get_locus(bind_spec), "ignoring unsupported BIND specifier\n");
-    }
-}
+static void check_bind_spec(scope_entry_t *entry,
+                            AST bind_spec,
+                            const decl_context_t *decl_context);
 
 static scope_entry_t* new_procedure_symbol(
         const decl_context_t* decl_context,
@@ -3373,8 +3282,7 @@ struct attr_spec_tag
 
     char is_private;
 
-    char is_c_binding;
-    const char* c_binding_name;
+    nodecl_t bind_info;
 
     // Mercurium extension
     char is_variable;
@@ -3619,14 +3527,75 @@ static void attr_spec_private_handler(AST a UNUSED_PARAMETER,
     attr_spec->is_private = 1;
 }
 
-static void attr_spec_bind_handler(AST a, 
-        const decl_context_t* decl_context UNUSED_PARAMETER,
-        attr_spec_t* attr_spec)
+static void attr_spec_bind_handler(AST a,
+                                   const decl_context_t *decl_context
+                                       UNUSED_PARAMETER,
+                                   attr_spec_t *attr_spec)
 {
-    attr_spec->is_c_binding = 1;
-    if (ASTSon0(a) != NULL)
+    AST bind_kind = ASTSon0(a);
+    if (strcmp(ASTText(bind_kind), "c") != 0)
     {
-        attr_spec->c_binding_name = ASTText(ASTSon0(a));
+        error_printf_at(
+            ast_get_locus(bind_kind),
+            "BIND specifier other than BIND(C, ...) is not supported");
+        attr_spec->bind_info = nodecl_make_err_expr(ast_get_locus(a));
+        return;
+    }
+
+    AST bind_name_expr = ASTSon1(a);
+    if (bind_name_expr == NULL)
+    {
+        attr_spec->bind_info
+            = nodecl_make_fortran_bind_c(nodecl_null(), ast_get_locus(a));
+    }
+    else
+    {
+        nodecl_t nodecl_bind_name = nodecl_null();
+        if (bind_name_expr != NULL)
+        {
+            fortran_check_expression(
+                bind_name_expr, decl_context, &nodecl_bind_name);
+            if (nodecl_is_err_expr(nodecl_bind_name))
+            {
+                attr_spec->bind_info = nodecl_bind_name;
+                return;
+            }
+            else if (!nodecl_is_constant(nodecl_bind_name)
+                     || !fortran_is_character_type(
+                            no_ref(nodecl_get_type(nodecl_bind_name))))
+            {
+                error_printf_at(ast_get_locus(bind_name_expr),
+                                "NAME of BIND(C) must be a constant character "
+                                "expression\n");
+                attr_spec->bind_info = nodecl_make_err_expr(ast_get_locus(a));
+                return;
+            }
+        }
+        attr_spec->bind_info
+            = nodecl_make_fortran_bind_c(nodecl_bind_name, ast_get_locus(a));
+    }
+}
+
+static nodecl_t check_bind(AST bind_spec, const decl_context_t *decl_context)
+{
+    attr_spec_t attr_spec;
+    attr_spec.bind_info = nodecl_null();
+
+    ERROR_CONDITION(
+        strcmp(ast_get_text(bind_spec), "bind") != 0, "Invalid tree", 0);
+    attr_spec_bind_handler(bind_spec, decl_context, &attr_spec);
+
+    return attr_spec.bind_info;
+}
+
+static void check_bind_spec(scope_entry_t *entry,
+                            AST bind_spec,
+                            const decl_context_t *decl_context)
+{
+    nodecl_t n = check_bind(bind_spec, decl_context);
+    if (!nodecl_is_err_expr(n))
+    {
+        symbol_entity_specs_set_bind_info(entry, n);
     }
 }
 
@@ -4547,13 +4516,10 @@ static void build_scope_bind_stmt(AST a,
     AST language_binding_spec = ASTSon0(a);
     AST bind_entity_list = ASTSon1(a);
 
-    if (ASTKind(language_binding_spec) != AST_BIND_C_SPEC)
-    {
-        error_printf_at(ast_get_locus(a), "unsupported BIND statement\n");
-        return;
-    }
+    nodecl_t bind_c_name = check_bind(language_binding_spec, decl_context);
 
-    nodecl_t bind_c_name = check_bind_c(language_binding_spec, decl_context);
+    if (nodecl_is_err_expr(bind_c_name))
+        return;
 
     AST it;
     for_each_element(bind_entity_list, it)
@@ -5471,8 +5437,6 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                 "derived types with type-parameters are not supported\n");
     }
 
-    nodecl_t bind_c_name = nodecl_null();
-
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
 
@@ -5494,11 +5458,6 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                 case AST_ATTR_SPEC:
                     {
                         gather_attr_spec_item(type_attr_spec, decl_context, &attr_spec);
-                        break;
-                    }
-                case AST_BIND_C_SPEC:
-                    {
-                        bind_c_name = check_bind_c(type_attr_spec, decl_context);
                         break;
                     }
                 default:
@@ -5569,9 +5528,11 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
     class_name->kind = SK_CLASS;
     class_name->locus = ast_get_locus(name);
     class_name->type_information = get_new_class_type(decl_context, TT_STRUCT);
-    symbol_entity_specs_set_bind_info(class_name, bind_c_name);
+    if (!nodecl_is_null(attr_spec.bind_info)
+        && !nodecl_is_err_expr(attr_spec.bind_info))
+        symbol_entity_specs_set_bind_info(class_name, attr_spec.bind_info);
     class_name->defined = 1;
-    
+
     remove_not_fully_defined_symbol(decl_context, class_name);
     remove_unknown_kind_symbol(decl_context, class_name);
 
@@ -8791,6 +8752,13 @@ static void build_scope_declaration_common_stmt(AST a, const decl_context_t* dec
                          ast_location(declaration),
                          entry->symbol_name);
             }
+        }
+
+        if (!nodecl_is_null(current_attr_spec.bind_info)
+            && !nodecl_is_err_expr(current_attr_spec.bind_info))
+        {
+            symbol_entity_specs_set_bind_info(entry,
+                                              current_attr_spec.bind_info);
         }
     }
 

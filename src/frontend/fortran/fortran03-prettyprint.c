@@ -264,7 +264,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_ASYNCHRONOUS_STATEMENT, asynchronous_statement_handler, NULL),
     NODE_HANDLER(AST_ATTR_SPEC, attr_spec_handler, NULL),
     NODE_HANDLER(AST_BINARY_LITERAL, simple_text_handler, NULL),
-    NODE_HANDLER(AST_BIND_C_SPEC, bind_c_spec_handler, NULL),
     NODE_HANDLER(AST_BIND_STATEMENT, binding_statement_handler, NULL),
     NODE_HANDLER(AST_BLOCK_CONSTRUCT, block_construct_handler, NULL),
     NODE_HANDLER(AST_BLOCK_DATA_PROGRAM_UNIT, block_data_program_unit_handler, NULL),
@@ -836,19 +835,27 @@ static void attr_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     if (ASTText(a)[0] != '_')
     {
-        token_fprintf(f, a, pt_ctx, "%s", strtoupper(ASTText(a)));
-        if (ASTSon0(a) != NULL)
+        if (strcmp(strtolower(ASTText(a)), "bind") == 0)
         {
-            token_fprintf(f, a, pt_ctx, "(");
-            if (ASTKind(ASTSon0(a)) == AST_NODE_LIST)
+            // This is unfortunate
+            bind_c_spec_handler(f, a, pt_ctx);
+        }
+        else
+        {
+            token_fprintf(f, a, pt_ctx, "%s", strtoupper(ASTText(a)));
+            if (ASTSon0(a) != NULL)
             {
-                list_handler(f, ASTSon0(a), pt_ctx);
+                token_fprintf(f, a, pt_ctx, "(");
+                if (ASTKind(ASTSon0(a)) == AST_NODE_LIST)
+                {
+                    list_handler(f, ASTSon0(a), pt_ctx);
+                }
+                else
+                {
+                    prettyprint_level(f, ASTSon0(a), pt_ctx);
+                }
+                token_fprintf(f, a, pt_ctx, ")");
             }
-            else
-            {
-                prettyprint_level(f, ASTSon0(a), pt_ctx);
-            }
-            token_fprintf(f, a, pt_ctx, ")");
         }
     }
     else
