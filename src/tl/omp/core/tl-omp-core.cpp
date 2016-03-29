@@ -953,17 +953,17 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        ObjectList<TL::Symbol> nonlocal_symbols =
-            Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
+        ObjectList<Nodecl::Symbol> nonlocal_symbols_occurrences
+            = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
 
         ObjectList<Symbol> already_nagged;
 
-        for (ObjectList<TL::Symbol>::iterator it = nonlocal_symbols.begin();
-                it != nonlocal_symbols.end();
-                it++)
+        for (ObjectList<Nodecl::Symbol>::iterator it
+             = nonlocal_symbols_occurrences.begin();
+             it != nonlocal_symbols_occurrences.end();
+             it++)
         {
-            Symbol sym = *it;
+            Symbol sym = it->get_symbol();
 
             if (!sym.is_valid()
                     || !sym.is_variable()
@@ -1055,6 +1055,9 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        ObjectList<TL::Symbol> nonlocal_symbols
+            = nonlocal_symbols_occurrences.map<TL::Symbol>(
+                &Nodecl::NodeclBase::get_symbol);
         get_data_implicit_attributes_of_indirectly_accessible_symbols(construct, data_environment, nonlocal_symbols);
     }
 
@@ -1438,9 +1441,11 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        ObjectList<TL::Symbol> nonlocal_symbols =
-            Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol);
+        ObjectList<Nodecl::Symbol> nonlocal_symbols_occurrences
+            = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
+        ObjectList<TL::Symbol> nonlocal_symbols
+            = nonlocal_symbols_occurrences.map<TL::Symbol>(
+                &Nodecl::NodeclBase::get_symbol);
 
         if (!_ompss_mode)
         {
@@ -1529,9 +1534,19 @@ namespace TL { namespace OpenMP {
 
                 if (default_data_attr == DS_NONE)
                 {
-                    warn_printf_at(it->get_locus(),
-                            "symbol '%s' does not have data sharing and 'default(none)' was specified. Assuming firstprivate.\n",
-                            sym.get_qualified_name(sym.get_scope()).c_str());
+                    const locus_t *loc = sym.get_locus();
+                    ObjectList<Nodecl::Symbol> occurrence
+                        = nonlocal_symbols_occurrences.find<TL::Symbol>(
+                            &Nodecl::NodeclBase::get_symbol, sym);
+                    if (!occurrence.empty())
+                        loc = occurrence[0].get_locus();
+
+                    warn_printf_at(
+                        loc,
+                        "symbol '%s' does not have data sharing and "
+                        "'default(none)' was specified. Assuming "
+                        "firstprivate.\n",
+                        sym.get_qualified_name(sym.get_scope()).c_str());
 
                     implicit_data_attr = DS_FIRSTPRIVATE;
                     reason =
@@ -1623,9 +1638,16 @@ namespace TL { namespace OpenMP {
                     && !sym.get_type().no_ref().array_requires_descriptor()
                     && sym.get_type().no_ref().array_get_size().is_null())
             {
-                warn_printf_at(it->get_locus(),
-                        "assumed-size array '%s' cannot be privatized. Assuming shared\n",
-                        sym.get_name().c_str());
+                const locus_t *loc = sym.get_locus();
+                ObjectList<Nodecl::Symbol> occurrence
+                    = nonlocal_symbols_occurrences.find<TL::Symbol>(
+                        &Nodecl::NodeclBase::get_symbol, sym);
+                if (!occurrence.empty())
+                    loc = occurrence[0].get_locus();
+                warn_printf_at(loc,
+                               "assumed-size array '%s' cannot be privatized. "
+                               "Assuming shared\n",
+                               sym.get_name().c_str());
                 data_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                         "this is an assumed size array that was attempted to be privatized");
             }
