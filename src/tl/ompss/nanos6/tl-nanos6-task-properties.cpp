@@ -274,6 +274,11 @@ namespace TL { namespace Nanos6 {
             not_supported_seq("(private) value input dependences",
                               n.get_in_deps().as<Nodecl::List>());
         }
+
+        virtual void visit(const Nodecl::OmpSs::Cost &n)
+        {
+            _task_properties.cost = n.get_cost();
+        }
     };
 
     TaskProperties TaskProperties::gather_task_properties(
@@ -815,6 +820,7 @@ namespace TL { namespace Nanos6 {
         create_outline_function();
         create_dependences_function();
         create_copies_function();
+        create_cost_function();
 
         TL::Symbol task_info_struct =
             TL::Scope::get_global_scope().get_symbol_from_name("nanos_task_info");
@@ -958,32 +964,52 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase init_declaration_source =
             const_value_to_nodecl(const_value_make_string_null_ended(c, strlen(c)));
 
-        Nodecl::NodeclBase struct_init =
-            Nodecl::StructuredValue::make(
-                    Nodecl::List::make(
-                        Nodecl::FieldDesignator::make(
-                            field_run,
-                            init_run,
-                            field_run.get_type()),
-                        Nodecl::FieldDesignator::make(
-                            field_register_depinfo,
-                            init_register_depinfo,
-                            field_register_depinfo.get_type()),
-                        Nodecl::FieldDesignator::make(
-                            field_register_copies,
-                            init_register_copies,
-                            field_register_copies.get_type()),
-                        Nodecl::FieldDesignator::make(
-                            field_task_label,
-                            init_task_label,
-                            field_task_label.get_type()),
-                        Nodecl::FieldDesignator::make(
-                            field_declaration_source,
-                            init_declaration_source,
-                            field_declaration_source.get_type())
-                            ),
-                        Nodecl::StructuredValueBracedImplicit::make(),
-                        task_info.get_type());
+
+        Nodecl::NodeclBase field_get_cost = get_field("get_cost");
+        Nodecl::NodeclBase init_get_cost;
+        if (cost_function.is_valid())
+        {
+            TL::Type cost_fun_type
+                = TL::Type::get_size_t_type()
+                      .get_function_returning(TL::ObjectList<TL::Type>(
+                          1, TL::Type::get_void_type().get_pointer_to()))
+                      .get_pointer_to();
+
+            init_get_cost = cost_function.make_nodecl(/* set_ref_type */ true);
+            init_get_cost
+                = Nodecl::Conversion::make(init_get_cost, cost_fun_type);
+            init_get_cost.set_text("C");
+        }
+        else
+        {
+            init_get_cost
+                = const_value_to_nodecl(const_value_get_signed_int(0));
+        }
+
+        TL::ObjectList<Nodecl::NodeclBase> field_init;
+        field_init.append(Nodecl::FieldDesignator::make(
+            field_run, init_run, field_run.get_type()));
+        field_init.append(
+            Nodecl::FieldDesignator::make(field_register_depinfo,
+                                          init_register_depinfo,
+                                          field_register_depinfo.get_type()));
+        field_init.append(
+            Nodecl::FieldDesignator::make(field_register_copies,
+                                          init_register_copies,
+                                          field_register_copies.get_type()));
+        field_init.append(Nodecl::FieldDesignator::make(
+            field_task_label, init_task_label, field_task_label.get_type()));
+        field_init.append(
+            Nodecl::FieldDesignator::make(field_declaration_source,
+                                          init_declaration_source,
+                                          field_declaration_source.get_type()));
+        field_init.append(Nodecl::FieldDesignator::make(
+            field_get_cost, init_get_cost, field_get_cost.get_type()));
+
+        Nodecl::NodeclBase struct_init = Nodecl::StructuredValue::make(
+            Nodecl::List::make(field_init),
+            Nodecl::StructuredValueBracedImplicit::make(),
+            task_info.get_type());
 
         task_info.set_value(struct_init);
 
@@ -3156,6 +3182,61 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::Utils::prepend_to_enclosing_top_level_location(task_body, outline_function_code);
 #endif
+    }
+
+    void TaskProperties::create_cost_function()
+    {
+        if (cost.is_null())
+            return;
+
+        TL::ObjectList<std::string> parameter_names(1);
+        parameter_names[0] = "arg";
+        TL::ObjectList<TL::Type> parameter_types(1);
+        parameter_types[0] = info_structure.get_lvalue_reference_to();
+
+        std::string cost_name;
+        {
+            TL::Counter &counter
+                = TL::CounterManager::get_counter("nanos6-outline");
+            std::stringstream ss;
+            ss << "nanos6_cost_" << (int)counter;
+            counter++;
+            cost_name = ss.str();
+        }
+
+        cost_function
+            = SymbolUtils::new_function_symbol(related_function,
+                                               cost_name,
+                                               TL::Type::get_size_t_type(),
+                                               parameter_names,
+                                               parameter_types);
+
+        Nodecl::NodeclBase cost_function_code, cost_empty_stmt;
+        SymbolUtils::build_empty_body_for_function(
+            cost_function, cost_function_code, cost_empty_stmt);
+
+        TL::Scope scope_inside_cost = cost_empty_stmt.retrieve_context();
+        TL::Symbol arg = scope_inside_cost.get_symbol_from_name("arg");
+        ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
+
+        Nodecl::NodeclBase computed_cost
+            = rewrite_expression_using_args(arg, cost);
+
+        if (!computed_cost.get_type().is_same_type(TL::Type::get_size_t_type()))
+        {
+            computed_cost
+                = Nodecl::Conversion::make(computed_cost,
+                                           TL::Type::get_size_t_type(),
+                                           computed_cost.get_locus());
+        }
+
+        Nodecl::NodeclBase return_stmt = Nodecl::ReturnStatement::make(
+            computed_cost, computed_cost.get_locus());
+
+        cost_empty_stmt.replace(return_stmt);
+
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(
+            task_body, cost_function_code);
     }
 
     void TaskProperties::capture_environment(

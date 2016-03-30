@@ -613,6 +613,13 @@ namespace TL { namespace OmpSs {
                     );
         }
 
+        if (!function_task_info.get_cost_clause_expression().is_null())
+        {
+            result_list.append(
+                    Nodecl::OmpSs::Cost::make(function_task_info.get_cost_clause_expression().shallow_copy())
+                    );
+        }
+
         if (!function_task_info.get_task_label().is_null())
         {
             result_list.append(

@@ -278,6 +278,7 @@ namespace TL { namespace OmpSs {
             bool _untied;
 
             Nodecl::NodeclBase _priority_clause_expr;
+            Nodecl::NodeclBase _cost_clause_expr;
 
             Nodecl::NodeclBase _task_label;
 
@@ -321,6 +322,9 @@ namespace TL { namespace OmpSs {
 
             void set_priority_clause_expression(Nodecl::NodeclBase expr);
             Nodecl::NodeclBase get_priority_clause_expression() const;
+
+            void set_cost_clause_expression(Nodecl::NodeclBase expr);
+            Nodecl::NodeclBase get_cost_clause_expression() const;
 
             void set_task_label(Nodecl::NodeclBase expr);
             Nodecl::NodeclBase get_task_label() const;

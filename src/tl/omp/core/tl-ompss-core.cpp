@@ -706,6 +706,20 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        PragmaCustomClause cost_clause = pragma_line.get_clause("cost");
+        if (cost_clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> expr_list = cost_clause.get_arguments_as_expressions(parsing_scope);
+            if (expr_list.size() != 1)
+            {
+                error_printf_at(construct.get_locus(), "clause 'cost' requires just one argument\n");
+            }
+            else
+            {
+                task_info.set_cost_clause_expression(update_clauses(expr_list, function_sym)[0]);
+            }
+        }
+
         PragmaCustomClause tied_clause = pragma_line.get_clause("tied");
         PragmaCustomClause untied_clause = pragma_line.get_clause("untied");
 

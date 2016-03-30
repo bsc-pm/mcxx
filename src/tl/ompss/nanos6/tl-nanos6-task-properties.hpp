@@ -59,6 +59,8 @@ namespace TL { namespace Nanos6 {
 
             void create_copies_function();
 
+            void create_cost_function();
+
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
                                           TL::Scope class_scope,
                                           const std::string &var_name,
@@ -81,6 +83,8 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol copies_function;
             TL::Symbol copies_function_mangled;
+
+            TL::Symbol cost_function;
 
             Nodecl::NodeclBase rewrite_expression_using_args(TL::Symbol args, Nodecl::NodeclBase expr);
             TL::Type rewrite_type_using_args(TL::Symbol arg, TL::Type t);
@@ -187,6 +191,7 @@ namespace TL { namespace Nanos6 {
             // of runtime sized types
             TL::ObjectList<TL::Symbol> captured_value;
             Nodecl::NodeclBase final_;
+            Nodecl::NodeclBase cost;
             bool is_tied;
             std::string task_label;
 
