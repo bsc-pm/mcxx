@@ -490,6 +490,9 @@ namespace TL { namespace OmpSs {
         _priority_clause_expr = Nodecl::Utils::deep_copy(
                 task_info._priority_clause_expr, task_info._sym.get_scope(), translation_map);
 
+        _cost_clause_expr = Nodecl::Utils::deep_copy(
+                task_info._cost_clause_expr, task_info._sym.get_scope(), translation_map);
+
         _task_label = Nodecl::Utils::deep_copy(
                 task_info._task_label, task_info._sym.get_scope(), translation_map);
 
@@ -560,6 +563,17 @@ namespace TL { namespace OmpSs {
                     /* pack index */ -1);
 
             new_function_task_info._priority_clause_expr = updated_priority_clause;
+        }
+
+        if (!_cost_clause_expr.is_null())
+        {
+            Nodecl::NodeclBase updated_cost_clause = instantiate_expression(
+                    _cost_clause_expr.get_internal_nodecl(),
+                    instantiation_context,
+                    instantiation_symbol_map,
+                    /* pack index */ -1);
+
+            new_function_task_info._cost_clause_expr = updated_cost_clause;
         }
 
         // Fourth, instantiate the target info
@@ -670,6 +684,11 @@ namespace TL { namespace OmpSs {
         _priority_clause_expr = expr;
     }
 
+    void FunctionTaskInfo::set_cost_clause_expression(Nodecl::NodeclBase expr)
+    {
+        _cost_clause_expr = expr;
+    }
+
     void FunctionTaskInfo::set_final_clause_conditional_expression(Nodecl::NodeclBase expr)
     {
         _final_clause_cond_expr = expr;
@@ -683,6 +702,11 @@ namespace TL { namespace OmpSs {
     Nodecl::NodeclBase FunctionTaskInfo::get_priority_clause_expression() const
     {
         return _priority_clause_expr;
+    }
+
+    Nodecl::NodeclBase FunctionTaskInfo::get_cost_clause_expression() const
+    {
+        return _cost_clause_expr;
     }
 
     void FunctionTaskInfo::set_task_label(Nodecl::NodeclBase task_label)
@@ -739,6 +763,7 @@ namespace TL { namespace OmpSs {
         mw.write(_final_clause_cond_expr);
         mw.write(_untied);
         mw.write(_priority_clause_expr);
+        mw.write(_cost_clause_expr);
         mw.write(_task_label);
         mw.write(_parsing_scope);
         mw.write(_locus);
@@ -754,6 +779,7 @@ namespace TL { namespace OmpSs {
         mr.read(_final_clause_cond_expr);
         mr.read(_untied);
         mr.read(_priority_clause_expr);
+        mr.read(_cost_clause_expr);
         mr.read(_task_label);
         mr.read(_parsing_scope);
         mr.read(_locus);
