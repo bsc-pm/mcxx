@@ -41,8 +41,8 @@
 
 MCXX_BEGIN_DECLS
 
-#define DEBUG_CODE() if (CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-#define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+#define DEBUG_CODE() if (debug_options.enable_debug_code)
+#define NOT_DEBUG_CODE() if (!debug_options.enable_debug_code)
 
 #define IS_CXX_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_CXX)
 #define CXX_LANGUAGE() if (IS_CXX_LANGUAGE)

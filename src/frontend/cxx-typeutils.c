@@ -10824,7 +10824,7 @@ static const char* get_simple_type_name_string_internal(const decl_context_t* de
     }
     else if (is_sequence_of_types(type_info))
     {
-        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+        if (debug_options.show_template_packs)
         {
             result = strappend(result, " /* { */ ");
         }
@@ -10844,7 +10844,7 @@ static const char* get_simple_type_name_string_internal(const decl_context_t* de
                         print_symbol_fun, print_symbol_data));
         }
 
-        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+        if (debug_options.show_template_packs)
         {
             result = strappend(result, " /* } */ ");
         }
@@ -12106,8 +12106,8 @@ extern inline const char* print_declarator(type_t* printed_declarator)
         return tmp_result;
     }
 
-    char debug = CURRENT_CONFIGURATION->debug_options.enable_debug_code;
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
+    char debug = debug_options.enable_debug_code;
+    debug_options.enable_debug_code = 0;
 
     do 
     {
@@ -12368,7 +12368,7 @@ extern inline const char* print_declarator(type_t* printed_declarator)
         }
     } while (printed_declarator != NULL);
 
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = debug;
+    debug_options.enable_debug_code = debug;
 
     return tmp_result;
 }

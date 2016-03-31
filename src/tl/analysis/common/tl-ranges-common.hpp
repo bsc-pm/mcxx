@@ -32,7 +32,7 @@
 #include "tl-induction-variables-data.hpp"
 #include "tl-nodecl-visitor.hpp"
 
-#define RANGES_DEBUG CURRENT_CONFIGURATION->debug_options.ranges_verbose
+#define RANGES_DEBUG debug_options.ranges_verbose
 
 namespace TL {
 namespace Analysis {

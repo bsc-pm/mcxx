@@ -774,7 +774,7 @@ void run_gdb(void)
         }
     }
     // Disable gdb from now
-    CURRENT_CONFIGURATION->debug_options.do_not_run_gdb = 0;
+    debug_options.do_not_run_gdb = 0;
 }
 #endif
 

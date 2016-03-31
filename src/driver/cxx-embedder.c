@@ -120,13 +120,15 @@ static void cleanup_routine(void)
 static char *_alternate_signal_stack;
 #endif
 
+debug_options_t debug_options;
+
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig)
 {
     fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
 
     if (CURRENT_CONFIGURATION != NULL
-            && !CURRENT_CONFIGURATION->debug_options.do_not_run_gdb
+            && !debug_options.do_not_run_gdb
             // Do not call the debugger for Ctrl-C
             && sig != SIGINT)
         run_gdb();

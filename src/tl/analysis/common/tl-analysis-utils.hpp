@@ -34,12 +34,12 @@
 #include <set>
 #include <map>
 
-#define VERBOSE (CURRENT_CONFIGURATION->debug_options.analysis_verbose || \
-                 CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+#define VERBOSE (debug_options.analysis_verbose || \
+                 debug_options.enable_debug_code)
 
-#define ANALYSIS_PERFORMANCE_MEASURE CURRENT_CONFIGURATION->debug_options.analysis_perf
+#define ANALYSIS_PERFORMANCE_MEASURE debug_options.analysis_perf
 
-#define ANALYSIS_INFO CURRENT_CONFIGURATION->debug_options.analysis_info
+#define ANALYSIS_INFO debug_options.analysis_info
 
 namespace TL {
 namespace Analysis {

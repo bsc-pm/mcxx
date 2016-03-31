@@ -617,6 +617,8 @@ static char do_not_unload_phases = 0;
 static char do_not_warn_bad_config_filenames = 0;
 static char show_help_message = 0;
 
+debug_options_t debug_options;
+
 static compilation_configuration_t* get_sublanguage_configuration(
         source_language_t source_language,
         compilation_configuration_t* fallback_config);
@@ -694,12 +696,12 @@ int main(int argc, char* argv[])
                 timing_elapsed(&timing_global));
     }
 
-    if (CURRENT_CONFIGURATION->debug_options.print_memory_report)
+    if (debug_options.print_memory_report)
     {
         print_memory_report();
     }
 
-    if (CURRENT_CONFIGURATION->debug_options.stats_string_table)
+    if (debug_options.stats_string_table)
     {
         stats_string_table();
     }
@@ -2408,7 +2410,7 @@ static void enable_debug_flag(const char* flags)
         if (flag_option != NULL)
         {
             // *(flag_option->flag_pointer) = 1;
-            *((char*)(&CURRENT_CONFIGURATION->debug_options) + flag_option->flag_offset) = 1;
+            *((char*)(&debug_options) + flag_option->flag_offset) = 1;
         }
         else
         {
@@ -3156,10 +3158,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                     && !file_not_processed)
             {
                 // * Do this before open for scan since we might to internally parse some sources
-                mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
-                mcxxdebug = mc99debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
-                mf03_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
-                mf03debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
+                mcxx_flex_debug = mc99_flex_debug = debug_options.debug_lexer;
+                mcxxdebug = mc99debug = debug_options.debug_parser;
+                mf03_flex_debug = debug_options.debug_lexer;
+                mf03debug = debug_options.debug_parser;
 
                 // Load codegen if not yet loaded
                 ensure_codegen_is_loaded();
@@ -3199,7 +3201,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 parse_translation_unit(translation_unit, parsed_filename);
                 // The scanner automatically closes the file
 
-                if (CURRENT_CONFIGURATION->debug_options.print_parse_tree)
+                if (debug_options.print_parse_tree)
                 {
                     fprintf(stderr, "Printing parse tree in graphviz format\n");
 
@@ -3240,20 +3242,20 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
                 // * print ast if requested
-                if (CURRENT_CONFIGURATION->debug_options.print_nodecl_graphviz)
+                if (debug_options.print_nodecl_graphviz)
                 {
                     fprintf(stderr, "Printing nodecl tree in graphviz format\n");
 
                     ast_dump_graphviz(nodecl_get_ast(translation_unit->nodecl), stdout);
                 }
-                else if (CURRENT_CONFIGURATION->debug_options.print_nodecl_html)
+                else if (debug_options.print_nodecl_html)
                 {
                     fprintf(stderr, "Printing nodecl tree in HTML format\n");
                     ast_dump_html(nodecl_get_ast(translation_unit->nodecl), stdout);
                 }
 
                 // * print symbol table if requested
-                if (CURRENT_CONFIGURATION->debug_options.print_scope)
+                if (debug_options.print_scope)
                 {
                     fprintf(stderr, "============ SYMBOL TABLE ===============\n");
                     print_scope(translation_unit->global_decl_context);
@@ -3264,7 +3266,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             // * Codegen
             const char* prettyprinted_filename = NULL;
             if (!file_not_processed
-                    && !CURRENT_CONFIGURATION->debug_options.do_not_codegen)
+                    && !debug_options.do_not_codegen)
             {
                 prettyprinted_filename
                     = codegen_translation_unit(translation_unit, parsed_filename);
@@ -4159,7 +4161,7 @@ static void native_compilation(translation_unit_t* translation_unit,
         char remove_input)
 {
     if (CURRENT_CONFIGURATION->do_not_compile
-            || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
+            || debug_options.do_not_codegen)
         return;
 
     if (remove_input)
@@ -4340,7 +4342,7 @@ static void native_compilation(translation_unit_t* translation_unit,
     }
 
     // Binary check enabled using --debug-flags=binary_check
-    if (CURRENT_CONFIGURATION->debug_options.binary_check)
+    if (debug_options.binary_check)
     {
         fprintf(stderr, "Performing binary check of generated file '%s'\n",
                 output_object_filename);
@@ -4996,7 +4998,7 @@ static void extend_file_list_with_static_libraries(
 static void link_objects(void)
 {
     if (CURRENT_CONFIGURATION->do_not_link
-            || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
+            || debug_options.do_not_codegen)
         return;
 
     const char ** file_list = NULL;
@@ -5044,7 +5046,6 @@ static void link_objects(void)
     DELETE(file_list);
 }
 
-
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig)
 {
@@ -5054,7 +5055,7 @@ static void terminating_signal_handler(int sig)
     SET_CURRENT_CONFIGURATION(compilation_process.command_line_configuration);
 
     if (CURRENT_CONFIGURATION != NULL
-            && !CURRENT_CONFIGURATION->debug_options.do_not_run_gdb
+            && !debug_options.do_not_run_gdb
             // Do not call the debugger for Ctrl-C
             && sig != SIGINT)
         run_gdb();
@@ -5189,7 +5190,7 @@ static char* power_suffixes[9] =
 
 static void print_human(char *dest, unsigned long long num_bytes_)
 {
-    if (CURRENT_CONFIGURATION->debug_options.print_memory_report_in_bytes)
+    if (debug_options.print_memory_report_in_bytes)
     {
         sprintf(dest, "%llu", num_bytes_);
     }

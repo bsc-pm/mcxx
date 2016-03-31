@@ -290,8 +290,8 @@ namespace {
             int nest = outer_edges.size();
             while(source_outer != target_outer && source_outer != NULL)
             {
-                if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context || 
-                    CURRENT_CONFIGURATION->debug_options.print_pcfg_full ||
+                if (debug_options.print_pcfg_w_context || 
+                    debug_options.print_pcfg_full ||
                     !source_outer->is_context_node())
                     nest--;
                 source_outer = source_outer->get_outer_node();
@@ -312,8 +312,8 @@ namespace {
             current->set_visited_extgraph(true);
             
             // Generate the node
-            if (!CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context && 
-                !CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+            if (!debug_options.print_pcfg_w_context && 
+                !debug_options.print_pcfg_full)
             {
                 if(current->is_context_node())
                 {
@@ -375,8 +375,8 @@ connect_node:
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
                     Node* real_target = *it;
-                    if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context || 
-                        CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+                    if (debug_options.print_pcfg_w_context || 
+                        debug_options.print_pcfg_full)
                     {
                         if(real_target->is_graph_node())
                             real_target = real_target->get_graph_entry_node();
@@ -656,8 +656,8 @@ connect_node:
         std::string pragma_info_str = "";
         // The analysis info parameters are passed when calling print_graph_to_dot,
         // where lies the knowledge about which analyses have been computed
-        if ((CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis
-                    || CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+        if ((debug_options.print_pcfg_w_analysis
+                    || debug_options.print_pcfg_full)
                 && (current->is_graph_node() && current->is_omp_node()))
         {
             PCFGPragmaInfo pragma_info = current->get_pragma_node_info();
