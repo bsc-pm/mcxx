@@ -188,10 +188,10 @@ namespace Analysis {
                 std::cerr << "=========  Testing Cyclomatic Complexity analysis done  =========" << std::endl;
         }
         
-        if (CURRENT_CONFIGURATION->debug_options.print_pcfg ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+        if (debug_options.print_pcfg ||
+            debug_options.print_pcfg_w_context ||
+            debug_options.print_pcfg_w_analysis ||
+            debug_options.print_pcfg_full)
         {
             if (VERBOSE)
                 std::cerr << "=================  Printing PCFG to dot file  ==================" << std::endl;
@@ -202,7 +202,7 @@ namespace Analysis {
                 std::cerr << "===============  Printing PCFG to dot file done  ===============" << std::endl;
         }
         
-        if (CURRENT_CONFIGURATION->debug_options.print_tdg)
+        if (debug_options.print_tdg)
         {
             if (VERBOSE)
                 std::cerr << "==================  Printing TDG to dot file  =================" << std::endl;
@@ -212,7 +212,7 @@ namespace Analysis {
                 std::cerr << "===============  Printing TDG to dot file done  ===============" << std::endl;
         }
         
-        if (CURRENT_CONFIGURATION->debug_options.tdg_to_json)
+        if (debug_options.tdg_to_json)
         {
             if (VERBOSE)
                 std::cerr << "==================  Printing TDG to json file  ================" << std::endl;

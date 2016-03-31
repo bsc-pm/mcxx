@@ -489,8 +489,8 @@ namespace Analysis {
     void AnalysisBase::print_pcfg(std::string pcfg_name)
     {
         ExtensibleGraph* pcfg = get_pcfg(pcfg_name);
-        if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+        if (debug_options.print_pcfg_w_analysis ||
+            debug_options.print_pcfg_full)
         {   // Print analysis information
             if (VERBOSE)
                 std::cerr << "Printing PCFG '" << pcfg_name << "' to DOT" << std::endl;
@@ -498,8 +498,8 @@ namespace Analysis {
                                      _induction_variables, _range,
                                      _auto_scoping, _auto_deps);
         }
-        else if (CURRENT_CONFIGURATION->debug_options.print_pcfg ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+        else if (debug_options.print_pcfg ||
+            debug_options.print_pcfg_w_context)
         {   // Do not print analysis information
             if (VERBOSE)
                 std::cerr << "Printing PCFG '" << pcfg_name << "' to DOT" << std::endl;
@@ -510,8 +510,8 @@ namespace Analysis {
     void AnalysisBase::print_all_pcfg()
     {
         const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-        if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+        if (debug_options.print_pcfg_w_analysis ||
+            debug_options.print_pcfg_full)
         {   // Print analysis information
             for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
@@ -522,8 +522,8 @@ namespace Analysis {
                                           _auto_scoping, _auto_deps);
             }
         }
-        else if (CURRENT_CONFIGURATION->debug_options.print_pcfg ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+        else if (debug_options.print_pcfg ||
+            debug_options.print_pcfg_w_context)
         {   // Do not print analysis information
             for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {

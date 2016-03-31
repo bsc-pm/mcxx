@@ -172,7 +172,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     DELETE(long_message);
 
 #if defined(HAVE_BACKTRACE) && defined(HAVE_BACKTRACE_SYMBOLS_FD)
-    if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
+    if (debug_options.backtrace_on_ice)
     {
         int nptrs = backtrace(backtrace_buffer, BACKTRACE_SIZE);
 
@@ -199,7 +199,7 @@ void fatal_vprintf(const char* message, va_list ap)
     vfprintf(stderr, sanitized_message, ap);
     fprintf(stderr, "\n");
 
-    if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
+    if (debug_options.backtrace_on_ice)
     {
         int nptrs = backtrace(backtrace_buffer, BACKTRACE_SIZE);
 
@@ -208,7 +208,7 @@ void fatal_vprintf(const char* message, va_list ap)
         backtrace_symbols_fd(backtrace_buffer, nptrs, fileno(stderr));
     }
 
-    if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
+    if (debug_options.abort_on_ice)
         raise(SIGABRT);
 
     DELETE(sanitized_message);
@@ -228,10 +228,10 @@ void fatal_error(const char* message, ...)
 // Useful for debugging sessions
 extern void _enable_debug(void)
 {
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
+    debug_options.enable_debug_code = 1;
 }
 
 extern void _disable_debug(void)
 {
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
+    debug_options.enable_debug_code = 0;
 }

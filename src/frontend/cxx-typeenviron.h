@@ -40,7 +40,7 @@
 
 MCXX_BEGIN_DECLS
 
-#define DEBUG_SIZEOF_CODE() if (CURRENT_CONFIGURATION->debug_options.debug_sizeof)
+#define DEBUG_SIZEOF_CODE() if (debug_options.debug_sizeof)
 
 // Environments are to be defined in cxx-typeenviron.c
 // and declared here

@@ -5415,7 +5415,7 @@ static const char* template_arguments_to_str_ex(
 
                     if (nodecl_is_list(current_argument->value))
                     {
-                        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+                        if (debug_options.show_template_packs)
                         {
                             strbuilder_append(argument, " /* { */ ");
                         }
@@ -5431,7 +5431,7 @@ static const char* template_arguments_to_str_ex(
                             strbuilder_append(argument, codegen_to_str(list[j], decl_context));
                         }
 
-                        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+                        if (debug_options.show_template_packs)
                         {
                             strbuilder_append(argument, " /* } */ ");
                         }
@@ -5459,7 +5459,7 @@ static const char* template_arguments_to_str_ex(
                     }
                     if (is_sequence_of_types(template_type))
                     {
-                        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+                        if (debug_options.show_template_packs)
                         {
                             strbuilder_append(argument, " /* { */ ");
                         }
@@ -5478,7 +5478,7 @@ static const char* template_arguments_to_str_ex(
                                     );
                         }
 
-                        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+                        if (debug_options.show_template_packs)
                         {
                             strbuilder_append(argument, " /* } */ ");
                         }

@@ -32,7 +32,7 @@
 
 #include "tl-symbol.hpp"
 
-#define VECTORIZATION_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorization_verbose)
+#define VECTORIZATION_DEBUG() if (debug_options.vectorization_verbose)
 
 namespace TL
 {

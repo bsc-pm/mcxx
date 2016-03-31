@@ -184,6 +184,8 @@ typedef struct debug_options_tag
     char stats_string_table;
 } debug_options_t;
 
+extern debug_options_t debug_options;
+
 typedef struct external_var_tag {
     const char* name;
     const char* value;
@@ -385,8 +387,6 @@ typedef struct compilation_configuration_tag
 
     // -Werror
     char warnings_as_errors;
-
-    debug_options_t debug_options;
 
     // Source language information
     source_language_t source_language;

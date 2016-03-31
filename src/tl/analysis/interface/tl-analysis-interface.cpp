@@ -96,10 +96,10 @@ namespace Analysis {
             analysis.parallel_control_flow_graph(n);
         }
 
-        if (CURRENT_CONFIGURATION->debug_options.print_pcfg ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+        if (debug_options.print_pcfg ||
+            debug_options.print_pcfg_w_context ||
+            debug_options.print_pcfg_w_analysis ||
+            debug_options.print_pcfg_full)
             analysis.print_all_pcfg();
 
         // Fill nodecl to pcfg map
