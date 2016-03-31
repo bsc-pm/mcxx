@@ -783,6 +783,57 @@ namespace TL { namespace OpenMP {
         }
 
 
+        PragmaCustomClause cost = pragma_line.get_clause("cost");
+        {
+            Nodecl::NodeclBase cost_expression;
+            if (cost.is_defined())
+            {
+                TL::ObjectList<Nodecl::NodeclBase> expr_list = cost.get_arguments_as_expressions(directive);
+
+                if (expr_list.empty())
+                {
+                    warn_printf_at(directive.get_locus(),
+                                   "empty 'cost' clause. Ignoring\n");
+                }
+                else
+                {
+                    cost_expression = expr_list[0];
+                    if (expr_list.size() > 1)
+                    {
+                        warn_printf_at(
+                            expr_list[1].get_locus(),
+                            "too many expressions for 'cost' clause\n");
+                    }
+                }
+            }
+
+            if (!cost_expression.is_null())
+            {
+                execution_environment.append(
+                        Nodecl::OmpSs::Cost::make(
+                            cost_expression,
+                            directive.get_locus()));
+
+                if (emit_omp_report())
+                {
+                    *_omp_report_file
+                        << OpenMP::Report::indent
+                        << "This task has cost '" << cost_expression.prettyprint() << "'\n";
+                    ;
+                }
+            }
+            else
+            {
+                if (emit_omp_report())
+                {
+                    *_omp_report_file
+                        << OpenMP::Report::indent
+                        << "No cost was defined for this task\n";
+                    ;
+                }
+            }
+        }
+
         // Attach the implicit flushes at the entry and exit of the task (for analysis purposes)
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
