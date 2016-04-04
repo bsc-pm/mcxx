@@ -22,7 +22,7 @@ fi
 
 # ----------------------------------------------
 
-if [ "@NANOS6_ENABLED@" = "yes" -a "$nanos6_test_disabled" != "yes" ];
+if [ "@NANOS6_ENABLED@" = "yes" ];
 then
     if [ "$nanos6_test_disabled" != "yes" ];
     then
