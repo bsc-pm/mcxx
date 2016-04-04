@@ -1878,7 +1878,8 @@ namespace TL { namespace Nanos6 {
                     {
                         TL::Type param_type = rewrite_type_using_args(
                                 arg,
-                                it->get_type().no_ref()
+                                it->get_type().no_ref(),
+                                TL::ObjectList<TL::Symbol>()
                                 );
 
                         Nodecl::NodeclBase cast;
@@ -1926,7 +1927,7 @@ namespace TL { namespace Nanos6 {
                     {
                         TL::Type type_in_outline = it->get_type().no_ref();
                         type_in_outline = type_in_outline.array_element().get_pointer_to();
-                        type_in_outline = rewrite_type_using_args(arg, type_in_outline);
+                        type_in_outline = rewrite_type_using_args(arg, type_in_outline, TL::ObjectList<TL::Symbol>());
 
                         TL::Type pointer_type = type_in_outline;
 
@@ -1949,7 +1950,7 @@ namespace TL { namespace Nanos6 {
                     {
                         TL::Type type_in_outline = it->get_type().no_ref();
                         type_in_outline = type_in_outline.get_lvalue_reference_to();
-                        type_in_outline = rewrite_type_using_args(arg, type_in_outline);
+                        type_in_outline = rewrite_type_using_args(arg, type_in_outline, TL::ObjectList<TL::Symbol>());
 
                         TL::Type pointer_type = type_in_outline.no_ref().get_pointer_to();
                         TL::Type arg_type = type_in_outline;
@@ -2190,71 +2191,168 @@ namespace TL { namespace Nanos6 {
     }
 
     void TaskProperties::register_linear_dependence(
-            TL::DataReference& data_ref,
-            TL::Symbol handler,
-            TL::Symbol arg,
-            TL::Symbol register_fun,
-            Nodecl::List& register_statements)
+        TL::DataReference &data_ref,
+        TL::Symbol handler,
+        TL::Symbol arg,
+        TL::Symbol register_fun,
+        TL::Scope scope,
+        const TL::ObjectList<TL::Symbol> &local,
+        Nodecl::List &register_statements)
     {
-        Nodecl::NodeclBase conv;
-        Nodecl::NodeclBase base_addr = Nodecl::Add::make(
-            conv = Nodecl::Conversion::make(
-                data_ref.get_base_address().shallow_copy(),
-                TL::Type::get_char_type().get_pointer_to()),
-            data_ref.get_offsetof_dependence().shallow_copy(),
-            TL::Type::get_char_type().get_pointer_to());
-        conv.set_text("C");
-
-        base_addr = rewrite_expression_using_args(arg, base_addr);
-
-        TL::Type data_type = data_ref.get_data_type();
-
-        /// void nanos_register_XXX_dep(void *handler, void *start, size_t length);
-
-        Nodecl::List arg_list;
-        // handler
-        arg_list.append(
-                Nodecl::Conversion::make(
-                    handler.make_nodecl(/* set_ref_type */ true),
-                    handler.get_type()));
-        // start
-        arg_list.append(
-                Nodecl::Conversion::make(
-                    base_addr,
-                    TL::Type::get_void_type().get_pointer_to()));
-
-        // length
-        if (data_type.depends_on_nonconstant_values()
-            || data_type.is_incomplete())
+        if (!data_ref.is_multireference())
         {
-            arg_list.append(
-                    rewrite_expression_using_args(arg,
-                        data_ref.get_sizeof().shallow_copy()));
-        }
-        else if (data_type.is_dependent())
-        {
-            arg_list.append(data_ref.get_sizeof().shallow_copy());
-        }
-        else
-        {
-            arg_list.append(
-                    const_value_to_nodecl_with_basic_type(
-                        const_value_get_integer(
-                            data_type.get_size(),
-                            type_get_size(get_size_t_type()),
-                            /* sign */ 0),
-                        get_size_t_type()));
-        }
+            Nodecl::NodeclBase conv;
+            Nodecl::NodeclBase base_addr = Nodecl::Add::make(
+                conv = Nodecl::Conversion::make(
+                    data_ref.get_base_address().shallow_copy(),
+                    TL::Type::get_char_type().get_pointer_to()),
+                data_ref.get_offsetof_dependence().shallow_copy(),
+                TL::Type::get_char_type().get_pointer_to());
+            conv.set_text("C");
 
-        Nodecl::NodeclBase function_call = Nodecl::ExpressionStatement::make(
-                Nodecl::FunctionCall::make(
+            base_addr = rewrite_expression_using_args(arg, base_addr, local);
+
+            TL::Type data_type = data_ref.get_data_type();
+
+            /// void nanos_register_XXX_dep(void *handler, void *start, size_t
+            /// length);
+
+            Nodecl::List arg_list;
+            // handler
+            arg_list.append(Nodecl::Conversion::make(
+                handler.make_nodecl(/* set_ref_type */ true),
+                handler.get_type()));
+            // start
+            arg_list.append(Nodecl::Conversion::make(
+                base_addr, TL::Type::get_void_type().get_pointer_to()));
+
+            // length
+            if (data_type.depends_on_nonconstant_values()
+                || data_type.is_incomplete())
+            {
+                arg_list.append(rewrite_expression_using_args(
+                    arg, data_ref.get_sizeof().shallow_copy(), local));
+            }
+            else if (data_type.is_dependent())
+            {
+                arg_list.append(data_ref.get_sizeof().shallow_copy());
+            }
+            else
+            {
+                arg_list.append(const_value_to_nodecl_with_basic_type(
+                    const_value_get_integer(data_type.get_size(),
+                                            type_get_size(get_size_t_type()),
+                                            /* sign */ 0),
+                    get_size_t_type()));
+            }
+
+            Nodecl::NodeclBase function_call
+                = Nodecl::ExpressionStatement::make(Nodecl::FunctionCall::make(
                     register_fun.make_nodecl(/* set_ref_type */ true),
                     arg_list,
                     /* alternate-symbol */ Nodecl::NodeclBase::null(),
                     /* function-form */ Nodecl::NodeclBase::null(),
                     TL::Type::get_void_type()));
 
-        register_statements.append(function_call);
+            register_statements.append(function_call);
+        }
+        else
+        {
+            // Multireferences.
+            // Generate code that iterates through the contiguous dependences,
+            // and register them at runtime. Since we need the symbols to match
+            // (the ones used in the dependence are different from the ones in
+            // , we have to map the dependences ones with the one we're
+            // iterating on.  Finally, register linear dependence with all the
+            // single elements.
+
+            Nodecl::Utils::SimpleSymbolMap symbol_map;
+            TL::ObjectList<TL::Symbol> current_locals;
+            TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-multideps");
+            for (auto mr : data_ref.multireferences())
+            {
+                std::stringstream ss;
+                ss << mr.first.get_name() << "_tmp_" << (int)ctr;
+                ctr++;
+                std::string ind_var_name = ss.str();
+
+                TL::Symbol local_sym = scope.new_symbol(ind_var_name);
+                local_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                local_sym.get_internal_symbol()->type_information =
+                    ::get_signed_int_type();
+                symbol_entity_specs_set_is_user_declared(local_sym.get_internal_symbol(),
+                        1);
+
+                symbol_map.add_map(mr.first, local_sym);
+                current_locals.append(local_sym);
+
+                CXX_LANGUAGE()
+                {
+                    register_statements.append(
+                            Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                local_sym));
+                }
+            }
+
+            Source src;
+            for (auto mr : data_ref.multireferences())
+            {
+                ERROR_CONDITION(
+                    !mr.second.is<Nodecl::Range>(), "Invalid Node", 0);
+                Nodecl::Range range = mr.second.as<Nodecl::Range>();
+                // expression :
+                // NODECL_MULTI_EXPRESSION([range]multi-expr-range-expression,
+                // [base]expression) symbol type const-value-opt
+                Source lower, upper, stride;
+                lower << as_expression(rewrite_expression_using_args(arg,
+                            range.get_lower(), current_locals));
+                upper << as_expression(rewrite_expression_using_args(arg,
+                            range.get_upper(), current_locals));
+                stride << as_expression(rewrite_expression_using_args(arg,
+                            range.get_stride(), current_locals));
+
+                TL::Source ind_var;
+                ind_var << as_symbol(symbol_map.map(mr.first));
+                src << "for (" << ind_var << " = " << lower << "; "
+                    << ind_var << " <= " << upper << "; " << ind_var
+                    << " += " << stride << ") {";
+            }
+            Nodecl::NodeclBase body_of_loop;
+            src << statement_placeholder(body_of_loop);
+
+            for (auto mr : data_ref.multireferences())
+            {
+                src << "}";
+            }
+
+            Nodecl::NodeclBase loop = src.parse_statement(scope);
+
+
+            Nodecl::NodeclBase base_exp = data_ref;
+            while (base_exp.is<Nodecl::MultiExpression>())
+                base_exp = base_exp.as<Nodecl::MultiExpression>().get_base();
+
+            TL::Scope scope_of_body_of_loop = body_of_loop.retrieve_context();
+            base_exp = Nodecl::Utils::deep_copy(
+                base_exp, scope_of_body_of_loop, symbol_map);
+
+            TL::DataReference base_data_ref = base_exp;
+            Nodecl::List base_reg;
+            register_linear_dependence(base_data_ref,
+                                       handler,
+                                       arg,
+                                       register_fun,
+                                       scope,
+                                       current_locals,
+                                       base_reg);
+
+            body_of_loop.replace(base_reg);
+
+            ERROR_CONDITION(base_reg.size() != 1, "Invalid list", 0);
+            src << as_statement(base_reg[0]);
+
+            register_statements.append(loop);
+        }
     }
 
     void TaskProperties::register_fortran_linear_dependence(
@@ -2394,6 +2492,8 @@ namespace TL { namespace Nanos6 {
         TL::Symbol handler,
         TL::Symbol arg,
         TL::Symbol register_fun,
+        TL::Scope scope,
+        const TL::ObjectList<TL::Symbol> &local,
         Nodecl::List &register_statements)
     {
         if (!is_contiguous_region(data_ref))
@@ -2409,7 +2509,7 @@ namespace TL { namespace Nanos6 {
         // This is a contiguous region, so it can be easily mapped onto a lineal
         // one
         return register_linear_dependence(
-            data_ref, handler, arg, register_fun, register_statements);
+            data_ref, handler, arg, register_fun, scope, local, register_statements);
     }
 
     void TaskProperties::register_fortran_region_dependence(
@@ -2440,6 +2540,8 @@ namespace TL { namespace Nanos6 {
             TL::Symbol handler,
             TL::Symbol arg,
             TL::Symbol register_fun,
+            TL::Scope scope,
+            const TL::ObjectList<TL::Symbol> &local,
             Nodecl::List& register_statements)
     {
         TL::Type data_type = data_ref.get_data_type();
@@ -2448,12 +2550,14 @@ namespace TL { namespace Nanos6 {
         if (data_type.array_is_region())
         {
             register_region_dependence(
-                data_ref, handler, arg, register_fun, register_statements);
+                data_ref, handler, arg, register_fun, scope, local,
+                register_statements);
         }
         else
         {
             register_linear_dependence(
-                data_ref, handler, arg, register_fun, register_statements);
+                data_ref, handler, arg, register_fun, scope, local,
+                register_statements);
         }
     }
 
@@ -2572,6 +2676,8 @@ namespace TL { namespace Nanos6 {
                             handler,
                             arg,
                             register_fun,
+                            dependences_inside_scope,
+                            /* Local */ TL::ObjectList<TL::Symbol>(),
                             register_statements);
                 }
                 else
@@ -2581,6 +2687,8 @@ namespace TL { namespace Nanos6 {
                             handler,
                             arg,
                             register_fun,
+                            dependences_inside_scope,
+                            /* Local */ TL::ObjectList<TL::Symbol>(),
                             register_statements);
                 }
 
@@ -3007,7 +3115,9 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    Nodecl::NodeclBase TaskProperties::rewrite_expression_using_args(TL::Symbol arg, Nodecl::NodeclBase expr)
+    Nodecl::NodeclBase TaskProperties::rewrite_expression_using_args(
+            TL::Symbol arg, Nodecl::NodeclBase expr,
+            const TL::ObjectList<TL::Symbol>& local)
     {
         Nodecl::NodeclBase result = expr.shallow_copy();
 
@@ -3016,17 +3126,22 @@ namespace TL { namespace Nanos6 {
             TL::Symbol arg;
             field_map_t &field_map;
             const TL::ObjectList<TL::Symbol>& shared;
+            const TL::ObjectList<TL::Symbol> local;
 
             RewriteExpression(TL::Symbol arg_,
                     field_map_t& field_map_,
-                    const TL::ObjectList<TL::Symbol> &shared_)
-                : arg(arg_), field_map(field_map_), shared(shared_)
+                    const TL::ObjectList<TL::Symbol> &shared_,
+                    const TL::ObjectList<TL::Symbol> &local_)
+                : arg(arg_), field_map(field_map_), shared(shared_), local(local_)
             {
             }
 
             virtual void visit(const Nodecl::Symbol& node)
             {
                 TL::Symbol sym = node.get_symbol();
+                if (local.contains(sym))
+                    return;
+
                 ERROR_CONDITION(field_map.find(sym) == field_map.end(),
                         "Symbol '%s' not found in the field map!",
                         sym.get_name().c_str());
@@ -3068,7 +3183,7 @@ namespace TL { namespace Nanos6 {
             }
         };
 
-        RewriteExpression r(arg, field_map, shared);
+        RewriteExpression r(arg, field_map, shared, local);
         r.walk(result);
 
         struct RemoveRedundantRefDerref : public Nodecl::ExhaustiveVisitor<void>
@@ -3096,15 +3211,16 @@ namespace TL { namespace Nanos6 {
         return result;
     }
 
-    TL::Type TaskProperties::rewrite_type_using_args(TL::Symbol arg, TL::Type t)
+    TL::Type TaskProperties::rewrite_type_using_args(TL::Symbol arg, TL::Type t,
+            const TL::ObjectList<TL::Symbol> &local)
     {
         if (t.is_array())
         {
-            TL::Type elem_type = rewrite_type_using_args(arg, t.array_element());
+            TL::Type elem_type = rewrite_type_using_args(arg, t.array_element(), local);
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
                 Nodecl::NodeclBase new_size = t.array_get_size();
-                new_size = rewrite_expression_using_args(arg, new_size);
+                new_size = rewrite_expression_using_args(arg, new_size, local);
 
                 return elem_type.get_array_to(new_size, TL::Scope::get_global_scope());
             }
@@ -3115,11 +3231,11 @@ namespace TL { namespace Nanos6 {
 
                 if (is_saved_expression(new_lower))
                 {
-                    new_lower = rewrite_expression_using_args(arg, new_lower);
+                    new_lower = rewrite_expression_using_args(arg, new_lower, local);
                 }
                 if (is_saved_expression(new_upper))
                 {
-                    new_upper = rewrite_expression_using_args(arg, new_upper);
+                    new_upper = rewrite_expression_using_args(arg, new_upper, local);
                 }
 
                 return elem_type.get_array_to(new_lower, new_upper, TL::Scope::get_global_scope());
@@ -3132,15 +3248,15 @@ namespace TL { namespace Nanos6 {
         }
         else if (t.is_lvalue_reference())
         {
-            return rewrite_type_using_args(arg, t.no_ref()).get_lvalue_reference_to();
+            return rewrite_type_using_args(arg, t.no_ref(), local).get_lvalue_reference_to();
         }
         else if (t.is_rvalue_reference())
         {
-            return rewrite_type_using_args(arg, t.no_ref()).get_rvalue_reference_to();
+            return rewrite_type_using_args(arg, t.no_ref(), local).get_rvalue_reference_to();
         }
         else if (t.is_pointer())
         {
-            return rewrite_type_using_args(arg, t.points_to())
+            return rewrite_type_using_args(arg, t.points_to(), local)
                 .get_pointer_to()
                 .get_as_qualified_as(t);
         }
@@ -3220,7 +3336,8 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
 
         Nodecl::NodeclBase computed_cost
-            = rewrite_expression_using_args(arg, cost);
+            = rewrite_expression_using_args(arg, cost, /* locals */
+                    TL::ObjectList<TL::Symbol>());
 
         if (!computed_cost.get_type().is_same_type(TL::Type::get_size_t_type()))
         {
