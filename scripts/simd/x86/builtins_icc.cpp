@@ -3362,6 +3362,12 @@ VECTOR_INTRIN(_mm_getmant_ps) \
 VECTOR_INTRIN(_mm_getmant_round_sd) \
 VECTOR_INTRIN(_mm_getmant_round_ss) \
 VECTOR_INTRIN(_mm_hadd_pd) \
+VECTOR_INTRIN(_mm_hadd_pi16) \
+VECTOR_INTRIN(_mm_hadds_pi16) \
+VECTOR_INTRIN(_mm_hadd_pi32) \
+VECTOR_INTRIN(_mm_hadd_epi16) \
+VECTOR_INTRIN(_mm_hadd_epi32) \
+VECTOR_INTRIN(_mm_hadds_epi16) \
 VECTOR_INTRIN(_mm_hadd_ps) \
 VECTOR_INTRIN(_mm_hsub_pd) \
 VECTOR_INTRIN(_mm_hsub_ps) \
