@@ -8,6 +8,7 @@ test_generator="config/mercurium-omp c++11"
 #include <cstdlib>
 #include <cassert>
 
+#if !defined(__ICC) || (__ICC >= 1403)
 int main(int, char **)
 {
     std::vector<int> v(200);
@@ -36,3 +37,9 @@ int main(int, char **)
 
     return 0;
 }
+#else
+int main(int argc, char *argv[])
+{
+    return 0;
+}
+#endif
