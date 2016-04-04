@@ -86,14 +86,19 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol cost_function;
 
-            Nodecl::NodeclBase rewrite_expression_using_args(TL::Symbol args, Nodecl::NodeclBase expr);
-            TL::Type rewrite_type_using_args(TL::Symbol arg, TL::Type t);
+            Nodecl::NodeclBase rewrite_expression_using_args(
+                TL::Symbol args,
+                Nodecl::NodeclBase expr,
+                const TL::ObjectList<TL::Symbol> &local);
+            TL::Type rewrite_type_using_args(TL::Symbol arg, TL::Type t, const TL::ObjectList<TL::Symbol> &local);
 
             void register_linear_dependence(
                     TL::DataReference& data_ref,
                     TL::Symbol handler,
                     TL::Symbol arg,
                     TL::Symbol register_fun,
+                    TL::Scope scope,
+                    const TL::ObjectList<TL::Symbol> &local,
                     Nodecl::List& register_statements);
             void register_fortran_linear_dependence(
                 TL::DataReference &data_ref,
@@ -106,6 +111,8 @@ namespace TL { namespace Nanos6 {
                                             TL::Symbol handler,
                                             TL::Symbol arg,
                                             TL::Symbol register_fun,
+                                            TL::Scope scope,
+                                            const TL::ObjectList<TL::Symbol> &local,
                                             Nodecl::List &register_statements);
 
             void register_fortran_region_dependence(
@@ -120,7 +127,10 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol handler,
                     TL::Symbol arg,
                     TL::Symbol register_fun,
+                    TL::Scope scope,
+                    const TL::ObjectList<TL::Symbol> &local,
                     Nodecl::List& register_statements);
+
             void register_fortran_dependence_for_array(
                 TL::DataReference &data_ref,
                 TL::Symbol handler,
