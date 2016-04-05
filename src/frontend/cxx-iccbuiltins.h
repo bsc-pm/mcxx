@@ -38932,6 +38932,19 @@ get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE
 symbol_entity_specs_set_is_builtin(sym__mm_blend_epi32, 1);
 }
 {
+scope_entry_t* sym__mm_blendv_epi8 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_blendv_epi8"));
+sym__mm_blendv_epi8->kind = SK_FUNCTION;sym__mm_blendv_epi8->do_not_print = 1;
+sym__mm_blendv_epi8->locus = builtins_locus;
+sym__mm_blendv_epi8->type_information = ({type_t* return_type = get_user_defined_type(get_m128i_typedef());
+parameter_info_t p[3]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m128i_typedef());
+p[1].type_info = get_user_defined_type(get_m128i_typedef());
+p[2].type_info = get_user_defined_type(get_m128i_typedef());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
+})
+;
+symbol_entity_specs_set_is_builtin(sym__mm_blendv_epi8, 1);
+}
+{
 scope_entry_t* sym__mm_blendv_pd = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_blendv_pd"));
 sym__mm_blendv_pd->kind = SK_FUNCTION;sym__mm_blendv_pd->do_not_print = 1;
 sym__mm_blendv_pd->locus = builtins_locus;
@@ -42649,54 +42662,6 @@ get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE
 symbol_entity_specs_set_is_builtin(sym__mm_getmant_round_ss, 1);
 }
 {
-scope_entry_t* sym__mm_hadd_pd = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadd_pd"));
-sym__mm_hadd_pd->kind = SK_FUNCTION;sym__mm_hadd_pd->do_not_print = 1;
-sym__mm_hadd_pd->locus = builtins_locus;
-sym__mm_hadd_pd->type_information = ({type_t* return_type = get_user_defined_type(get_m128d_typedef());
-parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m128d_typedef());
-p[1].type_info = get_user_defined_type(get_m128d_typedef());
-get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
-})
-;
-symbol_entity_specs_set_is_builtin(sym__mm_hadd_pd, 1);
-}
-{
-scope_entry_t* sym__mm_hadd_pi16 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadd_pi16"));
-sym__mm_hadd_pi16->kind = SK_FUNCTION;sym__mm_hadd_pi16->do_not_print = 1;
-sym__mm_hadd_pi16->locus = builtins_locus;
-sym__mm_hadd_pi16->type_information = ({type_t* return_type = get_user_defined_type(get_m64_typedef());
-parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m64_typedef());
-p[1].type_info = get_user_defined_type(get_m64_typedef());
-get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
-})
-;
-symbol_entity_specs_set_is_builtin(sym__mm_hadd_pi16, 1);
-}
-{
-scope_entry_t* sym__mm_hadds_pi16 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadds_pi16"));
-sym__mm_hadds_pi16->kind = SK_FUNCTION;sym__mm_hadds_pi16->do_not_print = 1;
-sym__mm_hadds_pi16->locus = builtins_locus;
-sym__mm_hadds_pi16->type_information = ({type_t* return_type = get_user_defined_type(get_m64_typedef());
-parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m64_typedef());
-p[1].type_info = get_user_defined_type(get_m64_typedef());
-get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
-})
-;
-symbol_entity_specs_set_is_builtin(sym__mm_hadds_pi16, 1);
-}
-{
-scope_entry_t* sym__mm_hadd_pi32 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadd_pi32"));
-sym__mm_hadd_pi32->kind = SK_FUNCTION;sym__mm_hadd_pi32->do_not_print = 1;
-sym__mm_hadd_pi32->locus = builtins_locus;
-sym__mm_hadd_pi32->type_information = ({type_t* return_type = get_user_defined_type(get_m64_typedef());
-parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m64_typedef());
-p[1].type_info = get_user_defined_type(get_m64_typedef());
-get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
-})
-;
-symbol_entity_specs_set_is_builtin(sym__mm_hadd_pi32, 1);
-}
-{
 scope_entry_t* sym__mm_hadd_epi16 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadd_epi16"));
 sym__mm_hadd_epi16->kind = SK_FUNCTION;sym__mm_hadd_epi16->do_not_print = 1;
 sym__mm_hadd_epi16->locus = builtins_locus;
@@ -42721,16 +42686,40 @@ get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE
 symbol_entity_specs_set_is_builtin(sym__mm_hadd_epi32, 1);
 }
 {
-scope_entry_t* sym__mm_hadds_epi16 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadds_epi16"));
-sym__mm_hadds_epi16->kind = SK_FUNCTION;sym__mm_hadds_epi16->do_not_print = 1;
-sym__mm_hadds_epi16->locus = builtins_locus;
-sym__mm_hadds_epi16->type_information = ({type_t* return_type = get_user_defined_type(get_m128i_typedef());
-parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m128i_typedef());
-p[1].type_info = get_user_defined_type(get_m128i_typedef());
+scope_entry_t* sym__mm_hadd_pd = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadd_pd"));
+sym__mm_hadd_pd->kind = SK_FUNCTION;sym__mm_hadd_pd->do_not_print = 1;
+sym__mm_hadd_pd->locus = builtins_locus;
+sym__mm_hadd_pd->type_information = ({type_t* return_type = get_user_defined_type(get_m128d_typedef());
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m128d_typedef());
+p[1].type_info = get_user_defined_type(get_m128d_typedef());
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-symbol_entity_specs_set_is_builtin(sym__mm_hadds_epi16, 1);
+symbol_entity_specs_set_is_builtin(sym__mm_hadd_pd, 1);
+}
+{
+scope_entry_t* sym__mm_hadd_pi16 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadd_pi16"));
+sym__mm_hadd_pi16->kind = SK_FUNCTION;sym__mm_hadd_pi16->do_not_print = 1;
+sym__mm_hadd_pi16->locus = builtins_locus;
+sym__mm_hadd_pi16->type_information = ({type_t* return_type = get_user_defined_type(get_m64_typedef());
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m64_typedef());
+p[1].type_info = get_user_defined_type(get_m64_typedef());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
+})
+;
+symbol_entity_specs_set_is_builtin(sym__mm_hadd_pi16, 1);
+}
+{
+scope_entry_t* sym__mm_hadd_pi32 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadd_pi32"));
+sym__mm_hadd_pi32->kind = SK_FUNCTION;sym__mm_hadd_pi32->do_not_print = 1;
+sym__mm_hadd_pi32->locus = builtins_locus;
+sym__mm_hadd_pi32->type_information = ({type_t* return_type = get_user_defined_type(get_m64_typedef());
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m64_typedef());
+p[1].type_info = get_user_defined_type(get_m64_typedef());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
+})
+;
+symbol_entity_specs_set_is_builtin(sym__mm_hadd_pi32, 1);
 }
 {
 scope_entry_t* sym__mm_hadd_ps = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadd_ps"));
@@ -42743,6 +42732,30 @@ get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE
 })
 ;
 symbol_entity_specs_set_is_builtin(sym__mm_hadd_ps, 1);
+}
+{
+scope_entry_t* sym__mm_hadds_epi16 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadds_epi16"));
+sym__mm_hadds_epi16->kind = SK_FUNCTION;sym__mm_hadds_epi16->do_not_print = 1;
+sym__mm_hadds_epi16->locus = builtins_locus;
+sym__mm_hadds_epi16->type_information = ({type_t* return_type = get_user_defined_type(get_m128i_typedef());
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m128i_typedef());
+p[1].type_info = get_user_defined_type(get_m128i_typedef());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
+})
+;
+symbol_entity_specs_set_is_builtin(sym__mm_hadds_epi16, 1);
+}
+{
+scope_entry_t* sym__mm_hadds_pi16 = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hadds_pi16"));
+sym__mm_hadds_pi16->kind = SK_FUNCTION;sym__mm_hadds_pi16->do_not_print = 1;
+sym__mm_hadds_pi16->locus = builtins_locus;
+sym__mm_hadds_pi16->type_information = ({type_t* return_type = get_user_defined_type(get_m64_typedef());
+parameter_info_t p[2]; memset(p, 0, sizeof(p));p[0].type_info = get_user_defined_type(get_m64_typedef());
+p[1].type_info = get_user_defined_type(get_m64_typedef());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
+})
+;
+symbol_entity_specs_set_is_builtin(sym__mm_hadds_pi16, 1);
 }
 {
 scope_entry_t* sym__mm_hsub_pd = new_symbol(decl_context, decl_context->current_scope, uniquestr("_mm_hsub_pd"));

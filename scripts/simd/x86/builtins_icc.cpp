@@ -3047,6 +3047,7 @@ VECTOR_INTRIN(_mm_atan_ps) \
 VECTOR_INTRIN(_mm_avg_epu16) \
 VECTOR_INTRIN(_mm_avg_epu8) \
 VECTOR_INTRIN(_mm_blend_epi32) \
+VECTOR_INTRIN(_mm_blendv_epi8) \
 VECTOR_INTRIN(_mm_blendv_pd) \
 VECTOR_INTRIN(_mm_blendv_ps) \
 VECTOR_INTRIN(_mm_broadcastb_epi8) \
@@ -3361,14 +3362,14 @@ VECTOR_INTRIN(_mm_getmant_pd) \
 VECTOR_INTRIN(_mm_getmant_ps) \
 VECTOR_INTRIN(_mm_getmant_round_sd) \
 VECTOR_INTRIN(_mm_getmant_round_ss) \
-VECTOR_INTRIN(_mm_hadd_pd) \
-VECTOR_INTRIN(_mm_hadd_pi16) \
-VECTOR_INTRIN(_mm_hadds_pi16) \
-VECTOR_INTRIN(_mm_hadd_pi32) \
 VECTOR_INTRIN(_mm_hadd_epi16) \
 VECTOR_INTRIN(_mm_hadd_epi32) \
-VECTOR_INTRIN(_mm_hadds_epi16) \
+VECTOR_INTRIN(_mm_hadd_pd) \
+VECTOR_INTRIN(_mm_hadd_pi16) \
+VECTOR_INTRIN(_mm_hadd_pi32) \
 VECTOR_INTRIN(_mm_hadd_ps) \
+VECTOR_INTRIN(_mm_hadds_epi16) \
+VECTOR_INTRIN(_mm_hadds_pi16) \
 VECTOR_INTRIN(_mm_hsub_pd) \
 VECTOR_INTRIN(_mm_hsub_ps) \
 VECTOR_INTRIN(_mm_hypot_pd) \
