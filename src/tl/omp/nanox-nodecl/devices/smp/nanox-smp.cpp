@@ -728,7 +728,7 @@ namespace TL { namespace Nanox {
 
         fclose(ancillary_file);
         // Do not forget the clear the code for next files
-        _extra_c_code.get_internal_nodecl() = nodecl_null();
+        _extra_c_code = Nodecl::List();
     }
 
 } }

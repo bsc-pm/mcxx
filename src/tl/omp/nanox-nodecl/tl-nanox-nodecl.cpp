@@ -302,7 +302,7 @@ namespace TL { namespace Nanox {
             fclose(_ancillary_file);
 
         _ancillary_file = NULL;
-        _extra_c_code.get_internal_nodecl() = nodecl_null();
+        _extra_c_code = Nodecl::List();
 
         // Cleanup flags
         seen_task_with_priorities = false;

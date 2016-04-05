@@ -531,7 +531,7 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
         fclose(ancillary_file);
 #endif
         // Do not forget the clear the code for next files
-        _fpga_file_code.get_internal_nodecl() = nodecl_null();
+        _fpga_file_code = Nodecl::List();
     }
 }
 

@@ -74,7 +74,7 @@ namespace Nodecl {
             std::string get_locus_str() const { return ::nodecl_locus_to_str(_n); }
             const locus_t* get_locus() const { return ::nodecl_get_locus(_n); }
             void set_locus(const locus_t*l ) { nodecl_set_locus(_n, l); }
-            nodecl_t get_internal_nodecl() const { return _n; }
+            const nodecl_t get_internal_nodecl() const { return _n; }
 
             typedef std::tr1::array<NodeclBase, MCXX_MAX_AST_CHILDREN> Children;
 
