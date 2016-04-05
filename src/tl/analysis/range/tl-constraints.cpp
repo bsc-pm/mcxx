@@ -411,9 +411,20 @@ namespace {
         NBase val;
         if (rhs.is_constant())       // x = c;    -->    X1 = c
         {
-            Nodecl::NodeclBase cnst = const_value_to_nodecl(rhs.get_constant());
-            val = Nodecl::Range::make(cnst.shallow_copy(), cnst.shallow_copy(), const_value_to_nodecl(zero), t);
-            val.set_constant(rhs.get_constant());
+            const_value_t* rhs_cnst = rhs.get_constant();
+            if (const_value_is_object(rhs_cnst) || const_value_is_address(rhs_cnst))
+            {
+                // We know the value is constant, but cannot know its value at compile time
+                val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                          plus_inf.shallow_copy(),
+                                          const_value_to_nodecl(zero), t);
+            }
+            else
+            {
+                Nodecl::NodeclBase cnst = const_value_to_nodecl(rhs_cnst);
+                val = Nodecl::Range::make(cnst.shallow_copy(), cnst.shallow_copy(), const_value_to_nodecl(zero), t);
+                val.set_constant(rhs_cnst);
+            }
         }
         else 
         {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
@@ -507,9 +518,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+                && !const_value_is_object(n_const)
+                && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         // 1.- Build the TRUE constraint value
         // v == x;   --TRUE--->   v1 = v0 ∩ [x, x]
@@ -523,7 +541,7 @@ namespace {
         // 4.3.2.- Build the FALSE constraint value
         // v == x;   --FALSE-->   v2 = v0 ∩ ([-∞, x-1] U [x+1, -∞])
         NBase lb, ub;
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* lb_const = const_value_add(n_const, one);
             lb = const_value_to_nodecl(lb_const);
@@ -558,9 +576,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+            && !const_value_is_object(n_const)
+            && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         NBase lb, ub;
         NBase incr = const_value_to_nodecl(zero);
@@ -570,7 +595,7 @@ namespace {
         // 1.1.- Build LB: -∞
         lb = minus_inf.shallow_copy();
         // 1.2.- Build UB: x-1
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* ub_const = const_value_sub(n_const, one);
             ub = const_value_to_nodecl(ub_const);
@@ -589,7 +614,7 @@ namespace {
         // 2.- Build the FALSE constraint value for the LHS
         //     v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
         // 2.1.- Build LB: -∞
-        if (n.is_constant())
+        if (n_const != NULL)
             lb = const_value_to_nodecl(n_const);
         else
             lb = n.shallow_copy();
@@ -612,9 +637,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+            && !const_value_is_object(n_const)
+            && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         NBase lb, ub;
         NBase incr = const_value_to_nodecl(zero);
@@ -624,7 +656,7 @@ namespace {
         // 1.1.- Build LB: -∞
         lb = minus_inf.shallow_copy();
         // 1.2.- Build UB: x
-        if (n.is_constant())
+        if (n_const != NULL)
             ub = const_value_to_nodecl(n_const);
         else
             ub = n.shallow_copy();
@@ -637,7 +669,7 @@ namespace {
         // 2.- Build the FALSE constraint value for the LHS
         //     v <= x;   --FALSE-->  v2 = v0 ∩ [x+1, +∞]
         // 2.1.- Build LB: x
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* lb_const = const_value_add(n_const, one);
             lb = const_value_to_nodecl(lb_const);
@@ -666,9 +698,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+            && !const_value_is_object(n_const)
+            && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         NBase lb, ub;
         NBase incr = const_value_to_nodecl(zero);
@@ -676,7 +715,7 @@ namespace {
         // 1.- Build the TRUE constraint value for the RHS
         //     v > x   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
         // 1.1.- Build LB: x+1
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* lb_const = const_value_add(n_const, one);
             lb = const_value_to_nodecl(lb_const);
@@ -699,7 +738,7 @@ namespace {
         // 1.1.- Build LB: -∞
         lb = minus_inf.shallow_copy();
         // 1.2.- Build UB: x
-        if (n.is_constant())
+        if (n_const != NULL)
             ub = const_value_to_nodecl(n_const);
         else
             ub = n.shallow_copy();
@@ -720,9 +759,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+            && !const_value_is_object(n_const)
+            && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         NBase lb, ub;
         NBase incr = const_value_to_nodecl(zero);
@@ -730,7 +776,7 @@ namespace {
         // 1.- Build the TRUE constraint value for the RHS
         //     v >= x   --TRUE--->  v1 = v0 ∩ [x, +∞]
         // 1.1.- Build LB: x
-        if (n.is_constant())
+        if (n_const != NULL)
             lb = const_value_to_nodecl(n_const);
         else
             lb = n.shallow_copy();
@@ -747,7 +793,7 @@ namespace {
         // 1.1.- Build LB: -∞
         lb = minus_inf.shallow_copy();
         // 1.2.- Build UB: x-1
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* ub_const = const_value_sub(n_const, one);
             ub = const_value_to_nodecl(ub_const);
