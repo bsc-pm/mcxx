@@ -10,7 +10,7 @@ test_CXXFLAGS="--no-copy-deps"
 #include <cstdlib>
 
 template <typename T>
-void set(std::vector<T *> w)
+void set(std::vector<T *>& w)
 {
     T **pw = w.data();
 #pragma omp task out({ *(pw[i]), i = 0 : w.size() - 1 })
@@ -26,7 +26,7 @@ void set(std::vector<T *> w)
 }
 
 template <typename T>
-void check(std::vector<T *> w)
+void check(std::vector<T *>& w)
 {
     T **pw = w.data();
 #pragma omp task out({ *(pw[i]), i = 0 : w.size() - 1 })
