@@ -30,7 +30,6 @@
 test_generator=config/mercurium-ompss
 test_ENV="NX_THROTTLE=dummy"
 test_CXXFLAGS="--no-copy-deps"
-test_compile_fail_nanos6_imcxx=yes
 </testinfo>
 */
 #include <stdio.h>
