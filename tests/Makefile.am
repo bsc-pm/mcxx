@@ -59,6 +59,7 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x */mercurium-c11
 	chmod +x */mercurium-cxx11
 	chmod +x */mercurium-cxx14
+	rm -f config/libraries-libtool.cache
 
 wipe-modules:
 	rm -f *.mod
