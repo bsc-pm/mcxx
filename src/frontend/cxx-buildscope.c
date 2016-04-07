@@ -188,13 +188,14 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
 static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gather_info, 
         const decl_context_t* declarator_context);
-static void build_scope_declarator_rec(
-        AST a, type_t** declarator_type, 
-        gather_decl_spec_t* gather_info,
-        const decl_context_t* declarator_context,
-        const decl_context_t* entity_context,
-        const decl_context_t* *prototype_context,
-        nodecl_t* nodecl_output);
+static void build_scope_declarator_rec(AST a,
+                                       type_t **declarator_type,
+                                       gather_decl_spec_t *gather_info,
+                                       const decl_context_t *declarator_context,
+                                       const decl_context_t *entity_context,
+                                       const decl_context_t **prototype_context,
+                                       char is_top_level_declarator,
+                                       nodecl_t *nodecl_output);
 
 static scope_entry_t* build_scope_declarator_name(AST declarator,
         type_t* type_specifier,
@@ -10553,8 +10554,14 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
         }
 
         // Second traversal, here we build the type
-        build_scope_declarator_rec(declarator, declarator_type,
-                gather_info, decl_context, entity_context, prototype_context, nodecl_output);
+        build_scope_declarator_rec(declarator,
+                                   declarator_type,
+                                   gather_info,
+                                   decl_context,
+                                   entity_context,
+                                   prototype_context,
+                                   /* is_top_level_declarator */ 1,
+                                   nodecl_output);
 
         if (declarator_name != NULL)
         {
@@ -10776,12 +10783,14 @@ int get_vla_counter(void)
 /*
  * This function converts a type "T" to a "array x of T"
  */
-static void set_array_type(type_t** declarator_type, 
-        AST constant_expr, AST static_qualifier UNUSED_PARAMETER, 
-        AST cv_qualifier_seq UNUSED_PARAMETER,
-        gather_decl_spec_t* gather_info, 
-        const decl_context_t* decl_context,
-        const locus_t* locus)
+static void set_array_type(type_t **declarator_type,
+                           AST constant_expr,
+                           AST static_qualifier,
+                           AST cv_qualifier_seq UNUSED_PARAMETER,
+                           gather_decl_spec_t *gather_info,
+                           const decl_context_t *decl_context,
+                           const locus_t *locus,
+                           char is_top_level_declarator)
 {
     type_t* element_type = *declarator_type;
 
@@ -10790,6 +10799,16 @@ static void set_array_type(type_t** declarator_type,
         error_printf_at(locus, "array declaration without a type-specifier\n");
         *declarator_type = get_error_type();
         return;
+    }
+
+    if (static_qualifier != NULL)
+    {
+        if (gather_info->parameter_declaration && is_top_level_declarator)
+            warn_printf_at(ast_get_locus(static_qualifier),
+                           "'static' qualifier ignored in array declarator\n");
+        else
+            error_printf_at(ast_get_locus(static_qualifier),
+                            "invalid 'static' qualifier in array declarator\n");
     }
 
     nodecl_t nodecl_expr = nodecl_null();
@@ -10914,6 +10933,21 @@ static void set_array_type(type_t** declarator_type,
         }
     }
     *declarator_type = get_array_type(element_type, nodecl_expr, decl_context);
+
+    if (cv_qualifier_seq != NULL)
+    {
+        if (gather_info->parameter_declaration && is_top_level_declarator)
+        {
+            cv_qualifier_t cv_qualif = compute_cv_qualifier(cv_qualifier_seq);
+            *declarator_type
+                = get_cv_qualified_array_type(*declarator_type, cv_qualif);
+        }
+        else
+        {
+            error_printf_at(ast_get_locus(cv_qualifier_seq),
+                            "invalid type qualifier in array declarator\n");
+        }
+    }
 }
 
 // Returns a fake symbol used only to keep track of variables in declarators
@@ -11314,8 +11348,13 @@ static void set_function_parameter_clause(type_t** function_type,
             // Array to pointer standard conversion
             else if (is_array_type(type_info))
             {
+                type_t *orig_array_type = type_info;
                 type_info = array_type_get_element_type(type_info);
                 type_info = get_pointer_type(type_info);
+
+                // Thi is only for C99
+                type_info = get_cv_qualified_type(
+                    type_info, array_type_get_cv_qualifier(orig_array_type));
             }
 
             if (this_is_a_pack)
@@ -11552,26 +11591,26 @@ static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gat
  * Starts with a base type of "int" and ends being a "pointer to array 3 of int"
  */
 static void build_scope_declarator_rec(
-        AST a, 
-        // AST top_declarator, AST a, 
-        type_t** declarator_type, 
-        gather_decl_spec_t* gather_info, 
-        // This one contains the context of the occurring declarator
-        // e.g void A::f(T) will contain the context of 'void A::f(T)'
-        const decl_context_t* declarator_context,
-        // This context contains the real context for the entity named
-        // e.g void A::f(T) will contain the context of 'A::f'
-        const decl_context_t* entity_context,
-        // This one is used to sign in parameters, this is a block context
-        // in function definitions and a prototype context for function
-        // declarations or functional types
-        const decl_context_t* *prototype_context,
-        nodecl_t* nodecl_output)
+    AST a,
+    // AST top_declarator, AST a,
+    type_t **declarator_type,
+    gather_decl_spec_t *gather_info,
+    // This one contains the context of the occurring declarator
+    // e.g void A::f(T) will contain the context of 'void A::f(T)'
+    const decl_context_t *declarator_context,
+    // This context contains the real context for the entity named
+    // e.g void A::f(T) will contain the context of 'A::f'
+    const decl_context_t *entity_context,
+    // This one is used to sign in parameters, this is a block context
+    // in function definitions and a prototype context for function
+    // declarations or functional types
+    const decl_context_t **prototype_context,
+    // States if this is a top level declarator
+    char is_top_level_declarator,
+    nodecl_t *nodecl_output)
 {
     if (a == NULL)
         return;
-
-    // In our grammar attributes appear before the ptr-op and before the declarator, so we first handle
 
     switch(ASTKind(a))
     {
@@ -11581,8 +11620,14 @@ static void build_scope_declarator_rec(
                 AST attributes = ASTSon1(a);
                 apply_attributes_to_type(declarator_type, attributes, declarator_context);
 
-                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output); 
+                build_scope_declarator_rec(ASTSon0(a),
+                                           declarator_type,
+                                           gather_info,
+                                           declarator_context,
+                                           entity_context,
+                                           prototype_context,
+                                           is_top_level_declarator,
+                                           nodecl_output);
                 break;
             }
         case AST_POINTER_DECLARATOR :
@@ -11602,8 +11647,14 @@ static void build_scope_declarator_rec(
                 {
                     return;
                 }
-                build_scope_declarator_rec(ASTSon1(a), declarator_type, 
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
+                build_scope_declarator_rec(ASTSon1(a),
+                                           declarator_type,
+                                           gather_info,
+                                           declarator_context,
+                                           entity_context,
+                                           prototype_context,
+                                           /* is_top_level_declarator */ 0,
+                                           nodecl_output);
                 break;
             }
         case AST_DECLARATOR_ARRAY :
@@ -11614,19 +11665,26 @@ static void build_scope_declarator_rec(
                     error_printf_at(ast_get_locus(a), "invalid array declarator for 'decltype(auto)'\n");
                     return;
                 }
-                set_array_type(declarator_type, 
-                        /* expr */ASTSon1(a), 
-                        /* (C99)static_qualif */ ASTSon3(a),
-                        /* (C99)cv_qualifier_seq */ ASTSon2(a),
-                        gather_info,
-                        entity_context,
-                        ast_get_locus(a));
+                set_array_type(declarator_type,
+                               /* expr */ ASTSon1(a),
+                               /* (C99)static_qualif */ ASTSon3(a),
+                               /* (C99)cv_qualifier_seq */ ASTSon2(a),
+                               gather_info,
+                               entity_context,
+                               ast_get_locus(a),
+                               is_top_level_declarator);
                 if (is_error_type(*declarator_type))
                 {
                     return;
                 }
-                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
+                build_scope_declarator_rec(ASTSon0(a),
+                                           declarator_type,
+                                           gather_info,
+                                           declarator_context,
+                                           entity_context,
+                                           prototype_context,
+                                           /* is_top_level_declarator */ 0,
+                                           nodecl_output);
                 break;
             }
         case AST_DECLARATOR_FUNC :
@@ -11638,8 +11696,14 @@ static void build_scope_declarator_rec(
                     return;
                 }
 
-                build_scope_declarator_rec(ASTSon0(a), declarator_type,
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
+                build_scope_declarator_rec(ASTSon0(a),
+                                           declarator_type,
+                                           gather_info,
+                                           declarator_context,
+                                           entity_context,
+                                           prototype_context,
+                                           /* is_top_level_declarator */ 0,
+                                           nodecl_output);
                 break;
             }
         case AST_DECLARATOR_FUNC_TRAIL:
@@ -11706,8 +11770,14 @@ static void build_scope_declarator_rec(
                 *declarator_type = function_type_replace_return_type_with_trailing_return(*declarator_type, return_type);
 
                 // Proceed with the remaining declarator
-                build_scope_declarator_rec(declarator, declarator_type,
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
+                build_scope_declarator_rec(declarator,
+                                           declarator_type,
+                                           gather_info,
+                                           declarator_context,
+                                           entity_context,
+                                           prototype_context,
+                                           /* is_top_level_declarator */ 0,
+                                           nodecl_output);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -11728,8 +11798,14 @@ static void build_scope_declarator_rec(
             {
                 solve_ambiguous_declarator(a, declarator_context);
                 // Restart function
-                build_scope_declarator_rec(a, declarator_type, 
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
+                build_scope_declarator_rec(a,
+                                           declarator_type,
+                                           gather_info,
+                                           declarator_context,
+                                           entity_context,
+                                           prototype_context,
+                                           /* is_top_level_declarator */ 0,
+                                           nodecl_output);
                 break;
             }
         default:
