@@ -7,6 +7,7 @@ test_CXXFLAGS="--no-copy-deps"
 
 #include <vector>
 #include <algorithm>
+#include <iostream>
 #include <cstdlib>
 
 template <typename T>
@@ -37,10 +38,14 @@ void check(std::vector<T *>& w)
         {
             T *n = *it;
             T t = (*n - k);
-            t = t < 0 ? -t : t;
 
+            t = t < 0 ? -t : t;
             if (t > 1e-5)
+            {
+                std::cerr << "Value is out of valid bounds t=" << t
+                          << " k=" << k << std::endl;
                 abort();
+            }
         }
     }
 }
