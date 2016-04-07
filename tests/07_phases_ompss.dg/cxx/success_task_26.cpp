@@ -14,7 +14,7 @@ template <typename T>
 void set(std::vector<T *>& w)
 {
     T **pw = w.data();
-#pragma omp task out({ *(pw[i]), i = 0 : w.size() - 1 })
+#pragma omp task out({ *(pw[i]), i = 0 : w.size() - 1 }) shared(w)
     {
         int k = 0;
         for (typename std::vector<T *>::iterator it = w.begin(); it != w.end();
@@ -30,7 +30,7 @@ template <typename T>
 void check(std::vector<T *>& w)
 {
     T **pw = w.data();
-#pragma omp task out({ *(pw[i]), i = 0 : w.size() - 1 })
+#pragma omp task out({ *(pw[i]), i = 0 : w.size() - 1 }) shared(w)
     {
         int k = 0;
         for (typename std::vector<T *>::iterator it = w.begin(); it != w.end();
