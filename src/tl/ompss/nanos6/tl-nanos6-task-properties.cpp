@@ -2464,14 +2464,10 @@ namespace TL { namespace Nanos6 {
                 data_type.array_get_region_bounds(lower_region_bound,
                                                   upper_region_bound);
 
-                if (/* expanded ranges a[r] -> a[r:r] */
-                    structurally_equal_bounds(lower_region_bound,
-                                              upper_region_bound)
-                    /* whole array a[0:N-1] */
-                    || (structurally_equal_bounds(lower_bound,
-                                                  lower_region_bound)
-                        && structurally_equal_bounds(upper_bound,
-                                                     upper_region_bound)))
+                if (/* whole array a[0:N-1] */
+                    (structurally_equal_bounds(lower_bound, lower_region_bound)
+                     && structurally_equal_bounds(upper_bound,
+                                                  upper_region_bound)))
                     return is_contiguous_region_(data_type.array_element(),
                                                  n + 1);
                 return 0;
@@ -2481,9 +2477,29 @@ namespace TL { namespace Nanos6 {
         }
     }
 
+    bool is_single_item(TL::Type data_type)
+    {
+        if (data_type.is_array() && data_type.array_is_region())
+        {
+            Nodecl::NodeclBase lower_region_bound;
+            Nodecl::NodeclBase upper_region_bound;
+            data_type.array_get_region_bounds(lower_region_bound,
+                                              upper_region_bound);
+
+            if (/* a[r] expanded into a[r:r] */
+                structurally_equal_bounds(lower_region_bound,
+                                          upper_region_bound))
+                return is_single_item(data_type.array_element());
+            return 0;
+        }
+        else
+            return 1;
+    }
+
     bool is_contiguous_region(TL::DataReference &data_ref)
     {
-        return is_contiguous_region_(data_ref.get_data_type(), 0);
+        return is_contiguous_region_(data_ref.get_data_type(), 0)
+               || is_single_item(data_ref.get_data_type());
     }
     }
 
