@@ -2,61 +2,56 @@
 ! test_generator=config/mercurium-ompss
 ! </testinfo>
 
-SUBROUTINE F(X, N)
-    INTEGER, INTENT(IN) :: N
-    INTEGER, INTENT(INOUT) :: X(N, N)
-
-    DO  I = 1, 3, 1
-        DO  J = 1, 5, 1
-            X(I,J) =  0
-        ENDDO
-    ENDDO
-
+SUBROUTINE F(X, JSIZE, ISIZE)
+    INTEGER, INTENT(IN) :: JSIZE, ISIZE
+    INTEGER, INTENT(INOUT) :: X(JSIZE, ISIZE)
+    X = 0
 END SUBROUTINE F
 
-
-SUBROUTINE G(X, I, J, N)
+SUBROUTINE G(X, J, I, N)
     INTEGER, INTENT(IN) :: N, I, J
     INTEGER, INTENT(INOUT) :: X(N, N)
+    INTEGER :: JSIZE, ISIZE
 
     INTERFACE
-        SUBROUTINE F(X, N)
-            INTEGER, INTENT(IN) :: N
-            INTEGER, INTENT(IN) :: X(N,N)
+        SUBROUTINE F(X, JSIZE, ISIZE)
+            INTEGER, INTENT(IN) :: JSIZE, ISIZE
+            INTEGER, INTENT(INOUT) :: X(JSIZE, ISIZE)
         END SUBROUTINE F
     END INTERFACE
-    !$OMP TASK INOUT(X(1:N, 1:N)) FIRSTPRIVATE(N)
-    CALL F( X(I,J),  N)
+
+    JSIZE = N - J + 1
+    ISIZE = N - I + 1
+    !$OMP TASK INOUT(X(J:, I:))
+    CALL F( X(J, I),  JSIZE, ISIZE)
     !$OMP END TASK
-
-
 END SUBROUTINE G
 
 
 PROGRAM P
     IMPLICIT NONE
-    INTEGER :: X(5, 5)
+    INTEGER, PARAMETER :: N = 5
+    INTEGER :: X(N, N)
     INTEGER :: I, J
+    INTEGER :: IND_I, IND_J
 
 
-    DO  I = 1, 5, 1
-        DO  J = 1, 5, 1
-            X(I,J) = ((I-1)*5 + J);
-            PRINT *, X(I,J)
+    IND_I = 3
+    IND_J = 1
+
+    DO  I = 1, N
+        DO  J = 1, N
+            X(J, I) = ((I-1)*N + J)
         ENDDO
     ENDDO
 
-    PRINT *, "--------------------------------------"
-    CALL G(X, 3, 1, 5)
+    CALL G(X, IND_J, IND_I, N)
     !$OMP TASKWAIT
-    PRINT *, "--------------------------------------"
 
-    DO  I = 1, 5, 1
-        DO  J = 1, 5, 1
-            PRINT *, X(I,J)
+    DO I=1, IND_I - 1
+        DO J = 1, IND_J - 1
+            IF (X(J, I) /= ((I-1)*N + J)) STOP 1
         ENDDO
     ENDDO
-
-
-
+    IF (ANY(X(IND_J:, IND_I:) /= 0)) STOP 2
 END PROGRAM P
