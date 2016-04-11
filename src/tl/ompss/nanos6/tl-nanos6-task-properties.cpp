@@ -2506,18 +2506,111 @@ namespace TL { namespace Nanos6 {
     {
         if (!is_contiguous_region(data_ref))
         {
-            error_printf_at(
-                data_ref.get_locus(),
-                "dependence '%s' has a region not known to be contiguous, this "
-                "is not supported yet\n",
-                data_ref.prettyprint().c_str());
-            return;
+            register_noncontiguous_region_dependence(
+                data_ref, handler, arg, register_fun, scope, local,
+                register_statements);
+        }
+        else
+        {
+            register_linear_dependence(
+                data_ref, handler, arg, register_fun, scope, local,
+                register_statements);
+        }
+    }
+
+    void TaskProperties::register_noncontiguous_region_dependence(
+        TL::DataReference &data_ref,
+        TL::Symbol handler,
+        TL::Symbol arg,
+        TL::Symbol register_fun,
+        TL::Scope scope,
+        const TL::ObjectList<TL::Symbol> &local,
+        Nodecl::List &register_statements)
+    {
+        ERROR_CONDITION(!data_ref.is<Nodecl::ArraySubscript>(), "Invalid node", 0);
+        Nodecl::ArraySubscript arr = data_ref.as<Nodecl::ArraySubscript>();
+        Nodecl::List subscripts = arr.get_subscripts().as<Nodecl::List>();
+        ERROR_CONDITION(subscripts.size() <= 1, "Invalid subcript list", 0);
+
+        TL::ObjectList<TL::Symbol> ind_vars;
+        // Iterate over all dimensions except last one.
+        // Create an object list with all the needed variables.
+        for (Nodecl::List::iterator it = subscripts.begin();
+                it+1 != subscripts.end(); it++)
+        {
+            TL::Counter& ctr = TL::CounterManager::get_counter("nanos6-noncontiguous");
+            std::stringstream ss;
+            ss << "x_" << (int)ctr;
+            ctr++;
+            std::string ind_var_name = ss.str();
+
+            TL::Symbol sym = scope.new_symbol(ind_var_name);
+            sym.get_internal_symbol()->kind = SK_VARIABLE;
+            sym.get_internal_symbol()->type_information = get_signed_int_type();
+            symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
+            ind_vars.append(sym);
         }
 
-        // This is a contiguous region, so it can be easily mapped onto a lineal
-        // one
-        return register_linear_dependence(
-            data_ref, handler, arg, register_fun, scope, local, register_statements);
+        // Generate code that will register the linear dependences.
+        TL::Source src;
+        Nodecl::List::iterator sub_it = subscripts.begin();
+        for (size_t i = 0; i < ind_vars.size(); i++ ) {
+          ERROR_CONDITION(!sub_it->is<Nodecl::Range>(), "Invalid Node", 0);
+          Source lower, upper, stride;
+          Nodecl::Range range = sub_it->as<Nodecl::Range>();
+          lower << as_expression(rewrite_expression_using_args(arg,
+                                                               range.get_lower(),
+                                                               ind_vars));
+          upper << as_expression(rewrite_expression_using_args(arg,
+                                                               range.get_upper(),
+                                                               ind_vars));
+          stride << as_expression(rewrite_expression_using_args(arg,
+                                                                range.get_stride(),
+                                                                ind_vars));
+
+          std::string name = ind_vars[i].get_name();
+          src << "for (" << name << " = " << lower << "; " << name << " <= " <<
+              upper << "; " << name << " += " << stride << ") {";
+          // Increase other iterator.
+          sub_it++;
+        }
+
+        Nodecl::NodeclBase body_of_loop;
+        src << statement_placeholder(body_of_loop);
+
+        for (auto var : ind_vars){
+          src << "}";
+        }
+
+        Nodecl::NodeclBase loop = src.parse_statement(scope);
+
+        Nodecl::NodeclBase new_data_ref = data_ref.shallow_copy();
+        Nodecl::List new_subscripts = new_data_ref.as<Nodecl::ArraySubscript>()
+                                      .get_subscripts().as<Nodecl::List>();
+
+        TL::ObjectList<TL::Symbol>::iterator ind_var_it = ind_vars.begin();
+        for (Nodecl::List::iterator it = new_subscripts.begin();
+             it + 1 != new_subscripts.end(); it++, ind_var_it++)
+        {
+          ERROR_CONDITION(!it->is<Nodecl::Range>(), "This should be a range", 0);
+          Nodecl::Range r = it->as<Nodecl::Range>();
+          r.get_lower().replace(ind_var_it->make_nodecl(/* set ref */ true));
+          r.get_upper().replace(ind_var_it->make_nodecl(/* set ref */ true));
+        }
+
+        Nodecl::List linear_reg;
+        TL::DataReference updated_data_ref(new_data_ref);
+        register_linear_dependence(updated_data_ref,
+                                   handler,
+                                   arg,
+                                   register_fun,
+                                   scope,
+                                   ind_vars,
+                                   linear_reg);
+        body_of_loop.replace(linear_reg);
+
+        register_statements.append(loop);
+
     }
 
     void TaskProperties::register_fortran_region_dependence(
