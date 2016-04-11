@@ -2258,14 +2258,6 @@ namespace TL { namespace Nanos6 {
         }
         else
         {
-            // Multireferences.
-            // Generate code that iterates through the contiguous dependences,
-            // and register them at runtime. Since we need the symbols to match
-            // (the ones used in the dependence are different from the ones in
-            // , we have to map the dependences ones with the one we're
-            // iterating on.  Finally, register linear dependence with all the
-            // single elements.
-
             Nodecl::Utils::SimpleSymbolMap symbol_map;
             TL::ObjectList<TL::Symbol> current_locals;
             TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-multideps");
