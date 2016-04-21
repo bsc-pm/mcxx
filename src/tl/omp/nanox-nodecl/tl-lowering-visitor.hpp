@@ -431,6 +431,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol new_class_symbol,
                 Nodecl::NodeclBase construct);
 
+        //! Given an array type, this function computes its base type and the
+        //lower bounds, upper bounds and sizes for each dimension
+        static void compute_array_info(
+              Nodecl::NodeclBase ctr,
+              TL::DataReference array_expr,
+              TL::Type array_type,
+              // out
+              TL::Type& base_type,
+              TL::ObjectList<Nodecl::NodeclBase>& lower_bounds,
+              TL::ObjectList<Nodecl::NodeclBase>& upper_bounds,
+              TL::ObjectList<Nodecl::NodeclBase>& dims_sizes);
+
         static Nodecl::NodeclBase get_size_for_dimension(
                 TL::Type array_type,
                 int fortran_dimension,
