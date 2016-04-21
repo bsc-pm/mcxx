@@ -1170,7 +1170,6 @@ AC_ARG_ENABLE([nanox-cuda-device],
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
         cuda_enabled="yes"
-        cuda_valid="yes"
         AC_MSG_RESULT([no])
     else if test x"$enableval" = x"no";
          then
@@ -1199,7 +1198,11 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 		CUDADIR="/usr/local/cuda"
 	])
 
-if test x$cuda_enabled = xyes -a x$cuda_valid = xno ; then
+
+if test x$cuda_enabled = xyes ; then
+    # Checking CUDA support consists on two steps:
+    #   1. Checking that we have access to a valid nvcc
+    #   2. Checking that the runtime was configured with CUDA support
     if test -d "$CUDADIR" ;
     then
         AC_CHECK_PROG([NVCC], [nvcc], [nvcc], [], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
@@ -1213,7 +1216,21 @@ if test x$cuda_enabled = xyes -a x$cuda_valid = xno ; then
             then
                 CUDA_LIBS="$CUDADIR/lib64"
             fi
-            cuda_valid=yes
+
+            #backup vars before we do the test
+            CFLAGSBACKUP="$CFLAGS"
+            CPPFLAGSBACKUP="$CPPFLAGS"
+            CXXFLAGSBACKUP="$CXXFLAGS"
+
+            CFLAGS="$CFLAGS -I$nanox_include -I$CUDA_INCLUDES"
+            CPPFLAGS="$CPPFLAGS -I$nanox_include -I$CUDA_INCLUDES"
+            CXXFLAGS="$CXXFLAGS -I$nanox_include -I$CUDA_INCLUDES"
+
+            AC_CHECK_HEADER([nanos-gpu.h], [cuda_valid=yes],[cuda_valid=no])
+
+            CFLAGS="$CFLAGSBACKUP"
+            CPPFLAGS="$CPPFLAGSBACKUP"
+            CXXFLAGS="$CXXFLAGSBACKUP"
         fi
     else
          AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling CUDA Support])
@@ -1338,7 +1355,7 @@ then
    CPPFLAGS="$CPPFLAGS -I$nanox_include"
    CXXFLAGS="$CXXFLAGS -I$nanox_include"
 
-   AC_CHECK_HEADER([nanos-opencl.h], [opencl_valid=yes],[opencl_valid=no])
+   AC_CHECK_HEADER([nanos-opencl.h], [opencl_valid=yes], [opencl_valid=no])
 
    CFLAGS="$CFLAGSBACKUP"
    CPPFLAGS="$CPPFLAGSBACKUP"
