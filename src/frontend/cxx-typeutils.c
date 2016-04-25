@@ -15604,6 +15604,13 @@ static inline type_t* type_deep_copy_class(
             new_decl_context,
             class_type_get_class_kind(orig));
 
+    // We need to abuse a bit of the scope map to retrieve the new class context
+    decl_context_t* inner_decl_context = (decl_context_t*)
+        symbol_map->map(symbol_map, (scope_entry_t*)class_type_get_inner_context(orig));
+
+    class_type_set_inner_context(dest->type_information, inner_decl_context);
+
+
     // Duplicate all members
     // FIXME: duplicate them in declaration order!
     scope_entry_list_t* entry_list = class_type_get_members(orig);
