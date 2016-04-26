@@ -5256,8 +5256,12 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
         if (fortran_is_array_type(no_ref(subscripted_type))
                 || fortran_is_pointer_to_array_type(no_ref(subscripted_type)))
         {
+
+            // This function returns an expression whose type is an array
+            // instead of a pointer to array.  Thus, we have to fix it later!
             check_array_ref_(lvalue, decl_context, nodecl_subscripted, nodecl_subscripted, &nodecl_lvalue,
                     /* do_complete_array_ranks */ 0, /* require_lower_bound */ 1);
+
         }
         else
         {
@@ -5269,6 +5273,9 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
     else if (ASTKind(lvalue) == AST_CLASS_MEMBER_ACCESS)
     {
         // X % A(1:, 2:) => ...
+
+        // This function returns an expression whose type is an array
+        // instead of a pointer to array. Thus, we have to fix it later!
         check_component_ref_(lvalue, decl_context, &nodecl_lvalue,
                 /* do_complete_array_ranks */ 0,
                 /* require_lower_bound */ 1);
@@ -5302,7 +5309,6 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
     }
 
     scope_entry_t* lvalue_sym = fortran_data_ref_get_symbol(nodecl_lvalue);
-
     if (lvalue_sym == NULL
             || lvalue_sym->kind != SK_VARIABLE
             || !is_pointer_type(no_ref(lvalue_sym->type_information)))
@@ -5443,6 +5449,14 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
     else
     {
         internal_error("Code unreachable", 0);
+    }
+
+    if (nodecl_get_kind(nodecl_lvalue) == NODECL_ARRAY_SUBSCRIPT)
+    {
+        // Fixing the type of the lvalue expression. If we don't fix the type
+        // of the expression, we will not generate a pointer assignment
+        type_t* nodecl_lvalue_type = nodecl_get_type(nodecl_lvalue);
+        nodecl_set_type(nodecl_lvalue, get_pointer_type(no_ref(nodecl_lvalue_type)));
     }
 
     *nodecl_output = nodecl_make_assignment(
