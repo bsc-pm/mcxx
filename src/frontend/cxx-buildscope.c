@@ -5298,16 +5298,16 @@ type_t* compute_underlying_type_enum(
     struct checked_types_t
     {
         type_t *signed_type;
-        /* type_t *unsigned_type ; */
+        type_t *unsigned_type;
     }
     checked_types[] =
     {
-        { get_signed_char_type(),          /* get_unsigned_char_type() */ },
-        { get_signed_short_int_type(),     /* get_unsigned_short_int_type() */  },
-        { get_signed_int_type(),           /* get_unsigned_int_type() */ },
-        { get_signed_long_int_type(),      /* get_unsigned_long_int_type() */ },
-        { get_signed_long_long_int_type(), /* get_unsigned_long_long_int_type() */ },
-        { NULL /* , NULL */ }
+        { get_signed_char_type(),          get_unsigned_char_type() },
+        { get_signed_short_int_type(),     get_unsigned_short_int_type() },
+        { get_signed_int_type(),           get_unsigned_int_type() },
+        { get_signed_long_int_type(),      get_unsigned_long_int_type() },
+        { get_signed_long_long_int_type(), get_unsigned_long_long_int_type() },
+        { NULL , NULL }
     };
 
 #define B_(x) const_value_is_nonzero(x)
@@ -5326,30 +5326,8 @@ type_t* compute_underlying_type_enum(
     {
         const_value_t* min_int = NULL;
         const_value_t* max_int = NULL;
-#if 0
-        min_int = integer_type_get_minimum(result->unsigned_type);
-        max_int = integer_type_get_maximum(result->unsigned_type);
 
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    const_value_to_str(min_value),
-                    const_value_to_str(max_value),
-                    const_value_to_str(min_int),
-                    const_value_to_str(max_int),
-                    print_declarator(result->signed_type));
-        }
-
-        if (B_(const_value_lte(min_int,
-                        const_value_cast_as_another(min_value, min_int)))
-                && B_(const_value_lte(
-                        const_value_cast_as_another(max_value, max_int),
-                        max_int)))
-        {
-            return result->unsigned_type;
-        }
-#endif
-
+        // 1. Checking signed types
         min_int = integer_type_get_minimum(result->signed_type);
         max_int = integer_type_get_maximum(result->signed_type);
 
@@ -5363,14 +5341,32 @@ type_t* compute_underlying_type_enum(
                     print_declarator(result->signed_type));
         }
 
-        if (B_(const_value_lte(min_int,
-                        const_value_cast_as_another(min_value, min_int)))
-                && B_(const_value_lte(
-                        const_value_cast_as_another(max_value, max_int),
-                        max_int)))
+        if (B_(const_value_lte(min_int, min_value))
+                && B_(const_value_lte(max_value, max_int)))
         {
             return result->signed_type;
         }
+
+        // 2. Checking unsigned types
+        min_int = integer_type_get_minimum(result->unsigned_type);
+        max_int = integer_type_get_maximum(result->unsigned_type);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
+                    const_value_to_str(min_value),
+                    const_value_to_str(max_value),
+                    const_value_to_str(min_int),
+                    const_value_to_str(max_int),
+                    print_declarator(result->signed_type));
+        }
+
+        if (B_(const_value_lte(min_int, min_value))
+                && B_(const_value_lte(max_value, max_int)))
+        {
+            return result->unsigned_type;
+        }
+
         result++;
     }
 
