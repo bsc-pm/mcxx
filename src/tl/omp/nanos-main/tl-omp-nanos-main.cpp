@@ -115,7 +115,7 @@ namespace TL {
                             << "int nanos_main_proxy_address = 0;"
                             << "ompss_nanox_main_begin(&nanos_main_proxy_address,"
                             << "\"" << function_code.get_filename() << "\","
-                            << function_code.get_line() << ");";
+                            << "(int)" << function_code.get_line() << ");";
                     }
                 }
                 else
