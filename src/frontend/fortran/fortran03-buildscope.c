@@ -7405,7 +7405,7 @@ static void build_scope_parameter_stmt(AST a, const decl_context_t* decl_context
 
             entry->type_information = 
                 get_array_type_bounds(
-                        fortran_get_rank0_type(entry->type_information),
+                        array_type_get_element_type(entry->type_information),
                         nodecl_make_integer_literal(get_signed_int_type(), 
                             const_value_get_one(fortran_get_default_integer_type_kind(), 1),
                             ast_get_locus(constant_expr)),
