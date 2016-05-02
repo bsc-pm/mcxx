@@ -11246,12 +11246,23 @@ static const_value_t* cxx_nodecl_make_value_conversion(
     }
     // enums
     else if (is_enum_type(orig_type)
-            && is_enum_type(dest_type)
-            && equivalent_types(
-                get_unqualified_type(orig_type),
-                get_unqualified_type(dest_type)))
+            && is_enum_type(dest_type))
     {
-        // do nothing
+        if (equivalent_types(
+                    get_unqualified_type(orig_type),
+                    get_unqualified_type(dest_type)))
+        {
+            // do nothing
+        }
+        else
+        {
+            // The underlying types of 'orig_type' and 'dest_type' may be
+            // different, so we may need to adjust the value
+            value = const_value_cast_to_bytes(
+                    value,
+                    type_get_size(enum_type_get_underlying_type(dest_type)),
+                    is_signed_integral_type(enum_type_get_underlying_type(dest_type)));
+        }
     }
     else if (is_enum_type(orig_type)
             && is_bool_type(dest_type))
