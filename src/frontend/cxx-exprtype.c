@@ -4995,18 +4995,25 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
     type_t* no_ref_lhs_type = no_ref(lhs_type);
     type_t* no_ref_rhs_type = no_ref(rhs_type);
 
+    // Array-to-pointer conversion && Function-to-pointer conversion
+    if (is_array_type(no_ref_lhs_type))
+        no_ref_lhs_type = get_pointer_type(array_type_get_element_type(no_ref_lhs_type));
+    else if (is_function_type(no_ref_lhs_type))
+        no_ref_lhs_type = get_pointer_type(no_ref_lhs_type);
+
+    if (is_array_type(no_ref_rhs_type))
+        no_ref_rhs_type = get_pointer_type(array_type_get_element_type(no_ref_rhs_type));
+    else if (is_function_type(no_ref_rhs_type))
+        no_ref_rhs_type = get_pointer_type(no_ref_rhs_type);
+
     standard_conversion_t scs;
 
     if (both_operands_are_arithmetic(no_ref_lhs_type, no_ref_rhs_type, locus)
             || (is_scoped_enum_type(no_ref_lhs_type) && is_scoped_enum_type(no_ref_rhs_type))
             || ((is_pointer_type(no_ref_lhs_type)
-                    || is_array_type(no_ref_lhs_type)
-                    || is_function_type(no_ref_lhs_type)
                     || is_zero_type_or_nullptr_type(no_ref_lhs_type)
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref_lhs_type)))
                 && (is_pointer_type(no_ref_rhs_type)
-                    || is_array_type(no_ref_rhs_type)
-                    || is_function_type(no_ref_rhs_type)
                     || is_zero_type_or_nullptr_type(no_ref_rhs_type)
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref_rhs_type)))
                 && (is_zero_type_or_nullptr_type(no_ref_lhs_type)
@@ -5032,25 +5039,6 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
             result_type = get_bool_type();
         }
         ERROR_CONDITION(result_type == NULL, "Code unreachable", 0);
-
-        // Lvalue conversions
-        if (is_function_type(no_ref_lhs_type))
-        {
-            no_ref_lhs_type = get_pointer_type(no_ref_lhs_type);
-        }
-        else if (is_array_type(no_ref_lhs_type))
-        {
-            no_ref_lhs_type = get_pointer_type(array_type_get_element_type(no_ref_lhs_type));
-        }
-
-        if (is_function_type(no_ref_rhs_type))
-        {
-            no_ref_rhs_type = get_pointer_type(no_ref_rhs_type);
-        }
-        else if (is_array_type(no_ref_rhs_type))
-        {
-            no_ref_rhs_type = get_pointer_type(array_type_get_element_type(no_ref_rhs_type));
-        }
 
         unary_record_conversion_to_result(no_ref_lhs_type, lhs, decl_context);
         unary_record_conversion_to_result(no_ref_rhs_type, rhs, decl_context);
