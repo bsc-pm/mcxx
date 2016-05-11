@@ -54,9 +54,12 @@ namespace Analysis {
         }
     };
 
-    std::string get_subscripts_string(
+    std::string get_array_subscript_string(
             const Nodecl::ArraySubscript& n,
             /*in*/ VarToConstraintMap& input_constraints);
+    std::string get_class_member_string(
+        const Nodecl::ClassMemberAccess& n,
+        /*in*/ VarToConstraintMap& input_constraints);
 
 }
 }

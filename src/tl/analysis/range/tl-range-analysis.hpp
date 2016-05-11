@@ -89,6 +89,7 @@ namespace Analysis {
         Ret visit_assignment(const NBase& lhs, const NBase& rhs);
         Ret visit_increment(const NBase& rhs, bool positive);
         void create_array_fake_constraint(const NBase& n);
+        void create_struct_fake_constraint(const NBase& n);
         void compute_comparison_constraint(
             /*in*/  const NBase& n,
             /*in*/  const NBase& m,

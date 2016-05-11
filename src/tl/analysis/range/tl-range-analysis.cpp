@@ -1928,15 +1928,20 @@ namespace {
                                 // 2.2.1.1.1.- Get a new symbol for the new constraint
                                 std::stringstream ss; ss << get_next_id(orig_var);
                                 Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
-                                std::string subscripts_str;
+                                std::string constr_name;
                                 if (orig_var.no_conv().is<Nodecl::ArraySubscript>())
                                 {
                                     VarToConstraintMap all_constrs = merged_input_constrs;
                                     all_constrs.insert(input_constrs.begin(), input_constrs.end());
-                                    subscripts_str = get_subscripts_string(orig_var.no_conv().as<Nodecl::ArraySubscript>(),
-                                                                           all_constrs) + "_";
+                                    constr_name = get_array_subscript_string(
+                                                        orig_var.no_conv().as<Nodecl::ArraySubscript>(),
+                                                        all_constrs);
                                 }
-                                std::string constr_name = orig_sym.get_name() + "_" + subscripts_str + ss.str();
+                                else
+                                {
+                                    constr_name = orig_sym.get_name() + "_";
+                                }
+                                constr_name += ss.str();
                                 Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
@@ -2008,15 +2013,20 @@ namespace {
                                 // 2.2.1.2.2.2.- Get a new symbol for the new constraint
                                 std::stringstream ss; ss << get_next_id(orig_var);
                                 Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
-                                std::string subscripts_str;
+                                std::string constr_name;
                                 if (orig_var.no_conv().is<Nodecl::ArraySubscript>())
                                 {
                                     VarToConstraintMap all_constrs = merged_input_constrs;
                                     all_constrs.insert(input_constrs.begin(), input_constrs.end());
-                                    subscripts_str = get_subscripts_string(orig_var.no_conv().as<Nodecl::ArraySubscript>(),
-                                                                           all_constrs) + "_";
+                                    constr_name = get_array_subscript_string(
+                                                        orig_var.no_conv().as<Nodecl::ArraySubscript>(),
+                                                        all_constrs);
                                 }
-                                std::string constr_name = orig_sym.get_name() + "_" + subscripts_str + ss.str();
+                                else
+                                {
+                                    constr_name = orig_sym.get_name() + "_";
+                                }
+                                constr_name += ss.str();
                                 Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
