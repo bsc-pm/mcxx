@@ -1397,23 +1397,26 @@ namespace {
 
             // 2.- Check whether this SCC is ready to be solved:
             //     All its entries, but those coming from back edges, must have been already solved
-            const std::list<CGNode*>& roots = scc->get_roots();
-            std::set<CGEdge*> entries;
-            for (std::list<CGNode*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
-            {
-                entries.insert((*it)->get_entries().begin(), (*it)->get_entries().end());
-            }
             bool is_ready = true;
-            for (std::set<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
+            const std::vector<CGNode*>& nodes = scc->get_nodes();
+            std::set<CGEdge*> entries;
+            for (std::vector<CGNode*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it)
             {
-                CGNode* parent = (*it)->get_source();
-                SCC* parent_scc = _node_to_scc_map[parent];
-                if (scc != parent_scc                           // This parent belongs to a different component
-                        && visited.find(parent_scc) == visited.end())  // That other component has not been solved yet
-                {
-                    is_ready = false;
-                    break;
-                }
+                ObjectList<CGEdge*> n_entries = (*it)->get_entries();
+                for (ObjectList<CGEdge*>::iterator itt = n_entries.begin();
+                     itt != n_entries.end(); ++itt)
+                     {
+                         if ((*itt)->is_back_edge())
+                             continue;
+                         CGNode* parent = (*itt)->get_source();
+                         SCC* parent_scc = _node_to_scc_map[parent];
+                         if (scc != parent_scc                               // This parent belongs to a different component
+                             && visited.find(parent_scc) == visited.end())   // That other component has not been solved yet
+                         {
+                             is_ready = false;
+                             break;
+                         }
+                     }
             }
             if (!is_ready)
             {
@@ -1478,23 +1481,26 @@ namespace {
 
             // 2.- Check whether this SCC is ready to be solved:
             //     All its entries, but those coming from back edges, must have been already solved
-            const std::list<CGNode*>& roots = scc->get_roots();
-            std::set<CGEdge*> entries;
-            for (std::list<CGNode*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
-            {
-                entries.insert((*it)->get_entries().begin(), (*it)->get_entries().end());
-            }
             bool is_ready = true;
-            for (std::set<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
+            const std::vector<CGNode*>& nodes = scc->get_nodes();
+            std::set<CGEdge*> entries;
+            for (std::vector<CGNode*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it)
             {
-                CGNode* parent = (*it)->get_source();
-                SCC* parent_scc = _node_to_scc_map[parent];
-                if (scc != parent_scc                           // This parent belongs to a different component
-                        && visited.find(parent_scc) == visited.end())  // That other component has not been solved yet
-                {
-                    is_ready = false;
-                    break;
-                }
+                ObjectList<CGEdge*> n_entries = (*it)->get_entries();
+                for (ObjectList<CGEdge*>::iterator itt = n_entries.begin();
+                     itt != n_entries.end(); ++itt)
+                     {
+                         if ((*itt)->is_back_edge())
+                             continue;
+                         CGNode* parent = (*itt)->get_source();
+                         SCC* parent_scc = _node_to_scc_map[parent];
+                         if (scc != parent_scc                               // This parent belongs to a different component
+                             && visited.find(parent_scc) == visited.end())   // That other component has not been solved yet
+                         {
+                             is_ready = false;
+                             break;
+                         }
+                     }
             }
             if (!is_ready)
             {
