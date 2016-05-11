@@ -131,7 +131,7 @@ struct const_value_tag
     union
     {
         // CVK_INTEGER
-        cvalue_uint_t  i;
+        cvalue_uint_t i;
         cvalue_int_t si;
         // CVK_FLOAT
         float f;

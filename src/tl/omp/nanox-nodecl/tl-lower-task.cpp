@@ -2114,84 +2114,27 @@ void LoweringVisitor::handle_copy_item(
     copy_offset << as_expression(data_ref.get_offsetof_copy(data_ref, ctr.retrieve_context()));
 
     TL::Type copy_type = data_ref.get_data_type();
-    TL::Type base_type = copy_type;
-
-    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, dims_sizes;
-
     num_dimensions_of_copy = copy_type.get_num_dimensions();
+
+    TL::Type base_type;
+    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, dims_sizes;
     if (num_dimensions_of_copy == 0)
     {
-        lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-        upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-        dims_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
-        num_dimensions_of_copy++;
+       base_type = copy_type;
+       lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+       upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+       dims_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+       num_dimensions_of_copy++;
     }
     else
     {
-        TL::Type t = copy_type;
-        int fortran_rank = copy_type.fortran_rank();
+       compute_array_info(ctr, data_ref, copy_type, base_type, lower_bounds, upper_bounds, dims_sizes);
 
-        while (t.is_array())
-        {
-            Nodecl::NodeclBase array_lb, array_ub;
-            Nodecl::NodeclBase region_lb, region_ub;
-            Nodecl::NodeclBase dim_size;
-
-            dim_size = t.array_get_size();
-            t.array_get_bounds(array_lb, array_ub);
-            if (t.array_is_region())
-            {
-                t.array_get_region_bounds(region_lb, region_ub);
-            }
-
-            if (IS_FORTRAN_LANGUAGE
-                    && t.is_fortran_array())
-            {
-                if (array_lb.is_null())
-                {
-                    array_lb = get_lower_bound(data_ref, fortran_rank);
-                }
-                if (array_ub.is_null())
-                {
-                    array_ub = get_upper_bound(data_ref, fortran_rank);
-                }
-                if (dim_size.is_null())
-                {
-                    dim_size = get_size_for_dimension(t, fortran_rank, data_ref);
-                }
-            }
-
-            // The region is the whole array
-            if (region_lb.is_null())
-                region_lb = array_lb;
-            if (region_ub.is_null())
-                region_ub = array_ub;
-
-            // Adjust bounds to be 0-based
-            Nodecl::NodeclBase adjusted_region_lb =
-                (Source() << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")").
-                parse_expression(ctr);
-            Nodecl::NodeclBase adjusted_region_ub =
-                (Source() << "(" << as_expression(region_ub) << ") - (" << as_expression(array_lb) << ")").
-                parse_expression(ctr);
-
-            lower_bounds.append(adjusted_region_lb);
-            upper_bounds.append(adjusted_region_ub);
-            dims_sizes.append(dim_size);
-
-            t = t.array_element();
-
-            fortran_rank--;
-        }
-
-        base_type = t;
-
-        // Sanity check
+       // Sanity check
         ERROR_CONDITION(num_dimensions_of_copy != (signed)lower_bounds.size()
                 || num_dimensions_of_copy != (signed)upper_bounds.size()
                 || num_dimensions_of_copy != (signed)dims_sizes.size(),
                 "Mismatch between dimensions", 0);
-
     }
 
     num_dimensions
@@ -2908,6 +2851,7 @@ void LoweringVisitor::fortran_dependence_extra_check(
     }
 }
 
+
 void LoweringVisitor::handle_dependency_item(
         Nodecl::NodeclBase ctr,
         TL::DataReference dep_expr,
@@ -2987,18 +2931,12 @@ void LoweringVisitor::handle_dependency_item(
     dependency_flags_concurrent << concurrent;
     dependency_flags_commutative << commutative;
 
-    Type dependency_type = dep_expr.get_data_type();
-    TL::Type base_type = dependency_type;
-
-    int num_dimensions_of_dep = dependency_type.get_num_dimensions();
-
     // Compute the base type of the dependency and the array containing the size of each dimension
     Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof_dependence();
     ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
     dependency_offset << as_expression(dep_expr_offset);
 
-    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, dims_sizes;
 
     bool is_fortran_allocatable_dependence = false;
     bool is_fortran_pointer_dependence = false;
@@ -3049,72 +2987,22 @@ void LoweringVisitor::handle_dependency_item(
             ;
     }
 
+    Type dependency_type = dep_expr.get_data_type();
+    int num_dimensions_of_dep = dependency_type.get_num_dimensions();
+
+    TL::Type base_type;
+    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, dims_sizes;
     if (num_dimensions_of_dep == 0)
     {
-        lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-        upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-        dims_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
-        num_dimensions_of_dep++;
+       base_type = dependency_type;
+       lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+       upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+       dims_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+       num_dimensions_of_dep++;
     }
     else
     {
-        TL::Type t = dependency_type;
-        int fortran_rank = dependency_type.fortran_rank();
-
-        while (t.is_array())
-        {
-            Nodecl::NodeclBase array_lb, array_ub;
-            Nodecl::NodeclBase region_lb, region_ub;
-            Nodecl::NodeclBase dim_size;
-
-            dim_size = t.array_get_size();
-            t.array_get_bounds(array_lb, array_ub);
-            if (t.array_is_region())
-            {
-                t.array_get_region_bounds(region_lb, region_ub);
-            }
-
-            if (IS_FORTRAN_LANGUAGE
-                    && t.is_fortran_array())
-            {
-                if (array_lb.is_null())
-                {
-                    array_lb = get_lower_bound(dep_expr, fortran_rank);
-                }
-                if (array_ub.is_null())
-                {
-                    array_ub = get_upper_bound(dep_expr, fortran_rank);
-                }
-                if (dim_size.is_null())
-                {
-                    dim_size = get_size_for_dimension(t, fortran_rank, dep_expr);
-                }
-            }
-
-            // The region is the whole array
-            if (region_lb.is_null())
-                region_lb = array_lb;
-            if (region_ub.is_null())
-                region_ub = array_ub;
-
-            // Adjust bounds to be 0-based
-            Nodecl::NodeclBase adjusted_region_lb =
-                (Source() << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")").
-                parse_expression(ctr);
-            Nodecl::NodeclBase adjusted_region_ub =
-                (Source() << "(" << as_expression(region_ub) << ") - (" << as_expression(array_lb) << ")").
-                parse_expression(ctr);
-
-            lower_bounds.append(adjusted_region_lb);
-            upper_bounds.append(adjusted_region_ub);
-            dims_sizes.append(dim_size);
-
-            t = t.array_element();
-
-            fortran_rank--;
-        }
-
-        base_type = t;
+       compute_array_info(ctr, dep_expr, dependency_type, base_type, lower_bounds, upper_bounds, dims_sizes);
 
         // Sanity check
         ERROR_CONDITION(num_dimensions_of_dep != (signed)lower_bounds.size()
@@ -3462,6 +3350,76 @@ void LoweringVisitor::fill_dependences_internal(
     }
 }
 
+void LoweringVisitor::compute_array_info(
+        Nodecl::NodeclBase ctr,
+        TL::DataReference array_expr,
+        TL::Type array_type,
+        // Out
+        TL::Type& base_type,
+        TL::ObjectList<Nodecl::NodeclBase>& lower_bounds,
+        TL::ObjectList<Nodecl::NodeclBase>& upper_bounds,
+        TL::ObjectList<Nodecl::NodeclBase>& dims_sizes)
+{
+    ERROR_CONDITION(!array_type.is_array(), "Unexpected type", 0);
+
+    TL::Type t = array_type;
+    int fortran_rank = array_type.fortran_rank();
+
+    while (t.is_array())
+    {
+        Nodecl::NodeclBase array_lb, array_ub;
+        Nodecl::NodeclBase region_lb, region_ub;
+        Nodecl::NodeclBase dim_size;
+
+        dim_size = t.array_get_size();
+        t.array_get_bounds(array_lb, array_ub);
+        if (t.array_is_region())
+        {
+            t.array_get_region_bounds(region_lb, region_ub);
+        }
+
+        if (IS_FORTRAN_LANGUAGE
+                && t.is_fortran_array())
+        {
+            if (array_lb.is_null())
+            {
+                array_lb = get_lower_bound(array_expr, fortran_rank);
+            }
+            if (array_ub.is_null())
+            {
+                array_ub = get_upper_bound(array_expr, fortran_rank);
+            }
+            if (dim_size.is_null())
+            {
+                dim_size = get_size_for_dimension(t, fortran_rank, array_expr);
+            }
+        }
+
+        // The region is the whole array
+        if (region_lb.is_null())
+            region_lb = array_lb;
+        if (region_ub.is_null())
+            region_ub = array_ub;
+
+        // Adjust bounds to be 0-based
+        Nodecl::NodeclBase adjusted_region_lb =
+            (Source() << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")").
+            parse_expression(ctr);
+        Nodecl::NodeclBase adjusted_region_ub =
+            (Source() << "(" << as_expression(region_ub) << ") - (" << as_expression(array_lb) << ")").
+            parse_expression(ctr);
+
+        lower_bounds.append(adjusted_region_lb);
+        upper_bounds.append(adjusted_region_ub);
+        dims_sizes.append(dim_size);
+
+        t = t.array_element();
+
+        fortran_rank--;
+    }
+    base_type = t;
+}
+
 Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
         TL::Type array_type,
         int fortran_dimension,
@@ -3531,7 +3489,6 @@ Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
 
     return n;
 }
-
 
 Nodecl::NodeclBase LoweringVisitor::get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num)
 {

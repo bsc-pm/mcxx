@@ -270,6 +270,11 @@ LIBMCXX_EXTERN type_t* get_array_type_unknown_size_dependent(
 LIBMCXX_EXTERN type_t* array_type_rebase(type_t* array_type,
         type_t* new_element_type);
 
+// This is used only for C99 in parameter declarations
+LIBMCXX_EXTERN type_t *get_cv_qualified_array_type(type_t *array_type,
+                                                   cv_qualifier_t);
+LIBMCXX_EXTERN cv_qualifier_t array_type_get_cv_qualifier(type_t *array_type);
+
 LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t,
         parameter_info_t* parameter_info, int num_parameters,
         ref_qualifier_t ref_qualifier);

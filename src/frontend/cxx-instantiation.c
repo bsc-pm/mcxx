@@ -256,23 +256,41 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
     {
         case SK_VARIABLE:
             {
-                scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
-                        being_instantiated,
-                        instantiation_symbol_map,
-                        member_of_template);
-
+                scope_entry_t* new_member;
                 if (is_named_class_type(member_of_template->type_information)
-                        && symbol_entity_specs_get_is_anonymous_union(named_type_get_symbol(member_of_template->type_information)))
+                        && symbol_entity_specs_get_is_anonymous_union(
+                            named_type_get_symbol(member_of_template->type_information)))
                 {
+                    // The union class has to be already mapped
                     scope_entry_t* new_class = instantiation_symbol_do_map(
                             instantiation_symbol_map,
                             named_type_get_symbol(member_of_template->type_information));
+
                     ERROR_CONDITION(new_class == NULL, "Anonymous union type not found in the map type!\n", 0);
 
-                    new_member->type_information = get_user_defined_type(new_class);
+                    instantiate_nontemplate_member_class_of_template_class(new_class, context_of_being_instantiated, locus);
+
+                    scope_entry_t* anon_member = finish_anonymous_class(new_class, context_of_being_instantiated);
+
+                    anon_member->type_information = get_user_defined_type(new_class);
+
+                    // Add this member to the current class
+                    symbol_entity_specs_set_is_member(anon_member, 1);
+                    symbol_entity_specs_set_access(anon_member, symbol_entity_specs_get_access(new_class));
+                    symbol_entity_specs_set_class_type(anon_member, get_user_defined_type(new_class));
+
+                    class_type_add_member(being_instantiated, anon_member,
+                            anon_member->decl_context, /* is_definition */ 1);
+
+                    new_member = anon_member;
                 }
                 else
                 {
+                    new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                            being_instantiated,
+                            instantiation_symbol_map,
+                            member_of_template);
+
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
@@ -585,23 +603,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     // Do not share these
                     symbol_entity_specs_free_related_symbols(new_member);
-
-                    if (symbol_entity_specs_get_is_anonymous_union(new_member))
-                    {
-                        instantiate_nontemplate_member_class_of_template_class(new_member, context_of_being_instantiated, locus);
-
-                        scope_entry_t* anon_member = finish_anonymous_class(new_member, context_of_being_instantiated);
-
-                        anon_member->type_information = get_user_defined_type(new_member);
-
-                        // Add this member to the current class
-                        symbol_entity_specs_set_is_member(anon_member, 1);
-                        symbol_entity_specs_set_access(anon_member, symbol_entity_specs_get_access(new_member));
-                        symbol_entity_specs_set_class_type(anon_member, get_user_defined_type(new_member));
-
-                        class_type_add_member(being_instantiated, anon_member,
-                                anon_member->decl_context, /* is_definition */ 1);
-                    }
 
                     instantiation_symbol_map_add(instantiation_symbol_map,
                             member_of_template,

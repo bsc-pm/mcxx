@@ -115,6 +115,15 @@ namespace TL { namespace Nanos6 {
                                             const TL::ObjectList<TL::Symbol> &local,
                                             Nodecl::List &register_statements);
 
+            void register_noncontiguous_region_dependence(
+                TL::DataReference &data_ref,
+                TL::Symbol handler,
+                TL::Symbol arg,
+                TL::Symbol register_fun,
+                TL::Scope scope,
+                const TL::ObjectList<TL::Symbol> &local,
+                Nodecl::List &register_statements);
+
             void register_fortran_region_dependence(
                 TL::DataReference &data_ref,
                 TL::Symbol handler,

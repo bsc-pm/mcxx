@@ -4261,8 +4261,9 @@ extern inline type_t* get_unqualified_type(type_t* t)
     }
 }
 
-static inline
-type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
+static inline type_t *get_qualified_type(type_t *original,
+                                         cv_qualifier_t cv_qualification,
+                                         char qualify_arrays)
 {
     // Ensure it is initialized
     init_qualification_hash();
@@ -4286,10 +4287,13 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     ERROR_CONDITION(original->unqualified_type == NULL, "This cannot be NULL", 0);
 
     // The standard forces us to do some strange things here
-    if (original->kind == TK_ARRAY)
+    if (!qualify_arrays && original->kind == TK_ARRAY)
     {
         // Now clone the type
-        type_t* qualif_element_type = get_qualified_type(original->array->element_type, cv_qualification);
+        type_t *qualif_element_type
+            = get_qualified_type(original->array->element_type,
+                                 cv_qualification,
+                                 /* qualify_arrays */ 0);
         return _clone_array_type(original, qualif_element_type);
     }
 
@@ -4321,24 +4325,35 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     return qualified_type;
 }
 
-extern inline type_t* get_cv_qualified_type(type_t* t, cv_qualifier_t cv_qualifier)
+type_t *get_cv_qualified_array_type(type_t *array_type,
+                                    cv_qualifier_t cv_qualifier)
 {
-    return get_qualified_type(t, cv_qualifier);
+    return get_qualified_type(array_type, cv_qualifier, /* qualify_arrays */ 1);
 }
 
-extern inline type_t* get_const_qualified_type(type_t* t)
+
+extern inline type_t *get_cv_qualified_type(type_t *t,
+                                            cv_qualifier_t cv_qualifier)
 {
-    return get_qualified_type(t, (t->cv_qualifier | CV_CONST));
+    return get_qualified_type(t, cv_qualifier, /* qualify_arrays */ 0);
 }
 
-extern inline type_t* get_volatile_qualified_type(type_t* t)
+extern inline type_t *get_const_qualified_type(type_t *t)
 {
-    return get_qualified_type(t, (t->cv_qualifier | CV_VOLATILE));
+    return get_qualified_type(
+        t, (t->cv_qualifier | CV_CONST), /* qualify_arrays */ 0);
 }
 
-extern inline type_t* get_restrict_qualified_type(type_t* t)
+extern inline type_t *get_volatile_qualified_type(type_t *t)
 {
-    return get_qualified_type(t, (t->cv_qualifier | CV_RESTRICT));
+    return get_qualified_type(
+        t, (t->cv_qualifier | CV_VOLATILE), /* qualify_arrays */ 0);
+}
+
+extern inline type_t *get_restrict_qualified_type(type_t *t)
+{
+    return get_qualified_type(
+        t, (t->cv_qualifier | CV_RESTRICT), /* qualify_arrays */ 0);
 }
 
 extern inline type_t* get_pointer_type(type_t* t)
@@ -8114,7 +8129,7 @@ static type_t* advance_dependent_typename_if_in_context(type_t* t, const decl_co
     type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
 
     type_t* result = advance_dependent_typename_aux(t, dependent_entry_type, nodecl_dependent_parts);
-    result = get_qualified_type(result, cv_qualif);
+    result = get_qualified_type(result, cv_qualif, /* qualify_arrays */ 0);
 
     DEBUG_CODE()
     {
@@ -9758,6 +9773,12 @@ extern inline cv_qualifier_t get_cv_qualifier(type_t* type_info)
         return get_cv_qualifier(array_type_get_element_type(type_info));
     }
     return type_info->cv_qualifier;
+}
+
+extern inline cv_qualifier_t array_type_get_cv_qualifier(type_t *array_type)
+{
+    ERROR_CONDITION(!is_array_type(array_type), "This is not an array type", 0);
+    return array_type->cv_qualifier;
 }
 
 extern inline type_t* canonical_type(type_t* type)
@@ -15582,6 +15603,13 @@ static inline type_t* type_deep_copy_class(
     dest->type_information = get_new_class_type(
             new_decl_context,
             class_type_get_class_kind(orig));
+
+    // We need to abuse a bit of the scope map to retrieve the new class context
+    decl_context_t* inner_decl_context = (decl_context_t*)
+        symbol_map->map(symbol_map, (scope_entry_t*)class_type_get_inner_context(orig));
+
+    class_type_set_inner_context(dest->type_information, inner_decl_context);
+
 
     // Duplicate all members
     // FIXME: duplicate them in declaration order!
