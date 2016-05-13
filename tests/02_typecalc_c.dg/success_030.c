@@ -31,8 +31,15 @@
 test_generator=config/mercurium
 </testinfo>
 */
+#include <stddef.h>
 
-typedef __typeof__(*(L"")) wchar_t;
+// Comment
+// We used to define the type of wchar_t using this typedef.
+// The problem is that the definition of wchar_t is compiler-specific, so we
+// cannot assume that our internal type for wide string literals is the same as
+// the backend compiler.
+//
+// typedef __typeof__(*(L"")) wchar_t;
 
 char c[256] = "hello";
 wchar_t c1[256] = L"hello";
