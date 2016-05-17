@@ -2465,7 +2465,7 @@ void init_type_environments(void)
     linux_arm64.sizeof_bool = 1;
     linux_arm64.alignof_bool = 1;
 
-    linux_arm64.int_type_of_wchar_t = get_signed_int_type;
+    linux_arm64.int_type_of_wchar_t = get_unsigned_int_type;
     linux_arm64.sizeof_wchar_t = 4;
     linux_arm64.alignof_wchar_t = 4;
 
