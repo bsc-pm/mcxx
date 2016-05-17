@@ -2387,7 +2387,7 @@ void init_type_environments(void)
     linux_arm_eabi.sizeof_bool = 1;
     linux_arm_eabi.alignof_bool = 1;
 
-    linux_arm_eabi.int_type_of_wchar_t = get_signed_int_type;
+    linux_arm_eabi.int_type_of_wchar_t = get_unsigned_int_type;
     linux_arm_eabi.sizeof_wchar_t = 4;
     linux_arm_eabi.alignof_wchar_t = 4;
 
