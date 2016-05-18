@@ -12584,6 +12584,11 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
+
+            // Using symbols have to be advanced
+            if (entry->kind == SK_USING)
+                entry = entry_advance_aliases(entry);
+
             if (entry->kind != SK_ENUM
                     && entry->kind != SK_CLASS
                     && entry->kind != SK_TYPEDEF)
@@ -12598,6 +12603,10 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         entry_list_iterator_free(it);
 
         scope_entry_t* entry = entry_list_head(list);
+
+        // Using symbols have to be advanced
+        if (entry->kind == SK_USING)
+            entry = entry_advance_aliases(entry);
 
         entry_list_free(list);
 
