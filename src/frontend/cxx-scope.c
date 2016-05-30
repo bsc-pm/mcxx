@@ -5312,14 +5312,21 @@ static const char* get_fully_qualified_symbol_name_simple(
 
     if (current_scope->kind == NAMESPACE_SCOPE)
     {
-        char last_is_anonymous = 0;
+        char extra_qualification_required = 1;
+        char last_was_anonymous = 0;
         while (current_scope != NULL)
         {
-            if (decl_context->namespace_scope == current_scope
+            char current_is_anonymous = 0;
+            if (current_scope->related_entry != NULL
                     && current_scope->related_entry->symbol_name != NULL
                     && strcmp(current_scope->related_entry->symbol_name, "(unnamed)") == 0)
+                current_is_anonymous = 1;
+
+            if (decl_context->namespace_scope == current_scope
+                    && (current_is_anonymous
+                        || last_was_anonymous))
             {
-                last_is_anonymous = 1;
+                extra_qualification_required = 0;
                 break;
             }
 
@@ -5332,14 +5339,13 @@ static const char* get_fully_qualified_symbol_name_simple(
             }
 
             current_scope = current_scope->contained_in;
+            last_was_anonymous = current_is_anonymous;
         }
 
         CXX_LANGUAGE()
         {
-            if (!last_is_anonymous)
-            {
+            if (extra_qualification_required)
                 result = strappend("::", result);
-            }
         }
     }
 
