@@ -59,7 +59,7 @@ if [ ! -z "@ICC@" -a ! -z "@INTEL_OMP_LIB@" ];
 then
 
 DISABLE_INTEL_INTRINSICS=""
-ICC_VERSION=$(icc -v 2>&1 | sed -e "s/^icc version \([0-9]\+\)\(\.[0-9]\+\)*.*$/\1/i")
+ICC_VERSION=$(icc --version | head -n 1 | sed -e "s/^icc (ICC) \([0-9]\+\)\(\.[0-9]\+\)*.*$/\1/i")
 if [ -n "$ICC_VERSION" -a "$ICC_VERSION" -le 15 ];
 then
     DISABLE_INTEL_INTRINSICS="--disable-intel-intrinsics"
