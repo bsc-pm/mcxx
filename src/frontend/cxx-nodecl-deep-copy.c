@@ -545,6 +545,42 @@ static void gather_all_symbols_to_fill(
     entry_list_iterator_free(it);
 }
 
+static void compute_dependences_value(symbol_fill_info_t* symbol_fill_info,
+        nodecl_t node,
+        closure_hash_t* data)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    if(nodecl_get_kind(node) == NODECL_SYMBOL)
+    {
+        scope_entry_t* entry = nodecl_get_symbol(node);
+
+        // We shouldn't depend on ourselves
+        if (symbol_fill_info->symbol == entry)
+            return;
+
+        scope_entry_t* mapped_symbol =
+            nested_symbol_map_fun_immediate((symbol_map_t*)data->nested_symbol_map, entry);
+
+        // We only add mapped symbols to the list of dependent symbols
+        if (entry != mapped_symbol)
+        {
+            P_LIST_ADD_ONCE(symbol_fill_info->depends, symbol_fill_info->num_depends, entry);
+        }
+    }
+    else
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            compute_dependences_value(symbol_fill_info,
+                    nodecl_get_child(node, i),
+                    data);
+        }
+    }
+}
+
 static void compute_dependences_type(symbol_fill_info_t* symbol_fill_info,
         type_t* t,
         closure_hash_t* data)
@@ -629,6 +665,13 @@ static void compute_dependences(symbol_fill_info_t* symbol_fill_info,
     compute_dependences_type(symbol_fill_info,
             symbol_fill_info->symbol->type_information,
             data);
+
+    if (symbol_fill_info->symbol->kind == SK_VARIABLE)
+    {
+        compute_dependences_value(symbol_fill_info,
+                symbol_fill_info->symbol->value,
+                data);
+    }
 }
 
 static void remove_symbol_from_deps(
