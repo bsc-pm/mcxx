@@ -361,7 +361,7 @@ static void compute_associated_scopes_rec(
             if (symbol_entity_specs_get_is_member(symbol))
             {
                 type_t* class_type = symbol_entity_specs_get_class_type(symbol);
-                compute_associated_scopes_rec(koenig_info, class_type, locus);
+                compute_set_of_associated_classes_scope(class_type, koenig_info, locus);
             }
         }
 
