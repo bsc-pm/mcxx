@@ -30722,11 +30722,15 @@ static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_
                     || nodecl_get_text(v->nodecl_result) != NULL)
             {
                 const_value_t* cval = nodecl_get_constant(v->nodecl_result);
+                char is_value_dependent = nodecl_expr_is_value_dependent(v->nodecl_result);
+
                 v->nodecl_result = nodecl_make_conversion(
                         v->nodecl_result,
                         conversion_type,
                         nodecl_get_locus(node));
+
                 nodecl_set_constant(v->nodecl_result, cval);
+                nodecl_expr_set_is_value_dependent(v->nodecl_result, is_value_dependent);
             }
             nodecl_set_text(v->nodecl_result, text);
         }
