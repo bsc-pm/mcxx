@@ -2455,13 +2455,11 @@ namespace TL { namespace Nanos6 {
                 Nodecl::NodeclBase upper_region_bound;
                 data_type.array_get_region_bounds(lower_region_bound,
                                                   upper_region_bound);
+                /* whole array a[0:N-1] */
+                if (structurally_equal_bounds(lower_bound, lower_region_bound) &&
+                        structurally_equal_bounds(upper_bound, upper_region_bound))
+                    return is_contiguous_region_(data_type.array_element(), n + 1);
 
-                if (/* whole array a[0:N-1] */
-                    (structurally_equal_bounds(lower_bound, lower_region_bound)
-                     && structurally_equal_bounds(upper_bound,
-                                                  upper_region_bound)))
-                    return is_contiguous_region_(data_type.array_element(),
-                                                 n + 1);
                 return 0;
             }
             else
