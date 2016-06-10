@@ -1278,7 +1278,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OmpSs::Commutative& commutative)
             {
-                add_dependences(commutative.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
+                add_dependences(commutative.get_commutative_deps().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
             }
 
             void visit(const Nodecl::OmpSs::CopyIn& copy_in)

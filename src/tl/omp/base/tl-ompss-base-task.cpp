@@ -883,7 +883,7 @@ namespace TL { namespace OmpSs {
 
         void visit(const Nodecl::OmpSs::Commutative& dep_inout)
         {
-            report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_OMPSS_COMMUTATIVE);
+            report_dep(dep_inout.get_commutative_deps(), OpenMP::DEP_OMPSS_COMMUTATIVE);
         }
     };
 
