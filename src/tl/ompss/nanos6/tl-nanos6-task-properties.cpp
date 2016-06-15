@@ -3470,25 +3470,25 @@ namespace TL { namespace Nanos6 {
     {
         Nodecl::List captured_list;
 
+        // 1. Traversing captured variables (firstprivate + other captures)
         for (TL::ObjectList<TL::Symbol>::iterator it = captured_value.begin();
                 it != captured_value.end();
                 it++)
         {
-            Nodecl::NodeclBase current_captured_stmt;
-
             ERROR_CONDITION(field_map.find(*it) == field_map.end(),
                     "Symbol is not mapped", 0);
 
-            Nodecl::NodeclBase lhs;
-            if (it->get_type().is_dependent()
-                && !is_standard_layout_type(
-                       it->get_type().no_ref().get_internal_type()))
+            if (it->get_type().is_dependent() &&
+                    !is_standard_layout_type(it->get_type().no_ref().get_internal_type()))
             {
                 error_printf_at(locus_of_task_creation,
                         "capture of symbol '%s' with non-standard layout type is not supported\n",
                         it->get_qualified_name().c_str());
             }
-            else if (!it->get_type().no_ref().is_array()
+
+
+            Nodecl::NodeclBase current_captured_stmt, lhs;
+            if (!it->get_type().no_ref().is_array()
                     && !it->get_type().no_ref().is_function())
             {
                 Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
@@ -3505,7 +3505,7 @@ namespace TL { namespace Nanos6 {
                             /* member_literal */ Nodecl::NodeclBase::null(),
                             lhs_type);
 
-                current_captured_stmt = 
+                current_captured_stmt =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 lhs,
@@ -3530,7 +3530,7 @@ namespace TL { namespace Nanos6 {
                             /* member_literal */ Nodecl::NodeclBase::null(),
                             lhs_type);
 
-                current_captured_stmt = 
+                current_captured_stmt =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 lhs,
@@ -3539,64 +3539,89 @@ namespace TL { namespace Nanos6 {
             }
             else
             {
-                TL::Symbol builtin_memcpy = TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
-                ERROR_CONDITION(!builtin_memcpy.is_valid()
-                        || !builtin_memcpy.is_function(), "Invalid symbol", 0);
-
-                TL::Type lhs_type =
-                    field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-                lhs =
-                    Nodecl::Reference::make(
-                            Nodecl::ClassMemberAccess::make(
-                                Nodecl::Dereference::make(
-                                    args.make_nodecl(/* set_ref_type */ true),
-                                    args.get_type().points_to().get_lvalue_reference_to()),
-                                field_map[*it].make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                lhs_type),
-                            lhs_type.no_ref().get_pointer_to());
-
-                Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
-                rhs = Nodecl::Conversion::make(
-                        rhs,
-                        rhs.get_type().no_ref().array_element().get_pointer_to());
-
-                Nodecl::NodeclBase size_of_array;
-
-                if (it->get_type().depends_on_nonconstant_values())
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    TL::Symbol builtin_memcpy = TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
+                    ERROR_CONDITION(!builtin_memcpy.is_valid()
+                            || !builtin_memcpy.is_function(), "Invalid symbol", 0);
+
+                    TL::Type lhs_type =
+                        field_map[*it].get_type().no_ref().get_lvalue_reference_to();
+
+                    lhs =
+                        Nodecl::Reference::make(
+                                Nodecl::ClassMemberAccess::make(
+                                    Nodecl::Dereference::make(
+                                        args.make_nodecl(/* set_ref_type */ true),
+                                        args.get_type().points_to().get_lvalue_reference_to()),
+                                    field_map[*it].make_nodecl(),
+                                    /* member_literal */ Nodecl::NodeclBase::null(),
+                                    lhs_type),
+                                lhs_type.no_ref().get_pointer_to());
+
+                    Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
+                    rhs = Nodecl::Conversion::make(
+                            rhs,
+                            rhs.get_type().no_ref().array_element().get_pointer_to());
+
+                    Nodecl::NodeclBase size_of_array;
+
+                    if (it->get_type().depends_on_nonconstant_values())
                     {
                         size_of_array =
                             Nodecl::Sizeof::make(
                                     Nodecl::Type::make(it->get_type()),
                                     Nodecl::NodeclBase::null(),
                                     get_size_t_type());
-
                     }
-                    else if (IS_FORTRAN_LANGUAGE)
+                    else
                     {
-                        internal_error("Capture of VLA not yet implemented", 0);
+                        size_of_array =
+                            const_value_to_nodecl_with_basic_type(
+                                    const_value_get_signed_int(
+                                        it->get_type().no_ref().get_size()),
+                                    get_size_t_type());
+                    }
+
+                    current_captured_stmt = Nodecl::ExpressionStatement::make(
+                            Nodecl::FunctionCall::make(
+                                builtin_memcpy.make_nodecl(/* set_ref_type */ true),
+                                Nodecl::List::make(lhs, rhs, size_of_array),
+                                /* alternate-name */ Nodecl::NodeclBase::null(),
+                                /* function-form */ Nodecl::NodeclBase::null(),
+                                TL::Type::get_void_type().get_pointer_to()));
+
+                }
+                else // IS_FORTRAN_LANGUAGE
+                {
+                    if (!it->get_type().depends_on_nonconstant_values())
+                    {
+                        Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
+
+                        TL::Type lhs_type =
+                            field_map[*it].get_type().no_ref().get_lvalue_reference_to();
+
+                        lhs =
+                            Nodecl::ClassMemberAccess::make(
+                                    Nodecl::Dereference::make(
+                                        args.make_nodecl(/* set_ref_type */ true),
+                                        args.get_type().points_to().get_lvalue_reference_to()),
+                                    field_map[*it].make_nodecl(),
+                                    /* member_literal */ Nodecl::NodeclBase::null(),
+                                    lhs_type);
+
+                        current_captured_stmt =
+                            Nodecl::ExpressionStatement::make(
+                                    Nodecl::Assignment::make(
+                                        lhs,
+                                        rhs,
+                                        lhs_type));
+                    }
+                    else
+                    {
+                        internal_error("Arrays with nonconstant values are not supported yet.", 0);
                     }
                 }
-                else
-                {
-                    size_of_array =
-                        const_value_to_nodecl_with_basic_type(
-                                const_value_get_signed_int(
-                                    it->get_type().no_ref().get_size()
-                                    ),
-                                get_size_t_type());
-                }
-
-                current_captured_stmt = Nodecl::ExpressionStatement::make(
-                    Nodecl::FunctionCall::make(
-                        builtin_memcpy.make_nodecl(/* set_ref_type */ true),
-                        Nodecl::List::make(lhs, rhs, size_of_array),
-                        /* alternate-name */ Nodecl::NodeclBase::null(),
-                        /* function-form */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_void_type().get_pointer_to()));
             }
 
             if (IS_FORTRAN_LANGUAGE
@@ -3627,6 +3652,8 @@ namespace TL { namespace Nanos6 {
             captured_list.append(current_captured_stmt);
         }
 
+
+        // 2. Traversing SHARED variables
         for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
                 it != shared.end();
                 it++)
