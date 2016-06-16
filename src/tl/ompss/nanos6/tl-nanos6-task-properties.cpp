@@ -3486,24 +3486,23 @@ namespace TL { namespace Nanos6 {
                         it->get_qualified_name().c_str());
             }
 
+            TL::Type lhs_type =
+                field_map[*it].get_type().no_ref().get_lvalue_reference_to();
 
-            Nodecl::NodeclBase current_captured_stmt, lhs;
+            Nodecl::NodeclBase lhs =
+                Nodecl::ClassMemberAccess::make(
+                        Nodecl::Dereference::make(
+                            args.make_nodecl(/* set_ref_type */ true),
+                            args.get_type().points_to().get_lvalue_reference_to()),
+                        field_map[*it].make_nodecl(),
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        lhs_type);
+
+            Nodecl::NodeclBase current_captured_stmt;
             if (!it->get_type().no_ref().is_array()
                     && !it->get_type().no_ref().is_function())
             {
                 Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
-
-                TL::Type lhs_type =
-                    field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-                lhs =
-                    Nodecl::ClassMemberAccess::make(
-                            Nodecl::Dereference::make(
-                                args.make_nodecl(/* set_ref_type */ true),
-                                args.get_type().points_to().get_lvalue_reference_to()),
-                            field_map[*it].make_nodecl(),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            lhs_type);
 
                 current_captured_stmt =
                     Nodecl::ExpressionStatement::make(
@@ -3518,18 +3517,6 @@ namespace TL { namespace Nanos6 {
                         it->make_nodecl(/* set_ref_type */ true),
                         it->get_type().no_ref().get_pointer_to());
 
-                TL::Type lhs_type =
-                    field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-                lhs =
-                    Nodecl::ClassMemberAccess::make(
-                            Nodecl::Dereference::make(
-                                args.make_nodecl(/* set_ref_type */ true),
-                                args.get_type().points_to().get_lvalue_reference_to()),
-                            field_map[*it].make_nodecl(),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            lhs_type);
-
                 current_captured_stmt =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
@@ -3541,31 +3528,20 @@ namespace TL { namespace Nanos6 {
             {
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    TL::Symbol builtin_memcpy = TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
+                    TL::Symbol builtin_memcpy =
+                        TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
+
                     ERROR_CONDITION(!builtin_memcpy.is_valid()
                             || !builtin_memcpy.is_function(), "Invalid symbol", 0);
 
-                    TL::Type lhs_type =
-                        field_map[*it].get_type().no_ref().get_lvalue_reference_to();
+                    Nodecl::NodeclBase ref_lhs =
+                        Nodecl::Reference::make(lhs, lhs_type.no_ref().get_pointer_to());
 
-                    lhs =
-                        Nodecl::Reference::make(
-                                Nodecl::ClassMemberAccess::make(
-                                    Nodecl::Dereference::make(
-                                        args.make_nodecl(/* set_ref_type */ true),
-                                        args.get_type().points_to().get_lvalue_reference_to()),
-                                    field_map[*it].make_nodecl(),
-                                    /* member_literal */ Nodecl::NodeclBase::null(),
-                                    lhs_type),
-                                lhs_type.no_ref().get_pointer_to());
-
-                    Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
-                    rhs = Nodecl::Conversion::make(
-                            rhs,
-                            rhs.get_type().no_ref().array_element().get_pointer_to());
+                    Nodecl::NodeclBase rhs = Nodecl::Conversion::make(
+                            it->make_nodecl(/* set_ref_type */ true),
+                            it->get_type().no_ref().array_element().get_pointer_to());
 
                     Nodecl::NodeclBase size_of_array;
-
                     if (it->get_type().depends_on_nonconstant_values())
                     {
                         size_of_array =
@@ -3586,29 +3562,16 @@ namespace TL { namespace Nanos6 {
                     current_captured_stmt = Nodecl::ExpressionStatement::make(
                             Nodecl::FunctionCall::make(
                                 builtin_memcpy.make_nodecl(/* set_ref_type */ true),
-                                Nodecl::List::make(lhs, rhs, size_of_array),
+                                Nodecl::List::make(ref_lhs, rhs, size_of_array),
                                 /* alternate-name */ Nodecl::NodeclBase::null(),
                                 /* function-form */ Nodecl::NodeclBase::null(),
                                 TL::Type::get_void_type().get_pointer_to()));
-
                 }
                 else // IS_FORTRAN_LANGUAGE
                 {
                     if (!it->get_type().depends_on_nonconstant_values())
                     {
                         Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
-
-                        TL::Type lhs_type =
-                            field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-                        lhs =
-                            Nodecl::ClassMemberAccess::make(
-                                    Nodecl::Dereference::make(
-                                        args.make_nodecl(/* set_ref_type */ true),
-                                        args.get_type().points_to().get_lvalue_reference_to()),
-                                    field_map[*it].make_nodecl(),
-                                    /* member_literal */ Nodecl::NodeclBase::null(),
-                                    lhs_type);
 
                         current_captured_stmt =
                             Nodecl::ExpressionStatement::make(
@@ -3630,7 +3593,7 @@ namespace TL { namespace Nanos6 {
             {
                 Source conditional_capture_src;
 
-                Nodecl::NodeclBase capture_null = 
+                Nodecl::NodeclBase capture_null =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 lhs.shallow_copy(),
