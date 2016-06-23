@@ -1451,14 +1451,14 @@ namespace TL { namespace OpenMP {
 
         warn_printf_at(pragma_line.get_locus(), "'taskloop' construct is EXPERIMENTAL\n");
 
-        PragmaCustomClause grainsize = pragma_line.get_clause("grainsize");
-        PragmaCustomClause num_tasks = pragma_line.get_clause("num_tasks");
+        PragmaCustomClause grainsize_clause = pragma_line.get_clause("grainsize");
+        PragmaCustomClause num_tasks_clause = pragma_line.get_clause("num_tasks");
         PragmaCustomClause nogroup = pragma_line.get_clause("nogroup");
 
-        Nodecl::NodeclBase num_blocks;
-        if (grainsize.is_defined() == num_tasks.is_defined())
+        Nodecl::NodeclBase grainsize_expr, num_tasks_expr;
+        if (grainsize_clause.is_defined() == num_tasks_clause.is_defined())
         {
-            if (grainsize.is_defined())
+            if (grainsize_clause.is_defined())
             {
                 error_printf_at(pragma_line.get_locus(), "cannot define 'grainsize' and 'num_tasks' clauses at the same time\n");
             }
@@ -1469,13 +1469,13 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            if (grainsize.is_defined())
+            if (grainsize_clause.is_defined())
             {
-                TL::ObjectList<Nodecl::NodeclBase> args = grainsize.get_arguments_as_expressions();
+                TL::ObjectList<Nodecl::NodeclBase> args = grainsize_clause.get_arguments_as_expressions();
                 int num_args = args.size();
                 if (num_args >= 1)
                 {
-                    num_blocks = grainsize.get_arguments_as_expressions()[0];
+                    grainsize_expr = args[0];
                     if (num_args != 1)
                     {
                         error_printf_at(pragma_line.get_locus(), "too many expressions in 'grainsize' clause\n");
@@ -1488,13 +1488,29 @@ namespace TL { namespace OpenMP {
             }
             else // num_tasks.is_defined()
             {
-                internal_error("'num_tasks' clause is not implemented yet", 0);
+                internal_error("'num_tasks' clause is not supported yet\n", 0);
+
+                TL::ObjectList<Nodecl::NodeclBase> args = num_tasks_clause.get_arguments_as_expressions();
+                int num_args = args.size();
+                if (num_args >= 1)
+                {
+                    num_tasks_expr = args[0];
+                    if (num_args != 1)
+                    {
+                        error_printf_at(pragma_line.get_locus(), "too many expressions in 'num_tasks' clause\n");
+                    }
+                }
+                else
+                {
+                    error_printf_at(pragma_line.get_locus(), "missing expression in 'grainsize' clause\n");
+                }
             }
         }
 
-        if (num_blocks.is_null()
-                || num_blocks.is<Nodecl::ErrExpr>())
-            return; // give up
+        // grainsize_expr or num_tasks_expr has to be valid, otherwise we skip the taskloop
+        if ((grainsize_expr.is_null() || grainsize_expr.is<Nodecl::ErrExpr>()) &&
+            (num_tasks_expr.is_null() || num_tasks_expr.is<Nodecl::ErrExpr>()))
+            return;
 
         bool taskwait_at_the_end = true;
         if (nogroup.is_defined())
@@ -1516,7 +1532,7 @@ namespace TL { namespace OpenMP {
 
         pragma_line.diagnostic_unused_clauses();
 
-        taskloop_block_loop(directive, statement, execution_environment, num_blocks);
+        taskloop_block_loop(directive, statement, execution_environment, grainsize_expr, num_tasks_expr);
 
         Nodecl::List code;
         code.append(statement);
@@ -3472,7 +3488,7 @@ namespace TL { namespace OpenMP {
 
     Nodecl::NodeclBase taskloop_generate_outer_loop(
             const TL::ForStatement& for_statement,
-            Nodecl::NodeclBase num_blocks,
+            Nodecl::NodeclBase grainsize_expr,
             TL::Symbol taskloop_ivar,
             TL::Symbol block_extent,
             Nodecl::NodeclBase new_task,
@@ -3485,7 +3501,7 @@ namespace TL { namespace OpenMP {
                             Nodecl::LowerThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
                                 Nodecl::Mul::make(
-                                    num_blocks.shallow_copy(),
+                                    grainsize_expr.shallow_copy(),
                                     for_statement.get_step().shallow_copy(),
                                     for_statement.get_induction_variable().get_type()),
                                 get_bool_type()),
@@ -3497,7 +3513,10 @@ namespace TL { namespace OpenMP {
                                         Nodecl::Minus::make(
                                             Nodecl::Add::make(
                                                 taskloop_ivar.make_nodecl(),
-                                                num_blocks.shallow_copy(),
+                                                Nodecl::Mul::make(
+                                                    grainsize_expr.shallow_copy(),
+                                                    for_statement.get_step().shallow_copy(),
+                                                    for_statement.get_induction_variable().get_type()),
                                                 taskloop_ivar.get_type()
                                                 ),
                                             const_value_to_nodecl(const_value_get_signed_int(1)),
@@ -3509,12 +3528,18 @@ namespace TL { namespace OpenMP {
                                     Nodecl::Assignment::make(
                                         block_extent.make_nodecl(),
                                         Nodecl::Add::make(
-                                            Nodecl::Minus::make(
+
+                                            Nodecl::Add::make(
                                                 taskloop_ivar.make_nodecl(),
-                                                num_blocks.shallow_copy(),
+                                                Nodecl::Mul::make(
+                                                    grainsize_expr.shallow_copy(),
+                                                    for_statement.get_step().shallow_copy(),
+                                                    for_statement.get_induction_variable().get_type()),
                                                 taskloop_ivar.get_type()
                                                 ),
+
                                             const_value_to_nodecl(const_value_get_signed_int(1)),
+
                                             taskloop_ivar.get_type()),
                                         block_extent.get_type().get_lvalue_reference_to()))));
 
@@ -3526,7 +3551,7 @@ namespace TL { namespace OpenMP {
                             Nodecl::LowerThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
                                 Nodecl::Mul::make(
-                                    num_blocks.shallow_copy(),
+                                    grainsize_expr.shallow_copy(),
                                     for_statement.get_step().shallow_copy(),
                                     for_statement.get_induction_variable().get_type()),
                                 get_bool_type()),
@@ -3539,7 +3564,7 @@ namespace TL { namespace OpenMP {
                             Nodecl::GreaterThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
                                 Nodecl::Mul::make(
-                                    num_blocks.shallow_copy(),
+                                    grainsize_expr.shallow_copy(),
                                     for_statement.get_step().shallow_copy(),
                                     for_statement.get_induction_variable().get_type()),
                                 get_bool_type()),
@@ -3559,7 +3584,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::Mul blocked_step =
             Nodecl::Mul::make(
-                    num_blocks.shallow_copy(),
+                    grainsize_expr.shallow_copy(),
                     for_statement.get_step().shallow_copy(),
                     for_statement.get_induction_variable().get_type());
 
@@ -3672,7 +3697,8 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase directive,
             Nodecl::NodeclBase statement,
             Nodecl::NodeclBase execution_environment,
-            Nodecl::NodeclBase num_blocks)
+            Nodecl::NodeclBase grainsize_expr,
+            Nodecl::NodeclBase num_tasks_expr)
     {
         ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid node", 0);
 
@@ -3741,7 +3767,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase new_outer_loop =
             taskloop_generate_outer_loop(for_statement,
-                    num_blocks,
+                    grainsize_expr,
                     taskloop_ivar, block_extent, new_task,
                     new_outer_loop_context, new_outer_loop_body_context,
                     statement.get_locus());
