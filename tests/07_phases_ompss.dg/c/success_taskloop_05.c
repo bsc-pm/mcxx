@@ -33,7 +33,7 @@ test_generator=config/mercurium-ompss
 */
 
 #include <assert.h>
-#include <math.h>
+#include <stdio.h>
 
 void loop_1(int *v, int start, int end, int step, int offset, int chunk)
 {
@@ -55,6 +55,10 @@ void loop_2(int *v, int start, int end, int step, int offset, int chunk)
 void check_results(int *v, int start, int end, int step, int chunk_values)
 {
     for (int i = start; i < end; i += step) {
+
+        if (v[i] != chunk_values) {
+            printf("Error: %d -> %d\n", i, v[i]);
+        }
         assert(v[i] == chunk_values);
     }
 }
@@ -71,6 +75,7 @@ int main(int argc, char *argv[]) {
     int v[n];
 
 
+    printf("first config\n");
     {
         int start  =     0;
         int end    =  2000;
@@ -85,6 +90,7 @@ int main(int argc, char *argv[]) {
         check_results(v, 0, n, step, 20);
     }
 
+    printf("second config\n");
     {
         int start  =  2000;
         int end    =     0;
@@ -99,7 +105,7 @@ int main(int argc, char *argv[]) {
         check_results(v, 0, n, -step, 20);
     }
 
-
+    printf("third config\n");
     {
         int start  = -2000;
         int end    =     0;
@@ -115,6 +121,7 @@ int main(int argc, char *argv[]) {
     }
 
 
+    printf("fourth config\n");
     {
         int start  =     0;
         int end    = -2000;
@@ -130,6 +137,7 @@ int main(int argc, char *argv[]) {
     }
 
 
+    printf("fifth config\n");
     {
         int start  = -1000;
         int end    =  1000;
@@ -144,6 +152,7 @@ int main(int argc, char *argv[]) {
         check_results(v, 0, n, step, 20);
     }
 
+    printf("sixth config\n");
     {
         int start  =  1000;
         int end    = -1000;
