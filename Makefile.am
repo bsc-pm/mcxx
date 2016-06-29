@@ -3518,7 +3518,7 @@ rpm: dist-gzip
 	$(MKDIR_P) -p SOURCES BUILD RPMS SPECS SRPMS; \
 	cp ../$(distdir).tar.gz SOURCES; \
 	THREADS=$$(getconf _NPROCESSORS_ONLN); THREADS=$${THREADS:-1};\
-	rpmbuild -v -bb --clean $(abs_top_srcdir)/scripts/mcxx-rpm.spec --define "_topdir $$(pwd)" --define 'version $(VERSION)' --define 'release $(shell date +%Y%m%d)' --define '_rpm_prefix $(RPM_PREFIX)' --define "threads $${THREADS}";
+	rpmbuild -v -bb --clean $(abs_top_srcdir)/scripts/mcxx-rpm.spec --define "_topdir $$(pwd)" --define '_version $(VERSION)' --define '_release $(shell date +%Y%m%d)' --define '_rpm_prefix $(RPM_PREFIX)' --define "threads $${THREADS}";
 
 scripts-clean-rpm:
 	rm -rf scripts/BUILDROOT scripts/SOURCES scripts/BUILD scripts/RPMS scripts/SPECS scripts/SRPMS

@@ -9,32 +9,33 @@
 %else
 %define distro          %{?dist}
 %endif
-%define name            mcxx
-%define buildroot       %{_topdir}/%{name}-%{version}-root
+%define _name            mcxx
+%define buildroot       %{_topdir}/%{_name}-%{_version}-root
 %define nanox_dir       %{_prefix}
 %define nanox_lib       %{_libdir}
+%define debug_package   %{nil}
 # Forget about the .la files for now
 %define _unpackaged_files_terminate_build 0
 
 # Override prefix if _rpm_prefix is given
 %{?_rpm_prefix: %define _prefix  %{_rpm_prefix} }
 
-BuildRoot:	   %{buildroot}
+BuildRoot:     %{buildroot}
 Summary:       The Mercurium source to source compiler
 License:       LGPLv2
-Name:          %{name}
-Version:       %{version}
-Release:       %{release}%{distro}
-Source:        %{name}-%{version}.tar.gz
+Name:          %{_name}
+Version:       %{_version}
+Release:       %{_release}%{distro}
+Source:        %{_name}-%{_version}.tar.gz
 Prefix:        %{_prefix}
 Group:         Development/Tools
 Provides:      ompss
 %if 0%{?suse_version}
-BuildRequires:		bison, flex, sqlite3-devel >= 3.6.16, gperf, nanox, texinfo, pkg-config
-Requires:		sqlite3 >= 3.6.16, gcc-fortran, binutils, nanox
+BuildRequires: bison, flex, sqlite3-devel >= 3.6.16, gperf, nanox, texinfo, pkg-config
+Requires:      sqlite3 >= 3.6.16, gcc-fortran, binutils, nanox
 %else
-BuildRequires:		bison, flex, sqlite-devel >= 3.6.16, gperf, nanox, texinfo, pkgconfig
-Requires:		sqlite >= 3.6.16, gcc-gfortran, binutils, nanox
+BuildRequires: bison, flex, sqlite-devel >= 3.6.16, gperf, nanox, texinfo, pkgconfig
+Requires:      sqlite >= 3.6.16, gcc-gfortran, binutils, nanox
 %endif
 %description
 The Mercurium source to source compiler, with OmpSs support.
@@ -50,7 +51,7 @@ make -j%{threads}
 #make check
 
 %install
-%makeinstall
+make install DESTDIR=%{buildroot}
 
 %files
 %defattr(-,root,root)
