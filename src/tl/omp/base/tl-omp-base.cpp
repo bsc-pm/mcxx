@@ -45,8 +45,6 @@
 #include <algorithm>
 #include <iterator>
 
-#include "cxx-graphviz.h"
-
 namespace TL { namespace OpenMP {
 
     namespace Report
