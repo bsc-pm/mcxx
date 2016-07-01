@@ -59,7 +59,9 @@ make install DESTDIR=%{buildroot}
 %{_libdir}/*
 %{_libdir}/mcxx/*
 # %{_datadir}/mcxx/intel-omp/
+%{_datadir}/mcxx/*
 %{_datadir}/mcxx/analysisdata/*
-%{_datadir}/mcxx/fortran/*
-%{_datadir}/mcxx/config.mcxx
 %{_datadir}/mcxx/config.d/*
+%{_datadir}/mcxx/fortran/*
+%{_datadir}/mcxx/nanos/*
+%{_datadir}/mcxx/romol/*
