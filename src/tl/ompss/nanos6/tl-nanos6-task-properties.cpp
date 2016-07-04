@@ -2532,53 +2532,57 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(subscripts.size() <= 1, "Invalid subcript list", 0);
 
         TL::ObjectList<TL::Symbol> ind_vars;
-        // Iterate over all dimensions except last one.
-        // Create an object list with all the needed variables.
+        TL::ObjectList<Nodecl::Range> ranges;
+
+        // For each Range node we create a new variable that will be used as
+        // the induction variable of a new loop. Note that we skip the last
+        // subscript since it is always contiguous
         for (Nodecl::List::iterator it = subscripts.begin();
              it + 1 != subscripts.end();
              it++)
         {
-            TL::Counter &ctr
-                = TL::CounterManager::get_counter("nanos6-noncontiguous");
-            std::stringstream ss;
-            ss << "x_" << (int)ctr;
-            ctr++;
-            std::string ind_var_name = ss.str();
+            if (it->is<Nodecl::Range>())
+            {
+                TL::Counter &ctr
+                    = TL::CounterManager::get_counter("nanos6-noncontiguous");
+                std::stringstream ss;
+                ss << "x_" << (int)ctr;
+                ctr++;
+                std::string ind_var_name = ss.str();
 
-            TL::Symbol sym = scope.new_symbol(ind_var_name);
-            sym.get_internal_symbol()->kind = SK_VARIABLE;
-            sym.get_internal_symbol()->type_information = get_signed_int_type();
-            symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(),
-                                                     1);
-            ind_vars.append(sym);
+                TL::Symbol sym = scope.new_symbol(ind_var_name);
+                sym.get_internal_symbol()->kind = SK_VARIABLE;
+                sym.get_internal_symbol()->type_information = get_signed_int_type();
+                symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
+                ind_vars.append(sym);
+                ranges.append(it->as<Nodecl::Range>());
+            }
         }
 
-        // Generate code that will register the linear dependences.
+        // For each induction variable we create a new loop where the
+        // lower and upper values are obtained from the Range node
         TL::Source src;
-        Nodecl::List::iterator sub_it = subscripts.begin();
         for (size_t i = 0; i < ind_vars.size(); i++)
         {
-            ERROR_CONDITION(!sub_it->is<Nodecl::Range>(), "Invalid Node", 0);
             Source lower, upper, stride;
-            Nodecl::Range range = sub_it->as<Nodecl::Range>();
+            Nodecl::Range& range = ranges[i];
             lower << as_expression(rewrite_expression_using_args(
-                arg, range.get_lower(), ind_vars));
+                        arg, range.get_lower(), ind_vars));
             upper << as_expression(rewrite_expression_using_args(
-                arg, range.get_upper(), ind_vars));
+                        arg, range.get_upper(), ind_vars));
             stride << as_expression(rewrite_expression_using_args(
-                arg, range.get_stride(), ind_vars));
+                        arg, range.get_stride(), ind_vars));
 
             std::string name = ind_vars[i].get_name();
             src << "for (" << name << " = " << lower << "; " << name
-                << " <= " << upper << "; " << name << " += " << stride << ") {";
-            // Increase other iterator.
-            sub_it++;
+                << " <= " << upper << "; " << name << " += " << stride << ") {"
+                ;
         }
 
         Nodecl::NodeclBase body_of_loop;
         src << statement_placeholder(body_of_loop);
 
-        for (auto var : ind_vars)
+        for (size_t i = 0; i < ind_vars.size(); i++)
         {
             src << "}";
         }
@@ -2590,16 +2594,22 @@ namespace TL { namespace Nanos6 {
                                           .get_subscripts()
                                           .as<Nodecl::List>();
 
-        TL::ObjectList<TL::Symbol>::iterator ind_var_it = ind_vars.begin();
+        // Finally, we update the subscripts of the copy of the original
+        // dependence. Basically, we replace the lower and upper bounds of each
+        // Range
+        size_t range_count = 0;
         for (Nodecl::List::iterator it = new_subscripts.begin();
              it + 1 != new_subscripts.end();
-             it++, ind_var_it++)
+             it++)
         {
-            ERROR_CONDITION(
-                !it->is<Nodecl::Range>(), "This should be a range", 0);
-            Nodecl::Range r = it->as<Nodecl::Range>();
-            r.get_lower().replace(ind_var_it->make_nodecl(/* set ref */ true));
-            r.get_upper().replace(ind_var_it->make_nodecl(/* set ref */ true));
+            if (it->is<Nodecl::Range>())
+            {
+                TL::Symbol&  ind_var = ind_vars[range_count++];
+
+                Nodecl::Range r = it->as<Nodecl::Range>();
+                r.get_lower().replace(ind_var.make_nodecl(/* set ref */ true));
+                r.get_upper().replace(ind_var.make_nodecl(/* set ref */ true));
+            }
         }
 
         Nodecl::List linear_reg;
@@ -3223,7 +3233,8 @@ namespace TL { namespace Nanos6 {
     }
 
     Nodecl::NodeclBase TaskProperties::rewrite_expression_using_args(
-            TL::Symbol arg, Nodecl::NodeclBase expr,
+            TL::Symbol arg,
+            Nodecl::NodeclBase expr,
             const TL::ObjectList<TL::Symbol>& local)
     {
         Nodecl::NodeclBase result = expr.shallow_copy();
