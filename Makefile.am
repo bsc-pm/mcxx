@@ -1146,6 +1146,8 @@ src_tl_omp_common_libtlomp_common_la_LIBADD = $(tl_libadd)
 src_tl_omp_common_libtlomp_common_la_SOURCES = \
    src/tl/omp/common/tl-datareference.hpp \
    src/tl/omp/common/tl-datareference.cpp \
+   src/tl/omp/common/tl-final-stmts-generator.hpp \
+   src/tl/omp/common/tl-final-stmts-generator.cpp \
    $(END)
 
 ##########################################################################
@@ -1970,8 +1972,6 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.cpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.hpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl-prerun.cpp \
-								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.cpp \
-								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-arguments.cpp \

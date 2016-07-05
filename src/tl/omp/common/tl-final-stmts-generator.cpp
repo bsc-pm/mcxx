@@ -24,11 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-symbol-utils.hpp"
 #include "tl-final-stmts-generator.hpp"
+#include "tl-symbol-utils.hpp"
 
 #include "cxx-cexpr.h"
-namespace TL { namespace Nanox {
+
+namespace TL {
 
     Nodecl::NodeclBase FinalStmtsGenerator::generate_final_stmts(Nodecl::NodeclBase stmts)
     {
@@ -381,9 +382,8 @@ namespace TL { namespace Nanox {
        }
     }
 
-
     std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& FinalStmtsGenerator::get_final_stmts()
     {
         return _final_stmts_map;
     }
-}}
+}
