@@ -3494,8 +3494,45 @@ namespace TL { namespace OpenMP {
             TL::Scope new_outer_loop_body_context,
             const locus_t* locus)
     {
-        Nodecl::NodeclBase init_block_extent =
-            Nodecl::IfElseStatement::make(
+        Nodecl::NodeclBase init_block_extent;
+        {
+            // taskloop_ivar + (grainsize_expr * step)
+            Nodecl::NodeclBase expr =
+                Nodecl::Add::make(
+                        taskloop_ivar.make_nodecl(),
+                        Nodecl::Mul::make(
+                            grainsize_expr.shallow_copy(),
+                            for_statement.get_step().shallow_copy(),
+                            for_statement.get_induction_variable().get_type()),
+                        taskloop_ivar.get_type());
+
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                if (for_statement.is_strictly_increasing_loop())
+                {
+                    expr = Nodecl::Minus::make(
+                            expr,
+                            const_value_to_nodecl(const_value_get_one(4, 1)),
+                            expr.get_type());
+                }
+                else
+                {
+                    expr = Nodecl::Add::make(
+                            expr,
+                            const_value_to_nodecl(const_value_get_one(4, 1)),
+                            expr.get_type());
+                }
+
+                init_block_extent = Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                                block_extent.make_nodecl(),
+                                expr,
+                                block_extent.get_type().get_lvalue_reference_to()));
+            }
+            else /* IS_FORTRAN_LANGUAGE */
+            {
+                init_block_extent =
+                    Nodecl::IfElseStatement::make(
                             Nodecl::LowerThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
                                 Nodecl::Mul::make(
@@ -3509,14 +3546,7 @@ namespace TL { namespace OpenMP {
                                     Nodecl::Assignment::make(
                                         block_extent.make_nodecl(),
                                         Nodecl::Minus::make(
-                                            Nodecl::Add::make(
-                                                taskloop_ivar.make_nodecl(),
-                                                Nodecl::Mul::make(
-                                                    grainsize_expr.shallow_copy(),
-                                                    for_statement.get_step().shallow_copy(),
-                                                    for_statement.get_induction_variable().get_type()),
-                                                taskloop_ivar.get_type()
-                                                ),
+                                            expr,
                                             const_value_to_nodecl(const_value_get_signed_int(1)),
                                             taskloop_ivar.get_type()),
                                         block_extent.get_type().get_lvalue_reference_to()))),
@@ -3526,25 +3556,35 @@ namespace TL { namespace OpenMP {
                                     Nodecl::Assignment::make(
                                         block_extent.make_nodecl(),
                                         Nodecl::Add::make(
-
-                                            Nodecl::Add::make(
-                                                taskloop_ivar.make_nodecl(),
-                                                Nodecl::Mul::make(
-                                                    grainsize_expr.shallow_copy(),
-                                                    for_statement.get_step().shallow_copy(),
-                                                    for_statement.get_induction_variable().get_type()),
-                                                taskloop_ivar.get_type()
-                                                ),
-
+                                            expr.shallow_copy(),
                                             const_value_to_nodecl(const_value_get_signed_int(1)),
-
                                             taskloop_ivar.get_type()),
                                         block_extent.get_type().get_lvalue_reference_to()))));
+            }
+        }
 
 
-        Nodecl::NodeclBase adjust_block_extent =
-            Nodecl::IfElseStatement::make(
-                    Nodecl::LogicalOr::make(
+        Nodecl::NodeclBase adjust_block_extent;
+        {
+            Nodecl::NodeclBase condition;
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
+                ptr_to_func_t make_relative_operator;
+                if (for_statement.is_strictly_increasing_loop())
+                    make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterThan::make;
+                else
+                    make_relative_operator = (ptr_to_func_t) &Nodecl::LowerThan::make;
+
+                condition = (*make_relative_operator)(
+                        block_extent.make_nodecl(),
+                        for_statement.get_upper_bound().shallow_copy(),
+                        get_bool_type(),
+                        0);
+            }
+            else /* IS_FORTRAN_LANGUAGE */
+            {
+                condition = Nodecl::LogicalOr::make(
                         Nodecl::LogicalAnd::make(
                             Nodecl::LowerThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
@@ -3571,14 +3611,20 @@ namespace TL { namespace OpenMP {
                                 block_extent.make_nodecl(),
                                 get_bool_type()),
                             get_bool_type()),
-                        get_bool_type()),
+                        get_bool_type());
+            }
+
+            adjust_block_extent =
+                Nodecl::IfElseStatement::make(
+                        condition,
                         Nodecl::List::make(
-                                Nodecl::ExpressionStatement::make(
-                                    Nodecl::Assignment::make(
-                                        block_extent.make_nodecl(),
-                                        for_statement.get_upper_bound().shallow_copy(),
-                                        block_extent.get_type().get_lvalue_reference_to()))),
+                            Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    block_extent.make_nodecl(),
+                                    for_statement.get_upper_bound().shallow_copy(),
+                                    block_extent.get_type().get_lvalue_reference_to()))),
                         Nodecl::NodeclBase::null());
+        }
 
         Nodecl::Mul blocked_step =
             Nodecl::Mul::make(
@@ -3595,57 +3641,93 @@ namespace TL { namespace OpenMP {
                         blocked_step.get_rhs().get_constant()));
         }
 
-        Nodecl::RangeLoopControl new_outer_loop_control = Nodecl::RangeLoopControl::make(
-                taskloop_ivar.make_nodecl(),
-                for_statement.get_lower_bound(),
-                for_statement.get_upper_bound(),
-                blocked_step,
-                locus);
+        Nodecl::NodeclBase new_outer_loop_control;
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase init =
+                Nodecl::List::make(
+                        Nodecl::Assignment::make(
+                            taskloop_ivar.make_nodecl(),
+                            for_statement.get_lower_bound(),
+                            taskloop_ivar.get_type().get_lvalue_reference_to()));
+
+            typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
+            ptr_to_func_t make_relative_operator;
+            if (for_statement.is_strictly_increasing_loop())
+                make_relative_operator = (ptr_to_func_t) &Nodecl::LowerOrEqualThan::make;
+            else
+                make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterOrEqualThan::make;
+
+            Nodecl::NodeclBase cond =
+                (*make_relative_operator)(
+                        taskloop_ivar.make_nodecl(),
+                        for_statement.get_upper_bound(),
+                        get_bool_type(),
+                        0);
+
+            Nodecl::NodeclBase next =
+                Nodecl::AddAssignment::make(
+                        taskloop_ivar.make_nodecl(),
+                        blocked_step,
+                        taskloop_ivar.get_type().get_lvalue_reference_to());
+
+            new_outer_loop_control = Nodecl::LoopControl::make(init, cond, next);
+        }
+        else
+        {
+            new_outer_loop_control = Nodecl::RangeLoopControl::make(
+                    taskloop_ivar.make_nodecl(),
+                    for_statement.get_lower_bound(),
+                    for_statement.get_upper_bound(),
+                    blocked_step,
+                    locus);
+        }
 
         Nodecl::List outer_loop_body_statements;
         if (IS_CXX_LANGUAGE)
-            outer_loop_body_statements.append(
-                    Nodecl::CxxDef::make(nodecl_null(), block_extent, block_extent.get_locus()));
+                outer_loop_body_statements.append(
+                        Nodecl::CxxDef::make(nodecl_null(), block_extent, block_extent.get_locus()));
 
-        outer_loop_body_statements.append(init_block_extent);
-        outer_loop_body_statements.append(adjust_block_extent);
-        outer_loop_body_statements.append(new_task);
+            outer_loop_body_statements.append(init_block_extent);
+            outer_loop_body_statements.append(adjust_block_extent);
+            outer_loop_body_statements.append(new_task);
 
-        Nodecl::List new_outer_loop_body = Nodecl::List::make(
-                Nodecl::Context::make(
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            outer_loop_body_statements,
-                            /* finally */ Nodecl::NodeclBase::null())
-                        ),
-                    new_outer_loop_body_context)
-                );
+            Nodecl::List new_outer_loop_body = Nodecl::List::make(
+                    Nodecl::Context::make(
+                        Nodecl::List::make(
+                            Nodecl::CompoundStatement::make(
+                                outer_loop_body_statements,
+                                /* finally */ Nodecl::NodeclBase::null())
+                            ),
+                        new_outer_loop_body_context)
+                    );
 
-        Nodecl::ForStatement new_outer_loop = Nodecl::ForStatement::make(
-                new_outer_loop_control,
-                new_outer_loop_body,
-                /* loop_name */ Nodecl::NodeclBase::null(),
-                locus);
+            Nodecl::ForStatement new_outer_loop = Nodecl::ForStatement::make(
+                    new_outer_loop_control,
+                    new_outer_loop_body,
+                    /* loop_name */ Nodecl::NodeclBase::null(),
+                    locus);
 
-        Nodecl::List new_body;
-        if (IS_CXX_LANGUAGE)
-        {
-            new_body.append(
-                    Nodecl::CxxDef::make(
-                        /*context*/ nodecl_null(),
-                        taskloop_ivar,
-                        taskloop_ivar.get_locus()));
+            Nodecl::List new_body;
+            if (IS_CXX_LANGUAGE)
+            {
+                new_body.append(
+                        Nodecl::CxxDef::make(
+                            /*context*/ nodecl_null(),
+                            taskloop_ivar,
+                            taskloop_ivar.get_locus()));
+            }
+
+            new_body.append(new_outer_loop);
+
+            Nodecl::NodeclBase new_statement =
+                Nodecl::Context::make(new_body, new_outer_loop_context, locus);
+
+            return new_statement;
         }
 
-        new_body.append(new_outer_loop);
-
-        Nodecl::NodeclBase new_statement =
-            Nodecl::Context::make(new_body, new_outer_loop_context, locus);
-
-        return new_statement;
-    }
-
     Nodecl::NodeclBase taskloop_generate_inner_loop(
+            const TL::ForStatement& for_statement,
             Nodecl::NodeclBase statement,
             TL::Symbol taskloop_ivar,
             TL::Symbol block_extent,
@@ -3680,13 +3762,51 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        new_inner_for_statement.set_loop_header(
-                Nodecl::RangeLoopControl::make(
+
+        Nodecl::NodeclBase loop_control;
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase init =
+                Nodecl::List::make(
+                        Nodecl::Assignment::make(
+                            new_inner_ind_var.make_nodecl(),
+                            taskloop_ivar.make_nodecl(),
+                            new_inner_ind_var.get_type().get_lvalue_reference_to()));
+
+            typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
+            ptr_to_func_t make_relative_operator;
+            if (for_statement.is_strictly_increasing_loop())
+                make_relative_operator = (ptr_to_func_t) &Nodecl::LowerOrEqualThan::make;
+            else
+                make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterOrEqualThan::make;
+
+            Nodecl::NodeclBase cond =
+                (*make_relative_operator)(
+                        new_inner_ind_var.make_nodecl(),
+                        block_extent.make_nodecl(),
+                        get_bool_type(),
+                        0);
+
+            Nodecl::NodeclBase next =
+                Nodecl::AddAssignment::make(
+                        new_inner_ind_var.make_nodecl(),
+                        new_for_statement.get_step(),
+                        new_inner_ind_var.get_type().get_lvalue_reference_to());
+
+            loop_control = Nodecl::LoopControl::make(init, cond, next);
+        }
+        else
+        {
+            loop_control = Nodecl::RangeLoopControl::make(
                     new_inner_ind_var.make_nodecl(),
                     taskloop_ivar.make_nodecl(),
                     block_extent.make_nodecl(),
                     new_for_statement.get_step(),
-                    statement.get_locus()));
+                    statement.get_locus());
+        }
+
+
+        new_inner_for_statement.set_loop_header(loop_control);
 
         return new_inner_loop;
     }
@@ -3738,7 +3858,7 @@ namespace TL { namespace OpenMP {
         block_extent.get_internal_symbol()->value = nodecl_null();
 
         Nodecl::NodeclBase new_inner_loop = taskloop_generate_inner_loop(
-                statement, taskloop_ivar, block_extent, new_outer_loop_body_context);
+                for_statement, statement, taskloop_ivar, block_extent, new_outer_loop_body_context);
 
         // Add new vars as firstprivate
         execution_environment.as<Nodecl::List>().append(

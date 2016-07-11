@@ -1541,42 +1541,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
     emit_floating_constant(value, node.get_type().no_ref());
 }
 
-void CxxBase::emit_range_loop_header(
-        Nodecl::RangeLoopControl lc,
-        Nodecl::NodeclBase statement,
-        const std::string& rel_op)
-{
-    TL::Symbol ind_var = lc.get_induction_variable().get_symbol();
-    std::string ind_var_name = this->get_qualified_name(ind_var);
-
-    indent();
-    *(file) << "for (";
-
-    // I = L
-    *(file) << ind_var_name;
-    *(file) << " = ";
-    walk(lc.get_lower());
-    *(file) << "; ";
-
-    // I <= L     (or   I >= L)
-    *(file) << ind_var_name << rel_op;
-    walk(lc.get_upper());
-    *(file) << "; ";
-
-    // I += S
-    *(file) << ind_var_name << " += ";
-    if (!lc.get_step().is_null())
-        walk(lc.get_step());
-    else
-        *(file) << "1";
-
-    *(file) << ")\n";
-
-    inc_indent();
-    walk(statement);
-    dec_indent();
-}
-
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxForRanged& node)
 {
     emit_line_marker(node);
@@ -1629,74 +1593,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         inc_indent();
         walk(statement);
         dec_indent();
-    }
-    else if (loop_control.is<Nodecl::RangeLoopControl>())
-    {
-        Nodecl::RangeLoopControl lc = loop_control.as<Nodecl::RangeLoopControl>();
-
-        Nodecl::NodeclBase lower = lc.get_lower();
-        Nodecl::NodeclBase upper = lc.get_upper();
-        Nodecl::NodeclBase step = lc.get_step();
-
-        if (step.is_null()
-                || step.is_constant())
-        {
-            std::string rel_op = " <= ";
-            const_value_t* v = NULL;
-            if (step.is_null())
-            {
-                v = const_value_get_signed_int(1);
-            }
-            else
-            {
-                v = step.get_constant();
-            }
-            if (const_value_is_negative(v))
-            {
-                rel_op = " >= ";
-            }
-
-            emit_range_loop_header(lc, statement, rel_op);
-        }
-        else
-        {
-            emit_line_marker(node);
-            indent();
-            *(file) << "if (";
-            walk(step);
-            *(file) << "> 0)\n";
-
-            inc_indent();
-            indent();
-            *(file) << "{\n";
-
-            // We need to keep the codegen status because we will emit two loops
-            std::map<TL::Symbol, codegen_status_t> old_codegen_status = _codegen_status;
-            inc_indent();
-            emit_range_loop_header(lc, statement, " <= ");
-            dec_indent();
-            _codegen_status.swap(old_codegen_status);
-
-            indent();
-            *(file) << "}\n";
-            dec_indent();
-
-            indent();
-            *(file) << "else\n";
-
-            inc_indent();
-            indent();
-            *(file) << "{\n";
-
-            inc_indent();
-            emit_range_loop_header(lc, statement, " >= ");
-            dec_indent();
-
-            indent();
-            *(file) << "}\n";
-            dec_indent();
-        }
-
     }
     // C++2011
     else if (loop_control.is<Nodecl::IteratorLoopControl>())
