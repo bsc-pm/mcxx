@@ -55,7 +55,6 @@ void check_results(int *v, int start, int end, int step, int chunk_values)
 {
     for (int i = start; i < end; i += step)
         assert(v[i] == chunk_values);
-
 }
 
 
