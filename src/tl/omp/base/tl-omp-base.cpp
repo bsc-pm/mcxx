@@ -1486,8 +1486,6 @@ namespace TL { namespace OpenMP {
             }
             else // num_tasks.is_defined()
             {
-                internal_error("'num_tasks' clause is not supported yet\n", 0);
-
                 TL::ObjectList<Nodecl::NodeclBase> args = num_tasks_clause.get_arguments_as_expressions();
                 int num_args = args.size();
                 if (num_args >= 1)
@@ -1518,9 +1516,8 @@ namespace TL { namespace OpenMP {
         // construct defined inside the loop, we can set the 'is_inline_task'
         // to true. This flag is only used to generate task reductions instead
         // of worksharing reductions
-        bool is_inline_task = true;
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ false, is_inline_task);
+                ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
 
         handle_label_clause(directive, execution_environment);
 
@@ -1532,17 +1529,17 @@ namespace TL { namespace OpenMP {
 
         taskloop_block_loop(directive, statement, execution_environment, grainsize_expr, num_tasks_expr);
 
-        Nodecl::List code;
-        code.append(statement);
+        Nodecl::List list;
+        list.append(statement);
         if (taskwait_at_the_end)
         {
-            code.append(
+            list.append(
                     Nodecl::OpenMP::TaskwaitShallow::make(
                         /*environment*/ nodecl_null(),
                         directive.get_locus()));
         }
 
-        directive.replace(code);
+        directive.replace(list);
     }
 
     // Since parallel {for,do,sections} are split into two nodes: parallel and
@@ -3484,16 +3481,194 @@ namespace TL { namespace OpenMP {
         return Nodecl::List::make(result_list);
     }
 
+
+
+    // Note that num_tasks_sym and grainsize_adjustment_sym symbols are only created if
+    // require_conversion_num_tasks_to_grainsize is true. Thus, they are only used to
+    // transform the 'num_task' clause to the 'grainsize' clause.
+    void create_auxiliar_symbols(
+            int counter,
+            TL::Type type,
+            TL::Scope scope_of_directive,
+            bool require_conversion_num_tasks_to_grainsize,
+            // Out
+            TL::Symbol& grainsize_sym,
+            TL::Symbol &num_tasks_sym,
+            TL::Symbol& grainsize_adjustment_sym)
+
+    {
+        std::stringstream ss;
+        ss << "omp_grainsize_" << counter;
+        grainsize_sym = scope_of_directive.new_symbol(ss.str());
+        grainsize_sym.get_internal_symbol()->kind = SK_VARIABLE;
+        grainsize_sym.set_type(type);
+        symbol_entity_specs_set_is_user_declared(grainsize_sym.get_internal_symbol(), 1);
+
+        if (require_conversion_num_tasks_to_grainsize)
+        {
+            ss.str("");
+            ss << "omp_num_tasks_" << counter;
+            num_tasks_sym = scope_of_directive.new_symbol(ss.str());
+            num_tasks_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            num_tasks_sym.set_type(type);
+            symbol_entity_specs_set_is_user_declared(num_tasks_sym.get_internal_symbol(), 1);
+
+            ss.str("");
+            ss << "omp_it_adjustment_" << counter;
+            grainsize_adjustment_sym = scope_of_directive.new_symbol(ss.str());
+            grainsize_adjustment_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            grainsize_adjustment_sym.set_type(type);
+            symbol_entity_specs_set_is_user_declared(grainsize_adjustment_sym.get_internal_symbol(), 1);
+        }
+    }
+
+    Nodecl::NodeclBase convert_num_task_expr_to_grainsize_expr(
+            const TL::ForStatement& for_statement,
+            Nodecl::NodeclBase num_tasks_expr,
+            TL::Symbol grainsize_sym,
+            TL::Symbol num_tasks_sym,
+            TL::Symbol grainsize_adjustment_sym,
+            // Out
+            Nodecl::List& new_body)
+    {
+        // First: introduce the definitions of these extra symbols used to simplify the code generation
+        if (IS_CXX_LANGUAGE)
+        {
+            new_body.append(Nodecl::CxxDef::make(/* context */ nodecl_null(),
+                        num_tasks_sym, num_tasks_sym.get_locus()));
+
+            new_body.append(Nodecl::CxxDef::make( /* context */ nodecl_null(),
+                        grainsize_adjustment_sym, grainsize_adjustment_sym.get_locus()));
+        }
+
+        // Second: storing the value of the 'num_tasks_expr' in a new variable
+        Nodecl::NodeclBase assign_num_tasks = Nodecl::ExpressionStatement::make(
+                Nodecl::Assignment::make(
+                    num_tasks_sym.make_nodecl(),
+                    num_tasks_expr,
+                    num_tasks_sym.get_type().get_lvalue_reference_to()));
+        new_body.append(assign_num_tasks);
+
+        // Third: computing the real number of iterations and storing it in the 'grainsize_sym' symbol
+        //                grainsize = ((upper - lower) + step) / step
+        Nodecl::NodeclBase real_num_iterations_assignment
+            = Nodecl::ExpressionStatement::make(
+                    Nodecl::Assignment::make(
+                        grainsize_sym.make_nodecl(),
+                        Nodecl::Div::make(
+                            Nodecl::ParenthesizedExpression::make(
+                                Nodecl::Add::make(
+                                    Nodecl::Minus::make(
+                                        for_statement.get_upper_bound().shallow_copy(),
+                                        for_statement.get_lower_bound().shallow_copy(),
+                                        for_statement.get_upper_bound().get_type()),
+                                    for_statement.get_step().shallow_copy(),
+                                    for_statement.get_step().get_type()),
+                                for_statement.get_step().get_type()),
+                            for_statement.get_step().shallow_copy(),
+                            for_statement.get_step().get_type()),
+                        grainsize_sym.get_type().get_lvalue_reference_to()));
+        new_body.append(real_num_iterations_assignment);
+
+        // Fourth: If (real_num_iterations % num_tasks != 0) then some tasks will have an additional iteration.
+        // The 'grainsize_adjustment_sym' symbol holds the first index that must have this extra iteration.
+        //
+        //  grainsize_adjustment  = lower_bound +
+        //                          (   (num_tasks - (num_iterations % num_tasks)) *
+        //                              step *
+        //                              (num_iterations / num_tasks)
+        //                          )
+        Nodecl::NodeclBase grainsize_adjustment
+            = Nodecl::ExpressionStatement::make(
+                    Nodecl::Assignment::make(
+                        grainsize_adjustment_sym.make_nodecl(),
+                        Nodecl::Add::make(
+                            for_statement.get_lower_bound().shallow_copy(),
+                            Nodecl::Mul::make(
+                                Nodecl::ParenthesizedExpression::make(
+                                Nodecl::Minus::make(
+                                    num_tasks_sym.make_nodecl(),
+                                    Nodecl::Mod::make(
+                                        grainsize_sym.make_nodecl(),
+                                        num_tasks_sym.make_nodecl(),
+                                        grainsize_sym.get_type()),
+                                    num_tasks_sym.get_type()),
+                                num_tasks_sym.get_type()),
+                                Nodecl::Mul::make(
+                                    for_statement.get_step().shallow_copy(),
+                                    Nodecl::ParenthesizedExpression::make(
+                                    Nodecl::Div::make(
+                                        grainsize_sym.make_nodecl(),
+                                        num_tasks_sym.make_nodecl(),
+                                        grainsize_sym.get_type()),
+                                    grainsize_sym.get_type()),
+                                    for_statement.get_step().get_type()),
+                                num_tasks_sym.get_type()),
+                            for_statement.get_lower_bound().get_type()),
+                        grainsize_adjustment_sym.get_type().get_lvalue_reference_to()));
+        new_body.append(grainsize_adjustment);
+
+        // Fifth: Finally, we compute the 'grainsize_expr' expression
+        // grainsize = (((upper - lower) + step) / step) / num_tasks
+        Nodecl::NodeclBase grainsize_expr = Nodecl::Div::make(
+                grainsize_sym.make_nodecl(),
+                num_tasks_sym.make_nodecl(),
+                grainsize_sym.get_type());
+
+        return grainsize_expr;
+    }
+
     Nodecl::NodeclBase taskloop_generate_outer_loop(
+            int counter,
             const TL::ForStatement& for_statement,
             Nodecl::NodeclBase grainsize_expr,
+            Nodecl::NodeclBase num_tasks_expr,
             TL::Symbol taskloop_ivar,
             TL::Symbol block_extent,
             Nodecl::NodeclBase new_task,
             TL::Scope new_outer_loop_context,
             TL::Scope new_outer_loop_body_context,
+            TL::Scope scope_of_directive,
             const locus_t* locus)
     {
+        bool require_conversion_num_tasks_to_grainsize = !num_tasks_expr.is_null();
+
+        TL::Symbol grainsize_sym, num_tasks_sym, grainsize_adjustment_sym;
+        create_auxiliar_symbols(
+                counter,
+                taskloop_ivar.get_type(),
+                scope_of_directive,
+                require_conversion_num_tasks_to_grainsize,
+                /* out */
+                grainsize_sym,
+                num_tasks_sym,
+                grainsize_adjustment_sym);
+
+
+        Nodecl::List new_body;
+        if (IS_CXX_LANGUAGE)
+        {
+            new_body.append(Nodecl::CxxDef::make(/* context */ nodecl_null(),
+                        taskloop_ivar, taskloop_ivar.get_locus()));
+
+            new_body.append(Nodecl::CxxDef::make(/* context */ nodecl_null(),
+                        grainsize_sym, grainsize_sym.get_locus()));
+        }
+
+        if (require_conversion_num_tasks_to_grainsize)
+        {
+            grainsize_expr = convert_num_task_expr_to_grainsize_expr(
+                    for_statement, num_tasks_expr, grainsize_sym, num_tasks_sym,
+                    grainsize_adjustment_sym, /* out */ new_body);
+        }
+
+        // Initialize the 'grainsize_sym' symbol with the 'grainsize_expr' expression
+        new_body.append(Nodecl::ExpressionStatement::make(
+                    Nodecl::Assignment::make(
+                        grainsize_sym.make_nodecl(),
+                        grainsize_expr,
+                        grainsize_sym.get_type().get_lvalue_reference_to())));
+
         Nodecl::NodeclBase init_block_extent;
         {
             // taskloop_ivar + (grainsize_expr * step)
@@ -3501,7 +3676,7 @@ namespace TL { namespace OpenMP {
                 Nodecl::Add::make(
                         taskloop_ivar.make_nodecl(),
                         Nodecl::Mul::make(
-                            grainsize_expr.shallow_copy(),
+                            grainsize_sym.make_nodecl(),
                             for_statement.get_step().shallow_copy(),
                             for_statement.get_induction_variable().get_type()),
                         taskloop_ivar.get_type());
@@ -3525,14 +3700,15 @@ namespace TL { namespace OpenMP {
 
                 init_block_extent = Nodecl::ExpressionStatement::make(
                         Nodecl::Assignment::make(
-                                block_extent.make_nodecl(),
-                                expr,
-                                block_extent.get_type().get_lvalue_reference_to()));
+                            block_extent.make_nodecl(),
+                            expr,
+                            block_extent.get_type().get_lvalue_reference_to()));
             }
             else /* IS_FORTRAN_LANGUAGE */
             {
                 init_block_extent =
                     Nodecl::IfElseStatement::make(
+
                             Nodecl::LowerThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
                                 Nodecl::Mul::make(
@@ -3589,7 +3765,7 @@ namespace TL { namespace OpenMP {
                             Nodecl::LowerThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
                                 Nodecl::Mul::make(
-                                    grainsize_expr.shallow_copy(),
+                                    grainsize_sym.make_nodecl(),
                                     for_statement.get_step().shallow_copy(),
                                     for_statement.get_induction_variable().get_type()),
                                 get_bool_type()),
@@ -3602,7 +3778,7 @@ namespace TL { namespace OpenMP {
                             Nodecl::GreaterThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
                                 Nodecl::Mul::make(
-                                    grainsize_expr.shallow_copy(),
+                                    grainsize_sym.make_nodecl(),
                                     for_statement.get_step().shallow_copy(),
                                     for_statement.get_induction_variable().get_type()),
                                 get_bool_type()),
@@ -3628,7 +3804,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::Mul blocked_step =
             Nodecl::Mul::make(
-                    grainsize_expr.shallow_copy(),
+                    grainsize_sym.make_nodecl(),
                     for_statement.get_step().shallow_copy(),
                     for_statement.get_induction_variable().get_type());
 
@@ -3683,7 +3859,35 @@ namespace TL { namespace OpenMP {
                     locus);
         }
 
+
         Nodecl::List outer_loop_body_statements;
+
+        if (require_conversion_num_tasks_to_grainsize)
+        {
+            // If the number of iterations is not divisble by the number of
+            // tasks some of them have to execute an extra iteration
+            Nodecl::NodeclBase dyn_adjustment_grainsize =
+                Nodecl::IfElseStatement::make(
+                        // Cond: taskloop_ivar == grainsize_adjustment_sym
+                        Nodecl::Equal::make(
+                            taskloop_ivar.make_nodecl(),
+                            grainsize_adjustment_sym.make_nodecl(),
+                            get_bool_type()),
+                        // Then: grainsize++;
+                        Nodecl::List::make(
+                            Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    grainsize_sym.make_nodecl(),
+                                    Nodecl::Add::make(
+                                        grainsize_sym.make_nodecl(),
+                                        const_value_to_nodecl(const_value_get_signed_int(1)),
+                                        grainsize_sym.get_type()),
+                                    grainsize_sym.get_type().get_lvalue_reference_to()))),
+                        // else:
+                        nodecl_null());
+            outer_loop_body_statements.append(dyn_adjustment_grainsize);
+        }
+
         if (IS_CXX_LANGUAGE)
                 outer_loop_body_statements.append(
                         Nodecl::CxxDef::make(nodecl_null(), block_extent, block_extent.get_locus()));
@@ -3691,6 +3895,28 @@ namespace TL { namespace OpenMP {
             outer_loop_body_statements.append(init_block_extent);
             outer_loop_body_statements.append(adjust_block_extent);
             outer_loop_body_statements.append(new_task);
+
+
+            if (require_conversion_num_tasks_to_grainsize && IS_FORTRAN_LANGUAGE)
+            {
+                new_body.append(Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                taskloop_ivar.make_nodecl(),
+                                for_statement.get_lower_bound().shallow_copy(),
+                                taskloop_ivar.get_type().get_lvalue_reference_to())));
+
+                outer_loop_body_statements.append(Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                taskloop_ivar.make_nodecl(),
+                                Nodecl::Add::make(
+                                    taskloop_ivar.make_nodecl(),
+                                    Nodecl::Mul::make(
+                                            grainsize_sym.make_nodecl(),
+                                            for_statement.get_step().shallow_copy(),
+                                            grainsize_sym.get_type()),
+                                    taskloop_ivar.get_type()),
+                                taskloop_ivar.get_type().get_lvalue_reference_to())));
+            }
 
             Nodecl::List new_outer_loop_body = Nodecl::List::make(
                     Nodecl::Context::make(
@@ -3702,21 +3928,48 @@ namespace TL { namespace OpenMP {
                         new_outer_loop_body_context)
                     );
 
-            Nodecl::ForStatement new_outer_loop = Nodecl::ForStatement::make(
-                    new_outer_loop_control,
-                    new_outer_loop_body,
-                    /* loop_name */ Nodecl::NodeclBase::null(),
-                    locus);
 
-            Nodecl::List new_body;
-            if (IS_CXX_LANGUAGE)
+            Nodecl::NodeclBase new_outer_loop;
+            if (require_conversion_num_tasks_to_grainsize && IS_FORTRAN_LANGUAGE)
             {
-                new_body.append(
-                        Nodecl::CxxDef::make(
-                            /*context*/ nodecl_null(),
-                            taskloop_ivar,
-                            taskloop_ivar.get_locus()));
+                Nodecl::NodeclBase condition =
+                    Nodecl::LogicalOr::make(
+                            Nodecl::LogicalAnd::make(
+                                Nodecl::GreaterThan::make(
+                                    for_statement.get_step().shallow_copy(),
+                                    const_value_to_nodecl(const_value_get_signed_int(0)),
+                                    get_bool_type()),
+                                Nodecl::LowerOrEqualThan::make(
+                                    taskloop_ivar.make_nodecl(),
+                                    for_statement.get_upper_bound().shallow_copy(),
+                                    get_bool_type()),
+                                get_bool_type()),
+
+                            Nodecl::LogicalAnd::make(
+                                Nodecl::LowerThan::make(
+                                    for_statement.get_step().shallow_copy(),
+                                    const_value_to_nodecl(const_value_get_signed_int(0)),
+                                    get_bool_type()),
+                                Nodecl::GreaterOrEqualThan::make(
+                                    taskloop_ivar.make_nodecl(),
+                                    for_statement.get_upper_bound().shallow_copy(),
+                                    get_bool_type()),
+                                get_bool_type()),
+
+                            get_bool_type());
+
+
+                new_outer_loop = Nodecl::WhileStatement::make(condition, new_outer_loop_body, /* loop name */ Nodecl::NodeclBase::null());
             }
+            else
+            {
+                new_outer_loop =  Nodecl::ForStatement::make(
+                        new_outer_loop_control,
+                        new_outer_loop_body,
+                        /* loop_name */ Nodecl::NodeclBase::null(),
+                        locus);
+            }
+
 
             new_body.append(new_outer_loop);
 
@@ -3831,31 +4084,34 @@ namespace TL { namespace OpenMP {
         TL::Scope scope_of_directive = directive.retrieve_context();
         TL::Scope scope_created_by_statement = statement.retrieve_context();
 
+
+        // Creating a new symbol: induction variable
         Counter &c = TL::CounterManager::get_counter("taskloop");
-        std::stringstream ss;
-        ss << "omp_taskloop_" << (int)c;
+        int counter = (int)c;
         c++;
+        std::stringstream ss;
+        ss << "omp_taskloop_" << counter;
         TL::Symbol taskloop_ivar = scope_of_directive.new_symbol(ss.str());
         taskloop_ivar.get_internal_symbol()->kind = SK_VARIABLE;
         taskloop_ivar.set_type(for_statement.get_induction_variable().get_type());
         symbol_entity_specs_set_is_user_declared(taskloop_ivar.get_internal_symbol(), 1);
 
         TL::Scope new_outer_loop_context = new_block_context(scope_of_directive.get_decl_context());
-        // Properly nest the existing context to be contained in
-        // new_outer_loop_body_context because we will put it inside a new compound
-        // statement
+        // Properly nest the existing context to be contained in new_outer_loop_body_context
+        // because we will put it inside a new compound statement
         TL::Scope new_outer_loop_body_context = new_block_context(new_outer_loop_context.get_decl_context());
         scope_created_by_statement.get_decl_context()->current_scope->contained_in =
             new_outer_loop_body_context.get_decl_context()->current_scope;
 
+        // Creating a new symbol: upperbound loop
         ss.str("");
-        ss << "omp_block_" << (int)c;
-        c++;
+        ss << "omp_block_" << counter;
         TL::Symbol block_extent = new_outer_loop_body_context.new_symbol(ss.str());
         block_extent.get_internal_symbol()->kind = SK_VARIABLE;
         block_extent.set_type(for_statement.get_induction_variable().get_type());
         symbol_entity_specs_set_is_user_declared(block_extent.get_internal_symbol(), 1);
         block_extent.get_internal_symbol()->value = nodecl_null();
+
 
         Nodecl::NodeclBase new_inner_loop = taskloop_generate_inner_loop(
                 for_statement, statement, taskloop_ivar, block_extent, new_outer_loop_body_context);
@@ -3877,18 +4133,23 @@ namespace TL { namespace OpenMP {
         //         taskloop_ivar,
         //         block_extent);
 
-        Nodecl::NodeclBase new_task =
-            Nodecl::OpenMP::Task::make(
-                    execution_environment,
-                    Nodecl::List::make(new_inner_loop),
-                    statement.get_locus());
+       Nodecl::NodeclBase new_task =
+           Nodecl::OpenMP::Task::make(
+                   execution_environment,
+                   Nodecl::List::make(new_inner_loop),
+                   statement.get_locus());
 
-        Nodecl::NodeclBase new_outer_loop =
-            taskloop_generate_outer_loop(for_statement,
-                    grainsize_expr,
-                    taskloop_ivar, block_extent, new_task,
-                    new_outer_loop_context, new_outer_loop_body_context,
-                    statement.get_locus());
+       Nodecl::NodeclBase new_outer_loop =
+           taskloop_generate_outer_loop(
+                   counter,
+                   for_statement,
+                   grainsize_expr,
+                   num_tasks_expr,
+                   taskloop_ivar,
+                   block_extent,
+                   new_task,
+                   new_outer_loop_context, new_outer_loop_body_context, scope_of_directive,
+                   statement.get_locus());
 
         statement.replace(new_outer_loop);
     }
