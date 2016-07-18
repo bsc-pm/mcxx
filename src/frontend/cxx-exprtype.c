@@ -18597,50 +18597,43 @@ static void check_predecrement(AST expr, const decl_context_t* decl_context, nod
 static scope_entry_t* get_typeid_symbol(const decl_context_t* decl_context, const locus_t* locus)
 {
     // Lookup for 'std::type_info'
-    static scope_entry_t* typeid_sym = NULL;
+    scope_entry_t* typeid_sym = NULL;
 
-    // FIXME: This will last accross files
-    if (typeid_sym == NULL)
+    decl_context_t* global_context = decl_context_clone(decl_context);
+    global_context->current_scope = global_context->global_scope;
+
+    // First: looking for the 'std' namespace
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
+    if (entry_list == NULL
+            || entry_list_head(entry_list)->kind != SK_NAMESPACE)
     {
-        decl_context_t* global_context = decl_context_clone(decl_context);
-        global_context->current_scope = global_context->global_scope;
+        if (entry_list != NULL)
+            entry_list_free(entry_list);
 
-        scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
+        error_printf_at(locus, "namespace 'std' not found when looking up 'std::type_info'\n");
+        info_printf_at(locus, "maybe you need '#include <typeinfo>'\n");
 
-        if (entry_list == NULL 
-                || entry_list_head(entry_list)->kind != SK_NAMESPACE)
-        {
-            if (entry_list != NULL)
-                entry_list_free(entry_list);
-
-            error_printf_at(locus, "namespace 'std' not found when looking up 'std::type_info'\n");
-            info_printf_at(locus, "maybe you need '#include <typeinfo>'\n");
-            return NULL;
-        }
-
-        const decl_context_t* std_context = entry_list_head(entry_list)->related_decl_context;
-        entry_list_free(entry_list);
-        entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("type_info"), NULL);
-
-        if (entry_list == NULL
-                || (entry_list_head(entry_list)->kind != SK_CLASS
-                    && entry_list_head(entry_list)->kind != SK_TYPEDEF))
-        {
-            if (entry_list != NULL)
-                entry_list_free(entry_list);
-
-            error_printf_at(
-                    locus,
-                    "namespace 'std' not found when looking up 'std::type_info'\n");
-            info_printf_at(
-                    locus,
-                    "maybe you need '#include <typeinfo>'\n");
-            return NULL;
-        }
-
-        typeid_sym = entry_list_head(entry_list);
-        entry_list_free(entry_list);
+        return NULL;
     }
+    const decl_context_t* std_context = entry_list_head(entry_list)->related_decl_context;
+    entry_list_free(entry_list);
+
+    // Second: looking for the 'type_info' class in the context of the 'std' namespace
+    entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("type_info"), NULL);
+    if (entry_list == NULL
+            || (entry_list_head(entry_list)->kind != SK_CLASS
+                && entry_list_head(entry_list)->kind != SK_TYPEDEF))
+    {
+        if (entry_list != NULL)
+            entry_list_free(entry_list);
+
+        error_printf_at(locus, "'std::type_info' class not found'\n");
+        info_printf_at(locus, "maybe you need '#include <typeinfo>'\n");
+
+        return NULL;
+    }
+    typeid_sym = entry_list_head(entry_list);
+    entry_list_free(entry_list);
 
     return typeid_sym;
 }
