@@ -28,6 +28,7 @@
 #include "tl-nanos6.hpp"
 #include "tl-nanos6-lower.hpp"
 #include "tl-compilerpipeline.hpp"
+#include "tl-final-stmts-generator.hpp"
 #include "codegen-phase.hpp"
 #include "cxx-profile.h"
 #include "cxx-driver-utils.h"
@@ -37,10 +38,16 @@
 namespace TL { namespace Nanos6 {
 
     LoweringPhase::LoweringPhase()
+        : _final_clause_transformation_disabled(false)
     {
         set_phase_name("Nanos 6 lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR "
                 "into real code involving the Nanos 6 runtime interface");
+
+        register_parameter("disable_final_clause_transformation",
+                "Disables the OpenMP/OmpSs transformation of the 'final' clause",
+                _final_clause_transformation_str,
+                "0").connect(std::bind(&LoweringPhase::set_disable_final_clause_transformation, this, std::placeholders::_1));
 
         // std::cerr << "Initializing Nanos 6 lowering phase" << std::endl;
     }
@@ -60,7 +67,13 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase translation_unit =
             *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
-        Lower lower(this);
+
+        FinalStmtsGenerator final_generator(/* ompss_mode */ true);
+        // If the final clause transformation is disabled we shouldn't generate the final stmts
+        if (!_final_clause_transformation_disabled)
+            final_generator.walk(translation_unit);
+
+        Lower lower(this, final_generator.get_final_stmts());
         lower.walk(translation_unit);
     }
 
@@ -111,6 +124,11 @@ namespace TL { namespace Nanos6 {
 
         // Do not forget to clear the node for next files
         _extra_c_code = Nodecl::List();
+    }
+
+    void LoweringPhase::set_disable_final_clause_transformation(const std::string& str)
+    {
+        parse_boolean_option("disable_final_clause_transformation", str, _final_clause_transformation_disabled, "Assuming false.");
     }
 
 } }

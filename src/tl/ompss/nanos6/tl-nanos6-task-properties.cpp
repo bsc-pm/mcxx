@@ -39,6 +39,8 @@
 #include "fortran03-mangling.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-typeenviron.h"
+#include "fortran03-intrinsics.h"
+#include "fortran03-scope.h"
 
 #include <algorithm>
 #include <set>
@@ -174,8 +176,7 @@ namespace TL { namespace Nanos6 {
 
         virtual void visit(const Nodecl::OpenMP::Final &n)
         {
-            not_supported("final clause", n.get_condition());
-            // _task_properties.final_ = n.get_condition();
+            _task_properties.final_ = n.get_condition();
         }
 
         virtual void visit(const Nodecl::OpenMP::Untied &n)
@@ -805,11 +806,192 @@ namespace TL { namespace Nanos6 {
         task_invocation_info.set_value(task_invocation_init);
     }
 
+    Nodecl::NodeclBase create_final_task_flags(TL::Symbol task_flags, Nodecl::NodeclBase condition)
+    {
+        Nodecl::NodeclBase ret;
+
+        if (condition.is_null())
+        {
+            if (IS_FORTRAN_LANGUAGE)
+                condition = Nodecl::BooleanLiteral::make(get_bool_type(), const_value_get_zero(type_get_size(get_bool_type()), /* sign */ 1));
+            else
+                condition = const_value_to_nodecl(const_value_get_signed_int(0));
+
+        }
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            // In this case we only need an expression
+            ret = Nodecl::BitwiseShl::make(
+                    /* lhs */
+                    Nodecl::Different::make(
+                        condition,
+                        const_value_to_nodecl(const_value_get_signed_int(0)),
+                        TL::Type::get_bool_type()),
+                    /* rhs */
+                    const_value_to_nodecl(const_value_get_signed_int(0)),
+                    /* type */
+                    get_size_t_type());
+        }
+        else // IS_FORTRAN_LANGUAGE
+        {
+            TL::Scope sc = TL::Scope::get_global_scope();
+
+            Nodecl::NodeclBase arg1 = Nodecl::FortranActualArgument::make(task_flags.make_nodecl());
+            Nodecl::NodeclBase arg2 = Nodecl::FortranActualArgument::make(const_value_to_nodecl(const_value_get_signed_int(0)));
+            Nodecl::NodeclBase arguments_list = Nodecl::List::make(arg1, arg2);
+
+            nodecl_t actual_arguments[2] = { arg1.get_internal_nodecl(), arg2.get_internal_nodecl() };
+
+            TL::Symbol intrinsic_ibset(
+                    fortran_solve_generic_intrinsic_call(
+                        fortran_query_intrinsic_name_str(sc.get_decl_context(), "ibset"),
+                        actual_arguments,
+                        /* explicit_num_actual_arguments */ 2,
+                        /* is_call */ 0));
+
+            Nodecl::FunctionCall ibset_function_call =
+                Nodecl::FunctionCall::make(
+                    intrinsic_ibset.make_nodecl(),
+                    arguments_list,
+                    /* alternate_name */ Nodecl::NodeclBase::null(),
+                    /* function_form */ Nodecl::NodeclBase::null(),
+                    intrinsic_ibset.get_type().returns(),
+                    task_flags.get_locus());
+
+            Nodecl::NodeclBase actual_arguments_ibclr =
+                Nodecl::List::make(arg1.shallow_copy(), arg2.shallow_copy());
+
+            TL::Symbol intrinsic_ibclr(
+                    fortran_solve_generic_intrinsic_call(
+                        fortran_query_intrinsic_name_str(sc.get_decl_context(), "ibclr"),
+                        actual_arguments,
+                        /* explicit_num_actual_arguments */ 2,
+                        /* is_call */ 0));
+
+            Nodecl::FunctionCall ibclr_function_call = Nodecl::FunctionCall::make(
+                    intrinsic_ibclr.make_nodecl(),
+                    arguments_list.shallow_copy(),
+                    /* alternate_name */ Nodecl::NodeclBase::null(),
+                    /* function_form */ Nodecl::NodeclBase::null(),
+                    intrinsic_ibclr.get_type().returns(),
+                    task_flags.get_locus());
+
+            ret = Nodecl::IfElseStatement::make(
+                /* condition */
+                condition,
+                // Nodecl::Different::make(
+                //     /* lhs */ Nodecl::ExpressionStatement::make(condition),
+                //     /* rhs */ const_value_to_nodecl(const_value_get_signed_int(0)),
+                //     /* type */ get_bool_type(),
+                //     /* locus */ task_flags.get_locus()
+                // ),
+                /* then */
+                Nodecl::List::make(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                               /* lhs */ task_flags.make_nodecl(),
+                               /* rhs */ ibset_function_call,
+                               /* type */ task_flags.get_type().get_lvalue_reference_to()
+                        ),
+                        task_flags.get_locus()
+                    )
+                ),
+                /* else */
+                Nodecl::List::make(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                               /* lhs */ task_flags.make_nodecl(),
+                               /* rhs */ ibclr_function_call,
+                               /* type */ task_flags.get_type().get_lvalue_reference_to()
+                        ),
+                        /* locus */
+                        task_flags.get_locus()
+                    )
+                )
+            );
+        }
+        return ret;
+    }
+
+    Nodecl::NodeclBase TaskProperties::create_task_flags(TL::Symbol task_flags)
+    {
+        Nodecl::NodeclBase ret;
+        Nodecl::NodeclBase final_nodecl;
+        // Nodecl::NodeclBase if_nodecl;
+
+        // Final flag
+        final_nodecl = create_final_task_flags(task_flags, this->final_);
+        ret = final_nodecl;
+
+        // Nodecl::NodeclBase if_flag = create_if_task_flags(task_flags);
+
+        // if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        // {
+        //     ret = Nodecl::LogicalOr::make(final_flag, if_flag);
+        // }
+        // else // if (IS_FORTRAN_LANGUAGE)
+        // {
+        //     // Just a set of IfElseStatement that need to be generated one
+        //     // after the other
+        //     ret = Nodecl::List();
+        //     ret.append(final_flag);
+        //     ret.append(if_flag);
+        // }
+
+        return ret;
+    }
+
+
+//     Nodecl::NodeclBase prepare_flag(Nodecl::NodeclBase condition, Nodecl::NodeclBase default_value, int bit)
+//     {
+//         Nodecl::NodeclBase ret;
+//         if (condition.is_null())
+//         {
+//             ret = default_value;
+//         }
+//         else
+//         {
+//             Nodecl::NodeclBase nodecl_bit = const_value_to_nodecl(const_value_get_signed_int(bit));
+//             ret = Nodecl::BitwiseShl::make(
+//                     Nodecl::Different::make(
+//                         condition,
+//                         const_value_to_nodecl(const_value_get_signed_int(0)),
+//                         TL::Type::get_bool_type()),
+//                     nodecl_bit,
+//                     nodecl_bit.get_type());
+//         }
+//         return ret;
+//     }
+
+
+//     // TODO Modify this so that it returns a list of nodecl trees with the flag setters
+//     Nodecl::NodeclBase TaskProperties::create_task_flags()
+//     {
+//         Nodecl::NodeclBase final_flag = prepare_flag(this->final_,
+//                     /* Def value */ const_value_to_nodecl_with_basic_type(
+//                             // /* From frontend/cxx-cexpr.h */ const_value_get_zero(4, 1),
+//                             const_value_get_signed_int(0),
+//                             get_size_t_type()), /* Bit */ 0);
+
+//         Nodecl::CompoundStatement final_flag = prepare_final_flag(this->final_);
+
+//         // Nodecl::NodeclBase final_flag = prepare_flag(this->final_,
+//         //            /* Def value */ const_value_to_nodecl(const_value_get_signed_int(0)), /* Bit */ 0); 
+
+//         // Nodecl::NodeclBase if_flag = prepare_flag(this->if_, 0);
+//         //             /* Def value */ const_value_to_nodecl(const_value_get_signed_int(1)), /* Bit */ 1);
+
+//         // Nodecl::NodeclBase flags = Nodecl::LogicalOr::make(
+//         //         final_flag, if_flag);
+//         return final_flag;
+//     }
+
     void TaskProperties::create_task_info(
             /* out */
             TL::Symbol &task_info,
-            TL::Symbol& task_invocation_info,
-            Nodecl::NodeclBase& local_init)
+            TL::Symbol &task_invocation_info,
+            Nodecl::NodeclBase &local_init)
     {
         create_outline_function();
         create_dependences_function();
@@ -889,6 +1071,22 @@ namespace TL { namespace Nanos6 {
                 init_run,
                 run_type);
         init_run.set_text("C");
+
+        Nodecl::NodeclBase field_run_final = get_field("run_final");
+        Nodecl::NodeclBase init_run_final;
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            init_run_final = outline_function_mangled.make_nodecl(/* set_ref_type */ true);
+        }
+        else
+        {
+            init_run_final = outline_function.make_nodecl(/* set_ref_type */ true);
+        }
+        init_run_final = Nodecl::Conversion::make(
+                init_run_final,
+                run_type);
+        init_run_final.set_text("C");
 
         Nodecl::NodeclBase field_register_depinfo = get_field("register_depinfo");
         Nodecl::NodeclBase init_register_depinfo;
@@ -983,6 +1181,10 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<Nodecl::NodeclBase> field_init;
         field_init.append(Nodecl::FieldDesignator::make(
             field_run, init_run, field_run.get_type()));
+        field_init.append(
+            Nodecl::FieldDesignator::make(field_run_final,
+                                          init_run_final,
+                                          field_run_final.get_type()));
         field_init.append(
             Nodecl::FieldDesignator::make(field_register_depinfo,
                                           init_register_depinfo,
@@ -3890,7 +4092,6 @@ namespace TL { namespace Nanos6 {
 
         captured_env = captured_list;
     }
-
 
     void TaskProperties::fortran_add_types(TL::Scope dest_scope)
     {
