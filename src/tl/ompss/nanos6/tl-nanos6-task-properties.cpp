@@ -880,12 +880,6 @@ namespace TL { namespace Nanos6 {
             ret = Nodecl::IfElseStatement::make(
                 /* condition */
                 condition,
-                // Nodecl::Different::make(
-                //     /* lhs */ Nodecl::ExpressionStatement::make(condition),
-                //     /* rhs */ const_value_to_nodecl(const_value_get_signed_int(0)),
-                //     /* type */ get_bool_type(),
-                //     /* locus */ task_flags.get_locus()
-                // ),
                 /* then */
                 Nodecl::List::make(
                     Nodecl::ExpressionStatement::make(
@@ -941,51 +935,6 @@ namespace TL { namespace Nanos6 {
 
         return ret;
     }
-
-
-//     Nodecl::NodeclBase prepare_flag(Nodecl::NodeclBase condition, Nodecl::NodeclBase default_value, int bit)
-//     {
-//         Nodecl::NodeclBase ret;
-//         if (condition.is_null())
-//         {
-//             ret = default_value;
-//         }
-//         else
-//         {
-//             Nodecl::NodeclBase nodecl_bit = const_value_to_nodecl(const_value_get_signed_int(bit));
-//             ret = Nodecl::BitwiseShl::make(
-//                     Nodecl::Different::make(
-//                         condition,
-//                         const_value_to_nodecl(const_value_get_signed_int(0)),
-//                         TL::Type::get_bool_type()),
-//                     nodecl_bit,
-//                     nodecl_bit.get_type());
-//         }
-//         return ret;
-//     }
-
-
-//     // TODO Modify this so that it returns a list of nodecl trees with the flag setters
-//     Nodecl::NodeclBase TaskProperties::create_task_flags()
-//     {
-//         Nodecl::NodeclBase final_flag = prepare_flag(this->final_,
-//                     /* Def value */ const_value_to_nodecl_with_basic_type(
-//                             // /* From frontend/cxx-cexpr.h */ const_value_get_zero(4, 1),
-//                             const_value_get_signed_int(0),
-//                             get_size_t_type()), /* Bit */ 0);
-
-//         Nodecl::CompoundStatement final_flag = prepare_final_flag(this->final_);
-
-//         // Nodecl::NodeclBase final_flag = prepare_flag(this->final_,
-//         //            /* Def value */ const_value_to_nodecl(const_value_get_signed_int(0)), /* Bit */ 0); 
-
-//         // Nodecl::NodeclBase if_flag = prepare_flag(this->if_, 0);
-//         //             /* Def value */ const_value_to_nodecl(const_value_get_signed_int(1)), /* Bit */ 1);
-
-//         // Nodecl::NodeclBase flags = Nodecl::LogicalOr::make(
-//         //         final_flag, if_flag);
-//         return final_flag;
-//     }
 
     void TaskProperties::create_task_info(
             /* out */
