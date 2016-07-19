@@ -559,7 +559,7 @@ namespace TL { namespace Nanos6 {
         new_statements.append(argument_captures);
         new_statements.append(new_task_construct);
 
-        Nodecl::NodeclBase new_compound_stmt =
+        Nodecl::NodeclBase not_final_compound_stmt =
             Nodecl::Context::make(
                     Nodecl::List::make(
                         Nodecl::CompoundStatement::make(
@@ -575,10 +575,56 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase parent = construct.get_parent();
         ERROR_CONDITION(!parent.is<Nodecl::ExpressionStatement>(),
                 "Invalid parent", 0);
-        parent.replace(new_compound_stmt);
 
-        // Now follow the usual path
-        this->walk(parent);
+        // If disabled, act normally
+        if (!_phase->_final_clause_transformation_disabled)
+        {
+            // Wrap the function call into if (nanos_in_final())
+            TL::Symbol nanos_in_final_sym =
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos_in_final");
+            ERROR_CONDITION(!nanos_in_final_sym .is_valid()
+                    || !nanos_in_final_sym.is_function(),
+                    "Invalid symbol", 0);
+
+            Nodecl::NodeclBase call_to_nanos_in_final = Nodecl::FunctionCall::make(
+                nanos_in_final_sym.make_nodecl(/* set_ref_type */ true,
+                    construct.get_locus()), /* called */
+                Nodecl::NodeclBase::null(), /* Argument list */
+                Nodecl::NodeclBase::null(), /* Alternate name */
+                Nodecl::NodeclBase::null(), /* Function Form */
+                TL::Type::get_int_type()
+            );
+
+            Nodecl::NodeclBase serial_stmts;
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+            ERROR_CONDITION(it == _final_stmts_map.end(), "Invalid serial statemtents", 0);
+            serial_stmts = it->second;
+
+            Nodecl::NodeclBase if_in_final = Nodecl::IfElseStatement::make(
+                    Nodecl::Different::make(
+                        call_to_nanos_in_final,
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_signed_int(0),
+                            get_size_t_type()),
+                        get_bool_type()),
+                    // XXX We'll need a context in the function (or not)
+                    // Put in a CoumpoundStatement (will be done by default)
+                    Nodecl::List::make(Nodecl::ExpressionStatement::make(serial_stmts)),
+                    /* Wrap all that is normally when not final */
+                    Nodecl::List::make(not_final_compound_stmt)
+                );
+
+            parent.replace(if_in_final);
+            // Now follow the usual path
+            // XXX Change to call to the new function, passing serial_stmts too
+            lower_task(new_task_construct.as<Nodecl::OpenMP::Task>());
+        }
+        else
+        {
+            parent.replace(not_final_compound_stmt);
+            this->walk(parent);
+        }
+
     }
 
     void Lower::visit_task_call_fortran(const Nodecl::OmpSs::TaskCall& construct)
@@ -793,10 +839,52 @@ namespace TL { namespace Nanos6 {
                     new_omp_exec_environment,
                     new_task_body,
                     construct.get_locus());
-        empty_stmt.replace(new_task_construct);
 
-        // Now follow the usual path
-        this->walk(empty_stmt);
+        // If disabled, act normally
+        if (!_phase->_final_clause_transformation_disabled)
+        {
+            // Wrap the function call into if (nanos_in_final())
+            TL::Symbol nanos_in_final_sym =
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos_in_final");
+            ERROR_CONDITION(!nanos_in_final_sym .is_valid()
+                    || !nanos_in_final_sym.is_function(),
+                    "Invalid symbol", 0);
+
+            Nodecl::NodeclBase call_to_nanos_in_final = Nodecl::FunctionCall::make(
+                nanos_in_final_sym.make_nodecl(/* set_ref_type */ true,
+                    construct.get_locus()), /* called */
+                Nodecl::NodeclBase::null(), /* Argument list */
+                Nodecl::NodeclBase::null(), /* Alternate name */
+                Nodecl::NodeclBase::null(), /* Function Form */
+                TL::Type::get_int_type()
+            );
+
+            Nodecl::NodeclBase serial_stmts;
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+            ERROR_CONDITION(it == _final_stmts_map.end(), "Invalid serial statemtents", 0);
+            serial_stmts = it->second;
+
+            Nodecl::NodeclBase if_in_final = Nodecl::IfElseStatement::make(
+                    Nodecl::Different::make(
+                        call_to_nanos_in_final,
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_signed_int(0),
+                            get_size_t_type()),
+                        get_bool_type()),
+                    // Nodecl::List::make(Nodecl::ExpressionStatement::make(serial_stmts)),
+                    Nodecl::List::make(serial_stmts),
+                    /* Wrap all that is normally when not final */
+                    Nodecl::List::make(new_task_construct));
+
+            empty_stmt.replace(if_in_final);
+            // Now follow the usual path
+            lower_task(new_task_construct.as<Nodecl::OpenMP::Task>());
+        }
+        else
+        {
+            empty_stmt.replace(new_task_construct);
+            this->walk(empty_stmt);
+        }
 
         // Replace the call site
         construct.replace(

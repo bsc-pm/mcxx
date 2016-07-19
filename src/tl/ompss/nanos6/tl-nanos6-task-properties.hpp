@@ -60,7 +60,10 @@ namespace TL { namespace Nanos6 {
             void create_copies_function();
 
             void create_cost_function();
+        public:
+            Nodecl::NodeclBase create_task_flags(TL::Symbol task_flags);
 
+        private:
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
                                           TL::Scope class_scope,
                                           const std::string &var_name,

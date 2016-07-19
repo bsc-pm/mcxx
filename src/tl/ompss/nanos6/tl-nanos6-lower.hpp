@@ -38,11 +38,15 @@ namespace TL { namespace Nanos6 {
     {
         private:
             LoweringPhase* _phase;
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
 
         public:
-            Lower(LoweringPhase* phase) : _phase(phase) { }
+            Lower(LoweringPhase* phase,
+                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map)
+            : _phase(phase), _final_stmts_map(final_stmts_map) { }
 
             virtual void visit(const Nodecl::OpenMP::Task& n);
+            void lower_task(const Nodecl::OpenMP::Task& n);
             virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& n);
             virtual void visit(const Nodecl::OmpSs::TaskCall& n);
             virtual void visit(const Nodecl::OpenMP::Critical& n);

@@ -48,6 +48,11 @@ namespace TL { namespace Nanos6 {
         private:
             void fortran_load_api(DTO& dto);
 
+            std::string _final_clause_transformation_str;
+            bool _final_clause_transformation_disabled;
+            void set_disable_final_clause_transformation(const std::string& str);
+
+
             Nodecl::List _extra_c_code;
             
             friend struct Lower;
