@@ -571,13 +571,13 @@ namespace TL { namespace Nanox {
                                 fortran_get_rank_of_type(reduction_item_type.get_internal_type()));
 
 
-                    extra_array_red_decl << "void* indirect;";
-                    storage_var << "indirect";
+                    storage_var << storage_var_name << "_indirect";
+                    extra_array_red_decl << "void *" << storage_var << ";";
 
                     extra_array_red_memcpy
                         << "nanos_err = nanos_memcpy("
                         <<      "(void **) &" << storage_var_name << ","
-                        <<      "indirect,"
+                        <<      storage_var << ","
                         <<      size_of_array_descriptor << ");"
                             ;
 
