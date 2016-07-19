@@ -190,11 +190,21 @@ namespace TL
                     ;
             }
 
-            if (!IS_FORTRAN_LANGUAGE)
+            if (Version::_interfaces.size() == 0)
+            {
+               warn_printf_at(top_level.get_locus(),
+                       "unknown Nanos++ version: Mercurium has not detected any '#pragma nanos interface'\n");
+
+               info_printf_at(top_level.get_locus(),
+                       "This compilation process is likely to fail\n");
+            }
+
+            if (!IS_FORTRAN_LANGUAGE
+                    && Version::_interfaces.size() > 0)
             {
                 Nodecl::NodeclBase versioning_symbols_tree = versioning_symbols.parse_global(top_level);
             }
-                    
+
 #if 0
             // Get the translation_unit tree
             // and prepend these declarations

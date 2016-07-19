@@ -36,7 +36,7 @@ test_generator=config/mercurium-ompss
 
 void loop_1(int *v, int start, int end, int step, int offset, int chunk)
 {
-    #pragma omp taskloop grainsize(chunk)
+    #pragma omp taskloop num_tasks(chunk)
     for (int i = start; i < end; i += step) {
         v[i+offset]++;
     }
@@ -44,7 +44,7 @@ void loop_1(int *v, int start, int end, int step, int offset, int chunk)
 
 void loop_2(int *v, int start, int end, int step, int offset, int chunk)
 {
-    #pragma omp taskloop grainsize(chunk)
+    #pragma omp taskloop num_tasks(chunk)
     for (int i = start; i > end; i += step) {
         v[offset-i]++;
     }

@@ -2004,7 +2004,7 @@ namespace TL { namespace Nanos6 {
                         unpacked_function));
         }
 
-        Nodecl::Utils::append_to_enclosing_top_level_location(task_body, unpacked_function_code);
+        Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
         // Outline function
         std::string ol_name;
@@ -2389,7 +2389,7 @@ namespace TL { namespace Nanos6 {
                         outline_function));
         }
 
-        Nodecl::Utils::append_to_enclosing_top_level_location(task_body, outline_function_code);
+        Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
     }
 
     void TaskProperties::register_linear_dependence(
