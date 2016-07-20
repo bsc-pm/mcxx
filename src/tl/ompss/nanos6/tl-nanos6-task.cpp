@@ -36,14 +36,36 @@ namespace TL { namespace Nanos6 {
 
     void Lower::visit(const Nodecl::OpenMP::Task& node)
     {
-        Nodecl::NodeclBase stmts = node.get_statements();
-        walk(stmts);
-
-        Nodecl::OpenMP::Task new_task;
+        walk(node.get_statements());
+        Nodecl::NodeclBase serial_stmts;
 
         // If disabled, act normally
         if (!_phase->_final_clause_transformation_disabled)
         {
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(node);
+            ERROR_CONDITION(it == _final_stmts_map.end(), "Invalid serial statements", 0);
+            serial_stmts = it->second;
+        }
+
+        lower_task(node, serial_stmts);
+    }
+
+    // Substitute the task node for an ifelse for when using final
+    void Lower::lower_task(const Nodecl::OpenMP::Task& node, Nodecl::NodeclBase& serial_stmts)
+    {
+        ERROR_CONDITION(serial_stmts.is_null()
+                && !_phase->_final_clause_transformation_disabled,
+                "Invalid serial statement for a task", 0);
+
+        Nodecl::OpenMP::Task new_task = node;
+
+        if (!_phase->_final_clause_transformation_disabled)
+        {
+            // Traverse the serial statements since they may contain additional pragmas
+            walk(serial_stmts);
+
+            Nodecl::NodeclBase stmts = node.get_statements();
+
             // Wrap the function call into if (nanos_in_final())
             TL::Symbol nanos_in_final_sym =
                 TL::Scope::get_global_scope().get_symbol_from_name("nanos_in_final");
@@ -59,14 +81,6 @@ namespace TL { namespace Nanos6 {
                 Nodecl::NodeclBase::null(), /* Function Form */
                 TL::Type::get_int_type()
             );
-
-            Nodecl::NodeclBase serial_stmts;
-            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(node);
-            ERROR_CONDITION(it == _final_stmts_map.end(), "Invalid serial statemtents", 0);
-            serial_stmts = it->second;
-
-            // Traverse the serial statements since they may contain additional pragmas
-            walk(serial_stmts);
 
             new_task = Nodecl::OpenMP::Task::make(node.get_environment(), stmts);
 
@@ -105,21 +119,12 @@ namespace TL { namespace Nanos6 {
                             const_value_get_signed_int(0),
                             get_size_t_type()),
                         get_bool_type()),
-                    // Nodecl::List::make(Nodecl::ExpressionStatement::make(serial_stmts)),
                     Nodecl::List::make(in_final_compound_stmts),
-                    /* Wrap all that is normally when not final */
                     Nodecl::List::make(not_final_compound_stmt)
                 );
 
             node.replace(if_in_final);
         }
-        else
-        {
-            new_task = node;
-        }
-        // Move to a function that takes task and serial stmts
-        // This function will create the IfElseStatement, and lowering
-        // From taskcall call this function for C and fortran
 
         lower_task(new_task);
     }
