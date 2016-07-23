@@ -62,6 +62,7 @@ namespace TL { namespace Nanox {
 
     static TL::Symbol create_reduction_function_internal(
             OpenMP::Reduction* red,
+            TL::Type reduction_type,
             Nodecl::NodeclBase construct,
             std::string function_name,
             TL::Type omp_out_type,
@@ -128,8 +129,16 @@ namespace TL { namespace Nanox {
         ReductionReplaceSymbolVisitor expander_visitor(translation_map);
         expander_visitor.walk(expanded_combiner);
 
-        function_body.replace(
-                Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
+        Nodecl::List list_stmts;
+        list_stmts.append(Nodecl::ExpressionStatement::make(expanded_combiner));
+
+        if (IS_FORTRAN_LANGUAGE &&
+                reduction_type.is_array())
+        {
+                list_stmts.append(Nodecl::FortranDeallocateStatement::make(Nodecl::List::make(param_omp_in.make_nodecl()), nodecl_null()));
+        }
+
+        function_body.replace(list_stmts);
 
         // As the reduction function is needed during the instantiation of
         // the task, this function should be inserted before the construct
@@ -155,6 +164,7 @@ namespace TL { namespace Nanox {
        {
           reduction_function = create_reduction_function_internal(
                 red,
+                reduction_type,
                 construct,
                 red_fun.str(),
                 /* omp_out_type */ reduction_type.get_pointer_to(),
@@ -163,6 +173,7 @@ namespace TL { namespace Nanox {
 
           reduction_function_original_var = create_reduction_function_internal(
                 red,
+                reduction_type,
                 construct,
                 red_fun_orig_var.str(),
                 /* omp_out_type */ reduction_type,
@@ -173,6 +184,7 @@ namespace TL { namespace Nanox {
        {
           reduction_function = create_reduction_function_internal(
                 red,
+                reduction_type,
                 construct,
                 red_fun.str(),
                 /* omp_out_type */ reduction_type,
