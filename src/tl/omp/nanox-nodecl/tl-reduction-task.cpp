@@ -154,9 +154,9 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase construct)
     {
        std::stringstream red_fun;
-       red_fun << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+       red_fun << "nanos_red_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str());
        std::stringstream red_fun_orig_var;
-       red_fun_orig_var << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str()) << "_orig_var";
+       red_fun_orig_var << "nanos_red_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str()) << "_orig_var";
 
        TL::Symbol reduction_function, reduction_function_original_var;
        if (IS_FORTRAN_LANGUAGE
@@ -219,7 +219,7 @@ namespace TL { namespace Nanox {
         std::string fun_name;
         {
             std::stringstream ss;
-            ss << "nanos_ini_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            ss << "nanos_ini_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str());
             fun_name = ss.str();
         }
 
@@ -301,7 +301,7 @@ namespace TL { namespace Nanox {
         std::string fun_name;
         {
             std::stringstream ss;
-            ss << "nanos_ini_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            ss << "nanos_ini_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str());
             fun_name = ss.str();
         }
 
@@ -516,7 +516,7 @@ namespace TL { namespace Nanox {
             TL::Symbol reduction_function, reduction_function_original_var, initializer_function;
 
             LoweringVisitor::reduction_task_map_t::iterator task_red_info =
-               _task_reductions_map.find(reduction_info);
+               _task_reductions_map.find(std::make_pair(reduction_info, reduction_type));
 
             if (task_red_info != _task_reductions_map.end())
             {
@@ -545,10 +545,11 @@ namespace TL { namespace Nanox {
                      element_reduction_type,
                      initializer_function);
 
-               _task_reductions_map.insert(std::pair<TL::OpenMP::Reduction*,
-                     TaskReductionsInfo>(reduction_info,TaskReductionsInfo(reduction_function,
-                           reduction_function_original_var,
-                           initializer_function) ));
+               _task_reductions_map.insert(
+                       std::make_pair(
+                           std::make_pair(reduction_info, reduction_type),
+                           TaskReductionsInfo(reduction_function, reduction_function_original_var, initializer_function)
+                           ));
             }
 
             // Mandatory TL::Sources to be filled by any reduction
@@ -730,7 +731,7 @@ namespace TL { namespace Nanox {
 
 
             LoweringVisitor::reduction_task_map_t::iterator task_red_info =
-               _task_reductions_map.find(reduction_info);
+               _task_reductions_map.find(std::make_pair(reduction_info, reduction_type));
 
             ERROR_CONDITION(task_red_info == _task_reductions_map.end(),
                   "Unregistered task reduction\n", 0);
