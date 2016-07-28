@@ -1,7 +1,5 @@
 ! <testinfo>
 ! test_generator=config/mercurium-ompss
-! test_compile_fail_nanos6_mercurium=yes
-! test_compile_fail_nanos6_imfc=yes
 ! </testinfo>
 FUNCTION OMP_IN_FINAL() RESULT(X)
     IMPLICIT NONE

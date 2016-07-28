@@ -823,7 +823,17 @@ namespace TL { namespace Nanos6 {
             ERROR_CONDITION(!serial_function_call.is<Nodecl::FunctionCall>(), "Unexpected code", 0);
 
             serial_function_call.as<Nodecl::FunctionCall>().set_arguments(Nodecl::List::make(new_arguments));
-            serial_stmts = Nodecl::List::make(Nodecl::ExpressionStatement::make(serial_function_call));
+
+        Nodecl::Utils::SimpleSymbolMap serial_stmt_map;
+            Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
+                    serial_stmt_map,
+                    scope_inside_new_function,
+                    enclosing_function);
+
+            fun_visitor.insert_extra_symbols(serial_function_call);
+
+            serial_stmts =
+                Nodecl::List::make(Nodecl::ExpressionStatement::make(Nodecl::Utils::deep_copy(serial_function_call, scope_inside_new_function, serial_stmt_map)));
         }
 
         lower_task(empty_stmt.as<Nodecl::OpenMP::Task>(), serial_stmts);
