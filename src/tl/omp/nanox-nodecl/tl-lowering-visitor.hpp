@@ -487,7 +487,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
            TaskReductionsInfo(TL::Symbol red, TL::Symbol red_orig_var, TL::Symbol init)
               : _reducer(red),_reducer_orig_var(red_orig_var), _initializer(init) {}
         };
-        typedef std::map<OpenMP::Reduction*, TaskReductionsInfo> reduction_task_map_t;
+        typedef std::map<std::pair<OpenMP::Reduction*, TL::Type>, TaskReductionsInfo> reduction_task_map_t;
         reduction_task_map_t _task_reductions_map;
 
 

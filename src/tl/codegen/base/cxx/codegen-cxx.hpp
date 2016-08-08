@@ -609,11 +609,6 @@ namespace Codegen
                     const Nodecl::NodeclBase & context,
                     bool is_extern = false);
 
-            void emit_range_loop_header(
-                    Nodecl::RangeLoopControl lc,
-                    Nodecl::NodeclBase statement,
-                    const std::string& rel_op);
-
             void emit_declarations_of_initializer(TL::Symbol symbol);
 
             void emit_integer_constant(const_value_t* cval, TL::Type t);

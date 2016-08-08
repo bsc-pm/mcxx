@@ -27,13 +27,12 @@
 #ifndef TL_FINAL_STMTS_GENERATOR_HPP
 #define TL_FINAL_STMTS_GENERATOR_HPP
 
-#include <map>
-
-#include "tl-omp-core.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
 
-namespace TL { namespace Nanox {
+#include <map>
+
+namespace TL {
 
     class FinalStmtsGenerator : public Nodecl::ExhaustiveVisitor<void>
     {
@@ -56,5 +55,5 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase generate_final_stmts(Nodecl::NodeclBase original_stmts);
     };
 
-}}
+}
 #endif // TL_FINAL_STMTS_GENERATOR_HPP

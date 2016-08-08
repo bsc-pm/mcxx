@@ -493,6 +493,15 @@ namespace TL
             bool _induction_variable_in_separate_scope;
             bool _is_omp_valid;
 
+            enum loop_trend_t
+            {
+                STRICTLY_DECREASING_LOOP = -1,
+                UNKNOWN_LOOP,
+                STRICTLY_INCREASING_LOOP
+            };
+
+            loop_trend_t _loop_trend;
+
         public:
 
             bool is_omp_valid_loop() const;
@@ -504,6 +513,8 @@ namespace TL
             Nodecl::NodeclBase get_lower_bound() const;
             Nodecl::NodeclBase get_upper_bound() const;
             Nodecl::NodeclBase get_step() const;
+
+            bool is_strictly_increasing_loop() const;
     };
 
 
