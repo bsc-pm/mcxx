@@ -3,12 +3,15 @@
 test_generator="config/mercurium-omp c++11"
 </testinfo>
 */
+
+// Intel 15.0.3 accepts this code but Intel 15.0.2 doesn't :(
+#if !defined(__ICC) || (__ICC > 1500) || (__ICC == 1500 && __INTEL_COMPILER_UPDATE >= 3)
+
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
 #include <cassert>
 
-#if !defined(__ICC) || (__ICC >= 1403)
 int main(int, char **)
 {
     std::vector<int> v(200);
