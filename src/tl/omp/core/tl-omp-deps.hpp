@@ -47,20 +47,19 @@ namespace TL { namespace OpenMP {
         DEP_DIR_IN = BITMAP(1),
         // Input dependence in a parameter passed by value
         // Output dependence
-        DEP_DIR_OUT = BITMAP(4),
+        DEP_DIR_OUT = BITMAP(2),
         // Inout dependence
         DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
 
         // OmpSs
-        DEP_OMPSS_DIR_IN_VALUE = BITMAP(2),
         //   Input dependence with firstprivate storage
         DEP_OMPSS_DIR_IN_PRIVATE = BITMAP(3),
         //   Concurrent dependences
-        DEP_OMPSS_CONCURRENT = BITMAP(5),
-        DEP_OMPSS_COMMUTATIVE = BITMAP(6),
-        // Weak
-        DEP_OMPSS_WEAK_IN = BITMAP(7),
-        DEP_OMPSS_WEAK_OUT = BITMAP(8),
+        DEP_OMPSS_CONCURRENT = BITMAP(4),
+        DEP_OMPSS_COMMUTATIVE = BITMAP(5),
+        //   Weak
+        DEP_OMPSS_WEAK_IN = BITMAP(6),
+        DEP_OMPSS_WEAK_OUT = BITMAP(7),
         DEP_OMPSS_WEAK_INOUT = DEP_OMPSS_WEAK_IN | DEP_OMPSS_WEAK_OUT
     };
 

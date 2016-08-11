@@ -429,12 +429,6 @@ namespace TL { namespace OmpSs {
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OmpSs::DepInValue>(
-                task_dependences,
-                OpenMP::DEP_OMPSS_DIR_IN_VALUE,
-                locus,
-                result_list);
-
         _base->make_dependency_list<Nodecl::OpenMP::DepOut>(
                 task_dependences,
                 OpenMP::DEP_DIR_OUT,
@@ -765,11 +759,6 @@ namespace TL { namespace OmpSs {
             there_are_dependences = true;
         }
 
-        void visit(const Nodecl::OmpSs::DepInValue& dep_in)
-        {
-            there_are_dependences = true;
-        }
-
         void visit(const Nodecl::OmpSs::Concurrent& dep_inout)
         {
             there_are_dependences = true;
@@ -869,11 +858,6 @@ namespace TL { namespace OmpSs {
         void visit(const Nodecl::OmpSs::DepInPrivate& dep_in)
         {
             report_dep(dep_in.get_in_deps(), OpenMP::DEP_OMPSS_DIR_IN_PRIVATE);
-        }
-
-        void visit(const Nodecl::OmpSs::DepInValue& dep_in)
-        {
-            report_dep(dep_in.get_in_deps(), OpenMP::DEP_OMPSS_DIR_IN_VALUE);
         }
 
         void visit(const Nodecl::OmpSs::Concurrent& dep_inout)

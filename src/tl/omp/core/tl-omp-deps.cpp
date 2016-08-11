@@ -658,7 +658,6 @@ namespace TL { namespace OpenMP {
             case DEP_DIR_OUT:
             case DEP_DIR_INOUT:
             case DEP_OMPSS_DIR_IN_PRIVATE:
-            case DEP_OMPSS_DIR_IN_VALUE:
                 return true;
             default:
                 return false;
@@ -685,7 +684,6 @@ namespace TL { namespace OpenMP {
             case DEP_DIR_UNDEFINED:
                 return "<<undefined-dependence>>";
             case DEP_DIR_IN:
-            case DEP_OMPSS_DIR_IN_VALUE:
                 return "in";
             case DEP_DIR_OUT:
                 return "out";

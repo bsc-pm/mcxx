@@ -33,20 +33,27 @@ test_compile_fail_nanos6_mercurium=yes
 test_compile_fail_nanos6_imcc=yes
 </testinfo>
 */
-#include<assert.h>
+#pragma omp task
+void foo() { }
 
-#pragma omp task in(n) out(*out)
-int foo(int n, int* out)
-{
-    *out = n;
-}
+#pragma omp task
+int fii() { }
+
 
 int main()
 {
-    int x = -1;
-    if (1)  foo(1, &x);
-
+    int x = 0;
+#pragma omp task
+    {
+#pragma omp task
+        {
+            x++;
+        }
 #pragma omp taskwait
+    }
 
-   assert(x == 1);
+    foo();
+
+    int h = fii();
+#pragma omp taskwait
 }

@@ -53,8 +53,6 @@ namespace TL
                 {
                     SHARING_UNDEFINED = 0,
                     SHARING_SHARED,
-                    // Only used in input dependences over a parameter passed by value
-                    SHARING_SHARED_WITH_CAPTURE,
                     // Only used in task expressions to store the return results
                     SHARING_ALLOCA,
                     SHARING_SHARED_ALLOCA,
@@ -72,14 +70,13 @@ namespace TL
                 enum DependencyDirectionality
                 {
                     DEP_NONE = 0,
-                    DEP_IN =   1 << 0,
-                    DEP_IN_VALUE =   1 << 1,
-                    DEP_IN_ALLOCA =   1 << 2,
-                    DEP_IN_PRIVATE =   1 << 3,
-                    DEP_OUT =  1 << 4,
+                    DEP_IN   =  1 << 0,
+                    DEP_OUT  =  1 << 1,
                     DEP_INOUT = DEP_IN | DEP_OUT,
-                    DEP_CONCURRENT = 1 << 5,
-                    DEP_COMMUTATIVE = 1 << 6
+                    DEP_IN_ALLOCA   = 1 << 2,
+                    DEP_IN_PRIVATE  = 1 << 3,
+                    DEP_CONCURRENT  = 1 << 4,
+                    DEP_COMMUTATIVE = 1 << 5
                 };
                 struct DependencyItem
                 {
@@ -418,20 +415,6 @@ namespace TL
                     return _base_symbol_of_argument;
                 }
 
-                bool has_an_input_value_dependence() const
-                {
-                    bool has_input_value = false;
-                    for (ObjectList<DependencyItem>::const_iterator it = _dependences.begin();
-                            it != _dependences.end() && !has_input_value;
-                            it++)
-                    {
-                        DependencyItem current_item = *it;
-                        has_input_value = current_item.directionality == DEP_IN_VALUE;
-                    }
-
-                    return has_input_value;
-                }
-
                 void set_is_cxx_this(bool b)
                 {
                     _is_cxx_this = b;
@@ -604,7 +587,6 @@ namespace TL
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
                 void add_shared_opaque_and_captured_array_descriptor(Symbol sym);
-                void add_shared_with_capture(Symbol sym);
                 void add_shared_alloca(Symbol sym);
                 void add_alloca(Symbol sym, TL::DataReference& data_ref);
                 void add_capture_address(Symbol sym, TL::DataReference& data_ref);

@@ -138,7 +138,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                     break;
                 }
             case OutlineDataItem::SHARING_SHARED:
-            case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
             case OutlineDataItem::SHARING_CAPTURE:
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                 {

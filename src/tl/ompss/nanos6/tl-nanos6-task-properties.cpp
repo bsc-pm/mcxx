@@ -262,12 +262,6 @@ namespace TL { namespace Nanos6 {
             not_supported("implements clause", n);
         }
 
-        virtual void visit(const Nodecl::OmpSs::DepInValue &n)
-        {
-            not_supported_seq("value input dependences",
-                              n.get_in_deps().as<Nodecl::List>());
-        }
-
         virtual void visit(const Nodecl::OmpSs::DepInPrivate &n)
         {
             not_supported_seq("(private) value input dependences",
