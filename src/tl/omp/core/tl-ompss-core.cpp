@@ -318,8 +318,6 @@ namespace TL { namespace OpenMP {
 
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
-        TL::OmpSs::RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
-
         Symbol function_sym = construct.get_symbol();
 
         if (!function_sym.is_function())
@@ -602,9 +600,6 @@ namespace TL { namespace OpenMP {
         // Store the target information in the current function task
         task_info.set_target_info(target_info);
 
-        //Add real time information to the task
-        task_info.set_real_time_info(rt_info);
-
         // Support if clause
         PragmaCustomClause if_clause = pragma_line.get_clause("if");
         if (if_clause.is_defined())
@@ -766,16 +761,11 @@ namespace TL { namespace OpenMP {
     {
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
-        TL::OmpSs::RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
-
         DataEnvironment& data_environment =
             _openmp_info->get_new_data_environment(construct);
         _openmp_info->push_current_data_environment(data_environment);
 
         TL::Scope scope = construct.retrieve_context();
-
-        //adding real time information to the task
-        data_environment.set_real_time_info(rt_info);
 
         ObjectList<Symbol> extra_symbols;
         get_data_explicit_attributes(pragma_line, construct.get_statements(),
@@ -818,130 +808,6 @@ namespace TL { namespace OpenMP {
         // Recall that std::stack does not have a clear operation so we assign
         // to it a new std::stack
         _target_context = std::stack<TL::OmpSs::TargetContext>();
-    }
-
-    TL::OmpSs::RealTimeInfo Core::task_real_time_handler_pre(TL::PragmaCustomLine construct)
-    {
-        TL::OmpSs::RealTimeInfo rt_info;
-
-        //looking for deadline clause
-        PragmaCustomClause deadline_clause = construct.get_clause("deadline");
-        if (deadline_clause.is_defined())
-        {
-            ObjectList<Nodecl::NodeclBase> deadline_exprs =
-                deadline_clause.get_arguments_as_expressions();
-
-            if(deadline_exprs.size() != 1) 
-            {
-                warn_printf_at(
-                        construct.get_locus(),
-                        "'#pragma omp task deadline' has a wrong number of arguments, skipping\n");
-            }
-            else
-            {
-                rt_info.set_time_deadline(deadline_exprs[0]);
-            }
-
-        }
-
-        //looking for release_deadline clause
-        PragmaCustomClause release_clause = construct.get_clause("release_after");
-        if (release_clause.is_defined())
-        {
-            ObjectList<Nodecl::NodeclBase> release_exprs =
-                release_clause.get_arguments_as_expressions();
-
-            if(release_exprs.size() != 1) 
-            {
-                warn_printf_at(
-                        construct.get_locus(),
-                        "'#pragma omp task release_deadline' has a wrong number of arguments, skipping\n");
-            }
-            else
-            {
-                rt_info.set_time_release(release_exprs[0]);
-            }
-        }
-
-        //looking for onerror clause
-        PragmaCustomClause on_error_clause = construct.get_clause("onerror");
-        if (on_error_clause.is_defined())
-        {
-            ObjectList<std::string> on_error_args =
-                on_error_clause.get_tokenized_arguments(ExpressionTokenizer());
-
-            if(on_error_args.size() != 1) 
-            {
-                warn_printf_at(
-                        construct.get_locus(),
-                        "'#pragma omp task onerror' has a wrong number of arguments, skipping\n");
-            }
-            else
-            {
-                Lexer l = Lexer::get_current_lexer();
-
-                ObjectList<Lexer::pair_token> tokens = l.lex_string(on_error_args[0]);
-                switch (tokens.size())
-                {
-
-                    // tokens structure: 'indentifier'
-                    case 1:
-                        {
-                            if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
-                                    (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
-                            {
-                                warn_printf_at(
-                                        construct.get_locus(),
-                                        "'#pragma omp task onerror' first token must be an idenfifier, skipping\n");
-                            }
-                            else
-                            {
-                                rt_info.add_error_behavior(tokens[0].second);
-                            }
-                            break;
-                        }
-
-                        //tokens structure: 'identifier:identifier'
-                    case 3:
-                        {
-                            if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
-                                    (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
-                            {
-                                warn_printf_at(
-                                        construct.get_locus(),
-                                        "'#pragma omp task onerror' first token must be an idenfifier, skipping\n");
-                            }
-                            else if (tokens[1].first != (int)':')
-                            {
-                                warn_printf_at(
-                                        construct.get_locus(),
-                                        "'#pragma omp task onerror' second token must be a colon, skipping\n");
-                            }
-                            else if ((IS_C_LANGUAGE   && (tokens[2].first != TokensC::IDENTIFIER)) ||
-                                    (IS_CXX_LANGUAGE && (tokens[2].first != TokensCXX::IDENTIFIER)))
-                            {
-                                warn_printf_at(
-                                        construct.get_locus(),
-                                        "'#pragma omp task onerror' third token must be an identifier, skipping\n");
-                            }
-                            else
-                            {
-                                rt_info.add_error_behavior(tokens[0].second, tokens[2].second);
-                            }
-                            break;
-                        }
-                    default:
-                        {
-                            warn_printf_at(
-                                    construct.get_locus(),
-                                    "'#pragma omp task onerror' has a wrong number of tokens. "
-                                    "Expecting either a single identifier or identifier:identifier, skipping\n");
-                        }
-                }
-            }
-        }
-
-        return rt_info;
     }
 
 } }

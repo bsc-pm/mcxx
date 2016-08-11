@@ -264,7 +264,6 @@ namespace OpenMP
             MappingAttributeInfo get_device_mapping_internal(Symbol sym);
             MappingAttributeInfo get_device_mapping_info(Symbol sym, bool check_enclosing);
 
-            TL::OmpSs::RealTimeInfo _real_time_info;
         public:
             //! Constructor
             /*!
@@ -356,10 +355,6 @@ namespace OpenMP
             //! Returns the (OmpSs) target information of this data environment
             TL::OmpSs::TargetInfo& get_target_info();
             void set_target_info(const TL::OmpSs::TargetInfo &target_info);
-
-            //! Returns the (OmpSs) real time information of this data environment
-            void set_real_time_info(const OmpSs::RealTimeInfo & rt_info);
-            OmpSs::RealTimeInfo get_real_time_info();
 
             //! Sets whether this environment comes from a parallel construct
             DataEnvironment& set_is_parallel(bool b);

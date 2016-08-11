@@ -262,8 +262,6 @@ namespace TL
                         DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
-                OmpSs::RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
-
                 void fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name);
 
                 void collapse_check_loop(TL::PragmaCustomStatement construct);
