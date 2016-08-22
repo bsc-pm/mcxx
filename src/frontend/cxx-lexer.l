@@ -279,7 +279,7 @@ octal_literal (0{octaldigit}*)|(0[']{octaldigit}*)
 octal_literal (0{octaldigit}*)
  /*!endif*/
  /* A.2.19 */
-hexadecimal_literal {hexprefix}{hexdigit}+
+hexadecimal_literal ({hexprefix}{hexdigit}+)
  /* For C and C++ < C++14, this is a GCC extension of the language
     For C++ >= C++14, this is a feature of the language */
 binary_literal ({binprefix}{bindigit}+)
@@ -1556,10 +1556,10 @@ type {
 {identifier} {parse_token_text(); update_location(); return IDENTIFIER; }
 
  /* A.2.16 - decimals */
-{decimal_literal}{integersuffix}?     { parse_token_text(); update_location(); return DECIMAL_LITERAL; }
+{decimal_literal}{integersuffix}?      { parse_token_text(); update_location(); return DECIMAL_LITERAL; }
 
  /* A.2.16 - octals */
-{octal_literal}{integersuffix}?         { parse_token_text(); update_location(); return OCTAL_LITERAL; }
+{octal_literal}{integersuffix}?        { parse_token_text(); update_location(); return OCTAL_LITERAL; }
 
  /* A.2.16 - hexas */
 {hexadecimal_literal}{integersuffix}?  { parse_token_text(); update_location(); return HEXADECIMAL_LITERAL; }
