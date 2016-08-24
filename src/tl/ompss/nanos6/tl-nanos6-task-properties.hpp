@@ -76,6 +76,8 @@ namespace TL { namespace Nanos6 {
 
             TL::Scope compute_scope_for_environment_structure();
 
+            static const int VLA_OVERALLOCATION_ALIGN = 8;
+
             TL::Type info_structure;
 
             TL::Symbol outline_function;
@@ -209,9 +211,11 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<TL::Symbol> shared;
             TL::ObjectList<TL::Symbol> private_;
             TL::ObjectList<TL::Symbol> firstprivate;
+
             // A superset of firstprivate that also includes captured because
             // of runtime sized types
             TL::ObjectList<TL::Symbol> captured_value;
+
             Nodecl::NodeclBase final_;
             Nodecl::NodeclBase cost;
             bool is_tied;

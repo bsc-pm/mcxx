@@ -62,6 +62,7 @@ namespace TL { namespace Nanox {
 
     static TL::Symbol create_reduction_function_internal(
             OpenMP::Reduction* red,
+            TL::Type reduction_type,
             Nodecl::NodeclBase construct,
             std::string function_name,
             TL::Type omp_out_type,
@@ -128,8 +129,16 @@ namespace TL { namespace Nanox {
         ReductionReplaceSymbolVisitor expander_visitor(translation_map);
         expander_visitor.walk(expanded_combiner);
 
-        function_body.replace(
-                Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
+        Nodecl::List list_stmts;
+        list_stmts.append(Nodecl::ExpressionStatement::make(expanded_combiner));
+
+        if (IS_FORTRAN_LANGUAGE &&
+                reduction_type.is_array())
+        {
+                list_stmts.append(Nodecl::FortranDeallocateStatement::make(Nodecl::List::make(param_omp_in.make_nodecl()), nodecl_null()));
+        }
+
+        function_body.replace(list_stmts);
 
         // As the reduction function is needed during the instantiation of
         // the task, this function should be inserted before the construct
@@ -145,9 +154,9 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase construct)
     {
        std::stringstream red_fun;
-       red_fun << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+       red_fun << "nanos_red_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str());
        std::stringstream red_fun_orig_var;
-       red_fun_orig_var << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str()) << "_orig_var";
+       red_fun_orig_var << "nanos_red_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str()) << "_orig_var";
 
        TL::Symbol reduction_function, reduction_function_original_var;
        if (IS_FORTRAN_LANGUAGE
@@ -155,6 +164,7 @@ namespace TL { namespace Nanox {
        {
           reduction_function = create_reduction_function_internal(
                 red,
+                reduction_type,
                 construct,
                 red_fun.str(),
                 /* omp_out_type */ reduction_type.get_pointer_to(),
@@ -163,6 +173,7 @@ namespace TL { namespace Nanox {
 
           reduction_function_original_var = create_reduction_function_internal(
                 red,
+                reduction_type,
                 construct,
                 red_fun_orig_var.str(),
                 /* omp_out_type */ reduction_type,
@@ -173,6 +184,7 @@ namespace TL { namespace Nanox {
        {
           reduction_function = create_reduction_function_internal(
                 red,
+                reduction_type,
                 construct,
                 red_fun.str(),
                 /* omp_out_type */ reduction_type,
@@ -207,7 +219,7 @@ namespace TL { namespace Nanox {
         std::string fun_name;
         {
             std::stringstream ss;
-            ss << "nanos_ini_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            ss << "nanos_ini_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str());
             fun_name = ss.str();
         }
 
@@ -289,7 +301,7 @@ namespace TL { namespace Nanox {
         std::string fun_name;
         {
             std::stringstream ss;
-            ss << "nanos_ini_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            ss << "nanos_ini_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str());
             fun_name = ss.str();
         }
 
@@ -504,7 +516,7 @@ namespace TL { namespace Nanox {
             TL::Symbol reduction_function, reduction_function_original_var, initializer_function;
 
             LoweringVisitor::reduction_task_map_t::iterator task_red_info =
-               _task_reductions_map.find(reduction_info);
+               _task_reductions_map.find(std::make_pair(reduction_info, reduction_type));
 
             if (task_red_info != _task_reductions_map.end())
             {
@@ -533,10 +545,11 @@ namespace TL { namespace Nanox {
                      element_reduction_type,
                      initializer_function);
 
-               _task_reductions_map.insert(std::pair<TL::OpenMP::Reduction*,
-                     TaskReductionsInfo>(reduction_info,TaskReductionsInfo(reduction_function,
-                           reduction_function_original_var,
-                           initializer_function) ));
+               _task_reductions_map.insert(
+                       std::make_pair(
+                           std::make_pair(reduction_info, reduction_type),
+                           TaskReductionsInfo(reduction_function, reduction_function_original_var, initializer_function)
+                           ));
             }
 
             // Mandatory TL::Sources to be filled by any reduction
@@ -571,13 +584,13 @@ namespace TL { namespace Nanox {
                                 fortran_get_rank_of_type(reduction_item_type.get_internal_type()));
 
 
-                    extra_array_red_decl << "void* indirect;";
-                    storage_var << "indirect";
+                    storage_var << storage_var_name << "_indirect";
+                    extra_array_red_decl << "void *" << storage_var << ";";
 
                     extra_array_red_memcpy
                         << "nanos_err = nanos_memcpy("
                         <<      "(void **) &" << storage_var_name << ","
-                        <<      "indirect,"
+                        <<      storage_var << ","
                         <<      size_of_array_descriptor << ");"
                             ;
 
@@ -718,7 +731,7 @@ namespace TL { namespace Nanox {
 
 
             LoweringVisitor::reduction_task_map_t::iterator task_red_info =
-               _task_reductions_map.find(reduction_info);
+               _task_reductions_map.find(std::make_pair(reduction_info, reduction_type));
 
             ERROR_CONDITION(task_red_info == _task_reductions_map.end(),
                   "Unregistered task reduction\n", 0);

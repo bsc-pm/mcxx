@@ -35,18 +35,22 @@ test_compile_fail_nanos6_imcxx=yes
 */
 #include<assert.h>
 
-#pragma omp task in(n) out(out)
-int foo(int n, int& out)
+struct A
 {
-    out = n;
-}
+    #pragma omp task
+    int foo() { return 1; }
+};
+
+struct B
+{
+    #pragma omp task
+    int foo() { return 1; }
+};
 
 int main()
 {
-    int x = -1;
-    if (1)  foo(1, x);
-
+    A a;
+    B b;
+    int y = a.foo() + b.foo();
 #pragma omp taskwait
-
-   assert(x == 1);
 }

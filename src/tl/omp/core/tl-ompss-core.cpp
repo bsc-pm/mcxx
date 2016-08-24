@@ -101,6 +101,7 @@ namespace TL { namespace OpenMP {
             IsUselessDependence(TL::OpenMP::DependencyDirection &direction)
                 : _direction(direction) { }
 
+            // This function returns whether the current expression is a useless dependence or not
             bool operator()(Nodecl::NodeclBase expr) const
             {
                 if (expr.is<Nodecl::Symbol>())
@@ -117,19 +118,19 @@ namespace TL { namespace OpenMP {
                         {
                             error_printf_at(
                                     expr.get_locus(),
-                                    "dependence %s(%s) "
-                                    "only names a parameter. The value of a parameter is never copied out of a function "
+                                    "skipping useless dependence %s(%s) since it only names a parameter."
+                                    "The value of a parameter is never copied out of a function "
                                     "so it cannot generate an output dependence\n",
                                     get_dependency_direction_name(_direction).c_str(),
                                     expr.prettyprint().c_str());
                             return true;
                         }
-                        else if (_direction != TL::OpenMP::DEP_OMPSS_DIR_IN_VALUE)
+                        else
                         {
                             warn_printf_at(
                                     expr.get_locus(),
-                                    "skipping useless dependence %s(%s). The value of a parameter "
-                                    "is always copied in and will never define such dependence\n",
+                                    "skipping useless dependence %s(%s) since it only names a parameter."
+                                    "The value of a parameter is always copied in and will never define such dependence\n",
                                     get_dependency_direction_name(_direction).c_str(),
                                     expr.prettyprint().c_str());
                             return true;
@@ -263,48 +264,6 @@ namespace TL { namespace OpenMP {
         return updated_clauses;
     }
 
-    static void separate_input_arguments(
-            const TL::PragmaCustomDeclaration& construct,
-            Symbol function_symbol,
-            const ObjectList<Nodecl::NodeclBase>& all_input_args,
-            bool enable_input_by_value_dependences,
-            ObjectList<Nodecl::NodeclBase>& input_args,
-            ObjectList<Nodecl::NodeclBase>& input_value_args)
-    {
-        for (ObjectList<Nodecl::NodeclBase>::const_iterator it = all_input_args.begin();
-                it != all_input_args.end();
-                it++)
-        {
-            Nodecl::NodeclBase input_argument = *it;
-            if ((IS_CXX_LANGUAGE || IS_C_LANGUAGE)
-                    && input_argument.is<Nodecl::Symbol>())
-            {
-                Symbol sym = input_argument.get_symbol();
-                if (enable_input_by_value_dependences
-                        && sym.is_parameter()
-                        && !sym.get_type().is_any_reference())
-                {
-                    warn_printf_at(
-                            construct.get_locus(),
-                            "defining an input dependence on the '%s' parameter "
-                            "which is not a pointer nor a reference is an experimental feature.\n "
-                            "Please, remove this dependence if you are not sure that you need it.\n",
-                            sym.get_name().c_str());
-
-                    input_value_args.append(input_argument);
-                }
-                else
-                {
-                    input_args.append(input_argument);
-                }
-            }
-            else
-            {
-                input_args.append(input_argument);
-            }
-        }
-    }
-
     struct FunctionTaskDependencyGenerator
     {
         private:
@@ -359,8 +318,6 @@ namespace TL { namespace OpenMP {
 
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
-        TL::OmpSs::RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
-
         Symbol function_sym = construct.get_symbol();
 
         if (!function_sym.is_function())
@@ -371,23 +328,12 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        PragmaCustomClause input_clause = pragma_line.get_clause("in",
-                /* deprecated name */ "input");
         ObjectList<Nodecl::NodeclBase> input_arguments;
-        ObjectList<Nodecl::NodeclBase> input_value_arguments;
+        PragmaCustomClause input_clause = pragma_line.get_clause("in", /* deprecated name */ "input");
         if (input_clause.is_defined())
         {
-            ObjectList<Nodecl::NodeclBase> all_input_arguments;
-            all_input_arguments = parse_dependences_ompss_clause(input_clause, parsing_scope);
-            all_input_arguments = update_clauses(all_input_arguments, function_sym);
-            separate_input_arguments(
-                    construct,
-                    function_sym,
-                    all_input_arguments,
-                    _enable_input_by_value_dependences,
-                    // Out
-                    input_arguments,
-                    input_value_arguments);
+            input_arguments = parse_dependences_ompss_clause(input_clause, parsing_scope);
+            input_arguments = update_clauses(input_arguments, function_sym);
         }
 
         ObjectList<Nodecl::NodeclBase> weakinput_arguments;
@@ -550,10 +496,6 @@ namespace TL { namespace OpenMP {
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_IN))
                 .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
 
-        dependence_list_check(input_value_arguments, DEP_OMPSS_DIR_IN_VALUE, function_sym);
-        dependence_list.append(input_value_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_VALUE)));
-
         dependence_list_check(input_private_arguments, DEP_OMPSS_DIR_IN_PRIVATE, function_sym);
         dependence_list.append(input_private_arguments
                 .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_PRIVATE))
@@ -657,9 +599,6 @@ namespace TL { namespace OpenMP {
 
         // Store the target information in the current function task
         task_info.set_target_info(target_info);
-
-        //Add real time information to the task
-        task_info.set_real_time_info(rt_info);
 
         // Support if clause
         PragmaCustomClause if_clause = pragma_line.get_clause("if");
@@ -822,16 +761,11 @@ namespace TL { namespace OpenMP {
     {
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
-        TL::OmpSs::RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
-
         DataEnvironment& data_environment =
             _openmp_info->get_new_data_environment(construct);
         _openmp_info->push_current_data_environment(data_environment);
 
         TL::Scope scope = construct.retrieve_context();
-
-        //adding real time information to the task
-        data_environment.set_real_time_info(rt_info);
 
         ObjectList<Symbol> extra_symbols;
         get_data_explicit_attributes(pragma_line, construct.get_statements(),
@@ -874,130 +808,6 @@ namespace TL { namespace OpenMP {
         // Recall that std::stack does not have a clear operation so we assign
         // to it a new std::stack
         _target_context = std::stack<TL::OmpSs::TargetContext>();
-    }
-
-    TL::OmpSs::RealTimeInfo Core::task_real_time_handler_pre(TL::PragmaCustomLine construct)
-    {
-        TL::OmpSs::RealTimeInfo rt_info;
-
-        //looking for deadline clause
-        PragmaCustomClause deadline_clause = construct.get_clause("deadline");
-        if (deadline_clause.is_defined())
-        {
-            ObjectList<Nodecl::NodeclBase> deadline_exprs =
-                deadline_clause.get_arguments_as_expressions();
-
-            if(deadline_exprs.size() != 1) 
-            {
-                warn_printf_at(
-                        construct.get_locus(),
-                        "'#pragma omp task deadline' has a wrong number of arguments, skipping\n");
-            }
-            else
-            {
-                rt_info.set_time_deadline(deadline_exprs[0]);
-            }
-
-        }
-
-        //looking for release_deadline clause
-        PragmaCustomClause release_clause = construct.get_clause("release_after");
-        if (release_clause.is_defined())
-        {
-            ObjectList<Nodecl::NodeclBase> release_exprs =
-                release_clause.get_arguments_as_expressions();
-
-            if(release_exprs.size() != 1) 
-            {
-                warn_printf_at(
-                        construct.get_locus(),
-                        "'#pragma omp task release_deadline' has a wrong number of arguments, skipping\n");
-            }
-            else
-            {
-                rt_info.set_time_release(release_exprs[0]);
-            }
-        }
-
-        //looking for onerror clause
-        PragmaCustomClause on_error_clause = construct.get_clause("onerror");
-        if (on_error_clause.is_defined())
-        {
-            ObjectList<std::string> on_error_args =
-                on_error_clause.get_tokenized_arguments(ExpressionTokenizer());
-
-            if(on_error_args.size() != 1) 
-            {
-                warn_printf_at(
-                        construct.get_locus(),
-                        "'#pragma omp task onerror' has a wrong number of arguments, skipping\n");
-            }
-            else
-            {
-                Lexer l = Lexer::get_current_lexer();
-
-                ObjectList<Lexer::pair_token> tokens = l.lex_string(on_error_args[0]);
-                switch (tokens.size())
-                {
-
-                    // tokens structure: 'indentifier'
-                    case 1:
-                        {
-                            if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
-                                    (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
-                            {
-                                warn_printf_at(
-                                        construct.get_locus(),
-                                        "'#pragma omp task onerror' first token must be an idenfifier, skipping\n");
-                            }
-                            else
-                            {
-                                rt_info.add_error_behavior(tokens[0].second);
-                            }
-                            break;
-                        }
-
-                        //tokens structure: 'identifier:identifier'
-                    case 3:
-                        {
-                            if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
-                                    (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
-                            {
-                                warn_printf_at(
-                                        construct.get_locus(),
-                                        "'#pragma omp task onerror' first token must be an idenfifier, skipping\n");
-                            }
-                            else if (tokens[1].first != (int)':')
-                            {
-                                warn_printf_at(
-                                        construct.get_locus(),
-                                        "'#pragma omp task onerror' second token must be a colon, skipping\n");
-                            }
-                            else if ((IS_C_LANGUAGE   && (tokens[2].first != TokensC::IDENTIFIER)) ||
-                                    (IS_CXX_LANGUAGE && (tokens[2].first != TokensCXX::IDENTIFIER)))
-                            {
-                                warn_printf_at(
-                                        construct.get_locus(),
-                                        "'#pragma omp task onerror' third token must be an identifier, skipping\n");
-                            }
-                            else
-                            {
-                                rt_info.add_error_behavior(tokens[0].second, tokens[2].second);
-                            }
-                            break;
-                        }
-                    default:
-                        {
-                            warn_printf_at(
-                                    construct.get_locus(),
-                                    "'#pragma omp task onerror' has a wrong number of tokens. "
-                                    "Expecting either a single identifier or identifier:identifier, skipping\n");
-                        }
-                }
-            }
-        }
-
-        return rt_info;
     }
 
 } }

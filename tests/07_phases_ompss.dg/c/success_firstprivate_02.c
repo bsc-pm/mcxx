@@ -25,35 +25,33 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
-test_CFLAGS=--variable=enable_nonvoid_function_tasks:1
-test_compile_fail_nanos6_mercurium=yes
-test_compile_fail_nanos6_imcc=yes
 </testinfo>
 */
+
 #include<assert.h>
 
-#pragma omp task
-int foo()
+int v(int n)
 {
-    return 2;
+    int v[n];
+    for (int i = 0; i < n; ++i)
+        v[i] = 0;
+
+    #pragma omp task firstprivate(v)
+    {
+        for (int i = 0; i < n; ++i)
+            v[i]++;
+    }
+    #pragma omp taskwait
+    for (int i = 0; i < n; ++i)
+        assert(v[i] == 0);
 }
-#pragma omp task
-int bar()
+
+int main(int argc, char*argv[])
 {
-    int x = (1) ? foo() : 1;
-#pragma omp taskwait on(x)
-    return x;
-}
-
-
-int main()
-{
-    int x = (1) ? bar() : 0;
-
-#pragma omp taskwait
-
-    assert(x == 2);
+    v(1000);
+    return 0;
 }

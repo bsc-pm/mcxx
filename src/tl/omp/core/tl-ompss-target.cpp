@@ -49,7 +49,12 @@ namespace TL
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (device.is_defined())
             {
-                target_ctx.device_list.insert(device.get_tokenized_arguments());
+                ObjectList<std::string> device_list =
+                    device.get_tokenized_arguments()
+                          .map<const char *>(&std::string::c_str)
+                          .map<std::string>(&strtolower);
+
+                target_ctx.device_list.insert(device_list);
             }
             else
             {
@@ -67,14 +72,14 @@ namespace TL
                 {
                     set_default_device = true;
                     //If onto is defined and there is no device, default device is MPI
-                    if (onto.is_defined()) default_device="mpi";
+                    if (onto.is_defined()) default_device = "mpi";
                 }
 
                 if (set_default_device)
                 {
                     target_ctx.device_list.clear();
                     target_ctx.device_list.append(default_device);
-                } 
+                }
             }
 
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
@@ -322,8 +327,8 @@ namespace TL
                             it != target_ctx.device_list.end();
                             it++)
                     {
-                        const char* current_device_lowercase = strtolower(it->c_str());
-                        OmpSs::TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(current_device_lowercase);
+                        std::string device(*it);
+                        OmpSs::TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(device);
                         // If the current device hasn't an entry in the map
                         if (it2 == implementation_table.end()
                                 // Or it has but the current symbol is not in the list
@@ -332,9 +337,9 @@ namespace TL
                             warn_printf_at(ctr.get_locus(), "adding function '%s' as the implementation of '%s' for device '%s'\n",
                                     function_sym.get_qualified_name().c_str(),
                                     target_ctx.implements.get_qualified_name().c_str(),
-                                    current_device_lowercase);
+                                    device.c_str());
 
-                            target_info.add_implementation(current_device_lowercase, function_sym);
+                            target_info.add_implementation(device, function_sym);
                         }
                     }
                 }

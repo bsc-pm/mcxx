@@ -33,27 +33,25 @@ test_compile_fail_nanos6_mercurium=yes
 test_compile_fail_nanos6_imcxx=yes
 </testinfo>
 */
+
 #include<assert.h>
 
+#define N 5
 #pragma omp task
-int foo()
+int f(int i)
 {
-    return 2;
-}
-#pragma omp task
-int bar()
-{
-    int x = (1) ? foo() : 1;
-#pragma omp taskwait on(x)
-    return x;
+    return i + 1;
 }
 
 
 int main()
 {
-    int x = (1) ? bar() : 0;
+    int i, x = 0;
+    for (i = 0; i < N; ++i)
+    {
+        x += f(i) + i;
+    }
+    #pragma omp taskwait
 
-#pragma omp taskwait
-
-    assert(x == 2);
+assert(x == 25);
 }

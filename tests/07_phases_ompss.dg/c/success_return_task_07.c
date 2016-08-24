@@ -38,14 +38,22 @@ test_compile_fail_nanos6_imcc=yes
 #pragma omp task
 int foo()
 {
-    return 1;
+    return 2;
 }
+#pragma omp task
+int bar()
+{
+    int x = (1) ? foo() : 1;
+#pragma omp taskwait on(x)
+    return x;
+}
+
 
 int main()
 {
-    int x = -1;
-    if (1) x = foo();
+    int x = (1) ? bar() : 0;
+
 #pragma omp taskwait
 
-    assert(x == 1);
+    assert(x == 2);
 }

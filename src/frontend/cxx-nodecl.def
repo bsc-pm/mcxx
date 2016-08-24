@@ -685,8 +685,7 @@ omp-for-construct : NODECL_OPEN_M_P*FOR_APPENDIX([environment]omp-exec-environme
 expression : task-call
            | task-expression
 
-omp-deps-info: NODECL_OMP_SS*DEP_IN_VALUE([in_deps]expression-seq)
-             | NODECL_OMP_SS*DEP_IN_PRIVATE([in_deps]expression-seq)
+omp-deps-info: NODECL_OMP_SS*DEP_IN_PRIVATE([in_deps]expression-seq)
 
 # function task
 # Note: do not rely on the information in site_environment

@@ -299,40 +299,6 @@ namespace TL { namespace Nanox {
         outline_info.set_copy_of_array_descriptor(captured_array_descriptor_info);
     }
 
-    void OutlineInfoRegisterEntities::add_shared_with_capture(Symbol sym)
-    {
-        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-
-        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_WITH_CAPTURE);
-
-        Type t = sym.get_type();
-        if (t.is_any_reference())
-        {
-            t = t.references_to();
-        }
-
-        outline_info.set_field_type(t);
-
-        TL::Type in_outline_type = t;
-        in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
-
-        outline_info.set_in_outline_type(in_outline_type);
-
-
-
-        Nodecl::Symbol symbol_nodecl = Nodecl::Symbol::make(sym);
-        symbol_nodecl.set_type(sym.get_type());
-
-        TL::DataReference data_ref(
-                Nodecl::Dereference::make(
-                    symbol_nodecl,
-                    sym.get_type().points_to(),
-                    symbol_nodecl.get_locus()));
-
-        outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_IN));
-    }
-
-
     void OutlineInfoRegisterEntities::add_shared_alloca(Symbol sym)
     {
         ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
@@ -1249,11 +1215,6 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
                 add_dependences(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN);
-            }
-
-            void visit(const Nodecl::OmpSs::DepInValue& dep_in_value)
-            {
-                add_dependences(dep_in_value.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_VALUE);
             }
 
             void visit(const Nodecl::OmpSs::DepInPrivate& dep_in_private)

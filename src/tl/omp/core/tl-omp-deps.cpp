@@ -246,8 +246,17 @@ namespace TL { namespace OpenMP {
                 //          inout([10][20] p) -> firstprivate(p)
                 if (IS_FORTRAN_LANGUAGE)
                 {
-                    data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
-                            "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                    if (sym.get_type().is_pointer())
+                    {
+                        data_sharing_environment.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
+                                "the variable is a pointer mentioned in a dependence "
+                                "and it did not have an explicit data-sharing");
+                    }
+                    else
+                    {
+                        data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
+                                "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                    }
                 }
                 else if (expr.is<Nodecl::Symbol>())
                 {
@@ -658,7 +667,6 @@ namespace TL { namespace OpenMP {
             case DEP_DIR_OUT:
             case DEP_DIR_INOUT:
             case DEP_OMPSS_DIR_IN_PRIVATE:
-            case DEP_OMPSS_DIR_IN_VALUE:
                 return true;
             default:
                 return false;
@@ -685,7 +693,6 @@ namespace TL { namespace OpenMP {
             case DEP_DIR_UNDEFINED:
                 return "<<undefined-dependence>>";
             case DEP_DIR_IN:
-            case DEP_OMPSS_DIR_IN_VALUE:
                 return "in";
             case DEP_DIR_OUT:
                 return "out";

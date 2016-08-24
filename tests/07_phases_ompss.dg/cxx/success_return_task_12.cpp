@@ -28,39 +28,30 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
-test_CXXFLAGS="--variable=enable_input_by_value_dependences:1
---variable=enable_nonvoid_function_tasks:1"
+test_CXXFLAGS=--variable=enable_nonvoid_function_tasks:1
 test_compile_fail_nanos6_mercurium=yes
 test_compile_fail_nanos6_imcxx=yes
 </testinfo>
 */
+
 #include<assert.h>
-#include<stdlib.h>
 
+#define N 5
 #pragma omp task
-int* task_producer(int n)
+int f(int i)
 {
-    int *buf = (int*) malloc(n * sizeof(int));
-    for (int i = 0; i < n; ++i)
-    {
-        buf[i] = i;
-    }
-    return buf;
+    return i + 1;
 }
 
-
-#pragma omp task in(buf)
-void task_consumer(int n, int* buf)
-{
-    for (int i = 0; i < n; ++i)
-        assert(buf[i] == i);
-
-}
 
 int main()
 {
-    int* p = 0;
-    p = task_producer(5);
-    task_consumer(5, p);
-#pragma omp taskwait
+    int i, x = 0;
+    for (i = 0; i < N; ++i)
+    {
+        x = f(i) + i + x;
+    }
+    #pragma omp taskwait
+
+assert(x == 25);
 }

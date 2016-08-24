@@ -131,14 +131,7 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
         param_sym_to_arg_sym_t::map_t::const_iterator it = map.m.find(sym);
         if (it != map.m.end())
         {
-            TL::Symbol sym_2 = it->second;
-            Nodecl::NodeclBase result = Nodecl::Symbol::make(
-                    sym_2,
-                    sym_2.get_locus());
-
-            result.set_type(sym_2.get_type());
-
-            return result;
+            return it->second.make_nodecl();
         }
     }
 
@@ -232,15 +225,8 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
         param_sym_to_arg_sym_t::map_t::const_iterator it = map.m.find(sym);
         if (it != map.m.end())
         {
-            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(it->second);
 
-            TL::Type t = it->second.get_type();
-            if (!t.is_any_reference())
-                t = t.get_lvalue_reference_to();
-
-            sym_ref.set_type(t);
-
-            return sym_ref;
+            return it->second.make_nodecl(/* set_ref_type */ true);
         }
     }
 
@@ -346,16 +332,6 @@ static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_c(
             it != deps.end();
             it++)
     {
-        // If the current outline data item has a parameter with an input value
-        // dependence, this parameter must be involved in another clause
-        // because the SHARING_SHARED_WITH_CAPTURE outline data items are not
-        // handled here (this kind of outline data item only has an input value
-        // dependence).
-        // The value of this parameter is needed during the task instantiation
-        // and, for this reason, the input value dependence is not added.
-        if (it->directionality == OutlineDataItem::DEP_IN_VALUE)
-            continue;
-
         Nodecl::NodeclBase copy = it->expression.shallow_copy();
         Nodecl::NodeclBase rewritten = rewrite_expression_in_dependency_c(copy, map);
 
@@ -450,150 +426,6 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
         handle_nonconstant_value_dimensions(t.references_to(), new_decl_context, symbol_map, param_sym_to_arg_sym, stmt_initializations);
     }
 }
-namespace InputValueUtils
-{
-    // This function generates the dependences of every lvalue subexpression of the
-    // expression 'expr'. It also express the 'expr' tree in terms of the new local
-    // variables (update_expr).
-    // params:
-    // - The toplevel_lvalue_subexpressions list is used to detect if a expression has
-    // been handled previously and, if it happens, reuse the same OutlineDataItem
-    // - The nontoplevel_lvalue_subexpressions list is used to avoid the creation of an
-    // TaskwaitOnNode previously created by an other expression (avoid repetitions)
-    //
-    static void generate_dependences_of_expression(
-            OutlineInfoRegisterEntities& outline_register_entities,
-            TL::Scope new_block_context_sc,
-            Nodecl::NodeclBase expr,
-            Nodecl::NodeclBase update_expr,
-            TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >& toplevel_lvalue_subexpressions,
-            TL::ObjectList<Nodecl::NodeclBase>& nontoplevel_lvalue_subexpressions)
-    {
-        if (expr.is_null())
-            return;
-
-        TL::Symbol new_symbol = TL::Symbol::invalid();
-        if (expr.get_type().is_lvalue_reference())
-        {
-            // The expression is a top level lvalue
-            // Is it repeated?
-            bool create_new_outline_data_item = true;
-            for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
-                    it != toplevel_lvalue_subexpressions.end() && create_new_outline_data_item;
-                    it++)
-            {
-                create_new_outline_data_item = !Nodecl::Utils::structurally_equal_nodecls(it->first, expr);
-                if (!create_new_outline_data_item)
-                {
-                    new_symbol = it->second;
-                }
-            }
-
-            if (create_new_outline_data_item)
-            {
-                Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-
-                // Create a new variable
-                std::stringstream ss;
-                ss << "mcc_arg_" << (int)arg_counter;
-                new_symbol = new_block_context_sc.new_symbol(ss.str());
-                arg_counter++;
-
-                // FIXME - Wrap this sort of things
-                new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
-                symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
-                new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
-                        expr.shallow_copy(),
-                        expr.get_type().no_ref().get_pointer_to(),
-                        expr.get_locus()).get_internal_nodecl();
-
-                outline_register_entities.add_shared_with_capture(new_symbol);
-
-                // Update the set of visited toplevel lvalue subexpressions
-                toplevel_lvalue_subexpressions.append(std::make_pair(expr, new_symbol));
-            }
-        }
-        else
-        {
-            if (expr.is<Nodecl::List>())
-            {
-                Nodecl::List l_expr = expr.as<Nodecl::List>();
-                Nodecl::List l_update_expr = expr.as<Nodecl::List>();
-                for (unsigned int i = 0; i < l_expr.size(); ++i)
-                {
-                    generate_dependences_of_expression(
-                            outline_register_entities,
-                            new_block_context_sc,
-                            l_expr[i],
-                            l_update_expr[i],
-                            toplevel_lvalue_subexpressions,
-                            nontoplevel_lvalue_subexpressions);
-                }
-            }
-            else
-            {
-                Nodecl::NodeclBase::Children expr_children = expr.children();
-                Nodecl::NodeclBase::Children update_expr_children = update_expr.children();
-                for (unsigned int i = 0; i < expr_children.size(); ++i)
-                {
-                    generate_dependences_of_expression(
-                            outline_register_entities,
-                            new_block_context_sc,
-                            expr_children[i],
-                            update_expr_children[i],
-                            toplevel_lvalue_subexpressions,
-                            nontoplevel_lvalue_subexpressions);
-                }
-            }
-        }
-
-        // Finally, we should update the expression, using the new local variables
-        if (new_symbol.is_valid())
-        {
-            Nodecl::Symbol new_symbol_nodecl = Nodecl::Symbol::make(new_symbol);
-            new_symbol_nodecl.set_type(new_symbol.get_type());
-            update_expr.replace(Nodecl::Dereference::make(new_symbol_nodecl,
-                        new_symbol.get_type().points_to().get_lvalue_reference_to(),
-                        new_symbol_nodecl.get_locus()));
-        }
-    }
-
-    static Nodecl::NodeclBase handle_input_value_dependence(
-            OutlineInfoRegisterEntities& outline_register_entities,
-            TL::Scope new_block_context_sc,
-            Nodecl::NodeclBase expr,
-            TL::Source& declarations_src)
-    {
-        Nodecl::NodeclBase update_expr = Nodecl::Utils::deep_copy(expr, new_block_context_sc);
-        TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
-        TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
-
-        generate_dependences_of_expression(outline_register_entities,
-                new_block_context_sc,
-                expr,
-                update_expr,
-                toplevel_lvalue_subexpressions,
-                nontoplevel_lvalue_subexpressions);
-
-        // We need to define explicitly these objects in C++
-        CXX_LANGUAGE()
-        {
-            for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
-                    it != toplevel_lvalue_subexpressions.end();
-                    it++)
-            {
-                TL::Symbol new_outline_data_item = it->second;
-                declarations_src << as_statement(
-                        Nodecl::CxxDef::make(
-                            /* context */ Nodecl::NodeclBase::null(),
-                            new_outline_data_item));
-            }
-        }
-        return update_expr;
-    }
-}
-
 
 static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expressions(
         const TL::ObjectList<Nodecl::NodeclBase>& expressions,
@@ -662,11 +494,8 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
             //param_sym_to_arg_sym[parameter] = new_symbol;
             new_symbol.get_internal_symbol()->value = arg_copy.get_internal_nodecl();
 
-            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(new_symbol);
-            sym_ref.set_type(arg_copy.get_type().no_ref().get_lvalue_reference_to());
-
+            Nodecl::Symbol sym_ref = new_symbol.make_nodecl(/* set_ref_type */ true);
             outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
-
             new_arg = sym_ref;
 
             if (IS_CXX_LANGUAGE)
@@ -859,8 +688,6 @@ void LoweringVisitor::visit_task_call_c(
     // Get parameters outline info
     OutlineInfo parameters_outline_info(*_lowering, parameters_environment, called_sym, _function_task_set);
 
-    TaskEnvironmentVisitor task_environment;
-    task_environment.walk(parameters_environment);
 
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info(*_lowering);
@@ -874,6 +701,8 @@ void LoweringVisitor::visit_task_call_c(
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
+
+    // FIXME
     param_sym_to_arg_sym_t param_sym_to_arg_sym;
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
@@ -888,6 +717,8 @@ void LoweringVisitor::visit_task_call_c(
     // this class
     std::set<TL::Symbol> seen_parameters;
 
+    Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+
     if (IS_CXX_LANGUAGE
             && !called_sym.is_static()
             && called_sym.is_member())
@@ -901,7 +732,6 @@ void LoweringVisitor::visit_task_call_c(
 
         seen_parameters.insert(this_symbol);
 
-        Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
         std::stringstream ss;
         ss << "mcc_arg_" << (int)arg_counter;
         TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
@@ -910,24 +740,18 @@ void LoweringVisitor::visit_task_call_c(
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
         symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
-
-        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
-        sym_ref.set_type(this_symbol.get_type());
-
-            // Direct initialization is enough
-        new_symbol.get_internal_symbol()->value = sym_ref.get_internal_nodecl();
-
-        Nodecl::Symbol new_symbol_nodecl = Nodecl::Symbol::make(new_symbol);
-        new_symbol_nodecl.set_type(new_symbol.get_type());
+        new_symbol.get_internal_symbol()->value = this_symbol.make_nodecl().get_internal_nodecl();
 
         new_arguments[0] =
                 Nodecl::Dereference::make(
-                    new_symbol_nodecl,
-                    new_symbol_nodecl.get_type().points_to(),
-                    new_symbol_nodecl.get_locus());
+                    new_symbol.make_nodecl(),
+                    new_symbol.get_type().points_to(),
+                    new_symbol.get_locus());
+
         parameter_position_offset = 1;
 
-        OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
+        OutlineDataItem& argument_outline_data_item =
+            arguments_outline_info.get_entity_for_symbol(new_symbol);
 
         argument_outline_data_item.set_is_cxx_this(true);
 
@@ -952,6 +776,8 @@ void LoweringVisitor::visit_task_call_c(
             it++)
     {
         TL::Symbol parameter = *it;
+        seen_parameters.insert(parameter);
+
         Nodecl::NodeclBase argument = param_to_arg_expr.m.find(*it)->second;
 
         // We search by parameter position here
@@ -968,96 +794,67 @@ void LoweringVisitor::visit_task_call_c(
         int position = parameter.get_parameter_position() + parameter_position_offset;
         ERROR_CONDITION(position > (signed int)new_arguments.size(), "Too many parameters!", 0);
 
-        OutlineDataItem* current_item = found[0];
+        std::stringstream ss;
+        ss << "mcc_arg_" << (int)arg_counter;
+        arg_counter++;
 
-        seen_parameters.insert(parameter);
+        // Create a new variable holding the value of the argument
+        TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
+        new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+        new_symbol.get_internal_symbol()->type_information = parameter.get_type().get_internal_type();
+        symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
 
-        if (current_item->has_an_input_value_dependence())
+        param_sym_to_arg_sym[parameter] = new_symbol;
+
+        if (new_symbol.get_type().depends_on_nonconstant_values())
         {
-            Nodecl::NodeclBase new_updated_argument = InputValueUtils::handle_input_value_dependence(
-                    outline_register_entities,
-                    new_block_context_sc,
-                    argument,
-                    initializations_src);
+            handle_nonconstant_value_dimensions(new_symbol.get_type(),
+                    new_block_context_sc, param_to_args_map, param_sym_to_arg_sym, initializations_src);
 
-            new_arguments[position] = new_updated_argument;
+            // The 'param_to_args_map' may be updated. For this reason, we should
+            // update the type using the new symbols of the nonconstant value
+            // dimensions.
+            new_symbol.get_internal_symbol()->type_information =
+                type_deep_copy(new_symbol.get_internal_symbol()->type_information,
+                        new_block_context_sc.get_decl_context(),
+                        param_to_args_map.get_symbol_map());
+        }
 
-            // Note that the current argument may create more than one
-            // SHARING_SHARED_WITH_CAPTURE outline data items and They are not
-            // associated with the current parameter in the param_sym_to_arg_sym map.
+        if (IS_CXX_LANGUAGE)
+        {
+            // We need to declare explicitly this object in C++ and initialize it properly
+            initializations_src
+                << as_statement(Nodecl::CxxDef::make(/* context */ Nodecl::NodeclBase::null(), new_symbol));
+        }
+        else if (IS_C_LANGUAGE)
+        {
+            initializations_src
+                << as_statement(Nodecl::ObjectInit::make(new_symbol));
+        }
+
+        if (parameter.get_type().is_class() && IS_CXX_LANGUAGE)
+        {
+            internal_error("Copy-construction of a class type is not yet implemented", 0);
         }
         else
         {
-            Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-            // Create a new variable holding the value of the argument
-            std::stringstream ss;
-            ss << "mcc_arg_" << (int)arg_counter;
-            TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
-            arg_counter++;
-
-            // FIXME - Wrap this sort of things
-            new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-            new_symbol.get_internal_symbol()->type_information = parameter.get_type().get_internal_type();
-            symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
-            param_sym_to_arg_sym[parameter] = new_symbol;
-
-            if (new_symbol.get_type().depends_on_nonconstant_values())
-            {
-                handle_nonconstant_value_dimensions(new_symbol.get_type(),
-                        new_block_context_sc, param_to_args_map, param_sym_to_arg_sym, initializations_src);
-
-                // The 'param_to_args_map' may be updated. For this reason, we should
-                // update the type using the new symbols of the nonconstant value
-                // dimensions.
-                new_symbol.get_internal_symbol()->type_information =
-                    type_deep_copy(new_symbol.get_internal_symbol()->type_information,
-                            new_block_context_sc.get_decl_context(),
-                            param_to_args_map.get_symbol_map());
-            }
-
-            if (IS_CXX_LANGUAGE)
-            {
-                // We need to declare explicitly this object in C++ and initialize it properly
-                initializations_src
-                    << as_statement(Nodecl::CxxDef::make(/* context */ Nodecl::NodeclBase::null(), new_symbol));
-            }
-            else if (IS_C_LANGUAGE)
-            {
-                initializations_src
-                    << as_statement(Nodecl::ObjectInit::make(new_symbol));
-            }
-
-            if (parameter.get_type().is_class() && IS_CXX_LANGUAGE)
-            {
-                internal_error("Copy-construction of a class type is not yet implemented", 0);
-            }
-            else
-            {
-                // Direct initialization is enough
-                new_symbol.get_internal_symbol()->value = argument.shallow_copy().get_internal_nodecl();
-            }
-
-            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(new_symbol);
-            TL::Type t = new_symbol.get_type();
-
-            if (!t.is_any_reference())
-                t = t.get_lvalue_reference_to();
-
-            sym_ref.set_type(t);
-
-            new_arguments[position] = sym_ref;
-
-            if (parameter.get_type().is_any_reference()
-                    && !parameter.get_type().is_const())
-            {
-                outline_register_entities.add_shared(new_symbol);
-            }
-            else
-            {
-                outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
-            }
-            param_to_args_map.add_map(parameter, new_symbol);
+            // Direct initialization is enough
+            new_symbol.get_internal_symbol()->value = argument.shallow_copy().get_internal_nodecl();
         }
+
+        Nodecl::NodeclBase sym_ref = new_symbol.make_nodecl(/* set_ref_type */ true);
+        new_arguments[position] = sym_ref;
+
+        if (parameter.get_type().is_any_reference()
+                && !parameter.get_type().is_const())
+        {
+            outline_register_entities.add_shared(new_symbol);
+        }
+        else
+        {
+            outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
+        }
+        param_to_args_map.add_map(parameter, new_symbol);
     }
 
     copy_target_info_from_params_to_args_c(
@@ -1103,15 +900,17 @@ void LoweringVisitor::visit_task_call_c(
             it != param_to_arg_expr.v.end();
             it++)
     {
-        //The SHARING_SHARED_WITH_CAPTURE outline data items are skipped at this point
-        param_sym_to_arg_sym_t::map_t::iterator map_it = param_sym_to_arg_sym.m.find(*it);
-        if (map_it == param_sym_to_arg_sym.m.end())
-            continue;
+        TL::Symbol &par_sym = *it;
 
-        TL::Symbol &new_symbol = map_it->second;
-        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(*it);
-        OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
-        copy_outline_data_item_c(argument_outline_data_item, parameter_outline_data_item, param_sym_to_arg_sym);
+        param_sym_to_arg_sym_t::map_t::iterator it2 = param_sym_to_arg_sym.m.find(par_sym);
+        ERROR_CONDITION(it2 == param_sym_to_arg_sym.m.end(),
+                "An argument of a task call has not been captured", 0);
+        TL::Symbol &arg_sym = it2->second;
+
+        copy_outline_data_item_c(
+                arguments_outline_info.get_entity_for_symbol(arg_sym),
+                parameters_outline_info.get_entity_for_symbol(par_sym),
+                param_sym_to_arg_sym);
     }
 
     Nodecl::NodeclBase initializations_tree;
@@ -1206,6 +1005,10 @@ void LoweringVisitor::visit_task_call_c(
     }
 
     Nodecl::NodeclBase updated_priority, updated_if_condition, updated_final_condition;
+
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(parameters_environment);
+
     updated_priority = rewrite_expression_in_terms_of_arguments(task_environment.priority, param_to_arg_expr);
     updated_if_condition = rewrite_expression_in_terms_of_arguments(task_environment.if_condition, param_to_arg_expr);
     updated_final_condition = rewrite_expression_in_terms_of_arguments(task_environment.final_condition, param_to_arg_expr);
@@ -1521,10 +1324,6 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
                 Nodecl::ObjectInit::make(*it));
     }
 
-    // Create a reference to the function
-    Nodecl::NodeclBase function_ref = Nodecl::Symbol::make(called_function);
-    function_ref.set_type(called_function.get_type().get_lvalue_reference_to());
-
     // Create the arguments of the call
     TL::ObjectList<Nodecl::NodeclBase> argument_list;
     TL::ObjectList<TL::Symbol> parameters_of_called_function = called_function.get_related_symbols();
@@ -1536,13 +1335,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
         // We map from the parameter of the called function task to the
         // parameter of the adapter function
         sym = symbol_map->map(sym);
-
-        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(sym);
-        TL::Type t = sym.get_type();
-        if (!t.is_lvalue_reference())
-            t = t.get_lvalue_reference_to();
-
-        argument_list.append(sym_ref);
+        argument_list.append(sym.make_nodecl(/* set_ref_type */ true));
     }
 
     Nodecl::NodeclBase argument_seq = Nodecl::List::make(argument_list);
@@ -1550,7 +1343,8 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     // Create the call
     Nodecl::NodeclBase call_to_original =
         Nodecl::ExpressionStatement::make(
-                Nodecl::FunctionCall::make(function_ref,
+                Nodecl::FunctionCall::make(
+                    called_function.make_nodecl(/* set_ref_type */ true),
                     argument_seq,
                     /* alternate name */ Nodecl::NodeclBase::null(),
                     /* function form */ Nodecl::NodeclBase::null(),
@@ -1812,8 +1606,7 @@ void LoweringVisitor::visit_task_call_fortran(
     // Replace the call to the original function for a call to the adapter
     Nodecl::FunctionCall new_function_call = function_call.shallow_copy().as<Nodecl::FunctionCall>();
 
-    Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
-    new_function_call.set_called(adapter_sym_ref);
+    new_function_call.set_called(adapter_function.make_nodecl(/* set_ref_type */ true));
     new_function_call.set_alternate_name(Nodecl::NodeclBase::null());
 
     if (!free_vars.empty())
@@ -1824,13 +1617,7 @@ void LoweringVisitor::visit_task_call_fortran(
                 it != free_vars.end();
                 it++)
         {
-            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(*it);
-            TL::Type t = it->get_type();
-            if (!t.is_lvalue_reference())
-                t = t.get_lvalue_reference_to();
-            sym_ref.set_type(t);
-
-            arguments.append(sym_ref);
+            arguments.append(it->make_nodecl(/* set_ref_type */ true));
         }
 
         new_function_call.set_arguments(arguments);

@@ -24115,6 +24115,21 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
 
     type_t* indexed_type = no_ref(nodecl_get_type(nodecl_postfix));
 
+    // Note that the type of the nodecl_postfix expression will always be the
+    // same, even if we have more than one array section. For this reason we
+    // have to adjust it, skipping the array types that have already been
+    // treated.
+#define MAX_NESTING_OF_ARRAY_REGIONS (16)
+    type_t* advanced_types[MAX_NESTING_OF_ARRAY_REGIONS];
+    int i = 0;
+    while (is_array_type(indexed_type) && array_type_has_region(indexed_type))
+    {
+        ERROR_CONDITION(i == MAX_NESTING_OF_ARRAY_REGIONS, "Too many array regions nested %d\n", i);
+        advanced_types[i] = indexed_type;
+        indexed_type = array_type_get_element_type(indexed_type);
+        i++;
+    }
+
     if (nodecl_is_null(nodecl_lower))
     {
         if (is_array_type(indexed_type))
@@ -24129,7 +24144,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         }
     }
 
-    if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type))) 
+    if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type)))
     {
         if (is_array_section_size)
             nodecl_upper = nodecl_shallow_copy(array_type_get_array_size_expr(indexed_type));
@@ -24137,17 +24152,6 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
             nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
     }
 
-#define MAX_NESTING_OF_ARRAY_REGIONS (16)
-
-    type_t* advanced_types[MAX_NESTING_OF_ARRAY_REGIONS];
-    int i = 0;
-    while (is_array_type(indexed_type) && array_type_has_region(indexed_type))
-    {
-        ERROR_CONDITION(i == MAX_NESTING_OF_ARRAY_REGIONS, "Too many array regions nested %d\n", i);
-        advanced_types[i] = indexed_type;
-        indexed_type = array_type_get_element_type(indexed_type);
-        i++;
-    }
 
     if (is_array_section_size)
     {
@@ -24305,16 +24309,25 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
 
 static void check_array_section_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
+    /* Note that if we have more than one AST_ARRAY_SECTION nested (e.g.
+       a[l1:u1][l2:u2]) the tree has the following shape:
+
+                              AST_ARRAY_SECTION
+                              /       |       \
+                  AST_ARRAY_SECTION   l2      u2
+                  /       |       \
+                 a        l1       u1
+    */
     const locus_t* locus = ast_get_locus(expression);
 
     AST postfix_expression = ASTSon0(expression);
     AST lower_bound = ASTSon1(expression);
     AST upper_bound = ASTSon2(expression);
     AST stride = ASTSon3(expression);
-    
+
     nodecl_t nodecl_postfix = nodecl_null();
     check_expression_impl_(postfix_expression, decl_context, &nodecl_postfix);
-    
+
     nodecl_t nodecl_lower = nodecl_null();
     if (lower_bound != NULL)
         check_expression_impl_(lower_bound, decl_context, &nodecl_lower);
@@ -24335,10 +24348,10 @@ static void check_array_section_expression(AST expression, const decl_context_t*
                     /* bytes */ type_get_size(get_ptrdiff_t_type()), /* signed */ 1),
                 get_ptrdiff_t_type());
     }
-    
+
     char is_array_section_size = (ASTKind(expression) == AST_ARRAY_SECTION_SIZE);
 
-    check_nodecl_array_section_expression(nodecl_postfix, 
+    check_nodecl_array_section_expression(nodecl_postfix,
             nodecl_lower, nodecl_upper, nodecl_stride,
             decl_context, is_array_section_size, locus, nodecl_output);
 }

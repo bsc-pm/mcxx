@@ -34,19 +34,19 @@ test_compile_fail_nanos6_imcxx=yes
 </testinfo>
 */
 #include<assert.h>
-
 #pragma omp task
-int foo()
+int fact(int n)
 {
-    return 1;
+    if ( n == 0 || n == 1) return 1;
+    return fact(n-1) * n; // The taskwait will be introduced by Mercurium
 }
-
 
 int main()
 {
-   const int n = foo();
+
+    int x = fact(6);
 #pragma omp taskwait
-
-   assert(n == 1);
-
+    assert(x == 720);
 }
+
+

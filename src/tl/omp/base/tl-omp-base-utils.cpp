@@ -44,8 +44,6 @@ namespace TL { namespace OpenMP {
                 // OmpSs
             case OpenMP::DEP_OMPSS_DIR_IN_PRIVATE:
                 return "in (private)";
-            case OpenMP::DEP_OMPSS_DIR_IN_VALUE:
-                return "in (value)";
             case OpenMP::DEP_OMPSS_CONCURRENT:
                 return "concurrent";
             case OpenMP::DEP_OMPSS_COMMUTATIVE:
