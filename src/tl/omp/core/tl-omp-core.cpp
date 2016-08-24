@@ -2096,14 +2096,34 @@ namespace TL { namespace OpenMP {
         _openmp_info->push_current_data_environment(data_environment);
 
         ObjectList<Symbol> extra_symbols;
+        TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
+
+        // Handling the 'on' clause of the taskwait construct
         get_dependences_ompss_info_clause(
-                construct.get_pragma_line().get_clause("on"),
+                pragma_line.get_clause("on"),
                 construct,
                 data_environment,
                 DEP_DIR_INOUT,
                 /* default data sharing */ DS_UNDEFINED,
                 "on",
                 extra_symbols);
+
+        // Handling the 'in', 'out' and 'inout' clauses of the taskwait construct
+        get_basic_dependences_info(
+                pragma_line,
+                construct,
+                data_environment,
+                /* default data sharing attribute */ DS_UNDEFINED,
+                extra_symbols);
+
+        // Handling the OpenMP dependency clauses of the taskwait construct
+        get_dependences_openmp(
+                pragma_line.get_clause("depend"),
+                construct,
+                data_environment,
+                /* default data sharing attribute */ DS_UNDEFINED,
+                extra_symbols);
+
         get_data_extra_symbols(data_environment, extra_symbols);
     }
 

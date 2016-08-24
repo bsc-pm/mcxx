@@ -365,27 +365,15 @@ namespace TL { namespace OpenMP {
                 data_sharing_environment, default_data_attr, extra_symbols);
     }
 
-    void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
+    void Core::get_basic_dependences_info(TL::PragmaCustomLine pragma_line,
             Nodecl::NodeclBase parsing_context,
             DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
-        // Ompss clauses
         PragmaCustomClause input_clause = pragma_line.get_clause("in",/* deprecated */ "input");
         get_dependences_ompss_info_clause(input_clause, parsing_context,
                 data_sharing_environment, DEP_DIR_IN, default_data_attr, "in",
-                extra_symbols);
-
-        PragmaCustomClause weak_input_clause = pragma_line.get_clause("weakin");
-        get_dependences_ompss_info_clause(weak_input_clause, parsing_context,
-                data_sharing_environment, DEP_OMPSS_WEAK_IN, default_data_attr, "weakin",
-                extra_symbols);
-
-        PragmaCustomClause input_private_clause = pragma_line.get_clause("inprivate");
-        get_dependences_ompss_info_clause(input_private_clause,
-                parsing_context, data_sharing_environment,
-                DEP_OMPSS_DIR_IN_PRIVATE, default_data_attr, "inprivate",
                 extra_symbols);
 
         PragmaCustomClause output_clause = pragma_line.get_clause("out", /* deprecated */ "output");
@@ -393,19 +381,43 @@ namespace TL { namespace OpenMP {
                 data_sharing_environment, DEP_DIR_OUT, default_data_attr,
                 "out", extra_symbols);
 
+        PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
+        get_dependences_ompss_info_clause(inout_clause, parsing_context,
+                data_sharing_environment, DEP_DIR_INOUT, default_data_attr,
+                "inout", extra_symbols);
+    }
+
+    void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
+            Nodecl::NodeclBase parsing_context,
+            DataEnvironment& data_sharing_environment,
+            DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        // Ompss clauses
+        get_basic_dependences_info(pragma_line,
+                parsing_context,
+                data_sharing_environment,
+                default_data_attr, extra_symbols);
+
+        PragmaCustomClause weak_input_clause = pragma_line.get_clause("weakin");
+        get_dependences_ompss_info_clause(weak_input_clause, parsing_context,
+                data_sharing_environment, DEP_OMPSS_WEAK_IN, default_data_attr, "weakin",
+                extra_symbols);
+
         PragmaCustomClause weak_output_clause = pragma_line.get_clause("weakout");
         get_dependences_ompss_info_clause(weak_output_clause, parsing_context,
                 data_sharing_environment, DEP_OMPSS_WEAK_OUT, default_data_attr, "weakout",
                 extra_symbols);
 
-        PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
-        get_dependences_ompss_info_clause(inout_clause, parsing_context,
-                data_sharing_environment, DEP_DIR_INOUT, default_data_attr,
-                "inout", extra_symbols);
-
         PragmaCustomClause weak_inout_clause = pragma_line.get_clause("weakinout");
         get_dependences_ompss_info_clause(weak_inout_clause, parsing_context,
                 data_sharing_environment, DEP_OMPSS_WEAK_INOUT, default_data_attr, "weakinout",
+                extra_symbols);
+
+        PragmaCustomClause input_private_clause = pragma_line.get_clause("inprivate");
+        get_dependences_ompss_info_clause(input_private_clause,
+                parsing_context, data_sharing_environment,
+                DEP_OMPSS_DIR_IN_PRIVATE, default_data_attr, "inprivate",
                 extra_symbols);
 
         PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
