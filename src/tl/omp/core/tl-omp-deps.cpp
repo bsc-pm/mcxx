@@ -161,9 +161,8 @@ namespace TL { namespace OpenMP {
             {
                 expr.commit_diagnostic();
                 warn_printf_at(expr.get_locus(),
-                        "invalid dependency expression '%s', skipping\n",
-                        expr.prettyprint().c_str());
-
+                        "invalid '%s' expression  in '%s' clause, skipping\n",
+                        expr.prettyprint().c_str(), clause_name.c_str());
                 continue;
             }
 
@@ -197,8 +196,8 @@ namespace TL { namespace OpenMP {
                         || (sym.is_variable() && sym.is_member() && !sym.is_static()))
                 {
                     warn_printf_at(expr.get_locus(),
-                            "invalid dependency expression '%s', skipping\n",
-                            expr.prettyprint().c_str());
+                            "invalid '%s' expression  in '%s' clause, skipping\n",
+                            expr.prettyprint().c_str(), clause_name.c_str());
 
                     info_printf_at(expr.get_locus(),
                             "dependences over non-static data members are not allowed in OpenMP\n");
@@ -209,8 +208,8 @@ namespace TL { namespace OpenMP {
                 else if (sym.get_name() == "this")
                 {
                     warn_printf_at(expr.get_locus(),
-                            "invalid dependency expression '%s', skipping\n",
-                            expr.prettyprint().c_str());
+                            "invalid '%s' expression  in '%s' clause, skipping\n",
+                            expr.prettyprint().c_str(), clause_name.c_str());
 
                     continue;
                 }
@@ -356,7 +355,7 @@ namespace TL { namespace OpenMP {
 
         get_info_from_dependences(reduction_expressions,
                 data_sharing_environment, DEP_OMPSS_CONCURRENT,
-                default_data_attr, this->in_ompss_mode(), "concurrent",
+                default_data_attr, this->in_ompss_mode(), "reduction",
                 extra_symbols);
     }
 
@@ -589,11 +588,11 @@ namespace TL { namespace OpenMP {
                     clause.get_locus());
 
             get_info_from_dependences(in, data_sharing_environment,
-                    DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in:)", extra_symbols);
+                    DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in: )", extra_symbols);
             get_info_from_dependences(out, data_sharing_environment,
-                    DEP_DIR_OUT, default_data_attr, this->in_ompss_mode(), "depend(out:)", extra_symbols);
+                    DEP_DIR_OUT, default_data_attr, this->in_ompss_mode(), "depend(out: )", extra_symbols);
             get_info_from_dependences(inout, data_sharing_environment,
-                    DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout:)", extra_symbols);
+                    DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout: )", extra_symbols);
     }
 
     namespace {
