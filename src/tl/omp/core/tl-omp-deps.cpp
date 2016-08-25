@@ -141,7 +141,10 @@ namespace TL { namespace OpenMP {
         data_ref_visitor_dep.walk(data_ref);
     }
 
-    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list,
+    // This function handles all the dependences, adding them to the DataEnvironment.
+    // In OmpSs it also computes the data-sharing of each base symbol of each dependence.
+    static void get_info_from_dependences(
+            ObjectList<Nodecl::NodeclBase> &expression_list,
             DataEnvironment& data_sharing_environment,
             DependencyDirection dep_attr,
             DataSharingAttribute default_data_attr,
@@ -351,9 +354,10 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> reduction_expressions =
             reductions.map<Nodecl::NodeclBase>(&ReductionSymbol::get_reduction_expression);
 
-        add_data_sharings(reduction_expressions, data_sharing_environment,
-                DEP_OMPSS_CONCURRENT, default_data_attr, this->in_ompss_mode(),
-                "concurrent", extra_symbols);
+        get_info_from_dependences(reduction_expressions,
+                data_sharing_environment, DEP_OMPSS_CONCURRENT,
+                default_data_attr, this->in_ompss_mode(), "concurrent",
+                extra_symbols);
     }
 
     void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
@@ -584,11 +588,11 @@ namespace TL { namespace OpenMP {
                     inout,
                     clause.get_locus());
 
-            add_data_sharings(in, data_sharing_environment,
+            get_info_from_dependences(in, data_sharing_environment,
                     DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in:)", extra_symbols);
-            add_data_sharings(out, data_sharing_environment,
+            get_info_from_dependences(out, data_sharing_environment,
                     DEP_DIR_OUT, default_data_attr, this->in_ompss_mode(), "depend(out:)", extra_symbols);
-            add_data_sharings(inout, data_sharing_environment,
+            get_info_from_dependences(inout, data_sharing_environment,
                     DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout:)", extra_symbols);
     }
 
@@ -666,8 +670,9 @@ namespace TL { namespace OpenMP {
         if (clause.is_defined())
         {
             ObjectList<Nodecl::NodeclBase> expr_list = parse_dependences_ompss_clause(clause, parsing_context);
-            add_data_sharings(expr_list, data_sharing_environment,
-                    dep_attr, default_data_attr, this->in_ompss_mode(), clause_name, extra_symbols);
+            get_info_from_dependences( expr_list, data_sharing_environment,
+                    dep_attr, default_data_attr, this->in_ompss_mode(),
+                    clause_name, extra_symbols);
         }
     }
 
