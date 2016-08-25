@@ -2099,11 +2099,10 @@ namespace TL { namespace OpenMP {
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
         // Handling the 'on' clause of the taskwait construct
-        get_dependences_ompss_info_clause(
+        get_dependences_ompss_info_clause<DEP_DIR_INOUT>(
                 pragma_line.get_clause("on"),
                 construct,
                 data_environment,
-                DEP_DIR_INOUT,
                 /* default data sharing */ DS_UNDEFINED,
                 "on",
                 extra_symbols);

@@ -143,16 +143,17 @@ namespace TL { namespace OpenMP {
 
     // This function handles all the dependences, adding them to the DataEnvironment.
     // In OmpSs it also computes the data-sharing of each base symbol of each dependence.
+    template < DependencyDirection dep_dir>
     static void get_info_from_dependences(
-            ObjectList<Nodecl::NodeclBase> &expression_list,
-            DataEnvironment& data_sharing_environment,
-            DependencyDirection dep_attr,
+            const ObjectList<Nodecl::NodeclBase>& expression_list,
             DataSharingAttribute default_data_attr,
             bool in_ompss_mode,
             const std::string &clause_name,
+            // Out
+            DataEnvironment& data_sharing_environment,
             ObjectList<Symbol>& extra_symbols)
     {
-        for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
+        for (ObjectList<Nodecl::NodeclBase>::const_iterator it = expression_list.begin();
                 it != expression_list.end();
                 it++)
         {
@@ -166,7 +167,7 @@ namespace TL { namespace OpenMP {
                 continue;
             }
 
-            DependencyItem dep_item(*it, dep_attr);
+            DependencyItem dep_item(*it, dep_dir);
 
             Symbol sym = expr.get_base_symbol();
 
@@ -301,36 +302,36 @@ namespace TL { namespace OpenMP {
 
                 if (existing_dep_expr.get_symbol() == expr.get_symbol())
                 {
-                    DependencyDirection existing_dep_attr = existing_dep->get_kind();
-                    if (existing_dep_attr == DEP_OMPSS_CONCURRENT
-                            || existing_dep_attr == DEP_OMPSS_COMMUTATIVE)
+                    DependencyDirection existing_dep_dir = existing_dep->get_kind();
+                    if (existing_dep_dir == DEP_OMPSS_CONCURRENT
+                            || existing_dep_dir == DEP_OMPSS_COMMUTATIVE)
                     {
-                        if (dep_attr != existing_dep_attr)
+                        if (dep_dir != existing_dep_dir)
                         {
                             error_printf_at(it->get_locus(),
                                     "cannot override '%s' directionality of symbol '%s'\n",
-                                    get_dependency_direction_name(existing_dep_attr).c_str(),
+                                    get_dependency_direction_name(existing_dep_dir).c_str(),
                                     expr.get_base_symbol().get_name().c_str());
                         }
                         else
                         {
                             warn_printf_at(it->get_locus(),
                                     "redundant '%s' directionality clause for symbol '%s'\n",
-                                    get_dependency_direction_name(existing_dep_attr).c_str(),
+                                    get_dependency_direction_name(existing_dep_dir).c_str(),
                                     expr.get_base_symbol().get_name().c_str()
                                     );
                         }
                     }
-                    else if ((is_strict_dependency(existing_dep_attr)
-                                && !is_strict_dependency(dep_attr))
-                            || (is_weak_dependency(existing_dep_attr)
-                                && !is_weak_dependency(dep_attr)))
+                    else if ((is_strict_dependency(existing_dep_dir)
+                                && !is_strict_dependency(dep_dir))
+                            || (is_weak_dependency(existing_dep_dir)
+                                && !is_weak_dependency(dep_dir)))
                     {
                         error_printf_at(it->get_locus(),
                                 "cannot override '%s' directionality of symbol '%s' with directionality '%s'\n",
-                                get_dependency_direction_name(existing_dep_attr).c_str(),
+                                get_dependency_direction_name(existing_dep_dir).c_str(),
                                 expr.get_base_symbol().get_name().c_str(),
-                                get_dependency_direction_name(dep_attr).c_str());
+                                get_dependency_direction_name(dep_dir).c_str());
                     }
                 }
             }
@@ -353,10 +354,9 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> reduction_expressions =
             reductions.map<Nodecl::NodeclBase>(&ReductionSymbol::get_reduction_expression);
 
-        get_info_from_dependences(reduction_expressions,
-                data_sharing_environment, DEP_OMPSS_CONCURRENT,
-                default_data_attr, this->in_ompss_mode(), "reduction",
-                extra_symbols);
+        get_info_from_dependences<DEP_OMPSS_CONCURRENT>(
+                reduction_expressions, default_data_attr,
+                this->in_ompss_mode(), "reduction", data_sharing_environment, extra_symbols);
     }
 
     void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
@@ -375,18 +375,18 @@ namespace TL { namespace OpenMP {
             ObjectList<Symbol>& extra_symbols)
     {
         PragmaCustomClause input_clause = pragma_line.get_clause("in",/* deprecated */ "input");
-        get_dependences_ompss_info_clause(input_clause, parsing_context,
-                data_sharing_environment, DEP_DIR_IN, default_data_attr, "in",
+        get_dependences_ompss_info_clause<DEP_DIR_IN>(input_clause, parsing_context,
+                data_sharing_environment, default_data_attr, "in",
                 extra_symbols);
 
         PragmaCustomClause output_clause = pragma_line.get_clause("out", /* deprecated */ "output");
-        get_dependences_ompss_info_clause(output_clause, parsing_context,
-                data_sharing_environment, DEP_DIR_OUT, default_data_attr,
+        get_dependences_ompss_info_clause<DEP_DIR_OUT>(output_clause, parsing_context,
+                data_sharing_environment, default_data_attr,
                 "out", extra_symbols);
 
         PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
-        get_dependences_ompss_info_clause(inout_clause, parsing_context,
-                data_sharing_environment, DEP_DIR_INOUT, default_data_attr,
+        get_dependences_ompss_info_clause<DEP_DIR_INOUT>(inout_clause, parsing_context,
+                data_sharing_environment, default_data_attr,
                 "inout", extra_symbols);
     }
 
@@ -403,35 +403,34 @@ namespace TL { namespace OpenMP {
                 default_data_attr, extra_symbols);
 
         PragmaCustomClause weak_input_clause = pragma_line.get_clause("weakin");
-        get_dependences_ompss_info_clause(weak_input_clause, parsing_context,
-                data_sharing_environment, DEP_OMPSS_WEAK_IN, default_data_attr, "weakin",
-                extra_symbols);
+        get_dependences_ompss_info_clause<DEP_OMPSS_WEAK_IN>(weak_input_clause, parsing_context,
+                data_sharing_environment, default_data_attr,
+                "weakin", extra_symbols);
 
         PragmaCustomClause weak_output_clause = pragma_line.get_clause("weakout");
-        get_dependences_ompss_info_clause(weak_output_clause, parsing_context,
-                data_sharing_environment, DEP_OMPSS_WEAK_OUT, default_data_attr, "weakout",
-                extra_symbols);
+        get_dependences_ompss_info_clause<DEP_OMPSS_WEAK_OUT>(weak_output_clause, parsing_context,
+                data_sharing_environment, default_data_attr,
+                "weakout", extra_symbols);
 
         PragmaCustomClause weak_inout_clause = pragma_line.get_clause("weakinout");
-        get_dependences_ompss_info_clause(weak_inout_clause, parsing_context,
-                data_sharing_environment, DEP_OMPSS_WEAK_INOUT, default_data_attr, "weakinout",
-                extra_symbols);
+        get_dependences_ompss_info_clause<DEP_OMPSS_WEAK_INOUT>(weak_inout_clause, parsing_context,
+                data_sharing_environment, default_data_attr,
+                "weakinout", extra_symbols);
 
         PragmaCustomClause input_private_clause = pragma_line.get_clause("inprivate");
-        get_dependences_ompss_info_clause(input_private_clause,
-                parsing_context, data_sharing_environment,
-                DEP_OMPSS_DIR_IN_PRIVATE, default_data_attr, "inprivate",
-                extra_symbols);
+        get_dependences_ompss_info_clause<DEP_OMPSS_DIR_IN_PRIVATE>(input_private_clause,
+                parsing_context, data_sharing_environment, default_data_attr,
+                "inprivate", extra_symbols);
 
         PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
-        get_dependences_ompss_info_clause(concurrent_clause, parsing_context,
-                data_sharing_environment, DEP_OMPSS_CONCURRENT,
-                default_data_attr, "concurrent", extra_symbols);
+        get_dependences_ompss_info_clause<DEP_OMPSS_CONCURRENT>(concurrent_clause, parsing_context,
+                data_sharing_environment, default_data_attr,
+                "concurrent", extra_symbols);
 
         PragmaCustomClause commutative_clause = pragma_line.get_clause("commutative");
-        get_dependences_ompss_info_clause(commutative_clause, parsing_context,
-                data_sharing_environment, DEP_OMPSS_COMMUTATIVE,
-                default_data_attr, "commutative", extra_symbols);
+        get_dependences_ompss_info_clause<DEP_OMPSS_COMMUTATIVE>(commutative_clause, parsing_context,
+                data_sharing_environment, default_data_attr,
+                "commutative", extra_symbols);
 
         // OpenMP standard clauses
         PragmaCustomClause depends = pragma_line.get_clause("depend");
@@ -587,12 +586,14 @@ namespace TL { namespace OpenMP {
                     inout,
                     clause.get_locus());
 
-            get_info_from_dependences(in, data_sharing_environment,
-                    DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in: )", extra_symbols);
-            get_info_from_dependences(out, data_sharing_environment,
-                    DEP_DIR_OUT, default_data_attr, this->in_ompss_mode(), "depend(out: )", extra_symbols);
-            get_info_from_dependences(inout, data_sharing_environment,
-                    DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout: )", extra_symbols);
+            get_info_from_dependences<DEP_DIR_IN>(in, default_data_attr,
+                    this->in_ompss_mode(), "depend(in: )", data_sharing_environment, extra_symbols);
+
+            get_info_from_dependences<DEP_DIR_OUT>(out, default_data_attr,
+                    this->in_ompss_mode(), "depend(out: )", data_sharing_environment, extra_symbols);
+
+            get_info_from_dependences<DEP_DIR_INOUT>(inout, default_data_attr,
+                    this->in_ompss_mode(), "depend(inout: )", data_sharing_environment, extra_symbols);
     }
 
     namespace {
@@ -658,10 +659,11 @@ namespace TL { namespace OpenMP {
         return result;
     }
 
-    void Core::get_dependences_ompss_info_clause(PragmaCustomClause clause,
+    template < DependencyDirection dep_dir>
+    void Core::get_dependences_ompss_info_clause(
+            PragmaCustomClause clause,
             Nodecl::NodeclBase parsing_context,
             DataEnvironment& data_sharing_environment,
-            DependencyDirection dep_attr,
             DataSharingAttribute default_data_attr,
             const std::string& clause_name,
             ObjectList<Symbol>& extra_symbols)
@@ -669,9 +671,9 @@ namespace TL { namespace OpenMP {
         if (clause.is_defined())
         {
             ObjectList<Nodecl::NodeclBase> expr_list = parse_dependences_ompss_clause(clause, parsing_context);
-            get_info_from_dependences( expr_list, data_sharing_environment,
-                    dep_attr, default_data_attr, this->in_ompss_mode(),
-                    clause_name, extra_symbols);
+
+            get_info_from_dependences<dep_dir>(expr_list, default_data_attr,
+                    this->in_ompss_mode(), clause_name, data_sharing_environment, extra_symbols);
         }
     }
 

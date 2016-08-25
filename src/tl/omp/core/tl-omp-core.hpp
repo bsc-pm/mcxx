@@ -188,11 +188,11 @@ namespace TL
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
+                template < DependencyDirection dep_dir >
                 void get_dependences_ompss_info_clause(
                         PragmaCustomClause clause,
                         Nodecl::NodeclBase parsing_context,
                         DataEnvironment& data_environment,
-                        DependencyDirection dep_attr,
                         DataSharingAttribute default_data_attr,
                         const std::string& clause_name,
                         ObjectList<Symbol>& extra_symbols);
