@@ -156,23 +156,40 @@ namespace TL
 
                 // This function is basically a wrapper that calls to the other
                 // 'get_dependences_info' function using the pragma_line as parsing_context
-                void get_dependences_info(
+                void handle_task_dependences(
                         PragmaCustomLine pragma_line,
-                        DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
-                // This function handles the dependences of a contruct, adding
-                // new information to the data_environment
-                void get_dependences_info(
+                // This function handles the dependences of a task construct,
+                // adding new information to the data environment
+                void handle_task_dependences(
                         PragmaCustomLine pragma_line,
                         Nodecl::NodeclBase parsing_context,
-                        DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
+                        DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
-                // This function handles the basic set of dependences: in, out
-                // and inout. It's used in the transformation of the task and taskwait constructs
+                // This function handles the dependences of a taskwait construct,
+                // adding new information to the data environment
+                void handle_taskwait_dependences(
+                        PragmaCustomLine pragma_line,
+                        Nodecl::NodeclBase parsing_context,
+                        DataSharingAttribute default_data_attr,
+                        DataEnvironment& data_environment,
+                        ObjectList<Symbol>& extra_symbols);
+
+                // This function is used to define a concurrent dependence over
+                // the reduction expressions
+                void handle_implicit_dependences_of_task_reductions(
+                        PragmaCustomLine pragma_line,
+                        DataSharingAttribute default_data_attr,
+                        DataEnvironment& data_environment,
+                        ObjectList<Symbol>& extra_symbols);
+
+                // Helper function that handles the basic set of dependences:
+                // in, out and inout
                 void get_basic_dependences_info(
                         PragmaCustomLine pragma_line,
                         Nodecl::NodeclBase parsing_context,
@@ -180,33 +197,17 @@ namespace TL
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
-                // This function is used to define a concurrent dependence over
-                // the reduction expressions
-                void get_dependences_info_from_reductions(
-                        PragmaCustomLine pragma_line,
-                        DataEnvironment& data_environment,
-                        DataSharingAttribute default_data_attr,
-                        ObjectList<Symbol>& extra_symbols);
-
-                template < DependencyDirection dep_dir >
-                void get_dependences_ompss_info_clause(
-                        PragmaCustomClause clause,
-                        Nodecl::NodeclBase parsing_context,
-                        DataEnvironment& data_environment,
-                        DataSharingAttribute default_data_attr,
-                        const std::string& clause_name,
-                        ObjectList<Symbol>& extra_symbols);
-
-                ObjectList<Nodecl::NodeclBase> parse_dependences_ompss_clause(
-                        PragmaCustomClause& clause,
-                        TL::ReferenceScope parsing_scope);
-
+                // Helper function that handles the OpenMP dependences clauses
                 void get_dependences_openmp(
                         TL::PragmaCustomClause clause,
                         Nodecl::NodeclBase parsing_context,
                         DataEnvironment& data_environment,
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
+
+                ObjectList<Nodecl::NodeclBase> parse_dependences_ompss_clause(
+                        PragmaCustomClause clause,
+                        TL::ReferenceScope parsing_scope);
 
                 void parse_dependences_openmp_clause(
                         TL::ReferenceScope parsing_scope,

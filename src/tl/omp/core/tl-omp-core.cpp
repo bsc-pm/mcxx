@@ -1839,8 +1839,10 @@ namespace TL { namespace OpenMP {
         common_workshare_handler(construct, data_environment, extra_symbols);
 
         // Maybe in a future this construct has support to dependences
-        get_dependences_info(construct.get_pragma_line(), data_environment,
-                /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
+        handle_task_dependences(
+                construct.get_pragma_line(), /* default_data_sharing */ DS_UNDEFINED,
+                data_environment, extra_symbols);
+
         get_data_extra_symbols(data_environment, extra_symbols);
     }
 
@@ -1870,9 +1872,12 @@ namespace TL { namespace OpenMP {
         ObjectList<Symbol> extra_symbols;
         common_for_handler(construct, stmt, data_environment, extra_symbols);
         common_workshare_handler(construct, data_environment, extra_symbols);
+
         // Maybe in a future this construct has support to dependences
-        get_dependences_info(construct.get_pragma_line(), data_environment,
-                /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
+        handle_task_dependences(
+                construct.get_pragma_line(), /* default_data_sharing */ DS_UNDEFINED,
+                data_environment, extra_symbols);
+
         get_data_extra_symbols(data_environment, extra_symbols);
     }
 
@@ -1904,8 +1909,9 @@ namespace TL { namespace OpenMP {
             common_parallel_handler(construct, data_environment, extra_symbols);
 
             // Maybe in a future this construct has support to dependences
-            get_dependences_info(construct.get_pragma_line(), data_environment,
-                    /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
+            handle_task_dependences(
+                    construct.get_pragma_line(), /* default_data_sharing */ DS_UNDEFINED,
+                    data_environment, extra_symbols);
         }
     }
 
@@ -1937,11 +1943,13 @@ namespace TL { namespace OpenMP {
                 there_is_default_clause,
                 /*allow_default_auto*/ true);
 
-        get_dependences_info(pragma_line, /* parsing_context */ loop,
-                data_environment, default_data_attr, extra_symbols);
+        handle_task_dependences(
+                pragma_line, /* parsing_context */ loop, default_data_attr,
+                data_environment, extra_symbols);
 
-        get_dependences_info_from_reductions(pragma_line, data_environment,
-                default_data_attr, extra_symbols);
+        handle_implicit_dependences_of_task_reductions(
+                pragma_line, default_data_attr,
+                data_environment, extra_symbols);
 
         get_data_implicit_attributes_task(construct, data_environment,
                 default_data_attr, there_is_default_clause);
@@ -2096,31 +2104,12 @@ namespace TL { namespace OpenMP {
         _openmp_info->push_current_data_environment(data_environment);
 
         ObjectList<Symbol> extra_symbols;
-        TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
-        // Handling the 'on' clause of the taskwait construct
-        get_dependences_ompss_info_clause<DEP_DIR_INOUT>(
-                pragma_line.get_clause("on"),
+        handle_taskwait_dependences(
+                construct.get_pragma_line(),
                 construct,
-                data_environment,
                 /* default data sharing */ DS_UNDEFINED,
-                "on",
-                extra_symbols);
-
-        // Handling the 'in', 'out' and 'inout' clauses of the taskwait construct
-        get_basic_dependences_info(
-                pragma_line,
-                construct,
                 data_environment,
-                /* default data sharing attribute */ DS_UNDEFINED,
-                extra_symbols);
-
-        // Handling the OpenMP dependency clauses of the taskwait construct
-        get_dependences_openmp(
-                pragma_line.get_clause("depend"),
-                construct,
-                data_environment,
-                /* default data sharing attribute */ DS_UNDEFINED,
                 extra_symbols);
 
         get_data_extra_symbols(data_environment, extra_symbols);

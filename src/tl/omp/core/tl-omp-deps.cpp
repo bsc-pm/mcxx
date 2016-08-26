@@ -341,10 +341,150 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Core::get_dependences_info_from_reductions(
+
+    void Core::handle_task_dependences(
             TL::PragmaCustomLine pragma_line,
+            DataSharingAttribute default_data_attr,
+            DataEnvironment& data_sharing_environment,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        handle_task_dependences(
+                pragma_line, /* parsing context */ pragma_line,
+                default_data_attr, data_sharing_environment, extra_symbols);
+    }
+
+    void Core::handle_task_dependences(
+            TL::PragmaCustomLine pragma_line,
+            Nodecl::NodeclBase parsing_context,
+            DataSharingAttribute default_data_attr,
+            DataEnvironment& data_sharing_environment,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        // Ompss clauses
+        get_basic_dependences_info(
+                pragma_line,
+                parsing_context,
+                data_sharing_environment,
+                default_data_attr, extra_symbols);
+
+        ObjectList<Nodecl::NodeclBase> expr_list;
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("weakin"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_WEAK_IN>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "weakin", data_sharing_environment, extra_symbols);
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("weakout"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_WEAK_OUT>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "weakout", data_sharing_environment, extra_symbols);
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("weakinout"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_WEAK_INOUT>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "weakinout", data_sharing_environment, extra_symbols);
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("inprivate"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_DIR_IN_PRIVATE>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "inprivate", data_sharing_environment, extra_symbols);
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("concurrent"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_CONCURRENT>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "concurrent", data_sharing_environment, extra_symbols);
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("commutative"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_COMMUTATIVE>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "commutative", data_sharing_environment, extra_symbols);
+
+        // OpenMP standard clauses
+        PragmaCustomClause depends = pragma_line.get_clause("depend");
+        get_dependences_openmp(depends, parsing_context, data_sharing_environment,
+                default_data_attr, extra_symbols);
+    }
+
+    void Core::get_basic_dependences_info(
+            TL::PragmaCustomLine pragma_line,
+            Nodecl::NodeclBase parsing_context,
             DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        ObjectList<Nodecl::NodeclBase> expr_list;
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("in",/* deprecated */ "input"),
+                parsing_context);
+        get_info_from_dependences<DEP_DIR_IN>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "in", data_sharing_environment, extra_symbols);
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("out",/* deprecated */ "output"),
+                parsing_context);
+        get_info_from_dependences<DEP_DIR_OUT>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "out", data_sharing_environment, extra_symbols);
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("inout"),
+                parsing_context);
+        get_info_from_dependences<DEP_DIR_INOUT>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "inout", data_sharing_environment, extra_symbols);
+    }
+
+    void Core::handle_taskwait_dependences(
+            PragmaCustomLine pragma_line,
+            Nodecl::NodeclBase parsing_context,
+            DataSharingAttribute default_data_attr,
+            DataEnvironment& data_environment,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        // Handling the 'on' clause of the taskwait construct
+        ObjectList<Nodecl::NodeclBase> expr_list =
+            parse_dependences_ompss_clause(
+                    pragma_line.get_clause("on"),
+                    parsing_context);
+        get_info_from_dependences<DEP_DIR_INOUT>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "on", data_environment, extra_symbols);
+
+        // Handling the 'in', 'out' and 'inout' clauses of the taskwait construct
+        get_basic_dependences_info(
+                pragma_line,
+                parsing_context,
+                data_environment,
+                default_data_attr,
+                extra_symbols);
+
+        // Handling the OpenMP dependency clauses of the taskwait construct
+        get_dependences_openmp(
+                pragma_line.get_clause("depend"),
+                parsing_context,
+                data_environment,
+                default_data_attr,
+                extra_symbols);
+    }
+
+    void Core::handle_implicit_dependences_of_task_reductions(
+            TL::PragmaCustomLine pragma_line,
+            DataSharingAttribute default_data_attr,
+            DataEnvironment& data_sharing_environment,
             ObjectList<Symbol>& extra_symbols)
     {
         Nodecl::NodeclBase parsing_context = pragma_line;
@@ -355,87 +495,8 @@ namespace TL { namespace OpenMP {
             reductions.map<Nodecl::NodeclBase>(&ReductionSymbol::get_reduction_expression);
 
         get_info_from_dependences<DEP_OMPSS_CONCURRENT>(
-                reduction_expressions, default_data_attr,
-                this->in_ompss_mode(), "reduction", data_sharing_environment, extra_symbols);
-    }
-
-    void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
-            DataEnvironment& data_sharing_environment,
-            DataSharingAttribute default_data_attr,
-            ObjectList<Symbol>& extra_symbols)
-    {
-        get_dependences_info(pragma_line, /* parsing context */ pragma_line,
-                data_sharing_environment, default_data_attr, extra_symbols);
-    }
-
-    void Core::get_basic_dependences_info(TL::PragmaCustomLine pragma_line,
-            Nodecl::NodeclBase parsing_context,
-            DataEnvironment& data_sharing_environment,
-            DataSharingAttribute default_data_attr,
-            ObjectList<Symbol>& extra_symbols)
-    {
-        PragmaCustomClause input_clause = pragma_line.get_clause("in",/* deprecated */ "input");
-        get_dependences_ompss_info_clause<DEP_DIR_IN>(input_clause, parsing_context,
-                data_sharing_environment, default_data_attr, "in",
-                extra_symbols);
-
-        PragmaCustomClause output_clause = pragma_line.get_clause("out", /* deprecated */ "output");
-        get_dependences_ompss_info_clause<DEP_DIR_OUT>(output_clause, parsing_context,
-                data_sharing_environment, default_data_attr,
-                "out", extra_symbols);
-
-        PragmaCustomClause inout_clause = pragma_line.get_clause("inout");
-        get_dependences_ompss_info_clause<DEP_DIR_INOUT>(inout_clause, parsing_context,
-                data_sharing_environment, default_data_attr,
-                "inout", extra_symbols);
-    }
-
-    void Core::get_dependences_info(TL::PragmaCustomLine pragma_line,
-            Nodecl::NodeclBase parsing_context,
-            DataEnvironment& data_sharing_environment,
-            DataSharingAttribute default_data_attr,
-            ObjectList<Symbol>& extra_symbols)
-    {
-        // Ompss clauses
-        get_basic_dependences_info(pragma_line,
-                parsing_context,
-                data_sharing_environment,
-                default_data_attr, extra_symbols);
-
-        PragmaCustomClause weak_input_clause = pragma_line.get_clause("weakin");
-        get_dependences_ompss_info_clause<DEP_OMPSS_WEAK_IN>(weak_input_clause, parsing_context,
-                data_sharing_environment, default_data_attr,
-                "weakin", extra_symbols);
-
-        PragmaCustomClause weak_output_clause = pragma_line.get_clause("weakout");
-        get_dependences_ompss_info_clause<DEP_OMPSS_WEAK_OUT>(weak_output_clause, parsing_context,
-                data_sharing_environment, default_data_attr,
-                "weakout", extra_symbols);
-
-        PragmaCustomClause weak_inout_clause = pragma_line.get_clause("weakinout");
-        get_dependences_ompss_info_clause<DEP_OMPSS_WEAK_INOUT>(weak_inout_clause, parsing_context,
-                data_sharing_environment, default_data_attr,
-                "weakinout", extra_symbols);
-
-        PragmaCustomClause input_private_clause = pragma_line.get_clause("inprivate");
-        get_dependences_ompss_info_clause<DEP_OMPSS_DIR_IN_PRIVATE>(input_private_clause,
-                parsing_context, data_sharing_environment, default_data_attr,
-                "inprivate", extra_symbols);
-
-        PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
-        get_dependences_ompss_info_clause<DEP_OMPSS_CONCURRENT>(concurrent_clause, parsing_context,
-                data_sharing_environment, default_data_attr,
-                "concurrent", extra_symbols);
-
-        PragmaCustomClause commutative_clause = pragma_line.get_clause("commutative");
-        get_dependences_ompss_info_clause<DEP_OMPSS_COMMUTATIVE>(commutative_clause, parsing_context,
-                data_sharing_environment, default_data_attr,
-                "commutative", extra_symbols);
-
-        // OpenMP standard clauses
-        PragmaCustomClause depends = pragma_line.get_clause("depend");
-        get_dependences_openmp(depends, parsing_context, data_sharing_environment,
-                default_data_attr, extra_symbols);
+                reduction_expressions, default_data_attr, this->in_ompss_mode(),
+                "reduction", data_sharing_environment, extra_symbols);
     }
 
     namespace {
@@ -616,13 +677,16 @@ namespace TL { namespace OpenMP {
     }
 
     ObjectList<Nodecl::NodeclBase> Core::parse_dependences_ompss_clause(
-            PragmaCustomClause& clause,
+            PragmaCustomClause clause,
             TL::ReferenceScope parsing_scope)
     {
         ObjectList<Nodecl::NodeclBase> result;
 
-        ObjectList<std::string> arguments = clause.get_tokenized_arguments();
+        // We return an empty list of expressions if the current clause is not defined
+        if (!clause.is_defined())
+            return result;
 
+        ObjectList<std::string> arguments = clause.get_tokenized_arguments();
         for (ObjectList<std::string>::iterator it = arguments.begin();
                 it != arguments.end();
                 it++)
@@ -657,24 +721,6 @@ namespace TL { namespace OpenMP {
         }
 
         return result;
-    }
-
-    template < DependencyDirection dep_dir>
-    void Core::get_dependences_ompss_info_clause(
-            PragmaCustomClause clause,
-            Nodecl::NodeclBase parsing_context,
-            DataEnvironment& data_sharing_environment,
-            DataSharingAttribute default_data_attr,
-            const std::string& clause_name,
-            ObjectList<Symbol>& extra_symbols)
-    {
-        if (clause.is_defined())
-        {
-            ObjectList<Nodecl::NodeclBase> expr_list = parse_dependences_ompss_clause(clause, parsing_context);
-
-            get_info_from_dependences<dep_dir>(expr_list, default_data_attr,
-                    this->in_ompss_mode(), clause_name, data_sharing_environment, extra_symbols);
-        }
     }
 
     bool is_strict_dependency(DependencyDirection dir)
