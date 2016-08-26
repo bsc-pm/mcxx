@@ -154,14 +154,6 @@ namespace TL
                         DataEnvironment& data_environment,
                         ObjectList<TL::Symbol>& nonlocal_symbols);
 
-                // This function is basically a wrapper that calls to the other
-                // 'get_dependences_info' function using the pragma_line as parsing_context
-                void handle_task_dependences(
-                        PragmaCustomLine pragma_line,
-                        DataSharingAttribute default_data_attr,
-                        DataEnvironment& data_environment,
-                        ObjectList<Symbol>& extra_symbols);
-
                 // This function handles the dependences of a task construct,
                 // adding new information to the data environment
                 void handle_task_dependences(

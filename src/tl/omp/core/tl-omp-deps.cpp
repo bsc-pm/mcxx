@@ -341,18 +341,6 @@ namespace TL { namespace OpenMP {
         }
     }
 
-
-    void Core::handle_task_dependences(
-            TL::PragmaCustomLine pragma_line,
-            DataSharingAttribute default_data_attr,
-            DataEnvironment& data_sharing_environment,
-            ObjectList<Symbol>& extra_symbols)
-    {
-        handle_task_dependences(
-                pragma_line, /* parsing context */ pragma_line,
-                default_data_attr, data_sharing_environment, extra_symbols);
-    }
-
     void Core::handle_task_dependences(
             TL::PragmaCustomLine pragma_line,
             Nodecl::NodeclBase parsing_context,

@@ -779,8 +779,8 @@ namespace TL { namespace OpenMP {
                 /*allow_default_auto*/ true);
 
         handle_task_dependences(
-                pragma_line, default_data_attr,
-                data_environment, extra_symbols);
+                pragma_line, /* parsing_scope */ pragma_line,
+                default_data_attr, data_environment, extra_symbols);
 
         handle_implicit_dependences_of_task_reductions(
                 pragma_line, default_data_attr,
