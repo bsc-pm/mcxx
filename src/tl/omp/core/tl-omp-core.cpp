@@ -1838,11 +1838,6 @@ namespace TL { namespace OpenMP {
         (this->*common_loop_handler)(construct, loop, data_environment, extra_symbols);
         common_workshare_handler(construct, data_environment, extra_symbols);
 
-        // Maybe in a future this construct has support to dependences
-        handle_task_dependences(
-                construct.get_pragma_line(), /* default_data_sharing */ DS_UNDEFINED,
-                data_environment, extra_symbols);
-
         get_data_extra_symbols(data_environment, extra_symbols);
     }
 
@@ -1873,11 +1868,6 @@ namespace TL { namespace OpenMP {
         common_for_handler(construct, stmt, data_environment, extra_symbols);
         common_workshare_handler(construct, data_environment, extra_symbols);
 
-        // Maybe in a future this construct has support to dependences
-        handle_task_dependences(
-                construct.get_pragma_line(), /* default_data_sharing */ DS_UNDEFINED,
-                data_environment, extra_symbols);
-
         get_data_extra_symbols(data_environment, extra_symbols);
     }
 
@@ -1907,11 +1897,6 @@ namespace TL { namespace OpenMP {
             ObjectList<Symbol> extra_symbols;
             common_for_handler(construct, stmt, data_environment, extra_symbols);
             common_parallel_handler(construct, data_environment, extra_symbols);
-
-            // Maybe in a future this construct has support to dependences
-            handle_task_dependences(
-                    construct.get_pragma_line(), /* default_data_sharing */ DS_UNDEFINED,
-                    data_environment, extra_symbols);
         }
     }
 
