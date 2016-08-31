@@ -585,7 +585,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> type_specifier_alone
 %type<ast> type_specifier_seq_0
 %type<ast> type_specifier_seq_ended_with_identifier
-%type<ast> declarating_type_specifier
 %type<ast> typeof_type_specifier
 %type<ast> unary_expression
 %type<ast> unnamed_namespace_definition
@@ -1834,7 +1833,11 @@ type_specifier_ended_with_identifier : named_simple_type_specifier
 }
 ;
 
-declarating_type_specifier : class_specifier
+type_specifier_alone : builtin_types
+{
+	$$ = $1;
+}
+| class_specifier
 {
 	$$ = $1;
 }
@@ -1843,16 +1846,6 @@ declarating_type_specifier : class_specifier
 	$$ = $1;
 }
 | elaborated_type_specifier
-{
-	$$ = $1;
-}
-;
-
-type_specifier_alone : declarating_type_specifier
-{
-    $$ = $1;
-}
-| builtin_types
 {
     $$ = $1;
 }
