@@ -258,8 +258,6 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
 
 static char check_simple_or_member_declaration(AST a, const decl_context_t* decl_context, gather_decl_spec_t* gather_info);
 
-static char check_template_declaration(AST a, const decl_context_t* decl_context, gather_decl_spec_t* gather_info);
-
 #define EXPECT_OPTIONS(a, n) \
 do \
 { \
@@ -362,10 +360,6 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, co
         scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expr, NULL, DF_DEPENDENT_TYPENAME);
         current_valid = (entry_list != NULL);
         entry_list_free(entry_list);
-    }
-    else if (ASTKind(declaration) == AST_TEMPLATE_DECLARATION)
-    {
-        current_valid = check_template_declaration(declaration, decl_context, (gather_decl_spec_t*)p);
     }
     else
     {
@@ -1066,50 +1060,6 @@ static char check_simple_or_member_declaration(AST a, const decl_context_t* decl
     }
 
     return 1;
-}
-
-static char check_template_declaration(AST a, const decl_context_t* decl_context, gather_decl_spec_t* gather_info)
-{
-    ERROR_CONDITION(ASTKind(a) != AST_TEMPLATE_DECLARATION,
-            "Unexpected node '%s'\n", ast_print_node_type(ASTKind(a)));
-
-    AST decl = ASTSon1(a);
-    switch (ASTKind(decl))
-    {
-        case AST_SIMPLE_DECLARATION:
-            {
-                return check_simple_or_member_declaration(decl, decl_context, gather_info);
-            }
-        case AST_FUNCTION_DEFINITION:
-            {
-                AST function_header = ASTSon0(decl);
-                AST declarator = ASTSon1(function_header);
-                AST decl_specifier_seq = ASTSon0(function_header);
-
-                if (decl_specifier_seq == NULL)
-                {
-                    // Ok, check these are conversion functions, constructors or destructors
-                    //
-                    // Note that something like the following is perfectly valid
-                    //
-                    //  struct A {
-                    //      (A)(), (A)(const A& a), ~A(), operator int();
-                    //  };
-                    return check_typeless_declarator(declarator, decl_context);
-                }
-                else
-                {
-                    AST type_spec = ASTSon1(decl_specifier_seq);
-                    return check_type_specifier(type_spec, decl_context) &&
-                        check_function_definition_declarator(declarator, decl_context);
-                }
-            }
-        default:
-            internal_error("Unexpected ambiguity '%s'\n", ast_print_node_type(ASTKind(decl)));
-    }
-
-    internal_error("Unreachable code\n", 0);
-    return 0;
 }
 
 static char solve_ambiguous_declaration_statement_check_interpretation(AST a, const decl_context_t* decl_context,
