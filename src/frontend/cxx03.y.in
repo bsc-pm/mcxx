@@ -568,6 +568,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> template_logical_and_expression
 %type<ast> template_logical_or_expression
 %type<ast> template_parameter
+%type<ast> template_parameter_declaration
 %type<ast> template_parameter_list
 %type<ast> template_relational_expression
 %type<ast> template_shift_expression
@@ -6123,9 +6124,64 @@ template_parameter : type_parameter %dprec 2
 {
 	$$ = $1;
 }
-| parameter_declaration %dprec 1
+| template_parameter_declaration %dprec 1
 {
 	$$ = $1;
+}
+;
+
+template_parameter_declaration : decl_specifier_seq_0 %merge<ambiguityHandler>
+{
+   $$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec %merge<ambiguityHandler>
+{
+   $$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 '=' template_assignment_expression gcc_attributes_opt %merge<ambiguityHandler>
+{
+   $$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, $3, $4, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec '=' template_assignment_expression gcc_attributes_opt %merge<ambiguityHandler>
+{
+   $$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, $3, $4, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 nonabstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' template_assignment_expression  %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' template_assignment_expression  %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 abstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' template_assignment_expression %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' template_assignment_expression %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
 }
 ;
 

@@ -187,6 +187,12 @@ static implicit_conversion_sequence_t ics_make_user_defined_using_conversor(type
     if (symbol_entity_specs_get_is_constructor(conversor))
     {
         type_t* conversion_source_type = function_type_get_parameter_type_num(conversor->type_information, 0);
+        // Ellipsis is special and can only happen here, normalize it to orig
+        // so standard_conversion_between_types_for_overload returns an
+        // identity.
+        if (is_ellipsis_type(conversion_source_type))
+            conversion_source_type = orig;
+
         type_t* class_type = symbol_entity_specs_get_class_type(conversor);
 
         standard_conversion_t first_sc;
