@@ -6087,7 +6087,7 @@ template_argument : template_assignment_expression %merge<ambiguityHandler>
 }
 ;
 
-template_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration %merge<ambiguityHandler>
+template_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration
 {
 	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
@@ -6097,7 +6097,7 @@ template_declaration : TEMPLATE '<' template_parameter_list '>' templated_declar
 }
 ;
 
-template_member_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration %merge<ambiguityHandler>
+template_member_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration
 {
 	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
