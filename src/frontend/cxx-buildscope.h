@@ -188,6 +188,10 @@ type_t* compute_underlying_type_enum(
         type_t* underlying_type,
         char short_enums);
 
+type_t* compute_type_of_decltype(
+        AST a,
+        const decl_context_t* decl_context);
+
 void build_scope_friend_class_declaration(
         type_t* type_of_declaration,
         const char* declared_name,

@@ -3346,7 +3346,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
 }
 
 
-static type_t* compute_type_of_decltype(AST a, const decl_context_t* decl_context)
+type_t* compute_type_of_decltype(AST a, const decl_context_t* decl_context)
 {
     ERROR_CONDITION(ASTKind(a) != AST_DECLTYPE, "Invalid node", 0);
 

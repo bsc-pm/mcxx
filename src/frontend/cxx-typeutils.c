@@ -1654,7 +1654,8 @@ extern inline char is_valid_symbol_for_dependent_typename(scope_entry_t* entry)
                     || entry->kind == SK_FUNCTION
                     || (IS_CXX11_LANGUAGE && entry->kind == SK_TEMPLATE_ALIAS))
                 && is_dependent_type(entry->type_information))
-        || (entry->kind == SK_TYPEDEF && is_typeof_expr(entry->type_information));
+        || (entry->kind == SK_TYPEDEF && is_typeof_expr(entry->type_information))
+        || (entry->kind == SK_DECLTYPE);
 }
 
 // This function must always return a new type
@@ -10658,7 +10659,19 @@ static const char* get_simple_type_name_string_internal_impl(const decl_context_
                 // Local typenames start from a function so the function cannot
                 // be emitted actually. 'typename' (or other elaborated type
                 // prefix) cannot be emitted either
-                if (simple_type->dependent_entry->kind != SK_FUNCTION)
+                if (simple_type->dependent_entry->kind == SK_DECLTYPE)
+                {
+                    result = get_simple_type_name_string_internal(
+                            decl_context,
+                            simple_type->dependent_entry->type_information,
+                            print_symbol_fun,
+                            print_symbol_data);
+
+                    is_dependent =
+                        is_dependent_type(simple_type->dependent_entry->type_information);
+
+                }
+                else if (simple_type->dependent_entry->kind != SK_FUNCTION)
                 {
                     result = get_fully_qualified_symbol_name(simple_type->dependent_entry,
                             decl_context,
