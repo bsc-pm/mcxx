@@ -619,6 +619,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
 %type<ast> alignment_specifier
 
+%type<ast> decltype_specifier
+
 %type<ast> std_attribute_list
 %type<ast> std_attribute_item
 %type<ast> std_attribute_token
@@ -1956,12 +1958,7 @@ explicit_simple_type_specifier : named_simple_type_specifier
 }
 ;
 
-simple_type_specifier_not_ended_with_identifier : builtin_types
-{
-	$$ = $1;
-}
-// c++11
-| DECLTYPE '(' expression ')'
+decltype_specifier : DECLTYPE '(' expression ')'
 {
     $$ = ASTMake1(AST_DECLTYPE, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
@@ -1969,6 +1966,16 @@ simple_type_specifier_not_ended_with_identifier : builtin_types
 | DECLTYPE '(' TOKEN_AUTO_TYPE ')'
 {
     $$ = ASTLeaf(AST_DECLTYPE_AUTO, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+}
+;
+
+simple_type_specifier_not_ended_with_identifier : builtin_types
+{
+    $$ = $1;
+}
+| decltype_specifier
+{
+    $$ = $1;
 }
 | typeof_type_specifier
 {
@@ -4877,6 +4884,7 @@ nested_name_specifier_0 : class_or_namespace_name
 {
     $$ = $1;
 }
+| decltype_specifier
 ;
 
 nested_name_specifier_1 : nested_name_specifier_0
