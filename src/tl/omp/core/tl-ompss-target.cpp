@@ -311,7 +311,8 @@ namespace TL
                 // Now lookup a FunctionTaskInfo
                 if (!_function_task_set->is_function_task(target_ctx.implements))
                 {
-                    warn_printf_at(ctr.get_locus(), "'%s' is not a '#pragma omp task' function, skipping\n",
+                    warn_printf_at(ctr.get_locus(), "invalid argument in the 'implements' clause: "
+                            "'%s' is not an outlined task, skipping\n",
                             target_ctx.implements.get_qualified_name().c_str());
                 }
                 else
@@ -334,7 +335,7 @@ namespace TL
                                 // Or it has but the current symbol is not in the list
                                 ||  !it2->second.contains(function_sym))
                         {
-                            warn_printf_at(ctr.get_locus(), "adding function '%s' as the implementation of '%s' for device '%s'\n",
+                            info_printf_at(ctr.get_locus(), "adding function '%s' as the implementation of '%s' for device '%s'\n",
                                     function_sym.get_qualified_name().c_str(),
                                     target_ctx.implements.get_qualified_name().c_str(),
                                     device.c_str());
