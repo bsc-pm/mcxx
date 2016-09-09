@@ -8144,8 +8144,7 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, const de
 
                 if (template_parameters == NULL)
                 {
-                    *nodecl_output = nodecl_make_err_expr(
-                            ast_get_locus(unqualified_id));
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(unqualified_id));
                     return;
                 }
 
@@ -8168,6 +8167,12 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, const de
                 type_t* computed_type =
                     compute_type_of_decltype(unqualified_id, decl_context);
 
+                if (is_error_type(computed_type))
+                {
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(unqualified_id));
+                    return;
+                }
+
                 if (!is_dependent_type(no_ref(computed_type))
                         && !is_class_type(no_ref(computed_type))
                         && !is_enum_type(no_ref(computed_type)))
@@ -8175,6 +8180,9 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, const de
                     error_printf_at(ast_get_locus(unqualified_id),
                             "'%s' does not name a class or enum type\n",
                             print_type_str(no_ref(computed_type), decl_context));
+
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(unqualified_id));
+                    return;
                 }
 
                 *nodecl_output = nodecl_make_cxx_dep_decltype(
