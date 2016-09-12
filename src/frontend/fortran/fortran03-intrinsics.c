@@ -5008,8 +5008,10 @@ scope_entry_t* compute_intrinsic_norm2(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         if (t1 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "norm2", fortran_get_rank0_type(t0),
-                    lvalue_ref(t0));
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "norm2",
+                    fortran_get_rank0_type(t0),
+                    lvalue_ref(t0),
+                    fortran_get_default_integer_type());
         }
         else
         {
