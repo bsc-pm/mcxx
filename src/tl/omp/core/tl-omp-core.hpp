@@ -106,6 +106,14 @@ namespace TL
                         OmpSs::TargetContext& target_ctx,
                         TL::Scope scope,
                         bool is_pragma_task);
+
+                // This function handles the implements clause if it was
+                // present in a target or task construct.
+                void ompss_handle_implements_clause(
+                        const OmpSs::TargetContext& target_ctx,
+                        Symbol function_sym,
+                        const locus_t* locus);
+
                 void ompss_get_target_info(TL::PragmaCustomLine pragma_line,
                         DataEnvironment& data_environment);
 

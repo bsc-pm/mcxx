@@ -296,55 +296,8 @@ namespace TL
                     ctr.get_context_of_parameters().retrieve_context(),
                     /* is_pragma_task */ false);
 
-            if (target_ctx.has_implements)
-            {
-                Symbol function_sym = ctr.get_symbol();
-
-                if (!function_sym.is_function())
-                {
-                    warn_printf_at(ctr.get_locus(), "'#pragma omp target' with an 'implements' clause must "
-                            "precede a single function declaration or a function definition\n");
-                    warn_printf_at(ctr.get_locus(), "skipping the whole '#pragma omp target'\n");
-                    return;
-                }
-
-                // Now lookup a FunctionTaskInfo
-                if (!_function_task_set->is_function_task(target_ctx.implements))
-                {
-                    warn_printf_at(ctr.get_locus(), "invalid argument in the 'implements' clause: "
-                            "'%s' is not an outlined task, skipping\n",
-                            target_ctx.implements.get_qualified_name().c_str());
-                }
-                else
-                {
-                    // The symbol mentioned in the 'implements' clause is a function task
-                    OmpSs::FunctionTaskInfo& function_task_info =
-                        _function_task_set->get_function_task(target_ctx.implements);
-
-                    OmpSs::TargetInfo &target_info = function_task_info.get_target_info();
-                    OmpSs::TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
-
-                    for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
-                            it != target_ctx.device_list.end();
-                            it++)
-                    {
-                        std::string device(*it);
-                        OmpSs::TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(device);
-                        // If the current device hasn't an entry in the map
-                        if (it2 == implementation_table.end()
-                                // Or it has but the current symbol is not in the list
-                                ||  !it2->second.contains(function_sym))
-                        {
-                            info_printf_at(ctr.get_locus(), "adding function '%s' as the implementation of '%s' for device '%s'\n",
-                                    function_sym.get_qualified_name().c_str(),
-                                    target_ctx.implements.get_qualified_name().c_str(),
-                                    device.c_str());
-
-                            target_info.add_implementation(device, function_sym);
-                        }
-                    }
-                }
-            }
+            ompss_handle_implements_clause(
+                    target_ctx, ctr.get_symbol(), ctr.get_locus());
 
             _target_context.push(target_ctx);
         }
@@ -513,6 +466,69 @@ namespace TL
                     {
                         internal_error("Unreachable code", 0);
                     }
+            }
+        }
+
+        // If the current target_ctx contains information about the
+        // 'implements' clause, we should try to add the current outlined task
+        // as a valid implementation of another task.
+        //
+        // Note that we do that in the second part of this function, once all
+        // the sanity checks have been perfomed.
+        void Core::ompss_handle_implements_clause(
+                const OmpSs::TargetContext& target_ctx,
+                Symbol function_sym,
+                const locus_t* locus)
+        {
+            // If the 'implements' clause was not present, skip this code
+            if (!target_ctx.has_implements)
+                return;
+
+            // If the 'implements' clause was defined over a symbol that is not
+            // a function, skip it
+            if (!function_sym.is_function())
+            {
+                warn_printf_at(locus, "'#pragma omp target' with an 'implements' clause must "
+                        "precede a single function declaration or a function definition\n");
+                warn_printf_at(locus, "skipping the whole '#pragma omp target'\n");
+                return;
+            }
+
+            // If the 'implements' clause refers to a function symbol that is
+            // not an outlined task, skip it
+            if (!_function_task_set->is_function_task(target_ctx.implements))
+            {
+                warn_printf_at(locus, "invalid argument in the 'implements' clause: "
+                        "'%s' is not an outlined task, skipping\n",
+                        target_ctx.implements.get_qualified_name().c_str());
+                return;
+            }
+
+            // At this point we can guarantee that the current use of the
+            // 'implements' clause is valid
+
+            OmpSs::TargetInfo &target_info =
+                _function_task_set->get_function_task(target_ctx.implements).get_target_info();
+
+            OmpSs::TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
+            for (ObjectList<std::string>::const_iterator it = target_ctx.device_list.begin();
+                    it != target_ctx.device_list.end();
+                    it++)
+            {
+                std::string device(*it);
+                OmpSs::TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(device);
+                // If the current device hasn't an entry in the map
+                if (it2 == implementation_table.end()
+                        // Or it has but the current symbol is not in the list
+                        ||  !it2->second.contains(function_sym))
+                {
+                    info_printf_at(locus, "adding function '%s' as the implementation of '%s' for device '%s'\n",
+                            function_sym.get_qualified_name().c_str(),
+                            target_ctx.implements.get_qualified_name().c_str(),
+                            device.c_str());
+
+                    target_info.add_implementation(device, function_sym);
+                }
             }
         }
 

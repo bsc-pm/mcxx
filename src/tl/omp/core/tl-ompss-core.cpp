@@ -542,6 +542,12 @@ namespace TL { namespace OpenMP {
                     _target_context.top(),
                     parsing_scope,
                     /* is_pragma_task */ true);
+
+            ompss_handle_implements_clause(
+                    _target_context.top(),
+                    function_sym,
+                    construct.get_locus());
+
         }
         ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
 
