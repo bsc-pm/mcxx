@@ -3671,6 +3671,14 @@ static type_t* update_type_aux_(type_t* orig_type,
                         instantiation_symbol_try_to_map(instantiation_symbol_map, orig_symbol)),
                     cv_qualif_orig);
         }
+        else if (orig_symbol->kind == SK_DECLTYPE)
+        {
+            return update_type_aux_(orig_symbol->type_information,
+                                    decl_context,
+                                    locus,
+                                    instantiation_symbol_map,
+                                    pack_index);
+        }
         else
         {
             // Return it unmodified
