@@ -3179,6 +3179,26 @@ static char add_mappings_for_return_type(type_t* t,
         if (!ok)
             return 0;
     }
+    else if (is_dependent_typename_type(t))
+    {
+        scope_entry_t* dependent_entry = NULL;
+        nodecl_t dependent_parts = nodecl_null();
+
+        dependent_typename_get_components(t,
+                &dependent_entry, &dependent_parts);
+
+        char ok = add_mappings_for_return_type(
+                dependent_entry->type_information,
+                decl_context,
+                locus,
+                pack_index,
+                return_instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+
+        if (!ok)
+            return 0;
+    }
 
     return 1;
 }
