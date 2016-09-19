@@ -7,7 +7,7 @@ test_compile_fail=yes
 */
 
 template < typename T>
-auto f(T a) -> typename decltype(T)::MyType
+auto f(T a) -> typename decltype(a)::MyType
 {}
 
 int main()
