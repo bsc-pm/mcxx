@@ -453,6 +453,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> string_literal
 %type<ast> boolean_literal
 %type<ast> pointer_literal
+%type<ast> user_defined_literal
 %type<ast> logical_and_expression
 %type<ast> logical_or_expression
 %type<ast> member_declaration
@@ -5791,6 +5792,10 @@ literal : integer_literal
 {
     $$ = $1;
 }
+| user_defined_literal
+{
+    $$ = $1;
+}
 // Specific C language literal
 | HEXADECIMAL_FLOAT
 {
@@ -5860,7 +5865,39 @@ pointer_literal: TOKEN_NULLPTR
 }
 ;
 
-
+user_defined_literal: integer_literal identifier_token
+{
+    $$ = ASTMake2(AST_USER_DEFINED_LITERAL,
+            $1,
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
+            NULL);
+}
+| floating_literal identifier_token
+{
+    $$ = ASTMake2(AST_USER_DEFINED_LITERAL,
+            $1,
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
+            NULL);
+}
+| string_literal identifier_token
+{
+    $$ = ASTMake2(AST_USER_DEFINED_LITERAL,
+            $1,
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
+            NULL);
+}
+| character_literal identifier_token
+{
+    $$ = ASTMake2(AST_USER_DEFINED_LITERAL,
+            $1,
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
+            NULL);
+}
+;
 
 // *********************************************************
 // A.11 - Overloading
