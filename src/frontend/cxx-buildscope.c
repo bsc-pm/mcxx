@@ -12118,6 +12118,42 @@ static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
     symbol_entity_specs_copy_related_symbols_from(dest, orig);
 }
 
+
+static scope_entry_t* build_scope_user_defined_literal_declarator(
+        AST declarator_id,
+        type_t* declarator_type,
+        gather_decl_spec_t* gather_info,
+        const decl_context_t* decl_context)
+{
+    ERROR_CONDITION(ASTKind(declarator_id) != AST_LITERAL_OPERATOR_ID,
+            "Invalid node '%s'\n", ast_print_node_type(ASTKind(declarator_id)));
+
+    AST symbol = ASTSon0(declarator_id);
+    const char* ud_suffix = ast_get_text(symbol);
+
+    if (ud_suffix != NULL
+            && *ud_suffix != '_')
+    {
+        warn_printf_at(ast_get_locus(declarator_id),
+                "literal operator suffixes must begin with '_'\n");
+    }
+
+    ERROR_CONDITION(!is_function_type(declarator_type), "Invalid type", 0);
+
+    const char* literal_operator_name =
+        get_literal_operator_name(ud_suffix);
+
+    AST literal_operator_id = ASTLeaf(AST_SYMBOL,
+            ast_get_locus(declarator_id),
+            literal_operator_name);
+
+    // Keep the parent of the original declarator
+    ast_set_parent(literal_operator_id, ast_get_parent(declarator_id));
+
+    return register_new_var_or_fun_name(literal_operator_id, declarator_type, gather_info, decl_context);
+}
+
+
 /*
  * This function fills the symbol table with the information of this declarator
  */
@@ -12355,18 +12391,8 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                             "literal operator lacks a type-specifier\n");
                 }
 
-                AST symbol = ASTSon0(declarator_id);
-                const char* literal_operator_name =
-                    get_literal_operator_name(ast_get_text(symbol));
+                return build_scope_user_defined_literal_declarator(declarator_id, declarator_type, gather_info, decl_context);
 
-                AST literal_operator_id = ASTLeaf(AST_SYMBOL,
-                        ast_get_locus(declarator_id),
-                        literal_operator_name);
-
-                // Keep the parent of the original declarator
-                ast_set_parent(literal_operator_id, ast_get_parent(declarator_id));
-
-                return register_new_var_or_fun_name(literal_operator_id, declarator_type, gather_info, decl_context);
                 break;
             };
         case AST_CONVERSION_FUNCTION_ID :
@@ -12562,6 +12588,8 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
 
     return NULL;
 }
+
+
 
 static char dependent_typename_entry_aliases_member(type_t* dependent_typename, scope_entry_t* member)
 {
