@@ -447,6 +447,12 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> labeled_statement
 %type<ast> linkage_specification
 %type<ast> literal
+%type<ast> integer_literal
+%type<ast> character_literal
+%type<ast> floating_literal
+%type<ast> string_literal
+%type<ast> boolean_literal
+%type<ast> pointer_literal
 %type<ast> logical_and_expression
 %type<ast> logical_or_expression
 %type<ast> member_declaration
@@ -547,7 +553,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> statement_seq
 %type<ast> nondeclarating_statement
 %type<ast> storage_class_specifier
-%type<ast> string_literal
 %type<ast> template_and_expression
 %type<ast> template_argument
 %type<ast> template_argument_list
@@ -5762,7 +5767,39 @@ mutable_opt : MUTABLE
 // A.2 - Lexical conventions
 // *********************************************************
 
-literal : DECIMAL_LITERAL
+literal : integer_literal
+{
+    $$ = $1;
+}
+| character_literal
+{
+    $$ = $1;
+}
+| floating_literal
+{
+    $$ = $1;
+}
+| string_literal
+{
+    $$ = $1;
+}
+| boolean_literal
+{
+    $$ = $1;
+}
+| pointer_literal
+{
+    $$ = $1;
+}
+// Specific C language literal
+| HEXADECIMAL_FLOAT
+{
+    $$ = ASTLeaf(AST_HEXADECIMAL_FLOAT, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
+;
+
+
+integer_literal : DECIMAL_LITERAL
 {
 	$$ = ASTLeaf(AST_DECIMAL_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
@@ -5778,31 +5815,52 @@ literal : DECIMAL_LITERAL
 {
 	$$ = ASTLeaf(AST_BINARY_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
-| HEXADECIMAL_FLOAT
-{
-    $$ = ASTLeaf(AST_HEXADECIMAL_FLOAT, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-}
-| FLOATING_LITERAL
-{
-	$$ = ASTLeaf(AST_FLOATING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-}
-| BOOLEAN_LITERAL
-{
-	$$ = ASTLeaf(AST_BOOLEAN_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-}
-| CHARACTER_LITERAL
+;
+
+character_literal : CHARACTER_LITERAL
 {
 	$$ = ASTLeaf(AST_CHARACTER_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
-| string_literal
+;
+
+floating_literal: FLOATING_LITERAL
 {
-	$$ = $1;
+	$$ = ASTLeaf(AST_FLOATING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
-| TOKEN_NULLPTR
+;
+
+
+// This eases parsing, though it should be viewed as a lexical issue
+string_literal : STRING_LITERAL
+{
+	$$ = ASTLeaf(AST_STRING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
+| string_literal STRING_LITERAL
+{
+	const char* str1 = ASTText($1);
+	const char* str2 = $2.token_text;
+	char* text = NEW_VEC0(char, strlen(str1) + strlen(str2) + 1);
+
+	strcat(text, str1);
+	strcat(text, str2);
+
+	$$ = ASTLeaf(AST_STRING_LITERAL, ast_get_locus($1), text);
+}
+;
+
+boolean_literal : BOOLEAN_LITERAL
+{
+	$$ = ASTLeaf(AST_BOOLEAN_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
+;
+
+pointer_literal: TOKEN_NULLPTR
 {
     $$ = ASTLeaf(AST_POINTER_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
+
+
 
 // *********************************************************
 // A.11 - Overloading
@@ -6697,23 +6755,6 @@ throw_expression : THROW
 }
 ;
 
-// This eases parsing, though it should be viewed as a lexical issue
-string_literal : STRING_LITERAL
-{
-	$$ = ASTLeaf(AST_STRING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-}
-| string_literal STRING_LITERAL
-{
-	const char* str1 = ASTText($1);
-	const char* str2 = $2.token_text;
-	char* text = NEW_VEC0(char, strlen(str1) + strlen(str2) + 1);
-
-	strcat(text, str1);
-	strcat(text, str2);
-
-	$$ = ASTLeaf(AST_STRING_LITERAL, ast_get_locus($1), text);
-}
-;
 
 identifier_token : IDENTIFIER
 {
