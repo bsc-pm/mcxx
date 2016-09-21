@@ -12112,6 +12112,7 @@ static void update_function_specifiers(scope_entry_t* entry,
     }
 }
 
+
 static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
 {
     symbol_entity_specs_copy_related_symbols_from(dest, orig);
@@ -12340,6 +12341,34 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                 }
                 break;
             }
+        case AST_LITERAL_OPERATOR_ID:
+            {
+                if (!IS_CXX11_LANGUAGE)
+                {
+                    warn_printf_at(ast_get_locus(declarator),
+                            "literal operators are only valid in C++11\n");
+                }
+
+                if (type_specifier == NULL)
+                {
+                    error_printf_at(ast_get_locus(declarator),
+                            "literal operator lacks a type-specifier\n");
+                }
+
+                AST symbol = ASTSon0(declarator_id);
+                const char* literal_operator_name =
+                    get_literal_operator_name(ast_get_text(symbol));
+
+                AST literal_operator_id = ASTLeaf(AST_SYMBOL,
+                        ast_get_locus(declarator_id),
+                        literal_operator_name);
+
+                // Keep the parent of the original declarator
+                ast_set_parent(literal_operator_id, ast_get_parent(declarator_id));
+
+                return register_new_var_or_fun_name(literal_operator_id, declarator_type, gather_info, decl_context);
+                break;
+            };
         case AST_CONVERSION_FUNCTION_ID :
             {
                 if (type_specifier != NULL)
@@ -18801,6 +18830,11 @@ const char* get_operator_function_name(AST declarator_id)
 #undef RETURN_UNIQUESTR_NAME
 }
 
+// This function computes the name of a literal operator: operator "" NAME
+const char* get_literal_operator_name(const char* symbol_name)
+{
+    return strappend(uniquestr(STR_LITERAL_OPERATOR), symbol_name);
+}
 
 typedef
 struct call_to_destructor_data_tag

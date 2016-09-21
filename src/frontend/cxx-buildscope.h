@@ -43,6 +43,9 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN const char* get_operator_function_name(AST declarator_id);
+
+LIBMCXX_EXTERN const char* get_literal_operator_name(const char* name);
+
 LIBMCXX_EXTERN void build_scope_template_parameters(
         const decl_context_t* lookup_context,
         const decl_context_t* argument_context,

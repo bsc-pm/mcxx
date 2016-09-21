@@ -853,6 +853,32 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
                 pointer_literal_type(expression, decl_context, nodecl_output);
                 break;
             }
+        case AST_USER_DEFINED_LITERAL:
+            {
+                nodecl_t nodecl_literal;
+                AST literal = ASTSon0(expression);
+                check_expression_impl_(literal, decl_context, &nodecl_literal);
+
+                AST literal_operator_id;
+                {
+                    AST declarator_id  = ASTSon1(expression);
+                    const char* literal_operator_name = get_literal_operator_name(ast_get_text(declarator_id));
+
+                    literal_operator_id = ASTLeaf(AST_SYMBOL,
+                            ast_get_locus(declarator_id),
+                            literal_operator_name);
+
+                    // Keep the parent of the original declarator
+                    ast_set_parent(literal_operator_id, ast_get_parent(expression));
+                }
+
+                nodecl_t nodecl_symbol;
+                check_symbol(literal_operator_id, decl_context, &nodecl_symbol);
+
+                check_nodecl_function_call(
+                        nodecl_symbol, nodecl_make_list_1(nodecl_literal), decl_context, nodecl_output);
+                break;
+            };
         case AST_THIS_VARIABLE :
             {
                 resolve_symbol_this_nodecl(decl_context, ast_get_locus(expression), nodecl_output);
