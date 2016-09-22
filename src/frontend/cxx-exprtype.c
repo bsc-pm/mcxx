@@ -469,6 +469,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output);
 static void floating_literal_type(AST expr, nodecl_t* nodecl_output);
 static void string_literal_type(AST expr, nodecl_t* nodecl_output);
 static void pointer_literal_type(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_user_defined_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 // Typechecking functions
 static void check_qualified_id(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
@@ -855,28 +856,7 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
             }
         case AST_USER_DEFINED_LITERAL:
             {
-                nodecl_t nodecl_literal;
-                AST literal = ASTSon0(expression);
-                check_expression_impl_(literal, decl_context, &nodecl_literal);
-
-                AST literal_operator_id;
-                {
-                    AST declarator_id  = ASTSon1(expression);
-                    const char* literal_operator_name = get_literal_operator_name(ast_get_text(declarator_id));
-
-                    literal_operator_id = ASTLeaf(AST_SYMBOL,
-                            ast_get_locus(declarator_id),
-                            literal_operator_name);
-
-                    // Keep the parent of the original declarator
-                    ast_set_parent(literal_operator_id, ast_get_parent(expression));
-                }
-
-                nodecl_t nodecl_symbol;
-                check_symbol(literal_operator_id, decl_context, &nodecl_symbol);
-
-                check_nodecl_function_call(
-                        nodecl_symbol, nodecl_make_list_1(nodecl_literal), decl_context, nodecl_output);
+                check_user_defined_literal(expression, decl_context, nodecl_output);
                 break;
             };
         case AST_THIS_VARIABLE :
@@ -2581,6 +2561,33 @@ static void pointer_literal_type(AST expr, const decl_context_t* decl_context, n
 
     nodecl_free(nodecl_nullptr_name);
     entry_list_free(entry_list);
+}
+
+static void check_user_defined_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_literal;
+    AST literal = ASTSon0(expr);
+    check_expression_impl_(literal, decl_context, &nodecl_literal);
+
+    AST literal_operator_id;
+    {
+        AST declarator_id  = ASTSon1(expr);
+        const char* literal_operator_name = get_literal_operator_name(ast_get_text(declarator_id));
+
+        literal_operator_id = ASTLeaf(AST_SYMBOL,
+                ast_get_locus(declarator_id),
+                literal_operator_name);
+
+        // Keep the parent of the original declarator
+        ast_set_parent(literal_operator_id, ast_get_parent(expr));
+    }
+
+    nodecl_t nodecl_symbol;
+    check_symbol(literal_operator_id, decl_context, &nodecl_symbol);
+
+    check_nodecl_function_call(
+            nodecl_symbol, nodecl_make_list_1(nodecl_literal), decl_context, nodecl_output);
+
 }
 
 static char this_can_be_used(const decl_context_t* decl_context)
