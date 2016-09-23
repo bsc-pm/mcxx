@@ -12134,8 +12134,11 @@ static scope_entry_t* build_scope_user_defined_literal_declarator(
     if (ud_suffix != NULL
             && *ud_suffix != '_')
     {
-        warn_printf_at(ast_get_locus(declarator_id),
-                "literal operator suffixes must begin with '_'\n");
+        // This warning is commented since some standard literal operators do
+        // not begin with '_' and we are not able to distinguish them
+        //
+        // warn_printf_at(ast_get_locus(declarator_id),
+        //         "literal operator suffixes must begin with '_'\n");
     }
 
     ERROR_CONDITION(!is_function_type(declarator_type), "Invalid type", 0);
