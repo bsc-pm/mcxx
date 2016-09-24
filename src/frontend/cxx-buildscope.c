@@ -19152,12 +19152,15 @@ static void build_scope_nodecl_condition_for_switch(nodecl_t nodecl_condition,
         *nodecl_output = nodecl_null();
         return;
     }
+
     if (nodecl_is_err_expr(nodecl_condition))
     {
         *nodecl_output = nodecl_condition;
         return;
     }
-    else if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+
+
+    if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
     {
         orig_type = lvalue_ref(
                 nodecl_get_symbol(nodecl_condition)->type_information
@@ -19196,12 +19199,17 @@ static void build_scope_nodecl_condition_for_switch(nodecl_t nodecl_condition,
 
     CXX_LANGUAGE()
     {
-        // FIXME - C++11 states that it should be convertible to enum or integral
         if (!nodecl_expr_is_type_dependent(nodecl_expr))
         {
+            type_t* dest_type = NULL;
+            if (is_scoped_enum_type(no_ref(orig_type)))
+                dest_type = no_ref(orig_type);
+            else
+                dest_type = get_signed_int_type();
+
             check_contextual_conversion(
                     nodecl_expr,
-                    get_signed_int_type(),
+                    dest_type,
                     decl_context,
                     &nodecl_expr);
 
@@ -20223,6 +20231,7 @@ static void build_scope_nodecl_switch_statement(
             decl_context,
             locus,
             &nodecl_condition);
+
     if (nodecl_is_err_expr(nodecl_condition))
     {
         *nodecl_output = nodecl_make_list_1(
