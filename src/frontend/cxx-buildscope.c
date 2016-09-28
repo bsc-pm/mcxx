@@ -20617,24 +20617,82 @@ static void build_scope_nodecl_return_statement(
                     /* allow_excess_of_initializers */ 0,
                     IK_COPY_INITIALIZATION,
                     &nodecl_return_expression);
+
+            if (nodecl_is_err_expr(nodecl_return_expression))
+            {
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(
+                            locus));
+                return;
+            }
         }
         else
         {
-            check_nodecl_expr_initializer(
-                    nodecl_return_expression,
-                    decl_context,
-                    return_type,
-                    /* disallow_narrowing */ 0,
-                    IK_COPY_INITIALIZATION,
-                    &nodecl_return_expression);
-        }
+            type_t* return_expr_type = nodecl_get_type(nodecl_return_expression);
 
-        if (nodecl_is_err_expr(nodecl_return_expression))
-        {
-            *nodecl_output = nodecl_make_list_1(
-                    nodecl_make_err_statement(
-                        locus));
-            return;
+            // In some situations, which are described in section 12.8, when we
+            // are checking whether an expression of a certain type can be used
+            // to initialize a variable of another type we may need to perform
+            // two attempts
+
+            diagnostic_context_t* diagnostics[2] = {NULL, NULL};
+            nodecl_t expr_initializer = nodecl_null();
+
+            // 1st attempt: interpret the lvalue expression as an rvalue expression (C++11/C++14: 12.8)
+            if (is_lvalue_reference_type(return_expr_type)
+                    && nodecl_get_kind(nodecl_return_expression) == NODECL_SYMBOL)
+            {
+                diagnostics[0] = diagnostic_context_push_buffered();
+
+                nodecl_set_type(nodecl_return_expression, no_ref(return_expr_type));
+                check_nodecl_expr_initializer(
+                        nodecl_return_expression,
+                        decl_context,
+                        return_type,
+                        /* disallow_narrowing */ 0,
+                        IK_COPY_INITIALIZATION,
+                        &expr_initializer);
+
+                diagnostic_context_pop();
+
+                if (nodecl_is_err_expr(expr_initializer))
+                {
+                    nodecl_set_type(nodecl_return_expression, return_expr_type);
+                    expr_initializer = nodecl_null();
+                }
+            }
+
+            // 2nd attempt: leave the expression as it is
+            if (nodecl_is_null(expr_initializer))
+            {
+                diagnostics[1] = diagnostic_context_push_buffered();
+
+                check_nodecl_expr_initializer(
+                        nodecl_return_expression,
+                        decl_context,
+                        return_type,
+                        /* disallow_narrowing */ 0,
+                        IK_COPY_INITIALIZATION,
+                        &expr_initializer);
+
+                diagnostic_context_pop();
+            }
+
+            nodecl_return_expression = expr_initializer;
+            if (nodecl_is_err_expr(nodecl_return_expression))
+            {
+                diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+                diagnostic_context_commit(diagnostics[0]);
+                diagnostic_context_commit(diagnostics[1]);
+                diagnostic_context_pop();
+                diagnostic_context_commit(combine_diagnostics);
+
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(
+                            locus));
+                return;
+            }
+
         }
     }
     else
