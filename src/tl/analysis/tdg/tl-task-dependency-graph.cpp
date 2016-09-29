@@ -1196,9 +1196,15 @@ insert_values:
                     || child->is_omp_barrier_graph_node())
                 {
                     TDG_Node* tdg_child_task = find_tdg_node_from_pcfg_node(child);
-                    const NBase& cond = (*it)->get_condition();
-                    connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), cond);
-                    store_condition_list_of_symbols(cond, n->get_reaching_definitions_out());
+                    // In this case, the condition is always Static
+                    // Furthermore, if we have skipped nodes in the previous while
+                    // it may happen that we cannot call to get_condition method
+//                     const NBase& cond = (*it)->get_condition();
+//                     connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), cond);
+//                     store_condition_list_of_symbols(cond, n->get_reaching_definitions_out());
+                    connect_tdg_nodes(tdg_sync, tdg_child_task,
+                                        __Static,
+                                        /*condition*/ Nodecl::NodeclBase::null());
                 }
             }
 
