@@ -394,7 +394,7 @@ if test x$disable_icc = xno;
 then
    dnl Check Intel Compiler C
    AC_CHECK_PROG([ICC], [icc], [icc])
-   if test x$ICC != x;
+   if test x"$ICC" != x;
    then
       AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
       AC_ARG_ENABLE([mic],
@@ -473,22 +473,22 @@ else
 fi
 
 dnl --------------------- Support for plain profiles for Intel Compilers -------------
-if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
+if test x"$ICC" != x -o x"$ICPC" != x -o x"$IFORT" != x;
 then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 01.config.intel-plain"
 
     # Intel C/C++/Fortran
-    if test x$ICC != x;
+    if test x"$ICC" != x;
     then
         COMPILER_NAMES="${COMPILER_NAMES} plainicc"
     fi
 
-    if test x$ICPC != x;
+    if test x"$ICPC" != x;
     then
         COMPILER_NAMES="${COMPILER_NAMES} plainicpc"
     fi
 
-    if test -x$IFORT != x;
+    if test -x"$IFORT" != x;
     then
         COMPILER_NAMES="${COMPILER_NAMES} plainifort plainimfc ifort-plainfc"
     fi
@@ -1136,12 +1136,12 @@ dnl             esac
    INTEL_OMP_INCLUDE=${intel_omp_include}
    INTEL_OMP_LIB=${intel_omp_lib}
 
-   if test x$ICC = x;
+   if test x$"ICC" = x;
    then
        AC_MSG_WARN([Intel OpenMP RTL has been enabled but Intel C (icc) has not been found or has been disabled])
    fi
 
-   if test x$ICPC = x;
+   if test x$"ICPC" = x;
    then
        AC_MSG_WARN([Intel OpenMP RTL has been enabled but Intel C++ (icpc) has not been found or has been disabled])
    fi
@@ -1521,7 +1521,7 @@ fi
 if test x$mpi_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
-   if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
+   if test x"$ICC" != x -o x$"ICPC" != x -o x"$IFORT" != x;
    then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.intel.mpi"
    fi
@@ -1588,22 +1588,22 @@ then
    fi
 
 
-   if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
+   if test x"$ICC" != x -o x"$ICPC" != x -o x"$IFORT" != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel 57.config.omp.smp.intel"
 
       # Intel C/C++/Fortran + Nanos++
-      if test x$ICC != x;
+      if test x"$ICC" != x;
       then
           COMPILER_NAMES="${COMPILER_NAMES} imcc ismpcc"
       fi
 
-      if test x$ICPC != x;
+      if test x"$ICPC" != x;
       then
           COMPILER_NAMES="${COMPILER_NAMES} imcxx ismpcxx"
       fi
 
-      if test -x$IFORT != x;
+      if test -x"$IFORT" != x;
       then
           COMPILER_NAMES="${COMPILER_NAMES} imfc imf95 ifort-mfc ismpfc"
       fi

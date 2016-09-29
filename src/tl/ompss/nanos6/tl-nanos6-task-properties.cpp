@@ -35,7 +35,6 @@
 #include "tl-counters.hpp"
 #include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
-#include "cxx-graphviz.h"
 
 #include "fortran03-mangling.h"
 #include "fortran03-typeutils.h"
@@ -133,8 +132,8 @@ namespace TL { namespace Nanos6 {
 
         virtual void visit(const Nodecl::OmpSs::Commutative &n)
         {
-            not_supported_seq("commutative dependences",
-                              n.get_inout_deps().as<Nodecl::List>());
+            _task_properties.dep_commutative.append(
+                n.get_commutative_deps().as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OpenMP::DepIn &n)
@@ -263,12 +262,6 @@ namespace TL { namespace Nanos6 {
             not_supported("implements clause", n);
         }
 
-        virtual void visit(const Nodecl::OmpSs::DepInValue &n)
-        {
-            not_supported_seq("value input dependences",
-                              n.get_in_deps().as<Nodecl::List>());
-        }
-
         virtual void visit(const Nodecl::OmpSs::DepInPrivate &n)
         {
             not_supported_seq("(private) value input dependences",
@@ -382,6 +375,7 @@ namespace TL { namespace Nanos6 {
             if (it->get_type().depends_on_nonconstant_values())
                 walk_type_for_saved_expressions(it->get_type());
         }
+
         for (TL::ObjectList<TL::Symbol>::iterator it = firstprivate.begin();
                 it != firstprivate.end();
                 it++)
@@ -1307,13 +1301,7 @@ namespace TL { namespace Nanos6 {
 
             if (type_of_field.depends_on_nonconstant_values())
             {
-                if (type_of_field.no_ref().is_array())
-                {
-                    error_printf_at(
-                            locus_of_task_creation,
-                            "capturing the value of the runtime-sized array '%s' is not supported\n",
-                            it->get_qualified_name().c_str());
-                }
+                // FIXME: this has been designed thinking in C/C++, does it work for Fortran????
                 type_of_field = TL::Type::get_void_type().get_pointer_to();
             }
             else if (type_of_field.is_function())
@@ -1400,23 +1388,56 @@ namespace TL { namespace Nanos6 {
             = data_env_struct
             = new_class_symbol.get_user_defined_type();
 
-        if (new_class_symbol.get_type().is_dependent())
+
+        // Computing the size of the arguments structure
         {
-            args_size = Nodecl::Sizeof::make(
-                Nodecl::Type::make(info_structure, locus_of_task_creation),
-                Nodecl::NodeclBase::null(),
-                TL::Type::get_size_t_type(),
-                locus_of_task_creation);
-        }
-        // FIXME - VLA
-        else
-        {
-            args_size = const_value_to_nodecl_with_basic_type(
-                const_value_get_integer(
-                    info_structure.get_size(),
-                    /* bytes */ type_get_size(get_size_t_type()),
-                    /* sign */ 0),
-                get_size_t_type());
+
+            // This nodecl represents the size of the structure of arguments
+            Nodecl::NodeclBase basic_size;
+            if (new_class_symbol.get_type().is_dependent())
+            {
+                basic_size = Nodecl::Sizeof::make(
+                        Nodecl::Type::make(info_structure, locus_of_task_creation),
+                        Nodecl::NodeclBase::null(),
+                        TL::Type::get_size_t_type(),
+                        locus_of_task_creation);
+            }
+            else
+            {
+                basic_size = const_value_to_nodecl_with_basic_type(
+                        const_value_get_integer(
+                            info_structure.get_size(),
+                            /* bytes */ type_get_size(get_size_t_type()),
+                            /* sign */ 0),
+                        get_size_t_type());
+            }
+
+            // This nodecl represents the extra storage that the runtime has to
+            // allocate contiguosly to the arguments structure to support VLAs
+            Nodecl::NodeclBase extra_storage = const_value_to_nodecl(const_value_get_signed_int(0));
+            for (TL::ObjectList<TL::Symbol>::iterator it = captured_value.begin();
+                    it != captured_value.end();
+                    it++)
+            {
+                if (it->get_type().depends_on_nonconstant_values())
+                {
+                    Nodecl::NodeclBase size_of_array = Nodecl::Add::make(
+                            const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN)),
+                            Nodecl::Sizeof::make(
+                                Nodecl::Type::make(it->get_type()),
+                                Nodecl::NodeclBase::null(),
+                                get_size_t_type()),
+                            get_size_t_type());
+
+                    extra_storage = Nodecl::Add::make(
+                            extra_storage,
+                            size_of_array,
+                            size_of_array.get_type());
+                }
+            }
+
+            // Finally, we compute the real size of our arguments
+            args_size = Nodecl::Add::make(basic_size, extra_storage, basic_size.get_type());
         }
 
         if (IS_CXX_LANGUAGE)
@@ -1721,7 +1742,7 @@ namespace TL { namespace Nanos6 {
             TL::Symbol priv = unpacked_inside_scope.new_symbol(it->get_name());
             priv.get_internal_symbol()->kind = SK_VARIABLE;
             symbol_entity_specs_set_is_user_declared(priv.get_internal_symbol(), 1);
-            priv.set_type(it->get_type().no_ref());
+            priv.set_type(rewrite_type_for_outline(it->get_type().no_ref(), unpacked_inside_scope, symbol_map));
 
             symbol_map.add_map(*it, priv);
 
@@ -1802,7 +1823,7 @@ namespace TL { namespace Nanos6 {
                         unpacked_function));
         }
 
-        Nodecl::Utils::append_to_enclosing_top_level_location(task_body, unpacked_function_code);
+        Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
         // Outline function
         std::string ol_name;
@@ -1870,11 +1891,11 @@ namespace TL { namespace Nanos6 {
 
                 if (it->get_type().depends_on_nonconstant_values())
                 {
-                    if (it->get_type().is_array())
-                    {
-                        internal_error("Capture of array values not implemented yet", 0);
-                    }
-                    else
+                    //if (it->get_type().is_array())
+                    //{
+                    //    internal_error("Capture of array values not implemented yet", 0);
+                    //}
+                    //else
                     {
                         TL::Type param_type = rewrite_type_using_args(
                                 arg,
@@ -2187,7 +2208,7 @@ namespace TL { namespace Nanos6 {
                         outline_function));
         }
 
-        Nodecl::Utils::append_to_enclosing_top_level_location(task_body, outline_function_code);
+        Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
     }
 
     void TaskProperties::register_linear_dependence(
@@ -2258,13 +2279,17 @@ namespace TL { namespace Nanos6 {
         }
         else
         {
+            TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.multireferences();
+
             Nodecl::Utils::SimpleSymbolMap symbol_map;
             TL::ObjectList<TL::Symbol> current_locals;
             TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-multideps");
-            for (auto mr : data_ref.multireferences())
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it = multireferences.begin();
+                    it != multireferences.end();
+                    it++)
             {
                 std::stringstream ss;
-                ss << mr.first.get_name() << "_tmp_" << (int)ctr;
+                ss << it->first.get_name() << "_tmp_" << (int)ctr;
                 ctr++;
                 std::string ind_var_name = ss.str();
 
@@ -2275,7 +2300,7 @@ namespace TL { namespace Nanos6 {
                 symbol_entity_specs_set_is_user_declared(local_sym.get_internal_symbol(),
                         1);
 
-                symbol_map.add_map(mr.first, local_sym);
+                symbol_map.add_map(it->first, local_sym);
                 current_locals.append(local_sym);
 
                 CXX_LANGUAGE()
@@ -2287,11 +2312,13 @@ namespace TL { namespace Nanos6 {
             }
 
             Source src;
-            for (auto mr : data_ref.multireferences())
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it = multireferences.begin();
+                    it != multireferences.end();
+                    it++)
             {
                 ERROR_CONDITION(
-                    !mr.second.is<Nodecl::Range>(), "Invalid Node", 0);
-                Nodecl::Range range = mr.second.as<Nodecl::Range>();
+                    !it->second.is<Nodecl::Range>(), "Invalid Node", 0);
+                Nodecl::Range range = it->second.as<Nodecl::Range>();
                 // expression :
                 // NODECL_MULTI_EXPRESSION([range]multi-expr-range-expression,
                 // [base]expression) symbol type const-value-opt
@@ -2304,7 +2331,7 @@ namespace TL { namespace Nanos6 {
                             range.get_stride(), current_locals));
 
                 TL::Source ind_var;
-                ind_var << as_symbol(symbol_map.map(mr.first));
+                ind_var << as_symbol(symbol_map.map(it->first));
                 src << "for (" << ind_var << " = " << lower << "; "
                     << ind_var << " <= " << upper << "; " << ind_var
                     << " += " << stride << ") {";
@@ -2312,7 +2339,9 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase body_of_loop;
             src << statement_placeholder(body_of_loop);
 
-            for (auto mr : data_ref.multireferences())
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it = multireferences.begin();
+                    it != multireferences.end();
+                    it++)
             {
                 src << "}";
             }
@@ -2455,13 +2484,11 @@ namespace TL { namespace Nanos6 {
                 Nodecl::NodeclBase upper_region_bound;
                 data_type.array_get_region_bounds(lower_region_bound,
                                                   upper_region_bound);
+                /* whole array a[0:N-1] */
+                if (structurally_equal_bounds(lower_bound, lower_region_bound) &&
+                        structurally_equal_bounds(upper_bound, upper_region_bound))
+                    return is_contiguous_region_(data_type.array_element(), n + 1);
 
-                if (/* whole array a[0:N-1] */
-                    (structurally_equal_bounds(lower_bound, lower_region_bound)
-                     && structurally_equal_bounds(upper_bound,
-                                                  upper_region_bound)))
-                    return is_contiguous_region_(data_type.array_element(),
-                                                 n + 1);
                 return 0;
             }
             else
@@ -2534,53 +2561,57 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(subscripts.size() <= 1, "Invalid subcript list", 0);
 
         TL::ObjectList<TL::Symbol> ind_vars;
-        // Iterate over all dimensions except last one.
-        // Create an object list with all the needed variables.
+        TL::ObjectList<Nodecl::Range> ranges;
+
+        // For each Range node we create a new variable that will be used as
+        // the induction variable of a new loop. Note that we skip the last
+        // subscript since it is always contiguous
         for (Nodecl::List::iterator it = subscripts.begin();
              it + 1 != subscripts.end();
              it++)
         {
-            TL::Counter &ctr
-                = TL::CounterManager::get_counter("nanos6-noncontiguous");
-            std::stringstream ss;
-            ss << "x_" << (int)ctr;
-            ctr++;
-            std::string ind_var_name = ss.str();
+            if (it->is<Nodecl::Range>())
+            {
+                TL::Counter &ctr
+                    = TL::CounterManager::get_counter("nanos6-noncontiguous");
+                std::stringstream ss;
+                ss << "x_" << (int)ctr;
+                ctr++;
+                std::string ind_var_name = ss.str();
 
-            TL::Symbol sym = scope.new_symbol(ind_var_name);
-            sym.get_internal_symbol()->kind = SK_VARIABLE;
-            sym.get_internal_symbol()->type_information = get_signed_int_type();
-            symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(),
-                                                     1);
-            ind_vars.append(sym);
+                TL::Symbol sym = scope.new_symbol(ind_var_name);
+                sym.get_internal_symbol()->kind = SK_VARIABLE;
+                sym.get_internal_symbol()->type_information = get_signed_int_type();
+                symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
+                ind_vars.append(sym);
+                ranges.append(it->as<Nodecl::Range>());
+            }
         }
 
-        // Generate code that will register the linear dependences.
+        // For each induction variable we create a new loop where the
+        // lower and upper values are obtained from the Range node
         TL::Source src;
-        Nodecl::List::iterator sub_it = subscripts.begin();
         for (size_t i = 0; i < ind_vars.size(); i++)
         {
-            ERROR_CONDITION(!sub_it->is<Nodecl::Range>(), "Invalid Node", 0);
             Source lower, upper, stride;
-            Nodecl::Range range = sub_it->as<Nodecl::Range>();
+            Nodecl::Range& range = ranges[i];
             lower << as_expression(rewrite_expression_using_args(
-                arg, range.get_lower(), ind_vars));
+                        arg, range.get_lower(), ind_vars));
             upper << as_expression(rewrite_expression_using_args(
-                arg, range.get_upper(), ind_vars));
+                        arg, range.get_upper(), ind_vars));
             stride << as_expression(rewrite_expression_using_args(
-                arg, range.get_stride(), ind_vars));
+                        arg, range.get_stride(), ind_vars));
 
             std::string name = ind_vars[i].get_name();
             src << "for (" << name << " = " << lower << "; " << name
-                << " <= " << upper << "; " << name << " += " << stride << ") {";
-            // Increase other iterator.
-            sub_it++;
+                << " <= " << upper << "; " << name << " += " << stride << ") {"
+                ;
         }
 
         Nodecl::NodeclBase body_of_loop;
         src << statement_placeholder(body_of_loop);
 
-        for (auto var : ind_vars)
+        for (size_t i = 0; i < ind_vars.size(); i++)
         {
             src << "}";
         }
@@ -2592,16 +2623,22 @@ namespace TL { namespace Nanos6 {
                                           .get_subscripts()
                                           .as<Nodecl::List>();
 
-        TL::ObjectList<TL::Symbol>::iterator ind_var_it = ind_vars.begin();
+        // Finally, we update the subscripts of the copy of the original
+        // dependence. Basically, we replace the lower and upper bounds of each
+        // Range
+        size_t range_count = 0;
         for (Nodecl::List::iterator it = new_subscripts.begin();
              it + 1 != new_subscripts.end();
-             it++, ind_var_it++)
+             it++)
         {
-            ERROR_CONDITION(
-                !it->is<Nodecl::Range>(), "This should be a range", 0);
-            Nodecl::Range r = it->as<Nodecl::Range>();
-            r.get_lower().replace(ind_var_it->make_nodecl(/* set ref */ true));
-            r.get_upper().replace(ind_var_it->make_nodecl(/* set ref */ true));
+            if (it->is<Nodecl::Range>())
+            {
+                TL::Symbol&  ind_var = ind_vars[range_count++];
+
+                Nodecl::Range r = it->as<Nodecl::Range>();
+                r.get_lower().replace(ind_var.make_nodecl(/* set ref */ true));
+                r.get_upper().replace(ind_var.make_nodecl(/* set ref */ true));
+            }
         }
 
         Nodecl::List linear_reg;
@@ -2617,6 +2654,7 @@ namespace TL { namespace Nanos6 {
 
         register_statements.append(loop);
     }
+
 
     void TaskProperties::register_fortran_region_dependence(
         TL::DataReference &data_ref,
@@ -2748,6 +2786,8 @@ namespace TL { namespace Nanos6 {
             { dep_weakin, "nanos_register_weak_read_depinfo" },
             { dep_weakout, "nanos_register_weak_write_depinfo" },
             { dep_weakinout, "nanos_register_weak_readwrite_depinfo" },
+
+            { dep_commutative, "nanos_register_commutative_depinfo" },
         };
 
         for (DependencesSet *dep_set = deps;
@@ -3222,7 +3262,8 @@ namespace TL { namespace Nanos6 {
     }
 
     Nodecl::NodeclBase TaskProperties::rewrite_expression_using_args(
-            TL::Symbol arg, Nodecl::NodeclBase expr,
+            TL::Symbol arg,
+            Nodecl::NodeclBase expr,
             const TL::ObjectList<TL::Symbol>& local)
     {
         Nodecl::NodeclBase result = expr.shallow_copy();
@@ -3469,47 +3510,49 @@ namespace TL { namespace Nanos6 {
     {
         Nodecl::List captured_list;
 
+        Nodecl::NodeclBase vla_offset;
+        // 1. Traversing captured variables (firstprivate + other captures)
         for (TL::ObjectList<TL::Symbol>::iterator it = captured_value.begin();
                 it != captured_value.end();
                 it++)
         {
-            Nodecl::NodeclBase current_captured_stmt;
-
             ERROR_CONDITION(field_map.find(*it) == field_map.end(),
                     "Symbol is not mapped", 0);
 
-            Nodecl::NodeclBase lhs;
-            if (it->get_type().is_dependent()
-                && !is_standard_layout_type(
-                       it->get_type().no_ref().get_internal_type()))
+            if (it->get_type().is_dependent() &&
+                    !is_standard_layout_type(it->get_type().no_ref().get_internal_type()))
             {
                 error_printf_at(locus_of_task_creation,
                         "capture of symbol '%s' with non-standard layout type is not supported\n",
                         it->get_qualified_name().c_str());
             }
-            else if (!it->get_type().no_ref().is_array()
+
+            TL::Type lhs_type =
+                field_map[*it].get_type().no_ref().get_lvalue_reference_to();
+
+            Nodecl::NodeclBase lhs =
+                Nodecl::ClassMemberAccess::make(
+                        Nodecl::Dereference::make(
+                            args.make_nodecl(/* set_ref_type */ true),
+                            args.get_type().points_to().get_lvalue_reference_to()),
+                        field_map[*it].make_nodecl(),
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        lhs_type);
+
+            Nodecl::List current_captured_stmts;
+            if (!it->get_type().no_ref().is_array()
                     && !it->get_type().no_ref().is_function())
             {
                 Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
 
-                TL::Type lhs_type =
-                    field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-                lhs =
-                    Nodecl::ClassMemberAccess::make(
-                            Nodecl::Dereference::make(
-                                args.make_nodecl(/* set_ref_type */ true),
-                                args.get_type().points_to().get_lvalue_reference_to()),
-                            field_map[*it].make_nodecl(),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            lhs_type);
-
-                current_captured_stmt = 
+                Nodecl::NodeclBase assignment_stmt =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 lhs,
                                 rhs,
                                 lhs_type));
+
+                current_captured_stmts.append(assignment_stmt);
             }
             else if (it->get_type().no_ref().is_function())
             {
@@ -3517,85 +3560,143 @@ namespace TL { namespace Nanos6 {
                         it->make_nodecl(/* set_ref_type */ true),
                         it->get_type().no_ref().get_pointer_to());
 
-                TL::Type lhs_type =
-                    field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-                lhs =
-                    Nodecl::ClassMemberAccess::make(
-                            Nodecl::Dereference::make(
-                                args.make_nodecl(/* set_ref_type */ true),
-                                args.get_type().points_to().get_lvalue_reference_to()),
-                            field_map[*it].make_nodecl(),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            lhs_type);
-
-                current_captured_stmt = 
+                Nodecl::NodeclBase assignment_stmt =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 lhs,
                                 rhs,
                                 lhs_type));
+
+                current_captured_stmts.append(assignment_stmt);
             }
             else
             {
-                TL::Symbol builtin_memcpy = TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
-                ERROR_CONDITION(!builtin_memcpy.is_valid()
-                        || !builtin_memcpy.is_function(), "Invalid symbol", 0);
-
-                TL::Type lhs_type =
-                    field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-                lhs =
-                    Nodecl::Reference::make(
-                            Nodecl::ClassMemberAccess::make(
-                                Nodecl::Dereference::make(
-                                    args.make_nodecl(/* set_ref_type */ true),
-                                    args.get_type().points_to().get_lvalue_reference_to()),
-                                field_map[*it].make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                lhs_type),
-                            lhs_type.no_ref().get_pointer_to());
-
-                Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
-                rhs = Nodecl::Conversion::make(
-                        rhs,
-                        rhs.get_type().no_ref().array_element().get_pointer_to());
-
-                Nodecl::NodeclBase size_of_array;
-
-                if (it->get_type().depends_on_nonconstant_values())
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    if (it->get_type().depends_on_nonconstant_values())
+                    {
+                        if (vla_offset.is_null())
+                        {
+                            // Skipping the arguments structure
+                            Nodecl::NodeclBase cast = Nodecl::Conversion::make(
+                                    Nodecl::Add::make(
+                                        args.make_nodecl(/* ser_ref_type */ true),
+                                        /* 1, */ const_value_to_nodecl(const_value_get_signed_int(1)),
+                                        args.get_type().no_ref()),
+                                    TL::Type::get_char_type().get_pointer_to());
+
+                            cast.set_text("C");
+                            vla_offset = cast;
+                        }
+
+                        // Skipping the extra space allocated for each vla
+                        Nodecl::NodeclBase mask_align =
+                            const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN - 1));
+
+                        // expr = (size_t)(vla_offset + mask_align)
+                        Nodecl::NodeclBase cast_expr;
+                        cast_expr = Nodecl::Conversion::make(
+                                Nodecl::Add::make(
+                                    vla_offset,
+                                    mask_align,
+                                    vla_offset.get_type()),
+                                get_size_t_type());
+                        cast_expr.set_text("C");
+
+                        // expr = (void *)((size_t)(vla_offset + mask_align) & ~mask_align)
+                        cast_expr = Nodecl::Conversion::make(
+                                Nodecl::BitwiseAnd::make(
+                                    cast_expr,
+                                    Nodecl::BitwiseNot::make(
+                                        mask_align.shallow_copy(),
+                                        mask_align.get_type()),
+                                    get_size_t_type()),
+                                TL::Type::get_void_type().get_pointer_to());
+                        cast_expr.set_text("C");
+
+                        Nodecl::NodeclBase rhs = cast_expr;
+                        Nodecl::NodeclBase assignment_stmt = Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    lhs.shallow_copy(),
+                                    rhs,
+                                    lhs_type));
+
+                        current_captured_stmts.append(assignment_stmt);
+
+                        // Compute the offset for the next vla symbol (current member + its size)
+                        vla_offset = Nodecl::Conversion::make(
+                                Nodecl::Add::make(
+                                    lhs.shallow_copy(),
+                                    Nodecl::Sizeof::make(
+                                        Nodecl::Type::make(it->get_type()),
+                                        Nodecl::NodeclBase::null(),
+                                        get_size_t_type()),
+                                    get_size_t_type()),
+                                TL::Type::get_char_type().get_pointer_to());
+                        vla_offset.set_text("C");
+                    }
+
+                    TL::Symbol builtin_memcpy =
+                        TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
+
+                    ERROR_CONDITION(!builtin_memcpy.is_valid()
+                            || !builtin_memcpy.is_function(), "Invalid symbol", 0);
+
+                    Nodecl::NodeclBase ref_lhs =
+                        Nodecl::Reference::make(lhs, lhs_type.no_ref().get_pointer_to());
+
+                    Nodecl::NodeclBase rhs = Nodecl::Conversion::make(
+                            it->make_nodecl(/* set_ref_type */ true),
+                            it->get_type().no_ref().array_element().get_pointer_to());
+
+                    Nodecl::NodeclBase size_of_array;
+                    if (it->get_type().depends_on_nonconstant_values())
                     {
                         size_of_array =
                             Nodecl::Sizeof::make(
                                     Nodecl::Type::make(it->get_type()),
                                     Nodecl::NodeclBase::null(),
                                     get_size_t_type());
-
                     }
-                    else if (IS_FORTRAN_LANGUAGE)
+                    else
                     {
-                        internal_error("Capture of VLA not yet implemented", 0);
+                        size_of_array =
+                            const_value_to_nodecl_with_basic_type(
+                                    const_value_get_signed_int(
+                                        it->get_type().no_ref().get_size()),
+                                    get_size_t_type());
+                    }
+
+                    Nodecl::NodeclBase function_call_stmt = Nodecl::ExpressionStatement::make(
+                            Nodecl::FunctionCall::make(
+                                builtin_memcpy.make_nodecl(/* set_ref_type */ true),
+                                Nodecl::List::make(ref_lhs, rhs, size_of_array),
+                                /* alternate-name */ Nodecl::NodeclBase::null(),
+                                /* function-form */ Nodecl::NodeclBase::null(),
+                                TL::Type::get_void_type().get_pointer_to()));
+
+                    current_captured_stmts.append(function_call_stmt);
+                }
+                else // IS_FORTRAN_LANGUAGE
+                {
+                    if (!it->get_type().depends_on_nonconstant_values())
+                    {
+                        Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
+
+                        Nodecl::NodeclBase assignment_stmt =
+                            Nodecl::ExpressionStatement::make(
+                                    Nodecl::Assignment::make(
+                                        lhs,
+                                        rhs,
+                                        lhs_type));
+
+                        current_captured_stmts.append(assignment_stmt);
+                    }
+                    else
+                    {
+                        internal_error("Arrays with nonconstant values are not supported yet.", 0);
                     }
                 }
-                else
-                {
-                    size_of_array =
-                        const_value_to_nodecl_with_basic_type(
-                                const_value_get_signed_int(
-                                    it->get_type().no_ref().get_size()
-                                    ),
-                                get_size_t_type());
-                }
-
-                current_captured_stmt = Nodecl::ExpressionStatement::make(
-                    Nodecl::FunctionCall::make(
-                        builtin_memcpy.make_nodecl(/* set_ref_type */ true),
-                        Nodecl::List::make(lhs, rhs, size_of_array),
-                        /* alternate-name */ Nodecl::NodeclBase::null(),
-                        /* function-form */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_void_type().get_pointer_to()));
             }
 
             if (IS_FORTRAN_LANGUAGE
@@ -3604,7 +3705,7 @@ namespace TL { namespace Nanos6 {
             {
                 Source conditional_capture_src;
 
-                Nodecl::NodeclBase capture_null = 
+                Nodecl::NodeclBase capture_null =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 lhs.shallow_copy(),
@@ -3613,19 +3714,27 @@ namespace TL { namespace Nanos6 {
 
                 conditional_capture_src
                     << "IF (PRESENT(" << as_symbol(*it) << ")) THEN\n"
-                    <<    as_statement(current_captured_stmt)
+                    <<    as_statement(current_captured_stmts)
                     << "ELSE\n"
                     <<    as_statement(capture_null)
                     << "END IF\n"
                     ;
 
-                current_captured_stmt =
+                Nodecl::NodeclBase if_else_stmt =
                     conditional_capture_src.parse_statement(related_function.get_related_scope());
+
+               current_captured_stmts = Nodecl::List::make(if_else_stmt);
             }
 
-            captured_list.append(current_captured_stmt);
+            captured_list.append(current_captured_stmts);
         }
 
+        // Since we compute the offsets in advance, once all the capture
+        // symbols have been treated we can safely free this tree
+        if (!vla_offset.is_null())
+            nodecl_free(vla_offset.get_internal_nodecl());
+
+        // 2. Traversing SHARED variables
         for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
                 it != shared.end();
                 it++)
@@ -3640,15 +3749,14 @@ namespace TL { namespace Nanos6 {
                 if (!it->get_type().is_array())
                 {
                     rhs = Nodecl::Reference::make(
-                        rhs, rhs.get_type().no_ref().get_pointer_to());
+                            rhs,
+                            rhs.get_type().no_ref().get_pointer_to());
                 }
                 else
                 {
-                    rhs = Nodecl::Conversion::make(rhs,
-                                                   rhs.get_type()
-                                                       .no_ref()
-                                                       .array_element()
-                                                       .get_pointer_to());
+                    rhs = Nodecl::Conversion::make(
+                            rhs,
+                            rhs.get_type().no_ref().array_element().get_pointer_to());
                 }
             }
             else if (IS_FORTRAN_LANGUAGE)

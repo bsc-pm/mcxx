@@ -172,6 +172,7 @@ struct decl_context_tag
     SYMBOL_KIND(SK_TEMPLATE_TYPE_PARAMETER_PACK, "type template parameter pack name") \
     SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER_PACK, "template template parameter pack name") \
     SYMBOL_KIND(SK_GCC_BUILTIN_TYPE, "__builtin_va_list") \
+    SYMBOL_KIND(SK_DECLTYPE, "decltype") \
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_CLASS, "dependent friend class") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend function") \

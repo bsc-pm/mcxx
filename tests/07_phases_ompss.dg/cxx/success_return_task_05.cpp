@@ -28,35 +28,24 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
-test_CXXFLAGS="--variable=enable_input_by_value_dependences:1
---variable=enable_nonvoid_function_tasks:1"
+test_CXXFLAGS=--variable=enable_nonvoid_function_tasks:1
 test_compile_fail_nanos6_mercurium=yes
 test_compile_fail_nanos6_imcxx=yes
 </testinfo>
 */
 #include<assert.h>
-
-#pragma omp task in(x)
- int foo(int x)
- {
-     return x + 1;
- }
-
+#define N 10
 #pragma omp task
-int bar()
+int foo()
 {
-    int x = foo(foo(1));
-#pragma omp taskwait on(x)
-    return x;
+    return 1;
 }
 
 int main()
 {
-
-   int x;
-   x = bar();
-
+    int accum = 0;
+    for(int i = 0; i < N; ++i) accum += foo();
 #pragma omp taskwait
 
-   assert(x == 3);
+    assert(accum == N);
 }

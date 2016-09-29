@@ -1964,6 +1964,11 @@ convert {
     RETURN_TOKEN(TOKEN_CONVERT);
 }
 
+buffered {
+    parse_token_text();
+    RETURN_TOKEN(TOKEN_BUFFERED);
+}
+
 endfile {
     parse_token_text();
     RETURN_TOKEN(TOKEN_ENDFILE);

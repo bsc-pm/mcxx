@@ -1118,7 +1118,7 @@ namespace Analysis {
         }
         if (task_pragma_info.has_clause(NODECL_OMP_SS_COMMUTATIVE))
         {
-            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OMP_SS_COMMUTATIVE).as<Nodecl::OmpSs::Commutative>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OMP_SS_COMMUTATIVE).as<Nodecl::OmpSs::Commutative>().get_commutative_deps().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
 

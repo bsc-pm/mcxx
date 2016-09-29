@@ -72,5 +72,15 @@ void Lower::visit(const Nodecl::OpenMP::FlushMemory &n)
 {
     unsupported(n);
 }
+void Lower::visit(const Nodecl::OmpSs::Register &n)
+{
+    unsupported(n);
+}
+
+void Lower::visit(const Nodecl::OmpSs::Unregister &n)
+{
+    unsupported(n);
+}
+
 }
 }

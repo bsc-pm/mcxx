@@ -43,6 +43,9 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN const char* get_operator_function_name(AST declarator_id);
+
+LIBMCXX_EXTERN const char* get_literal_operator_name(const char* name);
+
 LIBMCXX_EXTERN void build_scope_template_parameters(
         const decl_context_t* lookup_context,
         const decl_context_t* argument_context,
@@ -187,6 +190,10 @@ type_t* compute_underlying_type_enum(
         const_value_t* max_value,
         type_t* underlying_type,
         char short_enums);
+
+type_t* compute_type_of_decltype(
+        AST a,
+        const decl_context_t* decl_context);
 
 void build_scope_friend_class_declaration(
         type_t* type_of_declaration,

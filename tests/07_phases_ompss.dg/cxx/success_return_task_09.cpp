@@ -33,19 +33,28 @@ test_compile_fail_nanos6_mercurium=yes
 test_compile_fail_nanos6_imcxx=yes
 </testinfo>
 */
+
 #include<assert.h>
-#define N 10
-#pragma omp task
-int foo()
+
+class A
 {
-    return 1;
-}
+    public:
+        int bar()
+        {
+            int x = foo() + foo();
+            #pragma omp taskwait on(x)
+            return x;
+        }
+
+    private:
+        #pragma omp task
+        int foo() { return 1; }
+};
 
 int main()
 {
-    int accum = 0;
-    for(int i = 0; i < N; ++i) accum += foo();
-#pragma omp taskwait
+    A a;
+    int x = a.bar();
 
-    assert(accum == N);
+    assert(x == 2);
 }

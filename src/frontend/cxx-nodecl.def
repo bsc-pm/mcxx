@@ -358,6 +358,7 @@ cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependen
 cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
                    | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt, [literal_conversion] any-opt) symbol-opt type-opt
+                   | NODECL_CXX_DEP_DECLTYPE() type
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 
@@ -685,8 +686,7 @@ omp-for-construct : NODECL_OPEN_M_P*FOR_APPENDIX([environment]omp-exec-environme
 expression : task-call
            | task-expression
 
-omp-deps-info: NODECL_OMP_SS*DEP_IN_VALUE([in_deps]expression-seq)
-             | NODECL_OMP_SS*DEP_IN_PRIVATE([in_deps]expression-seq)
+omp-deps-info: NODECL_OMP_SS*DEP_IN_PRIVATE([in_deps]expression-seq)
 
 # function task
 # Note: do not rely on the information in site_environment
@@ -710,7 +710,7 @@ data-coordination : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
 
 omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*CONCURRENT([inout_deps]expression-seq)
-                | NODECL_OMP_SS*COMMUTATIVE([inout_deps]expression-seq)
+                | NODECL_OMP_SS*COMMUTATIVE([commutative_deps]expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_IN([weakin_deps]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_OUT([weakout_deps]expression-seq)

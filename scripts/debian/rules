@@ -1,6 +1,5 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE=1
-export DEB_BUILD_OPTIONS=nocheck
 export DEB_BUILD_MAINT_OPTIONS=hardening=-all
 
 # Parallel makes
@@ -10,7 +9,7 @@ MAKEFLAGS += -j$(NUMJOBS)
 endif
 
 %:
-	dh $@
+	dh $@ --parallel
 
 # Compat version != 8 sets libdir and libexecdir to something like /usr/lib/x86_64-linux-gnu
 override_dh_auto_configure:

@@ -264,6 +264,25 @@ digit       (({digit_0})|({digit_0}[']{digit_0}))
  /*!if C99*/
 digit       {digit_0}
  /*!endif*/
+ /* A.2.17 */
+ /*!if CPLUSPLUS*/
+decimal_literal ({nonzero}({digit})*)|({nonzero}[']({digit})*)
+ /*!endif*/
+ /*!if C99*/
+decimal_literal ({nonzero}({digit})*)
+ /*!endif*/
+ /* A.2.18 */
+ /*!if CPLUSPLUS */
+octal_literal (0{octaldigit}*)|(0[']{octaldigit}*)
+ /*!endif*/
+ /*!if C99 */
+octal_literal (0{octaldigit}*)
+ /*!endif*/
+ /* A.2.19 */
+hexadecimal_literal ({hexprefix}{hexdigit}+)
+ /* For C and C++ < C++14, this is a GCC extension of the language
+    For C++ >= C++14, this is a feature of the language */
+binary_literal ({binprefix}{bindigit}+)
  /* A.2.20 */
 nonzero         [1-9]
  /* A.2.21 */
@@ -1229,7 +1248,7 @@ type {
 "public"        { parse_token_text(); update_location(); return PUBLIC; } 
 "throw"         { parse_token_text(); update_location(); return THROW; } 
 "operator"      { parse_token_text(); update_location(); return OPERATOR; } 
-"operator[ \t\n]+\"\""  { parse_token_text(); update_location(); return OPERATOR_LITERAL; } 
+"operator"[ \t\n]*"\"\""  { parse_token_text(); update_location(); return OPERATOR_LITERAL; }
 "new"           { parse_token_text(); update_location(); return TOKEN_NEW; } 
 "new"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); update_location(); return TOKEN_NEW_ARRAY; }
 "delete"        { parse_token_text(); update_location(); return TOKEN_DELETE; }
@@ -1536,22 +1555,16 @@ type {
  /* A plain identifier */
 {identifier} {parse_token_text(); update_location(); return IDENTIFIER; }
 
- /* A.2.17 */
-{nonzero}({digit})*{integersuffix}?     { parse_token_text(); update_location(); return DECIMAL_LITERAL; }
- /*!if CPLUSPLUS*/
-{nonzero}[']({digit})*{integersuffix}?     { parse_token_text(); update_location(); return DECIMAL_LITERAL; }
- /*!endif*/
+ /* A.2.16 - decimals */
+{decimal_literal}{integersuffix}?      { parse_token_text(); update_location(); return DECIMAL_LITERAL; }
 
- /* A.2.18 */
-0{octaldigit}*{integersuffix}?         { parse_token_text(); update_location(); return OCTAL_LITERAL; }
- /*!if CPLUSPLUS*/
-0[']{octaldigit}*{integersuffix}?         { parse_token_text(); update_location(); return OCTAL_LITERAL; }
- /*!endif*/
+ /* A.2.16 - octals */
+{octal_literal}{integersuffix}?        { parse_token_text(); update_location(); return OCTAL_LITERAL; }
 
- /* A.2.19 */
-{hexprefix}{hexdigit}+{integersuffix}?  { parse_token_text(); update_location(); return HEXADECIMAL_LITERAL; }
+ /* A.2.16 - hexas */
+{hexadecimal_literal}{integersuffix}?  { parse_token_text(); update_location(); return HEXADECIMAL_LITERAL; }
 
-{binprefix}{bindigit}+{integersuffix}? { parse_token_text(); update_location(); return BINARY_LITERAL; }
+{binary_literal}{integersuffix}?       { parse_token_text(); update_location(); return BINARY_LITERAL; }
 
  /* A.2.26 */
  /*!if CPLUSPLUS*/
@@ -1696,6 +1709,9 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 }
 
 }
+
+
+
 
  /*!endif*/
 

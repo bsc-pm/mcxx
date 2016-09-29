@@ -469,6 +469,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output);
 static void floating_literal_type(AST expr, nodecl_t* nodecl_output);
 static void string_literal_type(AST expr, nodecl_t* nodecl_output);
 static void pointer_literal_type(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_user_defined_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 // Typechecking functions
 static void check_qualified_id(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
@@ -853,6 +854,11 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
                 pointer_literal_type(expression, decl_context, nodecl_output);
                 break;
             }
+        case AST_USER_DEFINED_LITERAL:
+            {
+                check_user_defined_literal(expression, decl_context, nodecl_output);
+                break;
+            };
         case AST_THIS_VARIABLE :
             {
                 resolve_symbol_this_nodecl(decl_context, ast_get_locus(expression), nodecl_output);
@@ -2555,6 +2561,33 @@ static void pointer_literal_type(AST expr, const decl_context_t* decl_context, n
 
     nodecl_free(nodecl_nullptr_name);
     entry_list_free(entry_list);
+}
+
+static void check_user_defined_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_literal;
+    AST literal = ASTSon0(expr);
+    check_expression_impl_(literal, decl_context, &nodecl_literal);
+
+    AST literal_operator_id;
+    {
+        AST declarator_id  = ASTSon1(expr);
+        const char* literal_operator_name = get_literal_operator_name(ast_get_text(declarator_id));
+
+        literal_operator_id = ASTLeaf(AST_SYMBOL,
+                ast_get_locus(declarator_id),
+                literal_operator_name);
+
+        // Keep the parent of the original declarator
+        ast_set_parent(literal_operator_id, ast_get_parent(expr));
+    }
+
+    nodecl_t nodecl_symbol;
+    check_symbol(literal_operator_id, decl_context, &nodecl_symbol);
+
+    check_nodecl_function_call(
+            nodecl_symbol, nodecl_make_list_1(nodecl_literal), decl_context, nodecl_output);
+
 }
 
 static char this_can_be_used(const decl_context_t* decl_context)
@@ -4995,18 +5028,25 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
     type_t* no_ref_lhs_type = no_ref(lhs_type);
     type_t* no_ref_rhs_type = no_ref(rhs_type);
 
+    // Array-to-pointer conversion && Function-to-pointer conversion
+    if (is_array_type(no_ref_lhs_type))
+        no_ref_lhs_type = get_pointer_type(array_type_get_element_type(no_ref_lhs_type));
+    else if (is_function_type(no_ref_lhs_type))
+        no_ref_lhs_type = get_pointer_type(no_ref_lhs_type);
+
+    if (is_array_type(no_ref_rhs_type))
+        no_ref_rhs_type = get_pointer_type(array_type_get_element_type(no_ref_rhs_type));
+    else if (is_function_type(no_ref_rhs_type))
+        no_ref_rhs_type = get_pointer_type(no_ref_rhs_type);
+
     standard_conversion_t scs;
 
     if (both_operands_are_arithmetic(no_ref_lhs_type, no_ref_rhs_type, locus)
             || (is_scoped_enum_type(no_ref_lhs_type) && is_scoped_enum_type(no_ref_rhs_type))
             || ((is_pointer_type(no_ref_lhs_type)
-                    || is_array_type(no_ref_lhs_type)
-                    || is_function_type(no_ref_lhs_type)
                     || is_zero_type_or_nullptr_type(no_ref_lhs_type)
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref_lhs_type)))
                 && (is_pointer_type(no_ref_rhs_type)
-                    || is_array_type(no_ref_rhs_type)
-                    || is_function_type(no_ref_rhs_type)
                     || is_zero_type_or_nullptr_type(no_ref_rhs_type)
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref_rhs_type)))
                 && (is_zero_type_or_nullptr_type(no_ref_lhs_type)
@@ -5032,25 +5072,6 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
             result_type = get_bool_type();
         }
         ERROR_CONDITION(result_type == NULL, "Code unreachable", 0);
-
-        // Lvalue conversions
-        if (is_function_type(no_ref_lhs_type))
-        {
-            no_ref_lhs_type = get_pointer_type(no_ref_lhs_type);
-        }
-        else if (is_array_type(no_ref_lhs_type))
-        {
-            no_ref_lhs_type = get_pointer_type(array_type_get_element_type(no_ref_lhs_type));
-        }
-
-        if (is_function_type(no_ref_rhs_type))
-        {
-            no_ref_rhs_type = get_pointer_type(no_ref_rhs_type);
-        }
-        else if (is_array_type(no_ref_rhs_type))
-        {
-            no_ref_rhs_type = get_pointer_type(array_type_get_element_type(no_ref_rhs_type));
-        }
 
         unary_record_conversion_to_result(no_ref_lhs_type, lhs, decl_context);
         unary_record_conversion_to_result(no_ref_rhs_type, rhs, decl_context);
@@ -18609,50 +18630,43 @@ static void check_predecrement(AST expr, const decl_context_t* decl_context, nod
 static scope_entry_t* get_typeid_symbol(const decl_context_t* decl_context, const locus_t* locus)
 {
     // Lookup for 'std::type_info'
-    static scope_entry_t* typeid_sym = NULL;
+    scope_entry_t* typeid_sym = NULL;
 
-    // FIXME: This will last accross files
-    if (typeid_sym == NULL)
+    decl_context_t* global_context = decl_context_clone(decl_context);
+    global_context->current_scope = global_context->global_scope;
+
+    // First: looking for the 'std' namespace
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
+    if (entry_list == NULL
+            || entry_list_head(entry_list)->kind != SK_NAMESPACE)
     {
-        decl_context_t* global_context = decl_context_clone(decl_context);
-        global_context->current_scope = global_context->global_scope;
+        if (entry_list != NULL)
+            entry_list_free(entry_list);
 
-        scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
+        error_printf_at(locus, "namespace 'std' not found when looking up 'std::type_info'\n");
+        info_printf_at(locus, "maybe you need '#include <typeinfo>'\n");
 
-        if (entry_list == NULL 
-                || entry_list_head(entry_list)->kind != SK_NAMESPACE)
-        {
-            if (entry_list != NULL)
-                entry_list_free(entry_list);
-
-            error_printf_at(locus, "namespace 'std' not found when looking up 'std::type_info'\n");
-            info_printf_at(locus, "maybe you need '#include <typeinfo>'\n");
-            return NULL;
-        }
-
-        const decl_context_t* std_context = entry_list_head(entry_list)->related_decl_context;
-        entry_list_free(entry_list);
-        entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("type_info"), NULL);
-
-        if (entry_list == NULL
-                || (entry_list_head(entry_list)->kind != SK_CLASS
-                    && entry_list_head(entry_list)->kind != SK_TYPEDEF))
-        {
-            if (entry_list != NULL)
-                entry_list_free(entry_list);
-
-            error_printf_at(
-                    locus,
-                    "namespace 'std' not found when looking up 'std::type_info'\n");
-            info_printf_at(
-                    locus,
-                    "maybe you need '#include <typeinfo>'\n");
-            return NULL;
-        }
-
-        typeid_sym = entry_list_head(entry_list);
-        entry_list_free(entry_list);
+        return NULL;
     }
+    const decl_context_t* std_context = entry_list_head(entry_list)->related_decl_context;
+    entry_list_free(entry_list);
+
+    // Second: looking for the 'type_info' class in the context of the 'std' namespace
+    entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("type_info"), NULL);
+    if (entry_list == NULL
+            || (entry_list_head(entry_list)->kind != SK_CLASS
+                && entry_list_head(entry_list)->kind != SK_TYPEDEF))
+    {
+        if (entry_list != NULL)
+            entry_list_free(entry_list);
+
+        error_printf_at(locus, "'std::type_info' class not found'\n");
+        info_printf_at(locus, "maybe you need '#include <typeinfo>'\n");
+
+        return NULL;
+    }
+    typeid_sym = entry_list_head(entry_list);
+    entry_list_free(entry_list);
 
     return typeid_sym;
 }
@@ -24134,6 +24148,21 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
 
     type_t* indexed_type = no_ref(nodecl_get_type(nodecl_postfix));
 
+    // Note that the type of the nodecl_postfix expression will always be the
+    // same, even if we have more than one array section. For this reason we
+    // have to adjust it, skipping the array types that have already been
+    // treated.
+#define MAX_NESTING_OF_ARRAY_REGIONS (16)
+    type_t* advanced_types[MAX_NESTING_OF_ARRAY_REGIONS];
+    int i = 0;
+    while (is_array_type(indexed_type) && array_type_has_region(indexed_type))
+    {
+        ERROR_CONDITION(i == MAX_NESTING_OF_ARRAY_REGIONS, "Too many array regions nested %d\n", i);
+        advanced_types[i] = indexed_type;
+        indexed_type = array_type_get_element_type(indexed_type);
+        i++;
+    }
+
     if (nodecl_is_null(nodecl_lower))
     {
         if (is_array_type(indexed_type))
@@ -24148,7 +24177,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         }
     }
 
-    if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type))) 
+    if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type)))
     {
         if (is_array_section_size)
             nodecl_upper = nodecl_shallow_copy(array_type_get_array_size_expr(indexed_type));
@@ -24156,17 +24185,6 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
             nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
     }
 
-#define MAX_NESTING_OF_ARRAY_REGIONS (16)
-
-    type_t* advanced_types[MAX_NESTING_OF_ARRAY_REGIONS];
-    int i = 0;
-    while (is_array_type(indexed_type) && array_type_has_region(indexed_type))
-    {
-        ERROR_CONDITION(i == MAX_NESTING_OF_ARRAY_REGIONS, "Too many array regions nested %d\n", i);
-        advanced_types[i] = indexed_type;
-        indexed_type = array_type_get_element_type(indexed_type);
-        i++;
-    }
 
     if (is_array_section_size)
     {
@@ -24324,16 +24342,25 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
 
 static void check_array_section_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
+    /* Note that if we have more than one AST_ARRAY_SECTION nested (e.g.
+       a[l1:u1][l2:u2]) the tree has the following shape:
+
+                              AST_ARRAY_SECTION
+                              /       |       \
+                  AST_ARRAY_SECTION   l2      u2
+                  /       |       \
+                 a        l1       u1
+    */
     const locus_t* locus = ast_get_locus(expression);
 
     AST postfix_expression = ASTSon0(expression);
     AST lower_bound = ASTSon1(expression);
     AST upper_bound = ASTSon2(expression);
     AST stride = ASTSon3(expression);
-    
+
     nodecl_t nodecl_postfix = nodecl_null();
     check_expression_impl_(postfix_expression, decl_context, &nodecl_postfix);
-    
+
     nodecl_t nodecl_lower = nodecl_null();
     if (lower_bound != NULL)
         check_expression_impl_(lower_bound, decl_context, &nodecl_lower);
@@ -24354,10 +24381,10 @@ static void check_array_section_expression(AST expression, const decl_context_t*
                     /* bytes */ type_get_size(get_ptrdiff_t_type()), /* signed */ 1),
                 get_ptrdiff_t_type());
     }
-    
+
     char is_array_section_size = (ASTKind(expression) == AST_ARRAY_SECTION_SIZE);
 
-    check_nodecl_array_section_expression(nodecl_postfix, 
+    check_nodecl_array_section_expression(nodecl_postfix,
             nodecl_lower, nodecl_upper, nodecl_stride,
             decl_context, is_array_section_size, locus, nodecl_output);
 }
@@ -30734,11 +30761,15 @@ static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_
                     || nodecl_get_text(v->nodecl_result) != NULL)
             {
                 const_value_t* cval = nodecl_get_constant(v->nodecl_result);
+                char is_value_dependent = nodecl_expr_is_value_dependent(v->nodecl_result);
+
                 v->nodecl_result = nodecl_make_conversion(
                         v->nodecl_result,
                         conversion_type,
                         nodecl_get_locus(node));
+
                 nodecl_set_constant(v->nodecl_result, cval);
+                nodecl_expr_set_is_value_dependent(v->nodecl_result, is_value_dependent);
             }
             nodecl_set_text(v->nodecl_result, text);
         }

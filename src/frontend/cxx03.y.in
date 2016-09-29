@@ -447,6 +447,13 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> labeled_statement
 %type<ast> linkage_specification
 %type<ast> literal
+%type<ast> integer_literal
+%type<ast> character_literal
+%type<ast> floating_literal
+%type<ast> string_literal
+%type<ast> boolean_literal
+%type<ast> pointer_literal
+%type<ast> user_defined_literal
 %type<ast> logical_and_expression
 %type<ast> logical_or_expression
 %type<ast> member_declaration
@@ -547,7 +554,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> statement_seq
 %type<ast> nondeclarating_statement
 %type<ast> storage_class_specifier
-%type<ast> string_literal
 %type<ast> template_and_expression
 %type<ast> template_argument
 %type<ast> template_argument_list
@@ -568,6 +574,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> template_logical_and_expression
 %type<ast> template_logical_or_expression
 %type<ast> template_parameter
+%type<ast> template_parameter_declaration
 %type<ast> template_parameter_list
 %type<ast> template_relational_expression
 %type<ast> template_shift_expression
@@ -585,7 +592,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> type_specifier_alone
 %type<ast> type_specifier_seq_0
 %type<ast> type_specifier_seq_ended_with_identifier
-%type<ast> declarating_type_specifier
 %type<ast> typeof_type_specifier
 %type<ast> unary_expression
 %type<ast> unnamed_namespace_definition
@@ -618,6 +624,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> std_attribute_specifier_seq_opt
 
 %type<ast> alignment_specifier
+
+%type<ast> decltype_specifier
 
 %type<ast> std_attribute_list
 %type<ast> std_attribute_item
@@ -1834,7 +1842,11 @@ type_specifier_ended_with_identifier : named_simple_type_specifier
 }
 ;
 
-declarating_type_specifier : class_specifier
+type_specifier_alone : builtin_types
+{
+	$$ = $1;
+}
+| class_specifier
 {
 	$$ = $1;
 }
@@ -1843,16 +1855,6 @@ declarating_type_specifier : class_specifier
 	$$ = $1;
 }
 | elaborated_type_specifier
-{
-	$$ = $1;
-}
-;
-
-type_specifier_alone : declarating_type_specifier
-{
-    $$ = $1;
-}
-| builtin_types
 {
     $$ = $1;
 }
@@ -1962,12 +1964,7 @@ explicit_simple_type_specifier : named_simple_type_specifier
 }
 ;
 
-simple_type_specifier_not_ended_with_identifier : builtin_types
-{
-	$$ = $1;
-}
-// c++11
-| DECLTYPE '(' expression ')'
+decltype_specifier : DECLTYPE '(' expression ')'
 {
     $$ = ASTMake1(AST_DECLTYPE, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
@@ -1975,6 +1972,16 @@ simple_type_specifier_not_ended_with_identifier : builtin_types
 | DECLTYPE '(' TOKEN_AUTO_TYPE ')'
 {
     $$ = ASTLeaf(AST_DECLTYPE_AUTO, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+}
+;
+
+simple_type_specifier_not_ended_with_identifier : builtin_types
+{
+    $$ = $1;
+}
+| decltype_specifier
+{
+    $$ = $1;
 }
 | typeof_type_specifier
 {
@@ -4883,6 +4890,7 @@ nested_name_specifier_0 : class_or_namespace_name
 {
     $$ = $1;
 }
+| decltype_specifier
 ;
 
 nested_name_specifier_1 : nested_name_specifier_0
@@ -5760,7 +5768,43 @@ mutable_opt : MUTABLE
 // A.2 - Lexical conventions
 // *********************************************************
 
-literal : DECIMAL_LITERAL
+literal : integer_literal
+{
+    $$ = $1;
+}
+| character_literal
+{
+    $$ = $1;
+}
+| floating_literal
+{
+    $$ = $1;
+}
+| string_literal
+{
+    $$ = $1;
+}
+| boolean_literal
+{
+    $$ = $1;
+}
+| pointer_literal
+{
+    $$ = $1;
+}
+| user_defined_literal
+{
+    $$ = $1;
+}
+// Specific C language literal
+| HEXADECIMAL_FLOAT
+{
+    $$ = ASTLeaf(AST_HEXADECIMAL_FLOAT, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
+;
+
+
+integer_literal : DECIMAL_LITERAL
 {
 	$$ = ASTLeaf(AST_DECIMAL_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
@@ -5776,29 +5820,82 @@ literal : DECIMAL_LITERAL
 {
 	$$ = ASTLeaf(AST_BINARY_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
-| HEXADECIMAL_FLOAT
-{
-    $$ = ASTLeaf(AST_HEXADECIMAL_FLOAT, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-}
-| FLOATING_LITERAL
-{
-	$$ = ASTLeaf(AST_FLOATING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-}
-| BOOLEAN_LITERAL
-{
-	$$ = ASTLeaf(AST_BOOLEAN_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-}
-| CHARACTER_LITERAL
+;
+
+character_literal : CHARACTER_LITERAL
 {
 	$$ = ASTLeaf(AST_CHARACTER_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
-| string_literal
+;
+
+floating_literal: FLOATING_LITERAL
 {
-	$$ = $1;
+	$$ = ASTLeaf(AST_FLOATING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
-| TOKEN_NULLPTR
+;
+
+
+// This eases parsing, though it should be viewed as a lexical issue
+string_literal : STRING_LITERAL
+{
+	$$ = ASTLeaf(AST_STRING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
+| string_literal STRING_LITERAL
+{
+	const char* str1 = ASTText($1);
+	const char* str2 = $2.token_text;
+	char* text = NEW_VEC0(char, strlen(str1) + strlen(str2) + 1);
+
+	strcat(text, str1);
+	strcat(text, str2);
+
+	$$ = ASTLeaf(AST_STRING_LITERAL, ast_get_locus($1), text);
+}
+;
+
+boolean_literal : BOOLEAN_LITERAL
+{
+	$$ = ASTLeaf(AST_BOOLEAN_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
+;
+
+pointer_literal: TOKEN_NULLPTR
 {
     $$ = ASTLeaf(AST_POINTER_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
+;
+
+user_defined_literal: integer_literal identifier_token
+{
+    $$ = ASTMake2(AST_USER_DEFINED_LITERAL,
+            $1,
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
+            NULL);
+}
+| floating_literal identifier_token
+{
+    $$ = ASTMake2(AST_USER_DEFINED_LITERAL,
+            $1,
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
+            NULL);
+}
+| string_literal identifier_token
+{
+    $$ = ASTMake2(AST_USER_DEFINED_LITERAL,
+            $1,
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
+            NULL);
+}
+| character_literal identifier_token
+{
+    $$ = ASTMake2(AST_USER_DEFINED_LITERAL,
+            $1,
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
+            NULL);
 }
 ;
 
@@ -6123,9 +6220,64 @@ template_parameter : type_parameter %dprec 2
 {
 	$$ = $1;
 }
-| parameter_declaration %dprec 1
+| template_parameter_declaration %dprec 1
 {
 	$$ = $1;
+}
+;
+
+template_parameter_declaration : decl_specifier_seq_0 %merge<ambiguityHandler>
+{
+   $$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec %merge<ambiguityHandler>
+{
+   $$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 '=' template_assignment_expression gcc_attributes_opt %merge<ambiguityHandler>
+{
+   $$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, $3, $4, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec '=' template_assignment_expression gcc_attributes_opt %merge<ambiguityHandler>
+{
+   $$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, $3, $4, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 nonabstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' template_assignment_expression  %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' template_assignment_expression  %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 abstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+}
+// --
+| decl_specifier_seq_0 abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' template_assignment_expression %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' template_assignment_expression %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
 }
 ;
 
@@ -6640,23 +6792,6 @@ throw_expression : THROW
 }
 ;
 
-// This eases parsing, though it should be viewed as a lexical issue
-string_literal : STRING_LITERAL
-{
-	$$ = ASTLeaf(AST_STRING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-}
-| string_literal STRING_LITERAL
-{
-	const char* str1 = ASTText($1);
-	const char* str2 = $2.token_text;
-	char* text = NEW_VEC0(char, strlen(str1) + strlen(str2) + 1);
-
-	strcat(text, str1);
-	strcat(text, str2);
-
-	$$ = ASTLeaf(AST_STRING_LITERAL, ast_get_locus($1), text);
-}
-;
 
 identifier_token : IDENTIFIER
 {

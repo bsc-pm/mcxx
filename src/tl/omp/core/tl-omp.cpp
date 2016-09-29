@@ -221,16 +221,6 @@ namespace TL
             _simd_reduction_symbols.append(reduction_symbol);
         }
 
-		void DataEnvironment::set_real_time_info(const OmpSs::RealTimeInfo & rt_info)
-		{
-			_real_time_info = rt_info;
-		}
-
-        OmpSs::RealTimeInfo DataEnvironment::get_real_time_info() 
-		{
-			return _real_time_info;
-		}
-
         void DataEnvironment::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
         {
             symbols = _reduction_symbols;

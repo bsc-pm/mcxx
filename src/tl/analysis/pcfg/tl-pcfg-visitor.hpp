@@ -349,7 +349,6 @@ namespace Analysis {
         Ret visit(const Nodecl::OmpSs::CopyIn& n);
         Ret visit(const Nodecl::OmpSs::CopyInout& n);
         Ret visit(const Nodecl::OmpSs::CopyOut& n);
-        Ret visit(const Nodecl::OmpSs::DepInValue& n);
         Ret visit(const Nodecl::OmpSs::SharedAndAlloca& n);
         Ret visit(const Nodecl::OmpSs::Target& n);
         Ret visit(const Nodecl::OmpSs::TaskCall& n);

@@ -95,14 +95,15 @@ namespace Codegen
             Ret visit(const Nodecl::CxxClassMemberAccess &);
             Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxArrowPtrMember& node);
-            Ret visit(const Nodecl::CxxDotPtrMember& node);
             Ret visit(const Nodecl::CxxBracedInitializer &);
+            Ret visit(const Nodecl::CxxDepDecltype &);
             Ret visit(const Nodecl::CxxDepGlobalNameNested &);
             Ret visit(const Nodecl::CxxDepNameConversion &);
             Ret visit(const Nodecl::CxxDepNameNested &);
             Ret visit(const Nodecl::CxxDepNameSimple &);
             Ret visit(const Nodecl::CxxDepNew &);
             Ret visit(const Nodecl::CxxDepTemplateId &);
+            Ret visit(const Nodecl::CxxDotPtrMember& node);
             Ret visit(const Nodecl::CxxNoexcept &);
             Ret visit(const Nodecl::CxxInitializer &);
             Ret visit(const Nodecl::CxxEqualInitializer &);
@@ -608,11 +609,6 @@ namespace Codegen
                     const Nodecl::NodeclBase & declarator_name,
                     const Nodecl::NodeclBase & context,
                     bool is_extern = false);
-
-            void emit_range_loop_header(
-                    Nodecl::RangeLoopControl lc,
-                    Nodecl::NodeclBase statement,
-                    const std::string& rel_op);
 
             void emit_declarations_of_initializer(TL::Symbol symbol);
 

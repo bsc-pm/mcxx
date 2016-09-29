@@ -53,6 +53,7 @@ bind, TOKEN_BIND
 blank, TOKEN_BLANK
 block, TOKEN_BLOCK
 blockdata, TOKEN_BLOCKDATA
+buffered, TOKEN_BUFFERED
 c, TOKEN_C
 call, TOKEN_CALL
 case, TOKEN_CASE

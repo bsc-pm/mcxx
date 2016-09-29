@@ -1968,6 +1968,8 @@ namespace TL
             _step = CopyPolicy::shallow_copy(loop_control.get_step());
 
             _is_omp_valid = true;
+
+            _loop_trend = UNKNOWN_LOOP;
         }
         else if (lc.is<Nodecl::LoopControl>())
         {
@@ -2076,6 +2078,7 @@ namespace TL
 
                             _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
+                        _loop_trend = STRICTLY_INCREASING_LOOP;
                     }
                     else
                     {
@@ -2105,6 +2108,7 @@ namespace TL
 
                             _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
+                        _loop_trend = STRICTLY_DECREASING_LOOP;
                     }
                 }
                 else if (test_expr.is<Nodecl::LowerOrEqualThan>())
@@ -2113,11 +2117,13 @@ namespace TL
                     {
                         // x <= E
                         _upper_bound = CopyPolicy::shallow_copy(rhs);
+                        _loop_trend = STRICTLY_INCREASING_LOOP;
                     }
                     else
                     {
                         // E <= x this is like x >= E
                         _upper_bound = CopyPolicy::shallow_copy(lhs);
+                        _loop_trend = STRICTLY_DECREASING_LOOP;
                     }
                 }
                 else if (test_expr.is<Nodecl::GreaterThan>())
@@ -2150,6 +2156,8 @@ namespace TL
 
                             _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
+
+                        _loop_trend = STRICTLY_DECREASING_LOOP;
                     }
                     else
                     {
@@ -2179,6 +2187,7 @@ namespace TL
 
                             _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
+                        _loop_trend = STRICTLY_INCREASING_LOOP;
                     }
                 }
                 else if (test_expr.is<Nodecl::GreaterOrEqualThan>())
@@ -2187,11 +2196,13 @@ namespace TL
                     {
                         // x >= E
                         _upper_bound = CopyPolicy::shallow_copy(rhs);
+                        _loop_trend = STRICTLY_DECREASING_LOOP;
                     }
                     else
                     {
                         // E >= x this is like x <= E
                         _upper_bound = CopyPolicy::shallow_copy(lhs);
+                        _loop_trend = STRICTLY_INCREASING_LOOP;
                     }
                 }
                 else
@@ -2365,6 +2376,16 @@ namespace TL
         return _step;
     }
 
+    bool ForStatementHelperBase::is_strictly_increasing_loop() const
+    {
+        ERROR_CONDITION(!_is_omp_valid, "The loop is not OpenMP/OmpSs conforming", 0);
+
+        ERROR_CONDITION(_loop_trend == UNKNOWN_LOOP,
+                "impossible to determine whether this loop is increasing or not", 0);
+
+        return _loop_trend == STRICTLY_INCREASING_LOOP;
+    }
+
     template void ForStatementHelper<UsualCopyPolicy>::analyze_loop_header();
     template void ForStatementHelper<NoNewNodePolicy>::analyze_loop_header();
 
@@ -2372,7 +2393,7 @@ namespace TL
     LoopControlAdapter::LoopControlAdapter(
         Nodecl::NodeclBase lc) : _lc(lc)
     {
-    }   
+    }
 
     Nodecl::NodeclBase LoopControlAdapter::get_cond()
     {

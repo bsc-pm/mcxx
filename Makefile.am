@@ -1146,6 +1146,8 @@ src_tl_omp_common_libtlomp_common_la_LIBADD = $(tl_libadd)
 src_tl_omp_common_libtlomp_common_la_SOURCES = \
    src/tl/omp/common/tl-datareference.hpp \
    src/tl/omp/common/tl-datareference.cpp \
+   src/tl/omp/common/tl-final-stmts-generator.hpp \
+   src/tl/omp/common/tl-final-stmts-generator.cpp \
    $(END)
 
 ##########################################################################
@@ -1970,8 +1972,6 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.cpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.hpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl-prerun.cpp \
-								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.cpp \
-								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-arguments.cpp \
@@ -3518,7 +3518,7 @@ rpm: dist-gzip
 	$(MKDIR_P) -p SOURCES BUILD RPMS SPECS SRPMS; \
 	cp ../$(distdir).tar.gz SOURCES; \
 	THREADS=$$(getconf _NPROCESSORS_ONLN); THREADS=$${THREADS:-1};\
-	rpmbuild -v -bb --clean $(abs_top_srcdir)/scripts/mcxx-rpm.spec --define "_topdir $$(pwd)" --define 'version $(VERSION)' --define 'release $(shell date +%Y%m%d)' --define '_rpm_prefix $(RPM_PREFIX)' --define "threads $${THREADS}";
+	rpmbuild -v -bb --clean $(abs_top_srcdir)/scripts/mcxx-rpm.spec --define "_topdir $$(pwd)" --define '_version $(VERSION)' --define '_release $(shell date +%Y%m%d)' --define '_rpm_prefix $(RPM_PREFIX)' --define "threads $${THREADS}";
 
 scripts-clean-rpm:
 	rm -rf scripts/BUILDROOT scripts/SOURCES scripts/BUILD scripts/RPMS scripts/SPECS scripts/SRPMS

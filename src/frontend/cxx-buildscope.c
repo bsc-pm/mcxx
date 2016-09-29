@@ -3346,7 +3346,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
 }
 
 
-static type_t* compute_type_of_decltype(AST a, const decl_context_t* decl_context)
+type_t* compute_type_of_decltype(AST a, const decl_context_t* decl_context)
 {
     ERROR_CONDITION(ASTKind(a) != AST_DECLTYPE, "Invalid node", 0);
 
@@ -12112,10 +12112,93 @@ static void update_function_specifiers(scope_entry_t* entry,
     }
 }
 
+
 static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
 {
     symbol_entity_specs_copy_related_symbols_from(dest, orig);
 }
+
+
+static scope_entry_t* build_scope_user_defined_literal_declarator(
+        AST declarator_id,
+        type_t* declarator_type,
+        gather_decl_spec_t* gather_info,
+        const decl_context_t* decl_context)
+{
+    ERROR_CONDITION(ASTKind(declarator_id) != AST_LITERAL_OPERATOR_ID,
+            "Invalid node '%s'\n", ast_print_node_type(ASTKind(declarator_id)));
+
+    AST symbol = ASTSon0(declarator_id);
+    const char* ud_suffix = ast_get_text(symbol);
+
+    if (ud_suffix != NULL
+            && *ud_suffix != '_')
+    {
+        // This warning is commented since some standard literal operators do
+        // not begin with '_' and we are not able to distinguish them
+        //
+        // warn_printf_at(ast_get_locus(declarator_id),
+        //         "literal operator suffixes must begin with '_'\n");
+    }
+
+    ERROR_CONDITION(!is_function_type(declarator_type), "Invalid type", 0);
+    int num_parameters = function_type_get_num_parameters(declarator_type);
+
+    struct {
+        int num_types;
+        type_t* types[2];
+    } valid_param_types[] = {
+        { 1, { get_pointer_type(get_const_qualified_type(get_char_type())), NULL } },
+        { 1, { get_unsigned_long_long_int_type(), NULL } },
+        { 1, { get_long_double_type(), NULL } },
+        { 1, { get_char_type(),     NULL } },
+        { 1, { get_wchar_t_type(),  NULL } },
+        { 1, { get_char16_t_type(), NULL } },
+        { 1, { get_char32_t_type(), NULL } },
+        { 2, { get_pointer_type(get_const_qualified_type(get_char_type())),     get_size_t_type() } },
+        { 2, { get_pointer_type(get_const_qualified_type(get_wchar_t_type())),  get_size_t_type() } },
+        { 2, { get_pointer_type(get_const_qualified_type(get_char16_t_type())), get_size_t_type() } },
+        { 2, { get_pointer_type(get_const_qualified_type(get_char32_t_type())), get_size_t_type() } }
+    };
+
+    char ok = false;
+    int i, num_valid_param_types = STATIC_ARRAY_LENGTH(valid_param_types);
+    for (i = 0; i < num_valid_param_types && !ok; ++i)
+    {
+        if (valid_param_types[i].num_types != num_parameters)
+            continue;
+
+        char valid_candidate = true;
+        int j;
+        for (j = 0; j < num_parameters && valid_candidate; ++j) {
+             valid_candidate = equivalent_types(
+                     valid_param_types[i].types[j],
+                     function_type_get_parameter_type_num(declarator_type, j));
+        }
+
+        ok = valid_candidate;
+    }
+
+    if (!ok)
+    {
+        error_printf_at(ast_get_locus(declarator_id),
+                "'%s' is not a valid literal operator\n",
+                print_type_str(declarator_type, decl_context));
+    }
+
+    const char* literal_operator_name =
+        get_literal_operator_name(ud_suffix);
+
+    AST literal_operator_id = ASTLeaf(AST_SYMBOL,
+            ast_get_locus(declarator_id),
+            literal_operator_name);
+
+    // Keep the parent of the original declarator
+    ast_set_parent(literal_operator_id, ast_get_parent(declarator_id));
+
+    return register_new_var_or_fun_name(literal_operator_id, declarator_type, gather_info, decl_context);
+}
+
 
 /*
  * This function fills the symbol table with the information of this declarator
@@ -12340,6 +12423,24 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                 }
                 break;
             }
+        case AST_LITERAL_OPERATOR_ID:
+            {
+                if (!IS_CXX11_LANGUAGE)
+                {
+                    warn_printf_at(ast_get_locus(declarator),
+                            "literal operators are only valid in C++11\n");
+                }
+
+                if (type_specifier == NULL)
+                {
+                    error_printf_at(ast_get_locus(declarator),
+                            "literal operator lacks a type-specifier\n");
+                }
+
+                return build_scope_user_defined_literal_declarator(declarator_id, declarator_type, gather_info, decl_context);
+
+                break;
+            };
         case AST_CONVERSION_FUNCTION_ID :
             {
                 if (type_specifier != NULL)
@@ -12534,6 +12635,8 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
     return NULL;
 }
 
+
+
 static char dependent_typename_entry_aliases_member(type_t* dependent_typename, scope_entry_t* member)
 {
     ERROR_CONDITION(!is_dependent_typename_type(dependent_typename), "Invalid type", 0);
@@ -12584,6 +12687,11 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
+
+            // Using symbols have to be advanced
+            if (entry->kind == SK_USING)
+                entry = entry_advance_aliases(entry);
+
             if (entry->kind != SK_ENUM
                     && entry->kind != SK_CLASS
                     && entry->kind != SK_TYPEDEF)
@@ -12598,6 +12706,10 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         entry_list_iterator_free(it);
 
         scope_entry_t* entry = entry_list_head(list);
+
+        // Using symbols have to be advanced
+        if (entry->kind == SK_USING)
+            entry = entry_advance_aliases(entry);
 
         entry_list_free(list);
 
@@ -18792,6 +18904,11 @@ const char* get_operator_function_name(AST declarator_id)
 #undef RETURN_UNIQUESTR_NAME
 }
 
+// This function computes the name of a literal operator: operator "" NAME
+const char* get_literal_operator_name(const char* symbol_name)
+{
+    return strappend(uniquestr(STR_LITERAL_OPERATOR), symbol_name);
+}
 
 typedef
 struct call_to_destructor_data_tag
@@ -19035,12 +19152,15 @@ static void build_scope_nodecl_condition_for_switch(nodecl_t nodecl_condition,
         *nodecl_output = nodecl_null();
         return;
     }
+
     if (nodecl_is_err_expr(nodecl_condition))
     {
         *nodecl_output = nodecl_condition;
         return;
     }
-    else if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+
+
+    if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
     {
         orig_type = lvalue_ref(
                 nodecl_get_symbol(nodecl_condition)->type_information
@@ -19079,12 +19199,17 @@ static void build_scope_nodecl_condition_for_switch(nodecl_t nodecl_condition,
 
     CXX_LANGUAGE()
     {
-        // FIXME - C++11 states that it should be convertible to enum or integral
         if (!nodecl_expr_is_type_dependent(nodecl_expr))
         {
+            type_t* dest_type = NULL;
+            if (is_scoped_enum_type(no_ref(orig_type)))
+                dest_type = no_ref(orig_type);
+            else
+                dest_type = get_signed_int_type();
+
             check_contextual_conversion(
                     nodecl_expr,
-                    get_signed_int_type(),
+                    dest_type,
                     decl_context,
                     &nodecl_expr);
 
@@ -20106,6 +20231,7 @@ static void build_scope_nodecl_switch_statement(
             decl_context,
             locus,
             &nodecl_condition);
+
     if (nodecl_is_err_expr(nodecl_condition))
     {
         *nodecl_output = nodecl_make_list_1(
@@ -20491,24 +20617,82 @@ static void build_scope_nodecl_return_statement(
                     /* allow_excess_of_initializers */ 0,
                     IK_COPY_INITIALIZATION,
                     &nodecl_return_expression);
+
+            if (nodecl_is_err_expr(nodecl_return_expression))
+            {
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(
+                            locus));
+                return;
+            }
         }
         else
         {
-            check_nodecl_expr_initializer(
-                    nodecl_return_expression,
-                    decl_context,
-                    return_type,
-                    /* disallow_narrowing */ 0,
-                    IK_COPY_INITIALIZATION,
-                    &nodecl_return_expression);
-        }
+            type_t* return_expr_type = nodecl_get_type(nodecl_return_expression);
 
-        if (nodecl_is_err_expr(nodecl_return_expression))
-        {
-            *nodecl_output = nodecl_make_list_1(
-                    nodecl_make_err_statement(
-                        locus));
-            return;
+            // In some situations, which are described in section 12.8, when we
+            // are checking whether an expression of a certain type can be used
+            // to initialize a variable of another type we may need to perform
+            // two attempts
+
+            diagnostic_context_t* diagnostics[2] = {NULL, NULL};
+            nodecl_t expr_initializer = nodecl_null();
+
+            // 1st attempt: interpret the lvalue expression as an rvalue expression (C++11/C++14: 12.8)
+            if (is_lvalue_reference_type(return_expr_type)
+                    && nodecl_get_kind(nodecl_return_expression) == NODECL_SYMBOL)
+            {
+                diagnostics[0] = diagnostic_context_push_buffered();
+
+                nodecl_set_type(nodecl_return_expression, no_ref(return_expr_type));
+                check_nodecl_expr_initializer(
+                        nodecl_return_expression,
+                        decl_context,
+                        return_type,
+                        /* disallow_narrowing */ 0,
+                        IK_COPY_INITIALIZATION,
+                        &expr_initializer);
+
+                diagnostic_context_pop();
+
+                if (nodecl_is_err_expr(expr_initializer))
+                {
+                    nodecl_set_type(nodecl_return_expression, return_expr_type);
+                    expr_initializer = nodecl_null();
+                }
+            }
+
+            // 2nd attempt: leave the expression as it is
+            if (nodecl_is_null(expr_initializer))
+            {
+                diagnostics[1] = diagnostic_context_push_buffered();
+
+                check_nodecl_expr_initializer(
+                        nodecl_return_expression,
+                        decl_context,
+                        return_type,
+                        /* disallow_narrowing */ 0,
+                        IK_COPY_INITIALIZATION,
+                        &expr_initializer);
+
+                diagnostic_context_pop();
+            }
+
+            nodecl_return_expression = expr_initializer;
+            if (nodecl_is_err_expr(nodecl_return_expression))
+            {
+                diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+                diagnostic_context_commit(diagnostics[0]);
+                diagnostic_context_commit(diagnostics[1]);
+                diagnostic_context_pop();
+                diagnostic_context_commit(combine_diagnostics);
+
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(
+                            locus));
+                return;
+            }
+
         }
     }
     else

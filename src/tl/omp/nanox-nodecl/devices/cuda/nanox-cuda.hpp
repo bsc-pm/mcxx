@@ -56,7 +56,7 @@ namespace TL
                         TL::ObjectList<Nodecl::NodeclBase>& new_shmem_args);
 
                 void generate_ndrange_additional_code(
-                        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                        TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
                         TL::Source& code_ndrange);
 
                 void generate_ndrange_kernel_call(

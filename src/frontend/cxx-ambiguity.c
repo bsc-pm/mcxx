@@ -1222,8 +1222,10 @@ static char check_typeless_declarator_rec(AST declarator, const decl_context_t* 
                 //
                 scope_entry_list_t* result = query_in_scope_str(decl_context, class_name, NULL);
 
-                if (result == NULL
-                        || (entry_list_head(result)->kind != SK_CLASS))
+                if (result == NULL)
+                    return 0;
+
+                if (entry_list_head(result)->kind != SK_CLASS)
                 {
                     scope_entry_t* entry = entry_list_head(result);
                     entry_list_free(result);

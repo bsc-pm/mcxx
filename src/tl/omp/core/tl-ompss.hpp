@@ -69,81 +69,6 @@ namespace TL { namespace OmpSs {
             void module_read(ModuleReader& mw);
     };
 
-    class LIBTL_CLASS RealTimeInfo
-    {
-        public:
-
-            #define ENUM_OMP_ERROR_EVENT_LIST \
-                ENUM_OMP_ERROR_EVENT(OMP_ANY_EVENT) \
-                ENUM_OMP_ERROR_EVENT(OMP_DEADLINE_EXPIRED)
-
-            enum omp_error_event_t
-            {
-                #define ENUM_OMP_ERROR_EVENT(x) x,
-                    ENUM_OMP_ERROR_EVENT_LIST
-                #undef ENUM_OMP_ERROR_EVENT
-            };
-
-            #define ENUM_OMP_ERROR_ACTION_LIST \
-                ENUM_OMP_ERROR_ACTION(OMP_NO_ACTION,OMP_NO_ACTION)  \
-                ENUM_OMP_ERROR_ACTION(OMP_IGNORE,OMP_ACTION_IGNORE) \
-                ENUM_OMP_ERROR_ACTION(OMP_SKIP,OMP_ACTION_SKIP)
-
-
-            enum omp_error_action_t
-            {
-                #define ENUM_OMP_ERROR_ACTION(x,y) y,
-                    ENUM_OMP_ERROR_ACTION_LIST
-                #undef ENUM_OMP_ERROR_ACTION
-            };
-
-            typedef std::map<omp_error_event_t, omp_error_action_t> map_error_behavior_t;
-
-        private:
-
-            Nodecl::NodeclBase *_time_deadline;
-
-            Nodecl::NodeclBase *_time_release;
-
-            map_error_behavior_t _map_error_behavior;
-
-            map_error_behavior_t get_map_error_behavior() const;
-
-        public:
-            RealTimeInfo();
-
-            ~RealTimeInfo();
-
-            RealTimeInfo(const RealTimeInfo& rt_copy);
-
-            RealTimeInfo(const RealTimeInfo& rt_copy,
-                    Nodecl::Utils::SimpleSymbolMap& translation_map);
-
-            RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
-
-            Nodecl::NodeclBase get_time_deadline() const;
-
-            Nodecl::NodeclBase get_time_release() const;
-
-            bool has_deadline_time() const;
-
-            bool has_release_time() const;
-
-            void set_time_deadline(Nodecl::NodeclBase exp);
-
-            void set_time_release(Nodecl::NodeclBase exp);
-
-            std::string get_action_error(omp_error_event_t event);
-
-            void add_error_behavior(std::string event, std::string action);
-
-            void add_error_behavior(std::string action);
-
-            void module_write(ModuleWriter& mw);
-            void module_read(ModuleReader& mw);
-    };
-
-
     class LIBTL_CLASS TargetInfo
     {
         public:
@@ -269,8 +194,6 @@ namespace TL { namespace OmpSs {
 
             TargetInfo _target_info;
 
-            RealTimeInfo _real_time_info;
-
             Nodecl::NodeclBase _if_clause_cond_expr;
 
             Nodecl::NodeclBase _final_clause_cond_expr;
@@ -310,9 +233,6 @@ namespace TL { namespace OmpSs {
 
             TargetInfo& get_target_info();
             void set_target_info(const TargetInfo& target_info);
-
-            RealTimeInfo get_real_time_info();
-            void set_real_time_info(const RealTimeInfo & rt_info);
 
             void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
             Nodecl::NodeclBase get_if_clause_conditional_expression() const;

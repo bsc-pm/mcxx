@@ -51,11 +51,21 @@ static std::string cuda_outline_name(const std::string & name)
     return "gpu_" + name;
 }
 
+// Note: to be consistent with the OpenCL device, we will remove from the
+// new_ndrange_args the first element (number of dimensions) as soon as we
+// process it
 void DeviceCUDA::generate_ndrange_additional_code(
-        const TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
+        TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
         TL::Source& code_ndrange)
 {
+    // The syntax of ndrange is
+    //
+    //     ndrange(N, global-list, local-list)
+    //
+    // Each X-list has as much as N elements
     Nodecl::NodeclBase num_dims_expr = new_ndrange_args[0];
+    new_ndrange_args.erase(new_ndrange_args.begin()); // remove "N"
+
     if (!num_dims_expr.get_type().is_integral_type()
             || !num_dims_expr.is_constant())
     {
@@ -76,11 +86,11 @@ void DeviceCUDA::generate_ndrange_additional_code(
     code_ndrange << "dim3 dimGrid;";
     code_ndrange << "dim3 dimBlock;";
     const char* field[3] = { "x", "y", "z"};
-    for (int i = 1; i <= 3; ++i)
+    for (int i = 0; i < 3; ++i)
     {
-        if (i <= num_dim)
+        if (i < num_dim)
         {
-            code_ndrange << "dimBlock." << field[i-1] << " = "
+            code_ndrange << "dimBlock." << field[i] << " = "
                 << "(("
                 << as_expression(new_ndrange_args[i])
                 << " < " << as_expression(new_ndrange_args[num_dim + i])
@@ -88,7 +98,7 @@ void DeviceCUDA::generate_ndrange_additional_code(
                 << ") : (" << as_expression(new_ndrange_args[num_dim + i])
                 << "));";
 
-            code_ndrange << "dimGrid."  << field[i-1] << " = "
+            code_ndrange << "dimGrid."  << field[i] << " = "
                 << "(("
                 << as_expression(new_ndrange_args[i])
                 << " < " << as_expression(new_ndrange_args[num_dim + i])
@@ -99,8 +109,8 @@ void DeviceCUDA::generate_ndrange_additional_code(
         }
         else
         {
-            code_ndrange << "dimBlock." << field[i-1] << " = 1;";
-            code_ndrange << "dimGrid."  << field[i-1] << " = 1;";
+            code_ndrange << "dimBlock." << field[i] << " = 1;";
+            code_ndrange << "dimGrid."  << field[i] << " = 1;";
         }
     }
 }

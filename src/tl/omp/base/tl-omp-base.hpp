@@ -173,7 +173,8 @@ namespace TL
                         Nodecl::NodeclBase directive,
                         Nodecl::NodeclBase statement,
                         Nodecl::NodeclBase execution_environment,
-                        Nodecl::NodeclBase num_blocks);
+                        Nodecl::NodeclBase grainsize_expr,
+                        Nodecl::NodeclBase num_tasks_expr);
 
                 void taskloop_update_environment_renaming_induction_variable(
                         Nodecl::NodeclBase execution_environment,
