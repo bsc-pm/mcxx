@@ -20638,27 +20638,34 @@ static void build_scope_nodecl_return_statement(
             diagnostic_context_t* diagnostics[2] = {NULL, NULL};
             nodecl_t expr_initializer = nodecl_null();
 
-            // 1st attempt: interpret the lvalue expression as an rvalue expression (C++11/C++14: 12.8)
-            if (is_lvalue_reference_type(return_expr_type)
-                    && nodecl_get_kind(nodecl_return_expression) == NODECL_SYMBOL)
+            // 1st attempt: interpret the lvalue expression as an rvalue
+            // expression if some conditions are met(C++11/C++14: 12.8)
+            if (nodecl_get_kind(nodecl_return_expression) == NODECL_SYMBOL)
             {
-                diagnostics[0] = diagnostic_context_push_buffered();
-
-                nodecl_set_type(nodecl_return_expression, no_ref(return_expr_type));
-                check_nodecl_expr_initializer(
-                        nodecl_return_expression,
-                        decl_context,
-                        return_type,
-                        /* disallow_narrowing */ 0,
-                        IK_COPY_INITIALIZATION,
-                        &expr_initializer);
-
-                diagnostic_context_pop();
-
-                if (nodecl_is_err_expr(expr_initializer))
+                scope_entry_t* sym = nodecl_get_symbol(nodecl_return_expression);
+                if (sym->kind == SK_VARIABLE
+                        && sym->decl_context->current_scope->kind == BLOCK_SCOPE
+                        && !is_any_reference_type(sym->type_information)
+                        && !symbol_entity_specs_get_is_static(sym))
                 {
-                    nodecl_set_type(nodecl_return_expression, return_expr_type);
-                    expr_initializer = nodecl_null();
+                    diagnostics[0] = diagnostic_context_push_buffered();
+
+                    nodecl_set_type(nodecl_return_expression, no_ref(return_expr_type));
+                    check_nodecl_expr_initializer(
+                            nodecl_return_expression,
+                            decl_context,
+                            return_type,
+                            /* disallow_narrowing */ 0,
+                            IK_COPY_INITIALIZATION,
+                            &expr_initializer);
+
+                    diagnostic_context_pop();
+
+                    if (nodecl_is_err_expr(expr_initializer))
+                    {
+                        nodecl_set_type(nodecl_return_expression, return_expr_type);
+                        expr_initializer = nodecl_null();
+                    }
                 }
             }
 
