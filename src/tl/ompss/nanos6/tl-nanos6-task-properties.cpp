@@ -3286,7 +3286,13 @@ namespace TL { namespace Nanos6 {
             virtual void visit(const Nodecl::Symbol& node)
             {
                 TL::Symbol sym = node.get_symbol();
+
+                // Ignoring local symbols
                 if (local.contains(sym))
+                    return;
+
+                // Ignoring symbols that are not variables
+                if (!sym.is_variable())
                     return;
 
                 ERROR_CONDITION(field_map.find(sym) == field_map.end(),
