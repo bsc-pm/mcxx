@@ -509,6 +509,7 @@ next_it:    ;
         {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
             _pcfg->connect_nodes(_utils->_last_nodes, func_graph_node);
         }
+        _utils->_last_nodes.clear();
 
         // Create the nodes for the arguments
         Node* func_node;
@@ -3578,6 +3579,7 @@ next_it:    ;
         Node* while_exit = while_graph_node->get_graph_exit_node();
 
         // Build condition node
+        _utils->_last_nodes.clear();
         Node* cond_node = walk(n.get_condition())[0];
         _pcfg->connect_nodes(while_graph_node->get_graph_entry_node(), cond_node);
         _utils->_last_nodes = ObjectList<Node*>(1, cond_node);
