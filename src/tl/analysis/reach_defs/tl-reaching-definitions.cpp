@@ -33,7 +33,7 @@ namespace Analysis {
     // ************************** Class implementing reaching definition analysis ************************* //
 
     ReachingDefinitions::ReachingDefinitions(ExtensibleGraph* graph)
-        : _graph(graph), _unknown_reach_defs()
+        : _graph(graph), _first_stmt_node(NULL)
     {}
 
     void ReachingDefinitions::compute_reaching_definitions()
@@ -52,21 +52,48 @@ namespace Analysis {
         ExtensibleGraph::clear_visits(graph);
     }
 
+    // Each parameter generates an unknow definition
     void ReachingDefinitions::generate_unknown_reaching_definitions()
     {
-        // Take care of the function parameters
         Symbol func_sym = _graph->get_function_symbol();
-        if(!func_sym.is_valid())
+        if (!func_sym.is_valid())
             return;
-        
+
+        NodeclMap unknown_reach_defs;
         ObjectList<Symbol> params = func_sym.get_function_parameters();
-        for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end(); ++it)
+        for (ObjectList<Symbol>::iterator it = params.begin(); it != params.end(); ++it)
         {
             Nodecl::Symbol s = Nodecl::Symbol::make(*it);
             s.set_type(it->get_type());
-            _unknown_reach_defs.insert(
+            unknown_reach_defs.insert(
                     std::pair<NBase, NodeclPair>(
                             s, NodeclPair(Nodecl::Unknown::make(), Nodecl::Unknown::make())));
+        }
+
+        // Get first node in code with statements
+        Node* stmt_node = _graph->get_graph()->get_graph_entry_node();
+        Node* graph_exit = _graph->get_graph()->get_graph_exit_node();
+        while (!stmt_node->has_statements() && (stmt_node != graph_exit))
+        {
+            if (stmt_node->is_graph_node())
+                stmt_node = stmt_node->get_graph_entry_node();
+            else if (stmt_node->is_exit_node() && (stmt_node->get_outer_node()->get_id() != 0))
+                stmt_node = stmt_node->get_outer_node()->get_children()[0];
+            else
+            {
+                const ObjectList<Node*>& children = stmt_node->get_children();
+                if (!children.empty())
+                    stmt_node = children[0];
+                else
+                    break;
+            }
+        }
+
+        // Set the unknown RD to the first node with statements
+        if (stmt_node->has_statements())
+        {
+            _first_stmt_node = stmt_node;
+            stmt_node->set_reaching_definitions_in(unknown_reach_defs);
         }
     }
     
@@ -107,7 +134,7 @@ namespace Analysis {
     void ReachingDefinitions::solve_reaching_definition_equations(Node* current)
     {
         bool changed = true;
-        while(changed)
+        while (changed)
         {
             changed = false;
             solve_reaching_definition_equations_rec(current, changed);
@@ -117,95 +144,117 @@ namespace Analysis {
 
     void ReachingDefinitions::solve_reaching_definition_equations_rec(Node* current, bool& changed)
     {
-        if (!current->is_visited())
+        if (current->is_visited())
+            return;
+
+        current->set_visited(true);
+
+        if (current->is_exit_node())
+            return;
+
+        if (current->is_graph_node())
         {
-            current->set_visited(true);
+            solve_reaching_definition_equations_rec(current->get_graph_entry_node(), changed);
+            set_graph_node_reaching_definitions(current);
+        }
+        else if (!current->is_entry_node())
+        {
+            const NodeclMap& old_rd_in = current->get_reaching_definitions_in();
+            const NodeclMap& old_rd_out = current->get_reaching_definitions_out();
+            NodeclMap rd_out, rd_in, pred_rd_out;
 
-            if(!current->is_exit_node())
+            // Computing Reach Defs In
+            // First node with statements may have RDI comming from the parameters
+            if (current == _first_stmt_node)
+                rd_in = current->get_reaching_definitions_in();
+            const ObjectList<Node*>& parents = current->get_parents();
+            for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
             {
-                if(current->is_graph_node())
+                if ((*it)->is_entry_node())
                 {
-                    solve_reaching_definition_equations_rec(current->get_graph_entry_node(), changed);
-                    set_graph_node_reaching_definitions(current);
-                }
-                else if(!current->is_entry_node())
-                {
-                    const NodeclMap& old_rd_in = current->get_reaching_definitions_in();
-                    const NodeclMap& old_rd_out = current->get_reaching_definitions_out();
-                    NodeclMap rd_out, rd_in, pred_rd_out;
-
-                    // Computing Reach Defs In
-                    const ObjectList<Node*>& parents = current->get_parents();
-                    for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                    // Iterate over outer parents while we found an ENTRY node
+                    // Gather all parents which are not entry nodes
+                    ObjectList<Node*> non_entry_outer_parents;
+                    std::stack<Node*> entries;
+                    entries.push(*it);
+                    while (!entries.empty())
                     {
-                        bool parent_is_entry = (*it)->is_entry_node();
-                        if(parent_is_entry)
+                        Node* current_entry = entries.top();
+                        entries.pop();
+                        bool parent_is_entry = current_entry->is_entry_node();
+                        Node* entry_outer_node = current_entry->get_outer_node();
+                        ObjectList<Node*> outer_parents;
+                        while (parent_is_entry)
                         {
-                            // Iterate over outer parents while we found an ENTRY node
-                            Node* entry_outer_node = (*it)->get_outer_node();
-                            ObjectList<Node*> outer_parents;
-                            while(parent_is_entry)
+                            outer_parents = entry_outer_node->get_parents();
+                            if (outer_parents.empty())
+                                break;
+                            // Operate with the first parent of the list
+                            parent_is_entry = outer_parents[0]->is_entry_node();
+                            // Push the other parents to the stack, so they will be traversed later
+                            if (outer_parents.size() > 1)
                             {
-                                outer_parents = entry_outer_node->get_parents();
-                                parent_is_entry = (outer_parents.size() == 1) && outer_parents[0]->is_entry_node();
-                                entry_outer_node = (parent_is_entry ? outer_parents[0]->get_outer_node() : NULL);
+                                for (unsigned int i = 1; i < outer_parents.size(); ++i)
+                                    entries.push(outer_parents[i]);
                             }
-                            // Get the Reach Def Out of the current predecessors
-                            for(ObjectList<Node*>::iterator itop = outer_parents.begin(); itop != outer_parents.end(); ++itop)
-                            {
-                                const NodeclMap& outer_rd_out = (*itop)->get_reaching_definitions_out();
-                                pred_rd_out.insert(outer_rd_out.begin(), outer_rd_out.end());
-                            }
+                            entry_outer_node = (parent_is_entry ? outer_parents[0]->get_outer_node() : NULL);
                         }
-                        else
-                        {
-                            pred_rd_out = (*it)->get_reaching_definitions_out();
-                        }
-                        rd_in = Utils::nodecl_map_union(rd_in, pred_rd_out);
-                        if(_graph->is_first_statement_node(current))
-                            rd_in = Utils::nodecl_map_union(rd_in, _unknown_reach_defs);
+                        if (!outer_parents.empty())
+                            non_entry_outer_parents.append(outer_parents[0]);
                     }
-
-                    // Computing Reach Defs Out
-                    NodeclSet killed;
-                    if(current->is_omp_task_creation_node())
-                    {   // Variables from non-task children nodes do not count here
-                        Node* created_task = ExtensibleGraph::get_task_from_task_creation(current);
-                        ERROR_CONDITION(created_task==NULL, 
-                                        "Task created by task creation node %d not found.\n", 
-                                        current->get_id());
-                        const NodeclSet& task_killed = created_task->get_killed_vars();
-                        const NodeclSet& shared_vars = created_task->get_all_shared_accesses();
-                        for(NodeclSet::const_iterator it = task_killed.begin(); it != task_killed.end(); ++it)
-                        {
-                            if(shared_vars.find(*it) != shared_vars.end())
-                                killed.insert(*it);
-                        }
-                    }
-                    else
+                    // Get the Reach Def Out of the current predecessors
+                    for (ObjectList<Node*>::iterator itop = non_entry_outer_parents.begin();
+                         itop != non_entry_outer_parents.end(); ++itop)
                     {
-                        killed = current->get_killed_vars();
-                    }
-                    NodeclMap diff = Utils::nodecl_map_minus_nodecl_set(rd_in, killed);
-
-                    const NodeclMap& gen = current->get_generated_stmts();
-                    rd_out = Utils::nodecl_map_union(gen, diff);
-
-                    if (!Utils::nodecl_map_equivalence(old_rd_in, rd_in) || 
-                        !Utils::nodecl_map_equivalence(old_rd_out, rd_out))
-                    {
-                        current->set_reaching_definitions_in(rd_in);
-                        current->set_reaching_definitions_out(rd_out);
-                        changed = true;
+                        const NodeclMap& outer_rd_out = (*itop)->get_reaching_definitions_out();
+                        pred_rd_out.insert(outer_rd_out.begin(), outer_rd_out.end());
                     }
                 }
-
-                ObjectList<Node*> children = current->get_children();
-                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                else
                 {
-                    solve_reaching_definition_equations_rec(*it, changed);
+                    pred_rd_out = (*it)->get_reaching_definitions_out();
+                }
+                rd_in = Utils::nodecl_map_union(rd_in, pred_rd_out);
+            }
+
+            // Computing Reach Defs Out
+            NodeclSet killed;
+            if (current->is_omp_task_creation_node())
+            {   // Variables from non-task children nodes do not count here
+                Node* created_task = ExtensibleGraph::get_task_from_task_creation(current);
+                ERROR_CONDITION(created_task==NULL,
+                                "Task created by task creation node %d not found.\n",
+                                current->get_id());
+                const NodeclSet& task_killed = created_task->get_killed_vars();
+                const NodeclSet& shared_vars = created_task->get_all_shared_accesses();
+                for (NodeclSet::const_iterator it = task_killed.begin(); it != task_killed.end(); ++it)
+                {
+                    if (shared_vars.find(*it) != shared_vars.end())
+                        killed.insert(*it);
                 }
             }
+            else
+            {
+                killed = current->get_killed_vars();
+            }
+            NodeclMap diff = Utils::nodecl_map_minus_nodecl_set(rd_in, killed);
+
+            const NodeclMap& gen = current->get_generated_stmts();
+            rd_out = Utils::nodecl_map_union(gen, diff);
+
+            if (!Utils::nodecl_map_equivalence(old_rd_in, rd_in) ||
+                !Utils::nodecl_map_equivalence(old_rd_out, rd_out))
+            {
+                current->set_reaching_definitions_in(rd_in);
+                current->set_reaching_definitions_out(rd_out);
+                changed = true;
+            }
+        }
+
+        ObjectList<Node*> children = current->get_children();
+        for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+        {
+            solve_reaching_definition_equations_rec(*it, changed);
         }
     }
 

@@ -41,7 +41,7 @@ namespace Analysis {
     {
     private:
         ExtensibleGraph* _graph;
-        NodeclMap _unknown_reach_defs;
+        Node* _first_stmt_node;
 
         void generate_unknown_reaching_definitions( );
         
