@@ -618,25 +618,41 @@ namespace {
         return b;
     }
 
-    NBase range_division(const NBase& r1, const NBase& r2)
+    NBase range_division(const NBase& dividend, const NBase& divisor)
     {
         // 1.- Check the integrity of the operands
-        if(!r1.is<Nodecl::Range>() || !r2.is<Nodecl::Range>())
-            return Nodecl::Div::make(r1, r2, r1.get_type());
+        if(!dividend.is<Nodecl::Range>() || !divisor.is<Nodecl::Range>())
+            return Nodecl::Div::make(dividend, dividend, dividend.get_type());
 
         // 2.- Get the boundaries of the ranges to be subtracted
-        NBase r1_lb = r1.as<Nodecl::Range>().get_lower();
-        NBase r1_ub = r1.as<Nodecl::Range>().get_upper();
-        NBase r2_lb = r2.as<Nodecl::Range>().get_lower();
-        NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
+        NBase dividend_lb = dividend.as<Nodecl::Range>().get_lower();
+        NBase dividend_ub = dividend.as<Nodecl::Range>().get_upper();
+        NBase divisor_lb = divisor.as<Nodecl::Range>().get_lower();
+        NBase divisor_ub = divisor.as<Nodecl::Range>().get_upper();
 
-        // 3.- Base case
+        // 3.- Cases
         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
-        return Nodecl::Range::make(
-                minus_inf.shallow_copy(),
-                plus_inf.shallow_copy(),
-                zero_nodecl,
-                Type::get_int_type());
+        if (dividend_lb.is_constant() && dividend_ub.is_constant()
+            && divisor_lb.is_constant() && divisor_ub.is_constant())
+        {   // If all values are known, compute the range
+            NBase lb = NBase(const_value_to_nodecl(const_value_div(dividend_lb.get_constant(),
+                                                                   divisor_ub.get_constant())));
+            NBase ub = NBase(const_value_to_nodecl(const_value_div(dividend_ub.get_constant(),
+                                                                   divisor_lb.get_constant())));
+            return Nodecl::Range::make(
+                    lb.shallow_copy(),
+                    ub.shallow_copy(),
+                    zero_nodecl,
+                    Type::get_int_type());
+        }
+        else
+        {   // Otherwise, return the unknown range [-inf, +inf]
+            return Nodecl::Range::make(
+                    minus_inf.shallow_copy(),
+                    plus_inf.shallow_copy(),
+                    zero_nodecl,
+                    Type::get_int_type());
+        }
 
 //         // 3.- Compute the lower bound
 //         NBase lb = boundary_division(r1_lb, r2_lb);
