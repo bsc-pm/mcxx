@@ -93,6 +93,7 @@ namespace Analysis {
         // ************** Private attributes ************** //
         Name_to_pcfg_map _pcfgs;
         Name_to_tdg_map _tdgs;
+        ObjectList<NBase> _all_functions;
 
         bool _is_ompss_enabled;
         
@@ -123,7 +124,16 @@ namespace Analysis {
         ExtensibleGraph* get_pcfg(std::string name) const;
         
         TaskDependencyGraph* get_tdg(std::string name) const;
-        
+
+        ExtensibleGraph* create_pcfg(
+                const NBase& ast,
+                const std::map<Symbol, NBase>& asserted_funcs,
+                std::set<Symbol>& visited_funcs);
+        void parallel_control_flow_graph_rec(
+                ExtensibleGraph* pcfg,
+                const std::map<Symbol, NBase>& asserted_funcs,
+                std::set<Symbol>& visited_funcs);
+
         // *************** Private methods **************** //
 
         //!Prevents copy construction.
@@ -149,7 +159,9 @@ namespace Analysis {
          * \param memento in/out object where the analysis is stored
          * \param ast Tree containing the code to construct the PCFG(s)
          */
-        void parallel_control_flow_graph(const NBase& ast);
+        void parallel_control_flow_graph(
+                const NBase& ast,
+                std::set<std::string> functions = std::set<std::string>());
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
@@ -160,30 +172,48 @@ namespace Analysis {
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
 //         void conditional_constant_propagation();
 
-        void use_def(const NBase& ast, bool propagate_graph_nodes);
+        void use_def(
+                const NBase& ast,
+                bool propagate_graph_nodes,
+                std::set<std::string> functions = std::set<std::string>());
 
-        void liveness(const NBase& ast, bool propagate_graph_nodes);
+        void liveness(
+                const NBase& ast,
+                bool propagate_graph_nodes,
+                std::set<std::string> functions = std::set<std::string>());
 
-        void reaching_definitions(const NBase& ast, bool propagate_graph_nodes);
+        void reaching_definitions(
+                const NBase& ast,
+                bool propagate_graph_nodes,
+                std::set<std::string> functions = std::set<std::string>());
 
         /*!This analysis computes the induction variables in \ast
          * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
          * The Induction Variables computed are attached to the corresponding LOOP nodes
          */
-        void induction_variables(const NBase& ast, bool propagate_graph_nodes);
+        void induction_variables(
+                const NBase& ast,
+                bool propagate_graph_nodes,
+                std::set<std::string> functions = std::set<std::string>());
 
-        void tune_task_synchronizations(const NBase& ast);
+        void tune_task_synchronizations(
+                const NBase& ast,
+                std::set<std::string> functions = std::set<std::string>());
 
-        void range_analysis(const NBase& ast);
+        void range_analysis(
+                const NBase& ast,
+                std::set<std::string> functions = std::set<std::string>());
 
         void cyclomatic_complexity(const NBase& ast);
         
         void auto_scoping(const NBase& ast);
 
-        ObjectList<TaskDependencyGraph*> task_dependency_graph(const NBase& ast);
-        
+        ObjectList<TaskDependencyGraph*> task_dependency_graph(
+                const NBase& ast,
+                std::set<std::string> functions);
+
         void all_analyses(const NBase& ast, bool propagate_graph_nodes);
-        
+
 
         // ********************* Utils ******************** //
 

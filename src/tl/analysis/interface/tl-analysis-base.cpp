@@ -48,7 +48,7 @@ namespace TL {
 namespace Analysis {
 
     AnalysisBase::AnalysisBase(bool is_ompss_enabled)
-            : _pcfgs(), _tdgs(), _is_ompss_enabled(is_ompss_enabled),
+            : _pcfgs(), _tdgs(), _all_functions(), _is_ompss_enabled(is_ompss_enabled),
               _pcfg(false), /*_constants_propagation(false),*/ _canonical(false),
               _use_def(false), _liveness(false), _loops(false),
               _reaching_definitions(false), _induction_variables(false),
@@ -89,63 +89,127 @@ namespace Analysis {
             result.insert(it->second);
         return result;
     }
-    
-    void AnalysisBase::parallel_control_flow_graph(const NBase& ast)
+
+    ExtensibleGraph* AnalysisBase::create_pcfg(
+            const NBase& ast,
+            const std::map<Symbol, NBase>& asserted_funcs,
+            std::set<Symbol>& visited_funcs)
     {
-        if (!_pcfg)
+        // Generate the hashed name corresponding to the AST of the function
+        std::string pcfg_name = Utils::generate_hashed_name(ast);
+
+        // Create the PCFG
+        if (VERBOSE)
+            std::cerr << "Parallel Control Flow Graph (PCFG) '" << pcfg_name << "'" << std::endl;
+        PCFGVisitor v(pcfg_name, ast);
+        ExtensibleGraph* pcfg = v.parallel_control_flow_graph(ast, asserted_funcs);
+
+        // Synchronize the tasks, if applies
+        if (VERBOSE)
+            std::cerr << "Task Synchronization of PCFG '" << pcfg_name << "'" << std::endl;
+        TaskAnalysis::TaskSynchronizations task_sync_analysis(pcfg, _is_ompss_enabled);
+        task_sync_analysis.compute_task_synchronizations();
+
+        // Store the pcfg
+        _pcfgs[pcfg_name] = pcfg;
+
+        // Store the symbol of the function we just visited
+        Symbol func_sym = pcfg->get_function_symbol();
+        if (func_sym.is_valid())
+            visited_funcs.insert(func_sym);
+
+        return pcfg;
+    }
+
+    void AnalysisBase::parallel_control_flow_graph_rec(
+            ExtensibleGraph* pcfg,
+            const std::map<Symbol, NBase>& asserted_funcs,
+            std::set<Symbol>& visited_funcs)
+    {
+        ObjectList<Symbol> called_funcs = pcfg->get_function_calls();
+        for (ObjectList<Symbol>::iterator it = called_funcs.begin();
+             it != called_funcs.end(); ++it)
         {
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _pcfg = true;
-
-            ObjectList<NBase> unique_asts;
-            std::map<Symbol, NBase> asserted_funcs;
-
-            // Get all unique ASTs embedded in 'ast'
-            if (!ast.is<Nodecl::TopLevel>())
+            if (visited_funcs.find(*it) == visited_funcs.end())
             {
-                unique_asts.append(ast);
+                NBase func_ast;
+                // Find the ast corresponding to this symbol in the list of functions of this translation unit
+                for (ObjectList<NBase>::iterator itt = _all_functions.begin();
+                     itt != _all_functions.end(); ++itt)
+                {
+                    if (itt->is<Nodecl::FunctionCode>() && itt->get_symbol() == *it)
+                        func_ast = *itt;
+                }
+                if (func_ast.is_null())     // The code of the function is not reachable
+                    continue;
+                ExtensibleGraph* new_pcfg = create_pcfg(func_ast, asserted_funcs, visited_funcs);
+                parallel_control_flow_graph_rec(new_pcfg, asserted_funcs, visited_funcs);
             }
+        }
+    }
+
+    void AnalysisBase::parallel_control_flow_graph(
+            const NBase& ast,
+            std::set<std::string> functions)
+    {
+        if (_pcfg)
+            return;
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _pcfg = true;
+
+        ObjectList<NBase> unique_asts;
+        std::map<Symbol, NBase> asserted_funcs;
+
+        // Get all unique ASTs embedded in 'ast'
+        if (!ast.is<Nodecl::TopLevel>())
+        {
+            unique_asts.append(ast);
+        }
+        else
+        {
+            // Get all functions in \ast
+            Utils::TopLevelVisitor tlv;
+            tlv.walk_functions(ast);
+            _all_functions = tlv.get_functions();
+            if (functions.empty())
+                unique_asts = _all_functions;
             else
             {
-                // Get all functions in \ast
-                Utils::TopLevelVisitor tlv;
-                tlv.walk_functions(ast);
-                unique_asts = tlv.get_functions();
-                asserted_funcs = tlv.get_asserted_funcs();
-            }
-
-            // Compute the PCFG corresponding to each AST
-            for (ObjectList<NBase>::iterator it = unique_asts.begin(); it != unique_asts.end(); ++it)
-            {
-                // Generate the hashed name corresponding to the AST of the function
-                std::string pcfg_name = Utils::generate_hashed_name(*it);
-
-                // Create the PCFG only if it has not been created previously
-                if (get_pcfg(pcfg_name) == NULL)
+                for (ObjectList<NBase>::iterator it = _all_functions.begin();
+                        it != _all_functions.end(); ++it)
                 {
-                    // Create the PCFG
-                    if (VERBOSE)
-                        std::cerr << "Parallel Control Flow Graph (PCFG) '" << pcfg_name << "'" << std::endl;
-                    PCFGVisitor v(pcfg_name, *it);
-                    ExtensibleGraph* pcfg = v.parallel_control_flow_graph(*it, asserted_funcs);
-
-                    // Synchronize the tasks, if applies
-                    if (VERBOSE)
-                        std::cerr << "Task Synchronization of PCFG '" << pcfg_name << "'" << std::endl;
-                    TaskAnalysis::TaskSynchronizations task_sync_analysis(pcfg, _is_ompss_enabled);
-                    task_sync_analysis.compute_task_synchronizations();
-
-                    // Store the pcfg
-                    _pcfgs[pcfg_name] = pcfg;
+                    std::string func_name = it->get_symbol().get_name();
+                    if (functions.find(func_name) != functions.end())
+                        unique_asts.append(*it);
                 }
             }
-
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: PCFG computation time: %lf\n", (time_nsec() - init)*1E-9);
+            asserted_funcs = tlv.get_asserted_funcs();
         }
+
+        // Compute the PCFG corresponding to each AST
+        std::set<Symbol> visited_funcs;
+        for (ObjectList<NBase>::iterator it = unique_asts.begin(); it != unique_asts.end(); ++it)
+        {
+            create_pcfg(*it, asserted_funcs, visited_funcs);
+        }
+
+        // Make sure all called functions whose code is reachable, have been computed
+        if (!functions.empty())
+        {
+            ObjectList<ExtensibleGraph*> pcfgs = get_pcfgs();
+            for (ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin();
+                it != pcfgs.end(); ++it)
+            {
+                parallel_control_flow_graph_rec(*it, asserted_funcs, visited_funcs);
+            }
+        }
+
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: PCFG computation time: %lf\n", (time_nsec() - init)*1E-9);
     }
 
     // TODO
@@ -173,7 +237,7 @@ namespace Analysis {
             std::set<Symbol>& visited_funcs,
             ObjectList<ExtensibleGraph*>& pcfgs)
     {
-        // Nothing to do if the we are analyzing something that:
+        // Nothing to do if we are analyzing something that:
         // - is not a function
         // - has already been analyzed
         if (!func_sym.is_valid() || (visited_funcs.find(func_sym) != visited_funcs.end()))
@@ -202,278 +266,292 @@ namespace Analysis {
         }
     }
 
-    void AnalysisBase::use_def(const NBase& ast, bool propagate_graph_nodes)
+    void AnalysisBase::use_def(
+            const NBase& ast,
+            bool propagate_graph_nodes,
+            std::set<std::string> functions)
     {
-        if (!_use_def)
+        if (_use_def)
+            return;
+
+        // Required previous analysis
+        parallel_control_flow_graph(ast, functions);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _use_def = true;
+
+        std::set<Symbol> visited_funcs;
+        ObjectList<ExtensibleGraph*> pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            // Required previous analysis
-            parallel_control_flow_graph(ast);
-
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _use_def = true;
-
-            std::set<Symbol> visited_funcs;
-            ObjectList<ExtensibleGraph*> pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+            if (!(*it)->usage_is_computed())
             {
-                if (!(*it)->usage_is_computed())
-                {
-                    PointerSize ps(*it);
-                    ps.compute_pointer_vars_size();
-                    use_def_rec((*it)->get_function_symbol(), propagate_graph_nodes, visited_funcs, pcfgs);
-                }
+                PointerSize ps(*it);
+                ps.compute_pointer_vars_size();
+                use_def_rec((*it)->get_function_symbol(), propagate_graph_nodes, visited_funcs, pcfgs);
             }
+        }
+
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: USE_DEF computation time: %lf\n", (time_nsec() - init)*1E-9);
+    }
+
+    void AnalysisBase::liveness(
+            const NBase& ast,
+            bool propagate_graph_nodes,
+            std::set<std::string> functions)
+    {
+        if (_liveness)
+            return;
+
+        // Required previous analysis
+        // FIXME Do we need to pass the \p propagate_graph_nodes parameter here too?
+        use_def(ast, propagate_graph_nodes, functions);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _liveness = true;
+
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+        {
+            if (VERBOSE)
+                std::cerr << "Liveness of PCFG '" << (*it)->get_name() << "'" << std::endl;
+            Liveness l(*it, propagate_graph_nodes);
+            l.compute_liveness();
+        }
+
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: LIVENESS computation time: %lf\n", (time_nsec() - init)*1E-9);
+    }
+
+    void AnalysisBase::reaching_definitions(
+            const NBase& ast,
+            bool propagate_graph_nodes,
+            std::set<std::string> functions)
+    {
+        if (_reaching_definitions)
+            return;
+
+        // Required previous analysis
+        liveness(ast, propagate_graph_nodes, functions);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _reaching_definitions = true;
+
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+        {
+            if (VERBOSE)
+                std::cerr << "Reaching Definitions of PCFG '" << (*it)->get_name() << "'" << std::endl;
+            ReachingDefinitions rd(*it);
+            rd.compute_reaching_definitions();
+        }
+
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: REACHING_DEFINITIONS computation time: %lf\n", (time_nsec() - init)*1E-9);
+    }
+
+    void AnalysisBase::induction_variables(
+            const NBase& ast,
+            bool propagate_graph_nodes,
+            std::set<std::string> functions)
+    {
+        if (_induction_variables)
+            return;
+
+        // Required previous analysis
+        reaching_definitions(ast, propagate_graph_nodes, functions);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _induction_variables = true;
+
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+        {
+            if (VERBOSE)
+                std::cerr << "Induction Variables of PCFG '" << (*it)->get_name() << "'" << std::endl;
+
+            // Compute the induction variables of all loops of each PCFG
+            InductionVariableAnalysis iva(*it);
+            iva.compute_induction_variables();
+
+            // Compute the limits of the induction variables
+            Utils::InductionVarsPerNode ivs = iva.get_all_induction_vars();
+            LoopAnalysis la(*it, ivs);
+            la.compute_loop_ranges();
+
+            if (VERBOSE)
+                Utils::print_induction_vars(ivs);
 
             if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: USE_DEF computation time: %lf\n", (time_nsec() - init)*1E-9);
+                fprintf(stderr, "ANALYSIS: INDUCTION_VARIABLES computation time: %lf\n", (time_nsec() - init)*1E-9);
         }
     }
 
-    void AnalysisBase::liveness(const NBase& ast, bool propagate_graph_nodes)
+    void AnalysisBase::tune_task_synchronizations(
+            const NBase& ast,
+            std::set<std::string> functions)
     {
-        if (!_liveness)
+        if (_tune_task_syncs)
+            return;
+
+        // Required previous analysis
+        reaching_definitions(ast, /*propagate_graph_nodes*/ false, functions);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _tune_task_syncs = true;
+
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            // Required previous analysis
-            // FIXME Do we need to passa the \p propagate_graph_nodes parameter here too?
-            use_def(ast, propagate_graph_nodes);
+            if (VERBOSE)
+                std::cerr << "Task Synchronizations Tunning of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _liveness = true;
-
-            const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            {
-                if (VERBOSE)
-                    std::cerr << "Liveness of PCFG '" << (*it)->get_name() << "'" << std::endl;
-                Liveness l(*it, propagate_graph_nodes);
-                l.compute_liveness();
-            }
-
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: LIVENESS computation time: %lf\n", (time_nsec() - init)*1E-9);
+            TaskAnalysis::TaskSyncTunning tst(*it);
+            tst.tune_task_synchronizations();
         }
+
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: TUNE_TASK_SYNCS computation time: %lf\n", (time_nsec() - init)*1E-9);
     }
 
-    void AnalysisBase::reaching_definitions(const NBase& ast, bool propagate_graph_nodes)
+    void AnalysisBase::range_analysis(
+            const NBase& ast,
+            std::set<std::string> functions)
     {
-        if (!_reaching_definitions)
+        if (_range)
+            return;
+
+        // Required previous analysis
+        use_def(ast, /*propagate_graph_nodes*/ true);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _range = true;
+
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            // Required previous analysis
-            liveness(ast, propagate_graph_nodes);
+            if (VERBOSE)
+                std::cerr << "Range Analysis of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _reaching_definitions = true;
-
-            const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            {
-                if (VERBOSE)
-                    std::cerr << "Reaching Definitions of PCFG '" << (*it)->get_name() << "'" << std::endl;
-                ReachingDefinitions rd(*it);
-                rd.compute_reaching_definitions();
-            }
-
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: REACHING_DEFINITIONS computation time: %lf\n", (time_nsec() - init)*1E-9);
+            // Compute the induction variables of all loops of each PCFG
+            RangeAnalysis ra(*it);
+            ra.compute_range_analysis();
         }
-    }
 
-    void AnalysisBase::induction_variables(const NBase& ast, bool propagate_graph_nodes)
-    {
-        if (!_induction_variables)
-        {
-            // Required previous analysis
-            reaching_definitions(ast, propagate_graph_nodes);
-
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _induction_variables = true;
-
-            const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            {
-                if (VERBOSE)
-                    std::cerr << "Induction Variables of PCFG '" << (*it)->get_name() << "'" << std::endl;
-
-                // Compute the induction variables of all loops of each PCFG
-                InductionVariableAnalysis iva(*it);
-                iva.compute_induction_variables();
-
-                // Compute the limits of the induction variables
-                Utils::InductionVarsPerNode ivs = iva.get_all_induction_vars();
-                LoopAnalysis la(*it, ivs);
-                la.compute_loop_ranges();
-
-                if (VERBOSE)
-                    Utils::print_induction_vars(ivs);
-
-                if (ANALYSIS_PERFORMANCE_MEASURE)
-                    fprintf(stderr, "ANALYSIS: INDUCTION_VARIABLES computation time: %lf\n", (time_nsec() - init)*1E-9);
-            }
-        }
-    }
-
-    void AnalysisBase::tune_task_synchronizations(const NBase& ast)
-    {
-        if (!_tune_task_syncs)
-        {
-            // Required previous analysis
-            reaching_definitions(ast, /*propagate_graph_nodes*/ false);
-
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _tune_task_syncs = true;
-
-            const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            {
-                if (VERBOSE)
-                    std::cerr << "Task Synchronizations Tunning of PCFG '" << (*it)->get_name() << "'" << std::endl;
-
-                TaskAnalysis::TaskSyncTunning tst(*it);
-                tst.tune_task_synchronizations();
-            }
-
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: TUNE_TASK_SYNCS computation time: %lf\n", (time_nsec() - init)*1E-9);
-        }
-    }
-
-    void AnalysisBase::range_analysis(const NBase& ast)
-    {
-        if (!_range)
-        {
-            // Required previous analysis
-            use_def(ast, /*propagate_graph_nodes*/ true);
-
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _range = true;
-
-            const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            {
-                if (VERBOSE)
-                    std::cerr << "Range Analysis of PCFG '" << (*it)->get_name() << "'" << std::endl;
-
-                // Compute the induction variables of all loops of each PCFG
-                RangeAnalysis ra(*it);
-                ra.compute_range_analysis();
-            }
-
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: RANGE_ANALYSIS computation time: %lf\n", (time_nsec() - init)*1E-9);
-        }
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: RANGE_ANALYSIS computation time: %lf\n", (time_nsec() - init)*1E-9);
     }
 
     void AnalysisBase::cyclomatic_complexity(const NBase& ast)
     {
-        if (!_cyclomatic_complexity)
+        if (_cyclomatic_complexity)
+            return;
+
+        // Required previous analysis
+        parallel_control_flow_graph(ast);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _cyclomatic_complexity = true;
+        
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            // Required previous analysis
-            parallel_control_flow_graph(ast);
-
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _cyclomatic_complexity = true;
+            if (VERBOSE)
+                std::cerr << "Cyclomatic Complexity of PCFG '" << (*it)->get_name() << "'" << std::endl;
             
-            const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            {
-                if (VERBOSE)
-                    std::cerr << "Cyclomatic Complexity of PCFG '" << (*it)->get_name() << "'" << std::endl;
-                
-                // Compute the cyclomatic complexity of each PCFG
-                CyclomaticComplexity cc(*it);
-                unsigned int res = cc.compute_cyclomatic_complexity();
-                if (VERBOSE)
-                    printf(" = %d\n", res);
-            }
-
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: CYCLOMATIC_COMPLEXITY computation time: %lf\n", (time_nsec() - init)*1E-9);
+            // Compute the cyclomatic complexity of each PCFG
+            CyclomaticComplexity cc(*it);
+            unsigned int res = cc.compute_cyclomatic_complexity();
+            if (VERBOSE)
+                printf(" = %d\n", res);
         }
+
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: CYCLOMATIC_COMPLEXITY computation time: %lf\n", (time_nsec() - init)*1E-9);
     }
     
     void AnalysisBase::auto_scoping(const NBase& ast)
     {
-        if (!_auto_scoping)
+        if (_auto_scoping)
+            return;
+
+        // Required previous analysis
+        tune_task_synchronizations(ast);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _auto_scoping = true;
+
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            // Required previous analysis
-            tune_task_synchronizations(ast);
+            if (VERBOSE)
+                std::cerr << "Auto-Scoping of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _auto_scoping = true;
-
-            const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            {
-                if (VERBOSE)
-                    std::cerr << "Auto-Scoping of PCFG '" << (*it)->get_name() << "'" << std::endl;
-
-                AutoScoping as(*it);
-                as.compute_auto_scoping();
-            }
-
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: AUTO_SCOPING computation time: %lf\n", (time_nsec() - init)*1E-9);
+            AutoScoping as(*it);
+            as.compute_auto_scoping();
         }
+
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: AUTO_SCOPING computation time: %lf\n", (time_nsec() - init)*1E-9);
     }
 
-    ObjectList<TaskDependencyGraph*> AnalysisBase::task_dependency_graph(const NBase& ast)
+    ObjectList<TaskDependencyGraph*> AnalysisBase::task_dependency_graph(
+            const NBase& ast,
+            std::set<std::string> functions)
     {
+        if (_tdg)
+            return get_tdgs();
+
+        // Required previous analyses
+        induction_variables(ast, /*propagate_graph_nodes*/ false, functions);
+        range_analysis(ast, functions);
+        tune_task_synchronizations(ast, functions);
+
+        double init = 0.0;
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            init = time_nsec();
+
+        _tdg = true;
+
         ObjectList<TaskDependencyGraph*> tdgs;
-        if (!_tdg)
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            // Required previous analyses
-            induction_variables(ast, /*propagate_graph_nodes*/ false);
-            range_analysis(ast);
-            tune_task_synchronizations(ast);
+            if (VERBOSE)
+                std::cerr << "Task Dependency Graph (TDG) of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
-            double init = 0.0;
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                init = time_nsec();
-
-            _tdg = true;
-
-            const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            {
-                if (VERBOSE)
-                    std::cerr << "Task Dependency Graph (TDG) of PCFG '" << (*it)->get_name() << "'" << std::endl;
-
-                TaskDependencyGraph* tdg = new TaskDependencyGraph(*it);
-                tdgs.insert(tdg);
-                _tdgs[(*it)->get_name()] = tdg;
-            }
-
-            if (ANALYSIS_PERFORMANCE_MEASURE)
-                fprintf(stderr, "ANALYSIS: TDG computation time: %lf\n", (time_nsec() - init)*1E-9);
+            TaskDependencyGraph* tdg = new TaskDependencyGraph(*it);
+            tdgs.insert(tdg);
+            _tdgs[(*it)->get_name()] = tdg;
         }
-        else
-        {
-            tdgs = get_tdgs();
-        }
+
+        if (ANALYSIS_PERFORMANCE_MEASURE)
+            fprintf(stderr, "ANALYSIS: TDG computation time: %lf\n", (time_nsec() - init)*1E-9);
 
         return tdgs;
     }

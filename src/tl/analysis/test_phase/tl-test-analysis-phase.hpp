@@ -77,8 +77,11 @@ namespace Analysis {
         
         std::string _ompss_mode_str;
         bool _ompss_mode_enabled;
-        void set_ompss_mode( const std::string& ompss_mode_str);
-        
+        void set_ompss_mode(const std::string& ompss_mode_str);
+
+        std::string _function_str;
+        void set_functions(const std::string& function_str);
+
     public:
         //! Constructor of this phase
         TestAnalysisPhase();
