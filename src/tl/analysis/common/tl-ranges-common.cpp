@@ -49,6 +49,66 @@ namespace {
     // *********** END initialize global variables for ranges operations *********** //
     // ***************************************************************************** //
 
+    enum CmpResult {
+        Smaller,
+        Equal,
+        Bigger
+    };
+
+    CmpResult compare_constants(const_value_t* lhs_const, const_value_t* rhs_const)
+    {
+        if (const_value_is_signed(rhs_const))
+        {
+            const_value_t* sub = const_value_sub(lhs_const, rhs_const);
+            if (const_value_is_zero(sub))
+                return Equal;
+            else if (const_value_is_positive(sub))
+                return Bigger;
+            else
+                return Smaller;
+        }
+        else if (const_value_is_signed(lhs_const))
+        {
+            const_value_t* sub = const_value_sub(rhs_const, lhs_const);
+            if (const_value_is_zero(sub))
+                return Equal;
+            else if (const_value_is_positive(sub))
+                return Smaller;
+            else
+                return Bigger;
+        }
+        else
+        {   // Convert to the biggest to be safe and avoid all casuistic
+            unsigned long long int lhs_uint = const_value_cast_to_unsigned_long_long_int(lhs_const);
+            unsigned long long int rhs_uint = const_value_cast_to_unsigned_long_long_int(rhs_const);
+            if (lhs_uint == rhs_uint)
+                return Equal;
+            else if (lhs_uint < rhs_uint)
+                return Smaller;
+            else
+                return Bigger;
+        }
+    }
+
+    bool difference_is_one(const_value_t* lhs_const, const_value_t* rhs_const)
+    {
+
+        if (const_value_is_signed(rhs_const))
+        {
+            return const_value_is_one(const_value_sub(lhs_const, rhs_const));
+        }
+        else if (const_value_is_signed(lhs_const))
+        {
+            return const_value_is_minus_one(const_value_sub(lhs_const, rhs_const));
+        }
+        else
+        {   // Convert to the biggest to be safe and avoid all casuistic
+            unsigned long long int lhs_uint = const_value_cast_to_unsigned_long_long_int(lhs_const);
+            unsigned long long int rhs_uint = const_value_cast_to_unsigned_long_long_int(rhs_const);
+            return (lhs_uint - rhs_uint == 1);
+        }
+    }
+
     NBase get_max(const NBase& n1, const NBase& n2)
     {
         NBase result;
@@ -70,12 +130,11 @@ namespace {
         }
         else if(n1.is_constant() && n2.is_constant())
         {
-            const_value_t* n1_c = n1.get_constant();
-            const_value_t* n2_c = n2.get_constant();
-            if(const_value_is_positive(const_value_sub(n1_c, n2_c)))
-                result = n1;
+            CmpResult cmp_res = compare_constants(n1.get_constant(), n2.get_constant());
+            if (cmp_res == Smaller)
+                return n2;
             else
-                result = n2;
+                return n1;
         }
         else
         {
@@ -120,12 +179,11 @@ namespace {
         }
         else if(n1.is_constant() && n2.is_constant())
         {
-            const_value_t* n1_c = n1.get_constant();
-            const_value_t* n2_c = n2.get_constant();
-            if(const_value_is_positive(const_value_sub(n1_c, n2_c)))
-                result = n2;
+            CmpResult cmp_res = compare_constants(n1.get_constant(), n2.get_constant());
+            if (cmp_res == Smaller || cmp_res == Equal)
+                return n1;
             else
-                result = n1;
+                return n2;
         }
         else
         {
@@ -253,7 +311,20 @@ namespace {
                 || (b2.is_constant() && const_value_is_zero(const_value_sub(b2.get_constant(), long_max))))
             b = minus_inf.shallow_copy();            // x - +inf = -inf
         else if (b1.is_constant() && b2.is_constant())
-            b = NBase(const_value_to_nodecl(const_value_sub(b1.get_constant(), b2.get_constant())));
+        {
+            if (b2.get_type().is_unsigned_integral()
+                && ((const_value_cast_to_unsigned_long_long_int(b2.get_constant()) > (unsigned)LLONG_MAX)
+                    || (const_value_cast_to_unsigned_long_long_int(b2.get_constant()) < (unsigned)LLONG_MIN)))
+            {
+                internal_error("Subtracting unsigned range boundary %d from %d. "
+                               "This is not yet implemented.\n",
+                               b2.prettyprint().c_str(), b1.prettyprint().c_str());
+            }
+            else
+            {
+                b = NBase(const_value_to_nodecl(const_value_sub(b1.get_constant(), b2.get_constant())));
+            }
+        }
         else
             b = Nodecl::Minus::make(b1, b2, Type::get_int_type());
 
@@ -293,9 +364,8 @@ namespace {
         //     Normalize it here
         if (lb.is_constant() && ub.is_constant())
         {
-            const_value_t* lb_c = lb.get_constant();
-            const_value_t* ub_c = ub.get_constant();
-            if (const_value_is_positive(const_value_sub(lb_c, ub_c)))
+            CmpResult cmp_res = compare_constants(lb.get_constant(), ub.get_constant());
+            if (cmp_res == Bigger)
             {
                 const NBase& tmp = ub.shallow_copy();
                 ub = lb.shallow_copy();
@@ -835,8 +905,8 @@ namespace {
         NBase lb = get_max(lb_n, lb_m);
         NBase ub = get_min(ub_n, ub_m);
 
-        if (lb.is_constant() && ub.is_constant() && 
-            const_value_is_positive(const_value_sub(lb.get_constant(), ub.get_constant())))
+        if (lb.is_constant() && ub.is_constant()
+            && (compare_constants(lb.get_constant(), ub.get_constant()) == Bigger))
         {   // Check whether the range is consistent
             result = Nodecl::Analysis::EmptyRange::make();
         }
@@ -874,38 +944,41 @@ namespace {
             // Try to operate with constant values
             const_value_t *n_lb_c=NULL, *n_ub_c=NULL, *m_lb_c=NULL, *m_ub_c=NULL;
             if (n_lb.is<Nodecl::Analysis::MinusInfinity>())
-                n_lb_c = const_value_get_integer(INT_MIN, /*num_bytes*/4, /*sign*/1);
+                n_lb_c = const_value_get_integer(LLONG_MIN, /*num_bytes*/4, /*sign*/1);
             else if (n_lb.is_constant())
                 n_lb_c = n_lb.get_constant();
 
             if (m_lb.is<Nodecl::Analysis::MinusInfinity>())
-                m_lb_c = const_value_get_integer(INT_MIN, /*num_bytes*/4, /*sign*/1);
+                m_lb_c = const_value_get_integer(LLONG_MIN, /*num_bytes*/4, /*sign*/1);
             else if (m_lb.is_constant())
                 m_lb_c = m_lb.get_constant();
 
             if (n_ub.is<Nodecl::Analysis::PlusInfinity>())
-                n_ub_c = const_value_get_integer(INT_MAX, /*num_bytes*/4, /*sign*/1);
+                n_ub_c = const_value_get_integer(LLONG_MAX, /*num_bytes*/4, /*sign*/1);
             else if (n_ub.is_constant())
                 n_ub_c = n_ub.get_constant();
 
             if (m_ub.is<Nodecl::Analysis::PlusInfinity>())
-                m_ub_c = const_value_get_integer(INT_MAX, /*num_bytes*/4, /*sign*/1);
+                m_ub_c = const_value_get_integer(LLONG_MAX, /*num_bytes*/4, /*sign*/1);
             else if (m_ub.is_constant())
                 m_ub_c = m_ub.get_constant();
 
             NBase zero_nodecl(const_value_to_nodecl(zero));
             if ((n_lb_c!=NULL) && (n_ub_c!=NULL) && (m_lb_c!=NULL) && (m_ub_c!=NULL))
             {
-                if (const_value_is_positive(const_value_sub(n_lb_c, m_ub_c))
-                    || const_value_is_positive(const_value_sub(m_lb_c, n_ub_c)))
+                CmpResult cmp_limits_1 = compare_constants(n_lb_c, m_ub_c);
+                CmpResult cmp_limits_2 = compare_constants(m_lb_c, n_ub_c);
+                CmpResult cmp_lb = compare_constants(n_lb_c, m_lb_c);
+                CmpResult cmp_ub = compare_constants(n_ub_c, m_ub_c);
+                if (cmp_limits_1 == Bigger || cmp_limits_2 == Bigger)
                 {   // n and m do not overlap
                     if (t.is_integral_type())
                     {   // If the boundaries are contiguous, we can still merge the ranges
-                        if (const_value_is_one(const_value_sub(n_lb_c, m_ub_c)))
+                        if (difference_is_one(n_lb_c, m_ub_c))
                         {
                             result = Nodecl::Range::make(m_lb.shallow_copy(), n_ub.shallow_copy(), zero_nodecl, t);
                         }
-                        else if (const_value_is_one(const_value_sub(m_lb_c, n_ub_c)))
+                        else if (difference_is_one(m_lb_c, n_ub_c))
                         {
                             result = Nodecl::Range::make(n_lb.shallow_copy(), m_ub.shallow_copy(), zero_nodecl, t);
                         }
@@ -919,17 +992,16 @@ namespace {
                         result = Nodecl::Analysis::RangeUnion::make( n.shallow_copy(), m.shallow_copy(), t );
                     }
                 }
-                else if (const_value_is_zero(const_value_sub(n_lb_c, m_lb_c))
-                    && const_value_is_zero(const_value_sub(n_ub_c, m_ub_c)))
+                else if (cmp_lb == Equal && cmp_ub == Equal)
                 {   // n and m are the same range
                     result = n.shallow_copy();
                 }
                 else
                 {   // n and m overlap in some way
-                    NBase lb = const_value_is_positive(const_value_sub(n_lb_c, m_lb_c)) ? m_lb.shallow_copy()
-                                                                                        : n_lb.shallow_copy();
-                    NBase ub = const_value_is_positive(const_value_sub(n_ub_c, m_ub_c)) ? n_ub.shallow_copy()
-                                                                                        : m_ub.shallow_copy();
+                    NBase lb = (cmp_lb == Bigger) ? m_lb.shallow_copy()
+                                                  : n_lb.shallow_copy();
+                    NBase ub = (cmp_ub == Bigger) ? n_ub.shallow_copy()
+                                                    : m_ub.shallow_copy();
                     result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
                 }
             }
@@ -937,17 +1009,17 @@ namespace {
             {
                 // Try some more simplification: [n_lb:n_ub] U [m_lb:m_ub]
                 if (m_lb.is_constant() && n_ub.is_constant()
-                        && const_value_is_one(const_value_sub(m_lb.get_constant(), n_ub.get_constant())))
+                        && difference_is_one(m_lb.get_constant(), n_ub.get_constant()))
                 {   // m_lb == n_ub+1
                     result = Nodecl::Range::make(n_lb, m_ub, zero_nodecl, t);
                 }
                 else if (m_ub.is_constant() && n_lb.is_constant()
-                        && const_value_is_one(const_value_sub(n_lb.get_constant(), m_ub.get_constant())))
+                        && difference_is_one(n_lb.get_constant(), m_ub.get_constant()))
                 {   // m_ub == n_lb-1
                     result = Nodecl::Range::make(m_lb, n_ub, zero_nodecl, t);
                 }
                 else if (n_lb.is_constant() && m_lb.is_constant()
-                        && const_value_is_one(const_value_sub(n_lb.get_constant(), m_lb.get_constant())))
+                        && difference_is_one(n_lb.get_constant(), m_lb.get_constant()))
                 {   // n_lb = m_lb+1
                     if (Nodecl::Utils::structurally_equal_nodecls(n_ub, m_ub, /*skip_conversions*/true))
                         result = m.shallow_copy();
@@ -955,7 +1027,7 @@ namespace {
                         result = Nodecl::Range::make(m_lb.shallow_copy(), get_max(n_ub, m_ub), zero_nodecl, t);
                 }
                 else if (n_lb.is_constant() && m_lb.is_constant()
-                    && const_value_is_one(const_value_sub(m_lb.get_constant(), n_lb.get_constant())))
+                    && difference_is_one(m_lb.get_constant(), n_lb.get_constant()))
                 {   // m_lb = n_lb+1
                     if (Nodecl::Utils::structurally_equal_nodecls(n_ub, m_ub, /*skip_conversions*/true))
                         result = n.shallow_copy();
@@ -1045,7 +1117,6 @@ namespace {
         else if (nodecl_is_Z_range(m))
             result = m.shallow_copy();
         // Try simple case when the lb_n == ub_m+1 or vice-versa
-        TL::Type t = Type::get_int_type();
         if (n.is<Nodecl::Range>() && m.is<Nodecl::Analysis::RangeUnion>())
             result = range_and_rangeunion_union(n.as<Nodecl::Range>(), m.as<Nodecl::Analysis::RangeUnion>());
         else if (n.is<Nodecl::Analysis::RangeUnion>() && m.is<Nodecl::Range>())
