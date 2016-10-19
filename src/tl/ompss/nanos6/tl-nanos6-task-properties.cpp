@@ -2585,6 +2585,12 @@ namespace TL { namespace Nanos6 {
                 symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
                 ind_vars.append(sym);
                 ranges.append(it->as<Nodecl::Range>());
+
+                if (IS_CXX_LANGUAGE)
+                {
+                    register_statements.append(
+                            Nodecl::CxxDef::make(/*context*/ nodecl_null(), sym));
+                }
             }
         }
 
@@ -3286,7 +3292,13 @@ namespace TL { namespace Nanos6 {
             virtual void visit(const Nodecl::Symbol& node)
             {
                 TL::Symbol sym = node.get_symbol();
+
+                // Ignoring local symbols
                 if (local.contains(sym))
+                    return;
+
+                // Ignoring symbols that are not variables
+                if (!sym.is_variable())
                     return;
 
                 ERROR_CONDITION(field_map.find(sym) == field_map.end(),
