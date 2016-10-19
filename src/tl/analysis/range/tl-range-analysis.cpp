@@ -1573,7 +1573,6 @@ namespace {
 
         // 2.- Build the Constraint Graph (CG) from the computed constraints
         build_constraint_graph();
-        _cg->print_graph();
 
         // 3.- Extract the Strongly Connected Components (SCC) of the graph
         //     And get the root of each topologically ordered subgraph
@@ -1581,8 +1580,7 @@ namespace {
 
         // 4.- Constraints evaluation
         _cg->solve_constraints(roots);
-        if(VERBOSE)
-            _cg->print_graph();
+        _cg->print_graph();
 
         // 5.- Insert computed ranges in the PCFG
         set_ranges_to_pcfg(pcfg_constraints);
