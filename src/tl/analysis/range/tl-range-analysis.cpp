@@ -1817,12 +1817,13 @@ namespace {
         {
             Node* n = worklist.front();
             worklist.pop();
+
             if (treated.find(n) != treated.end())
             {
                 if (!n->is_exit_node())
                 {
                     // Insert in the worklist the remaining nodes
-                    // exit node of the treated node, which is a condition of a loop)
+                    // exit node of the treated node, which is the condition of a loop
                     if (!next_worklist.empty())
                     {
                         worklist.push(next_worklist.front());
@@ -1870,10 +1871,10 @@ namespace {
                 Node* graph_exit = n->get_graph_exit_node();
                 pcfg_constraints[n] = pcfg_constraints[graph_exit];
 
-                // Do not consider those graphs that finish only with a return statement
+                // Do not consider those graphs that finish *only* with a return/continue/break statement
                 // That may break the sequential order of execution
                 const ObjectList<Node*> exit_parents = graph_exit->get_parents();
-                if (exit_parents.size()==1 && exit_parents[0]->is_return_node())
+                if (exit_parents.size()==0)
                 {
                     treated.insert(n);
                     continue;
@@ -2130,6 +2131,7 @@ namespace {
             // Make sure we compute constraints in the proper order (sequential order of the statements)
             if (!n->is_omp_task_node()
                     && !n->is_break_node()
+                    && !n->is_continue_node()
                     && !n->is_return_node()
                     && !n->is_goto_node())
             {

@@ -86,14 +86,13 @@ namespace Analysis {
     {
         ObjectList<CGNode*> parents;
         for (ObjectList<CGEdge*>::iterator it = _entries.begin(); it != _entries.end(); ++it)
-            parents.insert((*it)->get_source());
+            parents.append((*it)->get_source());
         return parents;
     }
 
     void CGNode::add_entry(CGEdge* e)
     {
-        if (!_entries.contains(e))
-            _entries.insert(e);
+        _entries.append(e);
     }
 
     void CGNode::remove_entry(CGNode* source)
