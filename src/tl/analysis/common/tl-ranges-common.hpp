@@ -41,6 +41,8 @@ namespace Utils {
     // ******************************************************************************************* //
     // *********************************** Ranges arithmetic ************************************* //
 
+    Type get_range_type(Type t1, Type t2);
+
     bool nodecl_is_Z_range(const NBase& n);
 
     NBase range_sub(const NBase& r1, const NBase& r2);

@@ -132,7 +132,7 @@ namespace {
                 constant.shallow_copy(),
                 constant.shallow_copy(),
                 const_value_to_nodecl(zero),
-                Type::get_long_int_type());
+                constant.get_type());
         return const_range;
     }
 
@@ -1033,7 +1033,7 @@ namespace {
                                             next_lower,
                                             next_upper,
                                             const_value_to_nodecl(zero),
-                                            Type::get_long_int_type());
+                                            Utils::get_range_type(next_lower.get_type(), next_upper.get_type()));
                                 }
                                 else
                                 {   // e(Y)^ <= I[Y]^ -> [-inf , I[Y]^]
@@ -1042,7 +1042,7 @@ namespace {
                                             next_lower,
                                             old_ub,
                                             const_value_to_nodecl(zero),
-                                            Type::get_long_int_type());
+                                            Utils::get_range_type(next_lower.get_type(), old_ub.get_type()));
                                 }
                             }
                             else
@@ -1066,7 +1066,7 @@ namespace {
                                         old_lb,
                                         next_upper,
                                         const_value_to_nodecl(zero),
-                                        Type::get_long_int_type());
+                                        Utils::get_range_type(old_lb.get_type(), next_upper.get_type()));
                             }
                         }
                         else
@@ -1180,7 +1180,7 @@ namespace {
                                 c_val_lb,
                                 c_val_ub,
                                 const_value_to_nodecl(zero),
-                                Type::get_long_int_type());
+                                Utils::get_range_type(c_val_lb.get_type(), c_val_ub.get_type()));
                     }
                     else if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(c_val_ub, s))
                     {
@@ -1191,7 +1191,7 @@ namespace {
                                 c_val_lb,
                                 c_val_ub,
                                 const_value_to_nodecl(zero),
-                                Type::get_long_int_type());
+                                Utils::get_range_type(c_val_lb.get_type(), c_val_ub.get_type()));
                     }
                     else
                     {
@@ -1287,18 +1287,20 @@ namespace {
                             && const_value_is_positive(const_value_sub(new_lb.get_constant(),
                                                                     minus_inf.get_constant())))
                     {   // I[Y]_ = -inf && e(Y)_ > -inf ---> [e(Y)_, I[Y]^]
-                        narrow_valuation = Nodecl::Range::make(new_lb, old_ub,
-                                                            const_value_to_nodecl(zero),
-                                                            Type::get_long_int_type());
+                        narrow_valuation =
+                                Nodecl::Range::make(new_lb, old_ub,
+                                                    const_value_to_nodecl(zero),
+                                                    Utils::get_range_type(new_lb.get_type(), old_ub.get_type()));
                     }
                     else if (old_ub.is<Nodecl::Analysis::PlusInfinity>()
                                 && new_ub.is_constant()
                                 && const_value_is_positive(const_value_sub(plus_inf.get_constant(),
                                                                         new_ub.get_constant())))
                     {   // I[Y]^ = +inf && e(Y)^ < +inf ---> [I[Y]_, e(Y)^]
-                        narrow_valuation = Nodecl::Range::make(old_lb, new_ub,
-                                                            const_value_to_nodecl(zero),
-                                                            Type::get_long_int_type());
+                        narrow_valuation =
+                                Nodecl::Range::make(old_lb, new_ub,
+                                                    const_value_to_nodecl(zero),
+                                                    Utils::get_range_type(old_lb.get_type(), new_ub.get_type()));
                     }
                     else
                     {
@@ -1309,15 +1311,17 @@ namespace {
                             const_value_t* diff = const_value_sub(old_lb_c, new_lb_c);
                             if (const_value_is_positive(diff))
                             {   // I[Y]_ > e(Y)_ ---> [e(Y)_, I[Y]^]
-                                narrow_valuation = Nodecl::Range::make(new_lb, old_ub,
-                                                                    const_value_to_nodecl(zero),
-                                                                    Type::get_long_int_type());
+                                narrow_valuation =
+                                    Nodecl::Range::make(new_lb, old_ub,
+                                                        const_value_to_nodecl(zero),
+                                                        Utils::get_range_type(new_lb.get_type(), old_ub.get_type()));
                             }
                             else if (const_value_is_negative(diff))
                             {   // I[Y]^ < e(Y)^ ---> [I[Y]_, e(Y)^]
-                                narrow_valuation = Nodecl::Range::make(old_lb, new_ub,
-                                                                    const_value_to_nodecl(zero),
-                                                                    Type::get_long_int_type());
+                                narrow_valuation =
+                                    Nodecl::Range::make(old_lb, new_ub,
+                                                        const_value_to_nodecl(zero),
+                                                        Utils::get_range_type(old_lb.get_type(), new_ub.get_type()));
                             }
                         }
                         else
@@ -1361,6 +1365,10 @@ namespace {
     }
 
     // Only __Sym nodes are evaluated!
+    // FIXME: The type of the valuations must be adjusted to the type of the corresponding symbol.
+    //        For example:
+    //            int a = 10;           --> [10, 10] of type int
+    //            unsigned int b = a;   --> [10, 10] of type unsigned int (currently, the type here is int)
     void ConstraintGraph::solve_constraints(const std::vector<SCC*>& root_sccs)
     {
         if (RANGES_DEBUG)

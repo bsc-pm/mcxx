@@ -221,6 +221,80 @@ namespace {
         return false;
     }
 
+    // Follow the usual arithmetic conversions:
+    // * First, if the corresponding real type of either operand is long double,
+    //   the other operand is converted, without change of type domain, to a type whose
+    //   corresponding real type is long double.
+    // * Otherwise,  if  the  corresponding  real  type  of  either  operand  is double,
+    //   the  other operand is converted, without change of type domain, to a type whose
+    //   corresponding real type is double.
+    // * Otherwise,  if  the  corresponding real type of either operand is float,
+    //   the other operand is converted, without change of type domain, to a type whose
+    //   corresponding real type is float.
+    // * Otherwise, the integer promotions are performed on both  operands.
+    //   Then  the following rules are applied to the promoted operands:
+    //   * If both operands have the same type, then no further conversion is needed.
+    //   * Otherwise, if both operands have signed integer types or both have unsigned
+    //     integer types, the operand with the type of lesser integer conversion rank is
+    //     converted to the type of the operand with greater rank.
+    //   * Otherwise, if the operand that has unsigned integer type has rank greater or
+    //     equal to the rank of the type of the other operand, then the operand with
+    //     signed integer type is converted to the type of the operand with unsigned
+    //     integer type.
+    //   * Otherwise, if the type of the operand with signed integer type can represent
+    //     all of the values of the type of the operand with unsigned integer type, then
+    //     the operand with unsigned integer type is converted to the type of the
+    //     operand with signed integer type.
+    //   * Otherwise, both operands are converted to the unsigned integer type
+    //     corresponding to the type of the operand with signed integer type.
+    Type get_range_type(Type t1, Type t2)
+    {
+        Type res_type;
+        if (t1.is_long_double() || t2.is_long_double())
+        {
+            res_type = get_long_double_type();
+        }
+        else if (t1.is_double() || t2.is_double())
+        {
+            res_type = Type::get_double_type();
+        }
+        else if (t1.is_float() || t2.is_float())
+        {
+            res_type = Type::get_float_type();
+        }
+        else if (t1.is_unsigned_long_long_int() || t2.is_unsigned_long_long_int()
+            || ((t1.is_signed_long_long_int() || t2.is_signed_long_long_int())
+                && (t1.is_unsigned_integral() || t2.is_unsigned_integral())))
+        {
+            res_type = Type::get_unsigned_long_long_int_type();
+        }
+        else if (t1.is_unsigned_long_int() || t2.is_unsigned_long_int()
+            || ((t1.is_signed_long_int() || t2.is_signed_long_int())
+                && (t1.is_unsigned_integral() || t2.is_unsigned_integral())))
+        {
+            res_type = Type::get_unsigned_long_int_type();
+        }
+        else if (t1.is_unsigned_int() || t2.is_unsigned_int())
+        {
+            res_type = Type::get_unsigned_int_type();
+        }
+        else if (t1.is_signed_long_long_int() || t2.is_signed_long_long_int())
+        {
+            res_type = Type::get_long_long_int_type();
+        }
+        else if (t1.is_signed_long_int() || t2.is_signed_long_int())
+        {
+            res_type = Type::get_long_int_type();
+        }
+        else
+        {
+            res_type = Type::get_int_type();
+            WARNING_MESSAGE("Type's arithmetic resolves to default behaviour for operands %s and %s. Using integer type.\n",
+                            t1.print_declarator().c_str(), t2.print_declarator().c_str());
+        }
+        return res_type;
+    }
+
     NBase boundary_addition(const NBase& b1, const NBase& b2)
     {
         // 1.- Check errors
@@ -244,7 +318,7 @@ namespace {
         else if (b1.is_constant() && b2.is_constant())
             b = NBase(const_value_to_nodecl(const_value_add(b1.get_constant(), b2.get_constant())));
         else
-            b = Nodecl::Add::make(b1, b2, Type::get_int_type());
+            b = Nodecl::Add::make(b1, b2, get_range_type(b1.get_type(), b2.get_type()));
 
         return b;
     }
@@ -278,7 +352,9 @@ namespace {
         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
 
         // 7.- Build the range
-        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
+        NBase result =
+                Nodecl::Range::make(lb, ub, zero_nodecl,
+                                    get_range_type(r1.get_type(), r2.get_type()));
 
         // 8.- Report result if we are in debug mode
         if (RANGES_DEBUG)
@@ -358,7 +434,7 @@ namespace {
                     minus_inf.shallow_copy(),
                     plus_inf.shallow_copy(),
                     zero_nodecl,
-                    Type::get_int_type());
+                    get_range_type(r1.get_type(), r2.get_type()));
 
         // 6.- It may happen that the range is not consistent after the subtraction.
         //     Normalize it here
@@ -374,7 +450,7 @@ namespace {
         }
 
         // 7.- Build the range
-        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
+        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, get_range_type(r1.get_type(), r2.get_type()));
 
         if (RANGES_DEBUG)
             std::cerr << "        Range Subtraction " << r1.prettyprint() << " - " << r2.prettyprint()
@@ -500,19 +576,6 @@ namespace {
         return b;
     }
 
-    /* If we deal with constant values, natural values or +-inf,
-     * apply the following rules:
-     *     [pos1, pos2] x [pos3, pos4] = [pos1 x neg3, pos2 x pos4]
-     *     [pos1, pos2] x [neg, pos3] = [pos2 x neg, pos2 x pos3]
-     *     [pos1, pos2] x [neg1, neg2] = [pos2 x neg2, pos1 x neg1]
-     *     [neg1, pos1] x [pos2, pos3]   = [neg1 x pos2, pos1 x pos3]
-     *     [neg1, pos1] x [neg2, pos2]   = [min(neg1 x pos2, pos1 x neg2), max(neg1 x neg2, pos1 x pos2)]
-     *     [neg1, pos] x [neg2, neg3]   = [pos x neg3, neg1 x neg3]
-     *     [neg1, neg2] x [pos1, pos2]   = [neg2 x pos2, neg1 x pos1]
-     *     [neg1, neg2] x [neg3, pos]   = [neg2 x pos, neg2 x neg3]
-     *     [neg1, neg2] x [neg3, neg4]   = [neg1 x neg3, neg2 x neg4]
-     * Otherwise, return [-inf, +inf]
-     */
     NBase range_multiplication(const NBase& r1, const NBase& r2)
     {
         // 1.- Check the integrity of the operands
@@ -525,56 +588,45 @@ namespace {
         NBase r2_lb = r2.as<Nodecl::Range>().get_lower();
         NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
 
-        // 3.- Base case
+        // 3.- Cases
+        NBase result;
         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
-        return Nodecl::Range::make(
-                minus_inf.shallow_copy(),
-                plus_inf.shallow_copy(),
-                zero_nodecl,
-                Type::get_int_type());
+        if (r1_lb.is_constant() && r1_ub.is_constant()
+            && r2_lb.is_constant() && r2_ub.is_constant())
+        {   // If all values are known, compute the range
+            // // [x1, x2] * [y1 , y2] = [min(x1*y1, x1*y2, x2*y1, x2*y2), max(x1*y1, x1*y2, x2*y1, x2*y2)]
+            // Get all possible combinations
+            NBase b1 = const_value_to_nodecl(const_value_mul(r1_lb.get_constant(), r2_lb.get_constant()));
+            NBase b2 = const_value_to_nodecl(const_value_mul(r1_lb.get_constant(), r2_ub.get_constant()));
+            NBase b3 = const_value_to_nodecl(const_value_mul(r1_ub.get_constant(), r2_lb.get_constant()));
+            NBase b4 = const_value_to_nodecl(const_value_mul(r1_ub.get_constant(), r2_ub.get_constant()));
+            // Compute the minimum value for the lb
+            NBase min_lb = get_min(b1, b2);
+            min_lb = get_min(min_lb, b3);
+            min_lb = get_min(min_lb, b4);
+            // Compute the maximum value for the ub
+            NBase max_ub = get_max(b1, b2);
+            max_ub = get_max(max_ub, b3);
+            max_ub = get_max(max_ub, b4);
+            result = Nodecl::Range::make(
+                    min_lb,
+                    max_ub,
+                    zero_nodecl,
+                    get_range_type(r1.get_type(), r2.get_type()));
+        }
+        else
+        {   // Otherwise, return the unknown range [-inf, +inf]
+            result = Nodecl::Range::make(
+                    minus_inf.shallow_copy(),
+                    plus_inf.shallow_copy(),
+                    zero_nodecl,
+                    get_range_type(r1.get_type(), r2.get_type()));
+        }
 
-// TODO
-//         else if (r1.get_type().is_unsigned_integral()
-//                 && r2.get_type().is_unsigned_integral())
-//         {   // Both ranges must be positive
-//             std::cerr << "========= r1=" << r1.prettyprint()
-//                 << " and r2=" << r2.prettyprint() << " are unsigned integrals" << std::endl;
-//         }
-//         else if (r1_lb.is_constant() && r1_ub.is_constant()
-//                 && r2_lb.is_constant() && r2_ub.is_constant())
-//         {   // Create a range depending on the sign of each value
-//             std::cerr << "========= r1=" << r1.prettyprint()
-//                 << " and r2=" << r2.prettyprint() << " are constants" << std::endl;
-//         }
-//         else
-//         {   // We cannot compute the range -> [-inf, +inf]
-//             std::cerr << "========= r1=" << r1.prettyprint()
-//                 << " and r2=" << r2.prettyprint() << " cannot be multiplied" << std::endl;
-//         }
-
-//         // 3.- Compute the lower bound
-//         NBase lb = boundary_multiplication(r1_lb, r2_lb);
-//
-//         // 4.- Compute the upper bound
-//         NBase ub = boundary_multiplication(r1_ub, r2_ub);
-//
-//         // 5.- Base case
-//         // The increment of a range not representing an induction variable is always 0
-//         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
-//         if (lb.is_null() || ub.is_null())
-//             return Nodecl::Range::make(
-//                     minus_inf.shallow_copy(),
-//                     plus_inf.shallow_copy(),
-//                     zero_nodecl,
-//                     Type::get_int_type());
-//         // 6.- Build the range
-//         NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
-//
-//         if (RANGES_DEBUG)
-//             std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
-//                       << " = " << result.prettyprint() << std::endl;
-//
-//         return result;
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
+        return result;
     }
 
     NBase boundary_division(const NBase& b1, const NBase& b2)
@@ -701,53 +753,131 @@ namespace {
         NBase divisor_ub = divisor.as<Nodecl::Range>().get_upper();
 
         // 3.- Cases
+        NBase result;
+        Type dividend_t = dividend.get_type();
+        Type divisor_t = divisor.get_type();
         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
         if (dividend_lb.is_constant() && dividend_ub.is_constant()
             && divisor_lb.is_constant() && divisor_ub.is_constant())
         {   // If all values are known, compute the range
-            NBase lb = NBase(const_value_to_nodecl(const_value_div(dividend_lb.get_constant(),
-                                                                   divisor_ub.get_constant())));
-            NBase ub = NBase(const_value_to_nodecl(const_value_div(dividend_ub.get_constant(),
-                                                                   divisor_lb.get_constant())));
-            return Nodecl::Range::make(
-                    lb.shallow_copy(),
-                    ub.shallow_copy(),
-                    zero_nodecl,
-                    Type::get_int_type());
+            // [x1, x2] / [y1 , y2] = [x1, x2] * (1 / [y1, y2])
+            // 1 / [y1, y2] = [1 / y2, 1 / y1] if 0 ∉ [y1, y2]
+            // 1 / [y1, 0] = [-inf, 1/y_1] and 1 / [0, y] = [1 / y2 , +inf]
+            NBase new_divisor_lb, new_divisor_ub;
+            if (const_value_is_zero(divisor_lb.get_constant()))
+            {
+                new_divisor_ub = plus_inf.shallow_copy();
+            }
+            else
+            {
+                NBase divisor_lb_typed = divisor_lb.shallow_copy();
+                if (divisor_lb_typed.get_type().is_integral_type())
+                {
+                    divisor_lb_typed = NBase(const_value_to_nodecl(const_value_cast_to_float_value(divisor_lb_typed.get_constant())));
+                }
+                new_divisor_ub = NBase(const_value_to_nodecl(const_value_div(one, divisor_lb_typed.get_constant())));
+            }
+            if (const_value_is_zero(divisor_ub.get_constant()))
+            {
+                new_divisor_lb = minus_inf.shallow_copy();
+            }
+            else
+            {
+                NBase divisor_ub_typed = divisor_ub.shallow_copy();
+                if (divisor_ub_typed.get_type().is_integral_type())
+                {
+                    divisor_ub_typed = NBase(const_value_to_nodecl(const_value_cast_to_float_value(divisor_ub_typed.get_constant())));
+                }
+                new_divisor_lb = NBase(const_value_to_nodecl(const_value_div(one, divisor_ub_typed.get_constant())));
+            }
+            NBase new_divisor = Nodecl::Range::make(new_divisor_lb, new_divisor_ub, zero_nodecl, get_range_type(dividend_t, divisor_t));
+            result = range_multiplication(dividend, new_divisor);
+            // Fix types:since we have performed arithmetic, types may have changed. Recompute here the proper types
+            std::cerr << "========== DIVISION TYPES: " << dividend_t.print_declarator() << ", " << divisor_t.print_declarator() << std::endl;
+            if (dividend_t.is_integral_type() && divisor_t.is_integral_type())
+            {
+                NBase real_lb, real_ub;
+                NBase lb = result.as<Nodecl::Range>().get_lower();
+                NBase ub = result.as<Nodecl::Range>().get_upper();
+                Type real_t;
+                if (dividend_t.is_unsigned_long_long_int() || divisor_t.is_unsigned_long_long_int())
+                {
+                    real_lb = NBase(const_value_to_nodecl(const_value_get_unsigned_long_long_int(const_value_cast_to_cvalue_uint(lb.get_constant()))));
+                    real_ub = NBase(const_value_to_nodecl(const_value_get_unsigned_long_long_int(const_value_cast_to_cvalue_uint(ub.get_constant()))));
+                    real_t = Type::get_unsigned_long_long_int_type();
+                }
+                else if (dividend_t.is_unsigned_long_int() || divisor_t.is_unsigned_long_int())
+                {
+                    real_lb = NBase(const_value_to_nodecl(const_value_get_unsigned_long_int(const_value_cast_to_cvalue_uint(lb.get_constant()))));
+                    real_ub = NBase(const_value_to_nodecl(const_value_get_unsigned_long_int(const_value_cast_to_cvalue_uint(ub.get_constant()))));
+                    real_t = Type::get_unsigned_long_int_type();
+                }
+                else if (dividend_t.is_unsigned_int() || divisor_t.is_unsigned_int())
+                {
+                    real_lb = NBase(const_value_to_nodecl(const_value_get_unsigned_int(const_value_cast_to_cvalue_uint(lb.get_constant()))));
+                    real_ub = NBase(const_value_to_nodecl(const_value_get_unsigned_int(const_value_cast_to_cvalue_uint(ub.get_constant()))));
+                    real_t = Type::get_unsigned_int_type();
+                }
+                else if (dividend_t.is_unsigned_short_int() || divisor_t.is_unsigned_short_int())
+                {
+                    real_lb = NBase(const_value_to_nodecl(const_value_get_unsigned_short_int(const_value_cast_to_cvalue_uint(lb.get_constant()))));
+                    real_ub = NBase(const_value_to_nodecl(const_value_get_unsigned_short_int(const_value_cast_to_cvalue_uint(ub.get_constant()))));
+                    real_t = Type::get_unsigned_short_int_type();
+                }
+                else if (dividend_t.is_unsigned_char() || divisor_t.is_unsigned_char())
+                {
+                    const_value_t* unsigned_char_val = dividend_t.is_unsigned_char() ? dividend.get_constant() : divisor.get_constant();
+                    real_lb = NBase(const_value_to_nodecl(const_value_cast_as_another(lb.get_constant(), unsigned_char_val)));
+                    real_ub = NBase(const_value_to_nodecl(const_value_cast_as_another(ub.get_constant(), unsigned_char_val)));
+                    real_t = Type::get_unsigned_char_type();
+                }
+                else if (dividend_t.is_signed_long_long_int() || divisor_t.is_signed_long_long_int())
+                {
+                    real_lb = NBase(const_value_to_nodecl(const_value_get_signed_long_long_int(const_value_cast_to_cvalue_int(lb.get_constant()))));
+                    real_ub = NBase(const_value_to_nodecl(const_value_get_signed_long_long_int(const_value_cast_to_cvalue_int(ub.get_constant()))));
+                    real_t = Type::get_long_long_int_type();
+                }
+                else if (dividend_t.is_signed_long_int() || divisor_t.is_signed_long_int())
+                {
+                    real_lb = NBase(const_value_to_nodecl(const_value_get_signed_long_int(const_value_cast_to_cvalue_int(lb.get_constant()))));
+                    real_ub = NBase(const_value_to_nodecl(const_value_get_signed_long_int(const_value_cast_to_cvalue_int(ub.get_constant()))));
+                    real_t = Type::get_long_int_type();
+                }
+                else if (dividend_t.is_signed_int() || divisor_t.is_signed_int())
+                {
+                    real_lb = NBase(const_value_to_nodecl(const_value_get_signed_int(const_value_cast_to_cvalue_int(lb.get_constant()))));
+                    real_ub = NBase(const_value_to_nodecl(const_value_get_signed_int(const_value_cast_to_cvalue_int(ub.get_constant()))));
+                    real_t = Type::get_int_type();
+                }
+                else if (dividend_t.is_signed_short_int() || divisor_t.is_signed_short_int())
+                {
+                    real_lb = NBase(const_value_to_nodecl(const_value_get_signed_short_int(const_value_cast_to_cvalue_int(lb.get_constant()))));
+                    real_ub = NBase(const_value_to_nodecl(const_value_get_signed_short_int(const_value_cast_to_cvalue_int(ub.get_constant()))));
+                    real_t = Type::get_short_int_type();
+                }
+                else if (dividend_t.is_signed_char() || divisor_t.is_signed_char())
+                {
+                    const_value_t* signed_char_val = dividend_t.is_unsigned_char() ? dividend.get_constant() : divisor.get_constant();
+                    real_lb = NBase(const_value_to_nodecl(const_value_cast_as_another(lb.get_constant(), signed_char_val)));
+                    real_ub = NBase(const_value_to_nodecl(const_value_cast_as_another(ub.get_constant(), signed_char_val)));
+                    real_t = Type::get_char_type();
+                }
+                result = Nodecl::Range::make(real_lb, real_ub, zero_nodecl, real_t);
+            }
         }
         else
         {   // Otherwise, return the unknown range [-inf, +inf]
-            return Nodecl::Range::make(
+            result = Nodecl::Range::make(
                     minus_inf.shallow_copy(),
                     plus_inf.shallow_copy(),
                     zero_nodecl,
-                    Type::get_int_type());
+                    get_range_type(dividend_t, divisor_t));
         }
 
-//         // 3.- Compute the lower bound
-//         NBase lb = boundary_division(r1_lb, r2_lb);
-//
-//         // 4.- Compute the upper bound
-//         NBase ub = boundary_division(r1_ub, r2_ub);
-//
-//         // 5.- Base case
-//         // The increment of a range not representing an induction variable is always 0
-//         const NBase& zero_nodecl = NBase(const_value_to_nodecl(zero));
-//         if (lb.is_null() || ub.is_null())
-//             return Nodecl::Range::make(
-//                 minus_inf.shallow_copy(),
-//                                        plus_inf.shallow_copy(),
-//                                        zero_nodecl,
-//                                        Type::get_int_type());
-//
-//         // 6.- Build the range
-//         NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, Type::get_int_type());
-//
-//         if (RANGES_DEBUG)
-//             std::cerr << "        Range Division " << r1.prettyprint() << " / " << r2.prettyprint()
-//                       << " = " << result.prettyprint() << std::endl;
-//
-//         return result;
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Division " << dividend.prettyprint() << " / " << divisor.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
+        return result;
     }
 
     // A[al, au] − B[bl, bu] =  ∅, A and B completely overlap or B contains A
