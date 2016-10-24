@@ -793,7 +793,6 @@ namespace {
             NBase new_divisor = Nodecl::Range::make(new_divisor_lb, new_divisor_ub, zero_nodecl, get_range_type(dividend_t, divisor_t));
             result = range_multiplication(dividend, new_divisor);
             // Fix types:since we have performed arithmetic, types may have changed. Recompute here the proper types
-            std::cerr << "========== DIVISION TYPES: " << dividend_t.print_declarator() << ", " << divisor_t.print_declarator() << std::endl;
             if (dividend_t.is_integral_type() && divisor_t.is_integral_type())
             {
                 NBase real_lb, real_ub;
