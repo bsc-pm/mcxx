@@ -150,7 +150,8 @@ namespace Analysis {
 
     void AnalysisBase::parallel_control_flow_graph(
             const NBase& ast,
-            std::set<std::string> functions)
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_pcfg)
             return;
@@ -198,7 +199,7 @@ namespace Analysis {
         }
 
         // Make sure all called functions whose code is reachable, have been computed
-        if (!functions.empty())
+        if (call_graph && !functions.empty())
         {
             ObjectList<ExtensibleGraph*> pcfgs = get_pcfgs();
             for (ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin();
@@ -269,13 +270,14 @@ namespace Analysis {
     void AnalysisBase::use_def(
             const NBase& ast,
             bool propagate_graph_nodes,
-            std::set<std::string> functions)
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_use_def)
             return;
 
         // Required previous analysis
-        parallel_control_flow_graph(ast, functions);
+        parallel_control_flow_graph(ast, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -302,14 +304,15 @@ namespace Analysis {
     void AnalysisBase::liveness(
             const NBase& ast,
             bool propagate_graph_nodes,
-            std::set<std::string> functions)
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_liveness)
             return;
 
         // Required previous analysis
         // FIXME Do we need to pass the \p propagate_graph_nodes parameter here too?
-        use_def(ast, propagate_graph_nodes, functions);
+        use_def(ast, propagate_graph_nodes, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -333,13 +336,14 @@ namespace Analysis {
     void AnalysisBase::reaching_definitions(
             const NBase& ast,
             bool propagate_graph_nodes,
-            std::set<std::string> functions)
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_reaching_definitions)
             return;
 
         // Required previous analysis
-        liveness(ast, propagate_graph_nodes, functions);
+        liveness(ast, propagate_graph_nodes, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -363,13 +367,14 @@ namespace Analysis {
     void AnalysisBase::induction_variables(
             const NBase& ast,
             bool propagate_graph_nodes,
-            std::set<std::string> functions)
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_induction_variables)
             return;
 
         // Required previous analysis
-        reaching_definitions(ast, propagate_graph_nodes, functions);
+        reaching_definitions(ast, propagate_graph_nodes, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -402,13 +407,14 @@ namespace Analysis {
 
     void AnalysisBase::tune_task_synchronizations(
             const NBase& ast,
-            std::set<std::string> functions)
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_tune_task_syncs)
             return;
 
         // Required previous analysis
-        reaching_definitions(ast, /*propagate_graph_nodes*/ false, functions);
+        reaching_definitions(ast, /*propagate_graph_nodes*/ false, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -432,13 +438,14 @@ namespace Analysis {
 
     void AnalysisBase::range_analysis(
             const NBase& ast,
-            std::set<std::string> functions)
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_range)
             return;
 
         // Required previous analysis
-        use_def(ast, /*propagate_graph_nodes*/ true);
+        use_def(ast, /*propagate_graph_nodes*/ true, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -461,13 +468,16 @@ namespace Analysis {
             fprintf(stderr, "ANALYSIS: RANGE_ANALYSIS computation time: %lf\n", (time_nsec() - init)*1E-9);
     }
 
-    void AnalysisBase::cyclomatic_complexity(const NBase& ast)
+    void AnalysisBase::cyclomatic_complexity(
+            const NBase& ast,
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_cyclomatic_complexity)
             return;
 
         // Required previous analysis
-        parallel_control_flow_graph(ast);
+        parallel_control_flow_graph(ast, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -492,13 +502,16 @@ namespace Analysis {
             fprintf(stderr, "ANALYSIS: CYCLOMATIC_COMPLEXITY computation time: %lf\n", (time_nsec() - init)*1E-9);
     }
     
-    void AnalysisBase::auto_scoping(const NBase& ast)
+    void AnalysisBase::auto_scoping(
+            const NBase& ast,
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_auto_scoping)
             return;
 
         // Required previous analysis
-        tune_task_synchronizations(ast);
+        tune_task_synchronizations(ast, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -522,15 +535,16 @@ namespace Analysis {
 
     ObjectList<TaskDependencyGraph*> AnalysisBase::task_dependency_graph(
             const NBase& ast,
-            std::set<std::string> functions)
+            std::set<std::string> functions,
+            bool call_graph)
     {
         if (_tdg)
             return get_tdgs();
 
         // Required previous analyses
-        induction_variables(ast, /*propagate_graph_nodes*/ false, functions);
-        range_analysis(ast, functions);
-        tune_task_synchronizations(ast, functions);
+        induction_variables(ast, /*propagate_graph_nodes*/ false, functions, call_graph);
+        range_analysis(ast, functions, call_graph);
+        tune_task_synchronizations(ast, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)

@@ -161,7 +161,8 @@ namespace Analysis {
          */
         void parallel_control_flow_graph(
                 const NBase& ast,
-                std::set<std::string> functions = std::set<std::string>());
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
@@ -175,17 +176,20 @@ namespace Analysis {
         void use_def(
                 const NBase& ast,
                 bool propagate_graph_nodes,
-                std::set<std::string> functions = std::set<std::string>());
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
         void liveness(
                 const NBase& ast,
                 bool propagate_graph_nodes,
-                std::set<std::string> functions = std::set<std::string>());
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
         void reaching_definitions(
                 const NBase& ast,
                 bool propagate_graph_nodes,
-                std::set<std::string> functions = std::set<std::string>());
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
         /*!This analysis computes the induction variables in \ast
          * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
@@ -194,23 +198,33 @@ namespace Analysis {
         void induction_variables(
                 const NBase& ast,
                 bool propagate_graph_nodes,
-                std::set<std::string> functions = std::set<std::string>());
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
         void tune_task_synchronizations(
                 const NBase& ast,
-                std::set<std::string> functions = std::set<std::string>());
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
         void range_analysis(
                 const NBase& ast,
-                std::set<std::string> functions = std::set<std::string>());
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
-        void cyclomatic_complexity(const NBase& ast);
+        void cyclomatic_complexity(
+                const NBase& ast,
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
         
-        void auto_scoping(const NBase& ast);
+        void auto_scoping(
+                const NBase& ast,
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
         ObjectList<TaskDependencyGraph*> task_dependency_graph(
                 const NBase& ast,
-                std::set<std::string> functions);
+                std::set<std::string> functions = std::set<std::string>(),
+                bool call_graph = true);
 
         void all_analyses(const NBase& ast, bool propagate_graph_nodes);
 

@@ -289,8 +289,11 @@ namespace {
         else
         {
             res_type = Type::get_int_type();
-            WARNING_MESSAGE("Type's arithmetic resolves to default behaviour for operands %s and %s. Using integer type.\n",
-                            t1.print_declarator().c_str(), t2.print_declarator().c_str());
+            if (RANGES_DEBUG)
+            {
+                WARNING_MESSAGE("Type's arithmetic resolves to default behaviour for operands %s and %s. Using integer type.\n",
+                                t1.print_declarator().c_str(), t2.print_declarator().c_str());
+            }
         }
         return res_type;
     }

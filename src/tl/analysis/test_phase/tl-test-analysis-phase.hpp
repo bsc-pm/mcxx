@@ -82,6 +82,10 @@ namespace Analysis {
         std::string _function_str;
         void set_functions(const std::string& function_str);
 
+        std::string _call_graph_str;
+        bool _call_graph_enabled;
+        void set_call_graph(const std::string& call_graph_str);
+
     public:
         //! Constructor of this phase
         TestAnalysisPhase();
