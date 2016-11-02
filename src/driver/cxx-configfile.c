@@ -404,7 +404,6 @@ struct target_options_t available_target_options[] =
     // Embedder
     { "no_embed",  disable_embed, "Disables embedding secondary object outputs into the main object output" },
     { "embed:bfd", embed_bfd,     "Enables embedding secondary objects outputs into the main object output using BFD tools" },
-    { "embed",     embed_bfd,     "A synonym for \"embed:bfd\"" },
     { NULL, NULL, NULL }
 };
 
