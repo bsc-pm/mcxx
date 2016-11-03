@@ -51,7 +51,7 @@ latest version of the compiler. Unpack the file and enter in the directory
 And that's all!
 
 
-6. The _plain_ compiler (which actually does nothing) is called `plaincc` for
+The _plain_ compiler (which actually does nothing) is called `plaincc` for
 C and `plaincxx` for C++. Some other [profiles](https://pm.bsc.es/ompss-docs/user-guide/compile-programs.html) may
 be installed depending on the [configure flags](https://pm.bsc.es/ompss-docs/user-guide/installation.html#mercurium-configure-flags)
 
