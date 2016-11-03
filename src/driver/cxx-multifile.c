@@ -534,6 +534,37 @@ void multifile_embed_bfd_single(void** data, compilation_file_process_t* seconda
     }
 }
 
+
+void multifile_embed_partial_linking_single(void** data, compilation_file_process_t* secondary_compilation_file, const char* output_filename)
+{
+    // We move the primary object file to a temporary file
+    temporal_file_t new_obj_file = new_temporal_file_extension(".o");
+    const char* tmp_output_filename = new_obj_file->name;
+    if (move_file(output_filename, tmp_output_filename) != 0)
+    {
+        fatal_error("When partial linking, file '%s' could not be moved to '%s'\n",
+                output_filename,
+                tmp_output_filename);
+    }
+
+    // Once the primary object file has been moved, we can link the new
+    // temporal object file with a secondary object file using the relocation flag
+    const char* linker_args[] = {
+        "-r",
+        tmp_output_filename,
+        secondary_compilation_file->translation_unit->output_filename,
+        "-o",
+        output_filename,
+        NULL
+    };
+
+    if (execute_program(CURRENT_CONFIGURATION->target_ld, linker_args) != 0)
+    {
+        fatal_error("When partial linking with '%s', relocation failed\n",
+                CURRENT_CONFIGURATION->target_ld);
+    }
+}
+
 void multifile_embed_bfd_collective(void **data, const char* output_filename)
 {
     ERROR_CONDITION((*data == NULL), "This cannot be NULL", 0);

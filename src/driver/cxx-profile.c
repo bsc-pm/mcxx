@@ -50,6 +50,7 @@ compilation_configuration_t* new_compilation_configuration(
     // Default target tools
     result->target_objcopy = TARGET_OBJCOPY;
     result->target_objdump = TARGET_OBJDUMP;
+    result->target_ld = TARGET_LD;
     result->target_ar = TARGET_AR;
 
     // Fortran default column widths

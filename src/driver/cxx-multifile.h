@@ -64,6 +64,9 @@ void multifile_get_profile_file_list(
 void multifile_embed_bfd_single(void** data, compilation_file_process_t* secondary_compilation_file);
 void multifile_embed_bfd_collective(void **data, const char* output_filename);
 
+void multifile_embed_partial_linking_single(
+        void** data, compilation_file_process_t* secondary_compilation_file, const char* output_filename);
+
 MCXX_END_DECLS
 
 #endif // CXX_MULTIFILE_H
