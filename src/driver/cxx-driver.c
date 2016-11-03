@@ -4423,7 +4423,8 @@ static void embed_files(void)
         compilation_file_process_t** secondary_translation_units = 
             compilation_process.translation_units[i]->secondary_translation_units;
 
-        const char* extension = get_extension_filename(compilation_process.translation_units[i]->translation_unit->input_filename);
+        translation_unit_t* translation_unit = compilation_process.translation_units[i]->translation_unit;
+        const char* extension = get_extension_filename(translation_unit->input_filename);
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
         // We do not have to embed linker data
@@ -4433,7 +4434,7 @@ static void embed_files(void)
         {
             continue;
         }
-        const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
+        const char *output_filename = translation_unit->output_filename;
 
         if (CURRENT_CONFIGURATION->verbose)
         {
@@ -4512,6 +4513,12 @@ static void embed_files(void)
                         multifile_embed_bfd_single(embed_data, secondary_compilation_file);
                         break;
                     }
+                case EMBEDDING_MODE_PARTIAL_LINKING:
+                    {
+                        multifile_embed_partial_linking_single(
+                                embed_data, secondary_compilation_file, output_filename);
+                        break;
+                    }
                 default:
                     internal_error("Unknown embedding mode", 0);
             }
@@ -4526,6 +4533,12 @@ static void embed_files(void)
                 case EMBEDDING_MODE_BFD:
                     {
                         multifile_embed_bfd_collective(&(embed_mode_data[j]), output_filename);
+                        break;
+                    }
+                case EMBEDDING_MODE_PARTIAL_LINKING:
+                    {
+                        // We don't need to do anything, secondary translation units
+                        // are already embedded in the output linker object
                         break;
                     }
                 default:
