@@ -3039,8 +3039,7 @@ else
 	@exit 1
 endif
 
-.PHONY: src/driver/cxx-target-tools.h
-src/driver/cxx-target-tools.h :
+src/driver/cxx-target-tools.h : Makefile
 	$(AM_V_GEN)( \
 		OUT_FILE=src/driver/cxx-target-tools.h; \
 		echo "#ifndef CXX_TARGET_TOOLS_H" > $${OUT_FILE} ; \
