@@ -1273,6 +1273,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     }
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepDecltype& node)
+{
+    (*file) <<
+        print_type_str(
+                node.get_type().get_internal_type(),
+                node.retrieve_context().get_decl_context(),
+                (void*) this);
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxInitializer& node)
 {
     walk(node.get_init());

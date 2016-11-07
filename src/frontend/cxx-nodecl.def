@@ -358,6 +358,7 @@ cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependen
 cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
                    | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt, [literal_conversion] any-opt) symbol-opt type-opt
+                   | NODECL_CXX_DEP_DECLTYPE() type
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 

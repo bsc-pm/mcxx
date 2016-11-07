@@ -295,6 +295,10 @@ static inline int ast_node_size(void);
 #define STR_OPERATOR_CALL "operator ()"
 #define STR_OPERATOR_SUBSCRIPT "operator []"
 
+// prefix of all literal operators. Note that the last character is a blank
+// because we always concatenate it with another const char *
+#define STR_LITERAL_OPERATOR "operator \"\" "
+
 MCXX_END_DECLS
 
 // Inline functions go here

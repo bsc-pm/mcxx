@@ -9590,6 +9590,7 @@ typedef struct opt_value_map_tag
   OPT_VALUE(advance) \
   OPT_VALUE(asynchronous) \
   OPT_VALUE(blank) \
+  OPT_VALUE(buffered) \
   OPT_VALUE(convert) \
   OPT_VALUE(decimal) \
   OPT_VALUE(delim) \
@@ -9838,6 +9839,14 @@ static void opt_blank_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, const
     nodecl_t nodecl_value = nodecl_null();
     opt_common_character_expr(value, decl_context, "BLANK", &nodecl_value);
     *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "BLANK", ast_get_locus(opt_value));
+}
+
+static void opt_buffered_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+{
+    AST value = ASTSon0(opt_value);
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "BUFFERED", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "BUFFERED", ast_get_locus(opt_value));
 }
 
 static void opt_decimal_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, const decl_context_t* decl_context, nodecl_t* nodecl_output)

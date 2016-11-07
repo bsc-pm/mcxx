@@ -1248,7 +1248,7 @@ type {
 "public"        { parse_token_text(); update_location(); return PUBLIC; } 
 "throw"         { parse_token_text(); update_location(); return THROW; } 
 "operator"      { parse_token_text(); update_location(); return OPERATOR; } 
-"operator[ \t\n]+\"\""  { parse_token_text(); update_location(); return OPERATOR_LITERAL; } 
+"operator"[ \t\n]*"\"\""  { parse_token_text(); update_location(); return OPERATOR_LITERAL; }
 "new"           { parse_token_text(); update_location(); return TOKEN_NEW; } 
 "new"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); update_location(); return TOKEN_NEW_ARRAY; }
 "delete"        { parse_token_text(); update_location(); return TOKEN_DELETE; }
@@ -1709,6 +1709,9 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 }
 
 }
+
+
+
 
  /*!endif*/
 

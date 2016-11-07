@@ -122,7 +122,7 @@ namespace TL { namespace Nanos6 {
                         TL::Type::get_void_type(),
                         node.get_locus())));
 
-        critical_tree.append(node.get_statements().shallow_copy());
+        critical_tree.append(node.get_statements());
 
         critical_tree.append(
                 Nodecl::ExpressionStatement::make(

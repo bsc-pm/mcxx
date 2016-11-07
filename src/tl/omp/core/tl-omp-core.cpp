@@ -1838,9 +1838,6 @@ namespace TL { namespace OpenMP {
         (this->*common_loop_handler)(construct, loop, data_environment, extra_symbols);
         common_workshare_handler(construct, data_environment, extra_symbols);
 
-        // Maybe in a future this construct has support to dependences
-        get_dependences_info(construct.get_pragma_line(), data_environment,
-                /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
         get_data_extra_symbols(data_environment, extra_symbols);
     }
 
@@ -1870,9 +1867,7 @@ namespace TL { namespace OpenMP {
         ObjectList<Symbol> extra_symbols;
         common_for_handler(construct, stmt, data_environment, extra_symbols);
         common_workshare_handler(construct, data_environment, extra_symbols);
-        // Maybe in a future this construct has support to dependences
-        get_dependences_info(construct.get_pragma_line(), data_environment,
-                /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
+
         get_data_extra_symbols(data_environment, extra_symbols);
     }
 
@@ -1902,10 +1897,6 @@ namespace TL { namespace OpenMP {
             ObjectList<Symbol> extra_symbols;
             common_for_handler(construct, stmt, data_environment, extra_symbols);
             common_parallel_handler(construct, data_environment, extra_symbols);
-
-            // Maybe in a future this construct has support to dependences
-            get_dependences_info(construct.get_pragma_line(), data_environment,
-                    /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
         }
     }
 
@@ -1937,11 +1928,13 @@ namespace TL { namespace OpenMP {
                 there_is_default_clause,
                 /*allow_default_auto*/ true);
 
-        get_dependences_info(pragma_line, /* parsing_context */ loop,
-                data_environment, default_data_attr, extra_symbols);
+        handle_task_dependences(
+                pragma_line, /* parsing_context */ loop, default_data_attr,
+                data_environment, extra_symbols);
 
-        get_dependences_info_from_reductions(pragma_line, data_environment,
-                default_data_attr, extra_symbols);
+        handle_implicit_dependences_of_task_reductions(
+                pragma_line, default_data_attr,
+                data_environment, extra_symbols);
 
         get_data_implicit_attributes_task(construct, data_environment,
                 default_data_attr, there_is_default_clause);
@@ -2096,14 +2089,14 @@ namespace TL { namespace OpenMP {
         _openmp_info->push_current_data_environment(data_environment);
 
         ObjectList<Symbol> extra_symbols;
-        get_dependences_ompss_info_clause(
-                construct.get_pragma_line().get_clause("on"),
+
+        handle_taskwait_dependences(
+                construct.get_pragma_line(),
                 construct,
-                data_environment,
-                DEP_DIR_INOUT,
                 /* default data sharing */ DS_UNDEFINED,
-                "on",
+                data_environment,
                 extra_symbols);
+
         get_data_extra_symbols(data_environment, extra_symbols);
     }
 

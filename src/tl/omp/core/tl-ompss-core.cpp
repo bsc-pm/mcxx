@@ -542,6 +542,12 @@ namespace TL { namespace OpenMP {
                     _target_context.top(),
                     parsing_scope,
                     /* is_pragma_task */ true);
+
+            ompss_handle_implements_clause(
+                    _target_context.top(),
+                    function_sym,
+                    construct.get_locus());
+
         }
         ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
 
@@ -778,11 +784,13 @@ namespace TL { namespace OpenMP {
                 there_is_default_clause,
                 /*allow_default_auto*/ true);
 
-        get_dependences_info(pragma_line, data_environment, default_data_attr,
-                extra_symbols);
+        handle_task_dependences(
+                pragma_line, /* parsing_scope */ pragma_line,
+                default_data_attr, data_environment, extra_symbols);
 
-        get_dependences_info_from_reductions(pragma_line, data_environment,
-                default_data_attr, extra_symbols);
+        handle_implicit_dependences_of_task_reductions(
+                pragma_line, default_data_attr,
+                data_environment, extra_symbols);
 
         if (_target_context.empty())
         {

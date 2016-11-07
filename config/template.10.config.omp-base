@@ -140,7 +140,7 @@ linker_options = -Xlinker --enable-new-dtags
 {@NANOS6_GATE@,openmp} pragma_prefix = oss
 {@NANOS6_GATE@,openmp}preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6_rt_interface.h
 {@NANOS6_GATE@} linker_options = -L@NANOS6_LIB@
-{@NANOS6_GATE@,openmp}linker_options = -lnanos6
+{@NANOS6_GATE@,openmp}linker_options = @NANOS6_LIB@/libnanos6-main-wrapper.a -lnanos6 -ldl
 {@NANOS6_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
 # dlb

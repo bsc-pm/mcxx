@@ -59,6 +59,8 @@ namespace TL { namespace Nanos6 {
             virtual void visit(const Nodecl::OpenMP::BarrierFull &n);
             virtual void visit(const Nodecl::OmpSs::WaitOnDependences &n);
             virtual void visit(const Nodecl::OpenMP::FlushMemory &n);
+            virtual void visit(const Nodecl::OmpSs::Register &n);
+            virtual void visit(const Nodecl::OmpSs::Unregister &n);
 
         private:
             void visit_task_call(const Nodecl::OmpSs::TaskCall& construct);

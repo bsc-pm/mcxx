@@ -32,6 +32,14 @@ test_generator=config/mercurium-run
 </testinfo>
 */
 
+#if __GNUC__ >= 6
+
+int main()
+{
+}
+
+#else
+
 #include<assert.h>
 
 class C
@@ -60,3 +68,5 @@ int main()
     f<int>(2, c);
     assert(c.get_x() != 3);
 }
+
+#endif

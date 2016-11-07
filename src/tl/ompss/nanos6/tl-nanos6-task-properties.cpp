@@ -2430,13 +2430,17 @@ namespace TL { namespace Nanos6 {
         }
         else
         {
+            TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.multireferences();
+
             Nodecl::Utils::SimpleSymbolMap symbol_map;
             TL::ObjectList<TL::Symbol> current_locals;
             TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-multideps");
-            for (auto mr : data_ref.multireferences())
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it = multireferences.begin();
+                    it != multireferences.end();
+                    it++)
             {
                 std::stringstream ss;
-                ss << mr.first.get_name() << "_tmp_" << (int)ctr;
+                ss << it->first.get_name() << "_tmp_" << (int)ctr;
                 ctr++;
                 std::string ind_var_name = ss.str();
 
@@ -2447,7 +2451,7 @@ namespace TL { namespace Nanos6 {
                 symbol_entity_specs_set_is_user_declared(local_sym.get_internal_symbol(),
                         1);
 
-                symbol_map.add_map(mr.first, local_sym);
+                symbol_map.add_map(it->first, local_sym);
                 current_locals.append(local_sym);
 
                 CXX_LANGUAGE()
@@ -2459,11 +2463,13 @@ namespace TL { namespace Nanos6 {
             }
 
             Source src;
-            for (auto mr : data_ref.multireferences())
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it = multireferences.begin();
+                    it != multireferences.end();
+                    it++)
             {
                 ERROR_CONDITION(
-                    !mr.second.is<Nodecl::Range>(), "Invalid Node", 0);
-                Nodecl::Range range = mr.second.as<Nodecl::Range>();
+                    !it->second.is<Nodecl::Range>(), "Invalid Node", 0);
+                Nodecl::Range range = it->second.as<Nodecl::Range>();
                 // expression :
                 // NODECL_MULTI_EXPRESSION([range]multi-expr-range-expression,
                 // [base]expression) symbol type const-value-opt
@@ -2476,7 +2482,7 @@ namespace TL { namespace Nanos6 {
                             range.get_stride(), current_locals));
 
                 TL::Source ind_var;
-                ind_var << as_symbol(symbol_map.map(mr.first));
+                ind_var << as_symbol(symbol_map.map(it->first));
                 src << "for (" << ind_var << " = " << lower << "; "
                     << ind_var << " <= " << upper << "; " << ind_var
                     << " += " << stride << ") {";
@@ -2484,7 +2490,9 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase body_of_loop;
             src << statement_placeholder(body_of_loop);
 
-            for (auto mr : data_ref.multireferences())
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it = multireferences.begin();
+                    it != multireferences.end();
+                    it++)
             {
                 src << "}";
             }
