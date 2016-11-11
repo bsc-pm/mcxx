@@ -1021,7 +1021,6 @@ namespace TL { namespace Nanos6 {
                 run_type);
         init_run.set_text("C");
 
-        Nodecl::NodeclBase field_run_final = get_field("run_final");
         Nodecl::NodeclBase init_run_final;
 
         if (IS_FORTRAN_LANGUAGE)
@@ -1130,10 +1129,6 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<Nodecl::NodeclBase> field_init;
         field_init.append(Nodecl::FieldDesignator::make(
             field_run, init_run, field_run.get_type()));
-        field_init.append(
-            Nodecl::FieldDesignator::make(field_run_final,
-                                          init_run_final,
-                                          field_run_final.get_type()));
         field_init.append(
             Nodecl::FieldDesignator::make(field_register_depinfo,
                                           init_register_depinfo,
