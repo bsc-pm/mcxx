@@ -1175,10 +1175,17 @@ namespace Nodecl
 
         ERROR_CONDITION(node.is_null(), "CompoundStatement is null", 0);
 
-        Nodecl::List stmts_list =
-            node.get_statements().as<List>();
+        Nodecl::NodeclBase statements = node.get_statements();
+        ERROR_CONDITION(!statements.is_null() && !statements.is<List>(), "Unexpected node", 0);
+
+        Nodecl::List stmts_list;
+        if (statements.is<List>())
+            stmts_list = statements.as<List>();
 
         stmts_list.prepend(items);
+
+        if (statements.is_null())
+            node.set_statements(stmts_list);
     }
 
     void Nodecl::Utils::append_items_in_nested_compound_statement(
@@ -1191,10 +1198,17 @@ namespace Nodecl
 
         ERROR_CONDITION(node.is_null(), "CompoundStatement is null", 0);
 
-        Nodecl::List stmts_list =
-            node.get_statements().as<List>();
+        Nodecl::NodeclBase statements = node.get_statements();
+        ERROR_CONDITION(!statements.is_null() && !statements.is<List>(), "Unexpected node", 0);
+
+        Nodecl::List stmts_list;
+        if (statements.is<List>())
+            stmts_list = statements.as<List>();
 
         stmts_list.append(items);
+
+        if (statements.is_null())
+            node.set_statements(stmts_list);
     }
 
     void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)

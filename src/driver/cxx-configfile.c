@@ -384,6 +384,14 @@ static void embed_bfd(
     options->embedding_mode = EMBEDDING_MODE_BFD;
 }
 
+static void embed_partial_linking(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_embedding = 1;
+    options->embedding_mode = EMBEDDING_MODE_PARTIAL_LINKING;
+}
+
 struct target_options_t
 {
     const char* target_opt_name;
@@ -404,7 +412,8 @@ struct target_options_t available_target_options[] =
     // Embedder
     { "no_embed",  disable_embed, "Disables embedding secondary object outputs into the main object output" },
     { "embed:bfd", embed_bfd,     "Enables embedding secondary objects outputs into the main object output using BFD tools" },
-    { "embed",     embed_bfd,     "A synonym for \"embed:bfd\"" },
+    { "embed:partial_linking", embed_partial_linking, "Enables embedding secondary objects outputs into the main object output using partial linking."
+                                                      "Note that this only works for objects of the same architecture"},
     { NULL, NULL, NULL }
 };
 

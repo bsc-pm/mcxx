@@ -64,33 +64,33 @@ language = C
 {mmic} compiler_options = -mmic -O0
 codegen_phase = libcodegen-cxx.so
 # gfortran
-target_options[smpfc] = no_sublink embed
-target_options[mfc] = no_sublink embed
-target_options[mf95] = no_sublink embed
+target_options[smpfc] = no_sublink embed:partial_linking
+target_options[mfc] = no_sublink embed:partial_linking
+target_options[mf95] = no_sublink embed:partial_linking
 # ifort
-target_options[imfc] = no_sublink embed
-target_options[ismpfc] = no_sublink embed
-target_options[imf95] = no_sublink embed
-target_options[ifort-mfc] = no_sublink embed
+target_options[imfc] = no_sublink embed:partial_linking
+target_options[ismpfc] = no_sublink embed:partial_linking
+target_options[imf95] = no_sublink embed:partial_linking
+target_options[ifort-mfc] = no_sublink embed:partial_linking
 # xlf
-target_options[xlmfc] = no_sublink embed
-target_options[xlmf95] = no_sublink embed
+target_options[xlmfc] = no_sublink embed:partial_linking
+target_options[xlmf95] = no_sublink embed:partial_linking
 # opencl
-target_options[oclmfc] = no_sublink embed
-target_options[oclmf95] = no_sublink embed
+target_options[oclmfc] = no_sublink embed:partial_linking
+target_options[oclmf95] = no_sublink embed:partial_linking
 # nvidia
-target_options[mnvfc] = no_sublink embed
+target_options[mnvfc] = no_sublink embed:partial_linking
 # mpi
-target_options[mpimcxx_imcc_base] = no_sublink embed
-target_options[mpimcxx_mcc_base] = no_sublink embed
-target_options[mpimcc_imcc_base] = no_sublink embed
-target_options[mpimcc_mcc_base] = no_sublink embed
-target_options[mpimfc_imcc_base] = no_sublink embed
-target_options[mpimfc_mcc_base] = no_sublink embed
+target_options[mpimcxx_imcc_base] = no_sublink embed:partial_linking
+target_options[mpimcxx_mcc_base] = no_sublink embed:partial_linking
+target_options[mpimcc_imcc_base] = no_sublink embed:partial_linking
+target_options[mpimcc_mcc_base] = no_sublink embed:partial_linking
+target_options[mpimfc_imcc_base] = no_sublink embed:partial_linking
+target_options[mpimfc_mcc_base] = no_sublink embed:partial_linking
 # mixed compilation with C/C++
-target_options[mcc] = no_sublink embed
-target_options[mcxx] = no_sublink embed
-target_options[smpcc] = no_sublink embed
-target_options[smpcxx] = no_sublink embed
-target_options[imcc] = no_sublink embed
-target_options[imcxx] = no_sublink embed
+target_options[mcc] = no_sublink embed:partial_linking
+target_options[mcxx] = no_sublink embed:partial_linking
+target_options[smpcc] = no_sublink embed:partial_linking
+target_options[smpcxx] = no_sublink embed:partial_linking
+target_options[imcc] = no_sublink embed:partial_linking
+target_options[imcxx] = no_sublink embed:partial_linking

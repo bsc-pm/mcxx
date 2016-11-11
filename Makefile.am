@@ -3039,7 +3039,7 @@ else
 	@exit 1
 endif
 
-src/driver/cxx-target-tools.h :
+src/driver/cxx-target-tools.h : Makefile
 	$(AM_V_GEN)( \
 		OUT_FILE=src/driver/cxx-target-tools.h; \
 		echo "#ifndef CXX_TARGET_TOOLS_H" > $${OUT_FILE} ; \
@@ -3047,6 +3047,7 @@ src/driver/cxx-target-tools.h :
 		echo "" >> $${OUT_FILE} ; \
 		echo "#define TARGET_OBJDUMP \""$$(echo objdump | $(SED) '$(program_transform_name)')\" >> $${OUT_FILE} ; \
 		echo "#define TARGET_OBJCOPY \""$$(echo objcopy | $(SED) '$(program_transform_name)')\" >> $${OUT_FILE} ; \
+		echo "#define TARGET_LD \""$$(echo ld | $(SED) '$(program_transform_name)')\" >> $${OUT_FILE} ; \
 		echo "#define TARGET_AR \""$$(echo ar | $(SED) '$(program_transform_name)')\" >> $${OUT_FILE} ; \
 		echo "#define TARGET_MF03_PRESCANNER \""$$(echo mf03-prescanner | $(SED) '$(program_transform_name)')\" >> $${OUT_FILE} ; \
 		echo "" >> $${OUT_FILE} ; \

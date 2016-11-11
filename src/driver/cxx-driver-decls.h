@@ -330,6 +330,7 @@ typedef struct target_options_map_tag
     {
         EMBEDDING_MODE_INVALID = 0,
         EMBEDDING_MODE_BFD = 1,
+        EMBEDDING_MODE_PARTIAL_LINKING = 2,
     } embedding_mode;
 
     // Combining
@@ -461,6 +462,7 @@ typedef struct compilation_configuration_tag
     // Toolchain tools of the target
     const char* target_objcopy;
     const char* target_objdump;
+    const char* target_ld;
     const char* target_ar;
 
     const char* output_directory;
