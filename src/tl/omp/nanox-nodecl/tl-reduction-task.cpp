@@ -155,6 +155,7 @@ namespace TL { namespace Nanox {
     {
        std::stringstream red_fun;
        red_fun << "nanos_red_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str());
+ 
        std::stringstream red_fun_orig_var;
        red_fun_orig_var << "nanos_red_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str()) << "_orig_var";
 
@@ -515,8 +516,21 @@ namespace TL { namespace Nanox {
 
             TL::Symbol reduction_function, reduction_function_original_var, initializer_function;
 
+            // Checking if the current reduction type has been treated before
+            // Note that if that happens we can reuse the combiner and
+            // initializer function.
+            //
+            // C/C++: note that if the type of the list item is an array type,
+            // we regiter the reduction over its element type
+            TL::Type registered_reduction_type = reduction_type;
+            while (!IS_FORTRAN_LANGUAGE
+                    && registered_reduction_type.is_array())
+            {
+                registered_reduction_type = registered_reduction_type.array_element();
+            }
+
             LoweringVisitor::reduction_task_map_t::iterator task_red_info =
-               _task_reductions_map.find(std::make_pair(reduction_info, reduction_type));
+               _task_reductions_map.find(std::make_pair(reduction_info, registered_reduction_type));
 
             if (task_red_info != _task_reductions_map.end())
             {
@@ -526,28 +540,21 @@ namespace TL { namespace Nanox {
             }
             else
             {
-               TL::Type element_reduction_type = reduction_type;
-               if (!IS_FORTRAN_LANGUAGE && element_reduction_type.is_array())
-               {
-                  while (element_reduction_type.is_array())
-                     element_reduction_type = element_reduction_type.array_element();
-               }
-
                create_reduction_functions(reduction_info,
                      construct,
-                     element_reduction_type,
+                     registered_reduction_type,
                      reduction_item,
                      reduction_function,
                      reduction_function_original_var);
 
                create_initializer_function(reduction_info,
                      construct,
-                     element_reduction_type,
+                     registered_reduction_type,
                      initializer_function);
 
                _task_reductions_map.insert(
                        std::make_pair(
-                           std::make_pair(reduction_info, reduction_type),
+                           std::make_pair(reduction_info, registered_reduction_type),
                            TaskReductionsInfo(reduction_function, reduction_function_original_var, initializer_function)
                            ));
             }
@@ -729,9 +736,18 @@ namespace TL { namespace Nanox {
                   && !Nanos::Version::interface_is_at_least("task_reduction", 1002),
                   "The version of the runtime being used does not support array reductions in C/C++", 0);
 
+            // Note that at this point all the reduction must be registered.
+            // For C/C++ array reductions, the registered_reduction type is the
+            // element type
+            TL::Type registered_reduction_type = reduction_type;
+            while (!IS_FORTRAN_LANGUAGE
+                    && registered_reduction_type.is_array())
+            {
+                registered_reduction_type = registered_reduction_type.array_element();
+            }
 
             LoweringVisitor::reduction_task_map_t::iterator task_red_info =
-               _task_reductions_map.find(std::make_pair(reduction_info, reduction_type));
+               _task_reductions_map.find(std::make_pair(reduction_info, registered_reduction_type));
 
             ERROR_CONDITION(task_red_info == _task_reductions_map.end(),
                   "Unregistered task reduction\n", 0);
@@ -745,17 +761,9 @@ namespace TL { namespace Nanox {
             {
                // Array Reductions in C/C++ are defined over the elements of the array
                TL::Source reduction_size_src_opt;
-               TL::Type element_type = reduction_type;
-               if (Nanos::Version::interface_is_at_least("task_reduction", 1002))
-               {
-                  reduction_size_src_opt << "sizeof(" << as_type(reduction_type) <<"),";
+               TL::Type element_type = registered_reduction_type;
 
-                  while (element_type.is_array())
-                  {
-                     ERROR_CONDITION(!element_type.array_has_size(), "Unexpected code", 0);
-                     element_type = element_type.array_element();
-                  }
-               }
+               reduction_size_src_opt << "sizeof(" << as_type(reduction_type) <<"),";
 
                TL::Source item_address =
                   (reduction_item.get_type().is_pointer() ? "" : "&") + (*it)->get_field_name();
