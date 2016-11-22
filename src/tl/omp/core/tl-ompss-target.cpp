@@ -586,6 +586,7 @@ namespace TL
                 ObjectList<Nodecl::NodeclBase> dep_list_weakin;
                 ObjectList<Nodecl::NodeclBase> dep_list_weakout;
                 ObjectList<Nodecl::NodeclBase> dep_list_weakinout;
+                ObjectList<Nodecl::NodeclBase> dep_list_reductions;
                 for (ObjectList<DependencyItem>::iterator it = dependences.begin();
                         it != dependences.end();
                         it++)
@@ -608,6 +609,7 @@ namespace TL
                             // OmpSs
                         case DEP_OMPSS_CONCURRENT:
                         case DEP_OMPSS_COMMUTATIVE:
+                        case DEP_OMPSS_REDUCTION:
                             {
                                 p = &dep_list_inout;
                                 break;

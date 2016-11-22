@@ -1242,6 +1242,12 @@ namespace TL { namespace Nanox {
                 add_dependences(commutative.get_commutative_deps().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
             }
 
+            void visit(const Nodecl::OmpSs::DepReduction& dep_reduction)
+            {
+                // In Nanos++, the dependence associated with a reduction is represented as a concurrent dependence
+                add_dependences(dep_reduction.get_reduction_deps().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
+            }
+
             void visit(const Nodecl::OmpSs::CopyIn& copy_in)
             {
                 add_copies(copy_in.get_input_copies().as<Nodecl::List>(), OutlineDataItem::COPY_IN);

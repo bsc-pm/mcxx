@@ -482,7 +482,7 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> reduction_expressions =
             reductions.map<Nodecl::NodeclBase>(&ReductionSymbol::get_reduction_expression);
 
-        get_info_from_dependences<DEP_OMPSS_CONCURRENT>(
+        get_info_from_dependences<DEP_OMPSS_REDUCTION>(
                 reduction_expressions, default_data_attr, this->in_ompss_mode(),
                 "reduction", data_sharing_environment, extra_symbols);
     }
@@ -760,6 +760,8 @@ namespace TL { namespace OpenMP {
                 return "weakout";
             case DEP_OMPSS_WEAK_INOUT:
                 return "weakinout";
+            case DEP_OMPSS_REDUCTION:
+                return "reduction";
             default:
                 return "<<unknown-dependence-kind?>>";
         }

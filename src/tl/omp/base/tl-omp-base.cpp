@@ -3467,6 +3467,11 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_dependency_list<Nodecl::OmpSs::DepReduction>(
+                dependences, OpenMP::DEP_OMPSS_REDUCTION,
+                locus,
+                result_list);
+
         if (!ignore_target_info)
         {
             // Build the tree which contains the target information
