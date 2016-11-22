@@ -40,11 +40,13 @@ namespace TL { namespace OmpSs {
 
     enum CopyDirection
     {
-        COPY_DIR_INVALID = 0,
+        COPY_DIR_UNDEFINED = 0,
         COPY_DIR_IN = 1 << 1,
         COPY_DIR_OUT = 1 << 2,
         COPY_DIR_INOUT = COPY_DIR_IN | COPY_DIR_OUT,
     };
+
+    std::string copy_direction_to_str(CopyDirection dir);
 
     class LIBTL_CLASS CopyItem : public TL::Object
     {

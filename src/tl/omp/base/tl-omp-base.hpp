@@ -252,8 +252,6 @@ namespace TL
                     return _omp_report_file;
                 }
 
-                static std::string copy_direction_to_str(TL::OmpSs::CopyDirection kind);
-
                 void set_omp_report(bool b)
                 {
                     _omp_report = b;
