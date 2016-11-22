@@ -65,7 +65,8 @@ namespace TL { namespace OpenMP {
 
     bool is_strict_dependency(DependencyDirection dir);
     bool is_weak_dependency(DependencyDirection dir);
-    std::string get_dependency_direction_name(DependencyDirection d);
+
+    std::string dependency_direction_to_str(DependencyDirection d);
 
     class LIBTL_CLASS DependencyItem : public TL::Object
     {

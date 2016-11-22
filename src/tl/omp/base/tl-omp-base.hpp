@@ -253,7 +253,6 @@ namespace TL
                 }
 
                 static std::string copy_direction_to_str(TL::OmpSs::CopyDirection kind);
-                static std::string dependence_direction_to_str(DependencyDirection kind);
 
                 void set_omp_report(bool b)
                 {

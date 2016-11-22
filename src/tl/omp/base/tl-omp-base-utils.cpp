@@ -31,28 +31,6 @@
 
 namespace TL { namespace OpenMP {
 
-    std::string Base::dependence_direction_to_str(DependencyDirection kind)
-    {
-        switch (kind)
-        {
-            case OpenMP::DEP_DIR_IN:
-                return "in";
-            case OpenMP::DEP_DIR_OUT:
-                return "out";
-            case OpenMP::DEP_DIR_INOUT:
-                return "inout";
-                // OmpSs
-            case OpenMP::DEP_OMPSS_DIR_IN_PRIVATE:
-                return "in (private)";
-            case OpenMP::DEP_OMPSS_CONCURRENT:
-                return "concurrent";
-            case OpenMP::DEP_OMPSS_COMMUTATIVE:
-                return "commutative";
-            default: ;
-        }
-        return "unknown dependency???";
-    }
-
     // This belongs to OmpSs but it now a bit unwieldy to move
     std::string Base::copy_direction_to_str(TL::OmpSs::CopyDirection kind)
     {

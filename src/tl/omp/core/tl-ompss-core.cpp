@@ -121,7 +121,7 @@ namespace TL { namespace OpenMP {
                                     "skipping useless dependence %s(%s) since it only names a parameter."
                                     "The value of a parameter is never copied out of a function "
                                     "so it cannot generate an output dependence\n",
-                                    get_dependency_direction_name(_direction).c_str(),
+                                    dependency_direction_to_str(_direction).c_str(),
                                     expr.prettyprint().c_str());
                             return true;
                         }
@@ -131,7 +131,7 @@ namespace TL { namespace OpenMP {
                                     expr.get_locus(),
                                     "skipping useless dependence %s(%s) since it only names a parameter."
                                     "The value of a parameter is always copied in and will never define such dependence\n",
-                                    get_dependency_direction_name(_direction).c_str(),
+                                    dependency_direction_to_str(_direction).c_str(),
                                     expr.prettyprint().c_str());
                             return true;
                         }
@@ -280,11 +280,10 @@ namespace TL { namespace OpenMP {
 
                 if (!expr.is_valid())
                 {
-                    std::string dep_str = get_dependency_direction_name(_direction);
                     warn_printf_at(
                             nodecl.get_locus(),
                             "invalid dependency expression '%s(%s)', skipping\n",
-                            dep_str.c_str(),
+                            dependency_direction_to_str(_direction).c_str(),
                             expr.prettyprint().c_str());
                 }
 
