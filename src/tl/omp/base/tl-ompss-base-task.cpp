@@ -902,7 +902,7 @@ namespace TL { namespace OmpSs {
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
                 ss
-                    << " " << OpenMP::Base::copy_direction_to_str(kind) << "\n"
+                    << " " << copy_direction_to_str(kind) << "\n"
                     ;
 
                 *_omp_report_file

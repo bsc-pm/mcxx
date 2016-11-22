@@ -47,6 +47,23 @@ namespace TL {
 
 namespace TL { namespace OmpSs {
 
+    std::string copy_direction_to_str(CopyDirection dir)
+    {
+        switch (dir)
+        {
+            case OmpSs::COPY_DIR_UNDEFINED:
+                return "<<undefined-copy>>";
+            case OmpSs::COPY_DIR_IN:
+                return "copy_in";
+            case OmpSs::COPY_DIR_OUT:
+                return "copy_out";
+            case OmpSs::COPY_DIR_INOUT:
+                return "copy_inout";
+            default:
+                return "<<unknown-copy-kind?>>";
+        }
+    }
+
     CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)
         : _copy_expr(copy_expr), _kind(direction)
     {

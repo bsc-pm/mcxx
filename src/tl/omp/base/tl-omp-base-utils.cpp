@@ -31,20 +31,5 @@
 
 namespace TL { namespace OpenMP {
 
-    // This belongs to OmpSs but it now a bit unwieldy to move
-    std::string Base::copy_direction_to_str(TL::OmpSs::CopyDirection kind)
-    {
-        switch (kind)
-        {
-            case OmpSs::COPY_DIR_IN:
-                return "copied in";
-            case OmpSs::COPY_DIR_OUT:
-                return "copied out";
-            case OmpSs::COPY_DIR_INOUT:
-                return "copied inout";
-            default: ;
-        }
-        return "copied unknown???";
-    }
 }}
 #endif // TL_OMP_BASE_UTILS_HPP
