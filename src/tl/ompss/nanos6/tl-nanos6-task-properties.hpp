@@ -64,11 +64,14 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase create_task_flags(TL::Symbol task_flags);
 
         private:
+
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
                                           TL::Scope class_scope,
                                           const std::string &var_name,
                                           const locus_t *var_locus,
+                                          bool is_allocatable,
                                           TL::Type field_type);
+
             TL::Symbol add_field_to_class(TL::Symbol class_symbol,
                                           TL::Scope class_scope,
                                           TL::Symbol var,

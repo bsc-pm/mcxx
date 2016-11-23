@@ -1248,6 +1248,7 @@ namespace TL { namespace Nanos6 {
                                                   TL::Scope class_scope,
                                                   const std::string &var_name,
                                                   const locus_t *var_locus,
+                                                  bool is_allocatable,
                                                   TL::Type field_type)
     {
         TL::Type new_class_type = new_class_symbol.get_user_defined_type();
@@ -1270,6 +1271,10 @@ namespace TL { namespace Nanos6 {
         symbol_entity_specs_set_class_type(field.get_internal_symbol(),
                 new_class_type.get_internal_type());
         symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
+
+        symbol_entity_specs_set_is_allocatable(
+                field.get_internal_symbol(), is_allocatable);
+
         class_type_add_member(
                 new_class_type.get_internal_type(),
                 field.get_internal_symbol(),
@@ -1288,7 +1293,9 @@ namespace TL { namespace Nanos6 {
                                               class_scope,
                                               var.get_name(),
                                               var.get_locus(),
+                                              symbol_entity_specs_get_is_allocatable(var.get_internal_symbol()),
                                               field_type);
+
         field_map[var] = field;
         return field;
     }
@@ -1491,6 +1498,7 @@ namespace TL { namespace Nanos6 {
                         class_scope,
                         get_name_for_descriptor(it->get_name()),
                         it->get_locus(),
+                        /* is_allocatable */ false,
                         fortran_storage_type_array_descriptor(
                             it->get_type().no_ref()));
                     array_descriptor_map[*it] = field;
@@ -1955,6 +1963,7 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase body = Nodecl::Utils::deep_copy(task_body, unpacked_inside_scope, symbol_map);
         unpacked_empty_stmt.prepend_sibling(body);
 
+
         unpacked_empty_stmt.append_sibling(nested_functions);
 
         if (IS_CXX_LANGUAGE
@@ -2219,6 +2228,7 @@ namespace TL { namespace Nanos6 {
                         unpacked_function.make_nodecl(/* set_ref_type */ true),
                         unpacked_function.get_type().get_pointer_to()));
 
+            Nodecl::List deallocate_exprs;
             for (TL::ObjectList<TL::Symbol>::iterator it = captured_value.begin();
                     it != captured_value.end();
                     it++)
@@ -2229,14 +2239,19 @@ namespace TL { namespace Nanos6 {
                 forwarded_parameter_names.append(field.get_name());
                 forwarded_parameter_types.append(field.get_type().get_lvalue_reference_to());
 
-                args.append(
-                            Nodecl::ClassMemberAccess::make(
-                                // Nodecl::Dereference::make(
-                                arg.make_nodecl(/* set_ref_type */ true),
-                                //    arg.get_type().points_to().get_lvalue_reference_to()),
-                                field_map[*it].make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                field_map[*it].get_type().get_lvalue_reference_to()));
+                Nodecl::NodeclBase class_member_access =  Nodecl::ClassMemberAccess::make(
+                        arg.make_nodecl(/* set_ref_type */ true),
+                        field_map[*it].make_nodecl(),
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        field_map[*it].get_type().get_lvalue_reference_to());
+                args.append(class_member_access);
+
+                // Finally, if the current symbol is allocatable, we have to deallocate it.
+                // Note that this copy was created when we captured its value.
+                if (symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()))
+                {
+                    deallocate_exprs.append(class_member_access.shallow_copy());
+                }
             }
 
             for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
@@ -2278,6 +2293,9 @@ namespace TL { namespace Nanos6 {
                             get_void_type()));
 
             outline_empty_stmt.prepend_sibling(call_to_forward);
+
+            if(!deallocate_exprs.is_null())
+                outline_empty_stmt.append_sibling(Nodecl::FortranDeallocateStatement::make(deallocate_exprs, nodecl_null()));
 
             TL::ObjectList<std::string> c_forwarded_parameter_names(forwarded_parameter_names.size(), "");
 
