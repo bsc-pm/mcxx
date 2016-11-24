@@ -1284,22 +1284,6 @@ namespace TL { namespace Nanos6 {
         return field;
     }
 
-    TL::Symbol TaskProperties::add_field_to_class(TL::Symbol new_class_symbol,
-                                                  TL::Scope class_scope,
-                                                  TL::Symbol var,
-                                                  TL::Type field_type)
-    {
-        TL::Symbol field = add_field_to_class(new_class_symbol,
-                                              class_scope,
-                                              var.get_name(),
-                                              var.get_locus(),
-                                              symbol_entity_specs_get_is_allocatable(var.get_internal_symbol()),
-                                              field_type);
-
-        field_map[var] = field;
-        return field;
-    }
-
     namespace
     {
     TL::Type fortran_storage_type_array_descriptor(TL::Type array_type)
@@ -1474,11 +1458,15 @@ namespace TL { namespace Nanos6 {
 
             }
 
-            add_field_to_class(
+            TL::Symbol field = add_field_to_class(
                     new_class_symbol,
                     class_scope,
-                    *it,
+                    it->get_name(),
+                    it->get_locus(),
+                    symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()),
                     type_of_field);
+
+            field_map[*it] = field;
         }
 
         for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
@@ -1501,6 +1489,7 @@ namespace TL { namespace Nanos6 {
                         /* is_allocatable */ false,
                         fortran_storage_type_array_descriptor(
                             it->get_type().no_ref()));
+
                     array_descriptor_map[*it] = field;
                 }
             }
@@ -1522,11 +1511,15 @@ namespace TL { namespace Nanos6 {
                 }
             }
 
-            add_field_to_class(
+            TL::Symbol field = add_field_to_class(
                     new_class_symbol,
                     class_scope,
-                    *it,
+                    it->get_name(),
+                    it->get_locus(),
+                    /* is_allocatable */ false,
                     type_of_field);
+
+            field_map[*it] = field;
         }
 
         nodecl_t nodecl_output = nodecl_null();
