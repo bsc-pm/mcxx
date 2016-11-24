@@ -72,11 +72,6 @@ namespace TL { namespace Nanos6 {
                                           bool is_allocatable,
                                           TL::Type field_type);
 
-            TL::Symbol add_field_to_class(TL::Symbol class_symbol,
-                                          TL::Scope class_scope,
-                                          TL::Symbol var,
-                                          TL::Type field_type);
-
             TL::Scope compute_scope_for_environment_structure();
 
             static const int VLA_OVERALLOCATION_ALIGN = 8;
