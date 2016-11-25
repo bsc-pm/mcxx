@@ -4392,7 +4392,8 @@ namespace TL { namespace OpenMP {
         {
             if (if_clause.is_defined())
             {
-                error_printf_at(directive.get_locus(), "ignoring invalid 'if' clause\n");
+                error_printf_at(directive.get_locus(),
+                        "invalid number of arguments in 'if' clause\n");
             }
 
             // if (emit_omp_report())
@@ -4436,7 +4437,8 @@ namespace TL { namespace OpenMP {
         {
             if (final_clause.is_defined())
             {
-                error_printf_at(directive.get_locus(), "ignoring invalid 'final' clause\n");
+                error_printf_at(directive.get_locus(),
+                        "invalid number of arguments in 'final' clause\n");
             }
         }
     }
@@ -4468,7 +4470,8 @@ namespace TL { namespace OpenMP {
         {
             if (priority.is_defined())
             {
-                warn_printf_at(directive.get_locus(), "ignoring invalid 'priority' clause\n");
+                warn_printf_at(directive.get_locus(),
+                        "invalid number of arguments in 'priority' clause\n");
             }
             if (emit_omp_report())
             {
