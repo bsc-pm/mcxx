@@ -5600,7 +5600,7 @@ const char* get_template_arguments_str(scope_entry_t* entry,
             decl_context);
 }
 
-const char* unmangle_symbol_name(scope_entry_t* entry)
+static const char* unmangle_symbol_name_ex(scope_entry_t* entry, const decl_context_t* decl_context)
 {
     const char* name = entry->symbol_name;
     // constructor A
@@ -5614,7 +5614,7 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
         return strappend("operator ",
                 get_declaration_string_ex(
                     function_type_get_return_type(entry->type_information),
-                    entry->decl_context,
+                    decl_context,
                     /* symbol_name */"",
                     /* initializer */ "",
                     /* semicolon */ 0,
@@ -5627,6 +5627,11 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
                     NULL));
     }
     return name;
+}
+
+const char* unmangle_symbol_name(scope_entry_t* entry)
+{
+    return unmangle_symbol_name_ex(entry, entry->decl_context);
 }
 
 static const char* get_fully_qualified_symbol_name_of_depedent_typename_internal_impl(
@@ -5734,7 +5739,7 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             && !(is_named_class_type(entry->type_information)
                 && symbol_entity_specs_get_is_anonymous_union(named_type_get_symbol(entry->type_information))))
     {
-        result = uniquestr(unmangle_symbol_name(entry));
+        result = uniquestr(unmangle_symbol_name_ex(entry, decl_context));
     }
 
     if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
