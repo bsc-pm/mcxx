@@ -20884,26 +20884,9 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             arguments[i] = nodecl_get_type(nodecl_expr);
         }
 
-        enum initialization_kind initialization_kind = IK_INVALID;
-        if (num_items == 1)
-        {
-            if (is_class_type(no_ref(arguments[0]))
-                    && class_type_is_derived_instantiating(
-                        get_unqualified_type(no_ref(arguments[0])),
-                        declared_type,
-                        locus))
-            {
-                initialization_kind = IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR;
-            }
-            else
-            {
-                initialization_kind = IK_DIRECT_INITIALIZATION | IK_BY_USER_DEFINED_CONVERSION;
-            }
-        }
-        else
-        {
-            initialization_kind = IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR;
-        }
+        // For overloading we only have to consider all the constructors (see 13.3.1.3)
+        enum initialization_kind initialization_kind =
+            IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR;
 
         scope_entry_list_t* candidates = NULL;
         scope_entry_t* chosen_constructor = NULL;
