@@ -4830,7 +4830,7 @@ static void check_assignment(AST expr, const decl_context_t* decl_context, nodec
                     get_unqualified_type(nodecl_get_type(nodecl_rvalue))))
         {
             nodecl_rvalue = nodecl_make_conversion(nodecl_rvalue, 
-                    lvalue_type,
+                    no_ref(lvalue_type),
                     nodecl_get_locus(nodecl_rvalue));
         }
 
