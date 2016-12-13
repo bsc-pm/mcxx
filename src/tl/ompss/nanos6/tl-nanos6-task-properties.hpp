@@ -205,6 +205,8 @@ namespace TL { namespace Nanos6 {
                 TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
 
+            bool any_task_dependence() const;
+
         public:
             TL::ObjectList<TL::Symbol> shared;
             TL::ObjectList<TL::Symbol> private_;
