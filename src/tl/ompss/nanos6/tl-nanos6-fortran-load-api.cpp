@@ -51,6 +51,7 @@ const char *entry_points[] = {
     "nanos_register_weak_read_depinfo",
     "nanos_register_weak_write_depinfo",
     "nanos_register_weak_readwrite_depinfo",
+    "nanos_register_commutative_depinfo",
     "nanos_user_lock",
     "nanos_user_unlock",
 };

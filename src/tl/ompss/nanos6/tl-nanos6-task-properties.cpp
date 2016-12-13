@@ -3115,6 +3115,8 @@ namespace TL { namespace Nanos6 {
             { dep_weakin, "nanos_register_weak_read_depinfo" },
             { dep_weakout, "nanos_register_weak_write_depinfo" },
             { dep_weakinout, "nanos_register_weak_readwrite_depinfo" },
+
+            { dep_commutative, "nanos_register_commutative_depinfo" },
         };
 
         for (DependencesSet *dep_set = deps;
