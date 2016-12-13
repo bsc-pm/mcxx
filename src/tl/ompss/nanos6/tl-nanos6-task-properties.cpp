@@ -3416,6 +3416,10 @@ namespace TL { namespace Nanos6 {
 
     void TaskProperties::create_dependences_function()
     {
+        // Skip this function if the current task doesn't have any task dependence
+        if (!any_task_dependence())
+            return;
+
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             create_dependences_function_c();
@@ -4057,5 +4061,17 @@ namespace TL { namespace Nanos6 {
         all_syms.append(captured_value);
 
         TL::Nanos6::fortran_add_types(all_syms, dest_scope);
+    }
+
+    bool TaskProperties::any_task_dependence() const
+    {
+        return
+            !dep_in.empty()        ||
+            !dep_out.empty()       ||
+            !dep_inout.empty()     ||
+            !dep_weakin.empty()    ||
+            !dep_weakout.empty()   ||
+            !dep_weakinout.empty() ||
+            !dep_commutative.empty();
     }
 } }
