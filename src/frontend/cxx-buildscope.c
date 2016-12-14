@@ -4894,7 +4894,9 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             entry_list_iterator_next(it))
     {
         scope_entry_t *current_entry = entry_list_iterator_current(it);
-        if (current_entry->kind != SK_ENUM)
+        if (current_entry->kind != SK_ENUM
+                && current_entry->kind != SK_DEPENDENT_ENTITY)
+
         {
             error_printf_at(current_entry->locus, "'%s' is not an enum-name\n", current_entry->symbol_name);
             *type_info = get_error_type();
@@ -4907,6 +4909,13 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     }
     entry_list_iterator_free(it);
     entry_list_free(result_list);
+
+    if (entry != NULL
+            && entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        *type_info = entry->type_information;
+        return;
+    }
 
     type_t* underlying_type = NULL;
     if (enum_base != NULL)
