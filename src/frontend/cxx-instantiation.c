@@ -2106,9 +2106,10 @@ char function_may_be_instantiated(scope_entry_t* entry)
     {
         return member_function_may_be_instantiated(entry);
     }
-    else if (is_template_specialized_type(entry->type_information))
+    else if (is_template_specialized_type(entry->type_information)
+            && !is_template_explicit_specialization(entry->decl_context->template_parameters))
     {
-        return nonmember_template_function_may_be_instantiated(entry);
+            return nonmember_template_function_may_be_instantiated(entry);
     }
     return 0;
 }
