@@ -12023,14 +12023,6 @@ static void update_function_specifiers(scope_entry_t* entry,
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
-    if (!symbol_entity_specs_get_is_constructor(entry)
-            && symbol_entity_specs_get_is_member(entry)
-            && !symbol_entity_specs_get_is_static(entry)
-            && symbol_entity_specs_get_is_constexpr(entry)
-            && !is_any_reference_type(entry->type_information))
-    {
-        entry->type_information = get_const_qualified_type(entry->type_information);
-    }
 
     // Merge inline attribute
     symbol_entity_specs_set_is_inline(entry,
@@ -12208,6 +12200,25 @@ static scope_entry_t* build_scope_user_defined_literal_declarator(
     return register_new_var_or_fun_name(literal_operator_id, declarator_type, gather_info, decl_context);
 }
 
+static void adjust_constexpr_function_type_if_needed(
+        char is_constexpr,
+        char is_static,
+        char is_member,
+        char is_constructor,
+        // Out
+        type_t** declarator_type)
+{
+    ERROR_CONDITION(!is_function_type(*declarator_type),  "Unexpected non-function type", 0);
+
+    if (IS_CXX11_LANGUAGE
+            && is_constexpr
+            && !is_constructor
+            && is_member
+            && !is_static)
+    {
+        *declarator_type = get_const_qualified_type(*declarator_type);
+    }
+}
 
 /*
  * This function fills the symbol table with the information of this declarator
@@ -12255,6 +12266,16 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         && strcmp(decl_context->current_scope->related_entry->symbol_name,
                                 ASTText(declarator_id)) == 0;
 
+                    if (is_function_type(declarator_type))
+                    {
+                        adjust_constexpr_function_type_if_needed(
+                                /* is_constexpr */ gather_info->is_constexpr,
+                                /* is_static */ gather_info->is_static,
+                                /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
+                                /* is_constructor */ name_of_a_constructor,
+                                &declarator_type);
+                    }
+
                     if (type_specifier == NULL)
                     {
                         if (name_of_a_constructor)
@@ -12284,6 +12305,13 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
         case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here // FIXME - Template arguments are not checked
         case AST_DESTRUCTOR_ID :
             {
+                adjust_constexpr_function_type_if_needed(
+                        /* is_constexpr */ gather_info->is_constexpr,
+                        /* is_static */ gather_info->is_static,
+                        /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
+                        /* is_constructor */ 0,
+                        &declarator_type);
+
                 if (type_specifier != NULL)
                 {
                     error_printf_at(ast_get_locus(declarator), "destructor declarator cannot have a type-specifier\n");
@@ -12344,6 +12372,16 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         && strcmp(decl_context->current_scope->related_entry->symbol_name,
                                 ASTText(template_name)) == 0;
 
+                    if (is_function_type(declarator_type))
+                    {
+                        adjust_constexpr_function_type_if_needed(
+                                /* is_constexpr */ gather_info->is_constexpr,
+                                /* is_static */ gather_info->is_static,
+                                /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
+                                /* is_constructor */ name_of_a_constructor,
+                                &declarator_type);
+                    }
+
                     if (type_specifier == NULL)
                     {
                         if (name_of_a_constructor)
@@ -12394,6 +12432,13 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
         case AST_OPERATOR_FUNCTION_ID:
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE:
             {
+                adjust_constexpr_function_type_if_needed(
+                        /* is_constexpr */ gather_info->is_constexpr,
+                        /* is_static */ gather_info->is_static,
+                        /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
+                        /* is_constructor */ 0,
+                        &declarator_type);
+
                 if (type_specifier == NULL)
                 {
                     error_printf_at(ast_get_locus(declarator), "declaration lacks a type-specifier\n");
@@ -12440,6 +12485,13 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                             "literal operators are only valid in C++11\n");
                 }
 
+                adjust_constexpr_function_type_if_needed(
+                        /* is_constexpr */ gather_info->is_constexpr,
+                        /* is_static */ gather_info->is_static,
+                        /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
+                        /* is_constructor */ 0,
+                        &declarator_type);
+
                 if (type_specifier == NULL)
                 {
                     error_printf_at(ast_get_locus(declarator),
@@ -12452,6 +12504,13 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
             };
         case AST_CONVERSION_FUNCTION_ID :
             {
+                adjust_constexpr_function_type_if_needed(
+                        /* is_constexpr */ gather_info->is_constexpr,
+                        /* is_static */ gather_info->is_static,
+                        /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
+                        /* is_constructor */ 0,
+                        &declarator_type);
+
                 if (type_specifier != NULL)
                 {
                     error_printf_at(ast_get_locus(declarator), "conversion function declaration cannot have any type-specifier\n");
@@ -12505,6 +12564,10 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                 }
                 else
                 {
+                    char is_static = gather_info->is_static;
+                    char is_member = decl_context->current_scope->kind == CLASS_SCOPE;
+                    char name_of_a_constructor = 0;
+
                     scope_entry_t *entry = NULL;
 
                     AST unqualified_part = ASTSon2(declarator_id);
@@ -12531,7 +12594,6 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                                             ASTSon0(ASTSon2(lookup_id)));
                                 }
 
-                                char name_of_a_constructor = 0;
                                 scope_entry_list_t * entry_list = query_id_expression(
                                         decl_context,
                                         lookup_id,
@@ -12545,6 +12607,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                                 if (entry_list != NULL)
                                 {
                                     entry = entry_list_head(entry_list);
+                                    is_member = symbol_entity_specs_get_is_member(entry);
 
                                     if (entry->kind == SK_CLASS
                                             // this only happens when A::B::B under normal lookups
@@ -12561,6 +12624,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                                 }
 
                                 entry_list_free(entry_list);
+
 
                                 if (type_specifier == NULL)
                                 {
@@ -12618,6 +12682,13 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                             }
                         default: { }
                     }
+
+                    adjust_constexpr_function_type_if_needed(
+                            /* is_constexpr */ gather_info->is_constexpr,
+                            is_static,
+                            is_member,
+                            name_of_a_constructor,
+                            &declarator_type);
 
                     char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
 
@@ -12990,11 +13061,13 @@ static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* de
         symbol_entity_specs_set_is_thread(entry, gather_info->is_thread);
         symbol_entity_specs_set_is_thread_local(entry, gather_info->is_thread_local);
         symbol_entity_specs_set_is_constexpr(entry, gather_info->is_constexpr);
+
         if (symbol_entity_specs_get_is_constexpr(entry)
                 && !is_any_reference_type(entry->type_information))
         {
             entry->type_information = get_const_qualified_type(entry->type_information);
         }
+
         symbol_entity_specs_set_linkage_spec(entry, linkage_current_get_name());
 
         return entry;
@@ -13256,14 +13329,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             symbol_entity_specs_set_is_member(new_entry, 1);
             symbol_entity_specs_set_class_type(new_entry,
                     get_user_defined_type(decl_context->current_scope->related_entry));
-
-            if (!symbol_entity_specs_get_is_constructor(new_entry)
-                    && !symbol_entity_specs_get_is_static(new_entry)
-                    && symbol_entity_specs_get_is_constexpr(new_entry)
-                    && !is_any_reference_type(new_entry->type_information))
-            {
-                new_entry->type_information = get_const_qualified_type(new_entry->type_information);
-            }
         }
 
         for (i = 0; i < gather_info->num_arguments_info; i++)
@@ -16787,14 +16852,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
-    if (!symbol_entity_specs_get_is_constructor(entry)
-            && symbol_entity_specs_get_is_member(entry)
-            && !symbol_entity_specs_get_is_static(entry)
-            && symbol_entity_specs_get_is_constexpr(entry)
-            && !is_any_reference_type(entry->type_information))
-    {
-        entry->type_information = get_const_qualified_type(entry->type_information);
-    }
+
     symbol_entity_specs_set_is_inline(entry,
             symbol_entity_specs_get_is_inline(entry)
             || gather_info->is_inline
