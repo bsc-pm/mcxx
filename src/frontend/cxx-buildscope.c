@@ -12200,6 +12200,12 @@ static scope_entry_t* build_scope_user_defined_literal_declarator(
     return register_new_var_or_fun_name(literal_operator_id, declarator_type, gather_info, decl_context);
 }
 
+
+/**
+ *  In C++11, a constexpr speficier for a non-static member function that is
+ *  not a constructor declares that member function as const. This restriction
+ *  was removed in C++14
+ */
 static void adjust_constexpr_function_type_if_needed(
         char is_constexpr,
         char is_static,
@@ -12211,6 +12217,7 @@ static void adjust_constexpr_function_type_if_needed(
     ERROR_CONDITION(!is_function_type(*declarator_type),  "Unexpected non-function type", 0);
 
     if (IS_CXX11_LANGUAGE
+            && !IS_CXX14_LANGUAGE
             && is_constexpr
             && !is_constructor
             && is_member
