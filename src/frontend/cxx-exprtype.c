@@ -17515,6 +17515,8 @@ static void check_nodecl_member_access(
         //      b->foo();
         //  }
         //
+        //
+        scope_entry_list_t* called_arrow_operators = NULL; // only used to detect circular dependences
         while (is_class_type(no_ref(accessed_type)))
         {
             // First normalize the type keeping the cv-qualifiers
@@ -17589,6 +17591,33 @@ static void check_nodecl_member_access(
                 return;
             }
 
+            // Checking that these implicit arrow operators do not define a circular dependence
+            char found = 0;
+            for (it = entry_list_iterator_begin(called_arrow_operators);
+                    !entry_list_iterator_end(it) && !found;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* arrow_op = entry_list_iterator_current(it);
+                found = arrow_op == selected_operator_arrow;
+            }
+            entry_list_iterator_free(it);
+
+            if (found)
+            {
+                error_printf_at(nodecl_get_locus(nodecl_accessed),
+                        "detected circular dependence between arrow operators\n");
+
+                entry_list_free(called_arrow_operators);
+
+                *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_accessed);
+                nodecl_free(nodecl_member);
+                return;
+            }
+
+            called_arrow_operators = entry_list_add(called_arrow_operators, selected_operator_arrow);
+
+
             return_type = function_type_get_return_type(selected_operator_arrow->type_information);
             accessed_type = return_type;
 
@@ -17607,6 +17636,7 @@ static void check_nodecl_member_access(
                              nodecl_get_locus(nodecl_accessed));
              }
         }
+        entry_list_free(called_arrow_operators);
 
 
         /* At this point we guarantee that 'return_type' type is a pointer to class type */
