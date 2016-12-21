@@ -17481,9 +17481,8 @@ static void check_nodecl_member_access(
 
     if (operator_arrow)
     {
-        // In this case we have to lookup for an arrow operator
-        // and then update the accessed type. We will rely on
-        // overload mechanism to do it
+        // In this case we have to lookup for an arrow operator and then update
+        // the accessed type. We will rely on overload mechanism to do it
         static AST arrow_operator_tree = NULL;
         if (arrow_operator_tree == NULL)
         {
@@ -17491,80 +17490,126 @@ static void check_nodecl_member_access(
                     ASTLeaf(AST_POINTER_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
         }
 
-        // First normalize the type keeping the cv-qualifiers
-        cv_qualifier_t cv_qualif = CV_NONE;
-        accessed_type = advance_over_typedefs_with_cv_qualif(no_ref(accessed_type), &cv_qualif);
-        accessed_type = get_cv_qualified_type(accessed_type, cv_qualif);
+        type_t* return_type = NULL;
+        scope_entry_t* selected_operator_arrow = NULL;
 
-        scope_entry_list_t* operator_arrow_list = get_member_of_class_type(accessed_type,
-                arrow_operator_tree, decl_context, NULL);
-
-        if (operator_arrow_list == NULL)
+        // A call to the arrow operator may imply more than one call to different
+        // arrow operators (only when the return type of these arrow operators have class types):
+        //
+        //  struct Data {
+        //      void foo() {}
+        //  };
+        //
+        //  struct A {
+        //      Data d;
+        //      Data* operator->() { return &d; }
+        //  };
+        //
+        //  struct B {
+        //      A _a;
+        //      A& operator->() { return _a; }
+        //  };
+        //
+        //  int main() {
+        //      B b;
+        //      b->foo();
+        //  }
+        //
+        while (is_class_type(no_ref(accessed_type)))
         {
-            error_printf_at(nodecl_get_locus(nodecl_accessed), "'->%s' cannot be applied to '%s' (of type '%s')\n",
-                    codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
-                    codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
-                    print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
+            // First normalize the type keeping the cv-qualifiers
+            cv_qualifier_t cv_qualif = CV_NONE;
+            accessed_type = advance_over_typedefs_with_cv_qualif(no_ref(accessed_type), &cv_qualif);
+            accessed_type = get_cv_qualified_type(accessed_type, cv_qualif);
 
-            *nodecl_output = nodecl_make_err_expr(locus);
-            nodecl_free(nodecl_accessed);
-            nodecl_free(nodecl_member);
-            return;
-        }
+            scope_entry_list_t* operator_arrow_list = get_member_of_class_type(accessed_type,
+                    arrow_operator_tree, decl_context, NULL);
 
-        type_t* argument_types[1] = { 
-            /* Note that we want the real original type since it might be a referenced type */
-            nodecl_get_type(nodecl_accessed) 
-        };
+            if (operator_arrow_list == NULL)
+            {
+                error_printf_at(nodecl_get_locus(nodecl_accessed), "'->%s' cannot be applied to '%s' (of type '%s')\n",
+                        codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
+                        codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
+                        print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
 
-        candidate_t* candidate_set = NULL;
-        scope_entry_list_iterator_t *it = NULL;
-        for (it = entry_list_iterator_begin(operator_arrow_list);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* entry = entry_list_iterator_current(it);
-            candidate_set = candidate_set_add(candidate_set,
-                    entry,
-                    /* num_arguments */ 1,
-                    argument_types);
-        }
-        entry_list_iterator_free(it);
-        entry_list_free(operator_arrow_list);
+                *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_accessed);
+                nodecl_free(nodecl_member);
+                return;
+            }
 
-        scope_entry_t* orig_selected_operator_arrow = solve_overload(candidate_set,
-                decl_context, nodecl_get_locus(nodecl_accessed));
-        scope_entry_t* selected_operator_arrow = entry_advance_aliases(orig_selected_operator_arrow);
+            type_t* argument_types[1] = {
+                /* Note that we want the real original type since it might be a referenced type */
+                nodecl_get_type(nodecl_accessed)
+            };
 
-        if (selected_operator_arrow == NULL)
-        {
-            error_message_overload_failed(candidate_set, 
-                    "operator->",
-                    decl_context,
-                    /* num_arguments */ 0, 
-                    /* no explicit arguments */ NULL,
-                    /* implicit_argument */ argument_types[0],
-                    nodecl_get_locus(nodecl_accessed));
+            candidate_t* candidate_set = NULL;
+            scope_entry_list_iterator_t *it = NULL;
+            for (it = entry_list_iterator_begin(operator_arrow_list);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* entry = entry_list_iterator_current(it);
+                candidate_set = candidate_set_add(candidate_set,
+                        entry,
+                        /* num_arguments */ 1,
+                        argument_types);
+            }
+            entry_list_iterator_free(it);
+            entry_list_free(operator_arrow_list);
 
+            scope_entry_t* orig_selected_operator_arrow = solve_overload(candidate_set,
+                    decl_context, nodecl_get_locus(nodecl_accessed));
+            selected_operator_arrow = entry_advance_aliases(orig_selected_operator_arrow);
+
+            if (selected_operator_arrow == NULL)
+            {
+                error_message_overload_failed(candidate_set,
+                        "operator->",
+                        decl_context,
+                        /* num_arguments */ 0,
+                        /* no explicit arguments */ NULL,
+                        /* implicit_argument */ argument_types[0],
+                        nodecl_get_locus(nodecl_accessed));
+
+                candidate_set_free(&candidate_set);
+                *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_accessed);
+                nodecl_free(nodecl_member);
+                return;
+            }
             candidate_set_free(&candidate_set);
-            *nodecl_output = nodecl_make_err_expr(locus);
-            nodecl_free(nodecl_accessed);
-            nodecl_free(nodecl_member);
-            return;
-        }
-        candidate_set_free(&candidate_set);
 
-        if (function_has_been_deleted(decl_context, selected_operator_arrow, 
-                    nodecl_get_locus(nodecl_accessed)))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            nodecl_free(nodecl_accessed);
-            nodecl_free(nodecl_member);
-            return;
+            if (function_has_been_deleted(decl_context, selected_operator_arrow,
+                        nodecl_get_locus(nodecl_accessed)))
+            {
+                *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_accessed);
+                nodecl_free(nodecl_member);
+                return;
+            }
+
+            return_type = function_type_get_return_type(selected_operator_arrow->type_information);
+            accessed_type = return_type;
+
+            // Concatenating calls to the arrow operators (we make them explicit!)
+            if (is_class_type(no_ref(return_type)))
+             {
+                 nodecl_accessed =
+                     cxx_nodecl_make_function_call(
+                             nodecl_make_symbol(selected_operator_arrow, nodecl_get_locus(nodecl_accessed)),
+                             /* arguments */ nodecl_null(),
+                             nodecl_make_list_1(nodecl_accessed),
+                             // Ideally this should be binary infix but this call does not fit in any cathegory
+                             /* function form */ nodecl_null(),
+                             return_type,
+                             decl_context,
+                             nodecl_get_locus(nodecl_accessed));
+             }
         }
 
-        type_t* return_type =
-            function_type_get_return_type(selected_operator_arrow->type_information);
+
+        /* At this point we guarantee that 'return_type' type is a pointer to class type */
 
         if (!is_pointer_to_class_type(no_ref(return_type)))
         {
@@ -17589,10 +17634,10 @@ static void check_nodecl_member_access(
             nodecl_make_dereference(
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator_arrow, nodecl_get_locus(nodecl_accessed)),
-                        /* called name */ nodecl_null(),
+                        /* arguments */ nodecl_null(),
                         nodecl_make_list_1(nodecl_accessed),
                         // Ideally this should be binary infix but this call does not fit in any cathegory
-                        /* function form */ nodecl_null(), 
+                        /* function form */ nodecl_null(),
                         return_type,
                         decl_context,
                         nodecl_get_locus(nodecl_accessed)),
