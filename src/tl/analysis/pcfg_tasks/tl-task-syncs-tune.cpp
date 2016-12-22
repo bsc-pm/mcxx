@@ -402,27 +402,27 @@ match_array_subscripts_end:
 
         ObjectList<NBase> source_in_deps = gather_dependences(
                 source_environ,
-                &Nodecl::OpenMP::DepIn::get_in_deps);
+                &Nodecl::OpenMP::DepIn::get_exprs);
 
         ObjectList<NBase> source_out_deps = gather_dependences(
                 source_environ,
-                &Nodecl::OpenMP::DepOut::get_out_deps);
+                &Nodecl::OpenMP::DepOut::get_exprs);
 
         ObjectList<NBase> source_inout_deps = gather_dependences(
                 source_environ,
-                &Nodecl::OpenMP::DepInout::get_inout_deps);
+                &Nodecl::OpenMP::DepInout::get_exprs);
             
         ObjectList<NBase> source_all_out_deps = append_two_lists(source_out_deps, source_inout_deps);
         // 1.2.- Get all in, out and inout dependencies
         ObjectList<NBase> target_in_deps = gather_dependences(
                 target_environ,
-                &Nodecl::OpenMP::DepIn::get_in_deps);
+                &Nodecl::OpenMP::DepIn::get_exprs);
         ObjectList<NBase> target_out_deps = gather_dependences(
                 target_environ,
-                &Nodecl::OpenMP::DepOut::get_out_deps);
+                &Nodecl::OpenMP::DepOut::get_exprs);
         ObjectList<NBase> target_inout_deps = gather_dependences(
                 target_environ,
-                &Nodecl::OpenMP::DepInout::get_inout_deps);
+                &Nodecl::OpenMP::DepInout::get_exprs);
 
         ObjectList<NBase> target_deps =
             append_two_lists(target_inout_deps,

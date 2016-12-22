@@ -446,8 +446,8 @@ namespace {
                      // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
                      // same physical layout
                      && may_have_dependence_list(
-                         sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
-                         targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>()));
+                         sources[n_source].as<Nodecl::OpenMP::DepOut>().get_exprs().as<Nodecl::List>(),
+                         targets[n_target].as<Nodecl::OpenMP::DepIn>().get_exprs().as<Nodecl::List>()));
             }
         }
 
@@ -590,8 +590,8 @@ namespace {
                      // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
                      // same physical layout
                      && may_have_dependence_list(
-                         sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
-                         targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>()));
+                         sources[n_source].as<Nodecl::OpenMP::DepOut>().get_exprs().as<Nodecl::List>(),
+                         targets[n_target].as<Nodecl::OpenMP::DepIn>().get_exprs().as<Nodecl::List>()));
             }
         }
 

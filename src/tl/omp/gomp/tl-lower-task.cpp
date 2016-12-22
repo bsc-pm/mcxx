@@ -364,16 +364,16 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         Nodecl::NodeclBase dep_in
             = environment.find_first<Nodecl::OpenMP::DepIn>();
         if (!dep_in.is_null())
-            dep_in = dep_in.as<Nodecl::OpenMP::DepIn>().get_in_deps();
+            dep_in = dep_in.as<Nodecl::OpenMP::DepIn>().get_exprs();
         Nodecl::NodeclBase dep_out
             = environment.find_first<Nodecl::OpenMP::DepOut>();
         if (!dep_out.is_null())
-            dep_out = dep_out.as<Nodecl::OpenMP::DepOut>().get_out_deps();
+            dep_out = dep_out.as<Nodecl::OpenMP::DepOut>().get_exprs();
         Nodecl::NodeclBase dep_inout
             = environment.find_first<Nodecl::OpenMP::DepInout>();
         if (!dep_inout.is_null())
             dep_inout
-                = dep_inout.as<Nodecl::OpenMP::DepInout>().get_inout_deps();
+                = dep_inout.as<Nodecl::OpenMP::DepInout>().get_exprs();
 
         struct all_deps_info_tag
         {

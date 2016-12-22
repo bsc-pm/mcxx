@@ -1214,38 +1214,38 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
-                add_dependences(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN);
+                add_dependences(dep_in.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_IN);
             }
 
             void visit(const Nodecl::OmpSs::DepInPrivate& dep_in_private)
             {
-                add_dependences(dep_in_private.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_PRIVATE);
+                add_dependences(dep_in_private.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_IN_PRIVATE);
             }
 
             void visit(const Nodecl::OpenMP::DepOut& dep_out)
             {
-                add_dependences(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DEP_OUT);
+                add_dependences(dep_out.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_OUT);
             }
 
             void visit(const Nodecl::OpenMP::DepInout& dep_inout)
             {
-                add_dependences(dep_inout.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_INOUT);
+                add_dependences(dep_inout.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_INOUT);
             }
 
             void visit(const Nodecl::OmpSs::Concurrent& concurrent)
             {
-                add_dependences(concurrent.get_inout_deps().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
+                add_dependences(concurrent.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
             }
 
             void visit(const Nodecl::OmpSs::Commutative& commutative)
             {
-                add_dependences(commutative.get_commutative_deps().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
+                add_dependences(commutative.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
             }
 
             void visit(const Nodecl::OmpSs::DepReduction& dep_reduction)
             {
                 // In Nanos++, the dependence associated with a reduction is represented as a concurrent dependence
-                add_dependences(dep_reduction.get_reduction_deps().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
+                add_dependences(dep_reduction.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
             }
 
             void visit(const Nodecl::OmpSs::CopyIn& copy_in)

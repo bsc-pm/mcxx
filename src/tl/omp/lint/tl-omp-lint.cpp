@@ -1472,11 +1472,11 @@ skip_current_var: ;
         // 3.- Collect dependency clauses, for these may use variables that need to be scoped (shape expressions, array subscripts)
         Nodecl::List tmp_dependency_vars;
         if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN))
-            tmp_dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy());
+            tmp_dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_exprs().shallow_copy());
         if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT))
-            tmp_dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy());
+            tmp_dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_exprs().shallow_copy());
         if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT))
-            tmp_dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy());
+            tmp_dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_exprs().shallow_copy());
         // 3.1.- Purge dependency clauses: we transform the shaping expressions to extract the postfix expression and any variable used to shape it
         TL::Analysis::NodeclSet dependency_vars;
         for(Nodecl::List::iterator it = tmp_dependency_vars.begin(); it != tmp_dependency_vars.end(); ++it)
@@ -1564,15 +1564,15 @@ skip_current_var: ;
         TL::Analysis::PCFGPragmaInfo task_pragma_info = task->get_pragma_node_info( );
         if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN))
         {
-            dep_in_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy().as<Nodecl::List>();
+            dep_in_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_exprs().shallow_copy().as<Nodecl::List>();
         }
         if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT))
         {
-            dep_out_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy().as<Nodecl::List>();
+            dep_out_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_exprs().shallow_copy().as<Nodecl::List>();
         }
         if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT))
         {
-            Nodecl::List dep_inout_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            Nodecl::List dep_inout_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_exprs().shallow_copy().as<Nodecl::List>();
             dep_in_vars.append(dep_inout_vars);
             dep_out_vars.append(dep_inout_vars);
         }
