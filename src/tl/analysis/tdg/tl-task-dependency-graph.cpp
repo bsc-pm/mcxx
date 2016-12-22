@@ -1230,17 +1230,17 @@ insert_values:
 //             if(it->is<Nodecl::OpenMP::DepIn>())
 //             {
 //                 clause_name = "in";
-//                 args =  it->as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>();
+//                 args =  it->as<Nodecl::OpenMP::DepIn>().get_exprs().as<Nodecl::List>();
 //             }
 //             else if(it->is<Nodecl::OpenMP::DepOut>())
 //             {
 //                 clause_name = "out";
-//                 args =  it->as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>();
+//                 args =  it->as<Nodecl::OpenMP::DepOut>().get_exprs().as<Nodecl::List>();
 //             }
 //             else if(it->is<Nodecl::OpenMP::DepInout>())
 //             {
 //                 clause_name = "inout";
-//                 args =  it->as<Nodecl::OpenMP::DepInout>().get_inout_deps().as<Nodecl::List>();
+//                 args =  it->as<Nodecl::OpenMP::DepInout>().get_exprs().as<Nodecl::List>();
 //             }
 //             
 //             for(Nodecl::List::iterator it_a = args.begin(); it_a != args.end();)

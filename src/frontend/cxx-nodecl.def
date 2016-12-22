@@ -616,9 +616,9 @@ omp-loop-info : NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
 omp-taskloop-info : NODECL_OPEN_M_P*NUM_TASKS([num_tasks]expression)
                   | NODECL_OPEN_M_P*GRAIN_SIZE([grain_size]expression)
 
-omp-deps-info :  NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
+omp-deps-info :  NODECL_OPEN_M_P*DEP_IN([exprs]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_OUT([exprs]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_INOUT([exprs]expression-seq)
 
 omp-execution-control : NODECL_OPEN_M_P*IF([condition]expression)
                       | NODECL_OPEN_M_P*FINAL([condition]expression)
@@ -686,7 +686,6 @@ omp-for-construct : NODECL_OPEN_M_P*FOR_APPENDIX([environment]omp-exec-environme
 expression : task-call
            | task-expression
 
-omp-deps-info: NODECL_OMP_SS*DEP_IN_PRIVATE([in_deps]expression-seq)
 
 # function task
 # Note: do not rely on the information in site_environment
@@ -709,16 +708,16 @@ data-coordination : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
                 | NODECL_OMP_SS*UNREGISTER([unregistered_set]expression-seq)
 
 omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
-                | NODECL_OMP_SS*CONCURRENT([inout_deps]expression-seq)
-                | NODECL_OMP_SS*COMMUTATIVE([commutative_deps]expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
-                | NODECL_OMP_SS*DEP_REDUCTION([reduction_deps]expression-seq)
-                | NODECL_OMP_SS*DEP_WEAK_IN([weakin_deps]expression-seq)
-                | NODECL_OMP_SS*DEP_WEAK_OUT([weakout_deps]expression-seq)
-                | NODECL_OMP_SS*DEP_WEAK_INOUT([weakinout_deps]expression-seq)
                 | NODECL_OMP_SS*COST([cost]expression)
 
-omp-exec-environment : ompss-device-info
+omp-deps-info: NODECL_OMP_SS*CONCURRENT([exprs]expression-seq)
+                | NODECL_OMP_SS*COMMUTATIVE([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_REDUCTION([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_IN_PRIVATE([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_IN([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_OUT([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_INOUT([exprs]expression-seq)
 
 ompss-device-info : NODECL_OMP_SS*COPY_IN([input_copies]expression-seq)
             | NODECL_OMP_SS*COPY_OUT([output_copies]expression-seq)

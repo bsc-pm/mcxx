@@ -129,49 +129,49 @@ namespace TL { namespace Nanos6 {
         virtual void visit(const Nodecl::OmpSs::Concurrent &n)
         {
             not_supported_seq("concurrent dependences",
-                              n.get_inout_deps().as<Nodecl::List>());
+                              n.get_exprs().as<Nodecl::List>());
         }
 
         virtual void visit(const Nodecl::OmpSs::Commutative &n)
         {
             _task_properties.dep_commutative.append(
-                n.get_commutative_deps().as<Nodecl::List>().to_object_list());
+                n.get_exprs().as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OpenMP::DepIn &n)
         {
             _task_properties.dep_in.append(
-                n.get_in_deps().as<Nodecl::List>().to_object_list());
+                n.get_exprs().as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OpenMP::DepOut &n)
         {
             _task_properties.dep_out.append(
-                n.get_out_deps().as<Nodecl::List>().to_object_list());
+                n.get_exprs().as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OpenMP::DepInout &n)
         {
             _task_properties.dep_inout.append(
-                n.get_inout_deps().as<Nodecl::List>().to_object_list());
+                n.get_exprs().as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OmpSs::DepWeakIn &n)
         {
             _task_properties.dep_weakin.append(
-                n.get_weakin_deps().as<Nodecl::List>().to_object_list());
+                n.get_exprs().as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OmpSs::DepWeakOut &n)
         {
             _task_properties.dep_weakout.append(
-                n.get_weakout_deps().as<Nodecl::List>().to_object_list());
+                n.get_exprs().as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OmpSs::DepWeakInout &n)
         {
             _task_properties.dep_weakinout.append(
-                n.get_weakinout_deps().as<Nodecl::List>().to_object_list());
+                n.get_exprs().as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OpenMP::Final &n)
@@ -266,7 +266,7 @@ namespace TL { namespace Nanos6 {
         virtual void visit(const Nodecl::OmpSs::DepInPrivate &n)
         {
             not_supported_seq("(private) value input dependences",
-                              n.get_in_deps().as<Nodecl::List>());
+                              n.get_exprs().as<Nodecl::List>());
         }
 
         virtual void visit(const Nodecl::OmpSs::Cost &n)
