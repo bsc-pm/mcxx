@@ -132,46 +132,46 @@ namespace TL { namespace Nanos6 {
                               n.get_exprs().as<Nodecl::List>());
         }
 
-        virtual void visit(const Nodecl::OmpSs::Commutative &n)
+        template < typename T >
+        void handle_dependences(const T& n, TL::ObjectList<Nodecl::NodeclBase>& dep_list)
         {
-            _task_properties.dep_commutative.append(
-                n.get_exprs().as<Nodecl::List>().to_object_list());
+            _task_properties.any_task_dependence = true;
+            dep_list.append(n.get_exprs().template as<Nodecl::List>().to_object_list());
         }
 
         virtual void visit(const Nodecl::OpenMP::DepIn &n)
         {
-            _task_properties.dep_in.append(
-                n.get_exprs().as<Nodecl::List>().to_object_list());
+            handle_dependences(n, _task_properties.dep_in);
         }
 
         virtual void visit(const Nodecl::OpenMP::DepOut &n)
         {
-            _task_properties.dep_out.append(
-                n.get_exprs().as<Nodecl::List>().to_object_list());
+            handle_dependences(n, _task_properties.dep_out);
         }
 
         virtual void visit(const Nodecl::OpenMP::DepInout &n)
         {
-            _task_properties.dep_inout.append(
-                n.get_exprs().as<Nodecl::List>().to_object_list());
+            handle_dependences(n, _task_properties.dep_inout);
         }
 
         virtual void visit(const Nodecl::OmpSs::DepWeakIn &n)
         {
-            _task_properties.dep_weakin.append(
-                n.get_exprs().as<Nodecl::List>().to_object_list());
+            handle_dependences(n, _task_properties.dep_weakin);
         }
 
         virtual void visit(const Nodecl::OmpSs::DepWeakOut &n)
         {
-            _task_properties.dep_weakout.append(
-                n.get_exprs().as<Nodecl::List>().to_object_list());
+            handle_dependences(n, _task_properties.dep_weakout);
         }
 
         virtual void visit(const Nodecl::OmpSs::DepWeakInout &n)
         {
-            _task_properties.dep_weakinout.append(
-                n.get_exprs().as<Nodecl::List>().to_object_list());
+            handle_dependences(n, _task_properties.dep_weakinout);
+        }
+
+        virtual void visit(const Nodecl::OmpSs::Commutative &n)
+        {
+            handle_dependences(n, _task_properties.dep_commutative);
         }
 
         virtual void visit(const Nodecl::OpenMP::Final &n)
@@ -3417,7 +3417,7 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_dependences_function()
     {
         // Skip this function if the current task doesn't have any task dependence
-        if (!any_task_dependence())
+        if (!any_task_dependence)
             return;
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -4061,17 +4061,5 @@ namespace TL { namespace Nanos6 {
         all_syms.append(captured_value);
 
         TL::Nanos6::fortran_add_types(all_syms, dest_scope);
-    }
-
-    bool TaskProperties::any_task_dependence() const
-    {
-        return
-            !dep_in.empty()        ||
-            !dep_out.empty()       ||
-            !dep_inout.empty()     ||
-            !dep_weakin.empty()    ||
-            !dep_weakout.empty()   ||
-            !dep_weakinout.empty() ||
-            !dep_commutative.empty();
     }
 } }
