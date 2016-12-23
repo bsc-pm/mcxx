@@ -205,7 +205,6 @@ namespace TL { namespace Nanos6 {
                 TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
 
-            bool any_task_dependence() const;
 
         public:
             TL::ObjectList<TL::Symbol> shared;
@@ -241,11 +240,15 @@ namespace TL { namespace Nanos6 {
             // For inline related_function is the enclosing task,
             // for function tasks, it is the function task itself
             TL::Symbol related_function;
+
+            // This bool states whether the current task has any dependence
+            bool any_task_dependence;
             const locus_t* locus_of_task_creation;
             const locus_t* locus_of_task_declaration;
 
             TaskProperties(LoweringPhase* lowering_phase)
-                : phase(lowering_phase), is_tied(true), is_function_task(false) { }
+                : phase(lowering_phase), is_tied(true),
+                  is_function_task(false), any_task_dependence(false) { }
 
             static TaskProperties gather_task_properties(
                     LoweringPhase* phase,
