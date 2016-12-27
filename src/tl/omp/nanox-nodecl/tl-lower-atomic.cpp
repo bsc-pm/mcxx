@@ -51,7 +51,7 @@ namespace TL { namespace Nanox {
                         && t.no_ref().points_to().is_fortran_array()));
         }
 
-        bool allowed_expressions_critical_fortran(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
+        bool allowed_expression_atomic_fortran(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
         {
             if (!expr.is<Nodecl::Assignment>())
             {
@@ -164,7 +164,7 @@ namespace TL { namespace Nanox {
             return true;
         }
 
-        bool allowed_expressions_critical_c(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
+        bool allowed_expression_atomic_c(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
         {
             node_t op_kind = expr.get_kind();
 
@@ -249,12 +249,12 @@ namespace TL { namespace Nanox {
             return false;
         }
 
-        bool allowed_expressions_critical(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
+        bool allowed_expression_atomic(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
         {
             if (IS_FORTRAN_LANGUAGE)
-                return allowed_expressions_critical_fortran(expr, using_builtin, using_nanos_api);
+                return allowed_expression_atomic_fortran(expr, using_builtin, using_nanos_api);
             else
-                return allowed_expressions_critical_c(expr, using_builtin, using_nanos_api);
+                return allowed_expression_atomic_c(expr, using_builtin, using_nanos_api);
         }
 
         Nodecl::NodeclBase compare_and_exchange(Nodecl::NodeclBase expr)
@@ -409,7 +409,7 @@ namespace TL { namespace Nanox {
                 critical_source << intrinsic_function_name << "_" << op_size << "(&(" << as_expression(expr.as<Nodecl::Preincrement>().get_rhs()) << "), 1);"
                     ;
             }
-            // No need to check the other case as allowed_expressions_critical
+            // No need to check the other case as allowed_expression_atomic
             // already did this for us
             else
             {
@@ -665,7 +665,7 @@ namespace TL { namespace Nanox {
 
                 bool using_builtin = false;
                 bool using_nanos_api = false;
-                if (!allowed_expressions_critical(expr, using_builtin, using_nanos_api))
+                if (!allowed_expression_atomic(expr, using_builtin, using_nanos_api))
                 {
                     warn_printf_at(expr.get_locus(), "'atomic' expression cannot be implemented efficiently: a critical region will be used instead\n");
                     std::string lock_name = "nanos_default_critical_lock";
