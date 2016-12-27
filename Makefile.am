@@ -1148,6 +1148,8 @@ src_tl_omp_common_libtlomp_common_la_SOURCES = \
    src/tl/omp/common/tl-datareference.cpp \
    src/tl/omp/common/tl-final-stmts-generator.hpp \
    src/tl/omp/common/tl-final-stmts-generator.cpp \
+   src/tl/omp/common/tl-atomics.hpp \
+   src/tl/omp/common/tl-atomics.cpp \
    $(END)
 
 ##########################################################################
