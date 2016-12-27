@@ -20602,6 +20602,7 @@ static void build_scope_nodecl_return_statement(
             if ((!nodecl_expr_is_type_dependent(nodecl_return_expression)
                         && !is_void_type(nodecl_get_type(nodecl_return_expression))))
             {
+                valid_expr = 0;
                 error_printf_at(nodecl_get_locus(nodecl_return_expression), "return with non-void expression in a void function\n");
             }
         }
