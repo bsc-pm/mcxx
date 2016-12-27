@@ -132,7 +132,7 @@ $MPICXX $EXTRA_FLAGS -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS
 $compile_messages
 
 OmpSs MPI Offload library could not be compiled.
-Check if your environment is not producing any conflict. If it is not, please report this error to https://pm.bsc.es/projects/nanox/newticket"
+Check if your environment is not producing any conflict. If it is not, please open a new issue on GitHub: https://github.com/bsc-pm/nanox/issues"
        exit -1
    fi
 
