@@ -205,6 +205,15 @@ namespace TL { namespace Nanos6 {
                 TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
 
+            void compute_captured_values();
+
+            void compute_captured_saved_expressions();
+
+            void compute_captured_symbols_without_data_sharings();
+            void compute_captured_symbols_without_data_sharings(Nodecl::NodeclBase n);
+            void compute_captured_symbols_without_data_sharings(const TL::ObjectList<Nodecl::NodeclBase>& list);
+
+            bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
 
         public:
             TL::ObjectList<TL::Symbol> shared;
@@ -273,7 +282,8 @@ namespace TL { namespace Nanos6 {
                     /* out */
                     Nodecl::NodeclBase& capture_env);
 
-            void compute_captured_values();
+
+
             void remove_data_sharing_of_this();
             void fix_data_sharing_of_this();
 

@@ -367,7 +367,7 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    void TaskProperties::compute_captured_values()
+    void TaskProperties::compute_captured_saved_expressions()
     {
         for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
                 it != shared.end();
@@ -384,8 +384,87 @@ namespace TL { namespace Nanos6 {
             if (it->get_type().depends_on_nonconstant_values())
                 walk_type_for_saved_expressions(it->get_type());
         }
+    }
 
+    bool TaskProperties::symbol_has_data_sharing_attribute(TL::Symbol sym) const
+    {
+        return shared.contains(sym)       ||
+               private_.contains(sym)     ||
+               firstprivate.contains(sym) ||
+               captured_value.contains(sym);
+    }
+
+    void TaskProperties::compute_captured_symbols_without_data_sharings(
+            Nodecl::NodeclBase n)
+    {
+        struct CaptureExtraVariables : public Nodecl::ExhaustiveVisitor<void>
+        {
+            TaskProperties& _tp;
+            TL::ObjectList<TL::Symbol> _ignore_symbols;
+
+            CaptureExtraVariables(TaskProperties& tp) : _tp(tp) { }
+
+            void visit(const Nodecl::MultiExpression& node)
+            {
+                // The iterator of a MultiExpression has to be ignored!
+                _ignore_symbols.append(node.get_symbol());
+                this->Nodecl::ExhaustiveVisitor<void>::visit(node);
+            }
+
+            void visit(const Nodecl::Symbol& node)
+            {
+                TL::Symbol sym = node.get_symbol();
+                if (!sym.is_variable())
+                    return;
+
+                if (sym.is_member())
+                    return;
+
+                if (_ignore_symbols.contains(sym))
+                    return;
+
+                if(!_tp.symbol_has_data_sharing_attribute(sym))
+                    _tp.captured_value.insert(sym);
+            }
+        };
+
+        CaptureExtraVariables visitor(*this);
+        visitor.walk(n);
+    }
+
+    void TaskProperties::compute_captured_symbols_without_data_sharings(
+            const TL::ObjectList<Nodecl::NodeclBase>& list)
+    {
+        for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it =  list.begin();
+                it != list.end();
+                ++it)
+        {
+            compute_captured_symbols_without_data_sharings(*it);
+        }
+    }
+
+    void TaskProperties::compute_captured_symbols_without_data_sharings()
+    {
+        // Dependences
+        compute_captured_symbols_without_data_sharings(dep_in);
+        compute_captured_symbols_without_data_sharings(dep_out);
+        compute_captured_symbols_without_data_sharings(dep_inout);
+        compute_captured_symbols_without_data_sharings(dep_weakin);
+        compute_captured_symbols_without_data_sharings(dep_weakout);
+        compute_captured_symbols_without_data_sharings(dep_weakinout);
+        compute_captured_symbols_without_data_sharings(dep_commutative);
+
+        // Other task clauses
+        compute_captured_symbols_without_data_sharings(final_);
+        compute_captured_symbols_without_data_sharings(cost);
+    }
+
+    void TaskProperties::compute_captured_values()
+    {
+        compute_captured_saved_expressions();
         captured_value.insert(firstprivate);
+        compute_captured_symbols_without_data_sharings();
+
     }
 
     namespace {
