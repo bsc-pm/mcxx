@@ -65,7 +65,7 @@ behavior of Mercurium. For example, a profile specifies which phases of
 Mercurium have to be executed or which backend compiler will be used.
 
 Any installation of Mercurium has, at least, the `plain` profiles (`plaincc`,
-`plaincxx` and `plainfc` for C, C++ and Fortran languages repectively). These
+`plaincxx` and `plainfc` for C, C++ and Fortran languages respectively). These
 profiles do not transform any OpenMP/OmpSs pragma, they basically process your
 code and generate it again. They may seem useless, but they are really useful
 when debugging our compiler frontend.
