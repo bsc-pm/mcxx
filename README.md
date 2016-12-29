@@ -1,7 +1,7 @@
 # Mercurium C/C++/Fortran source-to-source compiler
 
 Mercurium is a C/C++/Fortran source-to-source compilation infrastructure aimed at fast
-prototyping developed by the [Programming Models group](https://pm.bsc.es/)
+prototyping developed by the [*Programming Models group*](https://pm.bsc.es/)
 at the [**Barcelona Supercomputing Center**](http://www.bsc.es/).
 
 Mercurium is mainly used together with the [Nanos++ Runtime Library](https://github.com/bsc-pm/nanox)
@@ -22,12 +22,24 @@ the compiler).
 ## Installation
 
 1. Make sure you fulfill the [build requirements](doc/md_pages/build_requirements.md)
+2. Download Mercurium's code
+    1. From our repo
+        * Clone Mercurium's repository
 
-2. Go to [OmpSs downloads](https://pm.bsc.es/ompss-downloads) and grab the
-latest version of the compiler. Unpack the file and enter in the directory
+                $ git clone https://github.com/bsc-pm/mcxx.git
 
-        $ tar xfj mcxx-<<version>>.tar.bz2
-        $ cd mcxx-<<version>>
+        * Run `autoreconf` in the newly created `mcxx` directory
+
+                $ cd mcxx
+                $ autoreconf -fiv
+                <<<autoreconf output>>>
+
+    2. From a distributed tarball
+        * Go to [OmpSs downloads](https://pm.bsc.es/ompss-downloads) and grab the
+          latest version of the compiler. Unpack the file and enter in the directory
+
+                $ tar xvzf mcxx-<<version>>.tar.gz
+                $ cd mcxx-<<version>>
 
 3. Run `configure`. Check the [configure flags](doc/md_pages/configure_flags.md) to
     enable more or less features in the compiler. By default the compiler does
@@ -46,7 +58,6 @@ latest version of the compiler. Unpack the file and enter in the directory
 5. Add the installed binaries to your `PATH`
 
         $ export PATH=$MERCURIUM:$PATH
-
 
 And that's all!
 
