@@ -61,13 +61,21 @@ the compiler).
 
 And that's all!
 
+## Mercurium profiles
 
-The _plain_ compiler (which actually does nothing) is called `plaincc` for
-C and `plaincxx` for C++. Some other [profiles](https://pm.bsc.es/ompss-docs/user-guide/compile-programs.html) may
-be installed depending on the [configure flags](https://pm.bsc.es/ompss-docs/user-guide/installation.html#mercurium-configure-flags)
+Depending on the [configure flags](doc/md_pages/configure_flags.md) used to configure
+Mercurium, you may have some Mercurium profiles or others. A Mercurium profile
+is basically a binary with a predefined configuration that specifies the
+behavior of Mercurium. For example, a profile specifies which phases of
+Mercurium have to be executed or which backend compiler will be used.
 
-Building from the version in our public git repository requires [some more steps](https://pm.bsc.es/ompss-docs/user-guide/installation-git.html#mercurium-from-git)
+Any installation of Mercurium has, at least, the `plain` profiles (`plaincc`,
+`plaincxx` and `plainfc` for C, C++ and Fortran languages repectively). These
+profiles do not transform any OpenMP/OmpSs pragma, they basically process your
+code and generate it again. They may seem useless, but they are really useful
+when debugging our compiler frontend.
 
+For more information check our list of [Mercurium's profiles](https://pm.bsc.es/ompss-docs/user-guide/compile-programs.html).
 
 ## Contact Information
 
