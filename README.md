@@ -27,20 +27,17 @@ the compiler).
         * Clone Mercurium's repository
 
                 $ git clone https://github.com/bsc-pm/mcxx.git
-
         * Run `autoreconf` in the newly created `mcxx` directory
 
                 $ cd mcxx
                 $ autoreconf -fiv
                 <<<autoreconf output>>>
-
     2. From a distributed tarball
         * Go to [OmpSs downloads](https://pm.bsc.es/ompss-downloads) and grab the
           latest version of the compiler. Unpack the file and enter in the directory
 
                 $ tar xvzf mcxx-<<version>>.tar.gz
                 $ cd mcxx-<<version>>
-
 3. Run `configure`. Check the [configure flags](doc/md_pages/configure_flags.md) to
     enable more or less features in the compiler. By default the compiler does
     not have anything enabled. Set the environment variable `MERCURIUM` to the
@@ -48,13 +45,11 @@ the compiler).
 
         $ export MERCURIUM=/path/to/install/mercurium
         $ ./configure --prefix=$MERCURIUM <<configure-flags>>
-
 4. Build and install
 
         $ make
         <<<compilation output>>>
         $ make install
-
 5. Add the installed binaries to your `PATH`
 
         $ export PATH=$MERCURIUM:$PATH
