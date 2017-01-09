@@ -2124,10 +2124,16 @@ char function_may_be_instantiated(scope_entry_t* entry)
 {
     if (symbol_entity_specs_get_is_member(entry))
     {
+        if (is_template_specialized_type(entry->type_information)
+                && entry->decl_context->template_parameters->is_explicit_specialization)
+        {
+            return 0;
+        }
+
         return member_function_may_be_instantiated(entry);
     }
     else if (is_template_specialized_type(entry->type_information)
-            && !is_template_explicit_specialization(entry->decl_context->template_parameters))
+            && !entry->decl_context->template_parameters->is_explicit_specialization)
     {
             return nonmember_template_function_may_be_instantiated(entry);
     }
