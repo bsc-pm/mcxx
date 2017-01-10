@@ -2996,9 +2996,10 @@ void build_scope_decl_specifier_seq(AST a,
 
         if (gather_info->is_atomic)
         {
-            if (!is_integer_type(*type_info))
+            if (is_array_type(*type_info)
+                    || is_function_type(*type_info))
             {
-                error_printf_at(ast_get_locus(a), "only integer types can be atomic\n");
+                error_printf_at(ast_get_locus(a), "array or function types cannot be atomic\n");
                 *type_info = get_error_type();
                 return;
             }
