@@ -4823,6 +4823,7 @@ static void check_assignment(AST expr, const decl_context_t* decl_context, nodec
     if (!is_defined_assig)
     {
         nodecl_lvalue = fortran_expression_as_variable(nodecl_lvalue);
+        lvalue_type = nodecl_get_type(nodecl_lvalue);
         nodecl_rvalue = fortran_expression_as_value(nodecl_rvalue);
 
         if (!equivalent_types(
