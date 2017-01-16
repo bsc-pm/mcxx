@@ -2605,9 +2605,6 @@ namespace TL { namespace Nanos6 {
 
             body_of_loop.replace(base_reg);
 
-            ERROR_CONDITION(base_reg.size() != 1, "Invalid list", 0);
-            src << as_statement(base_reg[0]);
-
             register_statements.append(loop);
         }
     }
