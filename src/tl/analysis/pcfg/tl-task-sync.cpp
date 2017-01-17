@@ -41,6 +41,9 @@ namespace TaskAnalysis{
 
 namespace {
     // #define TASK_SYNC_DEBUG
+
+    std::set<Node*> dead_tasks_before_sync;
+
     bool function_waits_tasks(TL::Symbol sym)
     {
         scope_entry_t* entry = sym.get_internal_symbol();
@@ -359,6 +362,13 @@ namespace {
             return tribool();
         }
 
+        // The task has already been synchronized with other tasks
+        // where the target task has an input dependence with some out of the source
+        if (dead_tasks_before_sync.find(source) != dead_tasks_before_sync.end())
+        {
+            return tribool::no;
+        }
+
         Nodecl::List task_source_env;
         if (task_node_source.is<Nodecl::OpenMP::Task>())
         {
@@ -573,6 +583,7 @@ namespace {
         Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout, target_dep_out, target_dep_commutative };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
+        bool all_targets_are_inputs = true;
         for (int n_source = 0; n_source < num_sources; n_source++)
         {
             if (sources[n_source].is_null())
@@ -583,17 +594,38 @@ namespace {
                 if (targets[n_target].is_null())
                     continue;
 
-                may_have_dep = may_have_dep || 
-                    // At least one of the dependences is not only an input
-                    ((!is_only_input_dependence(sources[n_source])
-                      || !is_only_input_dependence(targets[n_target]))
-                     // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
-                     // same physical layout
-                     && may_have_dependence_list(
-                         sources[n_source].as<Nodecl::OpenMP::DepOut>().get_exprs().as<Nodecl::List>(),
-                         targets[n_target].as<Nodecl::OpenMP::DepIn>().get_exprs().as<Nodecl::List>()));
+                // in/out/inout -> out  =>  synchronizes for sure
+                //    out/inout -> in   =>  it may still be alive
+                tribool may_have_dependence_l = may_have_dependence_list(
+                            sources[n_source].as<Nodecl::OpenMP::DepOut>().get_exprs().as<Nodecl::List>(),
+                            targets[n_target].as<Nodecl::OpenMP::DepIn>().get_exprs().as<Nodecl::List>());
+                if (!is_only_input_dependence(targets[n_target]))
+                {
+                    all_targets_are_inputs = false;
+                    may_have_dep = may_have_dep || may_have_dependence_l;
+                }
+                else if (!is_only_input_dependence(sources[n_source]))
+                {
+                    if (may_have_dependence_l == tribool::unknown
+                        || may_have_dependence_l == tribool::yes)
+                    {
+                        may_have_dep = may_have_dep || tribool::unknown;
+                    }
+                }
+//                 may_have_dep = may_have_dep || 
+//                     // At least one of the dependences is not only an input
+//                     ((!is_only_input_dependence(sources[n_source])
+//                       || !is_only_input_dependence(targets[n_target]))
+//                      // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
+//                      // same physical layout
+//                      && may_have_dependence_list(
+//                          sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
+//                          targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>()));
             }
         }
+
+        if (all_targets_are_inputs && may_have_dep == tribool::unknown)
+            dead_tasks_before_sync.insert(source);
 
         return may_have_dep;
     }
@@ -610,6 +642,24 @@ namespace {
         {
             if (alive_tasks_it->domain != current_domain_id)
                 continue;
+
+            // If the task has already been synchronized with other tasks
+            // where the target task has an input dependence with some out of the source
+            // then nothing to do here
+            if (dead_tasks_before_sync.find(alive_tasks_it->node) != dead_tasks_before_sync.end())
+            {
+                // If there is only one child,
+                // change the synchronization type from maybe to yes
+                PointOfSyncList alive_tasks_it_syncs = points_of_sync[alive_tasks_it->node];
+                if (alive_tasks_it_syncs.size() == 1)
+                {
+                    Node* n = alive_tasks_it_syncs[0].first;
+                    PointOfSyncList new_list(1, std::pair<Node*, SyncKind>(n, __Static));
+                    points_of_sync[alive_tasks_it->node] = new_list;
+                }
+                continue;
+            }
+
             points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, __Static));
         }
 
@@ -683,6 +733,23 @@ namespace {
                     alive_tasks_it != current->get_live_in_tasks().end();
                     alive_tasks_it++)
             {
+                // If the task has already been synchronized with other tasks
+                // where the target task has an input dependence with some out of the source
+                // then nothing to do here
+                if (dead_tasks_before_sync.find(alive_tasks_it->node) != dead_tasks_before_sync.end())
+                {
+                    // If there is only one child,
+                    // change the synchronization type from maybe to yes
+                    PointOfSyncList alive_tasks_it_syncs = points_of_sync[alive_tasks_it->node];
+                    if (alive_tasks_it_syncs.size() == 1)
+                    {
+                        Node* n = alive_tasks_it_syncs[0].first;
+                        PointOfSyncList new_list(1, std::pair<Node*, SyncKind>(n, __Static));
+                        points_of_sync[alive_tasks_it->node] = new_list;
+                    }
+                    continue;
+                }
+
                 points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, __Static));
             }
             current->get_live_out_tasks().clear();
@@ -813,6 +880,64 @@ namespace {
         }
     }
 
+    void purge_exit_live_in_tasks_rec(
+            Node* current,
+            AliveTaskSet& exit_live_in_tasks)
+    {
+        if (current->is_visited())
+            return;
+
+        current->set_visited(true);
+
+        // Treat the current node
+        if (current->is_graph_node())
+        {
+            if (current->is_omp_task_node())
+            {
+                // Look for the task in the set of alive tasks
+                // We cannot take advantage of the set structure
+                // because the elements are AliveTaskItem
+                for (AliveTaskSet::iterator it = exit_live_in_tasks.begin();
+                     it != exit_live_in_tasks.end(); )
+                {
+                    if (it->node == current
+                        && dead_tasks_before_sync.find(it->node) != dead_tasks_before_sync.end())
+                    {
+                        // Remove the task form the set of alive tasks
+                        // because it has already been synchronized
+                        exit_live_in_tasks.erase(it++);
+
+                        // Additionally, if there is only one child,
+                        // change the synchronization type from maybe to yes
+                        ObjectList<Edge*> exits = current->get_exit_edges();
+                        if (exits.size() == 1)
+                        {
+                            exits[0]->set_sync_kind(__Static);
+                            const char* s = exits[0]->get_sync_kind_as_string();
+                            exits[0]->set_label(Nodecl::StringLiteral::make(
+                                    Type(get_literal_string_type(strlen(s)+1, get_char_type())),
+                                    const_value_make_string(s, strlen(s))));
+                        }
+                    }
+                    else
+                    {
+                        ++it;
+                    }
+                }
+            }
+
+            purge_exit_live_in_tasks_rec(current->get_graph_entry_node(), exit_live_in_tasks);
+        }
+
+        // Keep iterating
+        const ObjectList<Node*>& children = current->get_children();
+        for (ObjectList<Node*>::const_iterator it = children.begin();
+             it != children.end(); ++it)
+        {
+            purge_exit_live_in_tasks_rec(*it, exit_live_in_tasks);
+        }
+    }
+
     bool IsOmpssEnabled = false;
 }
 
@@ -867,13 +992,24 @@ namespace {
             }
         }
 
+        // Eliminate from the alive tasks those tasks that
+        // have been synchronized with one or more tasks when the target task has an input dependence.
+        // We keep them alive in case there are more tasks with a dependency on the same object
+        // but at the end of the graph we know for sure they are synchronized.
         Node* exit = root->get_graph_exit_node();
-        if (exit->get_live_in_tasks().empty())
+        AliveTaskSet exit_live_in_tasks = exit->get_live_in_tasks();
+        purge_exit_live_in_tasks_rec(root, exit_live_in_tasks);
+        ExtensibleGraph::clear_visits(root);
+
+        // If there are tasks alive at the end of the graph,
+        // connect them to the virtual synchronization point
+        // Otherwise, return
+        if (exit_live_in_tasks.empty())
             return;
         Node* post_sync = _graph->create_unconnected_node(__OmpVirtualTaskSync, NBase::null());
         _graph->set_post_sync(post_sync);
-        for (AliveTaskSet::iterator it = exit->get_live_in_tasks().begin();
-                it != exit->get_live_in_tasks().end();
+        for (AliveTaskSet::iterator it = exit_live_in_tasks.begin();
+                it != exit_live_in_tasks.end();
                 it++)
         {
             Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always,
