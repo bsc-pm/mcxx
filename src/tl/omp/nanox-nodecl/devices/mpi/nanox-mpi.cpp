@@ -144,29 +144,38 @@ void DeviceMPI::generate_additional_mpi_code(
 
         }
         
-        struct_mpi_create <<"MPI_Datatype* ompss___datatype;"
-                           "offload_err=nanos_mpi_type_get_struct( id_func_ompss, &ompss___datatype );"
-                           "if ( ompss___datatype == 0 )  "
-                           "{ "
-                               "MPI_Datatype ompss___typelist[" << count_params << "]= {" << typelist_src << "};"
-                               "int ompss___blocklen[" << count_params << "] = {" << blocklen_src << "};"
-                               "MPI_Aint ompss___displ[" << count_params << "] = {" << displ_src << "};"
-                               "offload_err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, "
-                               "ompss___typelist, &ompss___datatype, id_func_ompss); "
-                           "}";       
+	if(Nanos::Version::interface_is_at_least("offload", 1001))
+	{
+		struct_mpi_create <<"MPI_Datatype ompss___datatype;"
+			"offload_err=nanos_mpi_type_get_struct( id_func_ompss, &ompss___datatype );"
+			"if ( ompss___datatype == ompss_get_mpi_type(mpitype_ompss_null) )  ";
+	} else {
+		struct_mpi_create <<"MPI_Datatype* ompss___datatype;"
+			"offload_err=nanos_mpi_type_get_struct( id_func_ompss, &ompss___datatype );"
+			"if ( ompss___datatype == 0 )  ";
+	}
 
-        host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
+	struct_mpi_create <<"{ "
+		"   MPI_Datatype ompss___typelist[" << count_params << "]= {" << typelist_src << "};"
+		"   int ompss___blocklen[" << count_params << "] = {" << blocklen_src << "};"
+		"   MPI_Aint ompss___displ[" << count_params << "] = {" << displ_src << "};"
+		"   offload_err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, "
+		"   ompss___typelist, &ompss___datatype, id_func_ompss); "
+		"}";
 
-        //Recv datastruct from parent (rank will be ignored by nanox)
-        device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp); ";
-                
-        code_host << struct_mpi_create
-                << host_call;
-        code_device_pre << struct_mpi_create
-                << device_call;
-    //If there are no parameters, just send the order to start the task
+	host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+	host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
+
+	//Recv datastruct from parent (rank will be ignored by nanox)
+	device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp); ";
+
+	code_host << struct_mpi_create
+		<< host_call;
+	code_device_pre << struct_mpi_create
+		<< device_call;
+
     } else {
+	//If there are no parameters, just send the order to start the task
         code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
     }
     
