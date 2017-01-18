@@ -233,7 +233,7 @@ namespace TL { namespace Nanox {
                      TL::Symbol current_function,
                      const std::string& function_name,
                      CreateOutlineInfo& info,
-                     Nodecl::Utils::SimpleSymbolMap* &out_symbol_map,
+                     Nodecl::Utils::SimpleSymbolMap* out_symbol_map,
                      Source &initial_statements,
                      Source &final_statements);
 

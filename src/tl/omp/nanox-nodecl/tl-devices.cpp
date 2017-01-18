@@ -513,7 +513,7 @@ namespace TL { namespace Nanox {
             const std::string& function_name,
             CreateOutlineInfo& info,
             // Out
-            Nodecl::Utils::SimpleSymbolMap*& symbol_map,
+            Nodecl::Utils::SimpleSymbolMap* symbol_map,
             Source &initial_statements,
             Source &final_statements)
     {
@@ -966,10 +966,10 @@ namespace TL { namespace Nanox {
         struct GatherUnmappedSavedExpressions
         {
             const decl_context_t* &function_context;
-            Nodecl::Utils::SimpleSymbolMap* &symbol_map;
+            Nodecl::Utils::SimpleSymbolMap* symbol_map;
 
             GatherUnmappedSavedExpressions(const decl_context_t* &fc,
-                    Nodecl::Utils::SimpleSymbolMap*& sm)
+                    Nodecl::Utils::SimpleSymbolMap* sm)
                 : function_context(fc), symbol_map(sm) { }
 
             void new_private_saved_expression(TL::Symbol sym)
@@ -1073,10 +1073,10 @@ namespace TL { namespace Nanox {
         struct UpdateTypesVLA
         {
             const decl_context_t* &function_context;
-            Nodecl::Utils::SimpleSymbolMap* &symbol_map;
+            Nodecl::Utils::SimpleSymbolMap* symbol_map;
 
             UpdateTypesVLA(const decl_context_t* &fc,
-                    Nodecl::Utils::SimpleSymbolMap*& sm)
+                    Nodecl::Utils::SimpleSymbolMap* sm)
                 : function_context(fc), symbol_map(sm) { }
 
             void update(TL::ObjectList<TL::Symbol>& symbols)
