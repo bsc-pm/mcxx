@@ -612,15 +612,6 @@ namespace {
                         may_have_dep = may_have_dep || tribool::unknown;
                     }
                 }
-//                 may_have_dep = may_have_dep || 
-//                     // At least one of the dependences is not only an input
-//                     ((!is_only_input_dependence(sources[n_source])
-//                       || !is_only_input_dependence(targets[n_target]))
-//                      // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
-//                      // same physical layout
-//                      && may_have_dependence_list(
-//                          sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
-//                          targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>()));
             }
         }
 
