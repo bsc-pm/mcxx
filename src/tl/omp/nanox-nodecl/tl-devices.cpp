@@ -517,6 +517,26 @@ namespace TL { namespace Nanox {
             Source &initial_statements,
             Source &final_statements)
     {
+        return new_function_symbol_unpacked(
+                current_function,
+                function_name,
+                info,
+                /* make_it_global */ false,
+                symbol_map,
+                initial_statements,
+                final_statements);
+    }
+
+    TL::Symbol DeviceProvider::new_function_symbol_unpacked(
+            TL::Symbol current_function,
+            const std::string& function_name,
+            CreateOutlineInfo& info,
+            bool make_it_global,
+            // Out
+            Nodecl::Utils::SimpleSymbolMap* symbol_map,
+            Source &initial_statements,
+            Source &final_statements)
+    {
         if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
         {
             // Get the enclosing function
@@ -525,7 +545,7 @@ namespace TL { namespace Nanox {
 
         bool is_function_task = info._called_task.is_valid();
 
-        Scope sc = current_function.get_scope();
+        Scope sc = (make_it_global) ? TL::Scope::get_global_scope() : current_function.get_scope();
         const decl_context_t* decl_context = sc.get_decl_context();
 
         const decl_context_t* function_context;
@@ -1165,7 +1185,8 @@ namespace TL { namespace Nanox {
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
 
-            if (current_function.is_member())
+            if (!make_it_global
+                    && current_function.is_member())
             {
                 symbol_entity_specs_set_is_member(new_template_sym, 1);
                 symbol_entity_specs_set_class_type(new_template_sym, current_function.get_class_type().get_internal_type());
@@ -1202,7 +1223,8 @@ namespace TL { namespace Nanox {
         }
 
         // Make it member if the enclosing function is member
-        if (current_function.is_member())
+        if (!make_it_global
+                && current_function.is_member())
         {
             symbol_entity_specs_set_is_member(new_function_sym, 1);
             symbol_entity_specs_set_class_type(new_function_sym, current_function.get_class_type().get_internal_type());

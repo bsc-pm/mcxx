@@ -237,6 +237,15 @@ namespace TL { namespace Nanox {
                      Source &initial_statements,
                      Source &final_statements);
 
+             TL::Symbol new_function_symbol_unpacked(
+                     TL::Symbol current_function,
+                     const std::string& function_name,
+                     CreateOutlineInfo& info,
+                     bool make_it_global,
+                     Nodecl::Utils::SimpleSymbolMap* out_symbol_map,
+                     Source &initial_statements,
+                     Source &final_statements);
+
              void add_forward_function_code_to_extra_c_code(
                      const std::string& outline_name,
                      TL::ObjectList<OutlineDataItem*> data_items,
