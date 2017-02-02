@@ -443,14 +443,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
               TL::ObjectList<Nodecl::NodeclBase>& upper_bounds,
               TL::ObjectList<Nodecl::NodeclBase>& dims_sizes);
 
-        static Nodecl::NodeclBase get_size_for_dimension(
-                TL::Type array_type,
-                int fortran_dimension,
-                DataReference data_reference);
-
-        static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
-        static Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
-
         void visit_task(
                 const Nodecl::OpenMP::Task& construct,
                 bool inside_task_expression,
