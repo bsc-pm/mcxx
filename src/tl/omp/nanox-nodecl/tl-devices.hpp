@@ -227,12 +227,13 @@ namespace TL { namespace Nanox {
              TL::Symbol new_function_symbol_forward(
                      TL::Symbol current_function,
                      const std::string& function_name,
-                     CreateOutlineInfo& info);
+                     const CreateOutlineInfo& info);
 
              TL::Symbol new_function_symbol_unpacked(
                      TL::Symbol current_function,
                      const std::string& function_name,
-                     CreateOutlineInfo& info,
+                     const CreateOutlineInfo& info,
+                     // Out
                      Nodecl::Utils::SimpleSymbolMap* out_symbol_map,
                      Source &initial_statements,
                      Source &final_statements);
@@ -240,8 +241,9 @@ namespace TL { namespace Nanox {
              TL::Symbol new_function_symbol_unpacked(
                      TL::Symbol current_function,
                      const std::string& function_name,
-                     CreateOutlineInfo& info,
+                     const CreateOutlineInfo& info,
                      bool make_it_global,
+                     // Out
                      Nodecl::Utils::SimpleSymbolMap* out_symbol_map,
                      Source &initial_statements,
                      Source &final_statements);

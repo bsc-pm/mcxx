@@ -239,7 +239,7 @@ namespace TL { namespace Nanox {
     TL::Symbol DeviceProvider::new_function_symbol_forward(
             TL::Symbol current_function,
             const std::string& function_name,
-            CreateOutlineInfo& info)
+            const CreateOutlineInfo& info)
     {
         if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
         {
@@ -511,7 +511,7 @@ namespace TL { namespace Nanox {
     TL::Symbol DeviceProvider::new_function_symbol_unpacked(
             TL::Symbol current_function,
             const std::string& function_name,
-            CreateOutlineInfo& info,
+            const CreateOutlineInfo& info,
             // Out
             Nodecl::Utils::SimpleSymbolMap* symbol_map,
             Source &initial_statements,
@@ -530,7 +530,7 @@ namespace TL { namespace Nanox {
     TL::Symbol DeviceProvider::new_function_symbol_unpacked(
             TL::Symbol current_function,
             const std::string& function_name,
-            CreateOutlineInfo& info,
+            const CreateOutlineInfo& info,
             bool make_it_global,
             // Out
             Nodecl::Utils::SimpleSymbolMap* symbol_map,
