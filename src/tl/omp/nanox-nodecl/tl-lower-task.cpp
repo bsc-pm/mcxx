@@ -29,6 +29,7 @@
 #include "tl-counters.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
+#include "tl-lowering-utils.hpp"
 #include "tl-devices.hpp"
 #include "tl-symbol-utils.hpp"
 #include "fortran03-typeutils.h"
@@ -3337,109 +3338,6 @@ void LoweringVisitor::fill_dependences_internal(
     }
 }
 
-namespace
-{
-    Nodecl::NodeclBase get_lower_bound_fortran(Nodecl::NodeclBase dep_expr, int dimension_num)
-    {
-        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
-        Source src;
-        Nodecl::NodeclBase expr = dep_expr;
-        if (dep_expr.is<Nodecl::ArraySubscript>())
-        {
-            dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
-        }
-
-        src << "LBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
-
-        return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
-    }
-
-    Nodecl::NodeclBase get_upper_bound_fortran(Nodecl::NodeclBase dep_expr, int dimension_num)
-    {
-        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
-        Source src;
-        Nodecl::NodeclBase expr = dep_expr;
-        if (dep_expr.is<Nodecl::ArraySubscript>())
-        {
-            dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
-        }
-
-        src << "UBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
-
-        return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
-    }
-
-    Nodecl::NodeclBase get_size_for_dimension_fortran(
-            TL::Type array_type,
-            int fortran_dimension,
-            DataReference data_reference)
-    {
-        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
-        Nodecl::NodeclBase n = array_type.array_get_size();
-
-        // Let's try to get the size using SIZE
-        if (n.is_null())
-        {
-            // Craft a SIZE if possible
-            TL::Symbol sym = data_reference.get_base_symbol();
-
-            if (sym.is_parameter()
-                    && sym.get_type().no_ref().is_array()
-                    && !sym.get_type().no_ref().array_requires_descriptor()
-                    && fortran_dimension == fortran_get_rank_of_type(array_type.no_ref().get_internal_type()))
-            {
-                Nodecl::NodeclBase expr = data_reference;
-                if (expr.is<Nodecl::ArraySubscript>())
-                {
-                    expr = expr.as<Nodecl::ArraySubscript>().get_subscripts();
-
-                    expr = expr.as<Nodecl::List>()[0];
-
-                    if (expr.is<Nodecl::Range>())
-                    {
-                        // Use the subscript
-                        Source src;
-                        Nodecl::NodeclBase lower =  expr.as<Nodecl::Range>().get_lower().shallow_copy();
-                        if (lower.is_null())
-                        {
-                            lower = const_value_to_nodecl(const_value_get_signed_int(1));
-                        }
-                        src << "(" << as_expression(expr.as<Nodecl::Range>().get_upper().shallow_copy()) << ")"
-                            << " - "
-                            << "(" << as_expression(lower) << ")"
-                            << " + 1";
-                        n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
-                    }
-                    else if (fortran_dimension != 1)
-                    {
-                        n = const_value_to_nodecl(const_value_get_signed_int(1));
-                    }
-                }
-                else
-                {
-                    internal_error("Assumed size array is not fully specified", 0);
-                }
-            }
-            else
-            {
-                Source src;
-
-                Nodecl::NodeclBase expr = data_reference;
-                if (expr.is<Nodecl::ArraySubscript>())
-                {
-                    expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
-                }
-
-                src << "SIZE(" << as_expression(expr.shallow_copy()) << ", " << fortran_dimension << ")";
-
-                n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
-            }
-        }
-
-        return n;
-    }
-}
-
 void LoweringVisitor::compute_array_info(
         Nodecl::NodeclBase ctr,
         TL::DataReference array_expr,
@@ -3473,15 +3371,15 @@ void LoweringVisitor::compute_array_info(
         {
             if (array_lb.is_null())
             {
-                array_lb = get_lower_bound_fortran(array_expr, fortran_rank);
+                array_lb = TL::Lowering::Utils::Fortran::get_lower_bound(array_expr, fortran_rank);
             }
             if (array_ub.is_null())
             {
-                array_ub = get_upper_bound_fortran(array_expr, fortran_rank);
+                array_ub = TL::Lowering::Utils::Fortran::get_upper_bound(array_expr, fortran_rank);
             }
             if (dim_size.is_null())
             {
-                dim_size = get_size_for_dimension_fortran(t, fortran_rank, array_expr);
+                dim_size = TL::Lowering::Utils::Fortran::get_size_for_dimension(array_expr, t, fortran_rank);
             }
         }
 
