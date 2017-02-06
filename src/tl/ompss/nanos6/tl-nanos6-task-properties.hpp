@@ -95,12 +95,12 @@ namespace TL { namespace Nanos6 {
                 const TL::ObjectList<TL::Symbol> &local);
             TL::Type rewrite_type_using_args(TL::Symbol arg, TL::Type t, const TL::ObjectList<TL::Symbol> &local);
 
-            void compute_dimensions_dependence(
+            void compute_dimensions_dependence_c(
                     TL::Type array_type,
                     TL::Symbol arg,
                     const TL::ObjectList<TL::Symbol>& local_symbols,
                     // Out
-                    Nodecl::List& argument_list);
+                    Nodecl::List& arguments_list);
 
             void register_multidependence_c(
                     TL::DataReference& data_ref,
@@ -120,6 +120,19 @@ namespace TL { namespace Nanos6 {
                     const TL::ObjectList<TL::Symbol>& local_symbols,
                     // Out
                     Nodecl::List& register_statements);
+
+            void compute_dimensions_dependence_fortran(
+                    const TL::DataReference& data_ref,
+                    TL::Type array_type,
+                    // Out
+                    Nodecl::List& arguments_list);
+
+            void register_dependence_fortran(
+                    TL::DataReference &data_ref,
+                    TL::Symbol handler,
+                    Nodecl::Utils::SymbolMap &symbol_map,
+                    TL::Symbol register_fun,
+                    Nodecl::List &register_statements);
 
             void register_fortran_linear_dependence(
                 TL::DataReference &data_ref,

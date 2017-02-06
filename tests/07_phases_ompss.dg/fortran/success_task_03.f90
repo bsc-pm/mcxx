@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator="config/mercurium-ompss no-nanos6"
+! test_generator="config/mercurium-ompss"
 ! </testinfo>
 
 SUBROUTINE F(X, JSIZE, ISIZE)

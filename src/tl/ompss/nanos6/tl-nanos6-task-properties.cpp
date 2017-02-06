@@ -33,6 +33,11 @@
 #include "tl-nodecl-utils-fortran.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-counters.hpp"
+
+#include "codegen-phase.hpp"
+
+#include "tl-lowering-utils.hpp"
+
 #include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 
@@ -2645,18 +2650,18 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    void TaskProperties::compute_dimensions_dependence(
+    void TaskProperties::compute_dimensions_dependence_c(
             TL::Type array_type,
             TL::Symbol arg,
             const TL::ObjectList<TL::Symbol>& local_symbols,
             // Out
-            Nodecl::List& argument_list)
+            Nodecl::List& arguments_list)
     {
         ERROR_CONDITION(!array_type.is_array(), "Unexpected type", 0);
 
         TL::Type element_type = array_type.array_element();
         if (element_type.is_array())
-            compute_dimensions_dependence(element_type, arg, local_symbols, argument_list);
+            compute_dimensions_dependence_c(element_type, arg, local_symbols, arguments_list);
 
         Nodecl::NodeclBase size, lower_bound, upper_bound;
 
@@ -2669,7 +2674,7 @@ namespace TL { namespace Nanos6 {
             upper_bound =
                 Nodecl::Add::make(
                         upper_bound.shallow_copy(),
-                        const_value_to_nodecl(const_value_get_one(4, 0)),
+                        const_value_to_nodecl(const_value_get_one(8, 0)),
                         upper_bound.get_type().no_ref());
         }
         else
@@ -2679,7 +2684,7 @@ namespace TL { namespace Nanos6 {
             upper_bound =
                 Nodecl::Add::make(
                         upper_bound.shallow_copy(),
-                        const_value_to_nodecl(const_value_get_one(4, 0)),
+                        const_value_to_nodecl(const_value_get_one(8, 0)),
                         upper_bound.get_type().no_ref());
         }
 
@@ -2703,9 +2708,9 @@ namespace TL { namespace Nanos6 {
                     upper_bound.get_type().no_ref());
         }
 
-        argument_list.append(rewrite_expression_using_args(arg, size, local_symbols));
-        argument_list.append(rewrite_expression_using_args(arg, lower_bound, local_symbols));
-        argument_list.append(rewrite_expression_using_args(arg, upper_bound, local_symbols));
+        arguments_list.append(rewrite_expression_using_args(arg, size, local_symbols));
+        arguments_list.append(rewrite_expression_using_args(arg, lower_bound, local_symbols));
+        arguments_list.append(rewrite_expression_using_args(arg, upper_bound, local_symbols));
     }
 
     void TaskProperties::register_dependence_c(
@@ -2722,7 +2727,8 @@ namespace TL { namespace Nanos6 {
         Nodecl::List args;
         Nodecl::NodeclBase arg1_handler;
         Nodecl::NodeclBase arg2_sym_identifier;
-        Nodecl::NodeclBase arg3_base_address;
+        Nodecl::NodeclBase arg3_dep_text;
+        Nodecl::NodeclBase arg4_base_address;
 
         // 1st argument: task handler
         arg1_handler = handler.make_nodecl(/* set_ref_type */ true);
@@ -2730,37 +2736,48 @@ namespace TL { namespace Nanos6 {
         // 2nd argument: sym identifier
         arg2_sym_identifier = const_value_to_nodecl(const_value_get_minus_one(4, 1));
 
-        // 3rd argument: base address of the expression
-        arg3_base_address = Nodecl::Conversion::make(
+        // 3rd argument: dependence text
+        std::string dependence_text = Codegen::get_current().codegen_to_str(data_ref, data_ref.retrieve_context());
+        arg3_dep_text = const_value_to_nodecl(
+                const_value_make_string_null_ended(
+                    dependence_text.c_str(),
+                    strlen(dependence_text.c_str())));
+
+        // 4rd argument: base address of the expression
+        arg4_base_address = Nodecl::Conversion::make(
                 data_ref.get_base_address().shallow_copy(),
                 TL::Type::get_void_type().get_pointer_to());
-        arg3_base_address.set_text("C");
-        arg3_base_address = rewrite_expression_using_args(
-                arg, arg3_base_address, local_symbols);
+        arg4_base_address.set_text("C");
+        arg4_base_address = rewrite_expression_using_args(
+                arg, arg4_base_address, local_symbols);
 
         args.append(arg1_handler);
         args.append(arg2_sym_identifier);
-        args.append(arg3_base_address);
+        args.append(arg3_dep_text);
+        args.append(arg4_base_address);
 
         if (data_type.is_array())
         {
-            compute_dimensions_dependence(data_type, arg, local_symbols,  args);
+            compute_dimensions_dependence_c(data_type, arg, local_symbols, args);
         }
         else
         {
-            Nodecl::NodeclBase size, lower_bound, upper_bound;
+            // The current dependence is not an array
 
-            size = Nodecl::Sizeof::make(
-                    Nodecl::Type::make(data_type),
-                    Nodecl::NodeclBase::null(),
-                    get_size_t_type());
+            Nodecl::NodeclBase arg4_size, arg5_lower_bound, arg6_upper_bound;
 
-            lower_bound = const_value_to_nodecl(const_value_get_zero(4, 0));
-            upper_bound = size.shallow_copy();
+            // 4th argument: size = sizeof(data_type)
+            arg4_size = data_ref.get_sizeof().shallow_copy();
 
-            args.append(size);
-            args.append(lower_bound);
-            args.append(upper_bound);
+            // 5th argument: lower_bound = 0
+            arg5_lower_bound = const_value_to_nodecl(const_value_get_zero(8, 0));
+
+            // 6th argument: upper_bound = sizeof(data_type)
+            arg6_upper_bound = arg4_size.shallow_copy();
+
+            args.append(arg4_size);
+            args.append(arg5_lower_bound);
+            args.append(arg6_upper_bound);
         }
 
         Nodecl::NodeclBase function_call =
@@ -2866,7 +2883,6 @@ namespace TL { namespace Nanos6 {
         TL::DataReference base_data_ref = base_exp;
         Nodecl::List base_reg;
 
-
         register_dependence_c(
                 base_data_ref,
                 handler,
@@ -2959,7 +2975,7 @@ namespace TL { namespace Nanos6 {
                     std::stringstream ss;
                     ss << dep_set->func_name << num_dims_dep;
 
-                    register_fun = dependences_inside_scope.get_symbol_from_name(ss.str());
+                    register_fun = global_context.get_symbol_from_name(ss.str());
                     if (!register_fun.is_valid())
                     {
                         fatal_error(
@@ -2981,7 +2997,6 @@ namespace TL { namespace Nanos6 {
                 }
                 else
                 {
-
                     register_multidependence_c(
                             data_ref,
                             handler,
@@ -2990,8 +3005,6 @@ namespace TL { namespace Nanos6 {
                             /* local_syms */ TL::ObjectList<TL::Symbol>(),
                             dependences_inside_scope,
                             register_statements);
-
-
                 }
                 dependences_empty_stmt.prepend_sibling(register_statements);
             }
@@ -3009,6 +3022,181 @@ namespace TL { namespace Nanos6 {
         }
 
         Nodecl::Utils::append_to_enclosing_top_level_location(task_body, dependences_function_code);
+    }
+
+
+    void TaskProperties::compute_dimensions_dependence_fortran(
+            const TL::DataReference& data_ref,
+            TL::Type array_type,
+            // Out
+            Nodecl::List& arguments_list)
+    {
+        ERROR_CONDITION(!array_type.is_array(), "Unexpected type", 0);
+
+        TL::Type element_type = array_type.array_element();
+        if (element_type.is_array())
+            compute_dimensions_dependence_fortran(data_ref, element_type, arguments_list);
+
+        Nodecl::NodeclBase array_lb, array_ub;
+        {
+            array_type.array_get_bounds(array_lb, array_ub);
+            if (array_lb.is_null())
+                array_lb = TL::Lowering::Utils::Fortran::get_lower_bound(data_ref, array_type.fortran_rank());
+            else
+                array_lb = array_lb.shallow_copy();
+
+            if (array_ub.is_null())
+                array_ub = TL::Lowering::Utils::Fortran::get_upper_bound(data_ref, array_type.fortran_rank());
+            else
+                array_ub = array_ub.shallow_copy();
+        }
+
+        Nodecl::NodeclBase region_lb, region_ub;
+        {
+            if (array_type.array_is_region())
+            {
+                array_type.array_get_region_bounds(region_lb, region_ub);
+            }
+            else
+            {
+                region_lb = array_lb.shallow_copy();
+                region_ub = array_ub.shallow_copy();
+            }
+        }
+
+        Nodecl::NodeclBase arg_size =
+                TL::Lowering::Utils::Fortran::get_size_for_dimension(data_ref, array_type, array_type.fortran_rank());
+
+        Nodecl::NodeclBase arg_adj_lb, arg_adj_ub;
+        arg_adj_lb = Nodecl::Minus::make(
+                    region_lb,
+                    array_lb,
+                    region_lb.get_type().no_ref());
+
+        //XXX: ADD one?
+        arg_adj_ub = Nodecl::Add::make(
+            Nodecl::Minus::make(
+                    region_ub,
+                    array_lb,
+                    region_lb.get_type().no_ref()),
+                const_value_to_nodecl(const_value_get_one(8, 0)),
+                region_lb.get_type().no_ref());
+
+        // Continuous dimension should be expressed in bytes
+        if (!element_type.is_array())
+        {
+            Nodecl::NodeclBase element_type_size = Nodecl::Sizeof::make(
+                    Nodecl::Type::make(element_type),
+                    Nodecl::NodeclBase::null(),
+                    get_size_t_type());
+
+            arg_size = Nodecl::Mul::make(
+                    Nodecl::ParenthesizedExpression::make(arg_size, arg_size.get_type().no_ref()),
+                    element_type_size,
+                    arg_size.get_type().no_ref());
+
+            arg_adj_lb = Nodecl::Mul::make(
+                    Nodecl::ParenthesizedExpression::make(arg_adj_lb, arg_adj_lb.get_type().no_ref()),
+                    element_type_size.shallow_copy(),
+                    arg_adj_lb.get_type().no_ref());
+
+            arg_adj_ub = Nodecl::Mul::make(
+                    Nodecl::ParenthesizedExpression::make(arg_adj_ub, arg_adj_ub.get_type().no_ref()),
+                    element_type_size.shallow_copy(),
+                    arg_adj_ub.get_type().no_ref());
+        }
+
+        // Fortran is a bit repellent checking the actual arguments types, for
+        // this reason we may need to add some conversions
+         TL::Type param_type = fortran_choose_int_type_from_kind(8);
+        // if(!arg_size.get_type().no_ref().is_same_type(param_type))
+            arg_size = Nodecl::Conversion::make(arg_size, param_type);
+
+        //if(!arg_adj_lb.get_type().no_ref().is_same_type(param_type))
+            arg_adj_lb = Nodecl::Conversion::make(arg_adj_lb, param_type);
+
+        //if(!arg_adj_ub.get_type().no_ref().is_same_type(param_type))
+            arg_adj_ub = Nodecl::Conversion::make(arg_adj_ub, param_type);
+
+
+        arguments_list.append(arg_size);
+        arguments_list.append(arg_adj_lb);
+        arguments_list.append(arg_adj_ub);
+    }
+
+    void TaskProperties::register_dependence_fortran(
+        TL::DataReference &data_ref,
+        TL::Symbol handler,
+        Nodecl::Utils::SymbolMap &symbol_map,
+        TL::Symbol register_fun,
+        Nodecl::List &register_statements)
+    {
+        TL::Type data_type = data_ref.get_data_type();
+
+        Nodecl::List args;
+        Nodecl::NodeclBase arg1_handler;
+        Nodecl::NodeclBase arg2_sym_identifier;
+        Nodecl::NodeclBase arg3_dep_text;
+        Nodecl::NodeclBase arg4_base_address;
+
+        // 1st argument: task handler
+         arg1_handler = Nodecl::Conversion::make(
+                handler.make_nodecl(/* set_ref_type */ true),
+                handler.get_type());
+
+        // 2nd argument: sym identifier
+        arg2_sym_identifier = const_value_to_nodecl(const_value_get_minus_one(4, 1));
+
+        // 3rd argument: dependence text
+        std::string dependence_text = Codegen::get_current().codegen_to_str(data_ref, data_ref.retrieve_context());
+        arg3_dep_text = const_value_to_nodecl(
+                const_value_make_string_null_ended(
+                    dependence_text.c_str(),
+                    strlen(dependence_text.c_str())));
+
+        // 4rd argument: base address of the expression
+        arg4_base_address = Nodecl::Conversion::make(
+                data_ref.get_base_address().shallow_copy(),
+                TL::Type::get_void_type().get_pointer_to());
+
+        args.append(arg1_handler);
+        args.append(arg2_sym_identifier);
+        args.append(arg3_dep_text);
+        args.append(arg4_base_address);
+
+        if (data_type.is_array())
+        {
+            compute_dimensions_dependence_fortran(data_ref, data_type, args);
+        }
+        else
+        {
+            // The current dependence is not an array
+
+            Nodecl::NodeclBase arg4_size, arg5_lower_bound, arg6_upper_bound;
+
+            // 5th argument: size = sizeof(data_type)
+            arg4_size = data_ref.get_sizeof().shallow_copy();
+
+            // 6th argument: lower_bound = 0
+            arg5_lower_bound = const_value_to_nodecl(const_value_get_zero(8, 0));
+
+            // 7th argument: upper_bound = sizeof(data_type)
+            arg6_upper_bound = arg4_size.shallow_copy();
+
+            args.append(arg4_size);
+            args.append(arg5_lower_bound);
+            args.append(arg6_upper_bound);
+        }
+
+        Nodecl::NodeclBase function_call
+            = Nodecl::ExpressionStatement::make(Nodecl::FunctionCall::make(
+                register_fun.make_nodecl(/* set_ref_type */ true),
+                args,
+                /* alternate-symbol */ Nodecl::NodeclBase::null(),
+                /* function-form */ Nodecl::NodeclBase::null(),
+                TL::Type::get_void_type()));
+
+        register_statements.append(Nodecl::Utils::deep_copy(function_call, TL::Scope::get_global_scope(), symbol_map));
     }
 
     void TaskProperties::create_dependences_function_fortran_proper()
@@ -3100,15 +3288,15 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
             std::string func_name;
         } deps[] = {
-            { dep_in, "nanos_register_read_depinfo" },
-            { dep_out, "nanos_register_write_depinfo" },
-            { dep_inout, "nanos_register_readwrite_depinfo" },
+            { dep_in,    "nanos_register_region_read_depinfo"              },
+            { dep_out,   "nanos_register_region_write_depinfo"             },
+            { dep_inout, "nanos_register_region_readwrite_depinfo"         },
 
-            { dep_weakin, "nanos_register_weak_read_depinfo" },
-            { dep_weakout, "nanos_register_weak_write_depinfo" },
-            { dep_weakinout, "nanos_register_weak_readwrite_depinfo" },
+            { dep_weakin,    "nanos_regiter_region_weak_read_depinfo"      },
+            { dep_weakout,   "nanos_regiter_region_weak_write_depinfo"     },
+            { dep_weakinout, "nanos_regiter_region_weak_readwrite_depinfo" },
 
-            { dep_commutative, "nanos_register_commutative_depinfo" },
+            { dep_commutative, "nanos_register_region_commutative_depinfo" },
         };
 
         for (DependencesSet *dep_set = deps;
@@ -3120,16 +3308,6 @@ namespace TL { namespace Nanos6 {
             if (dep_list.empty())
                 continue;
 
-            TL::Symbol register_fun
-                = global_context.get_symbol_from_name(dep_set->func_name);
-            if (!register_fun.is_valid())
-            {
-                fatal_error(
-                    "Function '%s' not found while trying to register "
-                    "dependences of its kind\n",
-                    dep_set->func_name.c_str());
-            }
-
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it
                  = dep_list.begin();
                  it != dep_list.end();
@@ -3138,22 +3316,35 @@ namespace TL { namespace Nanos6 {
                 TL::DataReference data_ref = *it;
                 TL::Type data_type = data_ref.get_data_type();
 
-                Nodecl::List register_statements;
-                if (!data_type.is_array())
+                TL::Symbol register_fun;
                 {
-                    register_fortran_linear_dependence(data_ref,
-                                                       handler,
-                                                       symbol_map,
-                                                       register_fun,
-                                                       register_statements);
+                    int num_dims_dep = data_type.is_array() ? data_type.get_num_dimensions() : 1;
+                    std::stringstream ss;
+                    ss << dep_set->func_name << num_dims_dep;
+
+                    register_fun = global_context.get_symbol_from_name(ss.str());
+                    if (!register_fun.is_valid())
+                    {
+                        fatal_error(
+                                "'%s' function not found while trying to register dependences\n",
+                                ss.str().c_str());
+                    }
+                }
+
+                Nodecl::List register_statements;
+                if (!data_ref.is_multireference())
+                {
+                    register_dependence_fortran(
+                            data_ref,
+                            handler,
+                            symbol_map,
+                            register_fun,
+                            // Out
+                            register_statements);
                 }
                 else
                 {
-                    register_fortran_dependence_for_array(data_ref,
-                                                          handler,
-                                                          symbol_map,
-                                                          register_fun,
-                                                          register_statements);
+                    internal_error("Multidependences are not implemented in Fortran yet.", 0);
                 }
 
                 dep_fun_empty_stmt.prepend_sibling(register_statements);
