@@ -889,7 +889,7 @@ then
    AC_ARG_WITH([nanos6],
            AS_HELP_STRING([--with-nanos6=dir], [Directory of Nanos 6 installation]),
            [
-            nanos6_include="${withval}/include/nanos6"
+            nanos6_include="${withval}/include"
             nanos6_lib="${withval}/lib"
             nanos6="${withval}"
             # kludge
