@@ -860,7 +860,7 @@ is_enabled_tl_ompss_nanos6="no"
 
 NANOS6_GATE=":false:"
 
-AC_MSG_CHECKING(["if enabled OmpSs TL support for Nanos 6])
+AC_MSG_CHECKING([if enabled OmpSs TL support for Nanos 6])
 AC_ARG_ENABLE([tl-ompss-nanos6],
   AS_HELP_STRING([--enable-tl-ompss-nanos6], [Enables support of OmpSs TL for Nanos 6]),
   [
