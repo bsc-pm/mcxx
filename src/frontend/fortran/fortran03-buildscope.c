@@ -7986,7 +7986,9 @@ static void build_scope_save_stmt(AST a, const decl_context_t* decl_context, nod
 
     if (symbol_entity_specs_get_is_saved_program_unit(program_unit))
     {
-        error_printf_at(ast_get_locus(a), "SAVE statement specified more than once\n");
+        warn_printf_at(ast_get_locus(a),
+                "SAVE statement '%s' specified after blanket SAVE statement\n",
+                fortran_prettyprint_in_buffer(a));
     }
 
     if (saved_entity_list == NULL)
