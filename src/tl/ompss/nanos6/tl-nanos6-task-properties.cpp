@@ -2946,9 +2946,9 @@ namespace TL { namespace Nanos6 {
             { dep_out,   "nanos_register_region_write_depinfo"             },
             { dep_inout, "nanos_register_region_readwrite_depinfo"         },
 
-            { dep_weakin,    "nanos_regiter_region_weak_read_depinfo"      },
-            { dep_weakout,   "nanos_regiter_region_weak_write_depinfo"     },
-            { dep_weakinout, "nanos_regiter_region_weak_readwrite_depinfo" },
+            { dep_weakin,    "nanos_register_region_weak_read_depinfo"      },
+            { dep_weakout,   "nanos_register_region_weak_write_depinfo"     },
+            { dep_weakinout, "nanos_register_region_weak_readwrite_depinfo" },
 
             { dep_commutative, "nanos_register_region_commutative_depinfo" },
         };
