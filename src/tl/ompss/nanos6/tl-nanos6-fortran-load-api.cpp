@@ -62,6 +62,7 @@ const char *register_dependences[] =
     "nanos_register_region_weak_write_depinfo",
     "nanos_register_region_weak_readwrite_depinfo",
     "nanos_register_region_commutative_depinfo",
+    "nanos_register_region_concurrent_depinfo",
 };
 
 void set_bind_info(TL::Symbol sym)

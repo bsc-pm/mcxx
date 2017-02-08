@@ -130,12 +130,6 @@ namespace TL { namespace Nanos6 {
                           n.get_reductions().as<Nodecl::List>());
         }
 
-        virtual void visit(const Nodecl::OmpSs::Concurrent &n)
-        {
-            not_supported_seq("concurrent dependences",
-                              n.get_exprs().as<Nodecl::List>());
-        }
-
         template < typename T >
         void handle_dependences(const T& n, TL::ObjectList<Nodecl::NodeclBase>& dep_list)
         {
@@ -176,6 +170,11 @@ namespace TL { namespace Nanos6 {
         virtual void visit(const Nodecl::OmpSs::Commutative &n)
         {
             handle_dependences(n, _task_properties.dep_commutative);
+        }
+
+        virtual void visit(const Nodecl::OmpSs::Concurrent &n)
+        {
+            handle_dependences(n, _task_properties.dep_concurrent);
         }
 
         virtual void visit(const Nodecl::OpenMP::Final &n)
@@ -2811,6 +2810,7 @@ namespace TL { namespace Nanos6 {
             { dep_weakinout, "nanos_register_region_weak_readwrite_depinfo" },
 
             { dep_commutative, "nanos_register_region_commutative_depinfo" },
+            { dep_concurrent,  "nanos_register_region_concurrent_depinfo" },
         };
 
         for (DependencesSet *dep_set = deps;
@@ -3250,6 +3250,7 @@ namespace TL { namespace Nanos6 {
             { dep_weakinout, "nanos_register_region_weak_readwrite_depinfo" },
 
             { dep_commutative, "nanos_register_region_commutative_depinfo" },
+            { dep_concurrent,  "nanos_register_region_concurrent_depinfo" },
         };
 
         for (DependencesSet *dep_set = deps;
