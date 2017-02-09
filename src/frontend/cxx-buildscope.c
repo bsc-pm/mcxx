@@ -20321,6 +20321,7 @@ static void build_scope_nodecl_switch_statement(
             );
 }
 
+type_t* switch_condition_type = 0;
 static void build_scope_switch_statement(AST a,
         const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
@@ -20333,8 +20334,13 @@ static void build_scope_switch_statement(AST a,
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(condition, block_context, &nodecl_condition);
 
+    type_t* old_switch_condition_type = switch_condition_type;
+    switch_condition_type = no_ref(nodecl_get_type(nodecl_condition));
+
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
+
+    switch_condition_type = old_switch_condition_type;
 
     build_scope_nodecl_switch_statement(
             nodecl_condition,
@@ -20568,6 +20574,111 @@ static void build_scope_case_statement(AST a,
             decl_context,
             ast_get_locus(a),
             nodecl_output);
+}
+
+static void build_scope_gcc_case_statement(AST a,
+        const decl_context_t* decl_context,
+        nodecl_t* nodecl_output)
+{
+
+    AST const_expr_lb = ASTSon0(a);
+    AST const_expr_ub = ASTSon1(a);
+    AST statement = ASTSon2(a);
+
+    nodecl_t nodecl_lb = nodecl_null();
+    check_expression_must_be_constant(const_expr_lb, decl_context, &nodecl_lb);
+
+    if (nodecl_is_err_expr(nodecl_lb))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_lb = nodecl_expression_make_rvalue(nodecl_lb, decl_context);
+
+    if (!nodecl_expr_is_value_dependent(nodecl_lb)
+            && !nodecl_is_constant(nodecl_lb))
+    {
+        error_printf_at(ast_get_locus(a), "case expression '%s' is not constant\n",
+                codegen_to_str(nodecl_lb, decl_context));
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_t nodecl_ub = nodecl_null();
+    check_expression_must_be_constant(const_expr_ub, decl_context, &nodecl_ub);
+
+    if (nodecl_is_err_expr(nodecl_ub))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_ub = nodecl_expression_make_rvalue(nodecl_ub, decl_context);
+
+    if (!nodecl_expr_is_value_dependent(nodecl_ub)
+            && !nodecl_is_constant(nodecl_ub))
+    {
+        error_printf_at(ast_get_locus(a), "case expression '%s' is not constant\n",
+                codegen_to_str(nodecl_ub, decl_context));
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_t nodecl_statement = nodecl_null();
+    build_scope_statement(statement, decl_context, &nodecl_statement);
+
+    // The current approach is transforming a range case stmt into multiple case stmt
+    const_value_t* const_val_lb =
+        cxx_nodecl_make_value_conversion(
+                nodecl_get_type(nodecl_lb),
+                switch_condition_type,
+                nodecl_get_constant(nodecl_lb));
+
+    const_value_t* const_val_ub =
+        cxx_nodecl_make_value_conversion(
+                nodecl_get_type(nodecl_ub),
+                switch_condition_type,
+                nodecl_get_constant(nodecl_ub));
+
+    if (const_value_is_nonzero(const_value_lt(const_val_ub, const_val_lb)))
+    {
+       error_printf_at(
+               ast_get_locus(a),
+               "empty case range '%s ... %s' \n",
+               codegen_to_str(nodecl_lb, decl_context),
+               codegen_to_str(nodecl_ub, decl_context));
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+       return;
+    }
+
+    const_value_t* iterator = const_val_ub;
+    const_value_t* one = const_value_get_one(const_value_get_bytes(iterator), const_value_is_signed(iterator));
+    while (const_value_is_nonzero(const_value_gte(iterator, const_val_lb)))
+    {
+        nodecl_t new_const_expr = const_value_to_nodecl(iterator);
+        nodecl_set_type(new_const_expr, switch_condition_type);
+        nodecl_t nodecl_expr_list = nodecl_make_list_1(new_const_expr);
+
+        build_scope_nodecl_case_statement(
+                nodecl_expr_list,
+                nodecl_statement,
+                decl_context,
+                ast_get_locus(a),
+                &nodecl_statement);
+
+         iterator = const_value_sub(iterator, one);
+    }
+
+    *nodecl_output = nodecl_statement;
 }
 
 static void build_scope_nodecl_return_statement(
@@ -21727,6 +21838,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement),
     STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement),
     STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement),
+    STMT_HANDLER(AST_GCC_CASE_STATEMENT, build_scope_gcc_case_statement),
     STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement),
     STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block),
     STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement),

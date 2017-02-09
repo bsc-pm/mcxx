@@ -47,6 +47,11 @@ MCXX_BEGIN_DECLS
  * Computes the type of an expression
  */
 
+LIBMCXX_EXTERN const_value_t* cxx_nodecl_make_value_conversion(
+        type_t* orig_type,
+        type_t* dest_type,
+        const_value_t* value);
+
 LIBMCXX_EXTERN AST advance_expression_nest(AST expr);
 LIBMCXX_EXTERN AST advance_expression_nest_flags(AST expr, char advance_parentheses);
 
