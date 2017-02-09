@@ -1,6 +1,6 @@
 ! <testinfo>
 ! test_generator=config/mercurium-ompss
-! test_FCFLAGS="-O2"
+! test_FFLAGS="-O2"
 ! </testinfo>
 
 !!! our transformation of Nanos6 doesn't work in Power8 with gfortran :(
