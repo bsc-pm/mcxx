@@ -19305,7 +19305,6 @@ static void build_scope_nodecl_condition_for_switch(nodecl_t nodecl_condition,
 
 static void build_scope_condition(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
-
     if (ASTKind(a) == AST_AMBIGUITY)
     {
         solve_ambiguous_condition(a, decl_context);
@@ -19365,9 +19364,6 @@ static void build_scope_condition(AST a, const decl_context_t* decl_context, nod
     else
     {
         check_expression(ASTSon2(a), decl_context, nodecl_output);
-        // FIXME: Handle VLAs here
-        ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
-                "Unsupported extra declarations at the initialization expression", 0);
     }
 }
 
@@ -19437,22 +19433,27 @@ static void build_scope_while_statement(AST a,
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(ASTSon0(a), block_context, &nodecl_condition);
 
+    // The condition may generate some extra declarations (VLAs, lambda expressions)
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+
     nodecl_t nodecl_statement = nodecl_null();
     if (ASTSon1(a) != NULL)
     {
         build_scope_normalized_statement(ASTSon1(a), block_context, &nodecl_statement);
     }
 
+    nodecl_t nodecl_while = nodecl_null();
     build_scope_nodecl_while_statement(
             nodecl_condition,
             nodecl_statement,
             block_context,
             ast_get_locus(a),
-            nodecl_output);
+            &nodecl_while);
 
-    *nodecl_output = nodecl_make_list_1(
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
             nodecl_make_context(
-                *nodecl_output,
+                nodecl_while,
                 block_context,
                 ast_get_locus(a)));
 }
@@ -19569,6 +19570,9 @@ static void build_scope_if_else_statement(AST a,
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(condition, block_context, &nodecl_condition);
 
+    // The condition may generate some extra declarations (VLAs, lambda expressions)
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+
     AST then_branch = ASTSon1(a);
     nodecl_t nodecl_then = nodecl_null();
     build_scope_normalized_statement(then_branch, block_context, &nodecl_then);
@@ -19580,17 +19584,19 @@ static void build_scope_if_else_statement(AST a,
         build_scope_normalized_statement(else_branch, block_context, &nodecl_else);
     }
 
+    nodecl_t nodecl_if_else_stmt = nodecl_null();
     build_scope_nodecl_if_else_statement(
             nodecl_condition,
             nodecl_then,
             nodecl_else,
             block_context,
             ast_get_locus(a),
-            nodecl_output);
+            &nodecl_if_else_stmt);
 
-    *nodecl_output = nodecl_make_list_1(
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
             nodecl_make_context(
-                *nodecl_output,
+                nodecl_if_else_stmt,
                 block_context,
                 ast_get_locus(a)
                 )
@@ -19734,6 +19740,9 @@ static void build_scope_for_statement_nonrange(AST a,
     if (condition != NULL)
     {
         build_scope_condition(condition, block_context, &nodecl_loop_condition);
+
+        // The condition may generate some extra declarations (VLAs, lambda expressions)
+        *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
     }
 
     nodecl_t nodecl_loop_iter = nodecl_null();
@@ -19751,6 +19760,7 @@ static void build_scope_for_statement_nonrange(AST a,
         solve_literal_symbol_scope(synthesized_loop_name, decl_context, &nodecl_loop_name);
     }
 
+    nodecl_t nodecl_for_stmt_nonrange = nodecl_null();
     build_scope_nodecl_for_statement_nonrange(
             nodecl_loop_init,
             nodecl_loop_condition,
@@ -19759,15 +19769,14 @@ static void build_scope_for_statement_nonrange(AST a,
             nodecl_statement,
             block_context,
             ast_get_locus(a),
-            nodecl_output);
+            &nodecl_for_stmt_nonrange);
 
-    *nodecl_output =
-        nodecl_make_list_1(
-                nodecl_make_context(
-                    *nodecl_output,
-                    block_context,
-                    ast_get_locus(a))
-                );
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
+            nodecl_make_context(
+                nodecl_for_stmt_nonrange,
+                block_context,
+                ast_get_locus(a)));
 
 }
 
@@ -20334,6 +20343,9 @@ static void build_scope_switch_statement(AST a,
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(condition, block_context, &nodecl_condition);
 
+    // The condition may generate some extra declarations (VLAs, lambda expressions)
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+
     type_t* old_switch_condition_type = switch_condition_type;
     switch_condition_type = no_ref(nodecl_get_type(nodecl_condition));
 
@@ -20342,19 +20354,20 @@ static void build_scope_switch_statement(AST a,
 
     switch_condition_type = old_switch_condition_type;
 
+    nodecl_t nodecl_switch = nodecl_null();
     build_scope_nodecl_switch_statement(
             nodecl_condition,
             nodecl_statement,
             block_context,
             ast_get_locus(a),
-            nodecl_output);
+            &nodecl_switch);
 
-    *nodecl_output = nodecl_make_list_1(
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
             nodecl_make_context(
-                *nodecl_output,
+                nodecl_switch,
                 block_context,
-                ast_get_locus(a))
-            );
+                ast_get_locus(a)));
 }
 
 scope_entry_t* add_label_if_not_found(const char* label_text, const decl_context_t* decl_context, const locus_t* locus)
