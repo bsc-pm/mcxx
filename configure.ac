@@ -2030,6 +2030,12 @@ then
        x3.0.*)
        AC_MSG_RESULT(${gperf_ver})
        gperf_good=yes
+       gperf_length_type="unsigned int"
+       ;;
+    x3.1*)
+       AC_MSG_RESULT(${gperf_ver})
+       gperf_good=yes
+       gperf_length_type=size_t
        ;;
     x)
        AC_MSG_RESULT([error, could not guess gperf version])
@@ -2039,8 +2045,9 @@ then
        ;;
     esac
   fi
-
 fi
+
+AC_DEFINE_UNQUOTED([GPERF_LENGTH_TYPE],[$gperf_length_type], [gperf lenght type])
 
 
 AM_CONDITIONAL([TPP_BUILDING], test "(" x$bison_good = xyes ")" -o "(" x$flex_good = xyes ")")
