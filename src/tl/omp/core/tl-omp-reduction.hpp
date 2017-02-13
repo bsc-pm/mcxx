@@ -32,7 +32,6 @@
 
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
-#include "tl-omp.hpp"
 
 namespace TL { namespace OpenMP {
 
