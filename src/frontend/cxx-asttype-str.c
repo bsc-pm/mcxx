@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+#include "gperf-compat-types.h"
 
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
@@ -33,7 +34,7 @@
 #include "cxx-process.h"
 #include <string.h>
 
-extern struct node_str_t * ast_node_name_to_kind_ (register const char *str, register GPERF_LENGTH_TYPE len);
+extern struct node_str_t * ast_node_name_to_kind_ (register const char *str, register gperf_length_t len);
 
 #include "cxx-asttype-str-internal.h"
 

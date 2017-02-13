@@ -30,6 +30,8 @@
 #ifndef CXX_DRIVER_H
 #define CXX_DRIVER_H
 
+#include "gperf-compat-types.h"
+
 #include "cxx-process.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
@@ -41,11 +43,11 @@ MCXX_BEGIN_DECLS
 
 extern struct extensions_table_t*
 fileextensions_lookup (register const char *str,
-        register GPERF_LENGTH_TYPE len);
+        register gperf_length_t len);
 
 extern struct configuration_directive_t*
 configoptions_lookup (register const char *str,
-        register GPERF_LENGTH_TYPE len);
+        register gperf_length_t len);
 
 int parse_arguments(int argc, const char* argv[],
         char from_command_line, char parse_implicits_only);
@@ -54,7 +56,7 @@ struct debug_flags_list_t** list_of_debug_flags(void);
 
 extern struct debug_flags_list_t *
 debugflags_lookup (register const char *str,
-        register GPERF_LENGTH_TYPE len);
+        register gperf_length_t len);
 
 // Internal between cxx-driver.c and cxx-configfile.c, do not use elsewhere
 void add_to_parameter_list(const char*** existing_options, const char **parameters, int num_parameters);

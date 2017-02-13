@@ -191,17 +191,19 @@ lib_LTLIBRARIES += \
 
 # Overall process library containing global data
 src_frontend_libmcxx_process_la_CFLAGS=-std=gnu99 \
-						  -DLIBMCXXPROCESS_DLL_EXPORT \
+			  -DLIBMCXXPROCESS_DLL_EXPORT \
                           -I$(top_srcdir)/lib \
+			  -I$(top_srcdir)/support/gperf \
+			  -I$(top_builddir)/support/gperf \
                           -I$(top_srcdir)/src/driver \
                           -I$(top_srcdir)/src/frontend \
                           -I$(top_srcdir)/src/frontend/fortran \
                           -I$(top_srcdir)/src/mcxx_tl \
-                          -I./lib \
-                          -I./src/driver \
-                          -I./src/frontend \
-                          -I./src/frontend/fortran \
-                          -I./src/mcxx_tl \
+                          -I$(top_builddir)/lib \
+                          -I$(top_builddir)/src/driver \
+                          -I$(top_builddir)/src/frontend \
+                          -I$(top_builddir)/src/frontend/fortran \
+                          -I$(top_builddir)/src/mcxx_tl \
                           $(END)
 
 src_frontend_libmcxx_process_la_LDFLAGS=-avoid-version $(no_undefined)
@@ -348,20 +350,23 @@ EXTRA_DIST += src/frontend/dll-exports.def
 src_frontend_libmcxx_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
 
 cfrontend_cflags = \
-					-std=gnu99 \
-					-DLIBMCXX_DLL_EXPORT \
-                    -Wall \
-					-Wshadow \
-					-Wextra \
-				    -I$(top_srcdir)/lib \
-				    -I$(top_srcdir)/src/driver \
-					-I$(top_srcdir)/src/mcxx_tl \
-					-I$(top_srcdir)/src/frontend \
-					-I$(top_srcdir)/src/frontend/fortran \
-					-I./src/frontend \
-					-I./src/frontend/fortran \
-                    -fexceptions \
-				    -DPKGDATADIR=\"$(pkgdatadir)\"
+		   -std=gnu99 \
+		   -DLIBMCXX_DLL_EXPORT \
+		   -Wall \
+		   -Wshadow \
+		   -Wextra \
+		   -I$(top_srcdir)/lib \
+		   -I$(top_srcdir)/support/gperf \
+		   -I$(top_builddir)/support/gperf \
+		   -I$(top_srcdir)/src/driver \
+		   -I$(top_srcdir)/src/mcxx_tl \
+		   -I$(top_srcdir)/src/frontend \
+		   -I$(top_srcdir)/src/frontend/fortran \
+		   -I./src/frontend \
+		   -I./src/frontend/fortran \
+		   -fexceptions \
+		   -DPKGDATADIR=\"$(pkgdatadir)\"
+
 src_frontend_libmcxx_la_CFLAGS = $(cfrontend_cflags)
 
 noinst_LTLIBRARIES += src/frontend/libgccbuiltins.la
@@ -774,6 +779,8 @@ src_frontend_fortran_libmf03_la_CFLAGS = \
 					-Wshadow \
 					-Wextra \
 				    -I$(top_srcdir)/lib \
+				    -I$(top_srcdir)/support/gperf \
+				    -I$(top_builddir)/support/gperf \
 				    -I$(top_srcdir)/src/frontend \
 				    -I$(top_srcdir)/src/frontend/fortran \
 				    -I$(top_srcdir)/src/mcxx_tl \
@@ -807,6 +814,8 @@ src_frontend_fortran_libmf03_prescanner_la_CFLAGS = \
 					-Wshadow \
 					-Wextra \
 				    -I$(top_srcdir)/lib \
+				    -I$(top_srcdir)/support/gperf \
+				    -I$(top_builddir)/support/gperf \
 				    -I$(top_srcdir)/src/frontend \
 				    -I$(top_srcdir)/src/frontend/fortran \
 				    -I$(top_builddir)/src/frontend \
@@ -919,6 +928,8 @@ BUILT_SOURCES += src/tl/tl-nodecl.cpp
 CLEANFILES += src/tl/tl-lexer-tokens.hpp
 
 TL_COMMON_CFLAGS = -DLIBTL_DLL_EXPORT -Wall \
+    -I$(top_srcdir)/support/gperf \
+    -I$(top_builddir)/support/gperf \
     -I $(top_srcdir)/src/tl/ \
     -I $(top_srcdir)/src/tl/codegen/common \
     -I $(top_srcdir)/src/tl/codegen/base/cxx \
@@ -1066,6 +1077,8 @@ src_tl_libtl_la_LIBADD = \
 
 ## TL common flags
 tl_cflags= -Wall -Wshadow \
+    -I$(top_srcdir)/support/gperf \
+    -I$(top_builddir)/support/gperf \
     -I $(top_srcdir)/src/tl/codegen/common \
     -I $(top_srcdir)/src/tl/codegen/vector \
     -I $(top_srcdir)/src/tl/codegen/base/cxx \
@@ -2822,6 +2835,8 @@ src_mcxx_tl_libmcxxtl_la_SOURCES = \
 	src/mcxx_tl/cxx-compilerphases.cpp
 
 MCXX_TL_COMMON_CFLAGS= -DLIBMCXXTL_DLL_EXPORT \
+    -I $(top_srcdir)/support/gperf \
+    -I $(top_builddir)/support/gperf \
     -I $(top_srcdir)/src/frontend \
     -I $(top_srcdir)/src/frontend/fortran \
     -I $(top_srcdir)/src/driver \
@@ -2888,8 +2903,11 @@ src_driver_plaincxx_CFLAGS= \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
 
-src_driver_plaincxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran \
-                              -I$(top_builddir)/src/frontend/fortran \
+src_driver_plaincxx_CFLAGS += \
+			      -I$(top_srcdir)/support/gperf \
+			      -I$(top_builddir)/support/gperf \
+			      -I$(top_srcdir)/src/frontend/fortran \
+			      -I$(top_builddir)/src/frontend/fortran \
                               -I$(top_srcdir)/src/driver \
                               -I$(top_srcdir)/src/driver/fortran \
                               -I$(top_builddir)/src/driver \
@@ -3079,6 +3097,8 @@ driver-uninstall-local:
 
 src_driver_mcxx_embedder_CFLAGS= \
 			-std=gnu99 \
+			-I$(top_srcdir)/support/gperf \
+			-I$(top_builddir)/support/gperf \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/driver \
 			-I$(top_srcdir)/src/driver/fortran \
@@ -3120,6 +3140,8 @@ noinst_LTLIBRARIES += src/driver/fortran/libmf03-driver.la
 fortran_driver_common_cflags= \
 			-std=gnu99 \
 			-fexceptions \
+			-I$(top_srcdir)/support/gperf \
+			-I$(top_builddir)/support/gperf \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
 			-I$(top_srcdir)/src/frontend/fortran \
@@ -3575,6 +3597,27 @@ endif
 PLAINFC_PROFILE=`echo plainfc | $(SED) '$(program_transform_name)'`
 
 PLAINFC=$(top_builddir)/src/driver/plaincxx --config-dir=$(top_builddir)/config --profile=$(PLAINFC_PROFILE) --do-not-warn-config --do-not-wrap-modules
+
+##########################################################################
+# support/gperf
+##########################################################################
+
+if GPERF_BUILDING
+BUILT_SOURCES += support/gperf/gperf-compat-types.h
+CLEANFILES += support/gperf/gperf-compat-types.h
+endif
+
+EXTRA_DIST += support/gperf/gperf-compat-types.h
+
+if GPERF_BUILDING
+GPERF_LEN_TYPE=@GPERF_LENGTH_TYPE@
+support/gperf/gperf-compat-types.h: Makefile
+	$(AM_V_GEN)( \
+    OUT_FILE="support/gperf/gperf-compat-types.h"; \
+	echo "/* This file has been generated */" > $${OUT_FILE}; \
+	echo "typedef" $(GPERF_LEN_TYPE) "gperf_length_t;" >> $${OUT_FILE}; \
+    )
+endif
 
 ##########################################################################
 # support/iso_fortran

@@ -2019,6 +2019,7 @@ then
           ]
   )
 
+  GPERF_LENGTH_TYPE=""
   AC_CHECK_PROG([GPERF], [gperf], [gperf])
   if test x$GPERF = x;
   then
@@ -2030,12 +2031,12 @@ then
        x3.0.*)
        AC_MSG_RESULT(${gperf_ver})
        gperf_good=yes
-       gperf_length_type="unsigned int"
+       GPERF_LENGTH_TYPE="unsigned int"
        ;;
     x3.1*)
        AC_MSG_RESULT(${gperf_ver})
        gperf_good=yes
-       gperf_length_type=size_t
+       GPERF_LENGTH_TYPE=size_t
        ;;
     x)
        AC_MSG_RESULT([error, could not guess gperf version])
@@ -2047,8 +2048,7 @@ then
   fi
 fi
 
-AC_DEFINE_UNQUOTED([GPERF_LENGTH_TYPE],[$gperf_length_type], [gperf lenght type])
-
+AC_SUBST([GPERF_LENGTH_TYPE])
 
 AM_CONDITIONAL([TPP_BUILDING], test "(" x$bison_good = xyes ")" -o "(" x$flex_good = xyes ")")
 AM_CONDITIONAL([BISON_BUILDING], test x$bison_good = xyes)
@@ -2458,6 +2458,7 @@ AC_OUTPUT
 AS_MKDIR_P([scripts])
 AS_MKDIR_P([config])
 
+AS_MKDIR_P([support/gperf])
 AS_MKDIR_P([support/iso_fortran])
 AS_MKDIR_P([support/openmp/fortran])
 AS_MKDIR_P([support/mpi/openmpi])
