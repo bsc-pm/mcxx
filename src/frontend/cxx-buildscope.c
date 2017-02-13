@@ -1376,6 +1376,7 @@ static void build_scope_explicit_instantiation(AST a,
                             symbol_entity_specs_set_is_instantiable(current_member, 0);
                         }
                     }
+                    entry_list_iterator_free(it);
                 }
             }
         }
