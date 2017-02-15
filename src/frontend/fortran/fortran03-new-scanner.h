@@ -28,9 +28,9 @@
 #ifndef FORTRAN03_NEW_SCANNER_H
 #define FORTRAN03_NEW_SCANNER_H
 
-#include<stdio.h>
-
 #include "gperf-compat-types.h"
+
+#include<stdio.h>
 
 #include "cxx-macros.h"
 
