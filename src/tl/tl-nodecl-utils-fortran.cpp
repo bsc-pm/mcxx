@@ -38,7 +38,7 @@ namespace Nodecl { namespace Utils {
             symbol_entity_specs_insert_related_symbols(used_modules_info, module.get_internal_symbol());
 
             // Make sure the module has been loaded...
-            if (!symbol_entity_specs_get_num_related_symbols(module.get_internal_symbol()))
+            if (!symbol_entity_specs_get_is_builtin(module.get_internal_symbol()))
                 fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
         }
     }
