@@ -40,6 +40,8 @@
 #include "tl-lower-task-common.hpp"
 #include "tl-nanox-ptr.hpp"
 
+#include "tl-nodecl-utils-fortran.hpp"
+
 using TL::Source;
 
 namespace TL { namespace Nanox {
@@ -2663,8 +2665,10 @@ void LoweringVisitor::emit_translation_function_region(
     parameter_names.append("wd");
     parameter_types.append(sym_nanos_wd_t.get_user_defined_type());
 
+    TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(ctr);
+
     translation_function_symbol = SymbolUtils::new_function_symbol(
-            Nodecl::Utils::get_enclosing_function(ctr),
+            enclosing_function,
             fun_name.get_source(),
             TL::Type::get_void_type(),
             parameter_names,
@@ -2675,6 +2679,13 @@ void LoweringVisitor::emit_translation_function_region(
             translation_function_symbol,
             function_code,
             empty_statement);
+
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        Nodecl::Utils::Fortran::append_used_modules(
+                enclosing_function.get_related_scope(),
+                translation_function_symbol.get_related_scope());
+    }
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 

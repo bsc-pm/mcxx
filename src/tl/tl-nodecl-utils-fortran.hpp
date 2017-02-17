@@ -262,11 +262,18 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             }
     };
 
-    void append_used_modules(TL::Scope orig_scope,
-            TL::Scope new_scope);
+    /*
+     * This function appends all the USEd symbols of the related symbol
+     * associated with the 'orig_scope' scope to the USEd symbols of the
+     * related symbol associated with the 'new_scope' scope
+     */
+    void append_used_modules(TL::Scope orig_scope, TL::Scope new_scope);
 
-    void append_module_to_scope(TL::Symbol module,
-            TL::Scope scope);
+    /*
+     * This function appends a module to the USEd symbols of the related symbol
+     * associated with the scope
+     */
+    void append_module_to_scope(TL::Symbol module, TL::Scope scope);
 } } }
 
 #endif // TL_NODECL_UTILS_FORTRAN_HPP
