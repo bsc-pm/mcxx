@@ -12147,47 +12147,77 @@ static scope_entry_t* build_scope_user_defined_literal_declarator(
     ERROR_CONDITION(!is_function_type(declarator_type), "Invalid type", 0);
     int num_parameters = function_type_get_num_parameters(declarator_type);
 
-    struct {
-        int num_types;
-        type_t* types[2];
-    } valid_param_types[] = {
-        { 1, { get_pointer_type(get_const_qualified_type(get_char_type())), NULL } },
-        { 1, { get_unsigned_long_long_int_type(), NULL } },
-        { 1, { get_long_double_type(), NULL } },
-        { 1, { get_char_type(),     NULL } },
-        { 1, { get_wchar_t_type(),  NULL } },
-        { 1, { get_char16_t_type(), NULL } },
-        { 1, { get_char32_t_type(), NULL } },
-        { 2, { get_pointer_type(get_const_qualified_type(get_char_type())),     get_size_t_type() } },
-        { 2, { get_pointer_type(get_const_qualified_type(get_wchar_t_type())),  get_size_t_type() } },
-        { 2, { get_pointer_type(get_const_qualified_type(get_char16_t_type())), get_size_t_type() } },
-        { 2, { get_pointer_type(get_const_qualified_type(get_char32_t_type())), get_size_t_type() } }
-    };
-
-    char ok = false;
-    int i, num_valid_param_types = STATIC_ARRAY_LENGTH(valid_param_types);
-    for (i = 0; i < num_valid_param_types && !ok; ++i)
+    if (!gather_info->is_template)
     {
-        if (valid_param_types[i].num_types != num_parameters)
-            continue;
+        struct {
+            int num_types;
+            type_t* types[2];
+        } valid_param_types[] = {
+            { 1, { get_pointer_type(get_const_qualified_type(get_char_type())), NULL } },
+            { 1, { get_unsigned_long_long_int_type(), NULL } },
+            { 1, { get_long_double_type(), NULL } },
+            { 1, { get_char_type(),     NULL } },
+            { 1, { get_wchar_t_type(),  NULL } },
+            { 1, { get_char16_t_type(), NULL } },
+            { 1, { get_char32_t_type(), NULL } },
+            { 2, { get_pointer_type(get_const_qualified_type(get_char_type())),     get_size_t_type() } },
+            { 2, { get_pointer_type(get_const_qualified_type(get_wchar_t_type())),  get_size_t_type() } },
+            { 2, { get_pointer_type(get_const_qualified_type(get_char16_t_type())), get_size_t_type() } },
+            { 2, { get_pointer_type(get_const_qualified_type(get_char32_t_type())), get_size_t_type() } }
+        };
 
-        char valid_candidate = true;
-        int j;
-        for (j = 0; j < num_parameters && valid_candidate; ++j) {
-             valid_candidate = equivalent_types(
-                     valid_param_types[i].types[j],
-                     function_type_get_parameter_type_num(declarator_type, j));
+        char ok = false;
+        int i, num_valid_param_types = STATIC_ARRAY_LENGTH(valid_param_types);
+        for (i = 0; i < num_valid_param_types && !ok; ++i)
+        {
+            if (valid_param_types[i].num_types != num_parameters)
+                continue;
+
+            char valid_candidate = true;
+            int j;
+            for (j = 0; j < num_parameters && valid_candidate; ++j) {
+                valid_candidate = equivalent_types(
+                        valid_param_types[i].types[j],
+                        function_type_get_parameter_type_num(declarator_type, j));
+            }
+
+            ok = valid_candidate;
         }
 
-        ok = valid_candidate;
+        if (!ok)
+        {
+            error_printf_at(ast_get_locus(declarator_id),
+                    "'%s' is not a valid literal operator\n",
+                    print_type_str(declarator_type, decl_context));
+            return NULL;
+        }
     }
-
-    if (!ok)
+    else
     {
-        error_printf_at(ast_get_locus(declarator_id),
-                "'%s' is not a valid literal operator\n",
-                print_type_str(declarator_type, decl_context));
-        return NULL;
+        // This is a literal operator template. There is only one valid prototype:
+        //
+        //      template < char...>
+        //      type operator ""_h();
+        if (num_parameters != 0)
+        {
+            error_printf_at(ast_get_locus(declarator_id),
+                    "'%s' is not a valid literal operator template: it shouldn't have any parameter\n",
+                    print_type_str(declarator_type, decl_context));
+            return NULL;
+        }
+
+        template_parameter_list_t* template_parameters = decl_context->template_parameters;
+        if (template_parameters == NULL
+                || template_parameters->num_parameters != 1
+                || template_parameters->parameters[0]->kind != TPK_NONTYPE_PACK
+                || !is_char_type(template_parameters->parameters[0]->entry->type_information))
+        {
+            error_printf_at(ast_get_locus(declarator_id),
+                    "'%s' is not a valid literal operator template: it should have a single template "
+                    "parameter that is a non-type template parameter pack with element type char\n",
+                    print_type_str(declarator_type, decl_context));
+            return NULL;
+        }
     }
 
     const char* literal_operator_name =
