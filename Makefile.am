@@ -2343,9 +2343,11 @@ if BUILD_NANOS6
 phases_LTLIBRARIES += src/tl/ompss/nanos6/libtlnanos6-lowering.la
 
 src_tl_ompss_nanos6_libtlnanos6_lowering_la_CFLAGS = $(phases_cflags) \
+                                                        -I $(top_srcdir)/src/tl/omp/core \
                                                         -I $(top_srcdir)/src/tl/omp/common \
                                                         -I@NANOS6_INCLUDES@
 src_tl_ompss_nanos6_libtlnanos6_lowering_la_CXXFLAGS = $(phases_cxxflags) \
+                                                        -I $(top_srcdir)/src/tl/omp/core \
                                                         -I $(top_srcdir)/src/tl/omp/common \
                                                         -I@NANOS6_INCLUDES@
 

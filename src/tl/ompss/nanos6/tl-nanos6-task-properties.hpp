@@ -29,18 +29,27 @@
 #define TL_NANOS6_TASK_PROPERTIES_HPP
 
 #include "tl-nanos6.hpp"
+
+#include "tl-omp-reduction.hpp"
+
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-type.hpp"
 #include "tl-symbol.hpp"
 #include "tl-datareference.hpp"
 
+
+
 namespace TL { namespace Nanos6 {
+
+    // Forward declaration of TL::Nanos6::Lower
+    class Lower;
 
     struct TaskProperties
     {
         private:
             LoweringPhase* phase;
+            Lower* lower_visitor;
 
             typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
             field_map_t field_map;
@@ -73,6 +82,8 @@ namespace TL { namespace Nanos6 {
 
             static const int VLA_OVERALLOCATION_ALIGN = 8;
 
+            unsigned int num_reductions = 0;
+
             TL::Type info_structure;
 
             TL::Symbol outline_function;
@@ -90,12 +101,36 @@ namespace TL { namespace Nanos6 {
                 const TL::ObjectList<TL::Symbol> &local);
             TL::Type rewrite_type_using_args(TL::Symbol arg, TL::Type t, const TL::ObjectList<TL::Symbol> &local);
 
+            void compute_reduction_arguments_dependence_c(
+                    TL::DataReference& data_ref,
+                    TL::Symbol arg,
+                    const TL::ObjectList<TL::Symbol>& local_symbols,
+                    // Out
+                    Nodecl::List& arguments);
+
             void compute_dimensions_dependence_c(
                     TL::Type array_type,
                     TL::Symbol arg,
                     const TL::ObjectList<TL::Symbol>& local_symbols,
                     // Out
                     Nodecl::List& arguments_list);
+
+            void compute_arguments_dependence_c(
+                    TL::DataReference& data_ref,
+                    TL::Symbol handler,
+                    TL::Symbol arg,
+                    const TL::ObjectList<TL::Symbol>& local_symbols,
+                    // Out
+                    Nodecl::List& arguments_list);
+
+            void register_dependence_c(
+                    TL::DataReference& data_ref,
+                    TL::Symbol handler,
+                    TL::Symbol arg,
+                    TL::Symbol register_fun,
+                    const TL::ObjectList<TL::Symbol>& local_symbols,
+                    // Out
+                    Nodecl::List& register_statements);
 
             void register_multidependence_c(
                     TL::DataReference& data_ref,
@@ -107,18 +142,20 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List& register_statements);
 
-            void register_dependence_c(
+            void compute_reduction_arguments_dependence_fortran(
                     TL::DataReference& data_ref,
-                    TL::Symbol handler,
-                    TL::Symbol arg,
-                    TL::Symbol register_fun,
-                    const TL::ObjectList<TL::Symbol>& local_symbols,
                     // Out
-                    Nodecl::List& register_statements);
+                    Nodecl::List& arguments_list);
 
             void compute_dimensions_dependence_fortran(
                     const TL::DataReference& data_ref,
                     TL::Type array_type,
+                    // Out
+                    Nodecl::List& arguments_list);
+
+            void compute_arguments_dependence_fortran(
+                    TL::DataReference& data_ref,
+                    TL::Symbol handler,
                     // Out
                     Nodecl::List& arguments_list);
 
@@ -214,6 +251,26 @@ namespace TL { namespace Nanos6 {
             // of runtime sized types
             TL::ObjectList<TL::Symbol> captured_value;
 
+            struct ReductionItem
+            {
+                TL::Symbol symbol;
+                TL::Type reduction_type;
+                TL::OpenMP::Reduction* reduction_info;
+
+                ReductionItem(TL::Symbol sym)
+                        : symbol(sym) { }
+
+                ReductionItem(TL::Symbol sym, TL::Type red_type, TL::OpenMP::Reduction* red_info)
+                        : symbol(sym), reduction_type(red_type), reduction_info(red_info) { }
+
+                bool operator==(const ReductionItem& red_item) const
+                {
+                    return symbol == red_item.symbol;
+                }
+            };
+
+            TL::ObjectList<ReductionItem> reduction;
+
             Nodecl::NodeclBase final_clause;
             Nodecl::NodeclBase if_clause;
             Nodecl::NodeclBase cost_clause;
@@ -233,6 +290,8 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<Nodecl::NodeclBase> dep_commutative;
             TL::ObjectList<Nodecl::NodeclBase> dep_concurrent;
 
+            TL::ObjectList<Nodecl::NodeclBase> dep_reduction;
+
             TL::ObjectList<Nodecl::NodeclBase> copy_in;
             TL::ObjectList<Nodecl::NodeclBase> copy_out;
             TL::ObjectList<Nodecl::NodeclBase> copy_inout;
@@ -249,15 +308,18 @@ namespace TL { namespace Nanos6 {
             const locus_t* locus_of_task_creation;
             const locus_t* locus_of_task_declaration;
 
-            TaskProperties(LoweringPhase* lowering_phase)
-                : phase(lowering_phase), is_tied(true), is_taskwait_dep(false),
-                  is_function_task(false), any_task_dependence(false) { }
+            TaskProperties(LoweringPhase* lowering_phase, Lower* lower_vis)
+                : phase(lowering_phase), lower_visitor(lower_vis),
+                is_tied(true), is_taskwait_dep(false), is_function_task(false),
+                any_task_dependence(false) { }
 
             static TaskProperties gather_task_properties(
                     LoweringPhase* phase,
+                    Lower* lower,
                     const Nodecl::OpenMP::Task& node);
             static TaskProperties gather_task_properties(
                     LoweringPhase* phase,
+                    Lower* lower,
                     const Nodecl::OmpSs::TaskCall& node);
 
             void create_task_info(
@@ -280,6 +342,10 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol task_flags,
                     /* out */
                     Nodecl::NodeclBase& task_flags_stmts);
+
+            void handle_task_reductions(
+                    const TL::Scope& unpacked_inside_scope,
+                    Nodecl::NodeclBase unpacked_empty_stmt);
 
             void remove_data_sharing_of_this();
             void fix_data_sharing_of_this();
