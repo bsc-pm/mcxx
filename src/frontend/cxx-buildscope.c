@@ -12187,6 +12187,7 @@ static scope_entry_t* build_scope_user_defined_literal_declarator(
         error_printf_at(ast_get_locus(declarator_id),
                 "'%s' is not a valid literal operator\n",
                 print_type_str(declarator_type, decl_context));
+        return NULL;
     }
 
     const char* literal_operator_name =
