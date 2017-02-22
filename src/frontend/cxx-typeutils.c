@@ -2668,14 +2668,14 @@ static int template_arg_value_expr_equivalent_compare(nodecl_t n1, nodecl_t n2)
             && nodecl_get_constant(n2) != NULL)
     {
         if (const_value_is_nonzero(
-                    const_value_lt(
+                    const_value_generalized_lt(
                         nodecl_get_constant(n1),
                         nodecl_get_constant(n2))) )
         {
             return -1;
         }
         else if (const_value_is_nonzero(
-                    const_value_gt(
+                    const_value_generalized_gt(
                         nodecl_get_constant(n1),
                         nodecl_get_constant(n2))) )
         {
