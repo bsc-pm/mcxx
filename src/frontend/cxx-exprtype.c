@@ -5204,115 +5204,8 @@ static void compute_bin_operator_relational_eq_or_neq(nodecl_t* lhs, nodecl_t* r
         nodecl_output);
 }
 
-static const_value_t* const_value_lt_address(const_value_t* lhs, const_value_t* rhs)
-{
-    ERROR_CONDITION(!const_value_is_address(lhs)
-            || !const_value_is_address(rhs), "Invalid constants", 0);
-
-    lhs = const_value_address_dereference(lhs);
-    rhs = const_value_address_dereference(rhs);
-
-    scope_entry_t* object_lhs = const_value_object_get_base(lhs);
-    scope_entry_t* object_rhs = const_value_object_get_base(rhs);
-
-    if (object_lhs != object_rhs)
-        return const_value_get_signed_int(0);
-
-    // Note that the address could be the same even if the
-    // accessors are different, but we do not consider this case
-    int num_accessors = const_value_object_get_num_accessors(lhs);
-    if (num_accessors
-            != const_value_object_get_num_accessors(rhs))
-        return const_value_get_signed_int(0);
-
-    // Lexicographical check
-    int i;
-    for (i = 0; i < num_accessors; i++)
-    {
-        subobject_accessor_t lhs_sub = const_value_object_get_accessor_num(lhs, i);
-        subobject_accessor_t rhs_sub = const_value_object_get_accessor_num(rhs, i);
-
-        if (lhs_sub.kind != rhs_sub.kind)
-            return const_value_get_signed_int(0);
-
-        if (const_value_is_nonzero(const_value_eq(lhs_sub.index, rhs_sub.index)))
-        { 
-            // ==
-        }
-        else if (const_value_is_nonzero(const_value_lt(lhs_sub.index, rhs_sub.index)))
-        {
-            // <
-            return const_value_get_signed_int(1);
-        }
-        else
-        {
-            // >
-            return const_value_get_signed_int(0);
-        }
-    }
-
-    // If we reach here, all components were ==
-    return const_value_get_signed_int(0);
-}
-
-static const_value_t* const_value_eq_address(const_value_t* lhs, const_value_t* rhs)
-{
-    ERROR_CONDITION(!const_value_is_address(lhs)
-            || !const_value_is_address(rhs), "Invalid constants", 0);
-
-    lhs = const_value_address_dereference(lhs);
-    rhs = const_value_address_dereference(rhs);
-
-    scope_entry_t* object_lhs = const_value_object_get_base(lhs);
-    scope_entry_t* object_rhs = const_value_object_get_base(rhs);
-
-    if (object_lhs != object_rhs)
-        return const_value_get_signed_int(0);
-
-    // Note that the address could be the same even if the
-    // accessors are different, but we do not consider this case
-    int num_accessors = const_value_object_get_num_accessors(lhs);
-    if (num_accessors
-            != const_value_object_get_num_accessors(rhs))
-        return const_value_get_signed_int(0);
-
-    int i;
-    for (i = 0; i < num_accessors; i++)
-    {
-        subobject_accessor_t lhs_sub = const_value_object_get_accessor_num(lhs, i);
-        subobject_accessor_t rhs_sub = const_value_object_get_accessor_num(rhs, i);
-
-        if (lhs_sub.kind != rhs_sub.kind)
-            return const_value_get_signed_int(0);
-
-        if (const_value_is_zero(const_value_eq(lhs_sub.index, rhs_sub.index)))
-            return const_value_get_signed_int(0);
-    }
-
-    return const_value_get_signed_int(1);
-}
 
 
-static const_value_t* const_value_generalized_lte(const_value_t* lhs, const_value_t* rhs)
-{
-    if (const_value_is_address(lhs)
-            && const_value_is_address(rhs))
-    {
-        return const_value_or(
-                const_value_eq_address(lhs, rhs),
-                const_value_lt_address(lhs, rhs));
-
-    }
-    else if (!const_value_is_address(lhs)
-            && !const_value_is_address(rhs))
-    {
-        return const_value_lte(lhs, rhs);
-    }
-    else
-    {
-        return NULL;
-    }
-}
 
 static
 void compute_bin_operator_lower_equal_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
@@ -5334,24 +5227,6 @@ void compute_bin_operator_lower_equal_type(nodecl_t* lhs, nodecl_t* rhs, const d
             nodecl_output);
 }
 
-static const_value_t* const_value_generalized_lt(const_value_t* lhs, const_value_t* rhs)
-{
-    if (const_value_is_address(lhs)
-            && const_value_is_address(rhs))
-    {
-        return const_value_lt_address(lhs, rhs);
-
-    }
-    else if (!const_value_is_address(lhs)
-            && !const_value_is_address(rhs))
-    {
-        return const_value_lt(lhs, rhs);
-    }
-    else
-    {
-        return NULL;
-    }
-}
 
 void compute_bin_operator_lower_than_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
@@ -5372,23 +5247,6 @@ void compute_bin_operator_lower_than_type(nodecl_t* lhs, nodecl_t* rhs, const de
             nodecl_output);
 }
 
-static const_value_t* const_value_generalized_gte(const_value_t* lhs, const_value_t* rhs)
-{
-    if (const_value_is_address(lhs)
-            && const_value_is_address(rhs))
-    {
-        return const_value_not(const_value_lt_address(lhs, rhs));
-    }
-    else if (!const_value_is_address(lhs)
-            && !const_value_is_address(rhs))
-    {
-        return const_value_gte(lhs, rhs);
-    }
-    else
-    {
-        return NULL;
-    }
-}
 
 static void compute_bin_operator_greater_equal_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
@@ -5409,27 +5267,6 @@ static void compute_bin_operator_greater_equal_type(nodecl_t* lhs, nodecl_t* rhs
             nodecl_output);
 }
 
-static const_value_t* const_value_generalized_gt(const_value_t* lhs, const_value_t* rhs)
-{
-    if (const_value_is_address(lhs)
-            && const_value_is_address(rhs))
-    {
-        return const_value_not(
-                const_value_or(
-                    const_value_eq_address(lhs, rhs),
-                    const_value_lt_address(lhs, rhs)));
-
-    }
-    else if (!const_value_is_address(lhs)
-            && !const_value_is_address(rhs))
-    {
-        return const_value_gt(lhs, rhs);
-    }
-    else
-    {
-        return NULL;
-    }
-}
 
 static void compute_bin_operator_greater_than_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
@@ -5450,28 +5287,6 @@ static void compute_bin_operator_greater_than_type(nodecl_t* lhs, nodecl_t* rhs,
             nodecl_output);
 }
 
-static const_value_t* const_value_neq_address(const_value_t* lhs, const_value_t* rhs)
-{
-    return const_value_not(const_value_eq_address(lhs, rhs));
-}
-
-static const_value_t* const_value_generalized_neq(const_value_t* lhs, const_value_t* rhs)
-{
-    if (const_value_is_address(lhs)
-            && const_value_is_address(rhs))
-    {
-        return const_value_neq_address(lhs, rhs);
-    }
-    else if (!const_value_is_address(lhs)
-            && !const_value_is_address(rhs))
-    {
-        return const_value_neq(lhs, rhs);
-    }
-    else
-    {
-        return NULL;
-    }
-}
 
 static void compute_bin_operator_different_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
@@ -5492,23 +5307,6 @@ static void compute_bin_operator_different_type(nodecl_t* lhs, nodecl_t* rhs, co
             nodecl_output);
 }
 
-static const_value_t* const_value_generalized_eq(const_value_t* lhs, const_value_t* rhs)
-{
-    if (const_value_is_address(lhs)
-            && const_value_is_address(rhs))
-    {
-        return const_value_eq_address(lhs, rhs);
-    }
-    else if (!const_value_is_address(lhs)
-            && !const_value_is_address(rhs))
-    {
-        return const_value_eq(lhs, rhs);
-    }
-    else
-    {
-        return NULL;
-    }
-}
 
 static void compute_bin_operator_equal_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)

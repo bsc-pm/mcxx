@@ -309,6 +309,13 @@ LIBMCXX_EXTERN int const_value_object_get_num_accessors(const_value_t*);
 LIBMCXX_EXTERN subobject_accessor_t const_value_object_get_accessor_num(const_value_t*, int i);
 LIBMCXX_EXTERN void const_value_object_get_all_accessors(const_value_t*, subobject_accessor_t* out);
 
+LIBMCXX_EXTERN const_value_t* const_value_generalized_lte(const_value_t* lhs, const_value_t* rhs);
+LIBMCXX_EXTERN const_value_t* const_value_generalized_lt(const_value_t* lhs, const_value_t* rhs);
+LIBMCXX_EXTERN const_value_t* const_value_generalized_gte(const_value_t* lhs, const_value_t* rhs);
+LIBMCXX_EXTERN const_value_t* const_value_generalized_gt(const_value_t* lhs, const_value_t* rhs);
+LIBMCXX_EXTERN const_value_t* const_value_generalized_neq(const_value_t* lhs, const_value_t* rhs);
+LIBMCXX_EXTERN const_value_t* const_value_generalized_eq(const_value_t* lhs, const_value_t* rhs);
+
 MCXX_END_DECLS
 
 #endif // CXX_CEXPR_H
