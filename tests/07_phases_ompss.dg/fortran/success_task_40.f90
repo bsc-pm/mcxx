@@ -1,8 +1,11 @@
 ! <testinfo>
 ! test_generator=config/mercurium-ompss
-! test_compile_fail_nanos6_mercurium=yes
-! test_compile_fail_nanos6_imfc=yes
+! test_FFLAGS="-O2"
 ! </testinfo>
+
+!!! our transformation of Nanos6 doesn't work in Power8 with gfortran :(
+!!! Compiling with -O2 fixes this issue
+
 PROGRAM P
   IMPLICIT NONE
   INTEGER, PARAMETER :: STRL = 4

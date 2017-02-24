@@ -1376,6 +1376,7 @@ static void build_scope_explicit_instantiation(AST a,
                             symbol_entity_specs_set_is_instantiable(current_member, 0);
                         }
                     }
+                    entry_list_iterator_free(it);
                 }
             }
         }
@@ -12146,46 +12147,77 @@ static scope_entry_t* build_scope_user_defined_literal_declarator(
     ERROR_CONDITION(!is_function_type(declarator_type), "Invalid type", 0);
     int num_parameters = function_type_get_num_parameters(declarator_type);
 
-    struct {
-        int num_types;
-        type_t* types[2];
-    } valid_param_types[] = {
-        { 1, { get_pointer_type(get_const_qualified_type(get_char_type())), NULL } },
-        { 1, { get_unsigned_long_long_int_type(), NULL } },
-        { 1, { get_long_double_type(), NULL } },
-        { 1, { get_char_type(),     NULL } },
-        { 1, { get_wchar_t_type(),  NULL } },
-        { 1, { get_char16_t_type(), NULL } },
-        { 1, { get_char32_t_type(), NULL } },
-        { 2, { get_pointer_type(get_const_qualified_type(get_char_type())),     get_size_t_type() } },
-        { 2, { get_pointer_type(get_const_qualified_type(get_wchar_t_type())),  get_size_t_type() } },
-        { 2, { get_pointer_type(get_const_qualified_type(get_char16_t_type())), get_size_t_type() } },
-        { 2, { get_pointer_type(get_const_qualified_type(get_char32_t_type())), get_size_t_type() } }
-    };
-
-    char ok = false;
-    int i, num_valid_param_types = STATIC_ARRAY_LENGTH(valid_param_types);
-    for (i = 0; i < num_valid_param_types && !ok; ++i)
+    if (!gather_info->is_template)
     {
-        if (valid_param_types[i].num_types != num_parameters)
-            continue;
+        struct {
+            int num_types;
+            type_t* types[2];
+        } valid_param_types[] = {
+            { 1, { get_pointer_type(get_const_qualified_type(get_char_type())), NULL } },
+            { 1, { get_unsigned_long_long_int_type(), NULL } },
+            { 1, { get_long_double_type(), NULL } },
+            { 1, { get_char_type(),     NULL } },
+            { 1, { get_wchar_t_type(),  NULL } },
+            { 1, { get_char16_t_type(), NULL } },
+            { 1, { get_char32_t_type(), NULL } },
+            { 2, { get_pointer_type(get_const_qualified_type(get_char_type())),     get_size_t_type() } },
+            { 2, { get_pointer_type(get_const_qualified_type(get_wchar_t_type())),  get_size_t_type() } },
+            { 2, { get_pointer_type(get_const_qualified_type(get_char16_t_type())), get_size_t_type() } },
+            { 2, { get_pointer_type(get_const_qualified_type(get_char32_t_type())), get_size_t_type() } }
+        };
 
-        char valid_candidate = true;
-        int j;
-        for (j = 0; j < num_parameters && valid_candidate; ++j) {
-             valid_candidate = equivalent_types(
-                     valid_param_types[i].types[j],
-                     function_type_get_parameter_type_num(declarator_type, j));
+        char ok = false;
+        int i, num_valid_param_types = STATIC_ARRAY_LENGTH(valid_param_types);
+        for (i = 0; i < num_valid_param_types && !ok; ++i)
+        {
+            if (valid_param_types[i].num_types != num_parameters)
+                continue;
+
+            char valid_candidate = true;
+            int j;
+            for (j = 0; j < num_parameters && valid_candidate; ++j) {
+                valid_candidate = equivalent_types(
+                        valid_param_types[i].types[j],
+                        function_type_get_parameter_type_num(declarator_type, j));
+            }
+
+            ok = valid_candidate;
         }
 
-        ok = valid_candidate;
+        if (!ok)
+        {
+            error_printf_at(ast_get_locus(declarator_id),
+                    "'%s' is not a valid literal operator\n",
+                    print_type_str(declarator_type, decl_context));
+            return NULL;
+        }
     }
-
-    if (!ok)
+    else
     {
-        error_printf_at(ast_get_locus(declarator_id),
-                "'%s' is not a valid literal operator\n",
-                print_type_str(declarator_type, decl_context));
+        // This is a literal operator template. There is only one valid prototype:
+        //
+        //      template < char...>
+        //      type operator ""_h();
+        if (num_parameters != 0)
+        {
+            error_printf_at(ast_get_locus(declarator_id),
+                    "'%s' is not a valid literal operator template: it shouldn't have any parameter\n",
+                    print_type_str(declarator_type, decl_context));
+            return NULL;
+        }
+
+        template_parameter_list_t* template_parameters = decl_context->template_parameters;
+        if (template_parameters == NULL
+                || template_parameters->num_parameters != 1
+                || template_parameters->parameters[0]->kind != TPK_NONTYPE_PACK
+                || !is_char_type(template_parameters->parameters[0]->entry->type_information))
+        {
+            error_printf_at(ast_get_locus(declarator_id),
+                    "'%s' is not a valid literal operator template: it should have a single template "
+                    "parameter that is a non-type template parameter pack with element type char\n",
+                    print_type_str(declarator_type, decl_context));
+            return NULL;
+        }
     }
 
     const char* literal_operator_name =
@@ -19305,7 +19337,6 @@ static void build_scope_nodecl_condition_for_switch(nodecl_t nodecl_condition,
 
 static void build_scope_condition(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
-
     if (ASTKind(a) == AST_AMBIGUITY)
     {
         solve_ambiguous_condition(a, decl_context);
@@ -19365,9 +19396,6 @@ static void build_scope_condition(AST a, const decl_context_t* decl_context, nod
     else
     {
         check_expression(ASTSon2(a), decl_context, nodecl_output);
-        // FIXME: Handle VLAs here
-        ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
-                "Unsupported extra declarations at the initialization expression", 0);
     }
 }
 
@@ -19437,22 +19465,27 @@ static void build_scope_while_statement(AST a,
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(ASTSon0(a), block_context, &nodecl_condition);
 
+    // The condition may generate some extra declarations (VLAs, lambda expressions)
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+
     nodecl_t nodecl_statement = nodecl_null();
     if (ASTSon1(a) != NULL)
     {
         build_scope_normalized_statement(ASTSon1(a), block_context, &nodecl_statement);
     }
 
+    nodecl_t nodecl_while = nodecl_null();
     build_scope_nodecl_while_statement(
             nodecl_condition,
             nodecl_statement,
             block_context,
             ast_get_locus(a),
-            nodecl_output);
+            &nodecl_while);
 
-    *nodecl_output = nodecl_make_list_1(
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
             nodecl_make_context(
-                *nodecl_output,
+                nodecl_while,
                 block_context,
                 ast_get_locus(a)));
 }
@@ -19569,6 +19602,9 @@ static void build_scope_if_else_statement(AST a,
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(condition, block_context, &nodecl_condition);
 
+    // The condition may generate some extra declarations (VLAs, lambda expressions)
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+
     AST then_branch = ASTSon1(a);
     nodecl_t nodecl_then = nodecl_null();
     build_scope_normalized_statement(then_branch, block_context, &nodecl_then);
@@ -19580,17 +19616,19 @@ static void build_scope_if_else_statement(AST a,
         build_scope_normalized_statement(else_branch, block_context, &nodecl_else);
     }
 
+    nodecl_t nodecl_if_else_stmt = nodecl_null();
     build_scope_nodecl_if_else_statement(
             nodecl_condition,
             nodecl_then,
             nodecl_else,
             block_context,
             ast_get_locus(a),
-            nodecl_output);
+            &nodecl_if_else_stmt);
 
-    *nodecl_output = nodecl_make_list_1(
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
             nodecl_make_context(
-                *nodecl_output,
+                nodecl_if_else_stmt,
                 block_context,
                 ast_get_locus(a)
                 )
@@ -19734,6 +19772,9 @@ static void build_scope_for_statement_nonrange(AST a,
     if (condition != NULL)
     {
         build_scope_condition(condition, block_context, &nodecl_loop_condition);
+
+        // The condition may generate some extra declarations (VLAs, lambda expressions)
+        *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
     }
 
     nodecl_t nodecl_loop_iter = nodecl_null();
@@ -19751,6 +19792,7 @@ static void build_scope_for_statement_nonrange(AST a,
         solve_literal_symbol_scope(synthesized_loop_name, decl_context, &nodecl_loop_name);
     }
 
+    nodecl_t nodecl_for_stmt_nonrange = nodecl_null();
     build_scope_nodecl_for_statement_nonrange(
             nodecl_loop_init,
             nodecl_loop_condition,
@@ -19759,15 +19801,14 @@ static void build_scope_for_statement_nonrange(AST a,
             nodecl_statement,
             block_context,
             ast_get_locus(a),
-            nodecl_output);
+            &nodecl_for_stmt_nonrange);
 
-    *nodecl_output =
-        nodecl_make_list_1(
-                nodecl_make_context(
-                    *nodecl_output,
-                    block_context,
-                    ast_get_locus(a))
-                );
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
+            nodecl_make_context(
+                nodecl_for_stmt_nonrange,
+                block_context,
+                ast_get_locus(a)));
 
 }
 
@@ -20321,6 +20362,7 @@ static void build_scope_nodecl_switch_statement(
             );
 }
 
+type_t* switch_condition_type = 0;
 static void build_scope_switch_statement(AST a,
         const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
@@ -20333,22 +20375,31 @@ static void build_scope_switch_statement(AST a,
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(condition, block_context, &nodecl_condition);
 
+    // The condition may generate some extra declarations (VLAs, lambda expressions)
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+
+    type_t* old_switch_condition_type = switch_condition_type;
+    switch_condition_type = no_ref(nodecl_get_type(nodecl_condition));
+
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
+    switch_condition_type = old_switch_condition_type;
+
+    nodecl_t nodecl_switch = nodecl_null();
     build_scope_nodecl_switch_statement(
             nodecl_condition,
             nodecl_statement,
             block_context,
             ast_get_locus(a),
-            nodecl_output);
+            &nodecl_switch);
 
-    *nodecl_output = nodecl_make_list_1(
+    *nodecl_output = nodecl_append_to_list(
+            *nodecl_output,
             nodecl_make_context(
-                *nodecl_output,
+                nodecl_switch,
                 block_context,
-                ast_get_locus(a))
-            );
+                ast_get_locus(a)));
 }
 
 scope_entry_t* add_label_if_not_found(const char* label_text, const decl_context_t* decl_context, const locus_t* locus)
@@ -20568,6 +20619,111 @@ static void build_scope_case_statement(AST a,
             decl_context,
             ast_get_locus(a),
             nodecl_output);
+}
+
+static void build_scope_gcc_case_statement(AST a,
+        const decl_context_t* decl_context,
+        nodecl_t* nodecl_output)
+{
+
+    AST const_expr_lb = ASTSon0(a);
+    AST const_expr_ub = ASTSon1(a);
+    AST statement = ASTSon2(a);
+
+    nodecl_t nodecl_lb = nodecl_null();
+    check_expression_must_be_constant(const_expr_lb, decl_context, &nodecl_lb);
+
+    if (nodecl_is_err_expr(nodecl_lb))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_lb = nodecl_expression_make_rvalue(nodecl_lb, decl_context);
+
+    if (!nodecl_expr_is_value_dependent(nodecl_lb)
+            && !nodecl_is_constant(nodecl_lb))
+    {
+        error_printf_at(ast_get_locus(a), "case expression '%s' is not constant\n",
+                codegen_to_str(nodecl_lb, decl_context));
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_t nodecl_ub = nodecl_null();
+    check_expression_must_be_constant(const_expr_ub, decl_context, &nodecl_ub);
+
+    if (nodecl_is_err_expr(nodecl_ub))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_ub = nodecl_expression_make_rvalue(nodecl_ub, decl_context);
+
+    if (!nodecl_expr_is_value_dependent(nodecl_ub)
+            && !nodecl_is_constant(nodecl_ub))
+    {
+        error_printf_at(ast_get_locus(a), "case expression '%s' is not constant\n",
+                codegen_to_str(nodecl_ub, decl_context));
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_t nodecl_statement = nodecl_null();
+    build_scope_statement(statement, decl_context, &nodecl_statement);
+
+    // The current approach is transforming a range case stmt into multiple case stmt
+    const_value_t* const_val_lb =
+        cxx_nodecl_make_value_conversion(
+                nodecl_get_type(nodecl_lb),
+                switch_condition_type,
+                nodecl_get_constant(nodecl_lb));
+
+    const_value_t* const_val_ub =
+        cxx_nodecl_make_value_conversion(
+                nodecl_get_type(nodecl_ub),
+                switch_condition_type,
+                nodecl_get_constant(nodecl_ub));
+
+    if (const_value_is_nonzero(const_value_lt(const_val_ub, const_val_lb)))
+    {
+       error_printf_at(
+               ast_get_locus(a),
+               "empty case range '%s ... %s' \n",
+               codegen_to_str(nodecl_lb, decl_context),
+               codegen_to_str(nodecl_ub, decl_context));
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+       return;
+    }
+
+    const_value_t* iterator = const_val_ub;
+    const_value_t* one = const_value_get_one(const_value_get_bytes(iterator), const_value_is_signed(iterator));
+    while (const_value_is_nonzero(const_value_gte(iterator, const_val_lb)))
+    {
+        nodecl_t new_const_expr = const_value_to_nodecl(iterator);
+        nodecl_set_type(new_const_expr, switch_condition_type);
+        nodecl_t nodecl_expr_list = nodecl_make_list_1(new_const_expr);
+
+        build_scope_nodecl_case_statement(
+                nodecl_expr_list,
+                nodecl_statement,
+                decl_context,
+                ast_get_locus(a),
+                &nodecl_statement);
+
+         iterator = const_value_sub(iterator, one);
+    }
+
+    *nodecl_output = nodecl_statement;
 }
 
 static void build_scope_nodecl_return_statement(
@@ -21727,6 +21883,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement),
     STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement),
     STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement),
+    STMT_HANDLER(AST_GCC_CASE_STATEMENT, build_scope_gcc_case_statement),
     STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement),
     STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block),
     STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement),

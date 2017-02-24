@@ -414,23 +414,18 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     {
         ss_unpacked << device_outline_name << "_" << hash_unpacked << "_unpacked";
 
+        // In CUDA the unpacked function should be declared as a global function
+        bool make_it_global = true;
+
         unpacked_function = new_function_symbol_unpacked(
                 current_function,
                 ss_unpacked.str(),
                 info,
+                make_it_global,
                 // out
                 symbol_map,
                 initial_statements,
                 final_statements);
-
-        // new_function_symbol_unpacked will create a member function if the
-        // current function is member. Make sure the new function is not member
-        // at all
-        // See #2580
-        symbol_entity_specs_set_is_member(
-            unpacked_function.get_internal_symbol(), 0);
-        symbol_entity_specs_set_class_type(
-            unpacked_function.get_internal_symbol(), NULL);
     }
 
     Source ndrange_code;

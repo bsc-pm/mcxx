@@ -11209,7 +11209,7 @@ static char compute_index_list_to_subobject_constant(
         int** path_to_subobject,
         int *num_items);
 
-static const_value_t* cxx_nodecl_make_value_conversion(
+const_value_t* cxx_nodecl_make_value_conversion(
         type_t* orig_type,
         type_t* dest_type,
         const_value_t* value)

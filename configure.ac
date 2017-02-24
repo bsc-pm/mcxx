@@ -860,7 +860,7 @@ is_enabled_tl_ompss_nanos6="no"
 
 NANOS6_GATE=":false:"
 
-AC_MSG_CHECKING(["if enabled OmpSs TL support for Nanos 6])
+AC_MSG_CHECKING([if enabled OmpSs TL support for Nanos 6])
 AC_ARG_ENABLE([tl-ompss-nanos6],
   AS_HELP_STRING([--enable-tl-ompss-nanos6], [Enables support of OmpSs TL for Nanos 6]),
   [
@@ -889,7 +889,7 @@ then
    AC_ARG_WITH([nanos6],
            AS_HELP_STRING([--with-nanos6=dir], [Directory of Nanos 6 installation]),
            [
-            nanos6_include="${withval}/include/nanos6"
+            nanos6_include="${withval}/include"
             nanos6_lib="${withval}/lib"
             nanos6="${withval}"
             # kludge
@@ -2019,6 +2019,7 @@ then
           ]
   )
 
+  GPERF_LENGTH_TYPE=""
   AC_CHECK_PROG([GPERF], [gperf], [gperf])
   if test x$GPERF = x;
   then
@@ -2030,6 +2031,12 @@ then
        x3.0.*)
        AC_MSG_RESULT(${gperf_ver})
        gperf_good=yes
+       GPERF_LENGTH_TYPE="unsigned int"
+       ;;
+    x3.1*)
+       AC_MSG_RESULT(${gperf_ver})
+       gperf_good=yes
+       GPERF_LENGTH_TYPE=size_t
        ;;
     x)
        AC_MSG_RESULT([error, could not guess gperf version])
@@ -2039,9 +2046,9 @@ then
        ;;
     esac
   fi
-
 fi
 
+AC_SUBST([GPERF_LENGTH_TYPE])
 
 AM_CONDITIONAL([TPP_BUILDING], test "(" x$bison_good = xyes ")" -o "(" x$flex_good = xyes ")")
 AM_CONDITIONAL([BISON_BUILDING], test x$bison_good = xyes)
@@ -2451,6 +2458,7 @@ AC_OUTPUT
 AS_MKDIR_P([scripts])
 AS_MKDIR_P([config])
 
+AS_MKDIR_P([support/gperf])
 AS_MKDIR_P([support/iso_fortran])
 AS_MKDIR_P([support/openmp/fortran])
 AS_MKDIR_P([support/mpi/openmpi])

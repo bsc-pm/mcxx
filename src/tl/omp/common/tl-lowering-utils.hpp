@@ -25,26 +25,27 @@
 --------------------------------------------------------------------*/
 
 
-#include "gperf-compat-types.h"
 
-#include "libmcxx-common.h"
-#include "cxx-macros.h"
-#include "cxx-asttype-str.h"
-#include "cxx-asttype.h"
-#include "cxx-process.h"
-#include <string.h>
+#ifndef TL_LOWERING_UTILS_HPP
+#define TL_LOWERING_UTILS_HPP
 
-extern struct node_str_t * ast_node_name_to_kind_ (register const char *str, register gperf_length_t len);
+#include "tl-nodecl.hpp"
+#include "tl-datareference.hpp"
+#include "tl-type.hpp"
 
-#include "cxx-asttype-str-internal.h"
+namespace TL { namespace Lowering { namespace Utils {
 
-node_t ast_node_name_to_kind(const char* name)
-{
-	ERROR_CONDITION(name == NULL, "Invalid name", 0);
-	node_str_t* n = ast_node_name_to_kind_(name, strlen(name));
+    namespace Fortran
+    {
+        //FIXME: ADD DESCRIPTIONS!
+        Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase expr, int dimension_num);
 
-	if (n == NULL)
-		return AST_INVALID_NODE;
-	else
-		return n->kind;
-}
+        Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase expr, int dimension_num);
+
+        Nodecl::NodeclBase get_size_for_dimension(const TL::DataReference& data_ref, TL::Type array_type, int dimension_num);
+    }
+
+
+} } }
+
+#endif // TL_LOWERING_UTILS

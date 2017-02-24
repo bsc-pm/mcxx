@@ -1774,6 +1774,17 @@ static scope_entry_t* new_procedure_symbol(
             {
                 dummy_arg = get_symbol_for_name(program_unit_context, dummy_arg_name, ASTText(dummy_arg_name));
 
+                // If the symbol already has an lvalue reference type it means
+                // that we have already visited a dummy argument with the same
+                // name. Thus, we should emit an error.
+                if (dummy_arg->type_information != NULL
+                        && is_lvalue_reference_type(dummy_arg->type_information))
+                {
+                    error_printf_at(ast_get_locus(dummy_arg_name),
+                            "duplicated '%s' dummy argument\n", fortran_prettyprint_in_buffer(dummy_arg_name));
+                    continue;
+                }
+
                 // Note that we do not set the exact kind of the dummy argument as
                 // it might be a function. If left SK_UNDEFINED, we later fix them
                 // to SK_VARIABLE
@@ -7986,7 +7997,9 @@ static void build_scope_save_stmt(AST a, const decl_context_t* decl_context, nod
 
     if (symbol_entity_specs_get_is_saved_program_unit(program_unit))
     {
-        error_printf_at(ast_get_locus(a), "SAVE statement specified more than once\n");
+        warn_printf_at(ast_get_locus(a),
+                "SAVE statement '%s' specified after blanket SAVE statement\n",
+                fortran_prettyprint_in_buffer(a));
     }
 
     if (saved_entity_list == NULL)

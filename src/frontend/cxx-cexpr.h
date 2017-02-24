@@ -309,6 +309,7 @@ LIBMCXX_EXTERN int const_value_object_get_num_accessors(const_value_t*);
 LIBMCXX_EXTERN subobject_accessor_t const_value_object_get_accessor_num(const_value_t*, int i);
 LIBMCXX_EXTERN void const_value_object_get_all_accessors(const_value_t*, subobject_accessor_t* out);
 
+LIBMCXX_EXTERN char const_value_is_address_or_object(const_value_t*);
 MCXX_END_DECLS
 
 #endif // CXX_CEXPR_H

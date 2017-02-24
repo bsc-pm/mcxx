@@ -28,6 +28,10 @@
 #ifndef FORTRAN03_NEW_SCANNER_H
 #define FORTRAN03_NEW_SCANNER_H
 
+#include "gperf-compat-types.h"
+
+#include<stdio.h>
+
 #include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
@@ -39,7 +43,7 @@ struct fortran_keyword_tag
     int token_id;
 };
 
-extern struct fortran_keyword_tag * fortran_keywords_lookup (register const char *str, register unsigned int len);
+extern struct fortran_keyword_tag * fortran_keywords_lookup (register const char *str, register gperf_length_t len);
 
 MCXX_END_DECLS
 

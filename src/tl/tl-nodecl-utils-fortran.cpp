@@ -32,8 +32,28 @@
 
 namespace Nodecl { namespace Utils {
 
-    void Fortran::append_used_modules(TL::Scope orig_scope,
-            TL::Scope new_scope)
+    namespace {
+        void append_module_to_used_modules_list(TL::Symbol module, scope_entry_t* used_modules_info)
+        {
+            symbol_entity_specs_insert_related_symbols(used_modules_info, module.get_internal_symbol());
+
+            // Make sure the module has been loaded...
+            if (!symbol_entity_specs_get_is_builtin(module.get_internal_symbol()))
+                fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
+        }
+    }
+
+    void Fortran::append_module_to_scope(TL::Symbol module, TL::Scope scope)
+    {
+        ERROR_CONDITION(!module.is_valid() || !module.is_fortran_module(), "Symbol must be a Fortran module", 0);
+
+        scope_entry_t* used_modules_info
+            = ::get_or_create_used_modules_symbol_info(scope.get_decl_context());
+
+        append_module_to_used_modules_list(module, used_modules_info);
+    }
+
+    void Fortran::append_used_modules(TL::Scope orig_scope, TL::Scope new_scope)
     {
         scope_entry_t* original_used_modules_info
             = orig_scope.get_related_symbol().get_used_modules().get_internal_symbol();
@@ -44,33 +64,15 @@ namespace Nodecl { namespace Utils {
             scope_entry_t* new_used_modules_info
                 = ::get_or_create_used_modules_symbol_info(new_scope.get_decl_context());
 
-            // Append all the symbols of the original_used_modules_info  to the new list
+            // Append all the symbols of the original_used_modules_info to the new list
             for (int j = 0; j < symbol_entity_specs_get_num_related_symbols(original_used_modules_info); j++)
             {
                 scope_entry_t* appended_module =
                         symbol_entity_specs_get_related_symbols_num(original_used_modules_info, j);
-                symbol_entity_specs_insert_related_symbols(new_used_modules_info, appended_module);
 
-                // Make sure the module has been loaded...
-                if (!symbol_entity_specs_get_is_builtin(appended_module))
-                    fortran_load_module(appended_module->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
+                append_module_to_used_modules_list(appended_module, new_used_modules_info);
             }
         }
-    }
-
-    void Fortran::append_module_to_scope(TL::Symbol module,
-            TL::Scope scope)
-    {
-        ERROR_CONDITION(!module.is_valid() || !module.is_fortran_module(), "Symbol must be a Fortran module", 0);
-
-        scope_entry_t* used_modules_info
-            = ::get_or_create_used_modules_symbol_info(scope.get_decl_context());
-
-        symbol_entity_specs_insert_related_symbols(used_modules_info,
-                module.get_internal_symbol());
-
-        if (!symbol_entity_specs_get_num_related_symbols(module.get_internal_symbol()))
-            fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
     }
 
 } }
