@@ -4850,3 +4850,9 @@ void const_value_object_get_all_accessors(const_value_t* val, subobject_accessor
             val->value.object->accessors,
             sizeof(subobject_accessor_t) * val->value.object->num_accessors);
 }
+
+
+char const_value_is_address_or_object(const_value_t* val)
+{
+    return const_value_is_address(val) || const_value_is_object(val);
+}

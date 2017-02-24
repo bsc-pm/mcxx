@@ -2664,8 +2664,10 @@ static int template_arg_value_expr_equivalent_compare(nodecl_t n1, nodecl_t n2)
     {
         return 1;
     }
-    else if (nodecl_get_constant(n1) != NULL
-            && nodecl_get_constant(n2) != NULL)
+    else if ((nodecl_get_constant(n1) != NULL
+                && !const_value_is_address_or_object(nodecl_get_constant(n1)))
+            && (nodecl_get_constant(n2) != NULL
+                && !const_value_is_address_or_object(nodecl_get_constant(n2))))
     {
         if (const_value_is_nonzero(
                     const_value_lt(
