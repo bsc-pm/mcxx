@@ -20869,6 +20869,7 @@ static void build_scope_nodecl_return_statement(
 
             diagnostic_context_t* diagnostics[2] = {NULL, NULL};
             nodecl_t expr_initializer = nodecl_null();
+            int num_attempts = 0;
 
             // 1st attempt: interpret the lvalue expression as an rvalue
             // expression if some conditions are met(C++11/C++14: 12.8)
@@ -20880,7 +20881,7 @@ static void build_scope_nodecl_return_statement(
                         && !is_any_reference_type(sym->type_information)
                         && !symbol_entity_specs_get_is_static(sym))
                 {
-                    diagnostics[0] = diagnostic_context_push_buffered();
+                    diagnostics[num_attempts++] = diagnostic_context_push_buffered();
 
                     nodecl_set_type(nodecl_return_expression, no_ref(return_expr_type));
                     check_nodecl_expr_initializer(
@@ -20904,7 +20905,7 @@ static void build_scope_nodecl_return_statement(
             // 2nd attempt: leave the expression as it is
             if (nodecl_is_null(expr_initializer))
             {
-                diagnostics[1] = diagnostic_context_push_buffered();
+                diagnostics[num_attempts++] = diagnostic_context_push_buffered();
 
                 check_nodecl_expr_initializer(
                         nodecl_return_expression,
@@ -20921,8 +20922,11 @@ static void build_scope_nodecl_return_statement(
             if (nodecl_is_err_expr(nodecl_return_expression))
             {
                 diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
-                diagnostic_context_commit(diagnostics[0]);
-                diagnostic_context_commit(diagnostics[1]);
+
+                int i;
+                for (i = 0; i < num_attempts; ++i)
+                    diagnostic_context_commit(diagnostics[i]);
+
                 diagnostic_context_pop();
                 diagnostic_context_commit(combine_diagnostics);
 
