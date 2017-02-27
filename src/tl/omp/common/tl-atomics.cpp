@@ -282,7 +282,6 @@ namespace TL {
             <<   "do {"
             <<      "__oldval = (" << lhs << ");"
             <<      "__newval = __oldval " << op << " (" << rhs << ");"
-            <<      "__sync_synchronize();"
             <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "("
             <<                 "(" << proper_int_type << "*)&(" << lhs << "),"
             <<                 "(" << atomic_union << "){__oldval}.__addr,"

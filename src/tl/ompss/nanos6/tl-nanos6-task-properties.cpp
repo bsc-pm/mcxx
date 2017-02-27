@@ -1105,21 +1105,6 @@ namespace TL { namespace Nanos6 {
                 run_type);
         init_run.set_text("C");
 
-        Nodecl::NodeclBase init_run_final;
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            init_run_final = outline_function_mangled.make_nodecl(/* set_ref_type */ true);
-        }
-        else
-        {
-            init_run_final = outline_function.make_nodecl(/* set_ref_type */ true);
-        }
-        init_run_final = Nodecl::Conversion::make(
-                init_run_final,
-                run_type);
-        init_run_final.set_text("C");
-
         Nodecl::NodeclBase field_register_depinfo = get_field("register_depinfo");
         Nodecl::NodeclBase init_register_depinfo;
         TL::Type dep_or_copies_fun_type = TL::Type::get_void_type().get_function_returning(

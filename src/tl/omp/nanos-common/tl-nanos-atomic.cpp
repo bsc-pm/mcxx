@@ -148,7 +148,6 @@ namespace TL { namespace Nanos {
             <<   "do {"
             <<      "__oldval = (" << lhs << ");"
             <<      "__newval = __oldval " << op << " (" << rhs << ");"
-            <<      "__sync_synchronize();"
             <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "( &(" << lhs << ") ,"
             <<                 "*(" << proper_int_type << "*)&__oldval,"
             <<                 "*(" << proper_int_type << "*)&__newval ));"
