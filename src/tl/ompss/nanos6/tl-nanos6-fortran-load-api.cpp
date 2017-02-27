@@ -27,6 +27,7 @@
 
 #include "tl-nanos6.hpp"
 #include "tl-nanos6-lower.hpp"
+#include "tl-nanos6-task-properties.hpp"
 #include "tl-source.hpp"
 
 #include "cxx-driver-utils.h"
@@ -93,14 +94,7 @@ void fixup_entry_points()
         set_bind_info(sym);
     }
 
-    TL::Symbol nanos6_max_dimensions = global_scope.get_symbol_from_name("__nanos6_max_dimensions");
-    ERROR_CONDITION(nanos6_max_dimensions.is_invalid(), "'__nanos6_max_dimensions' symbol not found", 0);
-
-    Nodecl::NodeclBase value = nanos6_max_dimensions.get_value();
-    ERROR_CONDITION(value.is_null(), "'__nanos6_max_dimensions' does not have a value", 0);
-    ERROR_CONDITION(!value.is_constant(), "'__nanos6_max_dimensions' should have a costant value", 0);
-
-    unsigned long int max_dimensions = const_value_cast_to_unsigned_long_int(value.get_constant());
+    unsigned long int max_dimensions = TaskProperties::get_api_max_dimensions();
     for(unsigned long int dim = 1; dim <= max_dimensions; dim++)
     {
         for(const char **it = register_dependences;

@@ -271,6 +271,8 @@ namespace TL { namespace Nanos6 {
                     LoweringPhase* phase,
                     const Nodecl::OmpSs::TaskCall& node);
 
+            static unsigned int get_api_max_dimensions();
+
             void create_task_info(
                     /* out */
                     TL::Symbol &task_info,
