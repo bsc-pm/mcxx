@@ -20742,11 +20742,11 @@ static void build_scope_nodecl_return_statement(
 
     scope_entry_t* result_var = symbol_entity_specs_get_result_var(function);
 
-    if (is_dependent_function(function)
+    if (is_dependent_type(function_type_get_return_type(function->type_information))
             || (!nodecl_is_null(nodecl_return_expression)
                 && nodecl_expr_is_type_dependent(nodecl_return_expression)))
     {
-        // Do nothing if the function is dependent
+        // Do nothing if the return type is dependent
         // or the expression is type dependent
     }
     else if (!nodecl_is_null(nodecl_return_expression))
