@@ -306,12 +306,15 @@ FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getcwd, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hostnm, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, irand, "?I", T, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, isnan, "X", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, rand, "?I", T, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, sleep, "SECONDS", S, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, srand, "SEED", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, time, NULL, T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, time8, NULL, T, NULL) \
@@ -6512,6 +6515,34 @@ scope_entry_t* compute_intrinsic_or(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_rand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (t0 == NULL)
+        t0 = fortran_choose_int_type_from_kind(4);
+
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "rand", fortran_get_default_real_type(), lvalue_ref(t0));
+}
+
+scope_entry_t* compute_intrinsic_irand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (t0 == NULL)
+        t0 = fortran_choose_int_type_from_kind(4);
+
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "irand", fortran_get_default_integer_type(), lvalue_ref(t0));
+}
+
 scope_entry_t* compute_intrinsic_rshift(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -6621,6 +6652,21 @@ scope_entry_t* compute_intrinsic_sleep(scope_entry_t* symbol UNUSED_PARAMETER,
         return NULL;
 
     return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "sleep", get_void_type(),
+            lvalue_ref(t0));
+}
+
+scope_entry_t* compute_intrinsic_srand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ptr(no_ref(argument_types[0]));
+
+    if (t0 == NULL || !equivalent_types(get_unqualified_type(t0), fortran_choose_int_type_from_kind(4)))
+        return NULL;
+
+    return GET_INTRINSIC_IMPURE(symbol, "srand", get_void_type(),
             lvalue_ref(t0));
 }
 
