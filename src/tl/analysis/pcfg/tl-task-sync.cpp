@@ -93,7 +93,22 @@ namespace {
                             << " task maybe synchronizes in this task execution" << std::endl;
                     }
 #endif
-                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
+                    // Since the algorithm iterates until no changes,
+                    // it may happen that the previous iteration has decided
+                    // this synchronization is of a different kind
+                    // In that case, we do not have to add it again
+                    bool already_a_point_of_sync = false;
+                    PointOfSyncList points_of_sync_list = points_of_sync[alive_tasks_it->node];
+                    for (PointOfSyncList::iterator it = points_of_sync_list.begin();
+                         it != points_of_sync_list.end(); ++it)
+                    {
+                        if (it->first == current_sync_point) {
+                            already_a_point_of_sync = true;
+                            break;
+                        }
+                    }
+                    if (!already_a_point_of_sync)
+                        points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
 
                     if (task_sync_rel == tribool::yes)
                     {
@@ -583,40 +598,50 @@ namespace {
         Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout, target_dep_out, target_dep_commutative };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
-        bool all_targets_are_inputs = true;
+        bool all_sources_are_inputs = true, all_targets_are_inputs = true;;
         for (int n_source = 0; n_source < num_sources; n_source++)
         {
             if (sources[n_source].is_null())
                 continue;
-            
             for (int n_target = 0; n_target < num_targets; n_target++)
             {
                 if (targets[n_target].is_null())
                     continue;
-
                 // in/out/inout -> out  =>  synchronizes for sure
                 //    out/inout -> in   =>  it may still be alive
-                tribool may_have_dependence_l = may_have_dependence_list(
-                            sources[n_source].as<Nodecl::OpenMP::DepOut>().get_exprs().as<Nodecl::List>(),
-                            targets[n_target].as<Nodecl::OpenMP::DepIn>().get_exprs().as<Nodecl::List>());
-                if (!is_only_input_dependence(targets[n_target]))
+                if (!is_only_input_dependence(sources[n_source])
+                    || !is_only_input_dependence(targets[n_target]))
                 {
-                    all_targets_are_inputs = false;
-                    may_have_dep = may_have_dep || may_have_dependence_l;
-                }
-                else if (!is_only_input_dependence(sources[n_source]))
-                {
+                    tribool may_have_dependence_l = may_have_dependence_list(
+                                sources[n_source].as<Nodecl::OpenMP::DepOut>().get_exprs().as<Nodecl::List>(),
+                                targets[n_target].as<Nodecl::OpenMP::DepIn>().get_exprs().as<Nodecl::List>());
                     if (may_have_dependence_l == tribool::unknown
                         || may_have_dependence_l == tribool::yes)
                     {
-                        may_have_dep = may_have_dep || tribool::unknown;
+                        if (!is_only_input_dependence(sources[n_source]))
+                            all_sources_are_inputs = false;
+                        if (!is_only_input_dependence(targets[n_target]))
+                            all_targets_are_inputs = false;
+                        may_have_dep = may_have_dep || may_have_dependence_l;
                     }
                 }
             }
         }
+        if (may_have_dep == tribool::no)
+            return may_have_dep;
 
+        // out/inout -> in
+        if (!all_sources_are_inputs && all_targets_are_inputs)
+        {
+            may_have_dep = tribool::unknown;
+        }
+
+        // This tasks will be dead when the next taskwait/barrier is encountered
+        // but we have to kkep themn alive since they may sincronize in other task
         if (all_targets_are_inputs && may_have_dep == tribool::unknown)
+        {
             dead_tasks_before_sync.insert(source);
+        }
 
         return may_have_dep;
     }
@@ -735,8 +760,8 @@ namespace {
                     if (alive_tasks_it_syncs.size() == 1)
                     {
                         Node* n = alive_tasks_it_syncs[0].first;
-                        PointOfSyncList new_list(1, std::pair<Node*, SyncKind>(n, __Static));
-                        points_of_sync[alive_tasks_it->node] = new_list;
+                        PointOfSyncList new_alive_tasks_it_syncs(1, std::pair<Node*, SyncKind>(n, __Static));
+                        points_of_sync[alive_tasks_it->node] = new_alive_tasks_it_syncs;
                     }
                     continue;
                 }
