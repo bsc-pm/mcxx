@@ -309,7 +309,17 @@ match_array_subscripts_end:
                 modification_type = Remove;
         }
 
-        return modification_type;
+        /* FIXME Sara:
+         * Modifying synchronizations must be aware about the environment,
+         * not just about the relation between a specific source with a specific target
+         * Example:
+         *   out(a)  --maybe-->  in(a)
+         *          |--maybe-->  in(a)
+         *   We cannot transform the first dependency from Maybe to Static,
+         *   because the source may sinchronize in the second target
+         * More work needed here!!
+         */
+//         return modification_type;
     }
 
 }
