@@ -255,37 +255,32 @@ namespace TL { namespace Nanos6 {
                         task_invocation_info.get_type().get_pointer_to(),
                         node.get_locus());
 
-            Nodecl::NodeclBase call_to_nanos_create_task;
             Nodecl::NodeclBase flags_nodecl;
-
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                flags_nodecl = task_properties.create_task_flags(/* Empty */ TL::Symbol());
-            }
-            else // if (IS_FORTRAN_LANGUAGE)
-            {
-                // Add a piece of code before calling nanos_create_task, that will set up the flags
                 std::string task_flags_name;
                 {
                     TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task-flags");
                     std::stringstream ss;
-                    ss << "flags_" << (int)counter;
+                    ss << "task_flags_" << (int)counter;
                     counter++;
                     task_flags_name = ss.str();
                 }
-
                 TL::Symbol task_flags = sc.new_symbol(task_flags_name);
                 task_flags.get_internal_symbol()->kind = SK_VARIABLE;
-                task_flags.set_type(TL::Type::get_size_t_type());
-                symbol_entity_specs_set_is_user_declared(
-                        task_flags.get_internal_symbol(), 1);
-                flags_nodecl = Nodecl::Symbol::make(task_flags, node.get_locus());
+                task_flags.get_internal_symbol()->type_information = TL::Type::get_size_t_type().get_internal_type();
+                symbol_entity_specs_set_is_user_declared(task_flags.get_internal_symbol(), 1);
 
-                Nodecl::NodeclBase flag_setter = task_properties.create_task_flags(task_flags);
-                new_stmts.append(flag_setter);
+                if (IS_CXX_LANGUAGE)
+                    new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_flags));
+
+                Nodecl::NodeclBase task_flags_stmts;
+                task_properties.compute_task_flags(task_flags, task_flags_stmts);
+                new_stmts.append(task_flags_stmts);
+
+                flags_nodecl = task_flags.make_nodecl(/*set_ref_type */ true);
             }
 
-            call_to_nanos_create_task =
+            Nodecl::NodeclBase call_to_nanos_create_task =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::FunctionCall::make(
                             nanos_create_task_sym.make_nodecl(/* set_ref_type */ true,

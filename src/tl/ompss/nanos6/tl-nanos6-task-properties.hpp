@@ -60,8 +60,6 @@ namespace TL { namespace Nanos6 {
             void create_copies_function();
 
             void create_cost_function();
-        public:
-            Nodecl::NodeclBase create_task_flags(TL::Symbol task_flags);
 
         private:
 
@@ -210,6 +208,7 @@ namespace TL { namespace Nanos6 {
                 TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
 
+
             void compute_captured_values();
 
             void compute_captured_saved_expressions();
@@ -287,7 +286,10 @@ namespace TL { namespace Nanos6 {
                     /* out */
                     Nodecl::NodeclBase& capture_env);
 
-
+            void compute_task_flags(
+                    TL::Symbol task_flags,
+                    /* out */
+                    Nodecl::NodeclBase& task_flags_stmts);
 
             void remove_data_sharing_of_this();
             void fix_data_sharing_of_this();

@@ -889,135 +889,139 @@ namespace TL { namespace Nanos6 {
             task_info.get_type());
         task_invocation_info.set_value(task_invocation_init);
     }
+    namespace {
 
-    Nodecl::NodeclBase create_final_task_flags(TL::Symbol task_flags, Nodecl::NodeclBase condition)
-    {
-        Nodecl::NodeclBase ret;
-
-        if (condition.is_null())
+        void compute_generic_flag_c(
+                Nodecl::NodeclBase opt_expr,
+                int default_value,
+                int bit,
+                // Out
+                Nodecl::NodeclBase& flags_expr)
         {
-            if (IS_FORTRAN_LANGUAGE)
-                condition = Nodecl::BooleanLiteral::make(get_bool_type(), const_value_get_zero(type_get_size(get_bool_type()), /* sign */ 1));
-            else
-                condition = const_value_to_nodecl(const_value_get_signed_int(0));
+            // If the opt_expr is not present, we create a new expression using the default value
+            if (opt_expr.is_null())
+                opt_expr = const_value_to_nodecl(const_value_get_signed_int(default_value));
 
-        }
-
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            // In this case we only need an expression
-            ret = Nodecl::BitwiseShl::make(
-                    /* lhs */
+            // Building the expression for the current flag
+            Nodecl::NodeclBase current_flag_expr = Nodecl::BitwiseShl::make(
                     Nodecl::Different::make(
-                        condition,
+                        opt_expr,
                         const_value_to_nodecl(const_value_get_signed_int(0)),
                         TL::Type::get_bool_type()),
-                    /* rhs */
-                    const_value_to_nodecl(const_value_get_signed_int(0)),
-                    /* type */
+                    const_value_to_nodecl(const_value_get_unsigned_int(bit)),
                     get_size_t_type());
+
+            // Finally, we have to combine the expression fo the current flag with the previous ones
+            if (!flags_expr.is_null())
+            {
+                flags_expr = Nodecl::BitwiseOr::make(
+                        flags_expr,
+                        current_flag_expr,
+                        flags_expr.get_type());
+            }
+            else flags_expr = current_flag_expr;
         }
-        else // IS_FORTRAN_LANGUAGE
+
+        Nodecl::NodeclBase compute_generic_flag_fortran(
+                TL::Symbol task_flags,
+                Nodecl::NodeclBase opt_expr,
+                int default_value,
+                int bit)
         {
-            TL::Scope sc = TL::Scope::get_global_scope();
+            // If the opt_expr is not present, we create a new expression using the default value
+            if (opt_expr.is_null())
+                opt_expr = Nodecl::BooleanLiteral::make(
+                        TL::Type::get_bool_type(),
+                        const_value_get_unsigned_int(default_value));
 
             Nodecl::NodeclBase arg1 = Nodecl::FortranActualArgument::make(task_flags.make_nodecl());
-            Nodecl::NodeclBase arg2 = Nodecl::FortranActualArgument::make(const_value_to_nodecl(const_value_get_signed_int(0)));
+            Nodecl::NodeclBase arg2 = Nodecl::FortranActualArgument::make(const_value_to_nodecl(const_value_get_signed_int(bit)));
             Nodecl::NodeclBase arguments_list = Nodecl::List::make(arg1, arg2);
 
             nodecl_t actual_arguments[2] = { arg1.get_internal_nodecl(), arg2.get_internal_nodecl() };
 
             TL::Symbol intrinsic_ibset(
                     fortran_solve_generic_intrinsic_call(
-                        fortran_query_intrinsic_name_str(sc.get_decl_context(), "ibset"),
+                        fortran_query_intrinsic_name_str(TL::Scope::get_global_scope().get_decl_context(), "ibset"),
                         actual_arguments,
                         /* explicit_num_actual_arguments */ 2,
                         /* is_call */ 0));
 
             Nodecl::FunctionCall ibset_function_call =
                 Nodecl::FunctionCall::make(
-                    intrinsic_ibset.make_nodecl(),
-                    arguments_list,
-                    /* alternate_name */ Nodecl::NodeclBase::null(),
-                    /* function_form */ Nodecl::NodeclBase::null(),
-                    intrinsic_ibset.get_type().returns(),
-                    task_flags.get_locus());
+                        intrinsic_ibset.make_nodecl(),
+                        arguments_list,
+                        /* alternate_name */ Nodecl::NodeclBase::null(),
+                        /* function_form */ Nodecl::NodeclBase::null(),
+                        intrinsic_ibset.get_type().returns(),
+                        task_flags.get_locus());
 
-            Nodecl::NodeclBase actual_arguments_ibclr =
-                Nodecl::List::make(arg1.shallow_copy(), arg2.shallow_copy());
+            Nodecl::NodeclBase flag_stmt = Nodecl::IfElseStatement::make(
+                    /* condition */
+                    opt_expr,
+                    /* then */
+                    Nodecl::List::make(
+                        Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                /* lhs */ task_flags.make_nodecl(),
+                                /* rhs */ ibset_function_call,
+                                /* type */ task_flags.get_type().get_lvalue_reference_to()),
+                            task_flags.get_locus())),
+                    Nodecl::NodeclBase::null());
 
-            TL::Symbol intrinsic_ibclr(
-                    fortran_solve_generic_intrinsic_call(
-                        fortran_query_intrinsic_name_str(sc.get_decl_context(), "ibclr"),
-                        actual_arguments,
-                        /* explicit_num_actual_arguments */ 2,
-                        /* is_call */ 0));
-
-            Nodecl::FunctionCall ibclr_function_call = Nodecl::FunctionCall::make(
-                    intrinsic_ibclr.make_nodecl(),
-                    arguments_list.shallow_copy(),
-                    /* alternate_name */ Nodecl::NodeclBase::null(),
-                    /* function_form */ Nodecl::NodeclBase::null(),
-                    intrinsic_ibclr.get_type().returns(),
-                    task_flags.get_locus());
-
-            ret = Nodecl::IfElseStatement::make(
-                /* condition */
-                condition,
-                /* then */
-                Nodecl::List::make(
-                    Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                               /* lhs */ task_flags.make_nodecl(),
-                               /* rhs */ ibset_function_call,
-                               /* type */ task_flags.get_type().get_lvalue_reference_to()
-                        ),
-                        task_flags.get_locus()
-                    )
-                ),
-                /* else */
-                Nodecl::List::make(
-                    Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                               /* lhs */ task_flags.make_nodecl(),
-                               /* rhs */ ibclr_function_call,
-                               /* type */ task_flags.get_type().get_lvalue_reference_to()
-                        ),
-                        /* locus */
-                        task_flags.get_locus()
-                    )
-                )
-            );
+            return flag_stmt;
         }
-        return ret;
     }
 
-    Nodecl::NodeclBase TaskProperties::create_task_flags(TL::Symbol task_flags)
+    void TaskProperties::compute_task_flags(TL::Symbol task_flags, Nodecl::NodeclBase& out_stmts)
     {
-        Nodecl::NodeclBase ret;
-        Nodecl::NodeclBase final_nodecl;
-        // Nodecl::NodeclBase if_nodecl;
+        Nodecl::List new_stmts;
 
-        // Final flag
-        final_nodecl = create_final_task_flags(task_flags, this->final_);
-        ret = final_nodecl;
+        // Note that depending on the base language we compute the flags of a task a bit different:
+        //      * C/C++: we compute a new expression that contains all the flags
+        //
+        //              taskflags = ((final_expr != 0) << 0) | ((if_expr != 0) << 1);
+        //
+        //      * Fortran: since Fortran doesn't have a simple way to work with
+        //        bit fields, we generate several statements:
+        //
+        //              taskflags = 0;
+        //              if (final_expr) call ibset(taskflags, 0);
+        //              if (if_expr)    call ibset(taskflags, 1);
+        //
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase task_flags_expr;
 
-        // Nodecl::NodeclBase if_flag = create_if_task_flags(task_flags);
+            compute_generic_flag_c(final_, /* default value */ 0, /* bit */ 0, /* out */ task_flags_expr);
 
-        // if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        // {
-        //     ret = Nodecl::LogicalOr::make(final_flag, if_flag);
-        // }
-        // else // if (IS_FORTRAN_LANGUAGE)
-        // {
-        //     // Just a set of IfElseStatement that need to be generated one
-        //     // after the other
-        //     ret = Nodecl::List();
-        //     ret.append(final_flag);
-        //     ret.append(if_flag);
-        // }
+            new_stmts.append(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            task_flags.make_nodecl(/* set_ref_type */ 1),
+                            task_flags_expr,
+                            task_flags.get_type().no_ref().get_lvalue_reference_to()
+                            )));
+        }
+        else // IS_FORTRAN_LANGUAGE
+        {
+            // Initialize the task_flags variable to zero
+            new_stmts.append(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            task_flags.make_nodecl(/* set_ref_type */ 1),
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_size_t_type(),
+                                const_value_get_signed_int(0)),
+                            task_flags.get_type().no_ref().get_lvalue_reference_to()
+                            )));
 
-        return ret;
+            Nodecl::NodeclBase final_stmts =
+                compute_generic_flag_fortran(task_flags, final_, /* default value */ 0, /* bit */ 0);
+
+            new_stmts.append(final_stmts);
+        }
+        out_stmts = new_stmts;
     }
 
     void TaskProperties::create_task_info(
