@@ -321,21 +321,6 @@ namespace TL { namespace Nanos6 {
         return tp;
     }
 
-    unsigned int TaskProperties::get_api_max_dimensions()
-    {
-        TL::Symbol api_constants_sym = TL::Scope::get_global_scope().get_symbol_from_name("__nanos6_api_constants_t");
-        ERROR_CONDITION(api_constants_sym.is_invalid(), "'__nanos6_api_constants_t' symbol not found", 0);
-
-        TL::Symbol max_dimensions_sym = api_constants_sym.get_scope().get_symbol_from_name("__nanos6_max_dimensions");
-        ERROR_CONDITION(max_dimensions_sym.is_invalid(), "'__nanos6_max_dimensions' symbol not found", 0);
-
-        Nodecl::IntegerLiteral max_dimensions_node = max_dimensions_sym.get_value().as<Nodecl::IntegerLiteral>();
-        ERROR_CONDITION(max_dimensions_node.is_null(), "'__nanos6_max_dimensions' does not have a value", 0);
-        ERROR_CONDITION(!max_dimensions_node.is_constant(), "'__nanos6_max_dimensions' should have a costant value", 0);
-
-        return const_value_cast_to_signed_int(max_dimensions_node.get_constant());
-    }
-
     bool TaskProperties::is_saved_expression(Nodecl::NodeclBase n)
     {
         return (n.is<Nodecl::Symbol>()
@@ -2971,7 +2956,7 @@ namespace TL { namespace Nanos6 {
 
                 TL::Symbol register_fun;
                 {
-                    unsigned int max_dimensions = get_api_max_dimensions();
+                    int max_dimensions = phase->get_deps_max_dimensions();
                     ERROR_CONDITION(data_type.is_array() &&
                             (data_type.get_num_dimensions() > max_dimensions),
                             "Maximum number of data dimensions allowed is %d",
@@ -3324,7 +3309,7 @@ namespace TL { namespace Nanos6 {
 
                 TL::Symbol register_fun;
                 {
-                    unsigned int max_dimensions = get_api_max_dimensions();
+                    int max_dimensions = phase->get_deps_max_dimensions();
                     ERROR_CONDITION(data_type.is_array() &&
                             (data_type.get_num_dimensions() > max_dimensions),
                             "Maximum number of data dimensions allowed is %d",

@@ -79,7 +79,7 @@ void set_bind_info(TL::Symbol sym)
 }
 
 // This is kludgy: devise a way to do this in the FE
-void fixup_entry_points()
+void fixup_entry_points(int deps_max_dimensions)
 {
     TL::Scope global_scope = TL::Scope::get_global_scope();
     for (const char **it = entry_points;
@@ -94,8 +94,7 @@ void fixup_entry_points()
         set_bind_info(sym);
     }
 
-    unsigned long int max_dimensions = TaskProperties::get_api_max_dimensions();
-    for(unsigned long int dim = 1; dim <= max_dimensions; dim++)
+    for(unsigned int dim = 1; dim <= deps_max_dimensions; dim++)
     {
         for(const char **it = register_dependences;
                 it < (const char**)(&register_dependences + 1);
@@ -180,7 +179,7 @@ void fixup_entry_points()
 
         Source::source_language = SourceLanguage::Current;
 
-        fixup_entry_points();
+        fixup_entry_points(get_deps_max_dimensions());
     }
 
 

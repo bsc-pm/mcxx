@@ -30,8 +30,10 @@
 #include "tl-compilerpipeline.hpp"
 #include "tl-final-stmts-generator.hpp"
 #include "codegen-phase.hpp"
+
 #include "cxx-profile.h"
 #include "cxx-driver-utils.h"
+#include "cxx-cexpr.h"
 
 #include <errno.h>
 
@@ -58,6 +60,8 @@ namespace TL { namespace Nanos6 {
         {
             std::cerr << "Nanos 6 phase" << std::endl;
         }
+
+        compute_impl_constants();
 
         FORTRAN_LANGUAGE()
         {
@@ -129,6 +133,26 @@ namespace TL { namespace Nanos6 {
     void LoweringPhase::set_disable_final_clause_transformation(const std::string& str)
     {
         parse_boolean_option("disable_final_clause_transformation", str, _final_clause_transformation_disabled, "Assuming false.");
+    }
+
+    unsigned int LoweringPhase::get_deps_max_dimensions() const
+    {
+        return _constants.deps_max_dimensions;
+    }
+
+    void LoweringPhase::compute_impl_constants()
+    {
+        // Computing deps_max_dimensions: this information is obtained from an enumerator
+        // defined inside an enum that is defined in the global scope
+        TL::Symbol max_dimensions_sym =
+            TL::Scope::get_global_scope().get_symbol_from_name("__nanos6_max_dimensions");
+        ERROR_CONDITION(max_dimensions_sym.is_invalid(), "'__nanos6_max_dimensions' symbol not found", 0);
+
+        Nodecl::NodeclBase value = max_dimensions_sym.get_value();
+        ERROR_CONDITION(value.is_null(), "'__nanos6_max_dimensions' does not have a value", 0);
+        ERROR_CONDITION(!value.is_constant(), "'__nanos6_max_dimensions' should have a costant value", 0);
+
+        _constants.deps_max_dimensions = const_value_cast_to_unsigned_int(value.get_constant());
     }
 
 } }
