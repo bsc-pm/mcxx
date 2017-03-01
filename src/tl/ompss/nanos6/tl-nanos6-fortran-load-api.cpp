@@ -94,7 +94,7 @@ void fixup_entry_points(int deps_max_dimensions)
         set_bind_info(sym);
     }
 
-    for(unsigned int dim = 1; dim <= deps_max_dimensions; dim++)
+    for(int dim = 1; dim <= deps_max_dimensions; dim++)
     {
         for(const char **it = register_dependences;
                 it < (const char**)(&register_dependences + 1);
