@@ -180,7 +180,7 @@ namespace TL { namespace Nanos6 {
 
         virtual void visit(const Nodecl::OpenMP::Final &n)
         {
-            _task_properties.final_ = n.get_condition();
+            _task_properties.final_clause = n.get_condition();
         }
 
         virtual void visit(const Nodecl::OpenMP::Untied &n)
@@ -459,7 +459,7 @@ namespace TL { namespace Nanos6 {
         compute_captured_symbols_without_data_sharings(dep_commutative);
 
         // Other task clauses
-        compute_captured_symbols_without_data_sharings(final_);
+        compute_captured_symbols_without_data_sharings(final_clause);
         compute_captured_symbols_without_data_sharings(if_clause);
         compute_captured_symbols_without_data_sharings(cost);
     }
@@ -993,7 +993,7 @@ namespace TL { namespace Nanos6 {
         {
             Nodecl::NodeclBase task_flags_expr;
 
-            compute_generic_flag_c(final_, /* default value */ 0, /* bit */ 0, /* out */ task_flags_expr);
+            compute_generic_flag_c(final_clause, /* default value */ 0, /* bit */ 0, /* out */ task_flags_expr);
             compute_generic_flag_c(if_clause, /* default value */ 1, /* bit */ 1, /* out */ task_flags_expr);
 
             new_stmts.append(
@@ -1018,7 +1018,7 @@ namespace TL { namespace Nanos6 {
                             )));
 
             Nodecl::NodeclBase final_stmts =
-                compute_generic_flag_fortran(task_flags, final_, /* default value */ 0, /* bit */ 0);
+                compute_generic_flag_fortran(task_flags, final_clause, /* default value */ 0, /* bit */ 0);
 
             Nodecl::NodeclBase if_stmts =
                 compute_generic_flag_fortran(task_flags, if_clause, /* default value */ 1, /* bit */ 1);

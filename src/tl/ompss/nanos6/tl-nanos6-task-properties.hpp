@@ -228,7 +228,7 @@ namespace TL { namespace Nanos6 {
             // of runtime sized types
             TL::ObjectList<TL::Symbol> captured_value;
 
-            Nodecl::NodeclBase final_;
+            Nodecl::NodeclBase final_clause;
             Nodecl::NodeclBase if_clause;
             Nodecl::NodeclBase cost;
             bool is_tied;
