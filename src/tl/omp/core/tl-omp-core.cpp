@@ -200,6 +200,7 @@ namespace TL { namespace OpenMP {
     {
         register_directive("oss", "taskwait");
         register_construct("oss", "task");
+        register_construct("oss", "taskloop");
         register_construct("oss", "critical");
 
         // OSS constructs
@@ -215,6 +216,11 @@ namespace TL { namespace OpenMP {
                 std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["task"].connect(
                 std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["taskloop"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::taskloop_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["taskloop"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::taskloop_handler_post, this, std::placeholders::_1));
 
         dispatcher("oss").statement.pre["critical"].connect(
                 std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_pre, this, std::placeholders::_1));

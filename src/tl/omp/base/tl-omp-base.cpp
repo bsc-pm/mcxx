@@ -170,6 +170,11 @@ namespace TL { namespace OpenMP {
         dispatcher("oss").statement.post["task"].connect(
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_post, this, std::placeholders::_1));
 
+        dispatcher("oss").statement.pre["taskloop"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::taskloop_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["taskloop"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::taskloop_handler_post, this, std::placeholders::_1));
+
         dispatcher("oss").statement.pre["critical"].connect(
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["critical"].connect(
