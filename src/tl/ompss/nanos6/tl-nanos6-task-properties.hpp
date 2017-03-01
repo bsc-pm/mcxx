@@ -229,6 +229,7 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<TL::Symbol> captured_value;
 
             Nodecl::NodeclBase final_;
+            Nodecl::NodeclBase if_clause;
             Nodecl::NodeclBase cost;
             bool is_tied;
             std::string task_label;
