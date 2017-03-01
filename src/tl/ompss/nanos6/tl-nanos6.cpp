@@ -63,10 +63,17 @@ namespace TL { namespace Nanos6 {
 
         FORTRAN_LANGUAGE()
         {
-            this->fortran_load_api(dto);
+            fortran_preprocess_api(dto);
         }
 
+        // This function depends on the Nanos6 headers
         compute_impl_constants();
+
+        FORTRAN_LANGUAGE()
+        {
+            // This function depends on the implementation constants
+            fortran_fixup_api();
+        }
 
         Nodecl::NodeclBase translation_unit =
             *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);

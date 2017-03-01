@@ -111,7 +111,7 @@ void fixup_entry_points(int deps_max_dimensions)
 }
 }
 
-    void LoweringPhase::fortran_load_api(DTO& dto)
+    void LoweringPhase::fortran_preprocess_api(DTO& dto)
     {
         ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
 
@@ -178,7 +178,11 @@ void fixup_entry_points(int deps_max_dimensions)
         // FIXME - keep this?
 
         Source::source_language = SourceLanguage::Current;
+    }
 
+    void LoweringPhase::fortran_fixup_api()
+    {
+        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
         fixup_entry_points(get_deps_max_dimensions());
     }
 
