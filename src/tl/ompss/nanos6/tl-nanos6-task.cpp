@@ -82,7 +82,7 @@ namespace TL { namespace Nanos6 {
                 TL::Type::get_int_type()
             );
 
-            new_task = Nodecl::OpenMP::Task::make(node.get_environment(), stmts);
+            new_task = Nodecl::OpenMP::Task::make(node.get_environment(), stmts, node.get_locus());
 
             Scope sc = node.retrieve_context();
             Scope not_final_context = new_block_context(sc.get_decl_context());
