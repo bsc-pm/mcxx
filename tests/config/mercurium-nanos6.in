@@ -175,7 +175,7 @@ for nanos6_variant in optimized;
 do
     for threads in 1 2 4;
     do
-        vername=nanos6_${nanos6_variant}_${threads}threads
+        vername=nanos6_${nanos6_variant}_${threads}thread
 cat <<EOF
 exec_versions="\${exec_versions} $vername"
 test_ENV_$vername="NANOS6_LOADER_VERBOSE=1 NANOS6='${nanos6_variant}' TASKSET_NUM_CPUS='$threads'"
