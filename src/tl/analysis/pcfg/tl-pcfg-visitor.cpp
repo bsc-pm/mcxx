@@ -2798,16 +2798,11 @@ next_it:    ;
         return ObjectList<Node*>(1, task_creation);
     }
 
-    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::TaskwaitDeep& n)
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Taskwait& n)
     {
         return visit_taskwait(n);
     }
 
-    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& n)
-    {
-        return visit_taskwait(n);
-    }
-    
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Uniform& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);

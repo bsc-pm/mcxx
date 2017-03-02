@@ -410,8 +410,7 @@ namespace Analysis {
         Ret visit(const Nodecl::OpenMP::Target& n);
         Ret visit(const Nodecl::OpenMP::TargetTaskUndeferred& n);
         Ret visit(const Nodecl::OpenMP::Task& n);
-        Ret visit(const Nodecl::OpenMP::TaskwaitDeep& n);
-        Ret visit(const Nodecl::OpenMP::TaskwaitShallow& n);
+        Ret visit(const Nodecl::OpenMP::Taskwait& n);
         Ret visit(const Nodecl::OpenMP::Uniform& n);
         Ret visit(const Nodecl::OpenMP::Unroll& n);
         Ret visit(const Nodecl::OpenMP::Untied& n);

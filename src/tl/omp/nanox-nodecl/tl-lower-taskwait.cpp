@@ -158,7 +158,7 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
     construct.replace(n);
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::Taskwait& construct)
 {
     OutlineInfo outline_info(*_lowering, Nodecl::NodeclBase::null());
     TaskWaitVisitor taskwait_info;

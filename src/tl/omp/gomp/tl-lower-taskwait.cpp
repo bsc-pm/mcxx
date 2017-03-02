@@ -35,7 +35,7 @@
 
 namespace TL { namespace GOMP {
 
-    void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
+    void LoweringVisitor::visit(const Nodecl::OpenMP::Taskwait& construct)
     {
         Source src;
         src << "GOMP_taskwait();"

@@ -563,9 +563,8 @@ sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]omp-exec-environment-
 
 section-construct : NODECL_OPEN_M_P*SECTION([statements]statement-seq)
 
-synchronization : NODECL_OPEN_M_P*TASKWAIT_SHALLOW([environment]omp-exec-environment-seq-opt)
+synchronization : NODECL_OPEN_M_P*TASKWAIT([environment]omp-exec-environment-seq-opt)
 # All levels of async
-                | NODECL_OPEN_M_P*TASKWAIT_DEEP()
                 | NODECL_OPEN_M_P*FLUSH_MEMORY([expressions] expression-seq-opt)
 # Full barrier
                 | NODECL_OPEN_M_P*BARRIER_FULL([environment]omp-exec-environment-seq-opt)

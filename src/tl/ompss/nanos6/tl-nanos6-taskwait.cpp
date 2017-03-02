@@ -31,7 +31,7 @@
 
 namespace TL { namespace Nanos6 {
 
-    void Lower::visit(const Nodecl::OpenMP::TaskwaitShallow& node)
+    void Lower::visit(const Nodecl::OpenMP::Taskwait& node)
     {
         TL::Symbol nanos_taskwait_sym =
             TL::Scope::get_global_scope().get_symbol_from_name("nanos_taskwait");

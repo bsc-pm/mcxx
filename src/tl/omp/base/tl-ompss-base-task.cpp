@@ -1811,7 +1811,7 @@ namespace TL { namespace OmpSs {
         enclosing_stmt.replace(new_expr_stmt);
 
         Nodecl::Utils::append_items_after(enclosing_stmt, Nodecl::ReturnStatement::make(sym_nodecl.shallow_copy()));
-        Nodecl::Utils::append_items_after(enclosing_stmt, Nodecl::OpenMP::TaskwaitShallow::make(/*exec environment*/ nodecl_null()));
+        Nodecl::Utils::append_items_after(enclosing_stmt, Nodecl::OpenMP::Taskwait::make(/*exec environment*/ nodecl_null()));
 
         CXX_LANGUAGE()
         {

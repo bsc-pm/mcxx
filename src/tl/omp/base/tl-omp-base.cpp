@@ -707,7 +707,7 @@ namespace TL { namespace OpenMP {
                     ;
             }
             directive.replace(
-                    Nodecl::OpenMP::TaskwaitShallow::make(
+                    Nodecl::OpenMP::Taskwait::make(
                         environment,
                         directive.get_locus())
                     );
@@ -1539,7 +1539,7 @@ namespace TL { namespace OpenMP {
         if (taskwait_at_the_end)
         {
             list.append(
-                    Nodecl::OpenMP::TaskwaitShallow::make(
+                    Nodecl::OpenMP::Taskwait::make(
                         /*environment*/ nodecl_null(),
                         directive.get_locus()));
         }
