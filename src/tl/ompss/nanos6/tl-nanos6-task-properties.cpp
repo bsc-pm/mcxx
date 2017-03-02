@@ -971,6 +971,15 @@ namespace TL { namespace Nanos6 {
 
             return flag_stmt;
         }
+
+        // This function negates the condition if it's not null
+        Nodecl::NodeclBase negate_condition_if_possible(Nodecl::NodeclBase cond)
+        {
+            if (cond.is_null())
+                return cond;
+
+            return Nodecl::LogicalNot::make(cond, TL::Type::get_bool_type());
+        }
     }
 
     void TaskProperties::compute_task_flags(TL::Symbol task_flags, Nodecl::NodeclBase& out_stmts)
@@ -980,21 +989,21 @@ namespace TL { namespace Nanos6 {
         // Note that depending on the base language we compute the flags of a task a bit different:
         //      * C/C++: we compute a new expression that contains all the flags
         //
-        //              taskflags = ((final_expr != 0) << 0) | ((if_expr != 0) << 1);
+        //              taskflags = ((final_expr != 0) << 0) | ((!if_expr != 0) << 1);
         //
         //      * Fortran: since Fortran doesn't have a simple way to work with
         //        bit fields, we generate several statements:
         //
         //              taskflags = 0;
         //              if (final_expr) call ibset(taskflags, 0);
-        //              if (if_expr)    call ibset(taskflags, 1);
+        //              if (!if_expr)    call ibset(taskflags, 1);
         //
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             Nodecl::NodeclBase task_flags_expr;
 
             compute_generic_flag_c(final_clause, /* default value */ 0, /* bit */ 0, /* out */ task_flags_expr);
-            compute_generic_flag_c(if_clause, /* default value */ 1, /* bit */ 1, /* out */ task_flags_expr);
+            compute_generic_flag_c(negate_condition_if_possible(if_clause), /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
             new_stmts.append(
                     Nodecl::ExpressionStatement::make(
