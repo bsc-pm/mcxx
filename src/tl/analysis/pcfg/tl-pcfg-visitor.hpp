@@ -139,7 +139,7 @@ namespace Analysis {
          */
         Ret visit_literal_node(const Nodecl::NodeclBase& n);
 
-        //! This method implements the visitor for any kind of taskwait without dependences: TaskwaitDeep, TaskwaitShallow
+        //! This method implements the visitor for a taskwait without dependences
         Ret visit_taskwait(const Nodecl::NodeclBase& n);
 
         //! This method implements the visitor for taskwait on dependences
