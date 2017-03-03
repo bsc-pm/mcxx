@@ -1030,7 +1030,7 @@ namespace TL { namespace Nanos6 {
                 compute_generic_flag_fortran(task_flags, final_clause, /* default value */ 0, /* bit */ 0);
 
             Nodecl::NodeclBase if_stmts =
-                compute_generic_flag_fortran(task_flags, if_clause, /* default value */ 1, /* bit */ 1);
+                compute_generic_flag_fortran(task_flags, negate_condition_if_possible(if_clause), /* default value */ 0, /* bit */ 1);
 
             new_stmts.append(final_stmts);
             new_stmts.append(if_stmts);
