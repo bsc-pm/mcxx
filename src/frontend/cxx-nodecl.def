@@ -602,6 +602,7 @@ omp-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_sym
 
 omp-construct-info : NODECL_OPEN_M_P*COMBINED_WITH_PARALLEL()
                    | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
+                   | NODECL_OPEN_M_P*TASKWAIT_DEP()
 
 omp-sync-info : NODECL_OPEN_M_P*BARRIER_AT_END()
 

@@ -232,6 +232,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase if_clause;
             Nodecl::NodeclBase cost;
             bool is_tied;
+            bool is_taskwait_dep;
             std::string task_label;
 
             TL::ObjectList<Nodecl::NodeclBase> dep_in;
@@ -261,7 +262,7 @@ namespace TL { namespace Nanos6 {
             const locus_t* locus_of_task_declaration;
 
             TaskProperties(LoweringPhase* lowering_phase)
-                : phase(lowering_phase), is_tied(true),
+                : phase(lowering_phase), is_tied(true), is_taskwait_dep(false),
                   is_function_task(false), any_task_dependence(false) { }
 
             static TaskProperties gather_task_properties(

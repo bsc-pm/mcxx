@@ -230,6 +230,11 @@ namespace TL { namespace Nanos6 {
             _task_properties.locus_of_task_declaration = n.get_locus();
         }
 
+        virtual void visit(const Nodecl::OpenMP::TaskwaitDep &n)
+        {
+            _task_properties.is_taskwait_dep = true;
+        }
+
         virtual void visit(const Nodecl::OmpSs::Alloca &n)
         {
             not_supported_seq("alloca captures",
@@ -1105,23 +1110,32 @@ namespace TL { namespace Nanos6 {
         GetField get_field(fields);
 
         Nodecl::NodeclBase field_run = get_field("run");
-        Nodecl::NodeclBase init_run;
 
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            init_run = outline_function_mangled.make_nodecl(/* set_ref_type */ true);
-        }
-        else
-        {
-            init_run = outline_function.make_nodecl(/* set_ref_type */ true);
-        }
         TL::Type run_type = TL::Type::get_void_type().get_function_returning(
                 TL::ObjectList<TL::Type>(1, TL::Type::get_void_type().get_pointer_to()))
             .get_pointer_to();
-        init_run = Nodecl::Conversion::make(
-                init_run,
-                run_type);
-        init_run.set_text("C");
+
+
+        Nodecl::NodeclBase init_run;
+        if (outline_function.is_valid())
+        {
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                init_run = outline_function_mangled.make_nodecl(/* set_ref_type */ true);
+            }
+            else
+            {
+                init_run = outline_function.make_nodecl(/* set_ref_type */ true);
+            }
+            init_run = Nodecl::Conversion::make(
+                    init_run,
+                    run_type);
+            init_run.set_text("C");
+        }
+        else
+        {
+            init_run = const_value_to_nodecl(const_value_get_signed_int(0));
+        }
 
         Nodecl::NodeclBase field_register_depinfo = get_field("register_depinfo");
         Nodecl::NodeclBase init_register_depinfo;
@@ -1882,6 +1896,10 @@ namespace TL { namespace Nanos6 {
 
     void TaskProperties::create_outline_function()
     {
+        // Skip this function if the current task comes from a taskwait depend
+        if (is_taskwait_dep)
+            return;
+
         // Unpacked function
         TL::ObjectList<std::string> unpack_parameter_names;
         TL::ObjectList<TL::Type> unpack_parameter_types;
