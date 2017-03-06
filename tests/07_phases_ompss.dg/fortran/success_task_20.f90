@@ -10,7 +10,7 @@ PROGRAM P
     IMPLICIT NONE
 
     INTERFACE
-        !$OMP TASK INOUT(X) FINAL(1)
+        !$OMP TASK INOUT(X) FINAL(.TRUE.)
         SUBROUTINE FOO(X)
             INTEGER :: X
         END SUBROUTINE FOO
@@ -25,7 +25,7 @@ IF (X /= 0) THEN
     STOP -1
 END IF
 
-    !$OMP TASK INOUT(X) FINAL(1)
+    !$OMP TASK INOUT(X) FINAL(.TRUE.)
          X = X + 1
      !$OMP END TASK
 !$OMP TASKWAIT ON(X)
