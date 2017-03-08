@@ -185,7 +185,7 @@ namespace TL { namespace Nanos6 {
 
         virtual void visit(const Nodecl::OpenMP::Priority &n)
         {
-            not_supported("priority clause", n);
+            _task_properties.priority_clause = n.get_priority();
         }
 
         virtual void visit(const Nodecl::OpenMP::Untied &n)
@@ -472,6 +472,7 @@ namespace TL { namespace Nanos6 {
         compute_captured_symbols_without_data_sharings(final_clause);
         compute_captured_symbols_without_data_sharings(if_clause);
         compute_captured_symbols_without_data_sharings(cost);
+        compute_captured_symbols_without_data_sharings(priority_clause);
     }
 
     void TaskProperties::compute_captured_values()
@@ -1058,6 +1059,7 @@ namespace TL { namespace Nanos6 {
         create_dependences_function();
         create_copies_function();
         create_cost_function();
+        create_priority_function();
 
         TL::Symbol task_info_struct =
             TL::Scope::get_global_scope().get_symbol_from_name("nanos_task_info");
@@ -1232,6 +1234,28 @@ namespace TL { namespace Nanos6 {
                 = const_value_to_nodecl(const_value_get_signed_int(0));
         }
 
+        Nodecl::NodeclBase field_get_priority = get_field("get_priority");
+        Nodecl::NodeclBase init_get_priority;
+        if (priority_function.is_valid())
+        {
+            TL::Type priority_fun_type =
+                TL::Type::get_size_t_type().get_function_returning(
+                        TL::ObjectList<TL::Type>(
+                            1, TL::Type::get_void_type().get_pointer_to()))
+                .get_pointer_to();
+
+            init_get_priority = Nodecl::Conversion::make(
+                    priority_function.make_nodecl(/* set_ref_type */ true),
+                    priority_fun_type);
+
+            init_get_priority.set_text("C");
+        }
+        else
+        {
+            init_get_priority =
+                const_value_to_nodecl(const_value_get_signed_int(0));
+        }
+
         TL::ObjectList<Nodecl::NodeclBase> field_init;
         field_init.append(Nodecl::FieldDesignator::make(
             field_run, init_run, field_run.get_type()));
@@ -1251,6 +1275,10 @@ namespace TL { namespace Nanos6 {
                                           field_declaration_source.get_type()));
         field_init.append(Nodecl::FieldDesignator::make(
             field_get_cost, init_get_cost, field_get_cost.get_type()));
+        field_init.append(
+            Nodecl::FieldDesignator::make(field_get_priority,
+                                          init_get_priority,
+                                          field_get_priority.get_type()));
 
         Nodecl::NodeclBase struct_init = Nodecl::StructuredValue::make(
             Nodecl::List::make(field_init),
@@ -3897,6 +3925,72 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
             task_body, cost_function_code);
+    }
+
+    void TaskProperties::create_priority_function()
+    {
+        // Skip this function if the current task doesn't have a priority clause
+        if (priority_clause.is_null())
+            return;
+
+        TL::ObjectList<std::string> parameter_names(1, "arg");
+        TL::ObjectList<TL::Type> parameter_types(
+                1, info_structure.get_lvalue_reference_to());
+
+        std::string priority_name;
+        {
+            TL::Counter &counter
+                = TL::CounterManager::get_counter("nanos6-outline");
+            std::stringstream ss;
+            ss << "nanos6_priority_" << (int)counter;
+            counter++;
+            priority_name = ss.str();
+        }
+
+        priority_function = SymbolUtils::new_function_symbol(
+                related_function,
+                priority_name,
+                TL::Type::get_size_t_type(),
+                parameter_names,
+                parameter_types);
+
+        Nodecl::NodeclBase priority_function_code;
+        Nodecl::NodeclBase priority_empty_stmt;
+
+        SymbolUtils::build_empty_body_for_function(
+                priority_function,
+                priority_function_code,
+                priority_empty_stmt);
+
+        TL::Scope scope_inside_priority =
+            priority_empty_stmt.retrieve_context();
+
+        TL::Symbol arg = scope_inside_priority.get_symbol_from_name("arg");
+        ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
+
+        Nodecl::NodeclBase priority_expr = rewrite_expression_using_args(
+                arg,
+                priority_clause,
+                /* local_symbols */ TL::ObjectList<TL::Symbol>());
+
+        if (!priority_expr.get_type()
+                .is_same_type(TL::Type::get_size_t_type()))
+        {
+            priority_expr = Nodecl::Conversion::make(
+                    priority_expr,
+                    TL::Type::get_size_t_type(),
+                    priority_expr.get_locus());
+        }
+
+        Nodecl::NodeclBase return_stmt = Nodecl::ReturnStatement::make(
+                priority_expr,
+                priority_expr.get_locus());
+
+        priority_empty_stmt.replace(return_stmt);
+
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                task_body,
+                priority_function_code);
     }
 
     void TaskProperties::capture_environment(

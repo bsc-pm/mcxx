@@ -60,6 +60,7 @@ namespace TL { namespace Nanos6 {
             void create_copies_function();
 
             void create_cost_function();
+            void create_priority_function();
 
         private:
 
@@ -86,6 +87,7 @@ namespace TL { namespace Nanos6 {
             TL::Symbol copies_function_mangled;
 
             TL::Symbol cost_function;
+            TL::Symbol priority_function;
 
             Nodecl::NodeclBase rewrite_expression_using_args(
                 TL::Symbol args,
@@ -231,6 +233,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase final_clause;
             Nodecl::NodeclBase if_clause;
             Nodecl::NodeclBase cost;
+            Nodecl::NodeclBase priority_clause;
             bool is_tied;
             bool is_taskwait_dep;
             std::string task_label;
