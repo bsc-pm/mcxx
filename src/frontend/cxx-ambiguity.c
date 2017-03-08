@@ -1787,6 +1787,18 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
     if (ASTKind(parameter_declaration_clause) == AST_AMBIGUITY)
     {
         solve_ambiguous_parameter_clause(parameter_declaration_clause, decl_context);
+
+        // If the current language is C
+        if (IS_C_LANGUAGE
+                // And the new ambiguity was solved to a K&R parameter list
+                && ASTKind(parameter_declaration_clause) == AST_KR_PARAMETER_LIST)
+        {
+            // Then the current interpretation is invalid
+            //
+            //  void f(int (a)) {}
+            //
+            return 0;
+        }
     }
 
     if (ASTKind(parameter_declaration_clause) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
