@@ -232,7 +232,7 @@ namespace TL { namespace Nanos6 {
 
             Nodecl::NodeclBase final_clause;
             Nodecl::NodeclBase if_clause;
-            Nodecl::NodeclBase cost;
+            Nodecl::NodeclBase cost_clause;
             Nodecl::NodeclBase priority_clause;
             bool is_tied;
             bool is_taskwait_dep;

@@ -285,7 +285,7 @@ namespace TL { namespace Nanos6 {
 
         virtual void visit(const Nodecl::OmpSs::Cost &n)
         {
-            _task_properties.cost = n.get_cost();
+            _task_properties.cost_clause = n.get_cost();
         }
     };
 
@@ -471,7 +471,7 @@ namespace TL { namespace Nanos6 {
         // Other task clauses
         compute_captured_symbols_without_data_sharings(final_clause);
         compute_captured_symbols_without_data_sharings(if_clause);
-        compute_captured_symbols_without_data_sharings(cost);
+        compute_captured_symbols_without_data_sharings(cost_clause);
         compute_captured_symbols_without_data_sharings(priority_clause);
     }
 
@@ -1257,8 +1257,10 @@ namespace TL { namespace Nanos6 {
         }
 
         TL::ObjectList<Nodecl::NodeclBase> field_init;
-        field_init.append(Nodecl::FieldDesignator::make(
-            field_run, init_run, field_run.get_type()));
+        field_init.append(
+            Nodecl::FieldDesignator::make(field_run,
+                                          init_run,
+                                          field_run.get_type()));
         field_init.append(
             Nodecl::FieldDesignator::make(field_register_depinfo,
                                           init_register_depinfo,
@@ -1267,14 +1269,18 @@ namespace TL { namespace Nanos6 {
             Nodecl::FieldDesignator::make(field_register_copies,
                                           init_register_copies,
                                           field_register_copies.get_type()));
-        field_init.append(Nodecl::FieldDesignator::make(
-            field_task_label, init_task_label, field_task_label.get_type()));
+        field_init.append(
+            Nodecl::FieldDesignator::make(field_task_label,
+                                          init_task_label,
+                                          field_task_label.get_type()));
         field_init.append(
             Nodecl::FieldDesignator::make(field_declaration_source,
                                           init_declaration_source,
                                           field_declaration_source.get_type()));
-        field_init.append(Nodecl::FieldDesignator::make(
-            field_get_cost, init_get_cost, field_get_cost.get_type()));
+        field_init.append(
+            Nodecl::FieldDesignator::make(field_get_cost,
+                                          init_get_cost,
+                                          field_get_cost.get_type()));
         field_init.append(
             Nodecl::FieldDesignator::make(field_get_priority,
                                           init_get_priority,
@@ -3873,7 +3879,7 @@ namespace TL { namespace Nanos6 {
 
     void TaskProperties::create_cost_function()
     {
-        if (cost.is_null())
+        if (cost_clause.is_null())
             return;
 
         TL::ObjectList<std::string> parameter_names(1);
@@ -3907,7 +3913,7 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
 
         Nodecl::NodeclBase computed_cost
-            = rewrite_expression_using_args(arg, cost, /* locals */
+            = rewrite_expression_using_args(arg, cost_clause, /* locals */
                     TL::ObjectList<TL::Symbol>());
 
         if (!computed_cost.get_type().is_same_type(TL::Type::get_size_t_type()))
