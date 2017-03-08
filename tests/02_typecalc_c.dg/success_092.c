@@ -5,4 +5,5 @@ test_generator=config/mercurium
 */
 void faa(int a) {}
 void fee(int (a)) {}
-void fii(int(int)) {}
+void fii(int (int));
+void fii(int f(int)) {}
