@@ -183,6 +183,11 @@ namespace TL { namespace Nanos6 {
             _task_properties.final_clause = n.get_condition();
         }
 
+        virtual void visit(const Nodecl::OpenMP::Priority &n)
+        {
+            not_supported("priority clause", n);
+        }
+
         virtual void visit(const Nodecl::OpenMP::Untied &n)
         {
             _task_properties.is_tied = false;
