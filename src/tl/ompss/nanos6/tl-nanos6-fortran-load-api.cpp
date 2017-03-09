@@ -66,15 +66,12 @@ const char *register_dependences[] =
 
 void set_bind_info(TL::Symbol sym)
 {
-    TL::Scope global_scope = TL::Scope::get_global_scope();
-
-    Source bind_name_src;
-    bind_name_src << "\"" << sym.get_name() << "\"";
-    Nodecl::NodeclBase bind_name = bind_name_src.parse_expression(global_scope);
-
+    // We don't need to specify the NAME in the BIND attribute since by default
+    // it's assumed to be the symbol name in lowercase
     symbol_entity_specs_set_bind_info(
             sym.get_internal_symbol(),
-            nodecl_make_fortran_bind_c(bind_name.get_internal_nodecl(),
+            nodecl_make_fortran_bind_c(
+                /* name */ nodecl_null(),
                 sym.get_locus()));
 }
 
