@@ -3538,10 +3538,11 @@ static void attr_spec_private_handler(AST a UNUSED_PARAMETER,
     attr_spec->is_private = 1;
 }
 
-static void attr_spec_bind_handler(AST a,
-                                   const decl_context_t *decl_context
-                                       UNUSED_PARAMETER,
-                                   attr_spec_t *attr_spec)
+static void attr_spec_bind_handler(
+        AST a,
+        const decl_context_t *decl_context
+        UNUSED_PARAMETER,
+        attr_spec_t *attr_spec)
 {
     AST bind_kind = ASTSon0(a);
     if (strcmp(ASTText(bind_kind), "c") != 0)
@@ -3553,38 +3554,28 @@ static void attr_spec_bind_handler(AST a,
         return;
     }
 
+    nodecl_t nodecl_bind_name = nodecl_null();
     AST bind_name_expr = ASTSon1(a);
-    if (bind_name_expr == NULL)
+    if (bind_name_expr != NULL)
     {
-        attr_spec->bind_info
-            = nodecl_make_fortran_bind_c(nodecl_null(), ast_get_locus(a));
-    }
-    else
-    {
-        nodecl_t nodecl_bind_name = nodecl_null();
-        if (bind_name_expr != NULL)
+        fortran_check_expression(bind_name_expr, decl_context, &nodecl_bind_name);
+
+        if (nodecl_is_err_expr(nodecl_bind_name))
         {
-            fortran_check_expression(
-                bind_name_expr, decl_context, &nodecl_bind_name);
-            if (nodecl_is_err_expr(nodecl_bind_name))
-            {
-                attr_spec->bind_info = nodecl_bind_name;
-                return;
-            }
-            else if (!nodecl_is_constant(nodecl_bind_name)
-                     || !fortran_is_character_type(
-                            no_ref(nodecl_get_type(nodecl_bind_name))))
-            {
-                error_printf_at(ast_get_locus(bind_name_expr),
-                                "NAME of BIND(C) must be a constant character "
-                                "expression\n");
-                attr_spec->bind_info = nodecl_make_err_expr(ast_get_locus(a));
-                return;
-            }
+            attr_spec->bind_info = nodecl_bind_name;
+            return;
         }
-        attr_spec->bind_info
-            = nodecl_make_fortran_bind_c(nodecl_bind_name, ast_get_locus(a));
+        else if (!nodecl_is_constant(nodecl_bind_name)
+                || !fortran_is_character_type(no_ref(nodecl_get_type(nodecl_bind_name))))
+        {
+            error_printf_at(ast_get_locus(bind_name_expr),
+                    "NAME of BIND(C) must be a constant character expression\n");
+            attr_spec->bind_info = nodecl_make_err_expr(ast_get_locus(a));
+            return;
+        }
     }
+
+    attr_spec->bind_info = nodecl_make_fortran_bind_c(nodecl_bind_name, ast_get_locus(a));
 }
 
 static nodecl_t check_bind(AST bind_spec, const decl_context_t *decl_context)
