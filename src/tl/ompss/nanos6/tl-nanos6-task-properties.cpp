@@ -323,6 +323,7 @@ namespace TL { namespace Nanos6 {
 
         TaskPropertiesVisitor tv(tp);
         tv.walk(node.get_environment());
+        tp.remove_redundant_data_sharings();
 
         tp.compute_captured_values();
         tp.fix_data_sharing_of_this();
@@ -345,6 +346,7 @@ namespace TL { namespace Nanos6 {
 
         TaskPropertiesVisitor tv(tp);
         tv.walk(node.get_environment());
+        tp.remove_redundant_data_sharings();
 
         tp.compute_captured_values();
         tp.remove_data_sharing_of_this();
@@ -353,6 +355,20 @@ namespace TL { namespace Nanos6 {
 
         return tp;
     }
+
+    void TaskProperties::remove_redundant_data_sharings()
+    {
+        TL::ObjectList<TL::Symbol> new_shared_list;
+        for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
+                it != shared.end();
+                it++)
+        {
+            if (!reduction.contains(*it))
+                new_shared_list.insert(*it);
+        }
+        shared = new_shared_list;
+    }
+
 
     bool TaskProperties::is_saved_expression(Nodecl::NodeclBase n)
     {

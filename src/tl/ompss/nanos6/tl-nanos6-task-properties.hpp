@@ -347,6 +347,7 @@ namespace TL { namespace Nanos6 {
                     const TL::Scope& unpacked_inside_scope,
                     Nodecl::NodeclBase unpacked_empty_stmt);
 
+            void remove_redundant_data_sharings();
             void remove_data_sharing_of_this();
             void fix_data_sharing_of_this();
 
