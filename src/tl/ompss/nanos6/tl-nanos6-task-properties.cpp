@@ -464,10 +464,11 @@ namespace TL { namespace Nanos6 {
 
     bool TaskProperties::symbol_has_data_sharing_attribute(TL::Symbol sym) const
     {
-        return shared.contains(sym)       ||
-               private_.contains(sym)     ||
-               firstprivate.contains(sym) ||
-               captured_value.contains(sym);
+        return shared.contains(sym)         ||
+               private_.contains(sym)       ||
+               firstprivate.contains(sym)   ||
+               captured_value.contains(sym) ||
+               reduction.contains(sym);
     }
 
     void TaskProperties::compute_captured_symbols_without_data_sharings(
