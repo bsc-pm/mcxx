@@ -304,7 +304,7 @@ namespace TL { namespace OpenMP {
                     "-",
                     arithmetic_types,
                     "omp_priv = 0",
-                    "omp_out = omp_in - omp_out");
+                    "omp_out = omp_in + omp_out");
             parse_builtin_reduction(sc,
                     ".and.",
                     logical_types,
