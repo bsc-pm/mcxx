@@ -57,8 +57,6 @@ namespace TL { namespace Nanos6 {
             void create_dependences_function_fortran_forward();
             void create_dependences_function_fortran_mangled();
 
-            void create_copies_function();
-
             void create_cost_function();
             void create_priority_function();
 
@@ -82,9 +80,6 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol dependences_function;
             TL::Symbol dependences_function_mangled;
-
-            TL::Symbol copies_function;
-            TL::Symbol copies_function_mangled;
 
             TL::Symbol cost_function;
             TL::Symbol priority_function;

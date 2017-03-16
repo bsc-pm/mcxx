@@ -1057,7 +1057,6 @@ namespace TL { namespace Nanos6 {
     {
         create_outline_function();
         create_dependences_function();
-        create_copies_function();
         create_cost_function();
         create_priority_function();
 
@@ -1169,28 +1168,6 @@ namespace TL { namespace Nanos6 {
             init_register_depinfo = const_value_to_nodecl(const_value_get_signed_int(0));
         }
 
-        Nodecl::NodeclBase field_register_copies = get_field("register_copies");
-        Nodecl::NodeclBase init_register_copies;
-        if (copies_function.is_valid())
-        {
-            if (IS_FORTRAN_LANGUAGE)
-            {
-                init_register_copies = copies_function_mangled.make_nodecl(/* set_ref_type */ true);
-            }
-            else
-            {
-                init_register_copies = copies_function.make_nodecl(/* set_ref_type */ true);
-            }
-            init_register_copies = Nodecl::Conversion::make(
-                    init_register_copies,
-                    run_type);
-            init_register_copies.set_text("C");
-        }
-        else
-        {
-            init_register_copies = const_value_to_nodecl(const_value_get_signed_int(0));
-        }
-
         Nodecl::NodeclBase field_task_label = get_field("task_label");
         Nodecl::NodeclBase init_task_label;
         if (!task_label.empty())
@@ -1265,10 +1242,6 @@ namespace TL { namespace Nanos6 {
             Nodecl::FieldDesignator::make(field_register_depinfo,
                                           init_register_depinfo,
                                           field_register_depinfo.get_type()));
-        field_init.append(
-            Nodecl::FieldDesignator::make(field_register_copies,
-                                          init_register_copies,
-                                          field_register_copies.get_type()));
         field_init.append(
             Nodecl::FieldDesignator::make(field_task_label,
                                           init_task_label,
@@ -3841,40 +3814,6 @@ namespace TL { namespace Nanos6 {
         {
             return t;
         }
-    }
-
-    void TaskProperties::create_copies_function()
-    {
-#if 0
-        TL::ObjectList<std::string> ol_parameter_names(1, "arg");
-        TL::ObjectList<TL::Type> ol_parameter_types(1, info_structure);
-
-        // Outline function
-        std::string ol_name;
-        {
-            TL::Counter &counter = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_dep_" << (int)counter;
-            counter++;
-            ol_name = ss.str();
-        }
-
-        dependences_function
-            = SymbolUtils::new_function_symbol(
-                    related_function,
-                    dep_name,
-                    TL::Type::get_void_type(),
-                    parameter_names,
-                    parameter_types);
-
-        Nodecl::NodeclBase outline_function_code, outline_empty_stmt;
-        SymbolUtils::build_empty_body_for_function(
-                outline_function,
-                outline_function_code,
-                outline_empty_stmt);
-
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(task_body, outline_function_code);
-#endif
     }
 
     void TaskProperties::create_cost_function()
