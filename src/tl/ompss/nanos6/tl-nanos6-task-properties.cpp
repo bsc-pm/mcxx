@@ -1243,6 +1243,10 @@ namespace TL { namespace Nanos6 {
                                           init_register_depinfo,
                                           field_register_depinfo.get_type()));
         field_init.append(
+            Nodecl::FieldDesignator::make(field_get_priority,
+                                          init_get_priority,
+                                          field_get_priority.get_type()));
+        field_init.append(
             Nodecl::FieldDesignator::make(field_task_label,
                                           init_task_label,
                                           field_task_label.get_type()));
@@ -1254,10 +1258,6 @@ namespace TL { namespace Nanos6 {
             Nodecl::FieldDesignator::make(field_get_cost,
                                           init_get_cost,
                                           field_get_cost.get_type()));
-        field_init.append(
-            Nodecl::FieldDesignator::make(field_get_priority,
-                                          init_get_priority,
-                                          field_get_priority.get_type()));
 
         Nodecl::NodeclBase struct_init = Nodecl::StructuredValue::make(
             Nodecl::List::make(field_init),
