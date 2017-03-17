@@ -61,12 +61,6 @@ namespace TL {
                 // There is nothing to walk in a taskwait
              }
 
-             void visit(const Nodecl::OmpSs::WaitOnDependences& taskwait)
-             {
-                ++_num_task_related_pragmas;
-                // There is nothing to walk in a taskwait
-             }
-
              void visit(const Nodecl::OpenMP::Task& task)
              {
                 ++_num_task_related_pragmas;
@@ -171,11 +165,6 @@ namespace TL {
                    _function_codes_to_be_duplicated(function_codes_to_be_duplicated) { }
 
              void visit(const Nodecl::OpenMP::Taskwait& taskwait)
-             {
-                Nodecl::Utils::remove_from_enclosing_list(taskwait);
-             }
-
-             void visit(const Nodecl::OmpSs::WaitOnDependences& taskwait)
              {
                 Nodecl::Utils::remove_from_enclosing_list(taskwait);
              }

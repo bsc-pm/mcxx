@@ -47,7 +47,6 @@ namespace TL { namespace Nanos6 {
 
             void visit(const Nodecl::OpenMP::Task& n);
             void visit(const Nodecl::OpenMP::Taskwait& n);
-            void visit(const Nodecl::OmpSs::WaitOnDependences &n);
             void visit(const Nodecl::OmpSs::TaskCall& n);
             void visit(const Nodecl::OpenMP::Critical& n);
             void visit(const Nodecl::OpenMP::Atomic& n);
@@ -61,6 +60,9 @@ namespace TL { namespace Nanos6 {
             void visit(const Nodecl::OmpSs::Unregister &n);
 
         private:
+            void lower_taskwait(const Nodecl::OpenMP::Taskwait& n);
+            void lower_taskwait_with_dependences(const Nodecl::OpenMP::Taskwait& n);
+
             void lower_task(const Nodecl::OpenMP::Task& n);
             void lower_task(const Nodecl::OpenMP::Task& n, Nodecl::NodeclBase& serial_stmts);
 

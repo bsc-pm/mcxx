@@ -401,12 +401,12 @@ namespace {
         ERROR_CONDITION(task_node_target_stmts.size() != 1, "Invalid list of statements", 0);
         NBase taskwait_node_target = task_node_target_stmts[0];
         ERROR_CONDITION(taskwait_node_target.is_null(), "Invalid target task tree", 0);
-        ERROR_CONDITION(!taskwait_node_target.is<Nodecl::OmpSs::WaitOnDependences>(),
-                "Expecting an OmpSs::WaitOnDependences target node here got a %s",
+        ERROR_CONDITION(!taskwait_node_target.is<Nodecl::OpenMP::Taskwait>(),
+                "Expecting an OpenMP::Taskwait target node here got a %s",
                 ast_print_node_type(taskwait_node_target.get_kind()));
 
         Nodecl::List task_target_env = taskwait_node_target
-            .as<Nodecl::OmpSs::WaitOnDependences>()
+            .as<Nodecl::OpenMP::Taskwait>()
             .get_environment()
             .as<Nodecl::List>();
 

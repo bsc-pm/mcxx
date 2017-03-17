@@ -683,35 +683,22 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<OpenMP::DependencyItem> dependences;
         data_environment.get_all_dependences(dependences);
-        if (!dependences.empty())
-        {
-            if (!this->in_ompss_mode())
-            {
-                error_printf_at(directive.get_locus(),
-                        "a 'taskwait' construct with a 'on' clause is valid only in OmpSs\n");
-            }
 
-            directive.replace(
-                    Nodecl::OmpSs::WaitOnDependences::make(
-                        environment,
-                        directive.get_locus())
-                    );
-        }
-        else
+        if (emit_omp_report())
         {
-            if (emit_omp_report())
+            if (dependences.empty())
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
                     << "This taskwait waits for all tasks created in the current context\n"
                     ;
             }
-            directive.replace(
-                    Nodecl::OpenMP::Taskwait::make(
-                        environment,
-                        directive.get_locus())
-                    );
         }
+
+        directive.replace(
+                Nodecl::OpenMP::Taskwait::make(
+                    environment,
+                    directive.get_locus()));
     }
 
 

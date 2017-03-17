@@ -35,8 +35,47 @@
 
 namespace TL { namespace GOMP {
 
+
+    struct DependencesVisitor : Nodecl::ExhaustiveVisitor<void>
+    {
+        bool has_dependences;
+
+        DependencesVisitor() : has_dependences(false) {}
+
+        void visit(const Nodecl::OpenMP::DepIn& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OpenMP::DepOut& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OpenMP::DepInout& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OmpSs::Commutative& n)
+        {
+            error_printf_at(n.get_locus(),
+                    "commutative dependences are not supported on the taskwait construct\n");
+        }
+        void visit(const Nodecl::OmpSs::Concurrent& n)
+        {
+            error_printf_at(n.get_locus(),
+                    "concurrent dependences are not supported on the taskwait construct\n");
+        }
+    };
     void LoweringVisitor::visit(const Nodecl::OpenMP::Taskwait& construct)
     {
+        Nodecl::NodeclBase environment = construct.get_environment();
+        DependencesVisitor visitor;
+        visitor.walk(environment);
+
+        if (visitor.has_dependences)
+        {
+            warn_printf_at(construct.get_locus(),
+                    "taskwait with dependences implemented as a taskwait construct without dependences\n");
+        }
         Source src;
         src << "GOMP_taskwait();"
             ;

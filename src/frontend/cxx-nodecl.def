@@ -699,8 +699,6 @@ top-level: target-declaration
 
 target-declaration : NODECL_OMP_SS*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 
-synchronization : NODECL_OMP_SS*WAIT_ON_DEPENDENCES([environment]omp-exec-environment-seq-opt)
-
 parallel-statements: data-coordination
 
 # register

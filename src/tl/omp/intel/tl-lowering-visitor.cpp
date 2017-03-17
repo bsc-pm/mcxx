@@ -88,10 +88,4 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskwait& construct)
 {
     error_printf_at(construct.get_locus(), "OpenMP Taskwait construct not yet implemented\n");
 }
-
-void LoweringVisitor::visit(const Nodecl::OmpSs::WaitOnDependences& construct)
-{
-    error_printf_at(construct.get_locus(), "OmpSs WaitOnDependences construct not yet implemented\n");
-}
-
 } }

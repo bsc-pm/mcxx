@@ -26,6 +26,8 @@
 
 #include "cxx-cexpr.h"
 #include "cxx-process.h"
+#include "cxx-diagnostic.h"
+
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
 
@@ -543,6 +545,16 @@ next_it:    ;
     ObjectList<Node*> PCFGVisitor::visit_taskwait(const NBase& n)
     {
         Node* taskwait_node = new Node(_utils->_nid, __OmpTaskwait, _utils->_outer_nodes.top(), n);
+        // Connect with the last nodes created
+        _pcfg->connect_nodes(_utils->_last_nodes, taskwait_node);
+
+        _utils->_last_nodes = ObjectList<Node*>(1, taskwait_node);
+        return ObjectList<Node*>();
+    }
+    //! This method implements the visitor for taskwait on dependences
+    ObjectList<Node*> PCFGVisitor::visit_taskwait_on(const NBase& n)
+    {
+        Node* taskwait_node = new Node(_utils->_nid, __OmpWaitonDeps, _utils->_outer_nodes.top(), n);
         // Connect with the last nodes created
         _pcfg->connect_nodes(_utils->_last_nodes, taskwait_node);
 
@@ -2016,16 +2028,6 @@ next_it:    ;
         return ObjectList<Node*>();
     }
 
-    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::WaitOnDependences& n)
-    {
-        Node* taskwait_node = new Node(_utils->_nid, __OmpWaitonDeps, _utils->_outer_nodes.top(), n);
-        // Connect with the last nodes created
-        _pcfg->connect_nodes(_utils->_last_nodes, taskwait_node);
-
-        _utils->_last_nodes = ObjectList<Node*>(1, taskwait_node);
-        return ObjectList<Node*>();
-    }
-
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Aligned& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);
@@ -2800,7 +2802,44 @@ next_it:    ;
 
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Taskwait& n)
     {
-        return visit_taskwait(n);
+        struct DependencesVisitor : Nodecl::ExhaustiveVisitor<void>
+        {
+            bool has_dependences;
+
+            DependencesVisitor() : has_dependences(false) {}
+
+            void visit(const Nodecl::OpenMP::DepIn& n)
+            {
+                has_dependences = true;
+            }
+            void visit(const Nodecl::OpenMP::DepOut& n)
+            {
+                has_dependences = true;
+            }
+            void visit(const Nodecl::OpenMP::DepInout& n)
+            {
+                has_dependences = true;
+            }
+            void visit(const Nodecl::OmpSs::Commutative& n)
+            {
+                error_printf_at(n.get_locus(),
+                        "commutative dependences are not supported on the taskwait construct\n");
+            }
+            void visit(const Nodecl::OmpSs::Concurrent& n)
+            {
+                error_printf_at(n.get_locus(),
+                        "concurrent dependences are not supported on the taskwait construct\n");
+            }
+        };
+
+        Nodecl::List env = n.get_environment().as<Nodecl::List>();
+        DependencesVisitor visitor;
+        visitor.walk(env);
+
+        if (visitor.has_dependences)
+            return visit_taskwait_on(n);
+        else
+            return visit_taskwait(n);
     }
 
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OpenMP::Uniform& n)

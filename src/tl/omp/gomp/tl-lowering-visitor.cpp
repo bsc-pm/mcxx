@@ -69,9 +69,4 @@ void LoweringVisitor::visit(const Nodecl::OmpSs::TaskExpression& construct)
     error_printf_at(construct.get_locus(), " OmpSs TaskExpression construct not yet implemented\n");
 }
 
-void LoweringVisitor::visit(const Nodecl::OmpSs::WaitOnDependences& construct)
-{
-    error_printf_at(construct.get_locus(), " OmpSs WaitOnDependences construct not yet implemented\n");
-}
-
 } }

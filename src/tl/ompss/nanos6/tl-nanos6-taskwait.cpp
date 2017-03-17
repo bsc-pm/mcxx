@@ -28,37 +28,53 @@
 #include "tl-nanos6-lower.hpp"
 #include "tl-source.hpp"
 #include "cxx-cexpr.h"
+#include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanos6 {
 
+    struct DependencesVisitor : Nodecl::ExhaustiveVisitor<void>
+    {
+        bool has_dependences;
+
+        DependencesVisitor() : has_dependences(false) {}
+
+        void visit(const Nodecl::OpenMP::DepIn& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OpenMP::DepOut& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OpenMP::DepInout& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OmpSs::Commutative& n)
+        {
+            error_printf_at(n.get_locus(),
+                    "commutative dependences are not supported on the taskwait construct\n");
+        }
+        void visit(const Nodecl::OmpSs::Concurrent& n)
+        {
+            error_printf_at(n.get_locus(),
+                    "concurrent dependences are not supported on the taskwait construct\n");
+        }
+    };
+
     void Lower::visit(const Nodecl::OpenMP::Taskwait& node)
     {
-        TL::Symbol nanos_taskwait_sym =
-            TL::Scope::get_global_scope().get_symbol_from_name("nanos_taskwait");
-        ERROR_CONDITION(!nanos_taskwait_sym.is_valid()
-                || !nanos_taskwait_sym.is_function(),
-                "Invalid symbol", 0);
+        Nodecl::List environment = node.get_environment().as<Nodecl::List>();
+        DependencesVisitor visitor;
+        visitor.walk(environment);
 
-        const char* locus = locus_to_str(node.get_locus());
-
-        Nodecl::NodeclBase taskwait_tree =
-            Nodecl::ExpressionStatement::make(
-                    Nodecl::FunctionCall::make(
-                        nanos_taskwait_sym.make_nodecl(/* set_ref_type */ true, node.get_locus()),
-                        /* args */ Nodecl::List::make(
-                            const_value_to_nodecl(
-                                const_value_make_string_null_ended(
-                                    locus,
-                                    strlen(locus)))),
-                        /* alternate-name */ Nodecl::NodeclBase::null(),
-                        /* function-form */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_void_type(),
-                        node.get_locus()));
-
-        node.replace(taskwait_tree);
+        if (visitor.has_dependences)
+            lower_taskwait_with_dependences(node);
+        else
+            lower_taskwait(node);
     }
 
-    void Lower::visit(const Nodecl::OmpSs::WaitOnDependences& node)
+    void Lower::lower_taskwait_with_dependences(const Nodecl::OpenMP::Taskwait& node)
     {
         Nodecl::List environment = node.get_environment().as<Nodecl::List>();
 
@@ -86,4 +102,29 @@ namespace TL { namespace Nanos6 {
         lower_task(node.as<Nodecl::OpenMP::Task>());
     }
 
+    void Lower::lower_taskwait(const Nodecl::OpenMP::Taskwait& node)
+    {
+        TL::Symbol nanos_taskwait_sym =
+            TL::Scope::get_global_scope().get_symbol_from_name("nanos_taskwait");
+        ERROR_CONDITION(!nanos_taskwait_sym.is_valid()
+                || !nanos_taskwait_sym.is_function(),
+                "Invalid symbol", 0);
+        const char* locus = locus_to_str(node.get_locus());
+
+        Nodecl::NodeclBase taskwait_tree =
+            Nodecl::ExpressionStatement::make(
+                    Nodecl::FunctionCall::make(
+                        nanos_taskwait_sym.make_nodecl(/* set_ref_type */ true, node.get_locus()),
+                        /* args */ Nodecl::List::make(
+                            const_value_to_nodecl(
+                                const_value_make_string_null_ended(
+                                    locus,
+                                    strlen(locus)))),
+                        /* alternate-name */ Nodecl::NodeclBase::null(),
+                        /* function-form */ Nodecl::NodeclBase::null(),
+                        TL::Type::get_void_type(),
+                        node.get_locus()));
+
+        node.replace(taskwait_tree);
+    }
 } }
