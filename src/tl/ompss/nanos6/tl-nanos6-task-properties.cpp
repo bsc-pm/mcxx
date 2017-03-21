@@ -4116,13 +4116,16 @@ namespace TL { namespace Nanos6 {
             TL::Symbol arg;
             field_map_t &field_map;
             const TL::ObjectList<TL::Symbol>& shared;
+            const TL::ObjectList<ReductionItem>& reduction;
             const TL::ObjectList<TL::Symbol> local;
 
             RewriteExpression(TL::Symbol arg_,
                     field_map_t& field_map_,
                     const TL::ObjectList<TL::Symbol> &shared_,
+                    const TL::ObjectList<ReductionItem> &reduction_,
                     const TL::ObjectList<TL::Symbol> &local_)
-                : arg(arg_), field_map(field_map_), shared(shared_), local(local_)
+                : arg(arg_), field_map(field_map_), shared(shared_),
+                  reduction(reduction_), local(local_)
             {
             }
 
@@ -4156,7 +4159,7 @@ namespace TL { namespace Nanos6 {
                 // if (IS_C_LANGUAGE
                 //         || IS_CXX_LANGUAGE)
                 {
-                    if (shared.contains(sym)
+                    if ((shared.contains(sym) || reduction.contains(sym))
                             && !sym.get_type().no_ref().is_array())
                     {
                         new_expr = Nodecl::Dereference::make(
@@ -4179,7 +4182,7 @@ namespace TL { namespace Nanos6 {
             }
         };
 
-        RewriteExpression r(arg, field_map, shared, local);
+        RewriteExpression r(arg, field_map, shared, reduction, local);
         r.walk(result);
 
         struct RemoveRedundantRefDerref : public Nodecl::ExhaustiveVisitor<void>
