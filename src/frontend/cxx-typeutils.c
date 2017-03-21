@@ -371,6 +371,10 @@ struct pointer_tag
     // If the type was a TK_POINTER_TO_MEMBER
     // the pointee class
     type_t* pointee_class_type;
+
+    // In Fortran we need to know whether a pointer to function
+    // was a Fortran or a C/C++ type
+    _Bool is_fortran_function_pointer:1;
 } pointer_info_t;
 
 typedef
@@ -4380,6 +4384,7 @@ extern inline type_t* get_pointer_type(type_t* t)
         pointed_type->pointer = NEW0(pointer_info_t);
         pointed_type->pointer->pointee = t;
 
+
         if (is_array_type(t)
                 && array_type_with_descriptor(t))
         {
@@ -4390,6 +4395,7 @@ extern inline type_t* get_pointer_type(type_t* t)
         {
             if (is_function_type(t))
             {
+                pointed_type->pointer->is_fortran_function_pointer = IS_FORTRAN_LANGUAGE;
                 pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer;
                 pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_function_pointer;
             }
@@ -9095,6 +9101,16 @@ extern inline type_t* pointer_to_member_type_get_class_type(type_t *t)
     t = advance_over_typedefs(t);
 
     return t->pointer->pointee_class_type;
+}
+
+extern inline char pointer_to_function_type_is_fortran_function_pointer(type_t* t)
+{
+    ERROR_CONDITION(
+            !is_pointer_type(t) ||
+            !is_function_type(pointer_type_get_pointee_type(t)),
+            "This is not a pointer to function type", 0);
+
+    return t->pointer->is_fortran_function_pointer;
 }
 
 extern inline type_t* array_type_get_element_type(type_t* t)

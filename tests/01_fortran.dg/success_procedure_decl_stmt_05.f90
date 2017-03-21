@@ -1,0 +1,28 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! </testinfo>
+SUBROUTINE FOO()
+    IMPLICIT NONE
+    INTEGER :: X
+    INTERFACE
+        FUNCTION MY_C_FUN()
+          IMPLICIT NONE
+          INTEGER :: MY_C_FUN
+        END FUNCTION MY_C_FUN
+    END INTERFACE
+    PROCEDURE(INTEGER), POINTER :: F2
+
+    F2 => MY_C_FUN
+    X = F2()
+END SUBROUTINE FOO
+
+PROGRAM P
+    IMPLICIT NONE
+    CALL FOO()
+END PROGRAM P
+
+FUNCTION MY_C_FUN()
+    IMPLICIT NONE
+    INTEGER :: MY_C_FUN
+    MY_C_FUN = 42
+END FUNCTION

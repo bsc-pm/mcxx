@@ -108,6 +108,7 @@ string|fortran|from_module_name|If from_module is not NULL is the name of the US
 symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
 symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
 symbol|fortran|used_modules|Symbol that keeps track of the USEd modules in this program unit
+symbol|fortran|procedure_declaration_interface_name|In a procedure declaration statement it contains the symbol that represents the interface name
 string|all|linkage_spec|The linkage specifier (C, C++)
 nodecl|all|noexception|C++ noexcept specifier. If this tree is not null it will be at least 'true'
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception

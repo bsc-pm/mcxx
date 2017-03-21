@@ -63,11 +63,19 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 {
     const decl_context_t* decl_context;
 
-    // Declared in cxx-buildscope.c
-    initialize_translation_unit_scope(translation_unit, &decl_context);
+    // The builtin symbols may use some C/C++ types that are not representable
+    // in Fortran such as 'pointer to function returning void'. For this reason
+    // we change the source language which also changes how pointers to
+    // functions are treated
+    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+    {
+        // Declared in cxx-buildscope.c
+        initialize_translation_unit_scope(translation_unit, &decl_context);
 
-    // Declared in cxx-buildscope.c
-    c_initialize_builtin_symbols(decl_context);
+        // Declared in cxx-buildscope.c
+        c_initialize_builtin_symbols(decl_context);
+    }
+    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 
     translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 
@@ -7684,10 +7692,14 @@ static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
     symbol_entity_specs_set_is_implicit_basic_type(dest, 0);
 
     symbol_entity_specs_set_bind_info(dest, symbol_entity_specs_get_bind_info(orig));
+
+    symbol_entity_specs_set_procedure_declaration_interface_name(dest, orig);
 }
 
-static void synthesize_procedure_type(scope_entry_t* entry, 
-        scope_entry_t* interface, type_t* return_type, 
+static void synthesize_procedure_type(
+        scope_entry_t* entry,
+        scope_entry_t* interface,
+        type_t* return_type,
         const decl_context_t* decl_context,
         char do_pointer)
 {
