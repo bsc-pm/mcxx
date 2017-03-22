@@ -5339,10 +5339,13 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
         return;
     }
 
+    bool is_procedure_pointer = symbol_entity_specs_get_is_procedure_decl_stmt(lvalue_sym);
+
     char is_target = 0;
     char is_pointer = 0;
     scope_entry_t* rvalue_sym = fortran_data_ref_get_symbol(nodecl_rvalue);
-    if (rvalue_sym != NULL)
+    if (rvalue_sym != NULL
+            && !is_procedure_pointer)
     {
         nodecl_t auxiliar = nodecl_rvalue;
 
@@ -5416,7 +5419,18 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
         // }
     }
 
-    if (rvalue_sym != NULL
+    if (is_procedure_pointer
+            && rvalue_sym != NULL
+            && rvalue_sym->kind == SK_VARIABLE
+            // Dummy procedures
+            && (is_function_type(no_ref(rvalue_sym->type_information))
+                // Pointer procedures
+                || (is_pointer_type(no_ref(rvalue_sym->type_information))
+                        && is_function_type(pointer_type_get_pointee_type(no_ref(rvalue_sym->type_information))))))
+    {
+        // This is OK
+    }
+    else if (rvalue_sym != NULL
             && rvalue_sym->kind == SK_VARIABLE)
     {
         if (!is_pointer
@@ -5429,8 +5443,9 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
         }
     }
     else if (rvalue_sym != NULL
-            && rvalue_sym->kind == SK_FUNCTION)
+            && (rvalue_sym->kind == SK_FUNCTION))
     {
+        // This is OK
     }
     else if (is_call_to_null(nodecl_rvalue, NULL))
     {
