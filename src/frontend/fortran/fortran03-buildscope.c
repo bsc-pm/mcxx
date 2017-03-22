@@ -7693,7 +7693,7 @@ static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
 
     symbol_entity_specs_set_bind_info(dest, symbol_entity_specs_get_bind_info(orig));
 
-    symbol_entity_specs_set_procedure_declaration_interface_name(dest, orig);
+    symbol_entity_specs_set_procedure_decl_stmt_proc_interface(dest, orig);
 }
 
 static void synthesize_procedure_type(
@@ -7813,6 +7813,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
         }
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        symbol_entity_specs_set_is_procedure_decl_stmt(entry, 1);
 
         if (symbol_entity_specs_get_is_builtin(entry))
         {
@@ -7900,7 +7901,6 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
                         /* do_pointer */ 1);
             }
         }
-
 
         if (init != NULL)
         {

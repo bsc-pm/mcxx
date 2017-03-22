@@ -753,6 +753,18 @@ namespace TL
              */
             Nodecl::NodeclBase get_bind_c_name() const;
 
+            /*!
+             * States whether the current symbol is a Fortran procedure declaration statement
+             */
+            bool is_procedure_declaration_statement() const;
+
+            /*!
+             * If the current symbol is a procedure declaration statement, it
+             * returns the procedure interface (if any). Otherwise it returns
+             * an invalid symbol
+             */
+            TL::Symbol get_prodecure_declaration_statement_procedure_interface() const;
+
         private:
             scope_entry_t* _symbol;
     };

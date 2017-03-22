@@ -168,6 +168,7 @@ namespace Codegen
                     std::string& array_specifier,
                     bool force_deferred_shape,
                     bool without_type_qualifier,
+                    bool is_procedure_declaration_statement,
                     TL::Symbol procedure_interface);
 
             virtual void push_scope(TL::Scope sc) { }

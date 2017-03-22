@@ -1003,6 +1003,7 @@ OPERATOR_TABLE
                             array_specifier,
                             /* force_deferred_shape */ false,
                             /* without_type_qualifier */ true,
+                            /* is_procedure_declaration_statement */ false,
                             /* procedure_interface */ TL::Symbol::invalid());
                     // Only in this case we emit the type-specifier
                     *(file) << type_specifier << " :: ";
@@ -3768,11 +3769,9 @@ OPERATOR_TABLE
                 && !entry.get_type().no_ref().is_function())
         {
             TL::Symbol procedure_interface =
-                symbol_entity_specs_get_procedure_declaration_interface_name(entry.get_internal_symbol());
+                entry.get_prodecure_declaration_statement_procedure_interface();
             if (procedure_interface.is_valid())
-            {
                 declare_symbol(procedure_interface, sc);
-            }
 
             std::string type_spec;
             std::string array_specifier;
@@ -3953,6 +3952,7 @@ OPERATOR_TABLE
             codegen_type_extended(declared_type, type_spec, array_specifier,
                     /* force_deferred_shape */ entry.is_allocatable(),
                     /* without_type_qualifier */ false,
+                    entry.is_procedure_declaration_statement(),
                     procedure_interface);
 
             state.emit_interoperable_types = keep_emit_interop;
@@ -4252,6 +4252,26 @@ OPERATOR_TABLE
                 *(file) << ") = ";
                 walk(entry.get_value());
                 *(file) << "\n";
+            }
+            else if (entry.is_procedure_declaration_statement())
+            {
+                TL::Symbol procedure_interface =
+                    entry.get_prodecure_declaration_statement_procedure_interface();
+                if (procedure_interface.is_valid())
+                    declare_symbol(procedure_interface, sc);
+
+                indent();
+                if (procedure_interface.is_valid())
+                {
+                    *(file) << "PROCEDURE(" << procedure_interface.get_name() << ") :: " << entry.get_name() << "\n";
+                }
+                else
+                {
+                    std::string return_type_spec;
+                    std::string return_type_array_spec;
+                    codegen_type(entry.get_type().returns(), return_type_spec, return_type_array_spec);
+                    *(file) << "PROCEDURE(" << return_type_spec << ") :: " << entry.get_name() << "\n";
+                }
             }
             else
             {
@@ -5642,6 +5662,7 @@ OPERATOR_TABLE
         codegen_type_extended(t, type_specifier, array_specifier,
                 /* force_deferred_shape */ false,
                 /* without_type_qualifier */ false,
+                /* is_procedure_declaration_statement */ false,
                 /* procedure_interface */ TL::Symbol::invalid());
     }
 
@@ -5651,6 +5672,7 @@ OPERATOR_TABLE
             std::string& array_specifier, // Out
             bool force_deferred_shape,
             bool without_type_qualifier,
+            bool is_procedure_declaration_statement,
             TL::Symbol procedure_interface)
     {
         // We were requested to emit types as literals
