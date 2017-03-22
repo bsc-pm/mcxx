@@ -7806,10 +7806,10 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
 
         AST init = NULL;
 
-        if (ASTKind(name) == AST_RENAME)
+        if (ASTKind(name) == AST_PROCEDURE_DECL)
         {
+            init = ASTSon1(name);
             name = ASTSon0(name);
-            init = ASTSon0(name);
         }
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
@@ -7906,9 +7906,19 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
         {
             if (!is_pointer_type(entry->type_information))
             {
-                error_printf_at(ast_get_locus(name), "only procedure pointers can be initialized in a procedure declaration statement\n");
+                error_printf_at(ast_get_locus(name),
+                        "only procedure pointers can be initialized in a procedure declaration statement\n");
             }
-            internal_error("Not yet implemented", 0);
+
+            // The symbol has to be marked with the SAVE attribute if the initializer is present
+            symbol_entity_specs_set_is_static(entry, 1);
+
+            nodecl_t nodecl_init = nodecl_null();
+            fortran_check_initialization(entry, init, decl_context, /* is_pointer_init */ 1, &nodecl_init);
+            if (!nodecl_is_err_expr(nodecl_init))
+            {
+                entry->value = nodecl_init;
+            }
         }
     }
 }
