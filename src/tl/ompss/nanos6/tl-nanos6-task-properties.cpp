@@ -469,8 +469,6 @@ namespace TL { namespace Nanos6 {
         compute_captured_symbols_without_data_sharings(dep_commutative);
 
         // Other task clauses
-        compute_captured_symbols_without_data_sharings(final_clause);
-        compute_captured_symbols_without_data_sharings(if_clause);
         compute_captured_symbols_without_data_sharings(cost_clause);
         compute_captured_symbols_without_data_sharings(priority_clause);
     }
