@@ -398,6 +398,28 @@ namespace TL { namespace Nanos6 {
             if (it->get_type().depends_on_nonconstant_values())
                 walk_type_for_saved_expressions(it->get_type());
         }
+
+        // Other clauses
+        struct CaptureSavedExpressions : public Nodecl::ExhaustiveVisitor<void>
+        {
+            TaskProperties& _tp;
+
+            CaptureSavedExpressions(TaskProperties& tp) : _tp(tp) { }
+
+            void visit(const Nodecl::Symbol& node)
+            {
+                TL::Symbol sym = node.get_symbol();
+                if (!sym.is_variable())
+                    return;
+
+                if (sym.get_type().depends_on_nonconstant_values())
+                    _tp.walk_type_for_saved_expressions(sym.get_type());
+            }
+        };
+        CaptureSavedExpressions visitor(*this);
+
+        visitor.walk(cost_clause);
+        visitor.walk(priority_clause);
     }
 
     bool TaskProperties::symbol_has_data_sharing_attribute(TL::Symbol sym) const
