@@ -11345,6 +11345,7 @@ static void get_type_name_string_internal_impl(const decl_context_t* decl_contex
             }
         case TK_RVALUE_REFERENCE :
         case TK_LVALUE_REFERENCE :
+        case TK_REBINDABLE_REFERENCE :
             {
                 get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right,
                         num_parameter_names, parameter_names, parameter_attributes, is_parameter,
@@ -11366,6 +11367,10 @@ static void get_type_name_string_internal_impl(const decl_context_t* decl_contex
                     {
                         (*left) = strappend((*left), "@ref@");
                     }
+                }
+                else if (type_info->kind == TK_REBINDABLE_REFERENCE)
+                {
+                    (*left) = strappend((*left), "@reb-ref@");
                 }
                 else
                 {
@@ -11627,7 +11632,7 @@ static void get_type_name_string_internal_impl(const decl_context_t* decl_contex
             }
         default:
             {
-                fprintf(stderr, "Unknown type kind '%d'\n", (int)type_info->kind);
+                internal_error("Unknown type kind '%d'\n", (int)type_info->kind);
                 break;
             }
     }
