@@ -7691,8 +7691,6 @@ static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
 
     symbol_entity_specs_set_is_implicit_basic_type(dest, 0);
 
-    symbol_entity_specs_set_bind_info(dest, symbol_entity_specs_get_bind_info(orig));
-
     symbol_entity_specs_set_procedure_decl_stmt_proc_interface(dest, orig);
 }
 
