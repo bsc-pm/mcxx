@@ -7758,16 +7758,11 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
                     strtolower(ASTText(proc_interface)),
                     ast_get_locus(proc_interface));
 
-            if (interface == NULL
-                    || interface->kind != SK_FUNCTION)
-            {
-                error_printf_at(ast_get_locus(proc_interface), "'%s' is not an interface name\n",
-                        interface->symbol_name);
-                interface = NULL;
-            }
-            else if (interface->kind == SK_FUNCTION
-                    || (interface->kind == SK_VARIABLE
-                        && is_pointer_to_function_type(no_ref(interface->type_information))))
+            if (interface != NULL
+                    && (interface->kind == SK_FUNCTION
+                        || (interface->kind == SK_VARIABLE
+                            && (is_function_type(no_ref(interface->type_information))
+                                || is_pointer_to_function_type(no_ref(interface->type_information))))))
             {
                 type_t* function_type = no_ref(interface->type_information);
 
@@ -7783,6 +7778,12 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
 
                     interface = NULL;
                 }
+            }
+            else
+            {
+                error_printf_at(ast_get_locus(proc_interface), "'%s' is not an valid procedure interface\n",
+                        interface->symbol_name);
+                interface = NULL;
             }
         }
         else
