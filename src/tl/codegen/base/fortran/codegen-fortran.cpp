@@ -3380,11 +3380,11 @@ OPERATOR_TABLE
         if (entry.get_result_variable().is_valid())
             related_symbols.append(entry.get_result_variable());
 
-        if (used_modules.is_valid())
         {
             UseStmtInfo use_stmt_info;
 
             // Check every related entries lest they require stuff coming from other modules
+            use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
             for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                     it != related_symbols.end();
                     it++)
@@ -3393,9 +3393,8 @@ OPERATOR_TABLE
                 emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
             }
 
-            use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
-
-            if (!used_modules.get_value().is_null()
+            if (used_modules.is_valid()
+                    && !used_modules.get_value().is_null()
                     && !_deduce_use_statements)
             {
                 if (use_stmt_info.emit_iso_c_binding)
@@ -3408,14 +3407,6 @@ OPERATOR_TABLE
             else
             {
                 emit_collected_use_statements(use_stmt_info);
-            }
-        }
-        else
-        {
-            if (entry.is_bind_c())
-            {
-                indent();
-                *(file) << "USE, INTRINSIC :: iso_c_binding\n";
             }
         }
 
@@ -5296,7 +5287,8 @@ OPERATOR_TABLE
 
         being_checked.insert(entry);
 
-        use_stmt_info.emit_iso_c_binding = use_stmt_info.emit_iso_c_binding || entry.is_bind_c();
+        use_stmt_info.emit_iso_c_binding =
+            use_stmt_info.emit_iso_c_binding || entry.is_bind_c() || entry.get_type().is_interoperable();
 
         if (entry.is_from_module())
         {
