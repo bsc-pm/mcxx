@@ -333,6 +333,7 @@ MERCURIUM_SPECIFIC_INTRINSICS
 #define ISO_C_BINDING_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_associated, "C_PTR_1,?C_PTR_2", S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_f_pointer, "CPTR,FPTR,?SHAPE", S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_f_procpointer, "CPTR,FPTR", S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_funloc, NULL, S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_loc, NULL, S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_sizeof, "X", S, NULL)
@@ -6886,6 +6887,37 @@ scope_entry_t* compute_intrinsic_c_f_pointer(scope_entry_t* symbol UNUSED_PARAME
                         CURRENT_COMPILED_FILE->global_decl_context)));
     }
 
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_c_f_procpointer(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    ERROR_CONDITION(symbol_entity_specs_get_from_module(symbol) == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol_entity_specs_get_from_module(symbol);
+    scope_entry_t* c_funptr = get_c_funptr(module);
+    ERROR_CONDITION(c_funptr == NULL, "c_funptr not found!\n", 0);
+
+    scope_entry_t* proc_pointer = fortran_data_ref_get_symbol(argument_expressions[1]);
+
+    if (equivalent_types(t0, get_user_defined_type(c_funptr))
+        && is_pointer_to_function_type(t1)
+        && symbol_entity_specs_get_is_procedure_decl_stmt(proc_pointer))
+    {
+        return GET_INTRINSIC_IMPURE(symbol, "c_f_procpointer",
+                /* subroutine */ get_void_type(),
+                lvalue_ref(t0),
+                lvalue_ref(t1));
+    }
     return NULL;
 }
 
