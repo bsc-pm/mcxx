@@ -24,37 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
-#ifndef HLT_NORMALIZE_LOOP_HPP
-#define HLT_NORMALIZE_LOOP_HPP
-
-#include "hlt-transform.hpp"
+#include "hlt-loop-collapse.hpp"
 
 namespace TL { namespace HLT {
 
-        //! \addtogroup HLT High Level Transformations
-        //! @{
-
-        //! Transforms a loop into a one with a step of one
-    class LIBHLT_CLASS LoopNormalize : public Transform
-    {
-        private:
-            Nodecl::NodeclBase _transformation;
-            Nodecl::NodeclBase _loop;
-        public:
-            LoopNormalize();
-
-            // Properties
-            LoopNormalize& set_loop(Nodecl::NodeclBase loop);
-
-            // Action
-            void normalize();
-
-            // Results
-            Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
-    };
-
-} }
-
-#endif //  HLT_NORMALIZE_LOOP_HPP
+}}

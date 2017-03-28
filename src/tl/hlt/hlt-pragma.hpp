@@ -112,6 +112,7 @@ namespace TL
             private:
                 void do_loop_unroll(TL::PragmaCustomStatement construct);
                 void do_loop_normalize(TL::PragmaCustomStatement construct);
+                void do_loop_collapse(TL::PragmaCustomStatement construct);
         };
 
         //! @}

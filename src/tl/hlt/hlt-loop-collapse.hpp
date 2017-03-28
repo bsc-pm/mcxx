@@ -24,37 +24,17 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
-#ifndef HLT_NORMALIZE_LOOP_HPP
-#define HLT_NORMALIZE_LOOP_HPP
+#ifndef HLT_COLLAPSE_LOOP_HPP
+#define HLT_COLLAPSE_LOOP_HPP
 
 #include "hlt-transform.hpp"
-
 namespace TL { namespace HLT {
 
-        //! \addtogroup HLT High Level Transformations
-        //! @{
+    //! \addtogroup HLT High Level Transformations
 
-        //! Transforms a loop into a one with a step of one
-    class LIBHLT_CLASS LoopNormalize : public Transform
+    //! Collapse the iteration space of two or more loops
+    class LIBHLT_CLASS LoopCollapse : public Transform
     {
-        private:
-            Nodecl::NodeclBase _transformation;
-            Nodecl::NodeclBase _loop;
-        public:
-            LoopNormalize();
-
-            // Properties
-            LoopNormalize& set_loop(Nodecl::NodeclBase loop);
-
-            // Action
-            void normalize();
-
-            // Results
-            Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
     };
-
-} }
-
-#endif //  HLT_NORMALIZE_LOOP_HPP
+}}
+#endif // HLT_COLLAPSE_LOOP_HPP

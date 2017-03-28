@@ -1606,13 +1606,15 @@ src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD) \
 		$(END)
 
 src_tl_hlt_libtl_hlt_la_SOURCES = \
-	  src/tl/hlt/hlt-common.hpp \
+      src/tl/hlt/hlt-common.hpp \
       src/tl/hlt/hlt-transform.hpp \
       src/tl/hlt/hlt-transform.cpp \
       src/tl/hlt/hlt-loop-normalize.hpp \
       src/tl/hlt/hlt-loop-normalize.cpp \
       src/tl/hlt/hlt-loop-unroll.hpp \
       src/tl/hlt/hlt-loop-unroll.cpp \
+      src/tl/hlt/hlt-loop-collapse.hpp \
+      src/tl/hlt/hlt-loop-collapse.cpp \
       $(END)
 
 phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la

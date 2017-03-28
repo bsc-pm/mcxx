@@ -56,6 +56,14 @@ HLTPragmaPhase::HLTPragmaPhase()
                 this,
                 std::placeholders::_1)
             );
+
+    register_construct("hlt", "collapse");
+    dispatcher("hlt").statement.post["collapse"].connect(
+            std::bind(
+                &HLTPragmaPhase::do_loop_collapse,
+                this,
+                std::placeholders::_1)
+            );
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -127,6 +135,11 @@ void HLTPragmaPhase::do_loop_normalize(TL::PragmaCustomStatement construct)
 
     Nodecl::NodeclBase transformed_code = loop_normalize.get_whole_transformation();
     construct.replace(transformed_code);
+}
+
+void HLTPragmaPhase::do_loop_collapse(TL::PragmaCustomStatement construct)
+{
+    std::cerr << "entry point of a #pragma hlt collapse" << std::endl;
 }
 
 } }
