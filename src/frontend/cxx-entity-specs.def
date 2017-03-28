@@ -90,6 +90,7 @@ bool|fortran|is_cray_pointer|This symbol is a Cray pointer
 bool|fortran|is_saved_program_unit|States that all non-automatic entities are SAVEd in that program unit
 bool|fortran|is_contiguous|CONTIGUOUS attribute for pointers
 bool|fortran|is_procedure_decl_stmt|this symbol is a procedure declaration statement
+bool|fortran|is_abstract|this symbol was defined in an abstract interface
 symbol|all|result_var|If this symbol is a function, its result variable, NULL otherwise
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 symbol|all|emission_template|The generic symbol of an intrinsic (Fortran). The template that must be used to emit this specialization (C++)

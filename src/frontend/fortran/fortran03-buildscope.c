@@ -6983,10 +6983,8 @@ static void build_scope_interface_block(AST a,
     AST interface_specification_seq = ASTSon1(a);
 
     AST abstract = ASTSon0(interface_stmt);
-    if (abstract != NULL)
-    {
-        unsupported_construct(a, "ABSTRACT INTERFACE");
-    }
+
+    char is_abstract_interface = (abstract != NULL);
 
     AST generic_spec = ASTSon1(interface_stmt);
 
@@ -7095,6 +7093,19 @@ static void build_scope_interface_block(AST a,
                     &num_related_symbols,
                     &related_symbols,
                     &nodecl_pragma);
+
+            if (is_abstract_interface)
+            {
+                scope_entry_list_iterator_t *entry_it = NULL;
+                for (entry_it = entry_list_iterator_begin(entry_list);
+                        !entry_list_iterator_end(entry_it);
+                        entry_list_iterator_next(entry_it))
+                {
+                    scope_entry_t* sym = entry_list_iterator_current(entry_it);
+                    symbol_entity_specs_set_is_abstract(sym, 1);
+                }
+                entry_list_iterator_free(entry_it);
+            }
 
             entry_list_free(entry_list);
 

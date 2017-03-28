@@ -3358,7 +3358,8 @@ OPERATOR_TABLE
         if (!state.in_interface)
         {
             indent();
-            *(file) << "INTERFACE\n";
+            char is_abstract_interface = symbol_entity_specs_get_is_abstract(entry.get_internal_symbol());
+            *(file) << "INTERFACE"  << (is_abstract_interface ? " ABSTRACT" : "") << "\n";
             inc_indent();
         }
         bool lacks_result = false;
