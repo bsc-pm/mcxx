@@ -129,27 +129,6 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol register_fun,
                     Nodecl::List &register_statements);
 
-            void register_fortran_linear_dependence(
-                TL::DataReference &data_ref,
-                TL::Symbol handler,
-                Nodecl::Utils::SymbolMap &,
-                TL::Symbol register_fun,
-                Nodecl::List &register_statements);
-
-            void register_fortran_region_dependence(
-                TL::DataReference &data_ref,
-                TL::Symbol handler,
-                Nodecl::Utils::SymbolMap &,
-                TL::Symbol register_fun,
-                Nodecl::List &register_statements);
-
-            void register_fortran_dependence_for_array(
-                TL::DataReference &data_ref,
-                TL::Symbol handler,
-                Nodecl::Utils::SymbolMap &,
-                TL::Symbol register_fun,
-                Nodecl::List &register_statements);
-
             void walk_type_for_saved_expressions(TL::Type t);
             static bool is_saved_expression(Nodecl::NodeclBase n);
             void handle_array_bound(Nodecl::NodeclBase n);
