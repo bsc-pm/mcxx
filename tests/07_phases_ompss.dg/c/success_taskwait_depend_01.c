@@ -1,24 +1,8 @@
 /*
 <testinfo>
 test_generator="config/mercurium-ompss"
+test_CFLAGS="--no-copy-deps"
 </testinfo>
-*/
-
-/*
-
- Description: The goal of this example is to show how the depend clause applied
- to the taskwait construct can be used to wait for the results of an specific
- task.
-
- In more detail, in this example we have two independent tasks that produce a
- value ('x' and 'y', respectively). In addition to this, we also have a
- taskwait construct annotated with an input dependence that suspends the region
- until the first task completes execution. Note that this construct does not
- introduce any restriction on the execution of the second task.
-
- Finally, we have to guarantee that the second task is executed before exiting
- the 'foo' function, so we have a taskwait construct that waits for all the task.
-
 */
 
 #include<assert.h>

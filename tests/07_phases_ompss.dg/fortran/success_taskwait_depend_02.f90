@@ -1,8 +1,7 @@
 ! <testinfo>
 ! test_generator=config/mercurium-ompss
+! test_FFLAGS="--no-copy-deps"
 ! </testinfo>
-
-!! Fortran's version of success_taskwait_depend_02.c, take the description from there!
 
 SUBROUTINE FOO()
     IMPLICIT NONE
