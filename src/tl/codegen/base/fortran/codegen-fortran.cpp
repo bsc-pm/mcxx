@@ -4264,6 +4264,12 @@ OPERATOR_TABLE
                     codegen_type(entry.get_type().returns(), return_type_spec, return_type_array_spec);
                     *(file) << "PROCEDURE(" << return_type_spec << ") :: " << entry.get_name() << "\n";
                 }
+
+                if (entry.is_optional())
+                {
+                    indent();
+                    *(file) << "OPTIONAL :: " << entry.get_name() << "\n";
+                }
             }
             else
             {
