@@ -3927,8 +3927,11 @@ namespace TL { namespace OpenMP {
 
 
             Nodecl::NodeclBase new_outer_loop;
-            if (require_conversion_num_tasks_to_grainsize && IS_FORTRAN_LANGUAGE)
+            if (IS_FORTRAN_LANGUAGE
+                    && require_conversion_num_tasks_to_grainsize)
             {
+                // The computed grainsize may be changed during the execution of the taskloop.
+                // For this reason we generate a while loop rather than a do-loop
                 Nodecl::NodeclBase condition =
                     Nodecl::LogicalOr::make(
                             Nodecl::LogicalAnd::make(
