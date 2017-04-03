@@ -122,11 +122,21 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List& arguments_list);
 
+            void register_multidependence_fortran(
+                    TL::DataReference &data_ref,
+                    TL::Symbol handler,
+                    Nodecl::Utils::SymbolMap &symbol_map,
+                    TL::Symbol register_fun,
+                    TL::Scope scope,
+                    // Out
+                    Nodecl::List &register_statements);
+
             void register_dependence_fortran(
                     TL::DataReference &data_ref,
                     TL::Symbol handler,
                     Nodecl::Utils::SymbolMap &symbol_map,
                     TL::Symbol register_fun,
+                    // Out
                     Nodecl::List &register_statements);
 
             void walk_type_for_saved_expressions(TL::Type t);
