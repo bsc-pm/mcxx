@@ -1944,7 +1944,7 @@ scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAME
         if (entry != NULL
                 && fortran_is_array_type(entry->type_information) && symbol_entity_specs_get_is_allocatable(entry))
         {
-            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), t0);
+            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), lvalue_ref(t0));
         }
     }
     return NULL;
@@ -1966,7 +1966,7 @@ scope_entry_t* compute_intrinsic_allocated_1(scope_entry_t* symbol UNUSED_PARAME
                 && !fortran_is_array_type(entry->type_information)
                 && symbol_entity_specs_get_is_allocatable(entry))
         {
-            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), t0);
+            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), lvalue_ref(t0));
         }
     }
     return NULL;
