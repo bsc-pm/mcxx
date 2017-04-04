@@ -120,9 +120,9 @@ static void fortran_init_globals(const decl_context_t* decl_context)
         { "mercurium_c_float", get_float_type(), 0},
         { "mercurium_c_double", get_double_type(), 0},
         { "mercurium_c_long_double", get_long_double_type(), 0},
-        { "mercurium_c_float_complex", get_complex_type(get_float_type()), 0},
-        { "mercurium_c_double_complex", get_complex_type(get_double_type()), 0},
-        { "mercurium_c_long_double_complex", get_complex_type(get_long_double_type()), 0},
+        { "mercurium_c_float_complex", get_float_type(), 0},
+        { "mercurium_c_double_complex", get_double_type(), 0},
+        { "mercurium_c_long_double_complex", get_long_double_type(), 0},
         { "mercurium_c_bool", get_bool_type(), 0},
         { "mercurium_c_char", get_char_type(), 0},
         { "mercurium_c_ptr", NULL, CURRENT_CONFIGURATION->type_environment->sizeof_pointer },
@@ -142,9 +142,6 @@ static void fortran_init_globals(const decl_context_t* decl_context)
         if (intrinsic_globals[i].backing_type != NULL)
         {
             size = type_get_size(intrinsic_globals[i].backing_type);
-            mercurium_intptr->value = const_value_to_nodecl(
-                    const_value_get_signed_int(
-                        type_get_size(intrinsic_globals[i].backing_type)));
         }
         else
         {

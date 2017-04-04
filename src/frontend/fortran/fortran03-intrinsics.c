@@ -7191,9 +7191,9 @@ static void fortran_init_intrinsic_module_iso_c_binding(const decl_context_t* de
         { "c_float", int_type, 4 },
         { "c_double", int_type, 8 },
         { "c_long_double", int_type, type_get_size(get_long_double_type()) },
-        { "c_float_complex", int_type, type_get_size(get_complex_type(get_float_type())) },
-        { "c_double_complex", int_type, type_get_size(get_complex_type(get_double_type())) },
-        { "c_long_double_complex", int_type, type_get_size(get_complex_type(get_long_double_type())) },
+        { "c_float_complex", int_type, type_get_size(get_float_type()) },
+        { "c_double_complex", int_type, type_get_size(get_double_type()) },
+        { "c_long_double_complex", int_type, type_get_size(get_long_double_type()) },
         { "c_bool", int_type, 1 },
         { "c_char", int_type, 1 },
 
