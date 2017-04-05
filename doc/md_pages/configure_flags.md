@@ -9,11 +9,12 @@ environment.
 | Flags                                           | Description     |
 |-------------------------------------------------| ----------------|
 |``--enable-ompss``                               | Enables support of OmpSs and OpenMP. **This is mandatory for OmpSs support**
+|``--enable-tl-openmp-nanox``                     | Enables support of Nanos++ lowering. This is enabled by default when using ``--enable-ompss``
 |``--with-nanox=dir``                             | Directory of Nanos++ installation. **This is mandatory for OmpSs support**
+|``--enable-tl-ompss-nanos6``                     | Enables support of Nanos6 lowering. **This is mandatory for OmpSs-v2 support**
 |``--with-nanos6=dir``                            | Directory of Nanos6 installation. **This is mandatory for OmpSs-v2 support**
 |``--with-cuda=dir``                              | Directory of CUDA installation. By default configure checks ``/usr/local/cuda``. If found CUDA support will be enabled
 |``--with-mpi=dir``                               | Directory of MPI installation
-|``--enable-tl-openmp-nanox``                     | Enables support of Nanos++ lowering. This is enabled by default when using ``--enable-ompss``
 |``--disable-nanox-cuda-device``                  | Disables CUDA support in the compiler. If CUDA is detected this support is enabled automatically. Use this to disable it
 |``--disable-nanox-opencl-device``                | Disables GPU support in the compiler. If OpenCL is detected this support is enabled automatically. Use this to disable it
 |``--enable-nanox-fpga-device``                   | Enable FPGA support in the compiler
