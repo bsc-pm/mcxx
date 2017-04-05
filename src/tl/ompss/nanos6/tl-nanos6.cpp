@@ -26,9 +26,12 @@
 
 
 #include "tl-nanos6.hpp"
+#include "tl-nanos6-interface.hpp"
 #include "tl-nanos6-lower.hpp"
+
 #include "tl-compilerpipeline.hpp"
 #include "tl-final-stmts-generator.hpp"
+
 #include "codegen-phase.hpp"
 
 #include "cxx-profile.h"
@@ -65,6 +68,8 @@ namespace TL { namespace Nanos6 {
         {
             fortran_preprocess_api(dto);
         }
+
+        Interface::check_nanos6_deprecated_headers();
 
         // This function depends on the Nanos6 headers
         compute_impl_constants();
