@@ -571,7 +571,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
 
     entry_list = entry_list_remove(entry_list, entry);
 
-    if (entry_list_size(entry_list) > 1)
+    if (entry_list_size(entry_list) >= 1)
     {
         dhash_ptr_insert(sc->dhash, entry->symbol_name, entry_list);
     }
