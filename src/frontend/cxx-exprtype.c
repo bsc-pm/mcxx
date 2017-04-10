@@ -12903,8 +12903,9 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                     if (!symbol_entity_specs_get_is_member(entry)
                             || symbol_entity_specs_get_is_static(entry))
                     {
-                        // argument_type = get_lvalue_reference_type(entry->type_information);
+                        argument_type = get_lvalue_reference_type(entry->type_information);
                         nodecl_argument = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_arg));
+                        nodecl_set_type(nodecl_argument, argument_type);
                     }
                     else
                     {
