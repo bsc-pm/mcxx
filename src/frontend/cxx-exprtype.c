@@ -11777,6 +11777,15 @@ static char conversion_is_valid_static_cast(
     CXX_LANGUAGE()
     {
         type_t* type_seq[1] = { nodecl_get_type(*nodecl_expression) };
+
+        if (is_named_class_type(no_ref(type_seq[0])))
+        {
+            class_type_complete_if_possible(
+                    named_type_get_symbol(no_ref(type_seq[0])),
+                    decl_context,
+                    locus);
+        }
+
         nodecl_t nodecl_parenthesized_init =
             nodecl_make_cxx_parenthesized_initializer(
                     nodecl_make_list_1(nodecl_shallow_copy(*nodecl_expression)),
