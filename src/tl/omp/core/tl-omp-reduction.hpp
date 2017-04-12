@@ -32,7 +32,6 @@
 
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
-#include "tl-omp.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -71,6 +70,7 @@ namespace TL { namespace OpenMP {
             // AST_INIT_DECLARATOR node. Otherwise it will be false.
             bool _is_initialization;
 
+            // The function symbol that represents the reduction operator
             TL::Symbol _symbol;
 
             // Constructor

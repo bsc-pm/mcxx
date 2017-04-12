@@ -49,6 +49,7 @@ const char *entry_points[] = {
     "nanos_taskwait",
     "nanos_user_lock",
     "nanos_user_unlock",
+    "nanos_get_original_reduction_address",
 };
 
 // We have '__nanos6_max_dimensions' different versions for each symbol, for
@@ -62,6 +63,8 @@ const char *register_dependences[] =
     "nanos_register_region_weak_write_depinfo",
     "nanos_register_region_weak_readwrite_depinfo",
     "nanos_register_region_commutative_depinfo",
+    "nanos_register_region_concurrent_depinfo",
+    "nanos_register_region_reduction_depinfo",
 };
 
 void set_bind_info(TL::Symbol sym)

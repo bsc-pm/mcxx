@@ -132,7 +132,7 @@ namespace TL { namespace Nanos6 {
     // Creates the task instantiation and submission
     void Lower::lower_task(const Nodecl::OpenMP::Task& node)
     {
-        TaskProperties task_properties = TaskProperties::gather_task_properties(_phase, node);
+        TaskProperties task_properties = TaskProperties::gather_task_properties(_phase, this, node);
 
         Nodecl::NodeclBase args_size;
         TL::Type data_env_struct;

@@ -32,16 +32,16 @@
 
 #include <stack>
 
+#include "tl-lexer.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-compilerphase.hpp"
+#include "tl-pragmasupport.hpp"
 
 #include "tl-omp.hpp"
-#include "tl-pragmasupport.hpp"
+#include "tl-omp-reduction.hpp"
 #include "tl-omp-tasks.hpp"
-
 #include "tl-ompss-target.hpp"
 
-#include "tl-lexer.hpp"
 namespace TL
 {
     namespace OpenMP
