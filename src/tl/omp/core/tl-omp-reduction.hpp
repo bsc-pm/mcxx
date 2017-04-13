@@ -30,8 +30,10 @@
 #ifndef TL_OMP_UDR_HPP
 #define TL_OMP_UDR_HPP
 
+#include "tl-scope.hpp"
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
+#include "tl-nodecl-base.hpp"
 
 namespace TL { namespace OpenMP {
 
