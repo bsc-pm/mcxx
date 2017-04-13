@@ -39,8 +39,10 @@ Cambridge, MA 02139, USA.
 
 #include "tl-datareference.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-omp-deps.hpp"
 #include "tl-pragmasupport.hpp"
+
+#include "tl-omp-deps.hpp"
+#include "tl-omp-reduction.hpp"
 
 #include <map>
 #include <set>
@@ -147,9 +149,6 @@ namespace OpenMP
     };
 
 #undef BITMAP
-
-    // Forward declaration of TL::OpenMP::Reduction;
-    class Reduction;
 
     //! Auxiliar class used in reduction clauses. Ties a TL::Symbol with an OpenMP::Reduction
     class LIBTL_CLASS ReductionSymbol
