@@ -4354,6 +4354,11 @@ static void apply_attributes_to_type(type_t** type,
     }
 }
 
+static char same_template_parameter_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2,
+        const decl_context_t* decl_context);
+
 static void gather_type_spec_from_elaborated_class_specifier(AST a,
         type_t** type_info,
         gather_decl_spec_t *gather_info,
@@ -4507,12 +4512,21 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     if (entry != NULL
             && entry->kind == SK_TEMPLATE)
     {
-        if (decl_context->template_parameters->num_parameters
-                != template_type_get_template_parameters(entry->type_information)->num_parameters)
+        if (decl_context->template_parameters == NULL)
         {
-            error_printf_at(ast_get_locus(id_expression), "redeclaration with %d template parameters while previous declaration used %d\n",
-                    decl_context->template_parameters->num_parameters,
-                    template_type_get_template_parameters(entry->type_information)->num_parameters);
+            error_printf_at(ast_get_locus(id_expression), "template argument required for class '%s'\n",
+                    get_qualified_symbol_name(entry, decl_context));
+            *type_info = get_error_type();
+            return;
+        }
+
+        if (!same_template_parameter_list(
+                    decl_context->template_parameters,
+                    template_type_get_template_parameters(entry->type_information),
+                    decl_context))
+        {
+            error_printf_at(ast_get_locus(id_expression),
+                    "redeclaration of '%s' with different template parameters\n", entry->symbol_name);
             *type_info = get_error_type();
             return;
         }
@@ -7422,11 +7436,6 @@ static void set_defaulted_outside_class_specifier(
         const locus_t* locus);
 static void build_noexcept_spec_delayed(scope_entry_t* entry);
 
-static char same_template_parameter_list(
-        template_parameter_list_t* template_parameter_list_1,
-        template_parameter_list_t* template_parameter_list_2,
-        const decl_context_t* decl_context);
-
 static char constructors_have_same_characteristics_for_inheritance(
         scope_entry_t* constructor1,
         scope_entry_t* constructor2,
@@ -9705,12 +9714,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     return;
                 }
 
-                if (decl_context->template_parameters->num_parameters
-                        != template_type_get_template_parameters(template_sym->type_information)->num_parameters)
+                if (!same_template_parameter_list(
+                            decl_context->template_parameters,
+                            template_type_get_template_parameters(template_sym->type_information),
+                            decl_context))
                 {
-                    error_printf_at(ast_get_locus(class_id_expression), "redeclaration with %d template parameters while previous declaration used %d\n",
-                            decl_context->template_parameters->num_parameters,
-                            template_type_get_template_parameters(template_sym->type_information)->num_parameters);
+                    error_printf_at(ast_get_locus(class_id_expression),
+                            "redeclaration of '%s' with different template parameters\n", template_sym->symbol_name);
                     *type_info = get_error_type();
                     return;
                 }
