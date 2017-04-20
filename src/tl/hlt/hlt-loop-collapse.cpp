@@ -97,7 +97,7 @@ namespace TL { namespace HLT {
 
                     walk(sym.get_value());
 
-                    for (TL::ObjectList<TL::Symbol>::const_iterator it = _symbol_list.cbegin();
+                    for (TL::ObjectList<TL::Symbol>::const_iterator it = _symbol_list.begin();
                             it != _symbol_list.end();
                             it++)
                     {
