@@ -7102,7 +7102,10 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
     decl_flags_t nested_flags = decl_flags;
     nested_flags &= ~DF_LABEL;
     nested_flags &= ~DF_CONSTRUCTOR;
-    nested_flags &= ~DF_DEPENDENT_TYPENAME;
+
+    // For some dependent lookups it's interesting to propagate this flag to
+    // the lookups of the nested names
+    //nested_flags &= ~DF_DEPENDENT_TYPENAME;
 
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_name, 0), &num_items);
