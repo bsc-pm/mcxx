@@ -294,9 +294,6 @@ namespace Utils {
             NodeclDeepCopyMap& nodecl_deep_copy_map,
             SymbolDeepCopyMap& symbol_deep_copy_map);
 
-    // This updates symbols in the given tree using a symbol map
-    void update_symbols(Nodecl::NodeclBase orig, SymbolMap& map);
-
     // Like above but with an empty map
     Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
     Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig,

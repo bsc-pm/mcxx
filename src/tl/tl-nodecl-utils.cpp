@@ -1664,28 +1664,6 @@ namespace Nodecl
         visitor.walk(code);
     }
 
-    void Utils::update_symbols(Nodecl::NodeclBase node, SymbolMap& m)
-    {
-        if (node.is_null())
-            return;
-
-        TL::Symbol sym = node.get_symbol();
-        if (!sym.is_valid())
-            return;
-
-        node.set_symbol(m.map(sym));
-
-        Nodecl::NodeclBase::Children children = node.children();
-        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
-                it != children.end();
-                it++)
-        {
-            update_symbols(*it, m);
-        }
-
-
-    }
-
     Nodecl::ArraySubscript Utils::linearize_array_subscript(const Nodecl::ArraySubscript& n)
     {
         int i;
