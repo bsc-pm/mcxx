@@ -1578,30 +1578,15 @@ if BUILD_HLT
 
 lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
 
-HLT_ANALYSIS_CFLAGS= \
-			  -I $(srcdir)/src/tl/analysis/common \
-			  -I $(srcdir)/src/tl/analysis/liveness \
-			  -I $(srcdir)/src/tl/analysis/loops \
-			  -I $(srcdir)/src/tl/analysis/pcfg \
-			  -I $(srcdir)/src/tl/analysis/reach_defs \
-			  -I $(srcdir)/src/tl/analysis/interface \
-			  -I $(srcdir)/src/tl/analysis/test_phase \
-			  -I $(srcdir)/src/tl/analysis/use_def \
-			  -I $(srcdir)/src/tl/analysis/tdg \
-			  $(END)
-
-HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
-
 HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
 			  -I $(srcdir)/src/tl/omp/core \
 			  -I $(srcdir)/src/tl/omp/common \
-			  $(HLT_ANALYSIS_CFLAGS) \
 			  $(END)
 
 src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
 src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
 src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
-src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD) \
+src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) \
 		$(top_builddir)/src/tl/omp/common/libtlomp-common.la \
 		$(END)
 

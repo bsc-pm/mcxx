@@ -25,10 +25,9 @@
 --------------------------------------------------------------------*/
 
 
-
-
 #include "hlt-loop-unroll.hpp"
-#include "tl-analysis-interface.hpp"
+#include "tl-nodecl-utils.hpp"
+
 #include "cxx-cexpr.h"
 
 namespace TL { namespace HLT {
