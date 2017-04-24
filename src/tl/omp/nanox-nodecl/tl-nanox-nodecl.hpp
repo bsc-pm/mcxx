@@ -68,6 +68,7 @@ namespace TL { namespace Nanox {
             Flag seen_opencl_task;
             Flag seen_cuda_task;
             Flag seen_gpu_cublas_handle;
+            Flag seen_fpga_task;
         private:
             void load_headers(DTO& dto);
 

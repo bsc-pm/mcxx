@@ -207,6 +207,12 @@ namespace TL { namespace Nanox {
                 weak_fun_defs  <<  "__attribute__((weak)) void nanos_needs_cublas_fun(void) {}";
             }
 
+            if (seen_fpga_task)
+            {
+                at_least_one_weak_fun_def = true;
+                weak_fun_defs  <<  "__attribute__((weak)) void nanos_needs_fpga_fun(void) {}";
+            }
+
             if (at_least_one_weak_fun_def)
             {
                 if (IS_CXX_LANGUAGE)
@@ -237,6 +243,8 @@ namespace TL { namespace Nanox {
 
             if (seen_gpu_cublas_handle)
                 src << "__attribute__((common)) char gpu_cublas_init;";
+
+            // Nanos++ FPGA do not support this mechanism
         }
 
         if (!Nanos::Version::interface_is_at_least("master", 5028))
@@ -347,6 +355,7 @@ namespace TL { namespace Nanox {
         seen_opencl_task = false;
         seen_cuda_task = false;
         seen_gpu_cublas_handle = false;
+        seen_fpga_task = false;
     }
 } }
 
