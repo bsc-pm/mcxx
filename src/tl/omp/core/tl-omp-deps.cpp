@@ -228,7 +228,11 @@ namespace TL { namespace OpenMP {
                 // in that expression.
                 //
                 // About the data-sharings of the variables involved in the dependence expression:
-                // - Fortran: the base symbol of the dependence expression is always SHARED
+                // - Fortran:
+                //  * If the base symbol has pointer type then it should be FIRSTPRIVATE:
+                //          INTEGER, POINTER :: X
+                //          INOUT(X) -> FIRSTPRIVATE(X)
+                //  * Otherwise, the base symbol of the dependence expression is always SHARED
                 // - C/C++:
                 //  * The base symbol of a trivial dependence (the expression is a symbol) must always be SHARED:
                 //          int x, a[10];
@@ -348,7 +352,7 @@ namespace TL { namespace OpenMP {
             DataEnvironment& data_sharing_environment,
             ObjectList<Symbol>& extra_symbols)
     {
-        // Ompss clauses
+        // OmpSs clauses
         get_basic_dependences_info(
                 pragma_line,
                 parsing_context,
