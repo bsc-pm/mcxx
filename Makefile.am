@@ -1574,8 +1574,6 @@ endif		# BUILD_ANALYSIS
 ##########################################################################
 # src/tl/hlt
 ##########################################################################
-if BUILD_HLT
-
 lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
 
 HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
@@ -1613,8 +1611,6 @@ src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
       src/tl/hlt/hlt-pragma.cpp \
       src/tl/hlt/hlt-pragma.hpp \
       $(END)
-
-endif
 
 # ##########################################################################
 # # src/tl/vectorization/common
