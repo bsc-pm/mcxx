@@ -178,28 +178,73 @@ namespace TL { namespace Nanox {
     void Lowering::emit_nanos_requirements(Nodecl::NodeclBase global_node)
     {
         Source src;
-        if (seen_task_with_priorities)
+        if (Nanos::Version::interface_is_at_least("master", 5040))
         {
-            src << "__attribute__((common)) char nanos_need_priorities_;"
-                ;
-        }
+            Source weak_fun_defs;
+            bool at_least_one_weak_fun_def = false;
 
-        if (seen_opencl_task)
-        {
-            src << "__attribute__((common)) char ompss_uses_opencl;"
-                ;
-        }
+            if (seen_task_with_priorities)
+            {
+                at_least_one_weak_fun_def = true;
+                weak_fun_defs  <<  "__attribute__((weak)) void nanos_needs_priorities_fun(void) {}";
+            }
 
-        if (seen_cuda_task)
-        {
-            src << "__attribute__((common)) char ompss_uses_cuda;"
-                ;
-        }
+            if (seen_opencl_task)
+            {
+                at_least_one_weak_fun_def = true;
+                weak_fun_defs  <<  "__attribute__((weak)) void nanos_needs_opencl_fun(void) {}";
+            }
 
-        if (seen_gpu_cublas_handle)
+            if (seen_cuda_task)
+            {
+                at_least_one_weak_fun_def = true;
+                weak_fun_defs  <<  "__attribute__((weak)) void nanos_needs_cuda_fun(void) {}";
+            }
+
+            if (seen_gpu_cublas_handle)
+            {
+                at_least_one_weak_fun_def = true;
+                weak_fun_defs  <<  "__attribute__((weak)) void nanos_needs_cublas_fun(void) {}";
+            }
+
+            if (seen_fpga_task)
+            {
+                at_least_one_weak_fun_def = true;
+                weak_fun_defs  <<  "__attribute__((weak)) void nanos_needs_fpga_fun(void) {}";
+            }
+
+            if (at_least_one_weak_fun_def)
+            {
+                if (IS_CXX_LANGUAGE)
+                {
+                    src << "extern \"C\""
+                        << "{"
+                        ;
+                }
+
+                src << weak_fun_defs;
+
+                if (IS_CXX_LANGUAGE)
+                {
+                    src << "}";
+                }
+            }
+        }
+        else
         {
-            src << "__attribute__((common)) char gpu_cublas_init;"
-                ;
+            if (seen_task_with_priorities)
+                src << "__attribute__((common)) char nanos_need_priorities_;";
+
+            if (seen_opencl_task)
+                src << "__attribute__((common)) char ompss_uses_opencl;";
+
+            if (seen_cuda_task)
+                src << "__attribute__((common)) char ompss_uses_cuda;";
+
+            if (seen_gpu_cublas_handle)
+                src << "__attribute__((common)) char gpu_cublas_init;";
+
+            // Nanos++ FPGA do not support this mechanism
         }
 
         if (!Nanos::Version::interface_is_at_least("master", 5028))
@@ -310,6 +355,7 @@ namespace TL { namespace Nanox {
         seen_opencl_task = false;
         seen_cuda_task = false;
         seen_gpu_cublas_handle = false;
+        seen_fpga_task = false;
     }
 } }
 

@@ -157,7 +157,7 @@ then
   if [ ! -z "@IFORT@" ];
   then
 cat <<EOF
-NANOX_IMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config --verbose"
+NANOX_IMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose"
 compile_versions="\${compile_versions} nanox_imfc"
 test_FC_nanox_imfc="\${NANOX_IMFC}"
 test_FFLAGS_nanox_imfc="${PROGRAMMING_MODEL} ${NANOX_GATE}"
@@ -169,7 +169,7 @@ EOF
   if [ ! -z "@XLF@" ];
   then
 cat <<EOF
-NANOX_XLMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config --verbose"
+NANOX_XLMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose"
 compile_versions="\${compile_versions} nanox_xlmfc"
 test_FC_nanox_xlmfc="\${NANOX_XLMFC}"
 test_FFLAGS_nanox_xlmfc="${PROGRAMMING_MODEL} ${NANOX_GATE}"

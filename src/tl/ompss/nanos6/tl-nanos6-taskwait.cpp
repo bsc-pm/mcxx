@@ -28,17 +28,87 @@
 #include "tl-nanos6-lower.hpp"
 #include "tl-source.hpp"
 #include "cxx-cexpr.h"
+#include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanos6 {
 
-    void Lower::visit(const Nodecl::OpenMP::TaskwaitShallow& node)
+    struct DependencesVisitor : Nodecl::ExhaustiveVisitor<void>
+    {
+        bool has_dependences;
+
+        DependencesVisitor() : has_dependences(false) {}
+
+        void visit(const Nodecl::OpenMP::DepIn& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OpenMP::DepOut& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OpenMP::DepInout& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OmpSs::Commutative& n)
+        {
+            error_printf_at(n.get_locus(),
+                    "commutative dependences are not supported on the taskwait construct\n");
+        }
+        void visit(const Nodecl::OmpSs::Concurrent& n)
+        {
+            error_printf_at(n.get_locus(),
+                    "concurrent dependences are not supported on the taskwait construct\n");
+        }
+    };
+
+    void Lower::visit(const Nodecl::OpenMP::Taskwait& node)
+    {
+        Nodecl::List environment = node.get_environment().as<Nodecl::List>();
+        DependencesVisitor visitor;
+        visitor.walk(environment);
+
+        if (visitor.has_dependences)
+            lower_taskwait_with_dependences(node);
+        else
+            lower_taskwait(node);
+    }
+
+    void Lower::lower_taskwait_with_dependences(const Nodecl::OpenMP::Taskwait& node)
+    {
+        Nodecl::List environment = node.get_environment().as<Nodecl::List>();
+
+        // Prepare if(0) task reusing environment and set TaskwaitDep info
+        Nodecl::NodeclBase zero_expr;
+        if(IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            zero_expr = const_value_to_nodecl(const_value_get_unsigned_int(0));
+        }
+        else  // IS_FORTRAN_LANGUAGE
+        {
+            zero_expr = Nodecl::BooleanLiteral::make(
+                    TL::Type::get_bool_type(),
+                    const_value_get_zero(/* bytes */ 4, /* sign */0));
+        }
+        environment.append(Nodecl::OpenMP::If::make(zero_expr));
+        environment.append(Nodecl::OpenMP::TaskwaitDep::make());
+
+        Nodecl::OpenMP::Task taskwait_task = Nodecl::OpenMP::Task::make(
+                environment,
+                Nodecl::List::make(Nodecl::EmptyStatement::make()),
+                node.get_locus());
+
+        node.replace(taskwait_task);
+        lower_task(node.as<Nodecl::OpenMP::Task>());
+    }
+
+    void Lower::lower_taskwait(const Nodecl::OpenMP::Taskwait& node)
     {
         TL::Symbol nanos_taskwait_sym =
             TL::Scope::get_global_scope().get_symbol_from_name("nanos_taskwait");
         ERROR_CONDITION(!nanos_taskwait_sym.is_valid()
                 || !nanos_taskwait_sym.is_function(),
                 "Invalid symbol", 0);
-
         const char* locus = locus_to_str(node.get_locus());
 
         Nodecl::NodeclBase taskwait_tree =
@@ -57,5 +127,4 @@ namespace TL { namespace Nanos6 {
 
         node.replace(taskwait_tree);
     }
-
 } }

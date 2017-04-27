@@ -29,6 +29,7 @@
 #include "hlt-pragma.hpp"
 #include "hlt-loop-unroll.hpp"
 #include "hlt-loop-normalize.hpp"
+#include "hlt-loop-collapse.hpp"
 #include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 
@@ -53,6 +54,14 @@ HLTPragmaPhase::HLTPragmaPhase()
     dispatcher("hlt").statement.post["unroll"].connect(
             std::bind(
                 &HLTPragmaPhase::do_loop_unroll,
+                this,
+                std::placeholders::_1)
+            );
+
+    register_construct("hlt", "collapse");
+    dispatcher("hlt").statement.post["collapse"].connect(
+            std::bind(
+                &HLTPragmaPhase::do_loop_collapse,
                 this,
                 std::placeholders::_1)
             );
@@ -126,6 +135,39 @@ void HLTPragmaPhase::do_loop_normalize(TL::PragmaCustomStatement construct)
     info_printf_at(construct.get_locus(), "loop normalized\n");
 
     Nodecl::NodeclBase transformed_code = loop_normalize.get_whole_transformation();
+    construct.replace(transformed_code);
+}
+
+void HLTPragmaPhase::do_loop_collapse(TL::PragmaCustomStatement construct)
+{
+    HLT::LoopCollapse loop_collapse;
+    Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
+    loop_collapse.set_loop(loop);
+    loop_collapse.set_pragma_context(construct.retrieve_context());
+
+    unsigned int collapse_factor = 0;
+
+    TL::PragmaCustomLine custom_line = construct.get_pragma_line();
+    TL::PragmaCustomParameter clause = custom_line.get_parameter();
+    if (clause.is_defined())
+    {
+        TL::ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
+        if (!expr_list.empty())
+        {
+            Nodecl::NodeclBase first = expr_list[0];
+
+            ERROR_CONDITION(!first.is_constant(), "Collapse factor must be a constant expression", 0);
+
+            collapse_factor = const_value_cast_to_unsigned_int(first.get_constant());
+            loop_collapse.set_collapse_factor(collapse_factor);
+        }
+    }
+
+    loop_collapse.collapse();
+    info_printf_at(construct.get_locus(), "loop collapsed by a factor %d\n",
+            collapse_factor);
+
+    Nodecl::NodeclBase transformed_code = loop_collapse.get_whole_transformation();
     construct.replace(transformed_code);
 }
 

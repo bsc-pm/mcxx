@@ -157,7 +157,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_POWER, check_power_op) \
  STATEMENT_HANDLER(AST_STRING_LITERAL, check_string_literal) \
  STATEMENT_HANDLER(AST_USER_DEFINED_UNARY_OP, check_user_defined_unary_op) \
- STATEMENT_HANDLER(AST_SYMBOL, check_symbol_of_variable) \
+ STATEMENT_HANDLER(AST_SYMBOL, check_symbol) \
  STATEMENT_HANDLER(AST_ASSIGNMENT, check_assignment) \
  STATEMENT_HANDLER(AST_PTR_ASSIGNMENT, check_ptr_assignment) \
  STATEMENT_HANDLER(AST_AMBIGUITY, disambiguate_expression) \
@@ -3262,7 +3262,12 @@ static void check_called_symbol_list(
     nodecl_t nodecl_actual_positional_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(nodecl_actual_positional_arguments, 0, sizeof(nodecl_actual_positional_arguments));
 
-    int num_parameter_types = function_type_get_num_parameters(no_ref(symbol->type_information));
+    type_t* function_type = no_ref(symbol->type_information);
+    if (is_pointer_to_function_type(function_type))
+    {
+        function_type = pointer_type_get_pointee_type(function_type);
+    }
+    int num_parameter_types = function_type_get_num_parameters(function_type);
 
     int last_argument = -1;
     int i;
@@ -3298,19 +3303,17 @@ static void check_called_symbol_list(
 
         if (position < num_parameter_types)
         {
-            type_t* parameter_type = function_type_get_parameter_type_num(
-                    no_ref(symbol->type_information), position);
-            nodecl_argument = fortran_nodecl_adjust_function_argument(
-                    parameter_type, nodecl_argument);
+            type_t* parameter_type = function_type_get_parameter_type_num(function_type, position);
+            nodecl_argument = fortran_nodecl_adjust_function_argument(parameter_type, nodecl_argument);
         }
 
         nodecl_actual_positional_arguments[position] = nodecl_argument;
         last_argument = last_argument < position ? position : last_argument;
     }
 
-    if (!function_type_get_lacking_prototype(no_ref(symbol->type_information)))
+    if (!function_type_get_lacking_prototype(function_type))
     {
-        last_argument = function_type_get_num_parameters(no_ref(symbol->type_information)) - 1;
+        last_argument = function_type_get_num_parameters(function_type) - 1;
     }
 
     // Copy back to nodecl_actual_arguments
@@ -4579,8 +4582,8 @@ static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context
     }
 }
 
-
-static void check_symbol_of_variable(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+// This function will generate an error if the symbol is neither a variable nor a function
+static void check_symbol(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // Entry will never be an intrinsic function
     scope_entry_t* entry = fortran_get_variable_with_locus(decl_context, expr, ASTText(expr));
@@ -4595,16 +4598,14 @@ static void check_symbol_of_variable(AST expr, const decl_context_t* decl_contex
     }
 
     if (entry->kind != SK_VARIABLE
-             && entry->kind != SK_UNDEFINED)
+            && entry->kind != SK_FUNCTION
+            && entry->kind != SK_UNDEFINED)
     {
         error_printf_at(ast_get_locus(expr), "name '%s' is not valid in expression\n",
                 entry->symbol_name);
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
-
-    entry->kind = SK_VARIABLE;
-    remove_unknown_kind_symbol(decl_context, entry);
 
     // It might happen that dummy arguments/result do not have any implicit
     // type here (because the input code is wrong)
@@ -4616,7 +4617,26 @@ static void check_symbol_of_variable(AST expr, const decl_context_t* decl_contex
         return;
     }
 
-    check_symbol_name_as_a_variable(expr, entry, decl_context, nodecl_output);
+    if (entry->kind == SK_VARIABLE
+            || entry->kind == SK_UNDEFINED)
+    {
+        entry->kind = SK_VARIABLE;
+        remove_unknown_kind_symbol(decl_context, entry);
+        check_symbol_name_as_a_variable(expr, entry, decl_context, nodecl_output);
+    }
+    else if (entry->kind == SK_FUNCTION)
+    {
+        *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(expr));
+
+        if (!is_const_qualified_type(no_ref(entry->type_information)))
+        {
+            nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
+        }
+        else
+        {
+            nodecl_set_type(*nodecl_output, entry->type_information);
+        }
+    }
 }
 
 static void conform_types_in_assignment(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
@@ -5319,10 +5339,13 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
         return;
     }
 
+    bool is_procedure_pointer = symbol_entity_specs_get_is_procedure_decl_stmt(lvalue_sym);
+
     char is_target = 0;
     char is_pointer = 0;
     scope_entry_t* rvalue_sym = fortran_data_ref_get_symbol(nodecl_rvalue);
-    if (rvalue_sym != NULL)
+    if (rvalue_sym != NULL
+            && !is_procedure_pointer)
     {
         nodecl_t auxiliar = nodecl_rvalue;
 
@@ -5396,7 +5419,18 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
         // }
     }
 
-    if (rvalue_sym != NULL
+    if (is_procedure_pointer
+            && rvalue_sym != NULL
+            && rvalue_sym->kind == SK_VARIABLE
+            // Dummy procedures
+            && (is_function_type(no_ref(rvalue_sym->type_information))
+                // Pointer procedures
+                || (is_pointer_type(no_ref(rvalue_sym->type_information))
+                        && is_function_type(pointer_type_get_pointee_type(no_ref(rvalue_sym->type_information))))))
+    {
+        // This is OK
+    }
+    else if (rvalue_sym != NULL
             && rvalue_sym->kind == SK_VARIABLE)
     {
         if (!is_pointer
@@ -5407,6 +5441,11 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
         }
+    }
+    else if (rvalue_sym != NULL
+            && (rvalue_sym->kind == SK_FUNCTION))
+    {
+        // This is OK
     }
     else if (is_call_to_null(nodecl_rvalue, NULL))
     {

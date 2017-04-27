@@ -27,6 +27,7 @@
 
 #include "tl-nanos6.hpp"
 #include "tl-nanos6-lower.hpp"
+#include "tl-nanos6-task-properties.hpp"
 #include "tl-source.hpp"
 
 #include "cxx-driver-utils.h"
@@ -48,6 +49,7 @@ const char *entry_points[] = {
     "nanos_taskwait",
     "nanos_user_lock",
     "nanos_user_unlock",
+    "nanos_get_original_reduction_address",
 };
 
 // We have '__nanos6_max_dimensions' different versions for each symbol, for
@@ -61,24 +63,23 @@ const char *register_dependences[] =
     "nanos_register_region_weak_write_depinfo",
     "nanos_register_region_weak_readwrite_depinfo",
     "nanos_register_region_commutative_depinfo",
+    "nanos_register_region_concurrent_depinfo",
+    "nanos_register_region_reduction_depinfo",
 };
 
 void set_bind_info(TL::Symbol sym)
 {
-    TL::Scope global_scope = TL::Scope::get_global_scope();
-
-    Source bind_name_src;
-    bind_name_src << "\"" << sym.get_name() << "\"";
-    Nodecl::NodeclBase bind_name = bind_name_src.parse_expression(global_scope);
-
+    // We don't need to specify the NAME in the BIND attribute since by default
+    // it's assumed to be the symbol name in lowercase
     symbol_entity_specs_set_bind_info(
             sym.get_internal_symbol(),
-            nodecl_make_fortran_bind_c(bind_name.get_internal_nodecl(),
+            nodecl_make_fortran_bind_c(
+                /* name */ nodecl_null(),
                 sym.get_locus()));
 }
 
 // This is kludgy: devise a way to do this in the FE
-void fixup_entry_points()
+void fixup_entry_points(int deps_max_dimensions)
 {
     TL::Scope global_scope = TL::Scope::get_global_scope();
     for (const char **it = entry_points;
@@ -93,15 +94,7 @@ void fixup_entry_points()
         set_bind_info(sym);
     }
 
-    TL::Symbol nanos6_max_dimensions = global_scope.get_symbol_from_name("__nanos6_max_dimensions");
-    ERROR_CONDITION(nanos6_max_dimensions.is_invalid(), "'__nanos6_max_dimensions' symbol not found", 0);
-
-    Nodecl::NodeclBase value = nanos6_max_dimensions.get_value();
-    ERROR_CONDITION(value.is_null(), "'__nanos6_max_dimensions' does not have a value", 0);
-    ERROR_CONDITION(!value.is_constant(), "'__nanos6_max_dimensions' should have a costant value", 0);
-
-    unsigned long int max_dimensions = const_value_cast_to_unsigned_long_int(value.get_constant());
-    for(unsigned long int dim = 1; dim <= max_dimensions; dim++)
+    for(int dim = 1; dim <= deps_max_dimensions; dim++)
     {
         for(const char **it = register_dependences;
                 it < (const char**)(&register_dependences + 1);
@@ -118,7 +111,7 @@ void fixup_entry_points()
 }
 }
 
-    void LoweringPhase::fortran_load_api(DTO& dto)
+    void LoweringPhase::fortran_preprocess_api(DTO& dto)
     {
         ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
 
@@ -185,8 +178,12 @@ void fixup_entry_points()
         // FIXME - keep this?
 
         Source::source_language = SourceLanguage::Current;
+    }
 
-        fixup_entry_points();
+    void LoweringPhase::fortran_fixup_api()
+    {
+        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
+        fixup_entry_points(get_deps_max_dimensions());
     }
 
 

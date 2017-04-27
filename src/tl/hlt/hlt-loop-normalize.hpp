@@ -37,7 +37,7 @@ namespace TL { namespace HLT {
         //! @{
 
         //! Transforms a loop into a one with a step of one
-    class LIBHLT_CLASS LoopNormalize
+    class LIBHLT_CLASS LoopNormalize : public Transform
     {
         private:
             Nodecl::NodeclBase _transformation;

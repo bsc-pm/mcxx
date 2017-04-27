@@ -1,0 +1,23 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! </testinfo>
+SUBROUTINE FOO()
+    IMPLICIT NONE
+    INTERFACE
+        SUBROUTINE MY_C_FUN()
+          IMPLICIT NONE
+        END SUBROUTINE MY_C_FUN
+    END INTERFACE
+    PROCEDURE(MY_C_FUN), POINTER :: F2
+    F2 => MY_C_FUN
+    CALL F2()
+END SUBROUTINE FOO
+
+PROGRAM P
+    IMPLICIT NONE
+    CALL FOO()
+END PROGRAM P
+
+SUBROUTINE MY_C_FUN()
+    PRINT *, "MY_C_FUN"
+END SUBROUTINE

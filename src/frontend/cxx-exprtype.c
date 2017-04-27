@@ -11777,6 +11777,15 @@ static char conversion_is_valid_static_cast(
     CXX_LANGUAGE()
     {
         type_t* type_seq[1] = { nodecl_get_type(*nodecl_expression) };
+
+        if (is_named_class_type(no_ref(type_seq[0])))
+        {
+            class_type_complete_if_possible(
+                    named_type_get_symbol(no_ref(type_seq[0])),
+                    decl_context,
+                    locus);
+        }
+
         nodecl_t nodecl_parenthesized_init =
             nodecl_make_cxx_parenthesized_initializer(
                     nodecl_make_list_1(nodecl_shallow_copy(*nodecl_expression)),
@@ -12903,8 +12912,9 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                     if (!symbol_entity_specs_get_is_member(entry)
                             || symbol_entity_specs_get_is_static(entry))
                     {
-                        // argument_type = get_lvalue_reference_type(entry->type_information);
+                        argument_type = get_lvalue_reference_type(entry->type_information);
                         nodecl_argument = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_arg));
+                        nodecl_set_type(nodecl_argument, argument_type);
                     }
                     else
                     {

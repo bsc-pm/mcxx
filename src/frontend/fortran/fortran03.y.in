@@ -5091,9 +5091,9 @@ proc_attr_spec : access_spec
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
-proc_decl : name TOKEN_POINTER_ACCESS data_ref
+proc_decl : name TOKEN_POINTER_ACCESS constant_expr
 {
-    $$ = ASTMake2(AST_RENAME, $1, $3, ast_get_locus($1), NULL);
+    $$ = ASTMake2(AST_PROCEDURE_DECL, $1, $3, ast_get_locus($1), NULL);
 }
 | name
 ;

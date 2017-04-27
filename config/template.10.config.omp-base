@@ -134,7 +134,7 @@ linker_options = -Xlinker --enable-new-dtags
 # used by XL
 {@NANOX_GATE@,(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_GNU_LDFLAGS@
 # needed for the new link mechanism
-{@NANOX_GATE@} linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+{@NANOX_GATE@,!?dynamic-list|dynamic-list} linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 
 #nanos 6
 {@NANOS6_GATE@,openmp} pragma_prefix = oss

@@ -306,12 +306,15 @@ FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getcwd, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hostnm, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, irand, "?I", T, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, isnan, "X", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, rand, "?I", T, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, sleep, "SECONDS", S, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, srand, "SEED", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, time, NULL, T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, time8, NULL, T, NULL) \
@@ -330,6 +333,7 @@ MERCURIUM_SPECIFIC_INTRINSICS
 #define ISO_C_BINDING_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_associated, "C_PTR_1,?C_PTR_2", S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_f_pointer, "CPTR,FPTR,?SHAPE", S, NULL) \
+  FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_f_procpointer, "CPTR,FPTR", S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_funloc, NULL, S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_loc, NULL, S, NULL) \
   FORTRAN_GENERIC_INTRINSIC("iso_c_binding", c_sizeof, "X", S, NULL)
@@ -1940,7 +1944,7 @@ scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAME
         if (entry != NULL
                 && fortran_is_array_type(entry->type_information) && symbol_entity_specs_get_is_allocatable(entry))
         {
-            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), t0);
+            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), lvalue_ref(t0));
         }
     }
     return NULL;
@@ -1962,7 +1966,7 @@ scope_entry_t* compute_intrinsic_allocated_1(scope_entry_t* symbol UNUSED_PARAME
                 && !fortran_is_array_type(entry->type_information)
                 && symbol_entity_specs_get_is_allocatable(entry))
         {
-            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), t0);
+            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), lvalue_ref(t0));
         }
     }
     return NULL;
@@ -6512,6 +6516,34 @@ scope_entry_t* compute_intrinsic_or(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_rand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (t0 == NULL)
+        t0 = fortran_choose_int_type_from_kind(4);
+
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "rand", fortran_get_default_real_type(), lvalue_ref(t0));
+}
+
+scope_entry_t* compute_intrinsic_irand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+
+    if (t0 == NULL)
+        t0 = fortran_choose_int_type_from_kind(4);
+
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "irand", fortran_get_default_integer_type(), lvalue_ref(t0));
+}
+
 scope_entry_t* compute_intrinsic_rshift(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -6621,6 +6653,21 @@ scope_entry_t* compute_intrinsic_sleep(scope_entry_t* symbol UNUSED_PARAMETER,
         return NULL;
 
     return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "sleep", get_void_type(),
+            lvalue_ref(t0));
+}
+
+scope_entry_t* compute_intrinsic_srand(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ptr(no_ref(argument_types[0]));
+
+    if (t0 == NULL || !equivalent_types(get_unqualified_type(t0), fortran_choose_int_type_from_kind(4)))
+        return NULL;
+
+    return GET_INTRINSIC_IMPURE(symbol, "srand", get_void_type(),
             lvalue_ref(t0));
 }
 
@@ -6843,6 +6890,37 @@ scope_entry_t* compute_intrinsic_c_f_pointer(scope_entry_t* symbol UNUSED_PARAME
     return NULL;
 }
 
+scope_entry_t* compute_intrinsic_c_f_procpointer(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 2)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    ERROR_CONDITION(symbol_entity_specs_get_from_module(symbol) == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol_entity_specs_get_from_module(symbol);
+    scope_entry_t* c_funptr = get_c_funptr(module);
+    ERROR_CONDITION(c_funptr == NULL, "c_funptr not found!\n", 0);
+
+    scope_entry_t* proc_pointer = fortran_data_ref_get_symbol(argument_expressions[1]);
+
+    if (equivalent_types(t0, get_user_defined_type(c_funptr))
+        && is_pointer_to_function_type(t1)
+        && symbol_entity_specs_get_is_procedure_decl_stmt(proc_pointer))
+    {
+        return GET_INTRINSIC_IMPURE(symbol, "c_f_procpointer",
+                /* subroutine */ get_void_type(),
+                lvalue_ref(t0),
+                lvalue_ref(t1));
+    }
+    return NULL;
+}
+
 scope_entry_t* compute_intrinsic_c_funloc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -6861,14 +6939,24 @@ scope_entry_t* compute_intrinsic_c_funloc(scope_entry_t* symbol UNUSED_PARAMETER
     type_t* t0 = no_ref(argument_types[0]);
     scope_entry_t* sym = nodecl_get_symbol(argument_expressions[0]);
 
-    if ((sym->kind == SK_FUNCTION
-                // a procedure dummy argument
-                || (sym->kind == SK_VARIABLE
-                    && symbol_is_parameter_of_function(sym,
-                        sym->decl_context->current_scope->related_entry)))
-            && is_function_type(t0) // sanity check
-            && !nodecl_is_null(symbol_entity_specs_get_bind_info(sym))
-            && nodecl_get_kind(symbol_entity_specs_get_bind_info(sym)) == NODECL_FORTRAN_BIND_C)
+    if (
+            // 1. A procedure that is interoperable
+            ((sym->kind == SK_FUNCTION
+                && is_function_type(t0)
+                && !nodecl_is_null(symbol_entity_specs_get_bind_info(sym))
+                && nodecl_get_kind(symbol_entity_specs_get_bind_info(sym)) == NODECL_FORTRAN_BIND_C))
+
+             // 2. A function dummy argument (dummy procedures are included)
+            || (sym->kind == SK_VARIABLE
+                && symbol_is_parameter_of_function(sym,
+                    sym->decl_context->current_scope->related_entry)
+                && is_function_type(t0))
+
+            // 3. A procedure pointer
+            || (sym->kind == SK_VARIABLE
+                && is_pointer_type(t0)
+                && is_function_type(pointer_type_get_pointee_type(t0))
+                && symbol_entity_specs_get_is_procedure_decl_stmt(sym)))
     {
         return GET_INTRINSIC_INQUIRY(symbol, "c_funloc", get_user_defined_type(c_funptr),
                 lvalue_ref(t0));
@@ -7103,9 +7191,9 @@ static void fortran_init_intrinsic_module_iso_c_binding(const decl_context_t* de
         { "c_float", int_type, 4 },
         { "c_double", int_type, 8 },
         { "c_long_double", int_type, type_get_size(get_long_double_type()) },
-        { "c_float_complex", int_type, type_get_size(get_complex_type(get_float_type())) },
-        { "c_double_complex", int_type, type_get_size(get_complex_type(get_double_type())) },
-        { "c_long_double_complex", int_type, type_get_size(get_complex_type(get_long_double_type())) },
+        { "c_float_complex", int_type, type_get_size(get_float_type()) },
+        { "c_double_complex", int_type, type_get_size(get_double_type()) },
+        { "c_long_double_complex", int_type, type_get_size(get_long_double_type()) },
         { "c_bool", int_type, 1 },
         { "c_char", int_type, 1 },
 

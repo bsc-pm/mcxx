@@ -63,11 +63,19 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 {
     const decl_context_t* decl_context;
 
-    // Declared in cxx-buildscope.c
-    initialize_translation_unit_scope(translation_unit, &decl_context);
+    // The builtin symbols may use some C/C++ types that are not representable
+    // in Fortran such as 'pointer to function returning void'. For this reason
+    // we change the source language which also changes how pointers to
+    // functions are treated
+    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+    {
+        // Declared in cxx-buildscope.c
+        initialize_translation_unit_scope(translation_unit, &decl_context);
 
-    // Declared in cxx-buildscope.c
-    c_initialize_builtin_symbols(decl_context);
+        // Declared in cxx-buildscope.c
+        c_initialize_builtin_symbols(decl_context);
+    }
+    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 
     translation_unit->module_file_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 
@@ -112,9 +120,9 @@ static void fortran_init_globals(const decl_context_t* decl_context)
         { "mercurium_c_float", get_float_type(), 0},
         { "mercurium_c_double", get_double_type(), 0},
         { "mercurium_c_long_double", get_long_double_type(), 0},
-        { "mercurium_c_float_complex", get_complex_type(get_float_type()), 0},
-        { "mercurium_c_double_complex", get_complex_type(get_double_type()), 0},
-        { "mercurium_c_long_double_complex", get_complex_type(get_long_double_type()), 0},
+        { "mercurium_c_float_complex", get_float_type(), 0},
+        { "mercurium_c_double_complex", get_double_type(), 0},
+        { "mercurium_c_long_double_complex", get_long_double_type(), 0},
         { "mercurium_c_bool", get_bool_type(), 0},
         { "mercurium_c_char", get_char_type(), 0},
         { "mercurium_c_ptr", NULL, CURRENT_CONFIGURATION->type_environment->sizeof_pointer },
@@ -134,9 +142,6 @@ static void fortran_init_globals(const decl_context_t* decl_context)
         if (intrinsic_globals[i].backing_type != NULL)
         {
             size = type_get_size(intrinsic_globals[i].backing_type);
-            mercurium_intptr->value = const_value_to_nodecl(
-                    const_value_get_signed_int(
-                        type_get_size(intrinsic_globals[i].backing_type)));
         }
         else
         {
@@ -3538,10 +3543,11 @@ static void attr_spec_private_handler(AST a UNUSED_PARAMETER,
     attr_spec->is_private = 1;
 }
 
-static void attr_spec_bind_handler(AST a,
-                                   const decl_context_t *decl_context
-                                       UNUSED_PARAMETER,
-                                   attr_spec_t *attr_spec)
+static void attr_spec_bind_handler(
+        AST a,
+        const decl_context_t *decl_context
+        UNUSED_PARAMETER,
+        attr_spec_t *attr_spec)
 {
     AST bind_kind = ASTSon0(a);
     if (strcmp(ASTText(bind_kind), "c") != 0)
@@ -3553,38 +3559,28 @@ static void attr_spec_bind_handler(AST a,
         return;
     }
 
+    nodecl_t nodecl_bind_name = nodecl_null();
     AST bind_name_expr = ASTSon1(a);
-    if (bind_name_expr == NULL)
+    if (bind_name_expr != NULL)
     {
-        attr_spec->bind_info
-            = nodecl_make_fortran_bind_c(nodecl_null(), ast_get_locus(a));
-    }
-    else
-    {
-        nodecl_t nodecl_bind_name = nodecl_null();
-        if (bind_name_expr != NULL)
+        fortran_check_expression(bind_name_expr, decl_context, &nodecl_bind_name);
+
+        if (nodecl_is_err_expr(nodecl_bind_name))
         {
-            fortran_check_expression(
-                bind_name_expr, decl_context, &nodecl_bind_name);
-            if (nodecl_is_err_expr(nodecl_bind_name))
-            {
-                attr_spec->bind_info = nodecl_bind_name;
-                return;
-            }
-            else if (!nodecl_is_constant(nodecl_bind_name)
-                     || !fortran_is_character_type(
-                            no_ref(nodecl_get_type(nodecl_bind_name))))
-            {
-                error_printf_at(ast_get_locus(bind_name_expr),
-                                "NAME of BIND(C) must be a constant character "
-                                "expression\n");
-                attr_spec->bind_info = nodecl_make_err_expr(ast_get_locus(a));
-                return;
-            }
+            attr_spec->bind_info = nodecl_bind_name;
+            return;
         }
-        attr_spec->bind_info
-            = nodecl_make_fortran_bind_c(nodecl_bind_name, ast_get_locus(a));
+        else if (!nodecl_is_constant(nodecl_bind_name)
+                || !fortran_is_character_type(no_ref(nodecl_get_type(nodecl_bind_name))))
+        {
+            error_printf_at(ast_get_locus(bind_name_expr),
+                    "NAME of BIND(C) must be a constant character expression\n");
+            attr_spec->bind_info = nodecl_make_err_expr(ast_get_locus(a));
+            return;
+        }
     }
+
+    attr_spec->bind_info = nodecl_make_fortran_bind_c(nodecl_bind_name, ast_get_locus(a));
 }
 
 static nodecl_t check_bind(AST bind_spec, const decl_context_t *decl_context)
@@ -6984,10 +6980,8 @@ static void build_scope_interface_block(AST a,
     AST interface_specification_seq = ASTSon1(a);
 
     AST abstract = ASTSon0(interface_stmt);
-    if (abstract != NULL)
-    {
-        unsupported_construct(a, "ABSTRACT INTERFACE");
-    }
+
+    char is_abstract_interface = (abstract != NULL);
 
     AST generic_spec = ASTSon1(interface_stmt);
 
@@ -7096,6 +7090,19 @@ static void build_scope_interface_block(AST a,
                     &num_related_symbols,
                     &related_symbols,
                     &nodecl_pragma);
+
+            if (is_abstract_interface)
+            {
+                scope_entry_list_iterator_t *entry_it = NULL;
+                for (entry_it = entry_list_iterator_begin(entry_list);
+                        !entry_list_iterator_end(entry_it);
+                        entry_list_iterator_next(entry_it))
+                {
+                    scope_entry_t* sym = entry_list_iterator_current(entry_it);
+                    symbol_entity_specs_set_is_abstract(sym, 1);
+                }
+                entry_list_iterator_free(entry_it);
+            }
 
             entry_list_free(entry_list);
 
@@ -7691,10 +7698,14 @@ static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
     }
 
     symbol_entity_specs_set_is_implicit_basic_type(dest, 0);
+
+    symbol_entity_specs_set_procedure_decl_stmt_proc_interface(dest, orig);
 }
 
-static void synthesize_procedure_type(scope_entry_t* entry, 
-        scope_entry_t* interface, type_t* return_type, 
+static void synthesize_procedure_type(
+        scope_entry_t* entry,
+        scope_entry_t* interface,
+        type_t* return_type,
         const decl_context_t* decl_context,
         char do_pointer)
 {
@@ -7755,16 +7766,11 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
                     strtolower(ASTText(proc_interface)),
                     ast_get_locus(proc_interface));
 
-            if (interface == NULL
-                    || interface->kind != SK_FUNCTION)
-            {
-                error_printf_at(ast_get_locus(proc_interface), "'%s' is not an interface name\n",
-                        interface->symbol_name);
-                interface = NULL;
-            }
-            else if (interface->kind == SK_FUNCTION
-                    || (interface->kind == SK_VARIABLE
-                        && is_pointer_to_function_type(no_ref(interface->type_information))))
+            if (interface != NULL
+                    && (interface->kind == SK_FUNCTION
+                        || (interface->kind == SK_VARIABLE
+                            && (is_function_type(no_ref(interface->type_information))
+                                || is_pointer_to_function_type(no_ref(interface->type_information))))))
             {
                 type_t* function_type = no_ref(interface->type_information);
 
@@ -7780,6 +7786,12 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
 
                     interface = NULL;
                 }
+            }
+            else
+            {
+                error_printf_at(ast_get_locus(proc_interface), "'%s' is not an valid procedure interface\n",
+                        interface->symbol_name);
+                interface = NULL;
             }
         }
         else
@@ -7801,13 +7813,14 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
 
         AST init = NULL;
 
-        if (ASTKind(name) == AST_RENAME)
+        if (ASTKind(name) == AST_PROCEDURE_DECL)
         {
+            init = ASTSon1(name);
             name = ASTSon0(name);
-            init = ASTSon0(name);
         }
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        symbol_entity_specs_set_is_procedure_decl_stmt(entry, 1);
 
         if (symbol_entity_specs_get_is_builtin(entry))
         {
@@ -7896,14 +7909,23 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             }
         }
 
-
         if (init != NULL)
         {
             if (!is_pointer_type(entry->type_information))
             {
-                error_printf_at(ast_get_locus(name), "only procedure pointers can be initialized in a procedure declaration statement\n");
+                error_printf_at(ast_get_locus(name),
+                        "only procedure pointers can be initialized in a procedure declaration statement\n");
             }
-            internal_error("Not yet implemented", 0);
+
+            // The symbol has to be marked with the SAVE attribute if the initializer is present
+            symbol_entity_specs_set_is_static(entry, 1);
+
+            nodecl_t nodecl_init = nodecl_null();
+            fortran_check_initialization(entry, init, decl_context, /* is_pointer_init */ 1, &nodecl_init);
+            if (!nodecl_is_err_expr(nodecl_init))
+            {
+                entry->value = nodecl_init;
+            }
         }
     }
 }

@@ -371,6 +371,10 @@ struct pointer_tag
     // If the type was a TK_POINTER_TO_MEMBER
     // the pointee class
     type_t* pointee_class_type;
+
+    // In Fortran we need to know whether a pointer to function
+    // was a Fortran or a C/C++ type
+    _Bool is_fortran_function_pointer:1;
 } pointer_info_t;
 
 typedef
@@ -4380,6 +4384,7 @@ extern inline type_t* get_pointer_type(type_t* t)
         pointed_type->pointer = NEW0(pointer_info_t);
         pointed_type->pointer->pointee = t;
 
+
         if (is_array_type(t)
                 && array_type_with_descriptor(t))
         {
@@ -4390,6 +4395,7 @@ extern inline type_t* get_pointer_type(type_t* t)
         {
             if (is_function_type(t))
             {
+                pointed_type->pointer->is_fortran_function_pointer = IS_FORTRAN_LANGUAGE;
                 pointed_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer;
                 pointed_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_function_pointer;
             }
@@ -9097,6 +9103,16 @@ extern inline type_t* pointer_to_member_type_get_class_type(type_t *t)
     return t->pointer->pointee_class_type;
 }
 
+extern inline char pointer_to_function_type_is_fortran_function_pointer(type_t* t)
+{
+    ERROR_CONDITION(
+            !is_pointer_type(t) ||
+            !is_function_type(pointer_type_get_pointee_type(t)),
+            "This is not a pointer to function type", 0);
+
+    return t->pointer->is_fortran_function_pointer;
+}
+
 extern inline type_t* array_type_get_element_type(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
@@ -11329,6 +11345,7 @@ static void get_type_name_string_internal_impl(const decl_context_t* decl_contex
             }
         case TK_RVALUE_REFERENCE :
         case TK_LVALUE_REFERENCE :
+        case TK_REBINDABLE_REFERENCE :
             {
                 get_type_name_string_internal_impl(decl_context, type_info->pointer->pointee, left, right,
                         num_parameter_names, parameter_names, parameter_attributes, is_parameter,
@@ -11350,6 +11367,10 @@ static void get_type_name_string_internal_impl(const decl_context_t* decl_contex
                     {
                         (*left) = strappend((*left), "@ref@");
                     }
+                }
+                else if (type_info->kind == TK_REBINDABLE_REFERENCE)
+                {
+                    (*left) = strappend((*left), "@reb-ref@");
                 }
                 else
                 {
@@ -11611,7 +11632,7 @@ static void get_type_name_string_internal_impl(const decl_context_t* decl_contex
             }
         default:
             {
-                fprintf(stderr, "Unknown type kind '%d'\n", (int)type_info->kind);
+                internal_error("Unknown type kind '%d'\n", (int)type_info->kind);
                 break;
             }
     }

@@ -78,10 +78,13 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         fatal_error("Fortran for FPGA devices is not supported yet\n");
 
     // Unpack DTO
+    Lowering* lowering = info._lowering;
     const std::string& device_outline_name = fpga_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& arguments_struct = info._arguments_struct;
     const TL::Symbol& called_task = info._called_task;
+
+    lowering->seen_fpga_task = true;
 
     symbol_map = new Nodecl::Utils::SimpleSymbolMap(&_copied_fpga_functions);
 

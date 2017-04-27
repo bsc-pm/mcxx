@@ -30,6 +30,7 @@
 #include "tl-vectorizer-target-type-heuristic.hpp"
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorization-common.hpp"
+#include "tl-omp-reduction.hpp"
 
 #include "tl-counters.hpp"
 #include "hlt-loop-unroll.hpp"

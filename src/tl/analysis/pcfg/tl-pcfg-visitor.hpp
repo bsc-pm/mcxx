@@ -139,11 +139,11 @@ namespace Analysis {
          */
         Ret visit_literal_node(const Nodecl::NodeclBase& n);
 
-        //! This method implements the visitor for any kind of taskwait without dependences: TaskwaitDeep, TaskwaitShallow
+        //! This method implements the visitor for a taskwait without dependences
         Ret visit_taskwait(const Nodecl::NodeclBase& n);
 
         //! This method implements the visitor for taskwait on dependences
-        Ret visit_taskwait_on(const Nodecl::OmpSs::WaitOnDependences& n);
+        Ret visit_taskwait_on(const Nodecl::NodeclBase& n);
 
         //! This method implements the visitor for unary nodecls
         /*!
@@ -354,7 +354,6 @@ namespace Analysis {
         Ret visit(const Nodecl::OmpSs::TaskCall& n);
         Ret visit(const Nodecl::OmpSs::TaskExpression& n);
         Ret visit(const Nodecl::OmpSs::TaskLabel& n);
-        Ret visit(const Nodecl::OmpSs::WaitOnDependences& n);
         Ret visit(const Nodecl::OpenMP::Aligned& n);
         Ret visit(const Nodecl::OpenMP::Atomic& n);
         Ret visit(const Nodecl::OpenMP::Auto& n);
@@ -410,8 +409,7 @@ namespace Analysis {
         Ret visit(const Nodecl::OpenMP::Target& n);
         Ret visit(const Nodecl::OpenMP::TargetTaskUndeferred& n);
         Ret visit(const Nodecl::OpenMP::Task& n);
-        Ret visit(const Nodecl::OpenMP::TaskwaitDeep& n);
-        Ret visit(const Nodecl::OpenMP::TaskwaitShallow& n);
+        Ret visit(const Nodecl::OpenMP::Taskwait& n);
         Ret visit(const Nodecl::OpenMP::Uniform& n);
         Ret visit(const Nodecl::OpenMP::Unroll& n);
         Ret visit(const Nodecl::OpenMP::Untied& n);

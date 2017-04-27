@@ -403,6 +403,8 @@ namespace TL { namespace OpenMP {
 
     static void compute_nodecl_udr_(AST tree, const decl_context_t* decl_context, nodecl_t* nodecl_output, bool is_builtin)
     {
+        ERROR_CONDITION(ASTKind(tree) != AST_OMP_DECLARE_REDUCTION, "Unexpected node\n", 0);
+
         AST omp_dr_reduction_id = ASTSon0(tree);
         AST omp_dr_typename_list = ASTSon1(tree);
         AST omp_dr_combiner = ASTSon2(tree);

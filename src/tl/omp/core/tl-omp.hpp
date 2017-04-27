@@ -39,9 +39,10 @@ Cambridge, MA 02139, USA.
 
 #include "tl-datareference.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-pragmasupport.hpp"
+
 #include "tl-omp-deps.hpp"
 #include "tl-omp-reduction.hpp"
-#include "tl-pragmasupport.hpp"
 
 #include <map>
 #include <set>

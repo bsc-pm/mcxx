@@ -29,7 +29,6 @@
 #define TL_LOWER_REDUCTIONS_HPP
 
 #include "tl-lowering-utils.hpp"
-
 #include "tl-omp.hpp"
 
 namespace TL { namespace Intel {

@@ -1002,7 +1002,9 @@ OPERATOR_TABLE
                             type_specifier,
                             array_specifier,
                             /* force_deferred_shape */ false,
-                            /* without_type_qualifier */ true);
+                            /* without_type_qualifier */ true,
+                            /* is_procedure_declaration_statement */ false,
+                            /* procedure_interface */ TL::Symbol::invalid());
                     // Only in this case we emit the type-specifier
                     *(file) << type_specifier << " :: ";
                 }
@@ -1698,29 +1700,38 @@ OPERATOR_TABLE
         Nodecl::NodeclBase arguments = node.get_arguments();
         Nodecl::NodeclBase alternate_name = node.get_alternate_name();
 
-        Nodecl::NodeclBase function_name_in_charge = called;
 
-        if (!alternate_name.is_null())
+        if (called.is<Nodecl::Symbol>())
         {
-            function_name_in_charge = alternate_name;
+            // Do nothing
+        }
+        else if (called.is<Nodecl::Dereference>())
+        {
+            called = called.as<Nodecl::Dereference>().get_rhs();
+        }
+        else
+        {
+            internal_error("Unexpected node '%s'\n", ast_print_node_type(called.get_kind()));
         }
 
+        ERROR_CONDITION(!called.is<Nodecl::Symbol>(), "Unexpected node '%s'", ast_print_node_type(called.get_kind()));
         ERROR_CONDITION(!called.get_symbol().is_valid(), "Invalid symbol in call", 0);
 
         TL::Type function_type = called.get_symbol().get_type();
-
         if (function_type.is_any_reference())
             function_type = function_type.references_to();
 
         if (function_type.is_pointer())
-        {
             function_type = function_type.points_to();
-            ERROR_CONDITION(!called.is<Nodecl::Dereference>(), "The called entity should be derreferenced!", 0);
-            called = called.as<Nodecl::Dereference>().get_rhs();
-        }
 
         ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
         bool is_call = (function_type.returns().is_void());
+
+
+        // Use the alternate_name if it's valid
+        Nodecl::NodeclBase function_name_in_charge = called;
+        if (!alternate_name.is_null())
+            function_name_in_charge = alternate_name;
 
         TL::Symbol entry = function_name_in_charge.get_symbol();
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
@@ -3347,7 +3358,8 @@ OPERATOR_TABLE
         if (!state.in_interface)
         {
             indent();
-            *(file) << "INTERFACE\n";
+            char is_abstract_interface = symbol_entity_specs_get_is_abstract(entry.get_internal_symbol());
+            *(file) << (is_abstract_interface ? " ABSTRACT " : "") << "INTERFACE\n";
             inc_indent();
         }
         bool lacks_result = false;
@@ -3369,11 +3381,11 @@ OPERATOR_TABLE
         if (entry.get_result_variable().is_valid())
             related_symbols.append(entry.get_result_variable());
 
-        if (used_modules.is_valid())
         {
             UseStmtInfo use_stmt_info;
 
             // Check every related entries lest they require stuff coming from other modules
+            use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
             for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                     it != related_symbols.end();
                     it++)
@@ -3382,9 +3394,8 @@ OPERATOR_TABLE
                 emit_use_statement_if_symbol_comes_from_module(sym, entry.get_related_scope(), use_stmt_info);
             }
 
-            use_stmt_info.emit_iso_c_binding = entry.is_bind_c();
-
-            if (!used_modules.get_value().is_null()
+            if (used_modules.is_valid()
+                    && !used_modules.get_value().is_null()
                     && !_deduce_use_statements)
             {
                 if (use_stmt_info.emit_iso_c_binding)
@@ -3397,14 +3408,6 @@ OPERATOR_TABLE
             else
             {
                 emit_collected_use_statements(use_stmt_info);
-            }
-        }
-        else
-        {
-            if (entry.is_bind_c())
-            {
-                indent();
-                *(file) << "USE, INTRINSIC :: iso_c_binding\n";
             }
         }
 
@@ -3757,6 +3760,11 @@ OPERATOR_TABLE
         if (entry.is_variable()
                 && !entry.get_type().no_ref().is_function())
         {
+            TL::Symbol procedure_interface =
+                entry.get_prodecure_declaration_statement_procedure_interface();
+            if (procedure_interface.is_valid())
+                declare_symbol(procedure_interface, sc);
+
             std::string type_spec;
             std::string array_specifier;
             std::string initializer;
@@ -3932,9 +3940,12 @@ OPERATOR_TABLE
             bool keep_emit_interop = state.emit_interoperable_types;
             state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
 
+
             codegen_type_extended(declared_type, type_spec, array_specifier,
                     /* force_deferred_shape */ entry.is_allocatable(),
-                    /* without_type_qualifier */ false);
+                    /* without_type_qualifier */ false,
+                    entry.is_procedure_declaration_statement(),
+                    procedure_interface);
 
             state.emit_interoperable_types = keep_emit_interop;
 
@@ -4233,6 +4244,32 @@ OPERATOR_TABLE
                 *(file) << ") = ";
                 walk(entry.get_value());
                 *(file) << "\n";
+            }
+            else if (entry.is_procedure_declaration_statement())
+            {
+                TL::Symbol procedure_interface =
+                    entry.get_prodecure_declaration_statement_procedure_interface();
+                if (procedure_interface.is_valid())
+                    declare_symbol(procedure_interface, sc);
+
+                indent();
+                if (procedure_interface.is_valid())
+                {
+                    *(file) << "PROCEDURE(" << procedure_interface.get_name() << ") :: " << entry.get_name() << "\n";
+                }
+                else
+                {
+                    std::string return_type_spec;
+                    std::string return_type_array_spec;
+                    codegen_type(entry.get_type().returns(), return_type_spec, return_type_array_spec);
+                    *(file) << "PROCEDURE(" << return_type_spec << ") :: " << entry.get_name() << "\n";
+                }
+
+                if (entry.is_optional())
+                {
+                    indent();
+                    *(file) << "OPTIONAL :: " << entry.get_name() << "\n";
+                }
             }
             else
             {
@@ -5257,7 +5294,8 @@ OPERATOR_TABLE
 
         being_checked.insert(entry);
 
-        use_stmt_info.emit_iso_c_binding = use_stmt_info.emit_iso_c_binding || entry.is_bind_c();
+        use_stmt_info.emit_iso_c_binding =
+            use_stmt_info.emit_iso_c_binding || entry.is_bind_c() || entry.get_type().is_interoperable();
 
         if (entry.is_from_module())
         {
@@ -5604,30 +5642,37 @@ OPERATOR_TABLE
         if (!t.is_pointer())
             return false;
 
-        t = t.points_to();
-
-        return (t.is_bool()
-                || t.is_integral_type()
-                || t.is_floating_type()
-                || t.is_complex()
-                || (t.is_class() && !t.is_incomplete())
-                || t.is_enum()
-                || t.is_array()
+        TL::Type pointee = t.points_to();
+        return (pointee.is_bool()
+                || pointee.is_integral_type()
+                || pointee.is_floating_type()
+                || pointee.is_complex()
+                || (pointee.is_class() && !pointee.is_incomplete())
+                || pointee.is_enum()
+                || pointee.is_array()
                 // Fortran 2003
-                // || t.is_function()
-                || (fortran_is_character_type(t.get_internal_type())));
+                || (pointee.is_function()
+                        && pointer_to_function_type_is_fortran_function_pointer(t.get_internal_type()))
+                || (fortran_is_character_type(pointee.get_internal_type())));
     }
 
     void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier)
     {
         codegen_type_extended(t, type_specifier, array_specifier,
                 /* force_deferred_shape */ false,
-                /* without_type_qualifier */ false);
+                /* without_type_qualifier */ false,
+                /* is_procedure_declaration_statement */ false,
+                /* procedure_interface */ TL::Symbol::invalid());
     }
 
-    void FortranBase::codegen_type_extended(TL::Type t, std::string& type_specifier, std::string& array_specifier,
+    void FortranBase::codegen_type_extended(
+            TL::Type t,
+            std::string& type_specifier,  // Out
+            std::string& array_specifier, // Out
             bool force_deferred_shape,
-            bool without_type_qualifier)
+            bool without_type_qualifier,
+            bool is_procedure_declaration_statement,
+            TL::Symbol procedure_interface)
     {
         // We were requested to emit types as literals
         if (state.emit_types_as_literals)
@@ -5911,6 +5956,22 @@ OPERATOR_TABLE
 
             type_specifier = ss.str();
         }
+        else if (t.is_function())
+        {
+            std::stringstream ss;
+            if (procedure_interface.is_valid())
+            {
+                ss << "PROCEDURE(" << procedure_interface.get_name() << ")";
+            }
+            else
+            {
+                std::string return_type_spec;
+                std::string return_type_array_spec;
+                codegen_type(t.returns(), return_type_spec, return_type_array_spec);
+                ss << "PROCEDURE(" << return_type_spec << ")";
+            }
+            type_specifier = ss.str();
+        }
         // Special case for char* / const char*
         else if (t.is_pointer() && t.points_to().is_char())
         {
@@ -5936,7 +5997,7 @@ OPERATOR_TABLE
             }
             type_specifier = ss.str();
         }
-        else 
+        else
         {
             internal_error("Not a FORTRAN printable type '%s'\n", print_declarator(t.get_internal_type()));
         }

@@ -1,0 +1,27 @@
+! <testinfo>
+! test_generator="config/mercurium-fortran run"
+! </testinfo>
+
+SUBROUTINE TEST1()
+    IMPLICIT NONE
+    INTEGER, ALLOCATABLE :: PI
+    ALLOCATE(PI)
+    IF (.NOT.ALLOCATED(PI)) THEN
+        STOP -1
+    END IF
+END SUBROUTINE TEST1
+
+SUBROUTINE TEST2()
+    IMPLICIT NONE
+    INTEGER, ALLOCATABLE :: PI
+    ALLOCATE(PI)
+    IF (.NOT.ALLOCATED(PI)) THEN
+        STOP -2
+    ENDIF
+END SUBROUTINE TEST2
+
+PROGRAM P
+    IMPLICIT NONE
+    call TEST1()
+    call TEST2()
+END PROGRAM P

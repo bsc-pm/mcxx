@@ -1574,45 +1574,30 @@ endif		# BUILD_ANALYSIS
 ##########################################################################
 # src/tl/hlt
 ##########################################################################
-if BUILD_HLT
-
 lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
-
-HLT_ANALYSIS_CFLAGS= \
-			  -I $(srcdir)/src/tl/analysis/common \
-			  -I $(srcdir)/src/tl/analysis/liveness \
-			  -I $(srcdir)/src/tl/analysis/loops \
-			  -I $(srcdir)/src/tl/analysis/pcfg \
-			  -I $(srcdir)/src/tl/analysis/reach_defs \
-			  -I $(srcdir)/src/tl/analysis/interface \
-			  -I $(srcdir)/src/tl/analysis/test_phase \
-			  -I $(srcdir)/src/tl/analysis/use_def \
-			  -I $(srcdir)/src/tl/analysis/tdg \
-			  $(END)
-
-HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
 
 HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
 			  -I $(srcdir)/src/tl/omp/core \
 			  -I $(srcdir)/src/tl/omp/common \
-			  $(HLT_ANALYSIS_CFLAGS) \
 			  $(END)
 
 src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
 src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
 src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
-src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD) \
+src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) \
 		$(top_builddir)/src/tl/omp/common/libtlomp-common.la \
 		$(END)
 
 src_tl_hlt_libtl_hlt_la_SOURCES = \
-	  src/tl/hlt/hlt-common.hpp \
+      src/tl/hlt/hlt-common.hpp \
       src/tl/hlt/hlt-transform.hpp \
       src/tl/hlt/hlt-transform.cpp \
       src/tl/hlt/hlt-loop-normalize.hpp \
       src/tl/hlt/hlt-loop-normalize.cpp \
       src/tl/hlt/hlt-loop-unroll.hpp \
       src/tl/hlt/hlt-loop-unroll.cpp \
+      src/tl/hlt/hlt-loop-collapse.hpp \
+      src/tl/hlt/hlt-loop-collapse.cpp \
       $(END)
 
 phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
@@ -1626,8 +1611,6 @@ src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
       src/tl/hlt/hlt-pragma.cpp \
       src/tl/hlt/hlt-pragma.hpp \
       $(END)
-
-endif
 
 # ##########################################################################
 # # src/tl/vectorization/common
@@ -2341,9 +2324,11 @@ if BUILD_NANOS6
 phases_LTLIBRARIES += src/tl/ompss/nanos6/libtlnanos6-lowering.la
 
 src_tl_ompss_nanos6_libtlnanos6_lowering_la_CFLAGS = $(phases_cflags) \
+                                                        -I $(top_srcdir)/src/tl/omp/core \
                                                         -I $(top_srcdir)/src/tl/omp/common \
                                                         -I@NANOS6_INCLUDES@
 src_tl_ompss_nanos6_libtlnanos6_lowering_la_CXXFLAGS = $(phases_cxxflags) \
+                                                        -I $(top_srcdir)/src/tl/omp/core \
                                                         -I $(top_srcdir)/src/tl/omp/common \
                                                         -I@NANOS6_INCLUDES@
 
@@ -2368,6 +2353,8 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 								 src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-critical.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-unsupported.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-interface.hpp \
+								 src/tl/ompss/nanos6/tl-nanos6-interface.cpp \
 								 $(END)
 
 endif

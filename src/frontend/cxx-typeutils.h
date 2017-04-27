@@ -565,6 +565,7 @@ LIBMCXX_EXTERN type_t* function_type_replace_return_type_with_trailing_return(ty
 
 LIBMCXX_EXTERN type_t* pointer_type_get_pointee_type(type_t *t);
 LIBMCXX_EXTERN type_t* pointer_to_member_type_get_class_type(type_t *t);
+LIBMCXX_EXTERN char pointer_to_function_type_is_fortran_function_pointer(type_t *t);
 
 LIBMCXX_EXTERN scope_entry_list_t *unresolved_overloaded_type_get_overload_set(type_t* t);
 

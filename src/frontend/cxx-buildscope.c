@@ -4354,6 +4354,11 @@ static void apply_attributes_to_type(type_t** type,
     }
 }
 
+static char same_template_parameter_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2,
+        const decl_context_t* decl_context);
+
 static void gather_type_spec_from_elaborated_class_specifier(AST a,
         type_t** type_info,
         gather_decl_spec_t *gather_info,
@@ -4507,12 +4512,21 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     if (entry != NULL
             && entry->kind == SK_TEMPLATE)
     {
-        if (decl_context->template_parameters->num_parameters
-                != template_type_get_template_parameters(entry->type_information)->num_parameters)
+        if (decl_context->template_parameters == NULL)
         {
-            error_printf_at(ast_get_locus(id_expression), "redeclaration with %d template parameters while previous declaration used %d\n",
-                    decl_context->template_parameters->num_parameters,
-                    template_type_get_template_parameters(entry->type_information)->num_parameters);
+            error_printf_at(ast_get_locus(id_expression), "template argument required for class '%s'\n",
+                    get_qualified_symbol_name(entry, decl_context));
+            *type_info = get_error_type();
+            return;
+        }
+
+        if (!same_template_parameter_list(
+                    decl_context->template_parameters,
+                    template_type_get_template_parameters(entry->type_information),
+                    decl_context))
+        {
+            error_printf_at(ast_get_locus(id_expression),
+                    "redeclaration of '%s' with different template parameters\n", entry->symbol_name);
             *type_info = get_error_type();
             return;
         }
@@ -7422,11 +7436,6 @@ static void set_defaulted_outside_class_specifier(
         const locus_t* locus);
 static void build_noexcept_spec_delayed(scope_entry_t* entry);
 
-static char same_template_parameter_list(
-        template_parameter_list_t* template_parameter_list_1,
-        template_parameter_list_t* template_parameter_list_2,
-        const decl_context_t* decl_context);
-
 static char constructors_have_same_characteristics_for_inheritance(
         scope_entry_t* constructor1,
         scope_entry_t* constructor2,
@@ -9321,6 +9330,7 @@ struct delayed_function_def_tag
 {
     AST function_definition;
     scope_entry_t* entry;
+    const decl_context_t* decl_context;
     const decl_context_t* block_context;
     gather_decl_spec_t* gather_info;
 };
@@ -9330,6 +9340,7 @@ static struct delayed_function_def_tag _delayed_functions_def_list[MCXX_MAX_FUNC
 
 static void build_scope_delayed_add_delayed_function_def(AST function_definition,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         const decl_context_t* block_context,
         gather_decl_spec_t* gather_info)
 {
@@ -9344,6 +9355,7 @@ static void build_scope_delayed_add_delayed_function_def(AST function_definition
 
     _delayed_functions_def_list[_next_delayed_function_def].function_definition = function_definition;
     _delayed_functions_def_list[_next_delayed_function_def].entry = entry;
+    _delayed_functions_def_list[_next_delayed_function_def].decl_context = decl_context;
     _delayed_functions_def_list[_next_delayed_function_def].block_context = block_context;
     _delayed_functions_def_list[_next_delayed_function_def].gather_info = gather_info;
     _next_delayed_function_def++;
@@ -9361,6 +9373,7 @@ static void build_scope_delayed_function_def_clear_pending(void)
 static void build_scope_function_definition_body(
         AST function_definition,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         const decl_context_t* block_context,
         gather_decl_spec_t* gather_info,
         nodecl_t *nodecl_output);
@@ -9373,6 +9386,7 @@ static void build_scope_delayed_function_def(nodecl_t* nodecl_output)
         struct delayed_function_def_tag current = _delayed_functions_def_list[i];
 
         AST function_definition = current.function_definition;
+        const decl_context_t* decl_context = current.decl_context;
         const decl_context_t* block_context = current.block_context;
         scope_entry_t* entry = current.entry;
         gather_decl_spec_t* gather_info = current.gather_info;
@@ -9388,6 +9402,7 @@ static void build_scope_delayed_function_def(nodecl_t* nodecl_output)
         build_scope_function_definition_body(
                 function_definition,
                 entry,
+                decl_context,
                 block_context,
                 gather_info,
                 &nodecl_function_definition);
@@ -9699,12 +9714,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     return;
                 }
 
-                if (decl_context->template_parameters->num_parameters
-                        != template_type_get_template_parameters(template_sym->type_information)->num_parameters)
+                if (!same_template_parameter_list(
+                            decl_context->template_parameters,
+                            template_type_get_template_parameters(template_sym->type_information),
+                            decl_context))
                 {
-                    error_printf_at(ast_get_locus(class_id_expression), "redeclaration with %d template parameters while previous declaration used %d\n",
-                            decl_context->template_parameters->num_parameters,
-                            template_type_get_template_parameters(template_sym->type_information)->num_parameters);
+                    error_printf_at(ast_get_locus(class_id_expression),
+                            "redeclaration of '%s' with different template parameters\n", template_sym->symbol_name);
                     *type_info = get_error_type();
                     return;
                 }
@@ -17050,10 +17066,39 @@ static nodecl_t generate_compound_statement_for_try_block(
 static void build_scope_function_definition_body(
         AST function_definition,
         scope_entry_t* entry,
+        const decl_context_t* decl_context,
         const decl_context_t* block_context,
         gather_decl_spec_t* gather_info,
         nodecl_t *nodecl_output)
 {
+
+    // If the return type or the type of any argument is a class type, it must
+    // be a complete type
+    CXX_LANGUAGE()
+    {
+        type_t* return_type = function_type_get_return_type(entry->type_information);
+        if (return_type != NULL
+                && !is_dependent_type(return_type)
+                && is_named_class_type(return_type))
+        {
+            scope_entry_t* symbol = named_type_get_symbol(return_type);
+            class_type_complete_if_possible(symbol, decl_context, ast_get_locus(function_definition));
+        }
+
+        int i;
+        for (i = 0; i < function_type_get_num_parameters(entry->type_information); ++i)
+        {
+            type_t* param_type = function_type_get_parameter_type_num(entry->type_information, i);
+            if (param_type != NULL
+                    && !is_dependent_type(param_type)
+                    && is_named_class_type(param_type))
+            {
+                scope_entry_t* symbol = named_type_get_symbol(param_type);
+                class_type_complete_if_possible(symbol, decl_context, ast_get_locus(function_definition));
+            }
+        }
+    }
+
     // Function_body
     AST function_body = ASTSon2(function_definition);
     AST statement = ASTSon0(function_body);
@@ -17351,6 +17396,7 @@ static scope_entry_t* build_scope_function_definition(
     build_scope_function_definition_body(
             function_definition,
             entry,
+            decl_context,
             block_context,
             &gather_info,
             nodecl_output);
@@ -18002,7 +18048,7 @@ static scope_entry_t* build_scope_member_function_definition(
         class_type_add_member(get_actual_class_type(class_info), entry, decl_context, /* is_definition */ 1);
     }
 
-    build_scope_delayed_add_delayed_function_def(function_definition, entry, block_context, gather_info);
+    build_scope_delayed_add_delayed_function_def(function_definition, entry, decl_context, block_context, gather_info);
 
     return entry;
 }

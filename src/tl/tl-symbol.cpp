@@ -1058,4 +1058,14 @@ namespace TL
     {
         return symbol_entity_specs_get_from_module_name(_symbol);
     }
+
+    bool Symbol::is_procedure_declaration_statement() const
+    {
+        return symbol_entity_specs_get_is_procedure_decl_stmt(_symbol);
+    }
+
+    Symbol Symbol::get_prodecure_declaration_statement_procedure_interface() const
+    {
+        return symbol_entity_specs_get_procedure_decl_stmt_proc_interface(_symbol);
+    }
 }

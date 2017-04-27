@@ -159,14 +159,17 @@ namespace Codegen
 
             void visit(const Nodecl::CxxDepNameSimple& node);
 
-            void codegen_type(TL::Type t, 
-                    std::string& type_specifier, 
+            void codegen_type(TL::Type t,
+                    std::string& type_specifier,
                     std::string& array_specifier);
-            void codegen_type_extended(TL::Type t, 
-                    std::string& type_specifier, 
+
+            void codegen_type_extended(TL::Type t,
+                    std::string& type_specifier,
                     std::string& array_specifier,
                     bool force_deferred_shape,
-                    bool without_type_qualifier);
+                    bool without_type_qualifier,
+                    bool is_procedure_declaration_statement,
+                    TL::Symbol procedure_interface);
 
             virtual void push_scope(TL::Scope sc) { }
             virtual void pop_scope() { }

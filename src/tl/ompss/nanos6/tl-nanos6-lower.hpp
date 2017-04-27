@@ -45,24 +45,27 @@ namespace TL { namespace Nanos6 {
                 std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map)
             : _phase(phase), _final_stmts_map(final_stmts_map) { }
 
-            virtual void visit(const Nodecl::OpenMP::Task& n);
-            void lower_task(const Nodecl::OpenMP::Task& n);
-            void lower_task(const Nodecl::OpenMP::Task& n, Nodecl::NodeclBase& node);
-            virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& n);
-            virtual void visit(const Nodecl::OmpSs::TaskCall& n);
-            virtual void visit(const Nodecl::OpenMP::Critical& n);
-            virtual void visit(const Nodecl::OpenMP::Atomic& n);
+            void visit(const Nodecl::OpenMP::Task& n);
+            void visit(const Nodecl::OpenMP::Taskwait& n);
+            void visit(const Nodecl::OmpSs::TaskCall& n);
+            void visit(const Nodecl::OpenMP::Critical& n);
+            void visit(const Nodecl::OpenMP::Atomic& n);
 
             // Unsupported
-            virtual void visit(const Nodecl::OpenMP::Taskyield &n);
-            virtual void visit(const Nodecl::OpenMP::For &n);
-            virtual void visit(const Nodecl::OpenMP::BarrierFull &n);
-            virtual void visit(const Nodecl::OmpSs::WaitOnDependences &n);
-            virtual void visit(const Nodecl::OpenMP::FlushMemory &n);
-            virtual void visit(const Nodecl::OmpSs::Register &n);
-            virtual void visit(const Nodecl::OmpSs::Unregister &n);
+            void visit(const Nodecl::OpenMP::Taskyield &n);
+            void visit(const Nodecl::OpenMP::For &n);
+            void visit(const Nodecl::OpenMP::BarrierFull &n);
+            void visit(const Nodecl::OpenMP::FlushMemory &n);
+            void visit(const Nodecl::OmpSs::Register &n);
+            void visit(const Nodecl::OmpSs::Unregister &n);
 
         private:
+            void lower_taskwait(const Nodecl::OpenMP::Taskwait& n);
+            void lower_taskwait_with_dependences(const Nodecl::OpenMP::Taskwait& n);
+
+            void lower_task(const Nodecl::OpenMP::Task& n);
+            void lower_task(const Nodecl::OpenMP::Task& n, Nodecl::NodeclBase& serial_stmts);
+
             void visit_task_call(const Nodecl::OmpSs::TaskCall& construct);
             void visit_task_call_c(const Nodecl::OmpSs::TaskCall& construct);
             void visit_task_call_fortran(const Nodecl::OmpSs::TaskCall& construct);

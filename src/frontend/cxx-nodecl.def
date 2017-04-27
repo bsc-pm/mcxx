@@ -563,9 +563,8 @@ sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]omp-exec-environment-
 
 section-construct : NODECL_OPEN_M_P*SECTION([statements]statement-seq)
 
-synchronization : NODECL_OPEN_M_P*TASKWAIT_SHALLOW([environment]omp-exec-environment-seq-opt)
+synchronization : NODECL_OPEN_M_P*TASKWAIT([environment]omp-exec-environment-seq-opt)
 # All levels of async
-                | NODECL_OPEN_M_P*TASKWAIT_DEEP()
                 | NODECL_OPEN_M_P*FLUSH_MEMORY([expressions] expression-seq-opt)
 # Full barrier
                 | NODECL_OPEN_M_P*BARRIER_FULL([environment]omp-exec-environment-seq-opt)
@@ -603,6 +602,7 @@ omp-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_sym
 
 omp-construct-info : NODECL_OPEN_M_P*COMBINED_WITH_PARALLEL()
                    | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
+                   | NODECL_OPEN_M_P*TASKWAIT_DEP()
 
 omp-sync-info : NODECL_OPEN_M_P*BARRIER_AT_END()
 
@@ -698,8 +698,6 @@ task-expression : NODECL_OMP_SS*TASK_EXPRESSION([join_task] statement, [task_cal
 top-level: target-declaration
 
 target-declaration : NODECL_OMP_SS*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
-
-synchronization : NODECL_OMP_SS*WAIT_ON_DEPENDENCES([environment]omp-exec-environment-seq-opt)
 
 parallel-statements: data-coordination
 

@@ -55,7 +55,7 @@ namespace TL {
                    _already_visited(),
                    _function_translation_map(function_tranlation_map) { }
 
-             void visit(const Nodecl::OpenMP::TaskwaitShallow& taskwait)
+             void visit(const Nodecl::OpenMP::Taskwait& taskwait)
              {
                 ++_num_task_related_pragmas;
                 // There is nothing to walk in a taskwait
@@ -164,7 +164,7 @@ namespace TL {
                    _function_translation_map(function_tranlation_map),
                    _function_codes_to_be_duplicated(function_codes_to_be_duplicated) { }
 
-             void visit(const Nodecl::OpenMP::TaskwaitShallow& taskwait)
+             void visit(const Nodecl::OpenMP::Taskwait& taskwait)
              {
                 Nodecl::Utils::remove_from_enclosing_list(taskwait);
              }

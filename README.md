@@ -25,8 +25,13 @@ the compiler).
 2. Download Mercurium's code
     1. From our repo
         * Clone Mercurium's repository
+    
+            - From GitHub:
+            
+                    $ git clone https://github.com/bsc-pm/mcxx.git
+            - From our internal GitLab repository (BSC users only):
 
-                $ git clone https://github.com/bsc-pm/mcxx.git
+                    $ git clone https://pm.bsc.es/gitlab/mercurium/mcxx.git
         * Run `autoreconf` in the newly created `mcxx` directory
 
                 $ cd mcxx

@@ -112,6 +112,6 @@ OMP_CONSTRUCT_NOEND("target|teams|distribute|parallel|do", target_teams_distribu
 // OMP_CONSTRUCT("target|teams|distribute|parallel|for|simd", target_teams_distribute_parallel_for_simd, IS_C_LANGUAGE || IS_CXX_LANGUAGE)
 // OMP_CONSTRUCT_NOEND("target|teams|distribute|parallel|do|simd", target_teams_distribute_parallel_do_simd, IS_FORTRAN_LANGUAGE)
 
-// OpenMP 4.1?
+// OpenMP 4.5
 OMP_CONSTRUCT_NOEND("taskloop", taskloop, true)
 

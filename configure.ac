@@ -1805,7 +1805,6 @@ AM_CONDITIONAL([BUILD_ANALYSIS],      test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_AUTO_SCOPE],    test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
-AM_CONDITIONAL([BUILD_HLT],           test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
 
 VECTORIZATION_ENABLED=$is_enabled_vectorization

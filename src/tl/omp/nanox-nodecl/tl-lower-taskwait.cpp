@@ -36,15 +36,39 @@ struct TaskWaitVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
         bool is_noflush;
+        bool has_dependences;
 
         TaskWaitVisitor()
-            : is_noflush(false)
+            : is_noflush(false), has_dependences(false)
         {
         }
 
         void visit(const Nodecl::OpenMP::NoFlush&)
         {
             is_noflush = true;
+        }
+
+        void visit(const Nodecl::OpenMP::DepIn& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OpenMP::DepOut& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OpenMP::DepInout& n)
+        {
+            has_dependences = true;
+        }
+        void visit(const Nodecl::OmpSs::Commutative& n)
+        {
+            error_printf_at(n.get_locus(),
+                    "commutative dependences are not supported on the taskwait construct\n");
+        }
+        void visit(const Nodecl::OmpSs::Concurrent& n)
+        {
+            error_printf_at(n.get_locus(),
+                    "concurrent dependences are not supported on the taskwait construct\n");
         }
 };
 
@@ -158,24 +182,14 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
     construct.replace(n);
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
-{
-    OutlineInfo outline_info(*_lowering, Nodecl::NodeclBase::null());
-    TaskWaitVisitor taskwait_info;
-    taskwait_info.walk(construct.get_environment());
-
-    emit_wait_async(construct, /* has_dependences */ false, outline_info, taskwait_info.is_noflush);
-}
-
-void LoweringVisitor::visit(const Nodecl::OmpSs::WaitOnDependences& construct)
+void LoweringVisitor::visit(const Nodecl::OpenMP::Taskwait& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
     OutlineInfo outline_info(*_lowering, environment);
-
     TaskWaitVisitor taskwait_info;
     taskwait_info.walk(construct.get_environment());
 
-    emit_wait_async(construct, /* has_dependences */ true, outline_info, taskwait_info.is_noflush);
+    emit_wait_async(construct, taskwait_info.has_dependences, outline_info, taskwait_info.is_noflush);
 }
 
 } }
