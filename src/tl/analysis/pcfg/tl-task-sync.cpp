@@ -972,7 +972,6 @@ namespace {
         bool changes;
         do
         {
-            // std::cerr << "Computing task synchronizations" << std::endl;
             changes = false;
             int next_domain_id = 1;
             compute_task_synchronizations_rec(root, changes, points_of_sync,
@@ -1118,55 +1117,62 @@ namespace {
         const ObjectList<Node*> children = task->get_children();
         for (ObjectList<Node*>::const_iterator it = all_tasks.begin(); it != all_tasks.end(); ++it)
         {
-            if ((*it) != task)
+            if ((*it) == task)
+                continue;
+
+            const ObjectList<Node*>& it_children = (*it)->get_children();
+            // If some children is a post_sync, then the task is concurrent
+            for (ObjectList<Node*>::const_iterator itc = it_children.begin(); itc != it_children.end(); ++itc)
             {
-                const ObjectList<Node*>& it_children = (*it)->get_children();
-                // If some children is a post_sync, then the task is concurrent
-                for (ObjectList<Node*>::const_iterator itc = it_children.begin(); itc != it_children.end(); ++itc)
+                if ((*itc)->is_omp_virtual_tasksync())
+                    concurrent_tasks.insert(*it);
+            }
+            // If current task is an ancestor of the task and it synchronizes after the task, then it is concurrent
+            Node* it_creation = ExtensibleGraph::get_task_creation_from_task((*it));
+            while (it_creation != NULL)
+            {
+                if (ExtensibleGraph::node_is_ancestor_of_node(it_creation, task_creation))
                 {
-                    if ((*itc)->is_omp_virtual_tasksync())
-                        concurrent_tasks.insert(*it);
-                }
-                // If current task is an ancestor of the task and it synchronizes after the task, then it is concurrent
-                Node* it_creation = ExtensibleGraph::get_task_creation_from_task((*it));
-                while (it_creation != NULL)
-                {
-                    if (ExtensibleGraph::node_is_ancestor_of_node(it_creation, task_creation))
+                    // Check whether it synchronizes after the task scheduling point
+                    std::queue<Node*> buff;
+                    for (ObjectList<Node*>::const_iterator itc = it_children.begin(); itc != it_children.end(); ++itc)
                     {
-                        // Check whether it synchronizes after the task scheduling point
-                        std::queue<Node*> buff;
-                        for (ObjectList<Node*>::const_iterator itc = it_children.begin(); itc != it_children.end(); ++itc)
-                            buff.push(*itc);
+                        if ((*itc)->is_omp_virtual_tasksync() || *itc == task)
+                            continue;
+                        buff.push(*itc);
+                    }
+
+                    while (!buff.empty())
+                    {
+                        Node* current = buff.front();
+                        buff.pop();
                         
-                        while(!buff.empty())
+                        for (ObjectList<Node*>::const_iterator itc = children.begin(); itc != children.end(); ++itc)
                         {
-                            Node* current = buff.front();
-                            buff.pop();
-                            
-                            for (ObjectList<Node*>::const_iterator itc = children.begin(); itc != children.end(); ++itc)
+                            if (*itc == task)
+                                continue;
+
+                            if (ExtensibleGraph::node_is_ancestor_of_node(*itc, current))
                             {
-                                if (ExtensibleGraph::node_is_ancestor_of_node(*itc, current))
-                                {
-                                    concurrent_tasks.insert(*it);
-                                    goto task_synchronized;
-                                }
-                                else if ((*itc)->is_omp_task_node()
-                                    || (*itc)->is_omp_async_target_node())
-                                {
-                                    buff.push(*itc);
-                                }
+                                concurrent_tasks.insert(*it);
+                                goto task_synchronized;
+                            }
+                            else if ((*itc)->is_omp_task_node()
+                                || (*itc)->is_omp_async_target_node())
+                            {
+                                buff.push(*itc);
                             }
                         }
+                    }
 task_synchronized:      break;
-                    }
+                }
+                else
+                {
+                    Node* enclosing_task = ExtensibleGraph::get_enclosing_task(it_creation);
+                    if (enclosing_task != NULL)
+                        it_creation = ExtensibleGraph::get_task_creation_from_task(enclosing_task);
                     else
-                    {
-                        Node* enclosing_task = ExtensibleGraph::get_enclosing_task(it_creation);
-                        if (enclosing_task != NULL)
-                            it_creation = ExtensibleGraph::get_task_creation_from_task(enclosing_task);
-                        else
-                            it_creation = NULL;
-                    }
+                        it_creation = NULL;
                 }
             }
         }
@@ -1462,7 +1468,7 @@ task_synchronized:      break;
             
             // Collect any nested task previous to the last synchronization point that has not been synchronized
             if ((*itl)->is_omp_taskwait_node())
-            {   
+            {
                 collect_previous_tasks_synchronized_after_scheduling_point(
                         task, _graph->get_tasks_list(), concurrent_tasks);
             }
