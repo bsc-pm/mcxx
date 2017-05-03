@@ -402,7 +402,8 @@ namespace TL
         return this->get_arguments_as_expressions(_pragma_line.retrieve_context(), tokenizer);
     }
 
-    TL::PragmaCustomClause PragmaCustomLine::get_clause(const ObjectList<std::string>& aliased_names,
+    TL::PragmaCustomClause PragmaCustomLine::get_clause(
+            const ObjectList<std::string>& aliased_names,
             const ObjectList<std::string>& deprecated_names) const
     {
         ObjectList<Nodecl::PragmaCustomClause> result;
@@ -431,20 +432,24 @@ namespace TL
         return PragmaCustomClause(*this, result);
     }
 
-    TL::PragmaCustomClause PragmaCustomLine::get_clause(const ObjectList<std::string>& aliased_names) const
+    TL::PragmaCustomClause PragmaCustomLine::get_clause(
+            const ObjectList<std::string>& aliased_names) const
     {
-        return get_clause(aliased_names, ObjectList<std::string>());
+        return get_clause(aliased_names, /* deprecated_names */ ObjectList<std::string>());
     }
 
-    TL::PragmaCustomClause PragmaCustomLine::get_clause(const std::string &name, 
+    TL::PragmaCustomClause PragmaCustomLine::get_clause(
+            const std::string &name,
             const ObjectList<std::string>& deprecated_names) const
     {
-        ObjectList<std::string> set;
-        set.append(name);
-        return get_clause(set, deprecated_names);
+        ObjectList<std::string> aliased_names;
+        aliased_names.append(name);
+        return get_clause(aliased_names, deprecated_names);
     }
-    
-    TL::PragmaCustomClause PragmaCustomLine::get_clause(const std::string &name, const std::string& deprecated_name) const
+
+    TL::PragmaCustomClause PragmaCustomLine::get_clause(
+            const std::string &name,
+            const std::string& deprecated_name) const
     {
         ObjectList<std::string> deprecated_names;
         deprecated_names.append(deprecated_name);
@@ -452,9 +457,10 @@ namespace TL
         return get_clause(name, deprecated_names);
     }
 
-    TL::PragmaCustomClause PragmaCustomLine::get_clause(const std::string &name) const
+    TL::PragmaCustomClause PragmaCustomLine::get_clause(
+            const std::string &name) const
     {
-        return get_clause(name, ObjectList<std::string>());
+        return get_clause(name, /* deprecated_names */ ObjectList<std::string>());
     }
 
     ObjectList<Nodecl::PragmaCustomClause> PragmaCustomLine::get_all_clauses_nodes() const

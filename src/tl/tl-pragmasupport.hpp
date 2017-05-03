@@ -271,12 +271,12 @@ namespace TL
             //! Returns a clause by name or a list of deprecated names
             TL::PragmaCustomClause get_clause(const std::string &name,
                     const ObjectList<std::string>& deprecated_names) const;
-            
+
             //! Returns a clause by a set of alias names and deprecated names
             TL::PragmaCustomClause get_clause(
                     const ObjectList<std::string>& aliased_names,
                     const ObjectList<std::string>& deprecated_names) const;
-            
+
             //! This function returns all clauses in the order they appear in the pragma
             ObjectList<TL::PragmaCustomSingleClause> get_all_clauses() const;
 
@@ -588,6 +588,7 @@ namespace TL
              */
             void warning_pragma_unused_clauses(bool warning);
 
+            //! This function removes all '|' separators of a directive name
             static std::string remove_separators_of_directive(const std::string& str);
     };
 
