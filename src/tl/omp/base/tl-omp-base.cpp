@@ -199,6 +199,9 @@ namespace TL { namespace OpenMP {
             this->set_ignore_template_functions(true);
         }
 
+        Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
+        apply_openmp_high_level_transformations(translation_unit);
+
         _core.run(dto);
 
         if (diagnostics_get_error_count() != 0)
@@ -231,7 +234,6 @@ namespace TL { namespace OpenMP {
         std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set =
             std::static_pointer_cast<TL::OmpSs::FunctionTaskSet>(dto["openmp_task_info"]);
 
-        Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
         OmpSs::TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,

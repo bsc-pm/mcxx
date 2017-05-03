@@ -1793,6 +1793,7 @@ src_tl_omp_base_libtlomp_base_la_CFLAGS = $(phases_cflags) \
 src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cxxflags) \
                          -I $(srcdir)/src/tl/omp/common \
                          -I $(srcdir)/src/tl/omp/core \
+                         -I $(srcdir)/src/tl/hlt \
                          -I $(srcdir)/src/tl/vectorization/common \
                          -I $(srcdir)/src/tl/vectorization/vectorizer \
                          -I $(srcdir)/src/tl/analysis/interface\
@@ -1803,6 +1804,7 @@ src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cxxflags) \
 
 src_tl_omp_base_libtlomp_base_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_base_libtlomp_base_la_LIBADD = $(phases_libadd) \
+			    $(top_builddir)/src/tl/hlt/libtl-hlt.la \
                             $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
                             $(END)
 
@@ -1819,6 +1821,7 @@ src_tl_omp_base_libtlomp_base_la_SOURCES = \
    src/tl/omp/base/tl-omp-base-utils.cpp \
    src/tl/omp/base/tl-omp-base.hpp \
    src/tl/omp/base/tl-omp-base.cpp \
+   src/tl/omp/base/tl-omp-base-hlt.cpp \
    src/tl/omp/base/tl-omp-base-devices.cpp \
    src/tl/omp/base/tl-ompss-base-task.hpp \
    src/tl/omp/base/tl-ompss-base-task.cpp \

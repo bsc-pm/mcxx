@@ -208,6 +208,10 @@ namespace TL
                 void register_omp();
                 void register_ompss();
 
+                //! This function is called before executing the OpenMP::Core phase.
+                //! It applies the OpenMP high level transformations, such as the collapse clause
+                void apply_openmp_high_level_transformations(Nodecl::NodeclBase translation_unit);
+
 #ifndef VECTORIZATION_DISABLED
                 void register_simd_function(
                         OpenMP::DataEnvironment& ds,
