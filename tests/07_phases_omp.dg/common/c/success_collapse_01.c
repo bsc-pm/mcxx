@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -32,41 +32,64 @@ test_generator=config/mercurium-omp
 </testinfo>
 */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include<assert.h>
 
-int main(int argc, char *argv[])
+#define N 10
+
+void init(int (*v)[N])
 {
-    int m[3][4][5];
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j)
+            v[i][j] = 0;
+}
 
-    int i, j, k;
+void check(int (*v)[N])
+{
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j)
+            assert(v[i][j] == 1);
+}
 
-#pragma omp for collapse(3) shared(m)
-    for (i = 0; i < 3; i++)
+int main(int argc, char* argv[])
+{
+    int v[N][N];
+    int i, j;
+
     {
-        for (j = 0; j < 4; j++)
-        {
-            for (k = 0; k < 5; k++)
-            {
-                m[i][j][k] = i + j + k;
-            }
-        }
+        init(v);
+        #pragma omp parallel for collapse(2)
+        for(i = 0; i < N; ++i)
+            for(j = 0; j < N; ++j)
+                v[i][j] += 1;
+        check(v);
     }
 
-    for (i = 0; i < 3; i++)
     {
-        for (j = 0; j < 4; j++)
+        init(v);
+        #pragma omp parallel
         {
-            for (k = 0; k < 5; k++)
+            #pragma omp for collapse(2)
+            for(i = 0; i < N; ++i)
+                for(j = 0; j < N; ++j)
+                    v[i][j] += 1;
+        }
+        check(v);
+    }
+
+    {
+        init(v);
+        #pragma omp parallel
+        {
+            #pragma omp single
             {
-                if (m[i][j][k] != i + j + k)
-                {
-                    fprintf(stderr, "Invalid m[%d][%d][%d] = %d != %d\n", 
-                            i, j, k, m[i][j][k], i + j + k);
-                    abort();
-                }
+                int SIZE = N;
+                #pragma omp taskloop grainsize(SIZE) collapse(2)
+                for(i = 0; i < N; ++i)
+                    for(j = 0; j < N; ++j)
+                        v[i][j] += 1;
             }
         }
+        check(v);
     }
 
     return 0;
