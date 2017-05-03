@@ -72,9 +72,12 @@ namespace TL { namespace HLT {
     //        -- Complete dimension of outermost loop, to be used to mask 'i' increment
     //        const int collapse_0_rounded_size = collapse_0_num_elements*collapse_0_step;
     //
+    //        -- Induction variable of the collapsed loop
+    //        long long int collapse_it;
+    //
     //      -- Collapsed loop:
     //
-    //        for (long long int collapse_it = 0; collapse_it < collapse_1_num_elements*collapse_0_num_elements; ++collapse_it)
+    //        for (collapse_it = 0; collapse_it < collapse_1_num_elements*collapse_0_num_elements; ++collapse_it)
     //        {
     //          -- Compute new i, j indexes:
     //
@@ -96,32 +99,9 @@ namespace TL { namespace HLT {
 
             int _collapse_factor;
 
-            struct LoopInfo
-            {
-                TL::Symbol induction_var;
-                Nodecl::NodeclBase lower_bound;
-                Nodecl::NodeclBase upper_bound;
-                Nodecl::NodeclBase step;
-            };
-
-            static void compute_collapse_statements(
-                    int collapse_factor,
-                    TL::Symbol collapse_induction_var,
-                    // Inout
-                    TL::ObjectList<LoopInfo>& loop_info,
-                    TL::Scope& collapse_scope,
-                    TL::Scope& loop_statements_scope,
-                    // Out
-                    Nodecl::List& collapse_statements,
-                    Nodecl::List& loop_statements,
-                    Nodecl::NodeclBase& condition_bound);
-
-            static void compute_loop_information(
-                    Nodecl::NodeclBase node,
-                    int collapse_factor,
-                    // Out
-                    TL::ObjectList<LoopInfo>& loop_info,
-                    Nodecl::List& loop_statements);
+            //! After collapsing a loop that was annotated with a OpenMP
+            //! directive, this list contains symbols that should be captured
+            TL::ObjectList<TL::Symbol> _omp_capture_symbols;
 
         public:
             LoopCollapse();
@@ -136,6 +116,7 @@ namespace TL { namespace HLT {
 
             // Results
             Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
+            TL::ObjectList<TL::Symbol> get_omp_capture_symbols() const;
     };
 }}
 #endif // HLT_COLLAPSE_LOOP_HPP
