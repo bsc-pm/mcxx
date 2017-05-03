@@ -282,7 +282,7 @@ namespace TL
 
             //! This function returns all clause names in the order they appear in the pragma
             ObjectList<std::string> get_all_clause_names() const;
-            
+
             //! This function returns the parameter
             /*!
              * The parameter of the clause is just a special clause with no name that can appear
@@ -292,6 +292,9 @@ namespace TL
 
             //! Emits a diagnostic warning about unused clauses
             void diagnostic_unused_clauses() const;
+
+            //! Removes all the clauses that match the name if any
+            void remove_clause(const std::string& name);
 
             private:
                 ObjectList<Nodecl::PragmaCustomClause> get_all_clauses_nodes() const;

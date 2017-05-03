@@ -32,6 +32,7 @@
 #include "cxx-utils.h"
 #include "cxx-diagnostic.h"
 #include "tl-pragmasupport.hpp"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL
 {
@@ -543,6 +544,21 @@ namespace TL
                 warn_printf_at(it->get_locus(),
                         "ignoring clause '%s'\n",
                         current_clause.get_text().c_str());
+            }
+        }
+    }
+
+    void PragmaCustomLine::remove_clause(const std::string& name)
+    {
+        ObjectList<Nodecl::PragmaCustomClause> clauses = this->get_all_clauses_nodes();
+        for (ObjectList<Nodecl::PragmaCustomClause>::iterator it = clauses.begin();
+                it != clauses.end();
+                it++)
+        {
+            Nodecl::PragmaCustomClause clause(*it);
+            if (name == clause.get_text())
+            {
+                Nodecl::Utils::remove_from_enclosing_list(clause);
             }
         }
     }
