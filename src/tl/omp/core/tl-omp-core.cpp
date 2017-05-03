@@ -1811,7 +1811,8 @@ namespace TL { namespace OpenMP {
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                collapse_check_loop(construct);
+                error_printf_at(construct.get_locus(),
+                        "The 'collapse' clause should have been removed at this point\n");
             }
 
             _openmp_info->push_current_data_environment(data_environment);
@@ -1836,7 +1837,8 @@ namespace TL { namespace OpenMP {
 
         if (construct.get_pragma_line().get_clause("collapse").is_defined())
         {
-            collapse_check_loop(construct);
+            error_printf_at(construct.get_locus(),
+                    "The 'collapse' clause should have been removed at this point\n");
         }
 
         _openmp_info->push_current_data_environment(data_environment);
@@ -1864,7 +1866,8 @@ namespace TL { namespace OpenMP {
 
         if (construct.get_pragma_line().get_clause("collapse").is_defined())
         {
-            collapse_check_loop(construct);
+            error_printf_at(construct.get_locus(),
+                    "The 'collapse' clause should have been removed at this point\n");
         }
 
         Nodecl::NodeclBase stmt = get_statement_from_pragma(construct);
@@ -1897,7 +1900,8 @@ namespace TL { namespace OpenMP {
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                collapse_check_loop(construct);
+                error_printf_at(construct.get_locus(),
+                        "The 'collapse' clause should have been removed at this point\n");
             }
 
             ObjectList<Symbol> extra_symbols;
