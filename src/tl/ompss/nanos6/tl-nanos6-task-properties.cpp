@@ -2917,7 +2917,7 @@ namespace TL { namespace Nanos6 {
             reduction.find(ReductionItem(data_ref.get_base_symbol()));
 
         ERROR_CONDITION(red_items.empty(), "No reduction item for symbol '%s'",
-                data_ref.get_base_symbol().get_name());
+                data_ref.get_base_symbol().get_name().c_str());
 
         TL::OpenMP::Reduction *reduction_info = red_items.begin()->reduction_info;
 
@@ -3369,7 +3369,7 @@ namespace TL { namespace Nanos6 {
             reduction.find(ReductionItem(data_ref.get_base_symbol()));
 
         ERROR_CONDITION(red_items.empty(), "No reduction item for symbol '%s'",
-                data_ref.get_base_symbol().get_name());
+                data_ref.get_base_symbol().get_name().c_str());
 
         TL::OpenMP::Reduction *reduction_info = red_items.begin()->reduction_info;
 
