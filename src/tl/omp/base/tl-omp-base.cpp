@@ -1506,10 +1506,10 @@ namespace TL { namespace OpenMP {
         if (nogroup.is_defined())
             taskwait_at_the_end = false;
 
-        // Since we are going to transform the taskloop construct to a task
-        // construct defined inside the loop, we can set the 'is_inline_task'
-        // to true. This flag is only used to generate task reductions instead
-        // of worksharing reductions
+        // Since we are going to transform the taskloop construct into a loop
+        // that creates several tasks, we should set the 'is_inline_task' to true.
+        // This flag is only used to generate task reductions instead of
+        // worksharing reductions
         Nodecl::List execution_environment = this->make_execution_environment(
                 ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
 
@@ -3710,10 +3710,7 @@ namespace TL { namespace OpenMP {
 
                             Nodecl::LowerThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
-                                Nodecl::Mul::make(
-                                    grainsize_expr.shallow_copy(),
-                                    for_statement.get_step().shallow_copy(),
-                                    for_statement.get_induction_variable().get_type()),
+                                for_statement.get_step().shallow_copy(),
                                 get_bool_type()),
 
                             Nodecl::List::make(
@@ -3763,10 +3760,7 @@ namespace TL { namespace OpenMP {
                         Nodecl::LogicalAnd::make(
                             Nodecl::LowerThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
-                                Nodecl::Mul::make(
-                                    grainsize_sym.make_nodecl(),
-                                    for_statement.get_step().shallow_copy(),
-                                    for_statement.get_induction_variable().get_type()),
+                                for_statement.get_step().shallow_copy(),
                                 get_bool_type()),
                             Nodecl::LowerThan::make(
                                 for_statement.get_upper_bound().shallow_copy(),
@@ -3776,10 +3770,7 @@ namespace TL { namespace OpenMP {
                         Nodecl::LogicalAnd::make(
                             Nodecl::GreaterThan::make(
                                 const_value_to_nodecl(const_value_get_zero(4, 1)),
-                                Nodecl::Mul::make(
-                                    grainsize_sym.make_nodecl(),
-                                    for_statement.get_step().shallow_copy(),
-                                    for_statement.get_induction_variable().get_type()),
+                                for_statement.get_step().shallow_copy(),
                                 get_bool_type()),
                             Nodecl::GreaterThan::make(
                                 for_statement.get_upper_bound().shallow_copy(),
@@ -3792,12 +3783,14 @@ namespace TL { namespace OpenMP {
             adjust_block_extent =
                 Nodecl::IfElseStatement::make(
                         condition,
+                        /* if */
                         Nodecl::List::make(
                             Nodecl::ExpressionStatement::make(
                                 Nodecl::Assignment::make(
                                     block_extent.make_nodecl(),
                                     for_statement.get_upper_bound().shallow_copy(),
                                     block_extent.get_type().get_lvalue_reference_to()))),
+                        /* else */
                         Nodecl::NodeclBase::null());
         }
 
