@@ -184,13 +184,14 @@ namespace TL { namespace HLT {
         void compute_collapse_statements(
                 int collapse_factor,
                 TL::Symbol collapse_induction_var,
+                Nodecl::Context context_innermost_loop,
                 // Inout
                 TL::ObjectList<LoopInfo>& loop_info,
                 TL::Scope& collapse_scope,
                 TL::Scope& loop_statements_scope,
                 // Out
                 Nodecl::List& collapse_statements,
-                Nodecl::List& loop_statements,
+                Nodecl::List& new_loop_statements,
                 Nodecl::NodeclBase& condition_bound,
                 TL::ObjectList<TL::Symbol>& omp_capture_symbols)
         {
@@ -346,13 +347,13 @@ namespace TL { namespace HLT {
                             loop_info[i].lower_bound.get_type());
 
                 // Create/reuse induction variable
-                Nodecl::NodeclBase expr;
+                Nodecl::NodeclBase new_stmt;
 
                 // If current (new) scope IS enclosed by induction var scope,
                 // the induction var is NOT declared inside the original loop, so we assign to it
                 if (collapse_scope.scope_is_enclosed_by(loop_info[i].induction_var.get_scope()))
                 {
-                    expr = Nodecl::ExpressionStatement::make(
+                    new_stmt = Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 loop_info[i].induction_var.make_nodecl(/* set_ref_type */ true),
                                 induction_var_expr,
@@ -374,13 +375,10 @@ namespace TL { namespace HLT {
                     induction_var_map.add_map(loop_info[i].induction_var, induction_var);
 
                     // Object initialization
-                    expr = Nodecl::ObjectInit::make(induction_var);
+                    new_stmt = Nodecl::ObjectInit::make(induction_var);
                 }
 
-                if (loop_statements.is_null())
-                    loop_statements = Nodecl::List::make(expr);
-                else
-                    loop_statements.prepend(expr);
+                new_loop_statements.prepend(new_stmt);
 
                 // Update 'num_elem_in_nested_loops' for next iteration
                 num_elem_in_nested_loops = Nodecl::Mul::make(
@@ -393,7 +391,18 @@ namespace TL { namespace HLT {
             condition_bound = num_elem_in_nested_loops;
 
             // Deep copy to replace loop code to use new induction variables
-            loop_statements = Nodecl::Utils::deep_copy(loop_statements, loop_statements_scope, induction_var_map).as<Nodecl::List>();
+            Nodecl::Context new_context_innermost_loop =
+                Nodecl::Utils::deep_copy(
+                        context_innermost_loop,
+                        context_innermost_loop,
+                        induction_var_map).as<Nodecl::Context>();
+
+            new_loop_statements.append(new_context_innermost_loop);
+
+            //Properly linking the new_context of the innermost loop with the loop_statements_scope
+            TL::Scope scope_innermost_loop = context_innermost_loop.retrieve_context();
+            scope_innermost_loop.get_decl_context()->current_scope->contained_in =
+                loop_statements_scope.get_decl_context()->current_scope;
         }
 
         void compute_loop_information(
@@ -401,7 +410,7 @@ namespace TL { namespace HLT {
                 int collapse_factor,
                 // Out
                 TL::ObjectList<LoopInfo>& loop_info,
-                Nodecl::List& loop_statements)
+                Nodecl::Context& context_innermost_loop)
         {
             for (int i = 0; i < collapse_factor; ++i)
             {
@@ -416,9 +425,10 @@ namespace TL { namespace HLT {
 
                 loop_info.append(info);
 
-                node = for_stmt.get_statement()
-                    .as<Nodecl::List>().front()
-                    .as<Nodecl::Context>().get_in_context();
+                context_innermost_loop =
+                    for_stmt.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>();
+
+                node = context_innermost_loop.get_in_context();
 
                 // Compound statement found in this level only for C/C++
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -443,8 +453,6 @@ namespace TL { namespace HLT {
                         .as<Nodecl::List>().front();
                 }
             }
-
-            loop_statements = node.as<Nodecl::List>();
         }
     }
 
@@ -455,10 +463,9 @@ namespace TL { namespace HLT {
         check_loop(_loop, _collapse_factor);
 
         TL::ObjectList<LoopInfo> loop_info;
-        Nodecl::List loop_statements;
+        Nodecl::Context context_innermost_loop;
 
-        compute_loop_information(_loop, _collapse_factor, loop_info,
-                loop_statements);
+        compute_loop_information(_loop, _collapse_factor, loop_info, context_innermost_loop);
 
         // Compute collapse statements
 
@@ -480,6 +487,8 @@ namespace TL { namespace HLT {
         TL::Scope loop_statements_scope = TL::Scope(
                 new_block_context(loop_control_scope.get_decl_context()));
 
+
+
         TL::Symbol induction_var = collapse_scope.new_symbol("collapse_it");
         symbol_entity_specs_set_is_user_declared(induction_var.get_internal_symbol(), 1);
         induction_var.get_internal_symbol()->kind = SK_VARIABLE;
@@ -489,10 +498,11 @@ namespace TL { namespace HLT {
         Nodecl::List collapse_statements;
         Nodecl::NodeclBase condition_bound;
 
+        Nodecl::List new_loop_statements;
         compute_collapse_statements(
-                _collapse_factor, induction_var,
+                _collapse_factor, induction_var, context_innermost_loop,
                 loop_info, collapse_scope, loop_statements_scope,
-                collapse_statements, loop_statements, condition_bound, _omp_capture_symbols);
+                collapse_statements, new_loop_statements, condition_bound, _omp_capture_symbols);
 
         // Create new For statement
 
@@ -545,7 +555,7 @@ namespace TL { namespace HLT {
                             Nodecl::Context::make(
                                 Nodecl::List::make(
                                     Nodecl::CompoundStatement::make(
-                                        loop_statements,
+                                        new_loop_statements,
                                         /* finally */ Nodecl::NodeclBase::null())),
                                 loop_statements_scope)),
                         /* name */ Nodecl::NodeclBase::null(),

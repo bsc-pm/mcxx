@@ -85,8 +85,9 @@ namespace TL { namespace HLT {
     //            int collapse_j = 0 + ((collapse_it/1)*collapse_1_step)%collapse_1_rounded_size;
     //
     //          -- User code:
-    //
-    //            M[collapse_i][collapse_j];
+    //          {
+    //              M[collapse_i][collapse_j];
+    //          }
     //        }
     //    }
 
