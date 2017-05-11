@@ -205,8 +205,16 @@ namespace TL { namespace HLT {
 
             Nodecl::Utils::SimpleSymbolMap induction_var_map;
 
+            // This node must be initialized with the value '1LLU' for ensuring
+            // the proper type of the final expression
+            //
+            // This lower level call is used instead of 'const_value_to_nodecl'
+            // because otherwise the resulting type would be restricted to the
+            // smallest type where the constant fits
             Nodecl::NodeclBase num_elem_in_nested_loops =
-                const_value_to_nodecl(const_value_get_signed_int(1));
+                const_value_to_nodecl_with_basic_type(
+                        const_value_get_unsigned_long_long_int(1),
+                        TL::Type::get_unsigned_long_long_int_type().get_internal_type());
 
             // From innermost loop to outermost
             for (int i = collapse_factor - 1; i >= 0; --i)
@@ -220,7 +228,7 @@ namespace TL { namespace HLT {
                 TL::Symbol step_var = collapse_scope.new_symbol(step_ss.str());
                 symbol_entity_specs_set_is_user_declared(step_var.get_internal_symbol(), 1);
                 step_var.get_internal_symbol()->kind = SK_VARIABLE;
-                step_var.set_type(loop_info[i].step.get_type().no_ref()/*.get_const_type()*/);
+                step_var.set_type(loop_info[i].step.get_type().no_ref());
                 step_var.set_value(loop_info[i].step);
 
                 omp_capture_symbols.insert(step_var);
@@ -232,7 +240,7 @@ namespace TL { namespace HLT {
                 TL::Symbol num_elem_var = collapse_scope.new_symbol(num_elem_ss.str());
                 symbol_entity_specs_set_is_user_declared(num_elem_var.get_internal_symbol(), 1);
                 num_elem_var.get_internal_symbol()->kind = SK_VARIABLE;
-                num_elem_var.set_type(TL::Type::get_int_type());
+                num_elem_var.set_type(loop_info[i].upper_bound.get_type().no_ref());
 
                 // This expression computes the ceiling division between the iteration space
                 // and the step, to get the effective number of elements for this loop.
@@ -302,7 +310,7 @@ namespace TL { namespace HLT {
                 TL::Symbol rounded_size_var = collapse_scope.new_symbol(rounded_size_ss.str());
                 symbol_entity_specs_set_is_user_declared(rounded_size_var.get_internal_symbol(), 1);
                 rounded_size_var.get_internal_symbol()->kind = SK_VARIABLE;
-                rounded_size_var.set_type(TL::Type::get_int_type()/*.get_const_type()*/);
+                rounded_size_var.set_type(num_elem_var.get_type());
 
                 // step could be < 0 while num_elem won't, and thus making the
                 // rounded_size also < 0. However, this is not a problem because
@@ -324,27 +332,42 @@ namespace TL { namespace HLT {
 
                 // Create induction variable expression like
                 // 'LB + ((orig_induction_var/num_elem')*step)%rounded_size' where
-                // num_elem' is the num_elem from previous iteration
-                Nodecl::NodeclBase induction_var_expr =
-                    Nodecl::Add::make(
+                // num_elem' is the product of num_elem from previous iterations
+                //
+                // current_element_number is a partial computation that
+                // represents the ordinal position of the current element in
+                // this dimension (effective elements only), precise index
+                // value is to be computed from it
+                Nodecl::NodeclBase current_element_number = Nodecl::Conversion::make(
+                        Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Div::make(
+                                collapse_induction_var.make_nodecl(/* set_ref_type */ true),
+                                Nodecl::ParenthesizedExpression::make(
+                                    num_elem_in_nested_loops,
+                                    num_elem_in_nested_loops.get_type()),
+                                num_elem_in_nested_loops.get_type()),
+                            num_elem_in_nested_loops.get_type()),
+                        // This type should match the the type of the variable
+                        // holding the total number of elements (as well as the
+                        // induction variable), but in its signed form
+                        TL::Type::get_long_long_int_type());
+                current_element_number.set_text("C");
+
+                Nodecl::NodeclBase induction_var_expr = Nodecl::Conversion::make(
+                        Nodecl::Add::make(
                             loop_info[i].lower_bound.shallow_copy(),
                             Nodecl::Mod::make(
                                 Nodecl::ParenthesizedExpression::make(
                                     Nodecl::Mul::make(
-                                        Nodecl::ParenthesizedExpression::make(
-                                            Nodecl::Div::make(
-                                                collapse_induction_var.make_nodecl(/* set_ref_type */ true),
-                                                Nodecl::ParenthesizedExpression::make(
-                                                    num_elem_in_nested_loops,
-                                                    num_elem_in_nested_loops.get_type()),
-                                                num_elem_in_nested_loops.get_type()),
-                                            num_elem_in_nested_loops.get_type()),
+                                        current_element_number,
                                         step_var.make_nodecl(/* set_ref_type */ true),
                                         step_var.get_type()),
                                     step_var.get_type()),
                                 rounded_size_var.make_nodecl(/* set_ref_type */ true),
                                 rounded_size_var.get_type()),
-                            loop_info[i].lower_bound.get_type());
+                            loop_info[i].lower_bound.get_type()),
+                        loop_info[i].induction_var.get_type());
+                induction_var_expr.set_text("C");
 
                 // Create/reuse induction variable
                 Nodecl::NodeclBase new_stmt;
@@ -380,10 +403,14 @@ namespace TL { namespace HLT {
 
                 new_loop_statements.prepend(new_stmt);
 
-                // Update 'num_elem_in_nested_loops' for next iteration
+                // Update 'num_elem_in_nested_loops' for next iteration,
+                // parenthesizes are required to ensure type (1LLU) is properly
+                // propagated in Fortran
                 num_elem_in_nested_loops = Nodecl::Mul::make(
                         num_elem_var.make_nodecl(/* set_ref_type */ true),
-                        num_elem_in_nested_loops.shallow_copy(),
+                        Nodecl::ParenthesizedExpression::make(
+                            num_elem_in_nested_loops.shallow_copy(),
+                            num_elem_in_nested_loops.get_type()),
                         num_elem_in_nested_loops.get_type());
             }
 
@@ -487,12 +514,10 @@ namespace TL { namespace HLT {
         TL::Scope loop_statements_scope = TL::Scope(
                 new_block_context(loop_control_scope.get_decl_context()));
 
-
-
         TL::Symbol induction_var = collapse_scope.new_symbol("collapse_it");
         symbol_entity_specs_set_is_user_declared(induction_var.get_internal_symbol(), 1);
         induction_var.get_internal_symbol()->kind = SK_VARIABLE;
-        induction_var.set_type(TL::Type::get_long_long_int_type());
+        induction_var.set_type(TL::Type::get_unsigned_long_long_int_type());
         induction_var.set_value(const_value_to_nodecl(const_value_get_signed_int(0)));
 
         Nodecl::List collapse_statements;
@@ -504,21 +529,29 @@ namespace TL { namespace HLT {
                 loop_info, collapse_scope, loop_statements_scope,
                 collapse_statements, new_loop_statements, condition_bound, _omp_capture_symbols);
 
+        TL::Symbol condition_bound_var = collapse_scope.new_symbol("collapse_total_num_elements");
+        symbol_entity_specs_set_is_user_declared(condition_bound_var.get_internal_symbol(), 1);
+        condition_bound_var.get_internal_symbol()->kind = SK_VARIABLE;
+        condition_bound_var.set_type(TL::Type::get_unsigned_long_long_int_type());
+
+        collapse_statements.append(Nodecl::ObjectInit::make(condition_bound_var));
+
         // Create new For statement
 
         Nodecl::NodeclBase loop_control;
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            Nodecl::NodeclBase assignment =
-                Nodecl::Assignment::make(
-                        induction_var.make_nodecl(/* set_ref_type */ true),
-                        const_value_to_nodecl(const_value_get_signed_int(0)),
-                        induction_var.get_type().no_ref());
+            condition_bound_var.set_value(condition_bound);
 
-            condition_bound = Nodecl::LowerThan::make(
+            Nodecl::NodeclBase assignment = Nodecl::Assignment::make(
                     induction_var.make_nodecl(/* set_ref_type */ true),
-                    condition_bound,
+                    const_value_to_nodecl(const_value_get_signed_int(0)),
+                    induction_var.get_type().no_ref());
+
+            Nodecl::NodeclBase condition = Nodecl::LowerThan::make(
+                    induction_var.make_nodecl(/* set_ref_type */ true),
+                    condition_bound_var.make_nodecl(/* set_ref_type */ true),
                     TL::Type::get_bool_type());
 
             Nodecl::NodeclBase step = Nodecl::Preincrement::make(
@@ -527,23 +560,23 @@ namespace TL { namespace HLT {
 
             loop_control = Nodecl::LoopControl::make(
                     Nodecl::List::make(assignment),
-                    condition_bound,
+                    condition,
                     step);
         }
         else
         {
-            condition_bound = Nodecl::Minus::make(
-                    condition_bound,
-                    const_value_to_nodecl(const_value_get_signed_int(1)),
-                    condition_bound.get_type());
+            condition_bound_var.set_value(Nodecl::Minus::make(
+                        condition_bound,
+                        const_value_to_nodecl(const_value_get_signed_int(1)),
+                        condition_bound.get_type().no_ref()));
 
             Nodecl::NodeclBase step =
-                    const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+                const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
 
             loop_control = Nodecl::RangeLoopControl::make(
                     induction_var.make_nodecl(/* set_ref_type */ true),
                     const_value_to_nodecl(const_value_get_signed_int(0)),
-                    condition_bound,
+                    condition_bound_var.make_nodecl(/* set_ref_type */ true),
                     step);
         }
 

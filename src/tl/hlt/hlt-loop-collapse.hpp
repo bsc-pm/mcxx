@@ -73,7 +73,10 @@ namespace TL { namespace HLT {
     //        const int collapse_0_rounded_size = collapse_0_num_elements*collapse_0_step;
     //
     //        -- Induction variable of the collapsed loop
-    //        long long int collapse_it;
+    //        unsigned long long int collapse_it;
+    //
+    //        -- Collapsed loop upper bound (total number of elements)
+    //        unsigned long long int collapse_total_num_elements = 1LLU*collapse_1_num_elements*collapse_0_num_elements;
     //
     //      -- Collapsed loop:
     //
@@ -81,8 +84,8 @@ namespace TL { namespace HLT {
     //        {
     //          -- Compute new i, j indexes:
     //
-    //            int collapse_i = 0 + ((collapse_it/collapse_1_num_elements)*collapse_0_step)%collapse_0_rounded_size;
-    //            int collapse_j = 0 + ((collapse_it/1)*collapse_1_step)%collapse_1_rounded_size;
+    //            int collapse_i = (int)(0 + ((long long int)((collapse_it/collapse_1_num_elements))*collapse_0_step)%collapse_0_rounded_size);
+    //            int collapse_j = (int)(0 + ((long long int)((collapse_it/1))*collapse_1_step)%collapse_1_rounded_size);
     //
     //          -- User code:
     //          {
