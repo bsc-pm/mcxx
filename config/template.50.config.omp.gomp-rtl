@@ -1,6 +1,6 @@
 [gomp-mcc : gomp-omp-base]
 language = C
-options = -std=gnu99
+options =
 preprocessor_name = @GCC@
 compiler_name = @GCC@
 linker_name = @GCC@

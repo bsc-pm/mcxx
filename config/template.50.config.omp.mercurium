@@ -1,7 +1,7 @@
 # GCC
 [mcc : omp-base]
 language = C
-options = -std=gnu99
+options =
 {simd} compiler_options = -flax-vector-conversions
 #cuda
 {@NANOX_GATE@,@ENABLE_CUDA@} options = --cuda

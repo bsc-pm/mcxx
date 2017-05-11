@@ -1,6 +1,8 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_CFLAGS=-std=gnu99
+test_nolink=yes
 </testinfo>
 */
 void dealloc_tiled_matrix(int MBS, int NBS, int M, int N, double (*a)[N/NBS][MBS][NBS]) {

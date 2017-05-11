@@ -8,7 +8,7 @@ options = --openmp
 
 [omp-profcc : omp-prof-common]
 language = C
-options = -std=gnu99
+options =
 preprocessor_name = @GCC@
 preprocessor_options = -E
 compiler_name = @GCC@

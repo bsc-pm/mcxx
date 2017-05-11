@@ -5,7 +5,7 @@ preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
 preprocessor_options = -E
-options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 
 [plainicpc]

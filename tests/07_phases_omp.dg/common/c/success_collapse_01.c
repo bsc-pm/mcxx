@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+test_CFLAGS=-std=gnu99
 </testinfo>
 */
 

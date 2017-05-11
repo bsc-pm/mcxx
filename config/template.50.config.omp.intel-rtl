@@ -1,6 +1,6 @@
 [intel-mcc : intel-omp-base]
 language = C
-options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 preprocessor_name = @ICC@
 compiler_name = @ICC@

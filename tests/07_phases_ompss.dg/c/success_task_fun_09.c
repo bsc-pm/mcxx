@@ -1,6 +1,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_CFLAGS=-std=gnu99
 </testinfo>
 */
 

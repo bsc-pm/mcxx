@@ -79,7 +79,7 @@ test_FC_nanos6_mercurium="\${NANOS6_FC} ${NANOS6_GATE}"
 
 test_FFLAGS="\${test_FFLAGS} --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner"
 
-test_CFLAGS_nanos6_mercurium=" -std=gnu99 ${COMMON_NANOS6_CFLAGS} "
+test_CFLAGS_nanos6_mercurium=" ${COMMON_NANOS6_CFLAGS} "
 test_CXXFLAGS_nanos6_mercurium=" ${COMMON_NANOS6_CFLAGS} "
 test_FFLAGS_nanos6_mercurium=" "
 

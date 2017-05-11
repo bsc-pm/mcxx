@@ -4,7 +4,7 @@ language = C
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 {simd, mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
 {mmic} preprocessor_options = -mmic

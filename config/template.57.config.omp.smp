@@ -1,6 +1,6 @@
 [smpcc : omp-base]
 language = C
-options = -std=gnu99
+options =
 options = --vector-flavor=gnu
 {!ompss} options = --variable=copy_deps_by_default:0
 {ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0

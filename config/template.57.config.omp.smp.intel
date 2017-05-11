@@ -3,7 +3,7 @@ language = C
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
 {!ompss} options = --variable=copy_deps_by_default:0
 {ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0
 {ompss,?copy-deps,copy-deps}   options = --variable=copy_deps_by_default:1
