@@ -537,6 +537,9 @@ typedef struct compilation_configuration_tag
     // If this is not null, this should be a constant expression
     const char *upc_threads;
 
+    // States whether the -std flag was explicitly specified
+    char explicit_std_version;
+
     // Enable C11
     char enable_c11;
 

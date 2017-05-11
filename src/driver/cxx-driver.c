@@ -1946,6 +1946,17 @@ static char strprefix(const char* str, const char *prefix)
     return (strncmp(str, prefix, strlen(prefix)) == 0);
 }
 
+// This variable stores the '-std' flag if it was specified in the command line
+static const char* std_version_flag = NULL;
+
+// Default language versions of Mercurium
+static const char* default_mercurium_std_version[] =
+{
+    [SOURCE_LANGUAGE_C]       = "-std=gnu99",
+    [SOURCE_LANGUAGE_CXX]     = "-std=c++03",
+    [SOURCE_LANGUAGE_FORTRAN] = "-std=gnu",
+};
+
 static int parse_special_parameters(int *should_advance, int parameter_index,
         const char* argv[], char dry_run)
 {
@@ -2141,6 +2152,13 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         && argument[3] == 'd'
                         && argument[4] == '=')
                 {
+                    CURRENT_CONFIGURATION->explicit_std_version = 1;
+
+                    // We only keep the std version of the configuration that
+                    // was used in the command line
+                    if (dry_run)
+                        std_version_flag = argument;
+
                     if ( strcmp(&argument[5], "c++11") == 0
                             || strcmp(&argument[5], "gnu++11") == 0
                             // Old flags
@@ -2871,6 +2889,53 @@ static void load_configuration(void)
     compilation_process.command_line_configuration = CURRENT_CONFIGURATION;
 }
 
+static void add_std_flag_to_configurations()
+{
+    int i;
+    for (i = 0; i < compilation_process.num_configurations; i++)
+    {
+        struct compilation_configuration_tag* configuration = compilation_process.configuration_set[i];
+
+        // If the configuration doesn't specify a '-std' flag
+        if (!configuration->explicit_std_version)
+        {
+            const char* local_std_flag = NULL;
+
+            // If the user specified a '-std' flag
+            if (std_version_flag != NULL
+                    // and that flag was specicied in a configuration that has
+                    // the same base language than the current one
+                    && configuration->source_language == CURRENT_CONFIGURATION->source_language)
+            {
+                local_std_flag = std_version_flag;
+            }
+            else
+            {
+                if (configuration->source_language == SOURCE_LANGUAGE_C
+                        || configuration->source_language == SOURCE_LANGUAGE_CXX)
+                {
+                    local_std_flag = default_mercurium_std_version[configuration->source_language];
+                }
+                else if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
+                {
+                    // '-std=XYZ' flag doesn't exist in IFORT :_( If not specifying the standard version is a
+                    // problem at some point, probably we should fix it modyfing our profiles.
+                }
+                else
+                {
+                    // Profiles that don't define a source language should be ignored (e.g. omp-base)
+                }
+            }
+
+            if (local_std_flag != NULL)
+            {
+                add_to_parameter_list_str(&configuration->preprocessor_options, local_std_flag);
+                add_to_parameter_list_str(&configuration->native_compiler_options, local_std_flag);
+                add_to_linker_command_configuration(local_std_flag, NULL, configuration);
+            }
+        }
+    }
+}
 static void commit_configuration(void)
 {
     // For every configuration commit its options depending on flags
@@ -2923,6 +2988,8 @@ static void commit_configuration(void)
 
         finalize_committed_configuration(configuration);
     }
+
+    add_std_flag_to_configurations();
 
     DEBUG_CODE()
     {
