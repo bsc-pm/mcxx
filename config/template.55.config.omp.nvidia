@@ -1,9 +1,9 @@
 # nvcc (CUDA)
 [mnvcc : omp-base]
 language = C
-preprocessor_name = @NVCC@
-compiler_name = @NVCC@
-linker_name = @NVCC@
+preprocessor_name = @GCC@
+compiler_name = @GCC@
+linker_name = @GCC@
 options = --cuda
 {openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 {openmp} linker_options = -lnanox-gpu-api
@@ -11,9 +11,9 @@ options = --cuda
 
 [mnvcxx : omp-base]
 language = C++
-preprocessor_name = @NVCC@
-compiler_name = @NVCC@
-linker_name = @NVCC@
+preprocessor_name = @G++@
+compiler_name = @G++@
+linker_name = @G++@
 options = --cuda
 {openmp} preprocessor_options = -include new
 {openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
