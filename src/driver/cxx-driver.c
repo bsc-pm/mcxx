@@ -2896,43 +2896,48 @@ static void add_std_flag_to_configurations()
     {
         struct compilation_configuration_tag* configuration = compilation_process.configuration_set[i];
 
-        // If the configuration doesn't specify a '-std' flag
-        if (!configuration->explicit_std_version)
-        {
-            const char* local_std_flag = NULL;
+        // If the configuration explicitly specifies a '-std' flag, do nothing
+        if (configuration->explicit_std_version)
+            continue;
 
-            // If the user specified a '-std' flag
-            if (std_version_flag != NULL
-                    // and that flag was specicied in a configuration that has
-                    // the same base language than the current one
-                    && configuration->source_language == CURRENT_CONFIGURATION->source_language)
+        // Skip the 'cuda' profile since NVCC doesn't support the '-std' flag
+        if (configuration ==
+                get_sublanguage_configuration(SOURCE_SUBLANGUAGE_CUDA, /* fallback */ NULL))
+            continue;
+
+        const char* local_std_flag = NULL;
+
+        // If the user specified a '-std' flag
+        if (std_version_flag != NULL
+                // and that flag was specicied in a configuration that has
+                // the same base language than the current one
+                && configuration->source_language == CURRENT_CONFIGURATION->source_language)
+        {
+            local_std_flag = std_version_flag;
+        }
+        else
+        {
+            if (configuration->source_language == SOURCE_LANGUAGE_C
+                    || configuration->source_language == SOURCE_LANGUAGE_CXX)
             {
-                local_std_flag = std_version_flag;
+                local_std_flag = default_mercurium_std_version[configuration->source_language];
+            }
+            else if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
+            {
+                // '-std=XYZ' flag doesn't exist in IFORT :_( If not specifying the standard version is a
+                // problem at some point, probably we should fix it modyfing our profiles.
             }
             else
             {
-                if (configuration->source_language == SOURCE_LANGUAGE_C
-                        || configuration->source_language == SOURCE_LANGUAGE_CXX)
-                {
-                    local_std_flag = default_mercurium_std_version[configuration->source_language];
-                }
-                else if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
-                {
-                    // '-std=XYZ' flag doesn't exist in IFORT :_( If not specifying the standard version is a
-                    // problem at some point, probably we should fix it modyfing our profiles.
-                }
-                else
-                {
-                    // Profiles that don't define a source language should be ignored (e.g. omp-base)
-                }
+                // Profiles that don't define a source language should be ignored (e.g. omp-base)
             }
+        }
 
-            if (local_std_flag != NULL)
-            {
-                add_to_parameter_list_str(&configuration->preprocessor_options, local_std_flag);
-                add_to_parameter_list_str(&configuration->native_compiler_options, local_std_flag);
-                add_to_linker_command_configuration(local_std_flag, NULL, configuration);
-            }
+        if (local_std_flag != NULL)
+        {
+            add_to_parameter_list_str(&configuration->preprocessor_options, local_std_flag);
+            add_to_parameter_list_str(&configuration->native_compiler_options, local_std_flag);
+            add_to_linker_command_configuration(local_std_flag, NULL, configuration);
         }
     }
 }
