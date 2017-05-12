@@ -49,6 +49,7 @@ PROGRAM P
     ((INIT_3 < END_3) && ((STEP_3) < 0))
 #error Infinite loop detected (direct)
 #endif
+
     M = 8
 
     ! Initialization
@@ -141,6 +142,7 @@ PROGRAM P
     ((INIT_3 <= END_3) && ((STEP_3) <= 0))
 #error Infinite loop detected (direct)
 #endif
+
     M = 8
 
     ! Initialization
@@ -233,6 +235,7 @@ PROGRAM P
     ((INIT_3 > END_3) && ((-STEP_3) > 0))
 #error Infinite loop detected (direct)
 #endif
+
     M = 8
 
     ! Initialization
@@ -325,6 +328,7 @@ PROGRAM P
     ((INIT_3 >= END_3) && ((-STEP_3) >= 0))
 #error Infinite loop detected (direct)
 #endif
+
     M = 8
 
     ! Initialization
