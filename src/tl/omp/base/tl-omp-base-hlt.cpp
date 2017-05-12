@@ -28,60 +28,79 @@ namespace TL { namespace OpenMP {
                         "'collapse' clause requires an integer constant expression\n");
                 return;
             }
-            unsigned int collapse_factor = const_value_cast_to_unsigned_int(expr.get_constant());
-            Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
 
-            HLT::LoopCollapse loop_collapse;
-            loop_collapse.set_loop(loop);
-            loop_collapse.set_pragma_context(construct.retrieve_context());
-            loop_collapse.set_collapse_factor(collapse_factor);
+            int collapse_factor = const_value_cast_to_signed_int(expr.get_constant());
 
-            loop_collapse.collapse();
-
-            Nodecl::NodeclBase transformed_code = loop_collapse.get_whole_transformation();
-            TL::ObjectList<TL::Symbol> capture_symbols = loop_collapse.get_omp_capture_symbols();
-
-            // We may need to add some symbols that are used to implement the collapse clause to the pragma
-            std::string names;
-            for (TL::ObjectList<TL::Symbol>::iterator it = capture_symbols.begin();
-                    it != capture_symbols.end();
-                    it++)
+            if (collapse_factor < 0)
             {
-                if (it != capture_symbols.begin())
-                    names += ",";
-                names += it->get_name();
+                error_printf_at(
+                        construct.get_locus(),
+                        "Negative factor (%d) is not allowed in the 'collapse' clause\n",
+                        collapse_factor);
             }
-            Nodecl::List clauses = pragma_line.get_clauses().as<Nodecl::List>();
-            clauses.append(Nodecl::PragmaCustomClause::make(Nodecl::List::make(Nodecl::PragmaClauseArg::make(names)), "firstprivate"));
+            else if (collapse_factor == 0)
+            {
+                warn_printf_at(
+                        construct.get_locus(),
+                        "'collapse' clause with factor (%d) ignored\n",
+                        collapse_factor);
+            }
+            else if (collapse_factor > 1)
+            {
+                Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
 
-            // Removing the collapse clause from the pragma
-            pragma_line.remove_clause("collapse");
+                HLT::LoopCollapse loop_collapse;
+                loop_collapse.set_loop(loop);
+                loop_collapse.set_pragma_context(construct.retrieve_context());
+                loop_collapse.set_collapse_factor(collapse_factor);
 
-            // Create a new pragma over the new for stmt
-            ERROR_CONDITION(!transformed_code.is<Nodecl::Context>(), "Unexpected node\n", 0);
-            Nodecl::NodeclBase compound_statement =
-                transformed_code.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
+                loop_collapse.collapse();
 
-            ERROR_CONDITION(!compound_statement.is<Nodecl::CompoundStatement>(), "Unexpected node\n", 0);
-            Nodecl::Context context_for_stmt =
-                compound_statement.as<Nodecl::CompoundStatement>().get_statements()
-                                  .as<Nodecl::List>().find_first<Nodecl::Context>();
+                Nodecl::NodeclBase transformed_code = loop_collapse.get_whole_transformation();
+                TL::ObjectList<TL::Symbol> capture_symbols = loop_collapse.get_omp_capture_symbols();
 
-            Nodecl::Utils::remove_from_enclosing_list(context_for_stmt);
+                // We may need to add some symbols that are used to implement the collapse clause to the pragma
+                std::string names;
+                for (TL::ObjectList<TL::Symbol>::iterator it = capture_symbols.begin();
+                        it != capture_symbols.end();
+                        it++)
+                {
+                    if (it != capture_symbols.begin())
+                        names += ",";
+                    names += it->get_name();
+                }
+                Nodecl::List clauses = pragma_line.get_clauses().as<Nodecl::List>();
+                clauses.append(Nodecl::PragmaCustomClause::make(Nodecl::List::make(Nodecl::PragmaClauseArg::make(names)), "firstprivate"));
 
-            Nodecl::List stmt_list =
-                compound_statement.as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
-            ERROR_CONDITION(stmt_list.is_null(), "Unreachable code\n", 0);
+                // Removing the collapse clause from the pragma
+                pragma_line.remove_clause("collapse");
 
-            Nodecl::PragmaCustomStatement new_pragma =
-                Nodecl::PragmaCustomStatement::make(pragma_line,
-                        Nodecl::List::make(context_for_stmt),
-                        construct.get_text(),
-                        construct.get_locus());
+                // Create a new pragma over the new for stmt
+                ERROR_CONDITION(!transformed_code.is<Nodecl::Context>(), "Unexpected node\n", 0);
+                Nodecl::NodeclBase compound_statement =
+                    transformed_code.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
 
-            stmt_list.append(new_pragma);
+                ERROR_CONDITION(!compound_statement.is<Nodecl::CompoundStatement>(), "Unexpected node\n", 0);
+                Nodecl::Context context_for_stmt =
+                    compound_statement.as<Nodecl::CompoundStatement>().get_statements()
+                    .as<Nodecl::List>().find_first<Nodecl::Context>();
 
-            construct.replace(transformed_code);
+                Nodecl::Utils::remove_from_enclosing_list(context_for_stmt);
+
+                Nodecl::List stmt_list =
+                    compound_statement.as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
+                ERROR_CONDITION(stmt_list.is_null(), "Unreachable code\n", 0);
+
+                Nodecl::PragmaCustomStatement new_pragma =
+                    Nodecl::PragmaCustomStatement::make(pragma_line,
+                            Nodecl::List::make(context_for_stmt),
+                            construct.get_text(),
+                            construct.get_locus());
+
+                stmt_list.append(new_pragma);
+
+                construct.replace(transformed_code);
+            }
     }
 
 

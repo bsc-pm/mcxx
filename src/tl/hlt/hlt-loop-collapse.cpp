@@ -47,8 +47,6 @@ namespace TL { namespace HLT {
 
     LoopCollapse& LoopCollapse::set_collapse_factor(int collapse_factor)
     {
-        ERROR_CONDITION(collapse_factor < 1, "Invalid collapse factor", 0);
-
         _collapse_factor = collapse_factor;
 
         return *this;
@@ -65,7 +63,6 @@ namespace TL { namespace HLT {
     {
         return _omp_capture_symbols;
     }
-
 
     namespace {
 
