@@ -53,7 +53,7 @@ namespace {
                 node_type = n->get_graph_type_as_string();
             else
                 node_type = n->get_type_as_string();
-            internal_error("Unexpected node type %s.\n", node_type);
+            internal_error("Unexpected node type %s.\n", node_type.c_str());
         }
     }
 
