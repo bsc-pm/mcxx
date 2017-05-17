@@ -225,7 +225,7 @@ namespace TL { namespace HLT {
                 TL::Symbol step_var = collapse_scope.new_symbol(step_ss.str());
                 symbol_entity_specs_set_is_user_declared(step_var.get_internal_symbol(), 1);
                 step_var.get_internal_symbol()->kind = SK_VARIABLE;
-                step_var.set_type(loop_info[i].step.get_type().no_ref());
+                step_var.set_type(loop_info[i].step.get_type().no_ref().get_unqualified_type());
                 step_var.set_value(loop_info[i].step);
 
                 omp_capture_symbols.insert(step_var);
@@ -237,7 +237,7 @@ namespace TL { namespace HLT {
                 TL::Symbol num_elem_var = collapse_scope.new_symbol(num_elem_ss.str());
                 symbol_entity_specs_set_is_user_declared(num_elem_var.get_internal_symbol(), 1);
                 num_elem_var.get_internal_symbol()->kind = SK_VARIABLE;
-                num_elem_var.set_type(loop_info[i].upper_bound.get_type().no_ref());
+                num_elem_var.set_type(loop_info[i].upper_bound.get_type().no_ref().get_unqualified_type());
 
                 // This expression computes the ceiling division between the iteration space
                 // and the step, to get the effective number of elements for this loop.
