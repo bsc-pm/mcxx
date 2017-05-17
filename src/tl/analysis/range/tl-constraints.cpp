@@ -66,12 +66,10 @@ namespace {
         {
             // 1. Build a symbol for the new constraint based on the name of the original variable
             std::stringstream ss; ss << get_next_id(n);
-            Symbol s(Utils::get_nodecl_base(n).get_symbol());
-            std::string subscripts_str = get_subscripts_string(n, *_input_constraints);
-
-            std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
+            std::string array_subscript_str = get_array_subscript_string(n, *_input_constraints);
+            std::string ssa_name = array_subscript_str + ss.str();
             Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
-            Type t = s.get_type();
+            Type t = Utils::get_nodecl_base(n).get_symbol().get_type();
             ssa_sym.set_type(t);
             ssa_to_original_var[ssa_sym] = n;
 
@@ -98,7 +96,8 @@ namespace {
             // Create a new ssa variable here to use it from now on in the current function
             // 1. Build a symbol for the new constraint based on the name of the original variable
             std::stringstream ss; ss << get_next_id(n);
-            std::string ssa_name = n.prettyprint() + "_" + ss.str();
+            std::string class_member_str = get_class_member_string(n, *_input_constraints);
+            std::string ssa_name = class_member_str + ss.str();
             Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
             Type t = n.get_type();
             ssa_sym.set_type(t);
@@ -392,18 +391,23 @@ namespace {
 
     void ConstraintBuilder::visit_assignment(const NBase& lhs, const NBase& rhs)
     {
-        // 1.- Build a symbol for the new constraint based on the name of the original variable
-        std::stringstream ss; ss << get_next_id(lhs);
-        Symbol s(Utils::get_nodecl_base(lhs).get_symbol());
-
-        std::string subscripts_str;
+        // 1.- Build a symbol for the new constraint based on
+        //     the name of the original variable
+        std::string ssa_name;
         if (lhs.no_conv().is<Nodecl::ArraySubscript>())
-            subscripts_str = get_subscripts_string(lhs.no_conv().as<Nodecl::ArraySubscript>(),
-                                                   _input_constraints);
-
-        std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
+        {
+            ssa_name = get_array_subscript_string(
+                            lhs.no_conv().as<Nodecl::ArraySubscript>(),
+                            _input_constraints);
+        }
+        else
+        {
+            ssa_name = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_";
+        }
+        std::stringstream ss; ss << get_next_id(lhs);
+        ssa_name += ss.str();
         Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
-        Type t = s.get_type();
+        Type t = Utils::get_nodecl_base(lhs).get_symbol().get_type();
         ssa_sym.set_type(t);
         ssa_to_original_var[ssa_sym] = lhs;
 
@@ -411,9 +415,20 @@ namespace {
         NBase val;
         if (rhs.is_constant())       // x = c;    -->    X1 = c
         {
-            Nodecl::NodeclBase cnst = const_value_to_nodecl(rhs.get_constant());
-            val = Nodecl::Range::make(cnst.shallow_copy(), cnst.shallow_copy(), const_value_to_nodecl(zero), t);
-            val.set_constant(rhs.get_constant());
+            const_value_t* rhs_cnst = rhs.get_constant();
+            if (const_value_is_object(rhs_cnst) || const_value_is_address(rhs_cnst))
+            {
+                // We know the value is constant, but cannot know its value at compile time
+                val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                          plus_inf.shallow_copy(),
+                                          const_value_to_nodecl(zero), t);
+            }
+            else
+            {
+                Nodecl::NodeclBase cnst = const_value_to_nodecl(rhs_cnst);
+                val = Nodecl::Range::make(cnst.shallow_copy(), cnst.shallow_copy(), const_value_to_nodecl(zero), t);
+                val.set_constant(rhs_cnst);
+            }
         }
         else 
         {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
@@ -469,16 +484,39 @@ namespace {
         // Add a new constraint for this nodecl with value [-inf, +inf]
 
         // 1.- Build a symbol for the new constraint based on the name of the original variable
-        std::stringstream ss; ss << get_next_id(n);
-        Symbol s(Utils::get_nodecl_base(n).get_symbol());
-
-        std::string subscripts_str = get_subscripts_string(
+        std::string array_subscript_str = get_array_subscript_string(
                 n.no_conv().as<Nodecl::ArraySubscript>(),
                 _input_constraints);
-
-        std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
+        std::stringstream ss; ss << get_next_id(n);
+        std::string ssa_name = array_subscript_str + ss.str();
         Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
-        Type t = s.get_type();
+        Type t = Utils::get_nodecl_base(n).get_symbol().get_type();
+        ssa_sym.set_type(t);
+        ssa_to_original_var[ssa_sym] = n;
+
+        // 2.- Build the value for the constraint
+        NBase inf_val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                            plus_inf.shallow_copy(),
+                                            const_value_to_nodecl(zero), t);
+
+        // 3.- Build the constraint and insert it in the constraints map
+        Utils::Constraint c = build_constraint(ssa_sym, inf_val, Utils::__Array);
+        _input_constraints[n] = c;  // We add it in the input constraints, so
+        // the rest of this algorithm works properly
+        _output_constraints[n] = c;
+    }
+
+    void ConstraintBuilder::create_struct_fake_constraint(const NBase& n)
+    {   // NOTE: To simplify we create a fake constraint with value [-inf, +inf]
+
+        // 1.- Build a symbol for the new constraint based on the name of the original variable
+        std::string member_str = get_class_member_string(
+                n.no_conv().as<Nodecl::ClassMemberAccess>(),
+                _input_constraints);
+        std::stringstream ss; ss << get_next_id(n);
+        std::string ssa_name = member_str + ss.str();
+        Symbol ssa_sym(ssa_scope.new_symbol(ssa_name));
+        Type t = Utils::get_nodecl_base(n).get_symbol().get_type();
         ssa_sym.set_type(t);
         ssa_to_original_var[ssa_sym] = n;
 
@@ -507,8 +545,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (!const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+                && !const_value_is_object(n_const)
+                && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         // 1.- Build the TRUE constraint value
         // v == x;   --TRUE--->   v1 = v0 ∩ [x, x]
@@ -522,7 +568,7 @@ namespace {
         // 4.3.2.- Build the FALSE constraint value
         // v == x;   --FALSE-->   v2 = v0 ∩ ([-∞, x-1] U [x+1, -∞])
         NBase lb, ub;
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* lb_const = const_value_add(n_const, one);
             lb = const_value_to_nodecl(lb_const);
@@ -557,9 +603,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+            && !const_value_is_object(n_const)
+            && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         NBase lb, ub;
         NBase incr = const_value_to_nodecl(zero);
@@ -569,7 +622,7 @@ namespace {
         // 1.1.- Build LB: -∞
         lb = minus_inf.shallow_copy();
         // 1.2.- Build UB: x-1
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* ub_const = const_value_sub(n_const, one);
             ub = const_value_to_nodecl(ub_const);
@@ -588,7 +641,7 @@ namespace {
         // 2.- Build the FALSE constraint value for the LHS
         //     v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
         // 2.1.- Build LB: -∞
-        if (n.is_constant())
+        if (n_const != NULL)
             lb = const_value_to_nodecl(n_const);
         else
             lb = n.shallow_copy();
@@ -611,9 +664,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+            && !const_value_is_object(n_const)
+            && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         NBase lb, ub;
         NBase incr = const_value_to_nodecl(zero);
@@ -623,7 +683,7 @@ namespace {
         // 1.1.- Build LB: -∞
         lb = minus_inf.shallow_copy();
         // 1.2.- Build UB: x
-        if (n.is_constant())
+        if (n_const != NULL)
             ub = const_value_to_nodecl(n_const);
         else
             ub = n.shallow_copy();
@@ -636,7 +696,7 @@ namespace {
         // 2.- Build the FALSE constraint value for the LHS
         //     v <= x;   --FALSE-->  v2 = v0 ∩ [x+1, +∞]
         // 2.1.- Build LB: x
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* lb_const = const_value_add(n_const, one);
             lb = const_value_to_nodecl(lb_const);
@@ -665,9 +725,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+            && !const_value_is_object(n_const)
+            && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         NBase lb, ub;
         NBase incr = const_value_to_nodecl(zero);
@@ -675,7 +742,7 @@ namespace {
         // 1.- Build the TRUE constraint value for the RHS
         //     v > x   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
         // 1.1.- Build LB: x+1
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* lb_const = const_value_add(n_const, one);
             lb = const_value_to_nodecl(lb_const);
@@ -698,7 +765,7 @@ namespace {
         // 1.1.- Build LB: -∞
         lb = minus_inf.shallow_copy();
         // 1.2.- Build UB: x
-        if (n.is_constant())
+        if (n_const != NULL)
             ub = const_value_to_nodecl(n_const);
         else
             ub = n.shallow_copy();
@@ -719,9 +786,16 @@ namespace {
         // All constant values must have the same bytes and sign
         // to ensure comparisons work as expected
         const_value_t* n_const = n.get_constant();
-        if (n_const != NULL
-                && !const_value_is_signed(n_const))
-            n_const = const_value_cast_as_another(n_const, one);
+        if (n.is_constant()
+            && !const_value_is_object(n_const)
+            && !const_value_is_address(n_const))
+        {
+            // FIXME This may cause problems with unsigned values
+            if (!const_value_is_signed(n_const))
+                n_const = const_value_cast_as_another(n_const, one);
+        }
+        else
+            n_const = NULL;
 
         NBase lb, ub;
         NBase incr = const_value_to_nodecl(zero);
@@ -729,7 +803,7 @@ namespace {
         // 1.- Build the TRUE constraint value for the RHS
         //     v >= x   --TRUE--->  v1 = v0 ∩ [x, +∞]
         // 1.1.- Build LB: x
-        if (n.is_constant())
+        if (n_const != NULL)
             lb = const_value_to_nodecl(n_const);
         else
             lb = n.shallow_copy();
@@ -746,7 +820,7 @@ namespace {
         // 1.1.- Build LB: -∞
         lb = minus_inf.shallow_copy();
         // 1.2.- Build UB: x-1
-        if (n.is_constant())
+        if (n_const != NULL)
         {
             const_value_t* ub_const = const_value_sub(n_const, one);
             ub = const_value_to_nodecl(ub_const);
@@ -921,9 +995,13 @@ namespace {
             }
 
             // 2.1.2.- Create fake input constraint if necessary
-            if (rhs.is<Nodecl::ArraySubscript>())
+            if (rhs_no_conv.is<Nodecl::ArraySubscript>())
             {
-                create_array_fake_constraint(rhs);
+                create_array_fake_constraint(rhs_no_conv);
+            }
+            else if (rhs_no_conv.is<Nodecl::ClassMemberAccess>())
+            {
+                create_struct_fake_constraint(rhs_no_conv);
             }
 
             // 2.3.3.2.- Compute the constraints generated from the condition
@@ -942,7 +1020,8 @@ namespace {
             // 2.2.1.- Check supported case
             NBase lhs_no_conv = lhs.no_conv();
             if (!lhs_no_conv.is<Nodecl::Symbol>()
-                    && !lhs_no_conv.is<Nodecl::ArraySubscript>())
+                    && !lhs_no_conv.is<Nodecl::ArraySubscript>()
+                    && !lhs_no_conv.is<Nodecl::ClassMemberAccess>())
             {
                 internal_error("Unsupported case: comparison with no single symbol at any side: %d %s %d.\n",
                                 lhs.prettyprint().c_str(),
@@ -954,6 +1033,10 @@ namespace {
             if (lhs_no_conv.is<Nodecl::ArraySubscript>())
             {
                 create_array_fake_constraint(lhs_no_conv);
+            }
+            else if (lhs_no_conv.is<Nodecl::ClassMemberAccess>())
+            {
+                create_struct_fake_constraint(lhs_no_conv);
             }
 
             // 2.2.3.- Compute the constraints generated from the condition
@@ -972,33 +1055,43 @@ namespace {
             NBase rhs_no_conv = rhs.no_conv();
             if (!lhs_no_conv.is<Nodecl::Symbol>()
                     && !lhs_no_conv.is<Nodecl::ArraySubscript>()
+                    && !lhs_no_conv.is<Nodecl::ClassMemberAccess>()
                     && !rhs_no_conv.is<Nodecl::Symbol>()
-                    && !rhs_no_conv.is<Nodecl::ArraySubscript>())
+                    && !rhs_no_conv.is<Nodecl::ArraySubscript>()
+                    && !rhs_no_conv.is<Nodecl::ClassMemberAccess>())
             {
-                internal_error("Unsupported case: comparison with no single symbol at any side: %d %s %d.\n",
+                internal_error("Unsupported case: comparison with no single symbol at any side: %s %s %s.\n",
                                lhs.prettyprint().c_str(),
                                ast_print_node_type(comparison_kind),
                                rhs.prettyprint().c_str());
             }
 
             // 2.3.2.- Create fake input constraint if necessary
-            if (lhs.is<Nodecl::ArraySubscript>())
+            if (lhs_no_conv.is<Nodecl::ArraySubscript>())
             {
-                create_array_fake_constraint(lhs);
+                create_array_fake_constraint(lhs_no_conv);
             }
-            if (rhs.is<Nodecl::ArraySubscript>())
+            else if (lhs_no_conv.is<Nodecl::ClassMemberAccess>())
+            {
+                create_struct_fake_constraint(lhs_no_conv);
+            }
+            if (rhs_no_conv.is<Nodecl::ArraySubscript>())
             {
                 create_array_fake_constraint(rhs);
+            }
+            else if (rhs_no_conv.is<Nodecl::ClassMemberAccess>())
+            {
+                create_struct_fake_constraint(rhs_no_conv);
             }
 
             // 2.3.3.- Compute the constraints generated from the condition
             NBase val_true, val_false;
-            // 2.3.3.1.- Call for the symbol at the lhs
+            // 2.3.3.1.- Call for the symbol in the lhs
             compute_comparison_constraint(
                     lhs_no_conv, rhs,
                     comparison_kind,
                     val_true, val_false);
-            // 2.3.3.2.- Call for the symbol at the rhs
+            // 2.3.3.2.- Call for the symbol in the rhs
             //           Since the order of the operands is inverted,
             //           the operation must be inverted too
             // FIXME We assume the RHS is not modified within the loop

@@ -1220,22 +1220,60 @@ namespace Analysis {
 
     static bool node_is_ancestor_of_node_rec(Node* ancestor, Node* descendant)
     {
-        bool res = false;
+        if (ancestor->is_visited_extgraph())
+            return false;
 
-        if(!ancestor->is_visited_extgraph())
+        ancestor->set_visited_extgraph(true);
+
+        bool res = false;
+        // 1.- Target node found
+        if (ancestor == descendant)
         {
-            ancestor->set_visited_extgraph(true);
-            
-            if(ancestor == descendant)
+            res = true;
+        }
+        // 2.- Target node not found => keep iterating
+        else
+        {
+            // Treat inner nodes of a graph node
+            if (ancestor->is_graph_node())
             {
-                res = true;
+                res = node_is_ancestor_of_node_rec(ancestor->get_graph_entry_node(), descendant);
             }
-            else
+
+            // Keep iterating if 'descendant' has not yet been found
+            if (!res)
             {
-                ObjectList<Node*> children = ancestor->get_children();
-                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end() && !res ; ++it)
+                ObjectList<Edge*> exits;
+                if (ancestor->is_exit_node())
+                    exits = ancestor->get_outer_node()->get_exit_edges();
+                else
+                    exits = ancestor->get_exit_edges();
+                while (!exits.empty() && !res)
                 {
-                    res = node_is_ancestor_of_node_rec(*it, descendant);
+                    Edge* e = exits.back();
+                    exits.pop_back();
+                    if (e->is_back_edge())
+                    {   // Follow only the FALSE edge
+                        Node* next_ancestor = e->get_target();
+                        if (next_ancestor->is_visited_extgraph())
+                            continue;
+                        next_ancestor->set_visited_extgraph(true);
+
+                        ObjectList<Edge*> next_exits = next_ancestor->get_exit_edges();
+                        for (ObjectList<Edge*>::iterator it = next_exits.begin();
+                             it != next_exits.end(); ++it)
+                        {
+                            if ((*it)->is_false_edge())
+                            {
+                                exits.push_back(*it);
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        res = node_is_ancestor_of_node_rec(e->get_target(), descendant);
+                    }
                 }
             }
         }
@@ -1245,8 +1283,22 @@ namespace Analysis {
 
     bool ExtensibleGraph::node_is_ancestor_of_node(Node* ancestor, Node* descendant)
     {
-        bool res = node_is_ancestor_of_node_rec(ancestor, descendant);
+        // Base case: both nodes are the same
+        if (ancestor == descendant)
+            return false;
+
+        // Look for 'descendant' traversing the PCFG from 'ancestor'
+        ancestor->set_visited_extgraph(true);
+        bool res = false;
+        const ObjectList<Edge*>& exits = ancestor->get_exit_edges();
+        for (ObjectList<Edge*>::const_iterator it = exits.begin();
+             it != exits.end() && !res ; ++it)
+        {
+            res = node_is_ancestor_of_node_rec((*it)->get_target(), descendant);
+        }
+
         ExtensibleGraph::clear_visits_extgraph(ancestor);
+
         return res;
     }
 
@@ -1441,32 +1493,6 @@ namespace Analysis {
         return false;
     }
 
-    bool ExtensibleGraph::is_first_statement_node(Node* node)
-    {
-        // Get first node in code with statements
-        Node* stmt_node = _graph->get_graph_entry_node();
-        while(!stmt_node->has_statements() && (stmt_node != _graph->get_graph_exit_node()))
-        {
-            if(stmt_node->is_graph_node())
-                stmt_node = stmt_node->get_graph_entry_node();
-            else if(stmt_node->is_exit_node() && (stmt_node->get_outer_node()->get_id() != 0))
-                stmt_node = stmt_node->get_outer_node()->get_children()[0];
-            else
-            {
-                const ObjectList<Node*> children = stmt_node->get_children();
-                if (!children.empty())
-                    stmt_node = children[0];
-                else
-                    return false;
-            }
-        }
-        
-        if(stmt_node->has_statements() && (stmt_node == node))
-            return true;
-        
-        return false;
-    }
-    
     Node* ExtensibleGraph::find_nodecl_rec(Node* current, const NBase& n)
     {
         Node* result = NULL;

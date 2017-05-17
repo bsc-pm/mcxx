@@ -3737,12 +3737,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::EmptyRange& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::MinusInfinity& node)
 {
-    *(file) << "-∞";
+    *(file) << "-INF";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::PlusInfinity& node)
 {
-    *(file) << "+∞";
+    *(file) << "+INF";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Maximum& node)

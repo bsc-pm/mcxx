@@ -1451,6 +1451,14 @@ src_tl_analysis_tdg_libtdg_la_LIBADD = $(tl_libadd) \
 
 src_tl_analysis_tdg_libtdg_la_SOURCES = src/tl/analysis/tdg/tl-task-dependency-graph.hpp \
 					src/tl/analysis/tdg/tl-task-dependency-graph.cpp \
+					src/tl/analysis/tdg/tl-old-tdg.cpp \
+					src/tl/analysis/tdg/tl-flow-tdg.cpp \
+					src/tl/analysis/tdg/tl-tdg-utils.cpp \
+					src/tl/analysis/tdg/tl-expanded-tdg.cpp \
+ 					src/tl/analysis/tdg/tl-tdg-dot.cpp \
+					src/tl/analysis/tdg/tl-tdg-json.cpp \
+					src/tl/analysis/tdg/tl-tdg-components.cpp \
+					src/tl/analysis/tdg/tl-tdg-mapper.cpp \
 					$(END)
 
 ##########################################################################

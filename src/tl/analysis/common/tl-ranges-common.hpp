@@ -41,6 +41,8 @@ namespace Utils {
     // ******************************************************************************************* //
     // *********************************** Ranges arithmetic ************************************* //
 
+    Type get_range_type(Type t1, Type t2);
+
     bool nodecl_is_Z_range(const NBase& n);
 
     NBase range_sub(const NBase& r1, const NBase& r2);
@@ -48,7 +50,7 @@ namespace Utils {
     NBase range_addition(const NBase& r1, const NBase& r2);
     NBase range_subtraction(const NBase& r1, const NBase& r2);
     NBase range_multiplication(const NBase& r1, const NBase& r2);
-    NBase range_division(const NBase& r1, const NBase& r2);
+    NBase range_division(const NBase& dividend, const NBase& divisor);
     NBase range_intersection(const NBase& r, const NBase& r2);
     NBase range_union(const NBase& r1, const NBase& r2);
     Nodecl::Range range_value_add(const Nodecl::Range& r, const NBase& v);

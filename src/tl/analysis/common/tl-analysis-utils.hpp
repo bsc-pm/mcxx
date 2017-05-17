@@ -27,6 +27,8 @@
 #ifndef TL_ANALYSIS_UTILS_HPP
 #define TL_ANALYSIS_UTILS_HPP
 
+#include "cxx-cexpr.h"
+
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-tribool.hpp"
@@ -235,9 +237,23 @@ namespace Utils {
     
     // ************************** END class defining the types of usage ************************** //
     // ******************************************************************************************* //
+
+
+    // ******************************************************************************************* //
+    // ************************* Methods to operate with constant values ************************* //
     
+    enum CmpResult {
+        CmpSmaller,
+        CmpEqual,
+        CmpBigger
+    };
     
+    CmpResult compare_constants(const_value_t* lhs_const, const_value_t* rhs_const);
     
+    // *********************** END Methods to operate with constant values *********************** //
+    // ******************************************************************************************* //
+
+
     // ******************************************************************************************* //
     // ************************************ Printing methods ************************************* //
     

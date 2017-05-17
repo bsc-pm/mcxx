@@ -45,8 +45,6 @@ namespace {
     // ***************** initialize global variables for ranges operations ****************** //
 
     const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*signed*/ 1);
-    const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*signed*/ 1);
-    const_value_t* minus_one = const_value_get_minus_one(/*num_bytes*/ 4, /*sign*/1);
     const_value_t* long_max = const_value_get_integer(LONG_MAX, /*num_bytes*/sizeof(long), /*sign*/1);
     NBase plus_inf = Nodecl::Analysis::PlusInfinity::make(Type::get_long_int_type(), long_max);
     const_value_t* long_min = const_value_get_integer(LONG_MIN, /*num_bytes*/sizeof(long), /*sign*/1);
@@ -134,7 +132,7 @@ namespace {
                 constant.shallow_copy(),
                 constant.shallow_copy(),
                 const_value_to_nodecl(zero),
-                Type::get_long_int_type());
+                constant.get_type());
         return const_range;
     }
 
@@ -1035,7 +1033,7 @@ namespace {
                                             next_lower,
                                             next_upper,
                                             const_value_to_nodecl(zero),
-                                            Type::get_long_int_type());
+                                            Utils::get_range_type(next_lower.get_type(), next_upper.get_type()));
                                 }
                                 else
                                 {   // e(Y)^ <= I[Y]^ -> [-inf , I[Y]^]
@@ -1044,7 +1042,7 @@ namespace {
                                             next_lower,
                                             old_ub,
                                             const_value_to_nodecl(zero),
-                                            Type::get_long_int_type());
+                                            Utils::get_range_type(next_lower.get_type(), old_ub.get_type()));
                                 }
                             }
                             else
@@ -1068,7 +1066,7 @@ namespace {
                                         old_lb,
                                         next_upper,
                                         const_value_to_nodecl(zero),
-                                        Type::get_long_int_type());
+                                        Utils::get_range_type(old_lb.get_type(), next_upper.get_type()));
                             }
                         }
                         else
@@ -1182,7 +1180,7 @@ namespace {
                                 c_val_lb,
                                 c_val_ub,
                                 const_value_to_nodecl(zero),
-                                Type::get_long_int_type());
+                                Utils::get_range_type(c_val_lb.get_type(), c_val_ub.get_type()));
                     }
                     else if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(c_val_ub, s))
                     {
@@ -1193,7 +1191,7 @@ namespace {
                                 c_val_lb,
                                 c_val_ub,
                                 const_value_to_nodecl(zero),
-                                Type::get_long_int_type());
+                                Utils::get_range_type(c_val_lb.get_type(), c_val_ub.get_type()));
                     }
                     else
                     {
@@ -1289,18 +1287,20 @@ namespace {
                             && const_value_is_positive(const_value_sub(new_lb.get_constant(),
                                                                     minus_inf.get_constant())))
                     {   // I[Y]_ = -inf && e(Y)_ > -inf ---> [e(Y)_, I[Y]^]
-                        narrow_valuation = Nodecl::Range::make(new_lb, old_ub,
-                                                            const_value_to_nodecl(zero),
-                                                            Type::get_long_int_type());
+                        narrow_valuation =
+                                Nodecl::Range::make(new_lb, old_ub,
+                                                    const_value_to_nodecl(zero),
+                                                    Utils::get_range_type(new_lb.get_type(), old_ub.get_type()));
                     }
                     else if (old_ub.is<Nodecl::Analysis::PlusInfinity>()
                                 && new_ub.is_constant()
                                 && const_value_is_positive(const_value_sub(plus_inf.get_constant(),
                                                                         new_ub.get_constant())))
                     {   // I[Y]^ = +inf && e(Y)^ < +inf ---> [I[Y]_, e(Y)^]
-                        narrow_valuation = Nodecl::Range::make(old_lb, new_ub,
-                                                            const_value_to_nodecl(zero),
-                                                            Type::get_long_int_type());
+                        narrow_valuation =
+                                Nodecl::Range::make(old_lb, new_ub,
+                                                    const_value_to_nodecl(zero),
+                                                    Utils::get_range_type(old_lb.get_type(), new_ub.get_type()));
                     }
                     else
                     {
@@ -1311,15 +1311,17 @@ namespace {
                             const_value_t* diff = const_value_sub(old_lb_c, new_lb_c);
                             if (const_value_is_positive(diff))
                             {   // I[Y]_ > e(Y)_ ---> [e(Y)_, I[Y]^]
-                                narrow_valuation = Nodecl::Range::make(new_lb, old_ub,
-                                                                    const_value_to_nodecl(zero),
-                                                                    Type::get_long_int_type());
+                                narrow_valuation =
+                                    Nodecl::Range::make(new_lb, old_ub,
+                                                        const_value_to_nodecl(zero),
+                                                        Utils::get_range_type(new_lb.get_type(), old_ub.get_type()));
                             }
                             else if (const_value_is_negative(diff))
                             {   // I[Y]^ < e(Y)^ ---> [I[Y]_, e(Y)^]
-                                narrow_valuation = Nodecl::Range::make(old_lb, new_ub,
-                                                                    const_value_to_nodecl(zero),
-                                                                    Type::get_long_int_type());
+                                narrow_valuation =
+                                    Nodecl::Range::make(old_lb, new_ub,
+                                                        const_value_to_nodecl(zero),
+                                                        Utils::get_range_type(old_lb.get_type(), new_ub.get_type()));
                             }
                         }
                         else
@@ -1363,6 +1365,10 @@ namespace {
     }
 
     // Only __Sym nodes are evaluated!
+    // FIXME: The type of the valuations must be adjusted to the type of the corresponding symbol.
+    //        For example:
+    //            int a = 10;           --> [10, 10] of type int
+    //            unsigned int b = a;   --> [10, 10] of type unsigned int (currently, the type here is int)
     void ConstraintGraph::solve_constraints(const std::vector<SCC*>& root_sccs)
     {
         if (RANGES_DEBUG)
@@ -1399,23 +1405,26 @@ namespace {
 
             // 2.- Check whether this SCC is ready to be solved:
             //     All its entries, but those coming from back edges, must have been already solved
-            const std::list<CGNode*>& roots = scc->get_roots();
-            std::set<CGEdge*> entries;
-            for (std::list<CGNode*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
-            {
-                entries.insert((*it)->get_entries().begin(), (*it)->get_entries().end());
-            }
             bool is_ready = true;
-            for (std::set<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
+            const std::vector<CGNode*>& nodes = scc->get_nodes();
+            std::set<CGEdge*> entries;
+            for (std::vector<CGNode*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it)
             {
-                CGNode* parent = (*it)->get_source();
-                SCC* parent_scc = _node_to_scc_map[parent];
-                if (scc != parent_scc                           // This parent belongs to a different component
-                        && visited.find(parent_scc) == visited.end())  // That other component has not been solved yet
-                {
-                    is_ready = false;
-                    break;
-                }
+                ObjectList<CGEdge*> n_entries = (*it)->get_entries();
+                for (ObjectList<CGEdge*>::iterator itt = n_entries.begin();
+                     itt != n_entries.end(); ++itt)
+                     {
+                         if ((*itt)->is_back_edge())
+                             continue;
+                         CGNode* parent = (*itt)->get_source();
+                         SCC* parent_scc = _node_to_scc_map[parent];
+                         if (scc != parent_scc                               // This parent belongs to a different component
+                             && visited.find(parent_scc) == visited.end())   // That other component has not been solved yet
+                         {
+                             is_ready = false;
+                             break;
+                         }
+                     }
             }
             if (!is_ready)
             {
@@ -1480,23 +1489,26 @@ namespace {
 
             // 2.- Check whether this SCC is ready to be solved:
             //     All its entries, but those coming from back edges, must have been already solved
-            const std::list<CGNode*>& roots = scc->get_roots();
-            std::set<CGEdge*> entries;
-            for (std::list<CGNode*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
-            {
-                entries.insert((*it)->get_entries().begin(), (*it)->get_entries().end());
-            }
             bool is_ready = true;
-            for (std::set<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
+            const std::vector<CGNode*>& nodes = scc->get_nodes();
+            std::set<CGEdge*> entries;
+            for (std::vector<CGNode*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it)
             {
-                CGNode* parent = (*it)->get_source();
-                SCC* parent_scc = _node_to_scc_map[parent];
-                if (scc != parent_scc                           // This parent belongs to a different component
-                        && visited.find(parent_scc) == visited.end())  // That other component has not been solved yet
-                {
-                    is_ready = false;
-                    break;
-                }
+                ObjectList<CGEdge*> n_entries = (*it)->get_entries();
+                for (ObjectList<CGEdge*>::iterator itt = n_entries.begin();
+                     itt != n_entries.end(); ++itt)
+                     {
+                         if ((*itt)->is_back_edge())
+                             continue;
+                         CGNode* parent = (*itt)->get_source();
+                         SCC* parent_scc = _node_to_scc_map[parent];
+                         if (scc != parent_scc                               // This parent belongs to a different component
+                             && visited.find(parent_scc) == visited.end())   // That other component has not been solved yet
+                         {
+                             is_ready = false;
+                             break;
+                         }
+                     }
             }
             if (!is_ready)
             {
@@ -1569,7 +1581,6 @@ namespace {
 
         // 2.- Build the Constraint Graph (CG) from the computed constraints
         build_constraint_graph();
-        _cg->print_graph();
 
         // 3.- Extract the Strongly Connected Components (SCC) of the graph
         //     And get the root of each topologically ordered subgraph
@@ -1577,8 +1588,7 @@ namespace {
 
         // 4.- Constraints evaluation
         _cg->solve_constraints(roots);
-        if(VERBOSE)
-            _cg->print_graph();
+        _cg->print_graph();
 
         // 5.- Insert computed ranges in the PCFG
         set_ranges_to_pcfg(pcfg_constraints);
@@ -1815,12 +1825,13 @@ namespace {
         {
             Node* n = worklist.front();
             worklist.pop();
+
             if (treated.find(n) != treated.end())
             {
                 if (!n->is_exit_node())
                 {
                     // Insert in the worklist the remaining nodes
-                    // exit node of the treated node, which is a condition of a loop)
+                    // exit node of the treated node, which is the condition of a loop
                     if (!next_worklist.empty())
                     {
                         worklist.push(next_worklist.front());
@@ -1868,10 +1879,10 @@ namespace {
                 Node* graph_exit = n->get_graph_exit_node();
                 pcfg_constraints[n] = pcfg_constraints[graph_exit];
 
-                // Do not consider those graphs that finish only with a return statement
+                // Do not consider those graphs that finish *only* with a return/continue/break statement
                 // That may break the sequential order of execution
                 const ObjectList<Node*> exit_parents = graph_exit->get_parents();
-                if (exit_parents.size()==1 && exit_parents[0]->is_return_node())
+                if (exit_parents.size()==0)
                 {
                     treated.insert(n);
                     continue;
@@ -1928,15 +1939,20 @@ namespace {
                                 // 2.2.1.1.1.- Get a new symbol for the new constraint
                                 std::stringstream ss; ss << get_next_id(orig_var);
                                 Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
-                                std::string subscripts_str;
+                                std::string constr_name;
                                 if (orig_var.no_conv().is<Nodecl::ArraySubscript>())
                                 {
                                     VarToConstraintMap all_constrs = merged_input_constrs;
                                     all_constrs.insert(input_constrs.begin(), input_constrs.end());
-                                    subscripts_str = get_subscripts_string(orig_var.no_conv().as<Nodecl::ArraySubscript>(),
-                                                                           all_constrs) + "_";
+                                    constr_name = get_array_subscript_string(
+                                                        orig_var.no_conv().as<Nodecl::ArraySubscript>(),
+                                                        all_constrs);
                                 }
-                                std::string constr_name = orig_sym.get_name() + "_" + subscripts_str + ss.str();
+                                else
+                                {
+                                    constr_name = orig_sym.get_name() + "_";
+                                }
+                                constr_name += ss.str();
                                 Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
@@ -2008,15 +2024,20 @@ namespace {
                                 // 2.2.1.2.2.2.- Get a new symbol for the new constraint
                                 std::stringstream ss; ss << get_next_id(orig_var);
                                 Symbol orig_sym(Utils::get_nodecl_base(orig_var).get_symbol());
-                                std::string subscripts_str;
+                                std::string constr_name;
                                 if (orig_var.no_conv().is<Nodecl::ArraySubscript>())
                                 {
                                     VarToConstraintMap all_constrs = merged_input_constrs;
                                     all_constrs.insert(input_constrs.begin(), input_constrs.end());
-                                    subscripts_str = get_subscripts_string(orig_var.no_conv().as<Nodecl::ArraySubscript>(),
-                                                                           all_constrs) + "_";
+                                    constr_name = get_array_subscript_string(
+                                                        orig_var.no_conv().as<Nodecl::ArraySubscript>(),
+                                                        all_constrs);
                                 }
-                                std::string constr_name = orig_sym.get_name() + "_" + subscripts_str + ss.str();
+                                else
+                                {
+                                    constr_name = orig_sym.get_name() + "_";
+                                }
+                                constr_name += ss.str();
                                 Symbol ssa_var(ssa_scope.new_symbol(constr_name));
                                 Type t(orig_sym.get_type());
                                 ssa_var.set_type(t);
@@ -2118,6 +2139,7 @@ namespace {
             // Make sure we compute constraints in the proper order (sequential order of the statements)
             if (!n->is_omp_task_node()
                     && !n->is_break_node()
+                    && !n->is_continue_node()
                     && !n->is_return_node()
                     && !n->is_goto_node())
             {

@@ -445,7 +445,6 @@ namespace Analysis {
         static Node* get_task_creation_from_task(Node* task);
         static Node* get_task_from_task_creation(Node* task_creation);
         static bool task_synchronizes_in_post_sync(Node* task);
-        bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //
         static bool has_been_defined(Node* current, Node* scope, const NBase& n);

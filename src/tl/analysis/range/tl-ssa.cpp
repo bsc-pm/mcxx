@@ -58,11 +58,39 @@ namespace Analysis {
         return true;
     }
 
-    std::string get_subscripts_string(
+    std::string get_array_subscript_string(
             const Nodecl::ArraySubscript& n,
             /*in*/ VarToConstraintMap& input_constraints)
     {
-        std::string subscripts_str;
+        std::string array_subscript_str;
+
+        // Get the string representing the subscripted
+        Nodecl::NodeclBase subscripted = n.get_subscripted().no_conv();
+        while (subscripted.is<Nodecl::Dereference>())
+            subscripted = subscripted.as<Nodecl::Dereference>().get_rhs().no_conv();
+        if (subscripted.is<Nodecl::Symbol>())
+        {
+            array_subscript_str = subscripted.as<Nodecl::Symbol>().get_symbol().get_name();
+        }
+        else if (subscripted.is<Nodecl::ClassMemberAccess>())
+        {
+            array_subscript_str = get_class_member_string(
+                                    subscripted.as<Nodecl::ClassMemberAccess>(),
+                                    input_constraints);
+        }
+        else if (subscripted.is<Nodecl::ArraySubscript>())
+        {
+            array_subscript_str =
+                    get_array_subscript_string(
+                        subscripted.as<Nodecl::ArraySubscript>(),
+                        input_constraints);
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' as subscripted of an ArraySubscript.\n",
+                           ast_print_node_type(subscripted.get_kind()));
+        }
+        array_subscript_str += "_";
 
         // Concatenate all the subscripts in a string replacing symbols with the ssa symbols
         const Nodecl::List& subscripts = n.get_subscripts().as<Nodecl::List>();
@@ -70,7 +98,7 @@ namespace Analysis {
         {
             const Nodecl::NodeclBase& s = *it;
             if (input_constraints.find(s) != input_constraints.end())
-                subscripts_str += input_constraints[s].get_symbol().get_name();
+                array_subscript_str += input_constraints[s].get_symbol().get_name();
             else    // The subscript is an operation
             {
                 // 1.- Get all symbol_names
@@ -105,21 +133,71 @@ namespace Analysis {
                 std::sort(all_syms_names.begin(), all_syms_names.end(), cs);
 
                 // 2.- Build the subscript string
-                subscripts_str = s.prettyprint();
+                array_subscript_str += s.prettyprint();
                 // Remove blank spaces from the string (e.g. due to operations in the subscripts)
-                subscripts_str.erase(remove_if(subscripts_str.begin(), subscripts_str.end(), isspace),
-                                     subscripts_str.end());
+                array_subscript_str.erase(
+                        remove_if(array_subscript_str.begin(), array_subscript_str.end(), isspace),
+                        array_subscript_str.end());
                 // Replace in the subscript each symbol by its corresponding ssa symbol
                 std::vector<std::string>::iterator its = all_syms_names.begin();
                 std::vector<std::string>::iterator itr = all_syms_replacements.begin();
                 for (; its != all_syms_names.end(); ++its, ++itr)
-                    replace_substring(subscripts_str, *its, *itr);
+                    replace_substring(array_subscript_str, *its, *itr);
             }
-            subscripts_str += "_";
+            array_subscript_str += "_";
         }
 
-        return subscripts_str;
+        return array_subscript_str;
     }
 
+    std::string get_class_member_string(
+            const Nodecl::ClassMemberAccess& n,
+            /*in*/ VarToConstraintMap& input_constraints)
+    {
+        std::string member_str;
+
+        NBase member = n.get_member();
+        if (member.is<Nodecl::ArraySubscript>())
+        {
+            member_str = get_array_subscript_string(
+                                member.as<Nodecl::ArraySubscript>(),
+                                input_constraints);
+        }
+        else if (member.is<Nodecl::Symbol>())
+        {
+            member_str = member.get_symbol().get_name();
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' as member of a ClassMemberAccess.\n",
+                           ast_print_node_type(member.get_kind()));
+        }
+
+        NBase lhs = n.get_lhs().no_conv();
+        if (lhs.is<Nodecl::ClassMemberAccess>())
+        {
+            member_str
+                    = get_class_member_string(lhs.as<Nodecl::ClassMemberAccess>(), input_constraints)
+                    + member_str;
+        }
+        else if (lhs.is<Nodecl::ArraySubscript>())
+        {
+            member_str
+                    = get_array_subscript_string(lhs.as<Nodecl::ArraySubscript>(), input_constraints)
+                    + member_str;
+        }
+        else if (lhs.is<Nodecl::Symbol>())
+        {
+            member_str = lhs.get_symbol().get_name() + member_str;
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' as subscripted of an ClassMemberAccess.\n",
+                            ast_print_node_type(lhs.get_kind()));
+        }
+        member_str += "_";
+
+        return member_str;
+    }
 }
 }

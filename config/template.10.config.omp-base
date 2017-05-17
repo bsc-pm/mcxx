@@ -26,6 +26,7 @@ linker_name = @GCC@
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
 {tdg} options = --variable=tdg_enabled:1
+{etdg} options = --variable=etdg_enabled:1
 {analysis-check} pragma_prefix = analysis_check
 {analysis-check} compiler_phase = libanalysis_check.so
 {(openmp|ompss), (openmp-lint|task-correctness), !analysis-check} compiler_phase = libtlomp-lint.so
