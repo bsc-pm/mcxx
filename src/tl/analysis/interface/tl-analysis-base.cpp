@@ -536,37 +536,65 @@ namespace Analysis {
     ObjectList<TaskDependencyGraph*> AnalysisBase::task_dependency_graph(
             const NBase& ast,
             std::set<std::string> functions,
-            bool call_graph)
+            bool call_graph,
+            bool taskparts_enabled,
+            bool expand_tdg)
     {
         if (_tdg)
             return get_tdgs();
-
+        
         // Required previous analyses
-        induction_variables(ast, /*propagate_graph_nodes*/ false, functions, call_graph);
+        induction_variables(ast, /*propagate_graph_nodes*/ true, functions, call_graph);
         range_analysis(ast, functions, call_graph);
         tune_task_synchronizations(ast, functions, call_graph);
-
+        
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
             init = time_nsec();
-
+        
         _tdg = true;
-
+        
         ObjectList<TaskDependencyGraph*> tdgs;
         const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
         for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
+            if ((*it)->get_tasks_list().empty())
+            {
+                if (VERBOSE)
+                    std::cerr << "PCFG '" << (*it)->get_name() << "' does not contain tasks. "
+                    << "No Task Dependency Graph has been generated." << std::endl;
+                continue;
+            }
             if (VERBOSE)
                 std::cerr << "Task Dependency Graph (TDG) of PCFG '" << (*it)->get_name() << "'" << std::endl;
-
-            TaskDependencyGraph* tdg = new TaskDependencyGraph(*it);
+            
+            TaskDependencyGraph* tdg;
+            if (expand_tdg)
+            {
+                tdg = new TaskDependencyGraph(*it);
+            }
+            else
+            {
+                tdg = new TaskDependencyGraph(*it, (*it)->get_name(), taskparts_enabled);
+            }
             tdgs.insert(tdg);
             _tdgs[(*it)->get_name()] = tdg;
         }
-
+        
+        if (expand_tdg)
+        {
+            ObjectList<ExpandedTaskDependencyGraph*> etdgs;
+            for (ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin(); it != tdgs.end(); ++it)
+            {
+                etdgs.append((*it)->get_etdg());
+            }
+            TaskDependencyGraphMapper tdgm(etdgs);
+            tdgm.generate_runtime_tdg();
+        }
+        
         if (ANALYSIS_PERFORMANCE_MEASURE)
             fprintf(stderr, "ANALYSIS: TDG computation time: %lf\n", (time_nsec() - init)*1E-9);
-
+        
         return tdgs;
     }
 
@@ -633,13 +661,10 @@ namespace Analysis {
         TaskDependencyGraph* tdg = get_tdg(tdg_name);
         tdg->print_tdg_to_dot();
     }
-
-    void AnalysisBase::tdg_to_json(std::string tdg_name)
+    
+    void AnalysisBase::tdgs_to_json(const ObjectList<TaskDependencyGraph*>& tdgs)
     {
-        if (VERBOSE)
-            std::cerr << "Printing TDG '" << tdg_name << "' to JSON" << std::endl;
-        TaskDependencyGraph* tdg = get_tdg(tdg_name);
-        tdg->print_tdg_to_json();
+        TaskDependencyGraph::print_tdgs_to_json(tdgs);
     }
 }
 }

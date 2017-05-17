@@ -56,6 +56,7 @@ struct debug_flags_list_t;
 "binary_check", DEBUG_OPTION_REF(binary_check), "Performs a binary check between the binary output"
 "analysis_verbose", DEBUG_OPTION_REF(analysis_verbose), "Prints the results of the static analysis"
 "ranges_verbose", DEBUG_OPTION_REF(ranges_verbose), "Prints debug information about range analysis"
+"tdg_verbose", DEBUG_OPTION_REF(tdg_verbose), "Prints debug information about static Task Dependency Graph generation"
 "analysis_perf", DEBUG_OPTION_REF(analysis_perf), "Prints the performance information of the static analysis"
 "analysis_info", DEBUG_OPTION_REF(analysis_info), "Adds analysis information in text format in the source code"
 "print_pcfg", DEBUG_OPTION_REF(print_pcfg), "Prints PCFG in graphviz format"

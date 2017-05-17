@@ -112,6 +112,11 @@ namespace {
                            _tdg_enabled_str,
                            "0").connect(std::bind(&TestAnalysisPhase::set_tdg, this, std::placeholders::_1));
 
+        register_parameter("etdg_enabled",
+                            "If set to '1' enables expanded-tdg analysis, otherwise it is disabled",
+                            _etdg_enabled_str,
+                            "0").connect(std::bind(&TestAnalysisPhase::set_etdg, this, std::placeholders::_1));
+
         register_parameter("range_analysis_enabled",
                            "If set to '1' enables range analysis, otherwise it is disabled",
                            _range_analysis_enabled_str,
@@ -212,11 +217,13 @@ namespace {
         }
         
         ObjectList<TaskDependencyGraph*> tdgs;
-        if (_tdg_enabled)
+        if (_tdg_enabled || _etdg_enabled)
         {
             if (VERBOSE)
                 std::cerr << "====================  Testing TDG creation  ====================" << std::endl;
-            tdgs = analysis.task_dependency_graph(ast, functions, _call_graph_enabled);
+            tdgs = analysis.task_dependency_graph(
+                ast, functions, _call_graph_enabled,
+                /*taskparts*/false, _etdg_enabled);
             if (VERBOSE)
                 std::cerr << "==================  Testing TDG creation done  =================" << std::endl;
         }
@@ -258,8 +265,7 @@ namespace {
         {
             if (VERBOSE)
                 std::cerr << "==================  Printing TDG to json file  ================" << std::endl;
-            for (ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin(); it != tdgs.end(); ++it)
-                analysis.tdg_to_json((*it)->get_name());
+            analysis.tdgs_to_json(tdgs);
             if (VERBOSE)
                 std::cerr << "===============  Printing TDG to json file done  ==============" << std::endl;
         }
@@ -303,8 +309,22 @@ namespace {
     
     void TestAnalysisPhase::set_tdg(const std::string& tdg_enabled_str)
     {
+        ERROR_CONDITION(_etdg_enabled,
+                        "Expanded TDG and Flow TDG cannot be enabled at the same time",
+                        0);
+
         if (tdg_enabled_str == "1")
             _tdg_enabled = true;
+    }
+
+    void TestAnalysisPhase::set_etdg(const std::string& etdg_enabled_str)
+    {
+        ERROR_CONDITION(_tdg_enabled,
+                        "Expanded TDG and Flow TDG cannot be enabled at the same time",
+                        0);
+        
+        if (etdg_enabled_str == "1")
+            _etdg_enabled = true;
     }
 
     void TestAnalysisPhase::set_range_analsysis(const std::string& range_analysis_enabled_str)

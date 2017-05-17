@@ -223,8 +223,10 @@ namespace Analysis {
 
         ObjectList<TaskDependencyGraph*> task_dependency_graph(
                 const NBase& ast,
-                std::set<std::string> functions = std::set<std::string>(),
-                bool call_graph = true);
+                std::set<std::string> functions,
+                bool call_graph,
+                bool taskparts_enabled,
+                bool expand_tdg);
 
         void all_analyses(const NBase& ast, bool propagate_graph_nodes);
 
@@ -237,7 +239,7 @@ namespace Analysis {
 
         void print_tdg(std::string tdg_name);
 
-        void tdg_to_json(std::string tdg_name);
+        void tdgs_to_json(const ObjectList<TaskDependencyGraph*>& tdgs);
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //
