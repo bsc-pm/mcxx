@@ -3273,7 +3273,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 parse_translation_unit(translation_unit, parsed_filename);
                 // The scanner automatically closes the file
 
-                if (debug_options.print_parse_tree)
+                if (debug_options.print_ast_graphviz)
                 {
                     fprintf(stderr, "Printing parse tree in graphviz format\n");
 
