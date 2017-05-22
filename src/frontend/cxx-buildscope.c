@@ -16177,6 +16177,10 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
         char diagnose,
         char emit_error)
 {
+    // If the current version C++ is not at least C++11, constexpr are not supported
+    if (!IS_CXX11_LANGUAGE)
+        return 0;
+
     if (symbol_entity_specs_get_is_virtual(entry))
     {
         if (diagnose)
@@ -16349,6 +16353,10 @@ char check_constexpr_constructor(scope_entry_t* entry,
         char diagnose,
         char emit_error)
 {
+    // If the current version C++ is not at least C++11, constexpr are not supported
+    if (!IS_CXX11_LANGUAGE)
+        return 0;
+
     scope_entry_t* class_symbol = named_type_get_symbol(symbol_entity_specs_get_class_type(entry));
 
     // We assume it could be constexpr
