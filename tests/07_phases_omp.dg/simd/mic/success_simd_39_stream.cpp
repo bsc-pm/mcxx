@@ -1,6 +1,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-parallel-simd-mic
+test_CXXFLAGS="-std=c++11"
 test_nolink=yes
 </testinfo>
 */
