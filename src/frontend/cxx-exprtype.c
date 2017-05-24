@@ -13836,8 +13836,10 @@ static void check_nodecl_function_call_cxx(
                 get_unknown_dependent_type(),
                 locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        // FIXME - What if the nodecl_called is value dependent?
-        nodecl_expr_set_is_value_dependent(*nodecl_output, any_arg_is_value_dependent);
+
+        nodecl_expr_set_is_value_dependent(
+                *nodecl_output,
+                any_arg_is_value_dependent || nodecl_expr_is_value_dependent(nodecl_called));
         return;
     }
 
