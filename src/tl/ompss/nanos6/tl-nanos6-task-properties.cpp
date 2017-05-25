@@ -2307,39 +2307,30 @@ namespace TL { namespace Nanos6 {
             {
                 ERROR_CONDITION(field_map.find(*it) == field_map.end(), "Symbol is not mapped", 0);
 
+                Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
+                        arg.make_nodecl(/* set_ref_type */ true),
+                        field_map[*it].make_nodecl(),
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        field_map[*it].get_type().no_ref().get_lvalue_reference_to());
+
                 if (it->get_type().depends_on_nonconstant_values())
                 {
                     TL::Type param_type = rewrite_type_using_args(
                             arg, it->get_type().no_ref(), TL::ObjectList<TL::Symbol>());
 
                     Nodecl::NodeclBase cast;
-                    args.append(
-                            Nodecl::Dereference::make(
-                                cast = Nodecl::Conversion::make(
-                                    Nodecl::Reference::make(
-                                        Nodecl::ClassMemberAccess::make(
-                                            arg.make_nodecl(/* set_ref_type */ true),
-                                            field_map[*it].make_nodecl(),
-                                            /* member_literal */ Nodecl::NodeclBase::null(),
-                                            field_map[*it].get_type().get_lvalue_reference_to()),
-                                        field_map[*it].get_type().get_pointer_to()),
-                                    param_type.get_pointer_to()),
-                                param_type.get_lvalue_reference_to()
-                                )
-                            );
+                    argument = Nodecl::Dereference::make(
+                            cast = Nodecl::Conversion::make(
+                                Nodecl::Reference::make(
+                                    argument,
+                                    field_map[*it].get_type().get_pointer_to()),
+                                param_type.get_pointer_to()),
+                            param_type.get_lvalue_reference_to());
+
                     cast.set_text("C");
                 }
-                else
-                {
-                    TL::Type expr_type = it->get_type().no_ref().get_lvalue_reference_to();
-                    args.append(
-                            Nodecl::ClassMemberAccess::make(
-                                arg.make_nodecl(/* set_ref_type */ true),
-                                field_map[*it].make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                expr_type)
-                            );
-                }
+
+                args.append(argument);
             }
 
             for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
