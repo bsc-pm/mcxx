@@ -1918,6 +1918,13 @@ namespace TL { namespace OpenMP {
     void Core::taskloop_handler_pre(TL::PragmaCustomStatement construct)
     {
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
+
+        if (pragma_line.get_clause("collapse").is_defined())
+        {
+            error_printf_at(construct.get_locus(),
+                    "The 'collapse' clause should have been removed at this point\n");
+        }
+
         Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
 
         DataEnvironment& data_environment =

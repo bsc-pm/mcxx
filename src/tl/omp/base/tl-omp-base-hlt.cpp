@@ -40,6 +40,9 @@ namespace TL { namespace OpenMP {
         }
         else if (collapse_factor == 0)
         {
+            // Removing the collapse clause from the pragma
+            pragma_line.remove_clause("collapse");
+
             warn_printf_at(
                     construct.get_locus(),
                     "'collapse' clause with factor (%d) ignored\n",
