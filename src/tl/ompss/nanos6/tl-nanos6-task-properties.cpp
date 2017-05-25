@@ -2309,35 +2309,25 @@ namespace TL { namespace Nanos6 {
 
                 if (it->get_type().depends_on_nonconstant_values())
                 {
-                    //if (it->get_type().is_array())
-                    //{
-                    //    internal_error("Capture of array values not implemented yet", 0);
-                    //}
-                    //else
-                    {
-                        TL::Type param_type = rewrite_type_using_args(
-                                arg,
-                                it->get_type().no_ref(),
-                                TL::ObjectList<TL::Symbol>()
-                                );
+                    TL::Type param_type = rewrite_type_using_args(
+                            arg, it->get_type().no_ref(), TL::ObjectList<TL::Symbol>());
 
-                        Nodecl::NodeclBase cast;
-                        args.append(
-                                Nodecl::Dereference::make(
-                                    cast = Nodecl::Conversion::make(
-                                        Nodecl::Reference::make(
-                                            Nodecl::ClassMemberAccess::make(
-                                                arg.make_nodecl(/* set_ref_type */ true),
-                                                field_map[*it].make_nodecl(),
-                                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                                field_map[*it].get_type().get_lvalue_reference_to()),
-                                            field_map[*it].get_type().get_pointer_to()),
-                                        param_type.get_pointer_to()),
-                                    param_type.get_lvalue_reference_to()
-                                    )
-                                );
-                        cast.set_text("C");
-                    }
+                    Nodecl::NodeclBase cast;
+                    args.append(
+                            Nodecl::Dereference::make(
+                                cast = Nodecl::Conversion::make(
+                                    Nodecl::Reference::make(
+                                        Nodecl::ClassMemberAccess::make(
+                                            arg.make_nodecl(/* set_ref_type */ true),
+                                            field_map[*it].make_nodecl(),
+                                            /* member_literal */ Nodecl::NodeclBase::null(),
+                                            field_map[*it].get_type().get_lvalue_reference_to()),
+                                        field_map[*it].get_type().get_pointer_to()),
+                                    param_type.get_pointer_to()),
+                                param_type.get_lvalue_reference_to()
+                                )
+                            );
+                    cast.set_text("C");
                 }
                 else
                 {
