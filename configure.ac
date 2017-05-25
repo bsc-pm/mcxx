@@ -37,6 +37,17 @@ AC_LANG([C])
 dnl Check install
 AC_PROG_INSTALL
 
+AC_CHECK_PROG([GCC], [gcc], [gcc])
+AC_CHECK_PROG([GXX], [g++], [g++])
+AC_CHECK_PROG([GFORTRAN], [gfortran], [gfortran])
+
+# GCC / GXX environment variables may be overwritten by AC_PROG_CC /
+# AC_PROG_CXX (respectively). For this reason we save their values at this point!
+GCC_BE=$GCC
+GXX_BE=$GXX
+GCC=
+GXX=
+
 AC_PROG_CC
 AM_PROG_CC_C_O
 
@@ -1865,10 +1876,17 @@ AC_ARG_ENABLE([distcheck-processing],
 )
 AM_CONDITIONAL([RUNNING_DISTCHECK], test x$distcheck_processing = xyes)
 
+
+GCC=$GCC_BE
+GXX=$GXX_BE
+
 # Make these variables precious
 AC_ARG_VAR([FLEX], [Flex])
 AC_ARG_VAR([BISON], [GNU Bison])
 AC_ARG_VAR([NVCC], [nVidia CUDA compiler])
+AC_ARG_VAR([GCC], [GNU C Compiler])
+AC_ARG_VAR([GXX], [GNU C++ Compiler])
+AC_ARG_VAR([GFORTRAN], [GNU Fortran Compiler])
 AC_ARG_VAR([ICC], [Intel C compiler])
 AC_ARG_VAR([ICPC], [Intel C++ compiler])
 AC_ARG_VAR([IFORT], [Intel Fortran])
@@ -2502,6 +2520,14 @@ print_tool "git content tracker" "$GIT"
 
 print_tool "SQLite 3 cflags" "$sqlite3_CFLAGS"
 print_tool "SQLite 3 libs" "$sqlite3_LIBS"
+
+echo ""
+echo " * Mercurium backend compilers:"
+echo ""
+
+print_tool "GNU C compiler" "$GCC"
+print_tool "GNU C++ compiler" "$GXX"
+print_tool "GNU Fortran compiler" "$GFORTRAN"
 
 print_tool "nVidia CUDA compiler " "$NVCC"
 

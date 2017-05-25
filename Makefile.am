@@ -3312,9 +3312,9 @@ config_edit += $(foreach profile, $(profiles), \
     )
 
 # gcc, g++ and gfortran
-config_edit += -e 's|@GCC[@]|'`echo gcc | $(SED) '$(program_transform_name)'`'|g' \
-	-e 's|@G++[@]|'`echo g++ | $(SED) '$(program_transform_name)'`'|g' \
-	-e 's|@GFORTRAN[@]|'`echo gfortran | $(SED) '$(program_transform_name)'`'|g'
+config_edit += -e 's|@GCC[@]|'`echo $(GCC) | $(SED) '$(program_transform_name)'`'|g' \
+	-e 's|@G++[@]|'`echo $(GXX) | $(SED) '$(program_transform_name)'`'|g' \
+	-e 's|@GFORTRAN[@]|'`echo $(GFORTRAN) | $(SED) '$(program_transform_name)'`'|g'
 
 # target_options[profile]
 config_edit += $(foreach profile, $(profiles), \
