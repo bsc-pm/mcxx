@@ -358,15 +358,9 @@ struct scope_entry_tag
     // Locus where the symbol was registered
     const locus_t* locus;
 
-    // All entity specifiers are in this structure
-    union {
-        // Field for transition to a sealed scope_entry_t
-        DEPRECATED_REASON("use the getters/setters of cxx-entity-specs-ops.h") entity_specifiers_t entity_specs;
-
-        // If you use this field you will be fired.
-        // This is only for functions in cxx-entity-specifiers-ops.h
-        entity_specifiers_t _entity_specs;
-    };
+    // If you use this field you will be fired.
+    // This is only for functions in cxx-entity-specifiers-ops.h
+    entity_specifiers_t _entity_specs;
 };
 
 // Scope kind
