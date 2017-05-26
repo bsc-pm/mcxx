@@ -62,16 +62,33 @@ namespace {
         {
             if(m.is<Nodecl::Range>())
             {   // n=[lb1, ub1], m=[lb2, ub2]
-                cond_part = Nodecl::Different::make(
-                    Nodecl::Analysis::RangeIntersection::make(n.shallow_copy(), m.shallow_copy(), t),
-                    Nodecl::Analysis::EmptyRange::make(),
+//                 cond_part = Nodecl::Different::make(
+//                     Nodecl::Analysis::RangeIntersection::make(n.shallow_copy(), m.shallow_copy(), t),
+//                     Nodecl::Analysis::EmptyRange::make(),
+//                     t
+//                 );
+                Nodecl::Range n_range = n.as<Nodecl::Range>();
+                Nodecl::Range m_range = m.as<Nodecl::Range>();
+                cond_part = Nodecl::LogicalOr::make(
+                    Nodecl::LogicalAnd::make(   // lb2 <= lb1 <= ub2
+                        Nodecl::GreaterOrEqualThan::make(
+                            n_range.get_lower().shallow_copy(), m_range.get_lower().shallow_copy(), t),
+                        Nodecl::LowerOrEqualThan::make(
+                            n_range.get_lower().shallow_copy(), m_range.get_upper().shallow_copy(), t),
+                        t),
+                    Nodecl::LogicalAnd::make(   // lb1 <= lb2 <= ub1
+                        Nodecl::LowerOrEqualThan::make(
+                            n_range.get_lower().shallow_copy(), m_range.get_lower().shallow_copy(), t),
+                        Nodecl::GreaterOrEqualThan::make(
+                            n_range.get_upper().shallow_copy(), m_range.get_lower().shallow_copy(), t),
+                        t),
                     t
-               );
+                );
             }
             else
             {   // n=[lb1, ub1], m=[v]
                 cond_part = Nodecl::LogicalAnd::make(
-                    Nodecl::LowerOrEqualThan::make(n.as<Nodecl::Range>().get_lower().shallow_copy(), m.shallow_copy(), t), 
+                    Nodecl::LowerOrEqualThan::make(n.as<Nodecl::Range>().get_lower().shallow_copy(), m.shallow_copy(), t),
                     Nodecl::LowerOrEqualThan::make(m.shallow_copy(), n.as<Nodecl::Range>().get_lower().shallow_copy(), t),
                     t
                );
@@ -82,7 +99,7 @@ namespace {
             if(m.is<Nodecl::Range>())
             {   // n=[v], m=[lb1, ub1]
                 cond_part = Nodecl::LogicalAnd::make(
-                    Nodecl::LowerOrEqualThan::make(m.as<Nodecl::Range>().get_lower().shallow_copy(), n.shallow_copy(), t), 
+                    Nodecl::LowerOrEqualThan::make(m.as<Nodecl::Range>().get_lower().shallow_copy(), n.shallow_copy(), t),
                     Nodecl::LowerOrEqualThan::make(n.shallow_copy(), m.as<Nodecl::Range>().get_lower().shallow_copy(), t),
                     t
                );
@@ -90,17 +107,18 @@ namespace {
             else
             {   // n=[v1], m=[v2]
                 cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
+                // Modifying the data-reference does not ensure that the value is different
                 // Although unknown, they might have the same value
-                if (Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/true) &&
-                    data_reference_is_modified_between_tasks(n_node, m_node, n))
-                {
-                    modification_type = Remove;
-                    cond_part = Nodecl::NodeclBase::null();
-                }
-                else
-                {
-                    cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
-                }
+//                 if (Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/true) &&
+//                     data_reference_is_modified_between_tasks(n_node, m_node, n))
+//                 {
+//                     modification_type = Remove;
+//                     cond_part = Nodecl::NodeclBase::null();
+//                 }
+//                 else
+//                 {
+//                     cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
+//                 }
             }
         }
         
@@ -173,15 +191,15 @@ namespace {
         Nodecl::List::iterator itn = n_subs.begin();
         Nodecl::List::iterator itm = m_subs.begin();
         bool cannot_match = false;
-        for(; (itn != n_subs.end() && itm != m_subs.end()) && !(modification_type & Remove); ++itn, ++itm)
+        for(; (itn != n_subs.end() && itm != m_subs.end()) /*&& !(modification_type & Remove)*/; ++itn, ++itm)
         {
             const Nodecl::NodeclBase& n = *itn;
             const Nodecl::NodeclBase& m = *itm;
-            if(cannot_match)
+/*            if(cannot_match)
             {
                 modification_type = modification_type | compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
             }
-            else if(n.is_constant())
+            else */if(n.is_constant())
             {   // n_node[c1]
                 if(m.is_constant())
                 {   // m_node[c2]
@@ -200,13 +218,13 @@ namespace {
                 }
                 else
                 {   // m_node[v2]
-                    if (Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/ true)
-                            && data_reference_is_modified_between_tasks(n_node, m_node, n))
-                    {   // The two variables are the same and the variable has changed => we are sure there is no dependency
-                        modification_type = modification_type | Remove;
-                        goto match_array_subscripts_end;
-                    }
-                    else
+//                     if (Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/ true)
+//                             && data_reference_is_modified_between_tasks(n_node, m_node, n))
+//                     {   // The two variables are the same and the variable has changed => we are sure there is no dependency
+//                         modification_type = modification_type | Remove;
+//                         goto match_array_subscripts_end;
+//                     }
+//                     else
                     {   // The dependency still exists => compute the condition
                         modification_type = modification_type | compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
                         cannot_match = true;
@@ -216,11 +234,12 @@ namespace {
         }
         
         // The variable hasn't changed => we are sure there is a dependency
-        if(!cannot_match)
-            modification_type = MaybeToStatic;
-
-match_array_subscripts_end:
-        return modification_type;
+//         if(!cannot_match)
+//             modification_type = MaybeToStatic;
+/*
+match_array_subscripts_end:*/
+//         return modification_type;
+        return Keep;
     }
 
     SyncModification match_dependence(
@@ -355,7 +374,7 @@ match_array_subscripts_end:
                     ObjectList<Edge*> exits = current->get_exit_edges();
                     for(ObjectList<Edge*>::iterator it = exits.begin(); it != exits.end(); ++it)
                     {
-                        if((*it)->get_label_as_string() == "maybe")
+                        if((*it)->get_sync_kind() == __Maybe)
                         {   // Can we tune this edge to make it static
                             // if so, remove the rest of the edges
                             NBase target_task_environ = (*it)->get_target()->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment();
@@ -441,7 +460,7 @@ match_array_subscripts_end:
 
         // 2.- Check each pair of dependencies to build the condition and obtain the modification we have to perform in the dependency edge
         SyncModification modification_type = None;
-        // 2.1.- Match source(out, inout) with target(in, out, inout)
+        // 2.1.- (RAW, WAW) Match source(out, inout) with target(in, out, inout)
         for(ObjectList<NBase>::iterator its = source_all_out_deps.begin(); its != source_all_out_deps.end(); ++its)
             for(ObjectList<NBase>::iterator itt = target_deps.begin(); itt != target_deps.end(); ++itt)
             {
@@ -459,7 +478,7 @@ match_array_subscripts_end:
                         condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
                 }
             }
-        // 2.1.- Match source(in) with target(out, inout)
+        // 2.2.- (WAR) Match source(in) with target(out, inout)
         for(ObjectList<NBase>::iterator its = source_in_deps.begin(); its != source_in_deps.end(); ++its)
             for(ObjectList<NBase>::iterator itt = target_all_out_deps.begin(); itt != target_all_out_deps.end(); ++itt)
             {
@@ -492,26 +511,27 @@ match_modification:
         {   // 3.2.- Case 2: we are sure the dependency occurs so we transform it from 'maybe' to 'static'
             if(VERBOSE)
                 DEBUG_MESSAGE("Dependency between %d and %d changes from maybe to static", source->get_id(), target->get_id());
-            // Transform the type of the edge from "maybe" to "static"
-            Edge* e = ExtensibleGraph::get_edge_between_nodes(source, target);
-            const char* s = "static";
-            e->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
-                                                     const_value_make_string(s, strlen(s))));
             // Remove the target task from the source's list of concurrent tasks
             _pcfg->remove_concurrent_task(source, target);
-            // Remove any other "strict" synchronization, since now it is synchronized here for sure
+            // Remove any other "static" synchronization, since now it is synchronized here for sure
             ObjectList<Edge*> sexits = source->get_exit_edges();
-            for(ObjectList<Edge*>::iterator it = sexits.begin(); it != sexits.end(); ++it)
+            for(ObjectList<Edge*>::const_iterator it = sexits.begin(); it != sexits.end(); ++it)
             {
                 Node* tmp_target = (*it)->get_target();
-                if((tmp_target != target) &&
-                    ((*it)->get_label_as_string() == "strict"))
+                if((tmp_target != target) && ((*it)->get_sync_kind() == __Static))
                 {
                     if(VERBOSE)
-                        DEBUG_MESSAGE("Removing unnecessary strict edge between %d and %d", source->get_id(), tmp_target->get_id());
+                        DEBUG_MESSAGE("Removing unnecessary static edge between %d and %d", source->get_id(), tmp_target->get_id());
                     disconnect_tasks(source, tmp_target);
                 }
             }
+            // Transform the type of the edge from "maybe" to "static"
+            Edge* e = ExtensibleGraph::get_edge_between_nodes(source, target);
+            const char* s = "static";
+            e->set_sync_kind(__Static);
+            e->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
+                                                     const_value_make_string(s, strlen(s))));
+
         }
         else if(modification_type & Remove)
         {   // 3.3.- Case 3: We can remove the dependency edge
