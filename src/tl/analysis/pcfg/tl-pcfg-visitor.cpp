@@ -1161,32 +1161,32 @@ next_it:    ;
             else        // expression_nodes.size() > 1
                 last_node = merge_nodes(n, expression_nodes);
 
-                // Connect the partial node created recursively with the piece of Graph build until this moment
-                ObjectList<Node*> expr_first_nodes = get_first_nodes(last_node);
-                for(ObjectList<Node*>::iterator it = expr_first_nodes.begin();
-                     it != expr_first_nodes.end(); ++it)
+            // Connect the partial node created recursively with the piece of Graph build until this moment
+            ObjectList<Node*> expr_first_nodes = get_first_nodes(last_node);
+            for(ObjectList<Node*>::iterator it = expr_first_nodes.begin();
+                    it != expr_first_nodes.end(); ++it)
+            {
+                _pcfg->clear_visits(*it);
+            }
+
+            if(!expr_last_nodes.empty())
+            {   // This will be empty when last statement visited was a Break Statement
+                int n_connects = expr_first_nodes.size() * expr_last_nodes.size();
+                if(n_connects != 0)
                 {
-                    _pcfg->clear_visits(*it);
+                    _pcfg->connect_nodes(expr_last_nodes, expr_first_nodes);
                 }
+            }
 
-                if(!expr_last_nodes.empty())
-                {   // This will be empty when last statement visited was a Break Statement
-                    int n_connects = expr_first_nodes.size() * expr_last_nodes.size();
-                    if(n_connects != 0)
-                    {
-                        _pcfg->connect_nodes(expr_last_nodes, expr_first_nodes);
-                    }
-                }
-
-                // Recompute actual last nodes for the actual graph
-                if(!_utils->_last_nodes.empty())
-                    _utils->_last_nodes = ObjectList<Node*>(1, last_node);
+            // Recompute actual last nodes for the actual graph
+            if(!_utils->_last_nodes.empty())
+                _utils->_last_nodes = ObjectList<Node*>(1, last_node);
         }
         else
         {
             internal_error("Parsing the expression '%s' 0 nodes has been returned, and they must be one or more\n",
-                            codegen_to_str(n.get_internal_nodecl(),
-                                            nodecl_retrieve_context(n.get_internal_nodecl())));
+                    codegen_to_str(n.get_internal_nodecl(),
+                        nodecl_retrieve_context(n.get_internal_nodecl())));
         }
 
         return expression_nodes;

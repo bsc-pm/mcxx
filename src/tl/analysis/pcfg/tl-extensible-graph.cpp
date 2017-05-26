@@ -528,24 +528,24 @@ namespace Analysis {
             if(Utils::nodecl_set_contains_nodecl(n, killed))
                 return true;
 
-                ObjectList<Node*> parents;
-                if(current->is_entry_node())
-                {
-                    // Check if graph parents are still inside the scope
-                    Node* outer_node = current->get_outer_node();
+            ObjectList<Node*> parents;
+            if(current->is_entry_node())
+            {
+                // Check if graph parents are still inside the scope
+                Node* outer_node = current->get_outer_node();
                 if(outer_node != scope)
-                        parents = outer_node->get_parents();
-                    }
-                else
-                {
-                    parents = current->get_parents();
-                }
+                    parents = outer_node->get_parents();
+            }
+            else
+            {
+                parents = current->get_parents();
+            }
 
             for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
             {
                 if(!ExtensibleGraph::is_backward_parent(current, *it) &&  has_been_defined(*it, scope, n))
                     return true;
-                    ExtensibleGraph::clear_visits_extgraph_aux(current);
+                ExtensibleGraph::clear_visits_extgraph_aux(current);
             }
         }
 

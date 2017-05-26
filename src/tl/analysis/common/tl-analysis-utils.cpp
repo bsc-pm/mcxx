@@ -250,7 +250,7 @@ namespace Utils {
         for(NodeclSet::const_iterator it = set.begin(); it != set.end(); ++it)
             if(nodecl == *it)
                 return true;
-            return false;
+        return false;
     }
     
     static NBase nodecl_set_contains_enclosing_nodecl_rec(const NBase& n, const NodeclSet& set)

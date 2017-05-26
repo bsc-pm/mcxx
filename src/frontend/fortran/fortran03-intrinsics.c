@@ -6527,7 +6527,7 @@ scope_entry_t* compute_intrinsic_rand(scope_entry_t* symbol UNUSED_PARAMETER,
     if (t0 == NULL)
         t0 = fortran_choose_int_type_from_kind(4);
 
-        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "rand", fortran_get_default_real_type(), lvalue_ref(t0));
+    return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "rand", fortran_get_default_real_type(), lvalue_ref(t0));
 }
 
 scope_entry_t* compute_intrinsic_irand(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -6541,7 +6541,7 @@ scope_entry_t* compute_intrinsic_irand(scope_entry_t* symbol UNUSED_PARAMETER,
     if (t0 == NULL)
         t0 = fortran_choose_int_type_from_kind(4);
 
-        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "irand", fortran_get_default_integer_type(), lvalue_ref(t0));
+    return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "irand", fortran_get_default_integer_type(), lvalue_ref(t0));
 }
 
 scope_entry_t* compute_intrinsic_rshift(scope_entry_t* symbol UNUSED_PARAMETER,

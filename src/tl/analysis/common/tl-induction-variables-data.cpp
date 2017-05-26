@@ -236,7 +236,7 @@ namespace Utils {
         for (InductionVarList::const_iterator it = iv_list.begin(); it != iv_list.end(); ++it)
             if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip_conversions*/ true))
                 return true;
-            return false;
+        return false;
     }
 
     InductionVar* get_induction_variable_from_list(const InductionVarList& ivs, const NBase& var)
