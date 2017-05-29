@@ -2101,21 +2101,15 @@ namespace TL { namespace Nanos6 {
 
         TL::ObjectList<TL::Symbol> parameters_to_update_type;
 
-        captured_value.map(MapSymbols(param_to_symbol,
-                                      symbols_to_param_names,
-                                      /* out */ symbol_map,
-                                      /* out */ parameters_to_update_type));
+        MapSymbols map_symbols_functor(
+                param_to_symbol,
+                symbols_to_param_names,
+                /* out */ symbol_map,
+                /* out */ parameters_to_update_type);
 
-        shared.map(MapSymbols(param_to_symbol,
-                              symbols_to_param_names,
-                              /* out */ symbol_map,
-                              /* out */ parameters_to_update_type));
-
-
-        reduction.map(MapSymbols(param_to_symbol,
-                              symbols_to_param_names,
-                              /* out */ symbol_map,
-                              /* out */ parameters_to_update_type));
+        captured_value.map(map_symbols_functor);
+        shared.map(map_symbols_functor);
+        reduction.map(map_symbols_functor);
 
 
         // Add extra mappings for VLAs
@@ -3714,19 +3708,17 @@ namespace TL { namespace Nanos6 {
         ParameterToSymbol param_to_symbol(dep_fun_inside_scope);
 
         TL::ObjectList<TL::Symbol> parameters_to_update_type;
-        captured_value.map(MapSymbols(param_to_symbol,
-                                      symbols_to_param_names,
-                                      /* out */ symbol_map,
-                                      /* out */ parameters_to_update_type));
-        shared.map(MapSymbols(param_to_symbol,
-                              symbols_to_param_names,
-                              /* out */ symbol_map,
-                              /* out */ parameters_to_update_type));
 
-        reduction.map(MapSymbols(param_to_symbol,
-                              symbols_to_param_names,
-                              /* out */ symbol_map,
-                              /* out */ parameters_to_update_type));
+        MapSymbols map_symbols_functor(
+                param_to_symbol,
+                symbols_to_param_names,
+                /* out */ symbol_map,
+                /* out */ parameters_to_update_type);
+
+        captured_value.map(map_symbols_functor);
+        shared.map(map_symbols_functor);
+        reduction.map(map_symbols_functor);
+
 
         // Now fix the types of runtime sized types prior anything else
         for (TL::ObjectList<TL::Symbol>::iterator it
