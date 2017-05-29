@@ -1648,7 +1648,6 @@ namespace TL { namespace Nanos6 {
             else
             {
                 type_of_field = type_of_field.get_unqualified_type();
-
             }
 
             TL::Symbol field = add_field_to_class(
@@ -2064,18 +2063,14 @@ namespace TL { namespace Nanos6 {
             unpacked_name = ss.str();
         }
 
-        captured_value.map(AddParameter(unpack_parameter_names,
-                                        unpack_parameter_types,
-                                        symbols_to_param_names));
+        AddParameter add_params_functor(
+                /* out */ unpack_parameter_names,
+                /* out */ unpack_parameter_types,
+                /* out */ symbols_to_param_names);
 
-        shared.map(AddParameter(unpack_parameter_names,
-                                unpack_parameter_types,
-                                symbols_to_param_names));
-
-        reduction.map(AddParameter(unpack_parameter_names,
-                                unpack_parameter_types,
-                                symbols_to_param_names));
-
+        captured_value.map(add_params_functor);
+        shared.map(add_params_functor);
+        reduction.map(add_params_functor);
 
         TL::Symbol unpacked_function
             = SymbolUtils::new_function_symbol(
@@ -3676,16 +3671,15 @@ namespace TL { namespace Nanos6 {
 
         unpack_parameter_names.append("handler");
         unpack_parameter_types.append(TL::Type::get_void_type().get_pointer_to());
-        captured_value.map(AddParameter(unpack_parameter_names,
-                                        unpack_parameter_types,
-                                        symbols_to_param_names));
-        shared.map(AddParameter(unpack_parameter_names,
-                                unpack_parameter_types,
-                                symbols_to_param_names));
 
-        reduction.map(AddParameter(unpack_parameter_names,
-                                unpack_parameter_types,
-                                symbols_to_param_names));
+        AddParameter add_params_functor(
+                /* out */ unpack_parameter_names,
+                /* out */ unpack_parameter_types,
+                /* out */ symbols_to_param_names);
+
+        captured_value.map(add_params_functor);
+        shared.map(add_params_functor);
+        reduction.map(add_params_functor);
 
         dependences_function
             = SymbolUtils::new_function_symbol(related_function,
