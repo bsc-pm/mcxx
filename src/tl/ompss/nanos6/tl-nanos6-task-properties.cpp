@@ -1875,40 +1875,15 @@ namespace TL { namespace Nanos6 {
             {
             }
 
-
             void handle_symbol(TL::Symbol sym, const std::string& name)
             {
                 std::string fixed_name = name;
                 if (IS_CXX_LANGUAGE && name == "this")
                     fixed_name = "_this";
 
-
-                _symbols_to_param_names[sym] = fixed_name;
+                _symbols_to_param_names.insert(std::make_pair(sym, fixed_name));
                 _unpack_parameter_names.append(fixed_name);
-
-                TL::Type p_type = sym.get_type().no_ref();
-
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    if (p_type.is_array())
-                    {
-                        p_type = p_type.array_element().get_pointer_to();
-                    }
-                    else
-                    {
-                        p_type = p_type.get_lvalue_reference_to();
-                    }
-                }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    p_type = p_type.get_lvalue_reference_to();
-                }
-                else
-                {
-                    internal_error("Code unreachable", 0);
-                }
-
-                _unpack_parameter_types.append(p_type);
+                _unpack_parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
             }
 
             void operator()(TL::Symbol sym)
@@ -1942,7 +1917,6 @@ namespace TL { namespace Nanos6 {
                 return param_sym;
             }
         };
-
 
         struct MapSymbols
         {
@@ -2381,36 +2355,34 @@ namespace TL { namespace Nanos6 {
                                 );
                         cast.set_text("C");
                     }
-
-                }
-                else if (!it->get_type().is_array())
-                {
-                    // in the struct we have T* and the function expects T&
-                    // make a derrefence
-                    args.append(
-                            Nodecl::Dereference::make(
-                                Nodecl::ClassMemberAccess::make(
-                                    arg.make_nodecl(/* set_ref_type */ true),
-                                    field_map[*it].make_nodecl(),
-                                    /* member_literal */ Nodecl::NodeclBase::null(),
-                                    field_map[*it].get_type().get_lvalue_reference_to()),
-                                field_map[*it].get_type().points_to().get_lvalue_reference_to())
-                            );
                 }
                 else
                 {
-                    // the variable was T a[N][M]
-                    // in the struct we have T (*a)[M] and the function expects T (*a)[M]
-                    // so only make a lvalue-to-rvalue conversion
-                    args.append(
-                            Nodecl::Conversion::make(
-                                Nodecl::ClassMemberAccess::make(
-                                    arg.make_nodecl(/* set_ref_type */ true),
-                                field_map[*it].make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                field_map[*it].get_type().get_lvalue_reference_to()),
-                                field_map[*it].get_type())
-                        );
+                    //  Depending on the type of the list item we may have two different scenarios:
+                    //  * If the list item is a constant array (i.e. T a[N][M]),
+                    //    in the struct we have 'T (*p)[N]' and the unpacked function expects a 'T (&a)[N][M]'
+                    //  * otherwise, if the list item is not an array (i.e. T x),
+                    //    in the struct we have 'T*' and the unpacked function expects 'T&'
+
+                    Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
+                            arg.make_nodecl(/* set_ref_type */ true),
+                            field_map[*it].make_nodecl(),
+                            /* member_literal */ Nodecl::NodeclBase::null(),
+                            field_map[*it].get_type().get_lvalue_reference_to());
+
+                    if (it->get_type().is_array())
+                    {
+                        // (T (*)[N][M]) arg.v
+                        argument = Nodecl::Conversion::make(
+                                argument,
+                                it->get_type().get_pointer_to());
+
+                        argument.set_text("C");
+                    }
+
+                    args.append(Nodecl::Dereference::make(
+                                argument,
+                                argument.get_type().no_ref().points_to().get_lvalue_reference_to()));
                 }
             }
 
