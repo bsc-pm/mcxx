@@ -426,7 +426,7 @@ namespace {
 }
 
     ExpandedTaskDependencyGraph::ExpandedTaskDependencyGraph(ExtensibleGraph* pcfg)
-        : _ftdg(NULL), _maxI(0), _maxT(0), _roots(), _leafs(), _tasks()
+        : _ftdg(NULL), _maxI(0), _maxT(0), _roots(), _leafs(), _tasks(), _source_to_etdg_nodes()
     {
         _ftdg = new FlowTaskDependencyGraph(pcfg);
 #ifdef ETDG_DEBUG
@@ -434,7 +434,6 @@ namespace {
 #endif
         compute_constants();
         expand_tdg();
-        print_tdg_to_dot();
     }
 
     void ExpandedTaskDependencyGraph::compute_constants_rec(FTDGNode* n)
@@ -774,7 +773,15 @@ namespace {
                         "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
                         ftdg_n->get_type());
 
-        ETDGNode* etdg_n = new ETDGNode(get_etdg_node_id(ftdgnode_to_task_id.find(ftdg_n)->second, loops_ids));
+        Nodecl::NodeclBase source_task = ftdg_n->get_pcfg_node()->get_graph_related_ast();
+        ERROR_CONDITION(!source_task.is<Nodecl::OpenMP::Task>(),
+                        "The extensible graph node %d related with an ETDG task node has wrong type %s",
+                        ftdg_n->get_pcfg_node()->get_id(),
+                        ast_print_node_type(source_task.get_kind()));
+        ETDGNode* etdg_n = new ETDGNode(get_etdg_node_id(ftdgnode_to_task_id.find(ftdg_n)->second, loops_ids),
+                                        source_task);
+        _source_to_etdg_nodes[source_task].append(etdg_n);
+
 #ifdef ETDG_DEBUG
         std::cerr << "    task node " << etdg_n->get_id() << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
 #endif

@@ -197,8 +197,9 @@ namespace Analysis {
         _outer.insert(n);
     }
 
-    ETDGNode::ETDGNode(int id)
-            : _id(id), _var_to_value(), _inputs(), _outputs(), _visited(false)
+    ETDGNode::ETDGNode(int id, Nodecl::NodeclBase source_task)
+            : _id(id), _var_to_value(), _inputs(), _outputs(),
+            _source_task(source_task), _visited(false)
     {}
 
     int ETDGNode::get_id() const
@@ -244,6 +245,11 @@ namespace Analysis {
     void ETDGNode::set_vars_map(std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> var_to_value)
     {
         _var_to_value = var_to_value;
+    }
+
+    Nodecl::NodeclBase ETDGNode::get_source_task() const
+    {
+        return _source_task;
     }
 
     bool ETDGNode::is_visited() const
