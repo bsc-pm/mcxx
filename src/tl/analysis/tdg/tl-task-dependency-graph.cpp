@@ -71,7 +71,14 @@ namespace Analysis {
 
     std::string TaskDependencyGraph::get_name() const
     {
-        return _tdg.otdg->get_name();
+        if (_use_expanded)
+        {
+            return _tdg.etdg->get_ftdg()->get_pcfg()->get_name();
+        }
+        else
+        {
+            return _tdg.otdg->get_name();
+        }
     }
 
     void TaskDependencyGraph::print_tdgs_to_json(const ObjectList<TaskDependencyGraph*>& tdgs)

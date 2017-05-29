@@ -173,7 +173,6 @@ namespace Analysis {
             return;
 
         n->set_visited(true);
-
         // Print the node
         std::stringstream ss_target; ss_target << n->get_id();
         std::string target_id = ss_target.str();
@@ -231,6 +230,7 @@ namespace Analysis {
         dot_tdg.close();
         if(!dot_tdg.good())
             internal_error ("Unable to close the file '%s' where ETDG has been stored.", dot_file_name.c_str());
+        clear_visits();
     }
 
     unsigned ftdg_node_id = 1;

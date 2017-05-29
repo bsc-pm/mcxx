@@ -350,10 +350,12 @@ namespace Analysis {
         std::set<ETDGNode*> _inputs;
         std::set<ETDGNode*> _outputs;
 
+        Nodecl::NodeclBase _source_task;
+
         bool _visited;
 
     public:
-        ETDGNode(int id);
+        ETDGNode(int id, Nodecl::NodeclBase source_task = Nodecl::NodeclBase::null());
 
         int get_id() const;
 
@@ -366,6 +368,8 @@ namespace Analysis {
 
         std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> get_vars_map() const;
         void set_vars_map(std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> var_to_value);
+
+        Nodecl::NodeclBase get_source_task() const;
 
         bool is_visited() const;
         void set_visited(bool visited);
@@ -413,6 +417,8 @@ namespace Analysis {
         std::set<ETDGNode*> _leafs;
 
         ObjectList<ETDGNode*> _tasks;
+
+        std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*>, Nodecl::Utils::Nodecl_structural_less> _source_to_etdg_nodes;
 
         void compute_constants_rec(FTDGNode* n);
         void compute_constants();
