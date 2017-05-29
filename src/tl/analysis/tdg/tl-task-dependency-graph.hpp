@@ -467,10 +467,13 @@ namespace Analysis {
         unsigned get_maxI() const;
         unsigned get_maxT() const;
         unsigned get_nTasks() const;
-        ObjectList<ETDGNode*> get_tasks() const;
 
         ObjectList<ETDGNode*> get_roots() const;
         std::set<ETDGNode*> get_leafs() const;
+
+        ObjectList<ETDGNode*> get_tasks() const;
+
+        std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*>, Nodecl::Utils::Nodecl_structural_less> get_source_to_etdg_nodes() const;
 
         void print_tdg_to_dot();
     };

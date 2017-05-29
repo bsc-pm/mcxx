@@ -1047,6 +1047,13 @@ namespace {
         return _tasks;
     }
 
+    std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*>,
+             Nodecl::Utils::Nodecl_structural_less>
+             ExpandedTaskDependencyGraph::get_source_to_etdg_nodes() const
+    {
+        return _source_to_etdg_nodes;
+    }
+
     ObjectList<ETDGNode*> ExpandedTaskDependencyGraph::get_roots() const
     {
         return _roots;
