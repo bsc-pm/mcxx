@@ -13,6 +13,7 @@ installed Linux by your own check the provided package managers (``apt-get``,
 * GNU C/C++/Fortran compiler versions 4.4 or better
 * GNU bison 2.3 or better. Get it from [here](http://ftp.gnu.org/gnu/bison)
     * Bison 2.4 is known to fail, use 2.4.1 instead
+    * Bison 2.6.1 to 2.6.4 are known to fail, use 2.6.5 instead
     * Bison may generate code that emits warnings related to ``yydummy``
 variables. You can safely disregard them
 * GNU flex 2.5.4 or 2.5.33 or better. Get it from [here](http://flex.sourceforge.net/)
