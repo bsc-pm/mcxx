@@ -2276,7 +2276,8 @@ namespace TL { namespace Nanos6 {
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         field_map[*it].get_type().no_ref().get_lvalue_reference_to());
 
-                if (it->get_type().depends_on_nonconstant_values())
+                if (it->get_type().no_ref().is_array()
+                        && it->get_type().depends_on_nonconstant_values())
                 {
                     TL::Type param_type = rewrite_type_using_args(
                             arg, it->get_type().no_ref(), TL::ObjectList<TL::Symbol>());
@@ -2302,90 +2303,36 @@ namespace TL { namespace Nanos6 {
             {
                 ERROR_CONDITION(field_map.find(*it) == field_map.end(), "Symbol is not mapped", 0);
 
-                if (it->get_type().depends_on_nonconstant_values())
+                ERROR_CONDITION(it->get_type().depends_on_nonconstant_values()
+                        && !it->get_type().no_ref().is_array(), "Unexpected type\n", 0);
+
+                //  Depending on the type of the list item we may have two different scenarios:
+                //  * If the list item is an array (i.e. T a[N][M]),
+                //    in the struct we have 'T (*p)[N]' and the unpacked function expects a 'T (&a)[N][M]'
+                //  * otherwise, if the list item is not an array (i.e. T x),
+                //    in the struct we have 'T*' and the unpacked function expects 'T&'
+
+                Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
+                        arg.make_nodecl(/* set_ref_type */ true),
+                        field_map[*it].make_nodecl(),
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        field_map[*it].get_type().get_lvalue_reference_to());
+
+                if (it->get_type().no_ref().is_array())
                 {
-                    // FIXME: there is a bit of duplication here with the code
-                    // that computes the type in the outline
-                    if (it->get_type().no_ref().is_array())
-                    {
-                        TL::Type type_in_outline = it->get_type().no_ref();
-                        type_in_outline = type_in_outline.array_element().get_pointer_to();
-                        type_in_outline = rewrite_type_using_args(arg, type_in_outline, TL::ObjectList<TL::Symbol>());
+                    TL::Type cast_type_type =
+                        rewrite_type_using_args(arg, it->get_type().no_ref().get_pointer_to(), TL::ObjectList<TL::Symbol>());
 
-                        TL::Type pointer_type = type_in_outline;
+                    // (T (*)[N][M]) arg.v
+                    argument = Nodecl::Conversion::make(argument, cast_type_type);
 
-                        // The field is void*, cast it to the type of the
-                        // pointer (coming from array-to-pointer) type of the
-                        // outline
-                        Nodecl::NodeclBase cast;
-                        args.append(
-                                cast = Nodecl::Conversion::make(
-                                    Nodecl::ClassMemberAccess::make(
-                                        arg.make_nodecl(/* set_ref_type */ true),
-                                        field_map[*it].make_nodecl(),
-                                        /* member_literal */ Nodecl::NodeclBase::null(),
-                                        field_map[*it].get_type().get_lvalue_reference_to()),
-                                    pointer_type)
-                                );
-                        cast.set_text("C");
-                    }
-                    else
-                    {
-                        TL::Type type_in_outline = it->get_type().no_ref();
-                        type_in_outline = type_in_outline.get_lvalue_reference_to();
-                        type_in_outline = rewrite_type_using_args(arg, type_in_outline, TL::ObjectList<TL::Symbol>());
-
-                        TL::Type pointer_type = type_in_outline.no_ref().get_pointer_to();
-                        TL::Type arg_type = type_in_outline;
-
-                        // The field is void*, cast it to the type of the
-                        // argument and then derreference
-                        Nodecl::NodeclBase cast;
-                        args.append(
-                                Nodecl::Dereference::make(
-                                    cast = Nodecl::Conversion::make(
-                                        Nodecl::ClassMemberAccess::make(
-                                            arg.make_nodecl(/* set_ref_type */ true),
-                                            field_map[*it].make_nodecl(),
-                                            /* member_literal */ Nodecl::NodeclBase::null(),
-                                            field_map[*it].get_type().get_lvalue_reference_to()),
-                                        pointer_type),
-                                    arg_type
-                                    )
-                                );
-                        cast.set_text("C");
-                    }
+                    argument.set_text("C");
                 }
-                else
-                {
-                    //  Depending on the type of the list item we may have two different scenarios:
-                    //  * If the list item is a constant array (i.e. T a[N][M]),
-                    //    in the struct we have 'T (*p)[N]' and the unpacked function expects a 'T (&a)[N][M]'
-                    //  * otherwise, if the list item is not an array (i.e. T x),
-                    //    in the struct we have 'T*' and the unpacked function expects 'T&'
 
-                    Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
-                            arg.make_nodecl(/* set_ref_type */ true),
-                            field_map[*it].make_nodecl(),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            field_map[*it].get_type().get_lvalue_reference_to());
-
-                    if (it->get_type().is_array())
-                    {
-                        // (T (*)[N][M]) arg.v
-                        argument = Nodecl::Conversion::make(
-                                argument,
-                                it->get_type().get_pointer_to());
-
-                        argument.set_text("C");
-                    }
-
-                    args.append(Nodecl::Dereference::make(
-                                argument,
-                                argument.get_type().no_ref().points_to().get_lvalue_reference_to()));
-                }
+                args.append(Nodecl::Dereference::make(
+                            argument,
+                            argument.get_type().no_ref().points_to().get_lvalue_reference_to()));
             }
-
 
             for (TL::ObjectList<ReductionItem>::const_iterator it = reduction.begin();
                     it != reduction.end();
