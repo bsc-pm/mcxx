@@ -1989,15 +1989,14 @@ then
     AC_MSG_CHECKING([bison version])
     bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*.*\?\).*$/\1/'`
     case x${bison_ver} in
+       x2.4|x2.6.@<:@1234@:>@*)
+          AC_MSG_RESULT([${bison_ver}])
+          bison_good=no
+          AC_MSG_ERROR(${bison_ver}[, this version is known to fail])
+       ;;
        x2.@<:@34567@:>@*|x3.@<:@0@:>@*)
           AC_MSG_RESULT([${bison_ver}])
-          if test x${bison_ver} = x2.4;
-          then
-            AC_MSG_ERROR(${bison_ver}[, this version is known to fail])
-             bison_good=no
-          else
-             bison_good=yes
-          fi
+          bison_good=yes
           ;;
        x)
           if test x$force_bison = xyes;
