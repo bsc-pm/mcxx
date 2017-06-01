@@ -481,7 +481,7 @@ namespace TL { namespace Nanos6 {
             {
                 // The iterator of a MultiExpression has to be ignored!
                 _ignore_symbols.append(node.get_symbol());
-                this->Nodecl::ExhaustiveVisitor<void>::visit(node);
+                Nodecl::ExhaustiveVisitor<void>::visit(node);
             }
 
             void visit(const Nodecl::Symbol& node)
@@ -498,6 +498,17 @@ namespace TL { namespace Nanos6 {
 
                 if(!_tp.symbol_has_data_sharing_attribute(sym))
                     _tp.firstprivate.insert(sym);
+            }
+
+            void visit(const Nodecl::Conversion& node)
+            {
+                // int *v;
+                // #pragma omp task inout( ((int (*)[N]) v)[0;M])
+                Nodecl::ExhaustiveVisitor<void>::visit(node);
+
+                TL::Type type = node.get_type();
+                if (type.depends_on_nonconstant_values())
+                    _tp.walk_type_for_saved_expressions(type);
             }
         };
 
@@ -536,8 +547,8 @@ namespace TL { namespace Nanos6 {
 
     void TaskProperties::compute_captured_values()
     {
+        // Do not reorder these statements
         firstprivatize_symbols_without_data_sharing();
-
         compute_captured_saved_expressions();
         captured_value.insert(firstprivate);
     }

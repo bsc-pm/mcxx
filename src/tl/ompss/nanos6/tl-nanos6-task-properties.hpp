@@ -238,6 +238,8 @@ namespace TL { namespace Nanos6 {
 
             /* This function traverses all the expressions that are evaluated using the arguments structure
              * (e.g. dependences, cost, priority) and firstprivatize the symbols that don't have a data-sharing
+             *
+             * It may add symbols that represent saved_expressions to the captured_values list.
              */
             void firstprivatize_symbols_without_data_sharing();
             void firstprivatize_symbols_without_data_sharing(Nodecl::NodeclBase n);
