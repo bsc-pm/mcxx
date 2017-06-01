@@ -236,9 +236,12 @@ namespace TL { namespace Nanos6 {
 
             void compute_captured_saved_expressions();
 
-            void compute_captured_symbols_without_data_sharings();
-            void compute_captured_symbols_without_data_sharings(Nodecl::NodeclBase n);
-            void compute_captured_symbols_without_data_sharings(const TL::ObjectList<Nodecl::NodeclBase>& list);
+            /* This function traverses all the expressions that are evaluated using the arguments structure
+             * (e.g. dependences, cost, priority) and firstprivatize the symbols that don't have a data-sharing
+             */
+            void firstprivatize_symbols_without_data_sharing();
+            void firstprivatize_symbols_without_data_sharing(Nodecl::NodeclBase n);
+            void firstprivatize_symbols_without_data_sharing(const TL::ObjectList<Nodecl::NodeclBase>& list);
 
             bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
 

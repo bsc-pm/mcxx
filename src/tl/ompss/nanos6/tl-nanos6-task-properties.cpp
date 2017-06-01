@@ -343,6 +343,7 @@ namespace TL { namespace Nanos6 {
         tp.remove_redundant_data_sharings();
 
         tp.compute_captured_values();
+
         tp.fix_data_sharing_of_this();
         tp.related_function = Nodecl::Utils::get_enclosing_function(node);
         tp.task_body = node.get_statements();
@@ -366,6 +367,7 @@ namespace TL { namespace Nanos6 {
         tp.remove_redundant_data_sharings();
 
         tp.compute_captured_values();
+
         tp.remove_data_sharing_of_this();
         tp.related_function = Nodecl::Utils::get_enclosing_function(node);
         tp.is_function_task = true;
@@ -455,28 +457,6 @@ namespace TL { namespace Nanos6 {
             if (it->get_type().depends_on_nonconstant_values())
                 walk_type_for_saved_expressions(it->get_type());
         }
-
-        // Other clauses
-        struct CaptureSavedExpressions : public Nodecl::ExhaustiveVisitor<void>
-        {
-            TaskProperties& _tp;
-
-            CaptureSavedExpressions(TaskProperties& tp) : _tp(tp) { }
-
-            void visit(const Nodecl::Symbol& node)
-            {
-                TL::Symbol sym = node.get_symbol();
-                if (!sym.is_variable())
-                    return;
-
-                if (sym.get_type().depends_on_nonconstant_values())
-                    _tp.walk_type_for_saved_expressions(sym.get_type());
-            }
-        };
-        CaptureSavedExpressions visitor(*this);
-
-        visitor.walk(cost_clause);
-        visitor.walk(priority_clause);
     }
 
     bool TaskProperties::symbol_has_data_sharing_attribute(TL::Symbol sym) const
@@ -488,8 +468,7 @@ namespace TL { namespace Nanos6 {
                reduction.contains(sym);
     }
 
-    void TaskProperties::compute_captured_symbols_without_data_sharings(
-            Nodecl::NodeclBase n)
+    void TaskProperties::firstprivatize_symbols_without_data_sharing(Nodecl::NodeclBase n)
     {
         struct CaptureExtraVariables : public Nodecl::ExhaustiveVisitor<void>
         {
@@ -518,7 +497,7 @@ namespace TL { namespace Nanos6 {
                     return;
 
                 if(!_tp.symbol_has_data_sharing_attribute(sym))
-                    _tp.captured_value.insert(sym);
+                    _tp.firstprivate.insert(sym);
             }
         };
 
@@ -526,41 +505,41 @@ namespace TL { namespace Nanos6 {
         visitor.walk(n);
     }
 
-    void TaskProperties::compute_captured_symbols_without_data_sharings(
+    void TaskProperties::firstprivatize_symbols_without_data_sharing(
             const TL::ObjectList<Nodecl::NodeclBase>& list)
     {
         for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it =  list.begin();
                 it != list.end();
                 ++it)
         {
-            compute_captured_symbols_without_data_sharings(*it);
+            firstprivatize_symbols_without_data_sharing(*it);
         }
     }
 
-    void TaskProperties::compute_captured_symbols_without_data_sharings()
+    void TaskProperties::firstprivatize_symbols_without_data_sharing()
     {
         // Dependences
-        compute_captured_symbols_without_data_sharings(dep_in);
-        compute_captured_symbols_without_data_sharings(dep_out);
-        compute_captured_symbols_without_data_sharings(dep_inout);
-        compute_captured_symbols_without_data_sharings(dep_weakin);
-        compute_captured_symbols_without_data_sharings(dep_weakout);
-        compute_captured_symbols_without_data_sharings(dep_weakinout);
-        compute_captured_symbols_without_data_sharings(dep_commutative);
-        compute_captured_symbols_without_data_sharings(dep_concurrent);
-        compute_captured_symbols_without_data_sharings(dep_reduction);
+        firstprivatize_symbols_without_data_sharing(dep_in);
+        firstprivatize_symbols_without_data_sharing(dep_out);
+        firstprivatize_symbols_without_data_sharing(dep_inout);
+        firstprivatize_symbols_without_data_sharing(dep_weakin);
+        firstprivatize_symbols_without_data_sharing(dep_weakout);
+        firstprivatize_symbols_without_data_sharing(dep_weakinout);
+        firstprivatize_symbols_without_data_sharing(dep_commutative);
+        firstprivatize_symbols_without_data_sharing(dep_concurrent);
+        firstprivatize_symbols_without_data_sharing(dep_reduction);
 
         // Other task clauses
-        compute_captured_symbols_without_data_sharings(cost_clause);
-        compute_captured_symbols_without_data_sharings(priority_clause);
+        firstprivatize_symbols_without_data_sharing(cost_clause);
+        firstprivatize_symbols_without_data_sharing(priority_clause);
     }
 
     void TaskProperties::compute_captured_values()
     {
+        firstprivatize_symbols_without_data_sharing();
+
         compute_captured_saved_expressions();
         captured_value.insert(firstprivate);
-        compute_captured_symbols_without_data_sharings();
-
     }
 
     namespace {
