@@ -467,59 +467,52 @@ namespace TL { namespace Nanos6 {
                captured_value.contains(sym) ||
                reduction.contains(sym);
     }
-
-
-    struct FirstprivateSymbolsWithoutDataSharing
+    namespace {
+    struct FirstprivateSymbolsWithoutDataSharing : public Nodecl::ExhaustiveVisitor<void>
     {
         TaskProperties& _tp;
+        TL::ObjectList<TL::Symbol> _ignore_symbols;
+
         FirstprivateSymbolsWithoutDataSharing(TaskProperties& tp) : _tp(tp)
         {}
 
-       void operator()(Nodecl::NodeclBase node)
-       {
-           struct CaptureExtraVariables : public Nodecl::ExhaustiveVisitor<void>
-           {
-               TaskProperties& _tp;
-               TL::ObjectList<TL::Symbol> _ignore_symbols;
+        void operator()(Nodecl::NodeclBase node)
+        {
+            walk(node);
+        }
 
-               CaptureExtraVariables(TaskProperties& tp) : _tp(tp) { }
+        void visit(const Nodecl::MultiExpression& node)
+        {
+            // The iterator of a MultiExpression has to be ignored!
+            _ignore_symbols.push_back(node.get_symbol());
+            Nodecl::ExhaustiveVisitor<void>::visit(node);
+            _ignore_symbols.pop_back();
+        }
 
-               void visit(const Nodecl::MultiExpression& node)
-               {
-                   // The iterator of a MultiExpression has to be ignored!
-                   _ignore_symbols.push_back(node.get_symbol());
-                   Nodecl::ExhaustiveVisitor<void>::visit(node);
-                   _ignore_symbols.pop_back();
-               }
+        void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+            if (!sym.is_variable()
+                    || sym.is_member()
+                    || _ignore_symbols.contains(sym)
+                    || _tp.symbol_has_data_sharing_attribute(sym))
+                return;
 
-               void visit(const Nodecl::Symbol& node)
-               {
-                   TL::Symbol sym = node.get_symbol();
-                   if (!sym.is_variable()
-                           || sym.is_member()
-                           || _ignore_symbols.contains(sym)
-                           || _tp.symbol_has_data_sharing_attribute(sym))
-                       return;
+            _tp.firstprivate.insert(sym);
+        }
 
-                   _tp.firstprivate.insert(sym);
-               }
+        void visit(const Nodecl::Conversion& node)
+        {
+            // int *v;
+            // #pragma omp task inout( ((int (*)[N]) v)[0;M])
+            Nodecl::ExhaustiveVisitor<void>::visit(node);
 
-               void visit(const Nodecl::Conversion& node)
-               {
-                   // int *v;
-                   // #pragma omp task inout( ((int (*)[N]) v)[0;M])
-                   Nodecl::ExhaustiveVisitor<void>::visit(node);
-
-                   TL::Type type = node.get_type();
-                   if (type.depends_on_nonconstant_values())
-                       _tp.walk_type_for_saved_expressions(type);
-               }
-           };
-
-           CaptureExtraVariables visitor(_tp);
-           visitor.walk(node);
-       }
+            TL::Type type = node.get_type();
+            if (type.depends_on_nonconstant_values())
+                _tp.walk_type_for_saved_expressions(type);
+        }
     };
+    }
 
     void TaskProperties::firstprivatize_symbols_without_data_sharing()
     {
