@@ -176,9 +176,6 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List &register_statements);
 
-            void walk_type_for_saved_expressions(TL::Type t);
-            static bool is_saved_expression(Nodecl::NodeclBase n);
-            void handle_array_bound(Nodecl::NodeclBase n);
             TL::Type rewrite_type_for_outline(
                 TL::Type t,
                 TL::Scope scope,
@@ -242,10 +239,7 @@ namespace TL { namespace Nanos6 {
              * It may add symbols that represent saved_expressions to the captured_values list.
              */
             void firstprivatize_symbols_without_data_sharing();
-            void firstprivatize_symbols_without_data_sharing(Nodecl::NodeclBase n);
-            void firstprivatize_symbols_without_data_sharing(const TL::ObjectList<Nodecl::NodeclBase>& list);
 
-            bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
 
         public:
             TL::ObjectList<TL::Symbol> shared;
@@ -357,6 +351,14 @@ namespace TL { namespace Nanos6 {
             void fix_data_sharing_of_this();
 
             void fortran_add_types(TL::Scope sc);
+
+            bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
+
+            void walk_type_for_saved_expressions(TL::Type t);
+
+            static bool is_saved_expression(Nodecl::NodeclBase n);
+
+            void handle_array_bound(Nodecl::NodeclBase n);
     };
 
 } }
