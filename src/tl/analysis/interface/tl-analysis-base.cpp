@@ -41,7 +41,6 @@
 #include "tl-range-analysis.hpp"
 #include "tl-reaching-definitions.hpp"
 #include "tl-task-sync.hpp"
-#include "tl-task-syncs-tune.hpp"
 #include "tl-use-def.hpp"
 
 namespace TL {
@@ -405,36 +404,36 @@ namespace Analysis {
         }
     }
 
-    void AnalysisBase::tune_task_synchronizations(
-            const NBase& ast,
-            std::set<std::string> functions,
-            bool call_graph)
-    {
-        if (_tune_task_syncs)
-            return;
-
-        // Required previous analysis
-        reaching_definitions(ast, /*propagate_graph_nodes*/ false, functions, call_graph);
-
-        double init = 0.0;
-        if (ANALYSIS_PERFORMANCE_MEASURE)
-            init = time_nsec();
-
-        _tune_task_syncs = true;
-
-        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
-        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-        {
-            if (VERBOSE)
-                std::cerr << "Task Synchronizations Tunning of PCFG '" << (*it)->get_name() << "'" << std::endl;
-
-            TaskAnalysis::TaskSyncTunning tst(*it);
-            tst.tune_task_synchronizations();
-        }
-
-        if (ANALYSIS_PERFORMANCE_MEASURE)
-            fprintf(stderr, "ANALYSIS: TUNE_TASK_SYNCS computation time: %lf\n", (time_nsec() - init)*1E-9);
-    }
+//     void AnalysisBase::tune_task_synchronizations(
+//             const NBase& ast,
+//             std::set<std::string> functions,
+//             bool call_graph)
+//     {
+//         if (_tune_task_syncs)
+//             return;
+// 
+//         // Required previous analysis
+//         reaching_definitions(ast, /*propagate_graph_nodes*/ false, functions, call_graph);
+// 
+//         double init = 0.0;
+//         if (ANALYSIS_PERFORMANCE_MEASURE)
+//             init = time_nsec();
+// 
+//         _tune_task_syncs = true;
+// 
+//         const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+//         for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+//         {
+//             if (VERBOSE)
+//                 std::cerr << "Task Synchronizations Tunning of PCFG '" << (*it)->get_name() << "'" << std::endl;
+// 
+//             TaskAnalysis::TaskSyncTunning tst(*it);
+//             tst.tune_task_synchronizations();
+//         }
+// 
+//         if (ANALYSIS_PERFORMANCE_MEASURE)
+//             fprintf(stderr, "ANALYSIS: TUNE_TASK_SYNCS computation time: %lf\n", (time_nsec() - init)*1E-9);
+//     }
 
     void AnalysisBase::range_analysis(
             const NBase& ast,
@@ -511,7 +510,7 @@ namespace Analysis {
             return;
 
         // Required previous analysis
-        tune_task_synchronizations(ast, functions, call_graph);
+//         tune_task_synchronizations(ast, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -546,7 +545,7 @@ namespace Analysis {
         // Required previous analyses
         induction_variables(ast, /*propagate_graph_nodes*/ true, functions, call_graph);
         range_analysis(ast, functions, call_graph);
-        tune_task_synchronizations(ast, functions, call_graph);
+//         tune_task_synchronizations(ast, functions, call_graph);
         
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)

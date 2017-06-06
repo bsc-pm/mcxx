@@ -27,6 +27,7 @@
 #include "cxx-cexpr.h"
 #include "tl-datareference.hpp"
 #include "tl-pcfg-utils.hpp"
+// #include "tl-alias-analysis.hpp"
 #include "tl-task-sync.hpp"
 #include "tl-tribool.hpp"
 
@@ -35,9 +36,6 @@
 namespace TL {
 namespace Analysis {
 namespace TaskAnalysis{
-
-    // **************************************************************************************************** //
-    // *************************** Class implementing task PCFG synchronization *************************** //
 
 namespace {
     // #define TASK_SYNC_DEBUG
@@ -329,7 +327,7 @@ namespace {
             }
             else
             {
-                if(!source_is_subobject || !target_is_subobject)
+                if (!source_is_subobject || !target_is_subobject)
                     return tribool::yes;
             }
         }
@@ -954,16 +952,188 @@ namespace {
         }
     }
 
-    bool IsOmpssEnabled = false;
+    void compute_condition_for_unmatched_values(
+        Node* n_node, Node* m_node,
+        const NBase& n, const NBase& m,
+        NBase& condition)
+    {
+        // Get the condition for the two values
+        NBase cond_part;
+        Type t = n.get_type();
+        if (n.is<Nodecl::Range>())
+        {
+            if (m.is<Nodecl::Range>())
+            {   // n=[lb1, ub1], m=[lb2, ub2]
+                Nodecl::Range n_range = n.as<Nodecl::Range>();
+                Nodecl::Range m_range = m.as<Nodecl::Range>();
+                cond_part = Nodecl::LogicalOr::make(
+                    Nodecl::LogicalAnd::make(   // lb2 <= lb1 <= ub2
+                        Nodecl::GreaterOrEqualThan::make(
+                            n_range.get_lower().shallow_copy(), m_range.get_lower().shallow_copy(), t),
+                        Nodecl::LowerOrEqualThan::make(
+                            n_range.get_lower().shallow_copy(), m_range.get_upper().shallow_copy(), t),
+                        t),
+                    Nodecl::LogicalAnd::make(   // lb1 <= lb2 <= ub1
+                        Nodecl::LowerOrEqualThan::make(
+                            n_range.get_lower().shallow_copy(), m_range.get_lower().shallow_copy(), t),
+                        Nodecl::GreaterOrEqualThan::make(
+                            n_range.get_upper().shallow_copy(), m_range.get_lower().shallow_copy(), t),
+                        t),
+                    t
+                );
+            }
+            else
+            {   // n=[lb1, ub1], m=[v]
+                cond_part = Nodecl::LogicalAnd::make(
+                    Nodecl::LowerOrEqualThan::make(n.as<Nodecl::Range>().get_lower().shallow_copy(), m.shallow_copy(), t),
+                    Nodecl::LowerOrEqualThan::make(m.shallow_copy(), n.as<Nodecl::Range>().get_lower().shallow_copy(), t),
+                    t
+                );
+            }
+        }
+        else
+        {
+            if (m.is<Nodecl::Range>())
+            {   // n=[v], m=[lb1, ub1]
+                cond_part = Nodecl::LogicalAnd::make(
+                    Nodecl::LowerOrEqualThan::make(m.as<Nodecl::Range>().get_lower().shallow_copy(), n.shallow_copy(), t),
+                    Nodecl::LowerOrEqualThan::make(n.shallow_copy(), m.as<Nodecl::Range>().get_lower().shallow_copy(), t),
+                    t
+                );
+            }
+            else
+            {   // n=[v1], m=[v2]
+                cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
+            }
+        }
+        
+        // Rebuild the condition composing the old condition and the new computed part
+        if (condition.is_null())
+            condition = cond_part;
+        else if (!cond_part.is_null())
+            condition = Nodecl::LogicalAnd::make(condition.shallow_copy(), cond_part, condition.get_type());
+    }
+
+    // Restriction: #n must be a constant nodecl and # m a non-constant nodecl
+    void match_const_and_var_values(
+        Node* n_node, Node* m_node,
+        const NBase& n, const NBase& m,
+        NBase& condition)
+    {
+        const NodeclMap& m_reaching_defs_in = m_node->get_reaching_definitions_in();
+        const NodeclSet& m_killed_vars = m_node->get_killed_vars();
+        if (m_reaching_defs_in.count(m) == 1
+            && m_killed_vars.find(m) == m_killed_vars.end())
+        {   // There is a unique reaching definition of the subscript and it is not defined inside the m_node node
+            NBase m_reach_def = m_reaching_defs_in.find(m)->second.first;
+            if (!m_reach_def.is_constant())
+            {
+                if (m_reach_def.is<Nodecl::Symbol>())
+                {
+                    match_const_and_var_values(n_node, m_node, n, m_reach_def, condition);
+                }
+                else
+                {   // We do not know whether the indexes are equal => compute the condition
+                    compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
+                }
+            }
+        }
+        else
+        {   // We do not know whether the indexes are equal => compute the condition
+            compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
+        }
+    }
+
+    void match_array_subscripts(
+        Node* n_node, Node* m_node,
+        const Nodecl::List& n_subs, const Nodecl::List& m_subs,
+        NBase& condition)
+    {
+        Nodecl::List::iterator itn = n_subs.begin();
+        Nodecl::List::iterator itm = m_subs.begin();
+        for (; (itn != n_subs.end() && itm != m_subs.end()); ++itn, ++itm)
+        {
+            const Nodecl::NodeclBase& n = *itn;
+            const Nodecl::NodeclBase& m = *itm;
+            if (n.is_constant())
+            {   // n_node[c1]
+                if (!m.is_constant())
+                {   // m_node[v2]
+                    match_const_and_var_values(n_node, m_node, n, m, condition);
+                }
+            }
+            else
+            {   // n_node[v1]
+                if (m.is_constant())
+                {   // m_node[c2]
+                    match_const_and_var_values(m_node, n_node, m, n, condition);
+                }
+                else
+                {   // m_node[v2]
+                    compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
+                }
+            }
+        }
+    }
+
+    void match_dependence(
+        Node* n_node, Node* m_node,
+        const NBase& n, const NBase& m,
+        NBase& condition)
+    {
+        Nodecl::NodeclBase n_ = n.no_conv();
+        Nodecl::NodeclBase m_ = m.no_conv();
+
+        // Skip shaping nodes
+        if (n_.is<Nodecl::Shaping>())
+            return match_dependence(n_node, m_node, n_.as<Nodecl::Shaping>().get_postfix(), m_, condition);
+        if (m_.is<Nodecl::Shaping>())
+            return match_dependence(n_node, m_node, n_, m_.as<Nodecl::Shaping>().get_postfix(), condition);
+
+        // Compare the two dependencies
+        if (n_.is<Nodecl::ClassMemberAccess>() && m_.is<Nodecl::ClassMemberAccess>())
+        {
+            Nodecl::ClassMemberAccess src_dep_ = n_.as<Nodecl::ClassMemberAccess>();
+            Nodecl::ClassMemberAccess tgt_dep_ = m_.as<Nodecl::ClassMemberAccess>();
+            if (Nodecl::Utils::structurally_equal_nodecls(src_dep_.get_lhs(), tgt_dep_.get_lhs()))
+            {
+                match_dependence(n_node, m_node,
+                                 src_dep_.get_member(), src_dep_.get_member(),
+                                 condition);
+            }
+        }
+        else if (n_.is<Nodecl::ArraySubscript>() && m_.is<Nodecl::ArraySubscript>())
+        {
+            const Nodecl::ArraySubscript& m_arr = m_.as<Nodecl::ArraySubscript>();
+            const Nodecl::ArraySubscript& n_arr = n_.as<Nodecl::ArraySubscript>();
+            
+            // Check the base refers to the same object
+            const NBase& m_base = m_arr.get_subscripted();
+            const NBase& n_base = n_arr.get_subscripted();
+            if (!Nodecl::Utils::structurally_equal_nodecls(m_base, n_base, /*skip_conversions*/ true))
+            {
+                tribool there_exists_alias/* = accesses_may_be_alias(n_, m_)*/;
+                if (there_exists_alias.is_true())
+                {   // The condition depend on the bases to point to the same memory location
+                    condition = Nodecl::Equal::make(m_base.shallow_copy(), n_base.shallow_copy(), n.get_type());
+                }
+            }
+            else
+            {
+                match_array_subscripts(n_node, m_node,
+                                       n_arr.get_subscripts().as<Nodecl::List>(),
+                                       m_arr.get_subscripts().as<Nodecl::List>(),
+                                       condition);
+            }
+        }
+    }
 }
 
     TaskSynchronizations::TaskSynchronizations(ExtensibleGraph* graph, bool is_ompss_enabled)
         : _graph(graph)
-    {
-        IsOmpssEnabled = is_ompss_enabled;
-    }
+    {}
 
-    void TaskSynchronizations::compute_task_synchronizations()
+    void TaskSynchronizations::compute_task_synchronization_labels()
     {
         Node *root = _graph->get_graph();
 
@@ -1027,6 +1197,9 @@ namespace {
                 it != exit_live_in_tasks.end();
                 it++)
         {
+#ifdef TASK_SYNC_DEBUG
+            std::cerr << "CONNECTING " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
+#endif
             Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always,
                     NBase::null(), /*is task edge*/ true);
 
@@ -1037,470 +1210,164 @@ namespace {
         }
     }
 
-    // ************************* END class implementing task PCFG synchronization ************************* //
-    // **************************************************************************************************** //
-
-
-
-    // **************************************************************************************************** //
-    // *************************** Class implementing task concurrency analysis *************************** //
-
-namespace {
-    
-    bool task_domains_task(Node* t1, Node* t2, std::set<Node*>& visited_tasks)
+    void TaskSynchronizations::compute_task_synchronization_conditions_rec(Node* current)
     {
-        if(t1 == t2)
-            return true;
-        
-        visited_tasks.insert(t1);
-        
-        const ObjectList<Edge*>& exits = t1->get_exit_edges();
-        for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
-        {
-            Node* child = (*it)->get_target();
-            if ((child->is_omp_task_node() || child->is_omp_async_target_node())
-                && (visited_tasks.find(child)==visited_tasks.end()) // Avoid cycles
-                && (((*it)->get_sync_kind() != __Maybe)))           // This path will be taken for sure
-            {
-                if(task_domains_task(child, t2, visited_tasks))
-                    return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    bool tasks_are_synchronized(Node* t1, Node* t2)
-    {
-        std::set<Node*> visited_tasks1, visited_tasks2;
-        return task_domains_task(t1, t2, visited_tasks1) || task_domains_task(t2, t1, visited_tasks2);
-    }
-    
-    void collect_tasks_between_nodes(Node* current, Node* last, Node* skip, ObjectList<Node*>& result)
-    {
-        if (current->is_visited_aux() || (current == last))
+        if (current->is_visited())
             return;
 
-        current->set_visited_aux(true);
+        current->set_visited(true);
 
-        if (current->is_exit_node())
-            return;
-
+        // Treat the current node
         if (current->is_graph_node())
         {
-            // Add inner tasks recursively, if exist
-            collect_tasks_between_nodes(current->get_graph_entry_node(), last, skip, result);
-
-            // Add current node if it is a task or asynchronous target
-            if ((current->is_omp_task_node()
-                    || current->is_omp_async_target_node())
-                && (current != skip)
-                && !tasks_are_synchronized(current, skip))
+            // Treat the inner nodes recursively
+            compute_task_synchronization_conditions_rec(current->get_graph_entry_node());
+            
+            // If the current node is a task or a target,
+            // then try to simplify its synchronizations
+            if (current->is_omp_task_node()
+                || current->is_omp_async_target_node())
             {
-                result.insert(current);
+                // Tune the synchronizations with its children, if possible
+                ObjectList<Edge*> exits = current->get_exit_edges();
+                for (ObjectList<Edge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+                {
+                    if ((*it)->get_sync_kind() == __Maybe)
+                    {   // Can we tune this edge to make it static
+                        // if so, remove the rest of the edges
+                        NBase target_task_environ = (*it)->get_target()->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment();
+                        NBase condition = match_dependencies(current, (*it)->get_target());
+                        // This information will be used when building the Task Dependency Graph
+                        (*it)->set_condition(condition);
+                    }
+                }
             }
         }
 
-        const ObjectList<Node*>& children = current->get_children();
-        for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        // Treat the children recursively
+        ObjectList<Node*> children = current->get_children();
+        for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
         {
-            collect_tasks_between_nodes(*it, last, skip, result);
+            compute_task_synchronization_conditions_rec(*it);
         }
     }
-    
-    void collect_previous_tasks_synchronized_after_scheduling_point(
-            Node* task,
-            const ObjectList<Node*>& all_tasks,
-            ObjectList<Node*>& concurrent_tasks)
+
+    void TaskSynchronizations::compute_task_synchronization_conditions()
     {
-        Node* task_creation = ExtensibleGraph::get_task_creation_from_task(task);
-        const ObjectList<Node*> children = task->get_children();
-        for (ObjectList<Node*>::const_iterator it = all_tasks.begin(); it != all_tasks.end(); ++it)
+        Node* entry = _graph->get_graph()->get_graph_entry_node();
+        compute_task_synchronization_conditions_rec(entry);
+        ExtensibleGraph::clear_visits(entry);
+    }
+
+    void TaskSynchronizations::compute_task_synchronizations()
+    {
+        compute_task_synchronization_labels();
+        compute_task_synchronization_conditions();
+    }
+
+    template <typename DependenceNode>
+    static TL::ObjectList<Nodecl::NodeclBase> gather_dependences(
+        Nodecl::List list,
+        Nodecl::NodeclBase (DependenceNode::*get_dependences)() const)
+    {
+        ObjectList<NBase> deps = list.find_all<DependenceNode>()
+        .template map<NBase>(get_dependences)                            // ObjectList<NBase>
+        .template map<Nodecl::List>(&NBase::as<Nodecl::List>)            // ObjectList<Nodecl::List>
+        .template map<ObjectList<NBase> >(&Nodecl::List::to_object_list) // ObjectList<ObjectList<NBase> >
+        .reduction(append_two_lists<NBase>);             // ObjectList<NBase>
+        
+        return deps;
+    }
+    
+    /*!This method returns the condition that has to be associated to an edge of type 'maybe' that connects two tasks which:
+     * \param source_environ is the environment of the source task
+     * \param target_environ is the environment of the target task
+     * Two cases may happen:
+     * - The edge is determined to be 'static', meaning that the target task depends for sure of the source task.
+     *   In this case, the return value is a null NodeclBase
+     * - The edge cannot be determined to be 'static'.
+     *   In this case, the return value is the condition that has to be fulfilled to determine a dependency between the two tasks
+     */
+    NBase TaskSynchronizations::match_dependencies(Node* source, Node* target)
+    {
+        NBase condition;
+        
+        // 1.- Collect the variables in the dependency clauses
+        Nodecl::List source_environ = source->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
+        Nodecl::List target_environ = target->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
+        // 1.1.- Get in dependencies on one side and out and inout dependencies on the other side
+        //       - out|inout will be matched with in|out|inout in the target
+        //       - in will be matched with out|inout dependencies
+        ObjectList<NBase> source_in_deps = gather_dependences(
+            source_environ,
+            &Nodecl::OpenMP::DepIn::get_exprs);
+        ObjectList<NBase> source_out_deps = gather_dependences(
+            source_environ,
+            &Nodecl::OpenMP::DepOut::get_exprs);
+        ObjectList<NBase> source_inout_deps = gather_dependences(
+            source_environ,
+            &Nodecl::OpenMP::DepInout::get_exprs);
+        ObjectList<NBase> source_all_out_deps = append_two_lists(source_out_deps, source_inout_deps);
+        // 1.2.- Get all in, out and inout dependencies
+        ObjectList<NBase> target_in_deps = gather_dependences(
+            target_environ,
+            &Nodecl::OpenMP::DepIn::get_exprs);
+        ObjectList<NBase> target_out_deps = gather_dependences(
+            target_environ,
+            &Nodecl::OpenMP::DepOut::get_exprs);
+        ObjectList<NBase> target_inout_deps = gather_dependences(
+            target_environ,
+            &Nodecl::OpenMP::DepInout::get_exprs);
+        ObjectList<NBase> target_deps =
+            append_two_lists(target_inout_deps,
+                             append_two_lists(target_in_deps, target_out_deps));
+        ObjectList<NBase> target_all_out_deps = append_two_lists(target_out_deps, target_inout_deps);
+        
+        // 2.- Check each pair of dependencies to build the condition and obtain the modification we have to perform in the dependency edge
+        // 2.1.- (RAW, WAW) Match source(out, inout) with target(in, out, inout)
+        for (ObjectList<NBase>::iterator its = source_all_out_deps.begin(); its != source_all_out_deps.end(); ++its)
         {
-            if ((*it) == task)
-                continue;
-
-            const ObjectList<Node*>& it_children = (*it)->get_children();
-            // If some children is a post_sync, then the task is concurrent
-            for (ObjectList<Node*>::const_iterator itc = it_children.begin(); itc != it_children.end(); ++itc)
+            for (ObjectList<NBase>::iterator itt = target_deps.begin(); itt != target_deps.end(); ++itt)
             {
-                if ((*itc)->is_omp_virtual_tasksync())
-                    concurrent_tasks.insert(*it);
-            }
-            // If current task is an ancestor of the task and it synchronizes after the task, then it is concurrent
-            Node* it_creation = ExtensibleGraph::get_task_creation_from_task((*it));
-            while (it_creation != NULL)
-            {
-                if (ExtensibleGraph::node_is_ancestor_of_node(it_creation, task_creation))
+                NBase cond_part;
+                match_dependence(source, target, *its, *itt, cond_part);
+                if (cond_part.is_null())    // The pair <*its, *itt> does no cause dependency
+                    continue;
+                if (condition.is_null())
                 {
-                    // Check whether it synchronizes after the task scheduling point
-                    std::queue<Node*> buff;
-                    for (ObjectList<Node*>::const_iterator itc = it_children.begin(); itc != it_children.end(); ++itc)
-                    {
-                        if ((*itc)->is_omp_virtual_tasksync() || *itc == task)
-                            continue;
-                        buff.push(*itc);
-                    }
-
-                    while (!buff.empty())
-                    {
-                        Node* current = buff.front();
-                        buff.pop();
-                        
-                        for (ObjectList<Node*>::const_iterator itc = children.begin(); itc != children.end(); ++itc)
-                        {
-                            if (*itc == task)
-                                continue;
-
-                            if (ExtensibleGraph::node_is_ancestor_of_node(*itc, current))
-                            {
-                                concurrent_tasks.insert(*it);
-                                goto task_synchronized;
-                            }
-                            else if ((*itc)->is_omp_task_node()
-                                || (*itc)->is_omp_async_target_node())
-                            {
-                                buff.push(*itc);
-                            }
-                        }
-                    }
-task_synchronized:      break;
+                    condition = cond_part;
                 }
                 else
-                {
-                    Node* enclosing_task = ExtensibleGraph::get_enclosing_task(it_creation);
-                    if (enclosing_task != NULL)
-                        it_creation = ExtensibleGraph::get_task_creation_from_task(enclosing_task);
-                    else
-                        it_creation = NULL;
+                {   // If 'cond_part' is already in 'condition', then we do not have to add it again
+                    if (!Nodecl::Utils::nodecl_contains_nodecl_by_structure(condition, cond_part))
+                        condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
                 }
             }
         }
-    }
-
-    static bool task_synchronizes_in_all_paths_within_loop(Node* current, Node* task, Node* loop)
-    {
-        if (current->is_visited())
-            return false;
-
-        current->set_visited(true);
-
-        if ((current->is_omp_taskwait_node() || current->is_omp_barrier_graph_node())
-                && task->get_children().contains(current))
-            return true;
-
-        if (current->is_graph_node())
+        // 2.2.- (WAR) Match source(in) with target(out, inout)
+        for (ObjectList<NBase>::iterator its = source_in_deps.begin(); its != source_in_deps.end(); ++its)
         {
-            current = current->get_graph_entry_node();
-            current->set_visited(true);
-        }
-
-        // Get the exit edges of the current nodes
-        ObjectList<Edge*> exits;
-        if (current->is_exit_node())
-        {
-            Node* current_outer = current->get_outer_node();
-            if (current_outer == loop)  // Avoid exiting the enclosing loop
-                return false;
-            exits = current_outer->get_exit_edges();
-        }
-        else
-            exits = current->get_exit_edges();
-
-        for (ObjectList<Edge*>::iterator it = exits.begin(); it != exits.end(); ++it)
-        {
-            // Avoid back edges because they are not always taken
-            if ((*it)->is_task_edge())
-                continue;
-
-            Node* child = (*it)->get_target();
-            if (!task_synchronizes_in_all_paths_within_loop(child, task, loop))
-                return false;
-        }
-
-        return false;
-    }
-
-    //! Check whether a task is concurrent with itself
-    //! This happens when the task does not have a explicit synchronization with itself and,
-    //! in case the task is within a loop, it does not synchronize among iterations
-    bool task_is_concurrent_across_iterations(Node* task)
-    {
-        const ObjectList<Edge*>& exits = task->get_exit_edges();
-
-        // 1.- Check whether the task synchronizes statically with itself
-        for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
-        {
-            Node* task_sync = (*it)->get_target();
-            if (task_sync == task)
+            for (ObjectList<NBase>::iterator itt = target_all_out_deps.begin(); itt != target_all_out_deps.end(); ++itt)
             {
-                if ((*it)->get_sync_kind() == __Static)
-                    return false;   // The task certainly synchronizes with itself
-                break;
-            }
-        }
-
-        // 2.- Check whether the task certainly synchronizes between two iterations
-        Node* task_creation = ExtensibleGraph::get_task_creation_from_task(task);
-        Node* task_control_st = task_creation->get_outer_node();
-        while (task_control_st != NULL)
-        {
-            // 2.1.- Get the next loop were the task is nested
-            while ((task_control_st != NULL) && !task_control_st->is_loop_node())
-                task_control_st = task_control_st->get_outer_node();
-
-            if (task_control_st != NULL)
-            {
-                bool sync_in_all_paths = task_synchronizes_in_all_paths_within_loop(task_creation, task, task_control_st);
-                ExtensibleGraph::clear_visits(task_creation);
-                if (sync_in_all_paths)
-                    return false;
-
-                task_control_st = task_control_st->get_outer_node();
-            }
-        }
-
-        return true;
-    }
-
-    //! Returns the most outer loop node of a given \p task, or NULL, if no loop exists
-    Node* get_most_outer_loop(Node* task)
-    {
-        Node* loop = NULL;
-        Node* outer = task->get_outer_node();
-        while(outer != NULL)
-        {
-            if(outer->is_loop_node())
-                loop = outer;
-            outer = outer->get_outer_node();
-        }
-        return loop;
-    }
-    
-    //! Returns the most outer parallel node of a given \p task, or NULL, if no parallel exists
-    UNUSED_FUNCTION Node* get_most_outer_parallel(Node* task)
-    {
-        Node* parallel = NULL;
-        Node* outer = task->get_outer_node();
-        while(outer != NULL)
-        {
-            if(outer->is_omp_parallel_node())
-                parallel = outer;
-            outer = outer->get_outer_node();
-        }
-        return parallel;
-    }
-    
-    //! Returns the immediately inner parallel node of a given node \p n, 
-    //! before reaching an inner \p task node
-    UNUSED_FUNCTION Node* get_inner_parallel(Node* parallel, Node* task)
-    {
-        Node* inner_parallel = NULL;
-        Node* outer = task->get_outer_node();
-        while(outer != NULL)
-        {
-            if(outer == parallel)
-                break;
-            if(outer->is_omp_parallel_node())
-                inner_parallel = outer;
-            outer = outer->get_outer_node();
-        }
-        return inner_parallel;
-    }
-}
-
-    TaskConcurrency::TaskConcurrency(ExtensibleGraph* graph)
-            : _graph(graph)
-    {}
-
-    void TaskConcurrency::compute_tasks_concurrency()
-    {
-        const ObjectList<Node*>& tasks = _graph->get_tasks_list();
-        for (ObjectList<Node*>::const_iterator it = tasks.begin(); it != tasks.end(); ++it)
-        {
-            // Define the immediately previous and next synchronization points
-            define_concurrent_regions_limits(*it);
-
-            // Compute the regions of code that can be simultaneous with the current tasks
-            compute_concurrent_tasks(*it);
-        }
-    }
-
-    void TaskConcurrency::define_concurrent_regions_limits(Node* task)
-    {
-        // 1.- Compute the last synchronization points for tasks and for sequential code
-        // -----------------------------------------------------------------------------
-        Node* task_creation = ExtensibleGraph::get_task_creation_from_task(task);
-        find_last_synchronization_points_for_sequential_code(task_creation, task);
-        find_last_synchronization_points_for_tasks(task_creation, task);
-        ExtensibleGraph::clear_visits_backwards(task_creation);
-
-        // 2.- Compute the next synchronization points for tasks and for sequential code
-        // -----------------------------------------------------------------------------
-        find_next_synchronization_points(task);
-    }
-
-    void TaskConcurrency::find_last_synchronization_points_for_sequential_code(Node* task_creation, Node* task)
-    {
-        // The concurrent sequential code starts when the task is created
-        // Unless the task is inside a loop, then the concurrent sequential code starts in the loop
-        Node* most_outer_loop = get_most_outer_loop(task_creation);
-        Node* last_sync;
-        if (most_outer_loop != NULL)
-            last_sync = most_outer_loop->get_graph_entry_node();
-        else
-            last_sync = task_creation;
-        _graph->add_last_sync_for_sequential_code(task, last_sync);
-    }
-
-    void TaskConcurrency::find_last_synchronization_points_for_tasks(Node* current, Node* task)
-    {
-        if (current->is_visited())
-            return;
-
-        current->set_visited(true);
-
-        // 1.- Get the entry edges of the current node
-        ObjectList<Edge*> entries;
-        if (current->is_graph_node())
-        {
-            Node* current_exit = current->get_graph_exit_node();
-            current_exit->set_visited(true);
-            entries = current_exit->get_entry_edges();
-        }
-        else if (current->is_entry_node())
-        {
-            Node* current_outer = current->get_outer_node();
-            if (current_outer == NULL)
-                return;
-            current_outer->set_visited(true);
-            entries = current_outer->get_entry_edges();
-        }
-        else
-        {
-            entries = current->get_entry_edges();
-        }
-
-        // 2.- Look for synchronization points in the entries found in step 1
-        for (ObjectList<Edge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
-        {
-            // Check for synchronizations in current parent
-            Node* parent = (*it)->get_source();
-            if (parent->is_omp_barrier_graph_node() || parent->is_omp_taskwait_node())
-            {
-                _graph->add_last_sync_for_tasks(task, parent);
-                Node* parent_cond = ExtensibleGraph::get_enclosing_control_structure(parent);
-                if (parent_cond != NULL)
+                NBase cond_part;
+                match_dependence(source, target, *its, *itt, cond_part);
+                if (cond_part.is_null())    // The pair <*its, *itt> does no cause dependency
+                    continue;
+                if (condition.is_null())
                 {
-                    // Check whether the synchronization point is a dominator of the task
-                    Node* task_cond = ExtensibleGraph::get_enclosing_control_structure(task);
-                    while (task_cond != NULL && parent_cond == task_cond)
-                    {
-                        task_cond = ExtensibleGraph::get_enclosing_control_structure(task_cond);
-                    }
-                    if (task_cond != NULL)
-                    {   // if it is not, then keep looking for synchronizations
-                        continue;
-                    }
+                    condition = cond_part;
+                }
+                else
+                {   // If 'cond_part' is already in 'condition', then we do not have to add it again
+                    if (!Nodecl::Utils::nodecl_contains_nodecl_by_structure(condition, cond_part))
+                        condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
                 }
             }
-            else if (parent->is_entry_node() && _graph->get_graph()->get_graph_entry_node() == parent)
-            {   // If we reach the entry node of the graph, then this is the last synchronization point
-                _graph->set_last_sync_for_tasks(task, parent);
-                break;
-            }
-
-            // Keep iterating
-            find_last_synchronization_points_for_tasks(parent, task);
         }
+
+        return condition;
     }
 
-    void TaskConcurrency::find_next_synchronization_points(Node* task)
-    {
-        const ObjectList<Node*>& next_syncs = task->get_children();
-        ERROR_CONDITION(next_syncs.empty(),
-                        "%s: All tasks must have at least one synchronization point but task %d does not have any.",
-                        task->get_graph_related_ast().get_locus_str().c_str(), task->get_id());
-
-        bool has_post_sync = false;
-        for (ObjectList<Node*>::const_iterator it = next_syncs.begin();
-             it != next_syncs.end(); ++it)
-        {
-            if ((*it)->is_omp_virtual_tasksync())
-            {
-                has_post_sync = true;
-                break;
-            }
-        }
-
-        if (has_post_sync)
-        {
-            Node* pcfg_exit = _graph->get_graph()->get_graph_exit_node();
-            _graph->add_next_sync_for_tasks(task, pcfg_exit);
-            _graph->add_next_sync_for_sequential_code(task, pcfg_exit);
-        }
-        else
-        {
-            for (ObjectList<Node*>::const_iterator it = next_syncs.begin(); it != next_syncs.end(); ++it)
-            {
-                _graph->add_next_sync_for_tasks(task, *it);
-                _graph->add_next_sync_for_sequential_code(task, *it);
-            }
-        }
-    }
-
-    void TaskConcurrency::compute_concurrent_tasks(Node* task)
-    {
-        // Collect the tasks that are concurrent with the current task
-        ObjectList<Node*> concurrent_tasks;
-        const ObjectList<Node*>& last_sync_for_tasks = _graph->get_task_last_sync_for_tasks(task);
-        const ObjectList<Node*>& next_sync_for_tasks = _graph->get_task_next_sync_for_tasks(task);
-        for (ObjectList<Node*>::const_iterator itl = last_sync_for_tasks.begin();
-             itl != last_sync_for_tasks.end(); ++itl)
-        {
-            // Collect the tasks that are between the last and the next synchronization points
-            for (ObjectList<Node*>::const_iterator itn = next_sync_for_tasks.begin();
-                 itn != next_sync_for_tasks.end(); ++itn)
-            {
-                collect_tasks_between_nodes(*itl, *itn, task, concurrent_tasks);
-                ExtensibleGraph::clear_visits_aux(*itl);
-            }
-            
-            // Collect any nested task previous to the last synchronization point that has not been synchronized
-            if ((*itl)->is_omp_taskwait_node())
-            {
-                collect_previous_tasks_synchronized_after_scheduling_point(
-                        task, _graph->get_tasks_list(), concurrent_tasks);
-            }
-        }
-        for (ObjectList<Node*>::const_iterator it = last_sync_for_tasks.begin();
-             it != last_sync_for_tasks.end(); ++it)
-            ExtensibleGraph::clear_visits(*it);
-        
-        // When the task is in a loop and it is not synchronized between iterations, it is be concurrent with itself
-        Node* task_creation = ExtensibleGraph::get_task_creation_from_task(task);
-        if (ExtensibleGraph::node_is_in_loop(task_creation)
-                && task_is_concurrent_across_iterations(task))
-            concurrent_tasks.insert(task);
-
-        if (VERBOSE)
-        {
-            const ObjectList<Node*>& last_sync_for_seq = _graph->get_task_last_sync_for_sequential_code(task);
-            const ObjectList<Node*>& next_sync_for_seq = _graph->get_task_next_sync_for_sequential_code(task);
-            std::cerr << "    Task " << task->get_id() << " synchronizations information" << std::endl;
-            std::cerr << "        * Last synchronizations for sequential code: " << print_node_list(last_sync_for_seq) << std::endl;
-            std::cerr << "        * Last synchronizations for other tasks: " << print_node_list(last_sync_for_tasks) << std::endl;
-            std::cerr << "        * Next synchronizations for sequential code: " << print_node_list(next_sync_for_seq) << std::endl;
-            std::cerr << "        * Next synchronizations for other tasks: " << print_node_list(next_sync_for_tasks) << std::endl;
-            std::cerr << "        * Concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
-        }
-        
-        // Set the information computed to the graph
-        _graph->add_concurrent_task_group(task, concurrent_tasks);
-    }
-
-    // ************************* END class implementing task concurrency analysis ************************* //
-    // **************************************************************************************************** //
 }
 }
 }
