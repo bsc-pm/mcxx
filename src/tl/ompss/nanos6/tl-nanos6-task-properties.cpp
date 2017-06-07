@@ -1458,6 +1458,14 @@ namespace TL { namespace Nanos6 {
 
     namespace
     {
+    TL::Type rewrite_type(TL::Type t, TL::Scope scope, Nodecl::Utils::SymbolMap &symbol_map)
+    {
+        return type_deep_copy(
+            t.get_internal_type(),
+            scope.get_decl_context(),
+            symbol_map.get_symbol_map());
+    }
+
     TL::Type fortran_storage_type_array_descriptor(TL::Type array_type)
     {
         TL::Type void_pointer = TL::Type::get_void_type().get_pointer_to();
@@ -1987,14 +1995,6 @@ namespace TL { namespace Nanos6 {
         };
     }
 
-    TL::Type TaskProperties::rewrite_type_for_outline(
-        TL::Type t, TL::Scope scope, Nodecl::Utils::SymbolMap &symbol_map)
-    {
-        return type_deep_copy(
-            t.get_internal_type(),
-            scope.get_decl_context(),
-            symbol_map.get_symbol_map());
-    }
 
     void TaskProperties::create_outline_function()
     {
@@ -2079,7 +2079,7 @@ namespace TL { namespace Nanos6 {
                 it != parameters_to_update_type.end();
                 it++)
         {
-            it->set_type(rewrite_type_for_outline(it->get_type(), unpacked_inside_scope, symbol_map));
+            it->set_type(rewrite_type(it->get_type(), unpacked_inside_scope, symbol_map));
         }
 
         if (!parameters_to_update_type.empty())
@@ -2102,7 +2102,7 @@ namespace TL { namespace Nanos6 {
             TL::Symbol priv = unpacked_inside_scope.new_symbol(it->get_name());
             priv.get_internal_symbol()->kind = SK_VARIABLE;
             symbol_entity_specs_set_is_user_declared(priv.get_internal_symbol(), 1);
-            priv.set_type(rewrite_type_for_outline(it->get_type().no_ref(), unpacked_inside_scope, symbol_map));
+            priv.set_type(rewrite_type(it->get_type().no_ref(), unpacked_inside_scope, symbol_map));
 
             symbol_map.add_map(*it, priv);
 
@@ -3618,7 +3618,7 @@ namespace TL { namespace Nanos6 {
              it != parameters_to_update_type.end();
              it++)
         {
-            it->set_type(rewrite_type_for_outline(
+            it->set_type(rewrite_type(
                 it->get_type(), dep_fun_inside_scope, symbol_map));
         }
 
