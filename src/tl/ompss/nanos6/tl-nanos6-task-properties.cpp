@@ -1499,6 +1499,22 @@ namespace TL { namespace Nanos6 {
         counter++;
         return ss.str();
     }
+
+    // Given an array type, this function returns an array type with descriptor
+    //      INTEGER :: V(N, M)  -> INTEGER, WITH_DESC :: V(N, M)
+    TL::Type array_type_to_array_with_descriptor_type(TL::Type array_type, TL::Scope sc)
+    {
+        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This function is only for Fortran", 0);
+        ERROR_CONDITION(!array_type.is_array(), "This type should be an array type", 0);
+
+        TL::Type element_type = array_type.array_element();
+        if (element_type.is_array())
+            element_type = array_type_to_array_with_descriptor_type(element_type, sc);
+
+        Nodecl::NodeclBase lbound, ubound;
+        array_type.array_get_bounds(lbound, ubound);
+        return element_type.get_array_to_with_descriptor(lbound, ubound, sc);
+    }
     }
 
     void TaskProperties::create_environment_structure(
@@ -1610,16 +1626,26 @@ namespace TL { namespace Nanos6 {
 
         new_class_symbol.get_internal_symbol()->type_information = new_class_type;
 
+        // It maps each captured symbol with its respective symbol in the arguments structure
+        Nodecl::Utils::SimpleSymbolMap captured_symbols_map;
         for (TL::ObjectList<TL::Symbol>::iterator it = captured_value.begin();
                 it != captured_value.end();
                 it++)
         {
             TL::Type type_of_field = it->get_type().no_ref();
+            bool is_allocatable = symbol_entity_specs_get_is_allocatable(it->get_internal_symbol());
 
             if (type_of_field.depends_on_nonconstant_values())
             {
-                // FIXME: this has been designed thinking in C/C++, does it work for Fortran????
-                type_of_field = TL::Type::get_void_type().get_pointer_to();
+                if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                    type_of_field = TL::Type::get_void_type().get_pointer_to();
+                else
+                {
+                    // We rewrite the type since it may refer to captured symbols
+                    TL::Type updated_type = rewrite_type(type_of_field, class_scope, captured_symbols_map);
+                    type_of_field = array_type_to_array_with_descriptor_type(updated_type, sc);
+                    is_allocatable = 1;
+                }
             }
             else if (type_of_field.is_function())
             {
@@ -1642,10 +1668,11 @@ namespace TL { namespace Nanos6 {
                     class_scope,
                     it->get_name(),
                     it->get_locus(),
-                    symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()),
+                    is_allocatable,
                     type_of_field);
 
             field_map[*it] = field;
+            captured_symbols_map.add_map(*it, field);
         }
 
         for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
@@ -1787,18 +1814,21 @@ namespace TL { namespace Nanos6 {
             {
                 if (it->get_type().depends_on_nonconstant_values())
                 {
-                    Nodecl::NodeclBase size_of_array = Nodecl::Add::make(
-                            const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN)),
-                            Nodecl::Sizeof::make(
-                                Nodecl::Type::make(it->get_type()),
-                                Nodecl::NodeclBase::null(),
-                                get_size_t_type()),
-                            get_size_t_type());
+                    if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase size_of_array = Nodecl::Add::make(
+                                const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN)),
+                                Nodecl::Sizeof::make(
+                                    Nodecl::Type::make(it->get_type()),
+                                    Nodecl::NodeclBase::null(),
+                                    get_size_t_type()),
+                                get_size_t_type());
 
-                    extra_storage = Nodecl::Add::make(
-                            extra_storage,
-                            size_of_array,
-                            size_of_array.get_type());
+                        extra_storage = Nodecl::Add::make(
+                                extra_storage,
+                                size_of_array,
+                                size_of_array.get_type());
+                    }
                 }
             }
 
@@ -2413,9 +2443,9 @@ namespace TL { namespace Nanos6 {
                         field_map[*it].get_type().get_lvalue_reference_to());
                 args.append(class_member_access);
 
-                // Finally, if the current symbol is allocatable, we have to deallocate it.
+                // Finally, if the field symbol is an allocatable, we have to deallocate it.
                 // Note that this copy was created when we captured its value.
-                if (symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()))
+                if (symbol_entity_specs_get_is_allocatable(field.get_internal_symbol()))
                 {
                     deallocate_exprs.append(class_member_access.shallow_copy());
                 }
@@ -2432,13 +2462,11 @@ namespace TL { namespace Nanos6 {
                 forwarded_parameter_types.append(field.get_type());
 
                 args.append(
-                            Nodecl::ClassMemberAccess::make(
-                                // Nodecl::Dereference::make(
-                                arg.make_nodecl(/* set_ref_type */ true),
-                                //    arg.get_type().points_to().get_lvalue_reference_to()),
-                                field_map[*it].make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                field_map[*it].get_type().get_lvalue_reference_to()));
+                        Nodecl::ClassMemberAccess::make(
+                            arg.make_nodecl(/* set_ref_type */ true),
+                            field_map[*it].make_nodecl(),
+                            /* member_literal */ Nodecl::NodeclBase::null(),
+                            field_map[*it].get_type().get_lvalue_reference_to()));
             }
 
             for (TL::ObjectList<ReductionItem>::const_iterator it = reduction.begin();
@@ -2455,9 +2483,7 @@ namespace TL { namespace Nanos6 {
 
                     args.append(
                             Nodecl::ClassMemberAccess::make(
-                                // Nodecl::Dereference::make(
                         arg.make_nodecl(/* set_ref_type */ true),
-                        //    arg.get_type().points_to().get_lvalue_reference_to()),
                                 field_map[it->symbol].make_nodecl(),
                                 /* member_literal */ Nodecl::NodeclBase::null(),
                                 field_map[it->symbol].get_type().get_lvalue_reference_to()));
@@ -4445,23 +4471,16 @@ namespace TL { namespace Nanos6 {
                 }
                 else // IS_FORTRAN_LANGUAGE
                 {
-                    if (!it->get_type().depends_on_nonconstant_values())
-                    {
-                        Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
+                    Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
 
-                        Nodecl::NodeclBase assignment_stmt =
-                            Nodecl::ExpressionStatement::make(
-                                    Nodecl::Assignment::make(
-                                        lhs,
-                                        rhs,
-                                        lhs_type));
+                    Nodecl::NodeclBase assignment_stmt =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    lhs,
+                                    rhs,
+                                    lhs_type));
 
-                        current_captured_stmts.append(assignment_stmt);
-                    }
-                    else
-                    {
-                        internal_error("Arrays with nonconstant values are not supported yet.", 0);
-                    }
+                    current_captured_stmts.append(assignment_stmt);
                 }
             }
 
