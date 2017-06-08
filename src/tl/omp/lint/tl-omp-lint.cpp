@@ -28,7 +28,6 @@
 #include "tl-analysis-utils.hpp"
 #include "tl-datareference.hpp"
 #include "tl-omp-lint.hpp"
-#include "tl-task-syncs-utils.hpp"
 #include "tl-tribool.hpp"
 
 #include <limits.h>
@@ -2094,7 +2093,7 @@ skip_current_var: ;
                 std::cerr << "OMP-LINT_ Executing analysis required for OpenMP/OmpSs correctness checking in file '" 
                           << top_level.get_filename() << "'" << std::endl;
             }
-            analysis.tune_task_synchronizations(top_level);
+            analysis.reaching_definitions(top_level, /*propagate_graph_nodes*/ true);
             if (VERBOSE)
             {
                 analysis.print_all_pcfg();

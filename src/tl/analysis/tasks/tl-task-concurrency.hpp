@@ -24,44 +24,49 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-#ifndef TL_TASK_SYNC_ANALYSIS_HPP
-#define TL_TASK_SYNC_ANALYSIS_HPP
+#ifndef TL_TASK_CONCURRENCY_HPP
+#define TL_TASK_CONCURRENCY_HPP
 
 #include "tl-extensible-graph.hpp"
-#include "tl-nodecl-visitor.hpp"
 
 namespace TL { 
 namespace Analysis {
-namespace TaskAnalysis {
+namespace TaskAnalysis{
 
     // **************************************************************************************************** //
-    // *************************** Class implementing task PCFG synchronization *************************** //
+    // *************************** Class implementing task concurrency analysis *************************** //
 
-    typedef std::pair<Node*, SyncKind> PointOfSyncInfo;
-    typedef ObjectList<PointOfSyncInfo> PointOfSyncList;
-    typedef std::map<Node*, PointOfSyncList> PointsOfSync;
-
-    struct LIBTL_CLASS TaskSynchronizations
+    class LIBTL_CLASS TaskConcurrency
     {
     private:
+        // *** Private members *** //
         ExtensibleGraph* _graph;
 
-        NBase match_dependencies(Node* source, Node* target);
+        // *** Private methods *** /
+        void find_next_synchronization_points(Node* task);
+        void find_last_synchronization_points_for_sequential_code(Node* task_creation, Node* task);
+        void find_last_synchronization_points_for_tasks(Node* current, Node* task);
 
-        void compute_task_synchronization_labels();
-        void compute_task_synchronization_conditions_rec(Node* current);
-        void compute_task_synchronization_conditions();
+        //! This method calculates the next and last synchronization points of a task
+        void define_concurrent_regions_limits(Node* task);
+
+        /*!Computes the tasks that are concurrent with a given task
+         * Also computes the last synchronization point in the encountering thread of the task
+         */
+        void compute_concurrent_tasks(Node* task);
 
     public:
-        TaskSynchronizations(ExtensibleGraph* graph, bool is_ompss_enabled);
+        // *** Constructor *** //
+        TaskConcurrency(ExtensibleGraph* graph);
 
-        void compute_task_synchronizations();
+        // *** Modifiers *** //
+        void compute_tasks_concurrency();
     };
 
-    // ************************* END class implementing task PCFG synchronization ************************* //
+    // ************************* END class implementing task concurrency analysis ************************* //
     // **************************************************************************************************** //
-} 
-}
-}
 
-#endif      // TL_TASK_SYNC_ANALYSIS_HPP
+#endif      // TL_TASK_CONCURRENCY_HPP
+}
+}
+}
