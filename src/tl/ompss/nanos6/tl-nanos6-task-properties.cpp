@@ -1916,25 +1916,6 @@ namespace TL { namespace Nanos6 {
                 }
         };
 
-        struct ParameterToSymbol
-        {
-            TL::Scope _sc;
-            ParameterToSymbol(TL::Scope sc) : _sc(sc)
-            {
-            }
-
-            TL::Symbol operator()(const std::string &str) const
-            {
-                TL::Symbol param_sym = _sc.get_symbol_from_name(str);
-                ERROR_CONDITION(!param_sym.is_valid()
-                        || (!param_sym.is_parameter()
-                            && !param_sym.is_saved_expression()),
-                        "Invalid symbol for name '%s'",
-                        str.c_str());
-                return param_sym;
-            }
-        };
-
         bool type_is_runtime_sized(TL::Type t)
         {
             if (!t.is_valid())
@@ -1973,25 +1954,23 @@ namespace TL { namespace Nanos6 {
         struct MapSymbols
         {
             private:
+                const TL::Scope &_function_scope;
                 const std::map<TL::Symbol, std::string> &_symbols_to_param_names;
+
                 TL::ObjectList<TL::Symbol> &_parameters_to_update_type;
                 Nodecl::Utils::SimpleSymbolMap &_symbol_map;
 
-                const ParameterToSymbol &_param_to_symbol;
-
-
             public:
                 MapSymbols(
-                        const ParameterToSymbol &param_to_symbol,
+                        const TL::Scope &function_scope,
                         const std::map<TL::Symbol, std::string> &symbols_to_param_names,
                         /* out */ Nodecl::Utils::SimpleSymbolMap &symbol_map,
                         /* out */ TL::ObjectList<TL::Symbol> &parameter_to_update_type)
-                    : _symbols_to_param_names(symbols_to_param_names),
+                    : _function_scope(function_scope),
+                    _symbols_to_param_names(symbols_to_param_names),
                     _parameters_to_update_type(parameter_to_update_type),
-                    _symbol_map(symbol_map),
-                    _param_to_symbol(param_to_symbol)
-            {
-            }
+                    _symbol_map(symbol_map)
+                {}
 
                 void compute_mapping(TL::Symbol sym)
                 {
@@ -1999,7 +1978,12 @@ namespace TL { namespace Nanos6 {
                     ERROR_CONDITION(it_param_name == _symbols_to_param_names.end(),
                             "Symbol '%s' not mapped",sym.get_name().c_str());
 
-                    TL::Symbol param_sym = _param_to_symbol(it_param_name->second);
+                    TL::Symbol param_sym = _function_scope.get_symbol_from_name(it_param_name->second);
+
+                    ERROR_CONDITION(!param_sym.is_valid()
+                            || (!param_sym.is_parameter() && !param_sym.is_saved_expression()),
+                            "Invalid symbol for name '%s'", it_param_name->second.c_str());
+
                     _symbol_map.add_map(sym, param_sym);
 
                     // Propagate TARGET attribute
@@ -2110,17 +2094,13 @@ namespace TL { namespace Nanos6 {
                 unpacked_empty_stmt);
         Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
-        TL::Scope unpacked_inside_scope = unpacked_empty_stmt.retrieve_context();
-
+        TL::Scope unpacked_inside_scope = unpacked_function.get_related_scope();
         // Prepare deep copy and remember those parameters that need fixup
         Nodecl::Utils::SimpleSymbolMap symbol_map;
-
-        ParameterToSymbol param_to_symbol(unpacked_inside_scope);
-
         TL::ObjectList<TL::Symbol> parameters_to_update_type;
 
         MapSymbols map_symbols_functor(
-                param_to_symbol,
+                unpacked_inside_scope,
                 symbols_to_param_names,
                 /* out */ symbol_map,
                 /* out */ parameters_to_update_type);
@@ -3656,19 +3636,16 @@ namespace TL { namespace Nanos6 {
         SymbolUtils::build_empty_body_for_function(
             dependences_function, dep_fun_function_code, dep_fun_empty_stmt);
 
-        TL::Scope dep_fun_inside_scope = dep_fun_empty_stmt.retrieve_context();
+        TL::Scope dep_fun_inside_scope = dependences_function.get_related_scope();
 
         fortran_add_types(dep_fun_inside_scope);
 
         // Prepare deep copy and remember those parameters that need fixup
         Nodecl::Utils::SimpleSymbolMap symbol_map;
-
-        ParameterToSymbol param_to_symbol(dep_fun_inside_scope);
-
         TL::ObjectList<TL::Symbol> parameters_to_update_type;
 
         MapSymbols map_symbols_functor(
-                param_to_symbol,
+                dep_fun_inside_scope,
                 symbols_to_param_names,
                 /* out */ symbol_map,
                 /* out */ parameters_to_update_type);
