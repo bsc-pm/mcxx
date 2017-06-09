@@ -2020,19 +2020,6 @@ namespace TL { namespace Nanos6 {
 
             TL::Scope function_inside_scope = function.get_related_scope();
 
-            // Add extra mappings for VLAs
-            TL::ObjectList<TL::Symbol> new_vlas;
-            for (TL::ObjectList<TL::Symbol>::iterator it = parameters_to_update_type.begin();
-                    it != parameters_to_update_type.end();
-                    it++)
-            {
-                add_extra_mappings_for_vla_types(it->get_type(),
-                        function_inside_scope,
-                        /* out */
-                        symbol_map,
-                        new_vlas);
-            }
-
             // Now fix the types of runtime sized types prior anything else
             for (TL::ObjectList<TL::Symbol>::iterator it = parameters_to_update_type.begin();
                     it != parameters_to_update_type.end();
