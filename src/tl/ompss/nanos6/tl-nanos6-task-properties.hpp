@@ -176,11 +176,6 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List &register_statements);
 
-            TL::Type rewrite_type_for_outline(
-                TL::Type t,
-                TL::Scope scope,
-                Nodecl::Utils::SymbolMap &symbol_map);
-
             void create_task_invocation_info(
                 TL::Symbol task_info,
                 /* out */ TL::Symbol &task_invocation_info);
