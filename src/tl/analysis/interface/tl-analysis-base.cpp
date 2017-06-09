@@ -513,7 +513,10 @@ namespace Analysis {
         
         // Required previous analyses
         induction_variables(ast, /*propagate_graph_nodes*/ true, functions, call_graph);
-        range_analysis(ast, functions, call_graph);
+        if (expand_tdg)
+            reaching_definitions(ast, /*propagate_graph_nodes*/ true, functions, call_graph);
+        else
+            range_analysis(ast, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)
