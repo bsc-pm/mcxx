@@ -1876,44 +1876,44 @@ namespace TL { namespace Nanos6 {
 
         struct AddParameter
         {
-          private:
-            TL::ObjectList<std::string> &_unpack_parameter_names;
-            TL::ObjectList<TL::Type> &_unpack_parameter_types;
-            std::map<TL::Symbol, std::string> &_symbols_to_param_names;
+            private:
+                TL::ObjectList<std::string> &_unpack_parameter_names;
+                TL::ObjectList<TL::Type> &_unpack_parameter_types;
+                std::map<TL::Symbol, std::string> &_symbols_to_param_names;
 
-          public:
-            AddParameter(
-                TL::ObjectList<std::string> &unpack_parameter_names,
-                TL::ObjectList<TL::Type> &unpack_parameter_types,
-                std::map<TL::Symbol, std::string> &symbols_to_param_names)
-                : _unpack_parameter_names(unpack_parameter_names),
-                  _unpack_parameter_types(unpack_parameter_types),
-                  _symbols_to_param_names(symbols_to_param_names)
+            public:
+                AddParameter(
+                        TL::ObjectList<std::string> &unpack_parameter_names,
+                        TL::ObjectList<TL::Type> &unpack_parameter_types,
+                        std::map<TL::Symbol, std::string> &symbols_to_param_names)
+                    : _unpack_parameter_names(unpack_parameter_names),
+                    _unpack_parameter_types(unpack_parameter_types),
+                    _symbols_to_param_names(symbols_to_param_names)
             {
             }
 
-            void handle_symbol(TL::Symbol sym, const std::string& name)
-            {
-                std::string fixed_name = name;
-                if (IS_CXX_LANGUAGE && name == "this")
-                    fixed_name = "_this";
+                void handle_symbol(TL::Symbol sym, const std::string& name)
+                {
+                    std::string fixed_name = name;
+                    if (IS_CXX_LANGUAGE && name == "this")
+                        fixed_name = "_this";
 
-                _symbols_to_param_names.insert(std::make_pair(sym, fixed_name));
-                _unpack_parameter_names.append(fixed_name);
-                _unpack_parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
-            }
+                    _symbols_to_param_names.insert(std::make_pair(sym, fixed_name));
+                    _unpack_parameter_names.append(fixed_name);
+                    _unpack_parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
+                }
 
-            void operator()(TL::Symbol sym)
-            {
-                handle_symbol(sym, sym.get_name());
-            }
+                void operator()(TL::Symbol sym)
+                {
+                    handle_symbol(sym, sym.get_name());
+                }
 
-            void operator()(const TaskProperties::ReductionItem& red_item)
-            {
-                TL::Symbol sym = red_item.symbol;
-                handle_symbol(sym, sym.get_name());
-                handle_symbol(sym, sym.get_name() + "_local_red");
-            }
+                void operator()(const TaskProperties::ReductionItem& red_item)
+                {
+                    TL::Symbol sym = red_item.symbol;
+                    handle_symbol(sym, sym.get_name());
+                    handle_symbol(sym, sym.get_name() + "_local_red");
+                }
         };
 
         struct ParameterToSymbol
@@ -1927,102 +1927,142 @@ namespace TL { namespace Nanos6 {
             {
                 TL::Symbol param_sym = _sc.get_symbol_from_name(str);
                 ERROR_CONDITION(!param_sym.is_valid()
-                                    || (!param_sym.is_parameter()
-                                        && !param_sym.is_saved_expression()),
-                                "Invalid symbol for name '%s'",
-                                str.c_str());
+                        || (!param_sym.is_parameter()
+                            && !param_sym.is_saved_expression()),
+                        "Invalid symbol for name '%s'",
+                        str.c_str());
                 return param_sym;
             }
         };
 
+        bool type_is_runtime_sized(TL::Type t)
+        {
+            if (!t.is_valid())
+                return false;
+
+            if (t.is_any_reference())
+                return type_is_runtime_sized(t.no_ref());
+            else if (t.is_pointer())
+                return type_is_runtime_sized(t.points_to());
+            else if (t.is_array())
+            {
+                if (type_is_runtime_sized(t.array_element()))
+                    return true;
+
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    Nodecl::NodeclBase size = t.array_get_size();
+                    return !size.is_null() && !size.is_constant();
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    Nodecl::NodeclBase lbound, ubound;
+                    t.array_get_bounds(lbound, ubound);
+
+                    return (!lbound.is_null() && !lbound.is_constant())
+                        || (!ubound.is_null() && !ubound.is_constant());
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+            }
+            return false;
+        }
+
         struct MapSymbols
         {
-          private:
-            const std::map<TL::Symbol, std::string> &_symbols_to_param_names;
-            TL::ObjectList<TL::Symbol> &_parameters_to_update_type;
-            Nodecl::Utils::SimpleSymbolMap &_symbol_map;
+            private:
+                const std::map<TL::Symbol, std::string> &_symbols_to_param_names;
+                TL::ObjectList<TL::Symbol> &_parameters_to_update_type;
+                Nodecl::Utils::SimpleSymbolMap &_symbol_map;
 
-            const ParameterToSymbol &_param_to_symbol;
+                const ParameterToSymbol &_param_to_symbol;
 
-            static bool type_is_runtime_sized(TL::Type t)
+
+            public:
+                MapSymbols(
+                        const ParameterToSymbol &param_to_symbol,
+                        const std::map<TL::Symbol, std::string> &symbols_to_param_names,
+                        /* out */ Nodecl::Utils::SimpleSymbolMap &symbol_map,
+                        /* out */ TL::ObjectList<TL::Symbol> &parameter_to_update_type)
+                    : _symbols_to_param_names(symbols_to_param_names),
+                    _parameters_to_update_type(parameter_to_update_type),
+                    _symbol_map(symbol_map),
+                    _param_to_symbol(param_to_symbol)
             {
-                if (!t.is_valid())
-                    return false;
+            }
 
-                if (t.is_any_reference())
-                    return type_is_runtime_sized(t.no_ref());
-                else if (t.is_pointer())
-                    return type_is_runtime_sized(t.points_to());
-                else if (t.is_array())
+                void compute_mapping(TL::Symbol sym)
                 {
-                    if (type_is_runtime_sized(t.array_element()))
-                        return true;
+                    std::map<TL::Symbol, std::string>::const_iterator it_param_name = _symbols_to_param_names.find(sym);
+                    ERROR_CONDITION(it_param_name == _symbols_to_param_names.end(),
+                            "Symbol '%s' not mapped",sym.get_name().c_str());
 
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    {
-                        Nodecl::NodeclBase size = t.array_get_size();
-                        return !size.is_null() && !size.is_constant();
-                    }
-                    else if (IS_FORTRAN_LANGUAGE)
-                    {
-                        Nodecl::NodeclBase lbound, ubound;
-                        t.array_get_bounds(lbound, ubound);
+                    TL::Symbol param_sym = _param_to_symbol(it_param_name->second);
+                    _symbol_map.add_map(sym, param_sym);
 
-                        return (!lbound.is_null() && !lbound.is_constant())
-                               || (!ubound.is_null() && !ubound.is_constant());
-                    }
-                    else
-                    {
-                        internal_error("Code unreachable", 0);
-                    }
+                    // Propagate TARGET attribute
+                    if (sym.is_target())
+                        symbol_entity_specs_set_is_target(param_sym.get_internal_symbol(), 1);
+
+                    // Propagate ALLOCATABLE attribute
+                    if (sym.is_allocatable())
+                        symbol_entity_specs_set_is_allocatable(param_sym.get_internal_symbol(), 1);
+
+                    if (type_is_runtime_sized(param_sym.get_type()))
+                        _parameters_to_update_type.append(param_sym);
                 }
-                return false;
-            }
 
-          public:
-            MapSymbols(
-                const ParameterToSymbol &param_to_symbol,
-                const std::map<TL::Symbol, std::string> &symbols_to_param_names,
-                /* out */ Nodecl::Utils::SimpleSymbolMap &symbol_map,
-                /* out */ TL::ObjectList<TL::Symbol> &parameter_to_update_type)
-                : _symbols_to_param_names(symbols_to_param_names),
-                  _parameters_to_update_type(parameter_to_update_type),
-                  _symbol_map(symbol_map),
-                  _param_to_symbol(param_to_symbol)
-            {
-            }
+                void operator()(TL::Symbol sym)
+                {
+                    compute_mapping(sym);
+                }
 
-            void compute_mapping(TL::Symbol sym)
-            {
-                std::map<TL::Symbol, std::string>::const_iterator it_param_name = _symbols_to_param_names.find(sym);
-                ERROR_CONDITION(it_param_name == _symbols_to_param_names.end(),
-                                "Symbol '%s' not mapped",sym.get_name().c_str());
-
-                TL::Symbol param_sym = _param_to_symbol(it_param_name->second);
-                _symbol_map.add_map(sym, param_sym);
-
-                // Propagate TARGET attribute
-                if (sym.is_target())
-                  symbol_entity_specs_set_is_target(param_sym.get_internal_symbol(), 1);
-
-                // Propagate ALLOCATABLE attribute
-                if (sym.is_allocatable())
-                    symbol_entity_specs_set_is_allocatable(param_sym.get_internal_symbol(), 1);
-
-                if (type_is_runtime_sized(param_sym.get_type()))
-                    _parameters_to_update_type.append(param_sym);
-            }
-
-            void operator()(TL::Symbol sym)
-            {
-                compute_mapping(sym);
-            }
-
-            void operator()(const TaskProperties::ReductionItem& red_item)
-            {
-                compute_mapping(red_item.symbol);
-            }
+                void operator()(const TaskProperties::ReductionItem& red_item)
+                {
+                    compute_mapping(red_item.symbol);
+                }
         };
+
+        // It updates the the type of the 'function' symbol if the type of any of its parameters is runtime sized
+        void update_function_type_if_needed(
+                TL::Symbol function,
+                TL::ObjectList<TL::Symbol>& parameters_to_update_type,
+                Nodecl::Utils::SimpleSymbolMap& symbol_map)
+        {
+            if (parameters_to_update_type.empty())
+                return;
+
+            TL::Scope function_inside_scope = function.get_related_scope();
+
+            // Add extra mappings for VLAs
+            TL::ObjectList<TL::Symbol> new_vlas;
+            for (TL::ObjectList<TL::Symbol>::iterator it = parameters_to_update_type.begin();
+                    it != parameters_to_update_type.end();
+                    it++)
+            {
+                add_extra_mappings_for_vla_types(it->get_type(),
+                        function_inside_scope,
+                        /* out */
+                        symbol_map,
+                        new_vlas);
+            }
+
+            // Now fix the types of runtime sized types prior anything else
+            for (TL::ObjectList<TL::Symbol>::iterator it = parameters_to_update_type.begin();
+                    it != parameters_to_update_type.end();
+                    it++)
+            {
+                it->set_type(rewrite_type(it->get_type(), function_inside_scope, symbol_map));
+            }
+
+            TL::ObjectList<TL::Type> updated_param_types
+                = function.get_related_symbols().map<TL::Type>(&TL::Symbol::get_type);
+
+            function.set_type(
+                    TL::Type::get_void_type().get_function_returning(updated_param_types));
+        }
     }
 
 
@@ -2089,40 +2129,8 @@ namespace TL { namespace Nanos6 {
         shared.map(map_symbols_functor);
         reduction.map(map_symbols_functor);
 
-
-        // Add extra mappings for VLAs
-        TL::ObjectList<TL::Symbol> new_vlas;
-        for (TL::ObjectList<TL::Symbol>::iterator it
-             = parameters_to_update_type.begin();
-             it != parameters_to_update_type.end();
-             it++)
-        {
-            add_extra_mappings_for_vla_types(it->get_type(),
-                                             unpacked_inside_scope,
-                                             /* out */
-                                             symbol_map,
-                                             new_vlas);
-        }
-
-        // Now fix the types of runtime sized types prior anything else
-        for (TL::ObjectList<TL::Symbol>::iterator it = parameters_to_update_type.begin();
-                it != parameters_to_update_type.end();
-                it++)
-        {
-            it->set_type(rewrite_type(it->get_type(), unpacked_inside_scope, symbol_map));
-        }
-
-        if (!parameters_to_update_type.empty())
-        {
-            // Sync the function type if needed
-            TL::ObjectList<TL::Type> updated_param_types =
-                unpack_parameter_names
-                .map<TL::Symbol>(param_to_symbol)
-                .map<TL::Type>(&TL::Symbol::get_type);
-            unpacked_function.set_type(
-                    TL::Type::get_void_type().get_function_returning(updated_param_types)
-                    );
-        }
+        update_function_type_if_needed(
+                unpacked_function, parameters_to_update_type, symbol_map);
 
         Nodecl::List extra_decls;
         for (TL::ObjectList<TL::Symbol>::iterator it = private_.begin();
@@ -2426,12 +2434,16 @@ namespace TL { namespace Nanos6 {
                         unpacked_function.get_type().get_pointer_to()));
 
             Nodecl::List deallocate_exprs;
+            std::map<std::string, TL::Symbol> names_to_fields;
+
             for (TL::ObjectList<TL::Symbol>::iterator it = captured_value.begin();
                     it != captured_value.end();
                     it++)
             {
                 ERROR_CONDITION(field_map.find(*it) == field_map.end(), "Symbol is not mapped", 0);
                 TL::Symbol field = field_map[*it];
+
+                names_to_fields[field.get_name()] = field;
 
                 forwarded_parameter_names.append(field.get_name());
                 forwarded_parameter_types.append(field.get_type().get_lvalue_reference_to());
@@ -2458,6 +2470,8 @@ namespace TL { namespace Nanos6 {
                 ERROR_CONDITION(field_map.find(*it) == field_map.end(), "Symbol is not mapped", 0);
                 TL::Symbol field = field_map[*it];
 
+                names_to_fields[field.get_name()] = field;
+
                 forwarded_parameter_names.append(field.get_name());
                 forwarded_parameter_types.append(field.get_type());
 
@@ -2478,6 +2492,8 @@ namespace TL { namespace Nanos6 {
                 {
                     TL::Symbol field = field_map[it->symbol];
 
+                    names_to_fields[field.get_name()] = field;
+
                     forwarded_parameter_names.append(field.get_name());
                     forwarded_parameter_types.append(field.get_type());
 
@@ -2495,6 +2511,8 @@ namespace TL { namespace Nanos6 {
 
                     TL::Symbol local_symbol = inner_class_context.get_symbol_from_name(it->symbol.get_name() + "_local_red");
                     TL::Type expr_type = local_symbol.get_type().no_ref().get_lvalue_reference_to();
+
+                    names_to_fields[local_symbol.get_name()] = local_symbol;
 
                     forwarded_parameter_names.append(local_symbol.get_name());
                     forwarded_parameter_types.append(expr_type);
@@ -2516,6 +2534,27 @@ namespace TL { namespace Nanos6 {
                     forwarded_parameter_types);
             // Make this symbol global
             symbol_entity_specs_set_is_static(forwarded_function.get_internal_symbol(), 0);
+
+            Nodecl::Utils::SimpleSymbolMap forwarded_symbol_map;
+            TL::ObjectList<TL::Symbol> forwarded_parameters_to_update_type;
+
+            // We skip the first param because it's the function pointer and it's not mapped
+            TL::ObjectList<TL::Symbol> forwarded_params = forwarded_function.get_related_symbols();
+            for (unsigned int i = 1; i < forwarded_params.size(); ++i)
+            {
+                TL::Symbol param(forwarded_params[i]);
+                TL::Symbol field(names_to_fields[param.get_name()]);
+
+                ERROR_CONDITION(!field.is_valid(), "Invalid symbol!", 0);
+
+                forwarded_symbol_map.add_map(field, param);
+
+                if (type_is_runtime_sized(param.get_type()))
+                    forwarded_parameters_to_update_type.append(param);
+            }
+
+            update_function_type_if_needed(
+                    forwarded_function, forwarded_parameters_to_update_type, forwarded_symbol_map);
 
             Nodecl::NodeclBase call_to_forward =
                 Nodecl::ExpressionStatement::make(
@@ -3576,6 +3615,7 @@ namespace TL { namespace Nanos6 {
         register_statements.append(body);
     }
 
+
     void TaskProperties::create_dependences_function_fortran_proper()
     {
         // This is similar to the dep_fun function
@@ -3637,27 +3677,8 @@ namespace TL { namespace Nanos6 {
         shared.map(map_symbols_functor);
         reduction.map(map_symbols_functor);
 
-
-        // Now fix the types of runtime sized types prior anything else
-        for (TL::ObjectList<TL::Symbol>::iterator it
-             = parameters_to_update_type.begin();
-             it != parameters_to_update_type.end();
-             it++)
-        {
-            it->set_type(rewrite_type(
-                it->get_type(), dep_fun_inside_scope, symbol_map));
-        }
-
-        if (!parameters_to_update_type.empty())
-        {
-            // Sync the function type if needed
-            TL::ObjectList<TL::Type> updated_param_types
-                = unpack_parameter_names.map<TL::Symbol>(param_to_symbol)
-                      .map<TL::Type>(&TL::Symbol::get_type);
-            dependences_function.set_type(
-                TL::Type::get_void_type().get_function_returning(
-                    updated_param_types));
-        }
+        update_function_type_if_needed(
+                dependences_function, parameters_to_update_type, symbol_map);
 
         TL::Symbol handler
             = dep_fun_inside_scope.get_symbol_from_name("handler");
