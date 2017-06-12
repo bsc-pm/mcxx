@@ -136,15 +136,13 @@ namespace TL { namespace HLT {
         Nodecl::NodeclBase orig_loop_upper = for_stmt.get_upper_bound();
         Nodecl::NodeclBase orig_loop_step = for_stmt.get_step();
 
+        // Do nothing if the loop is already a normalized loop
         if ( orig_loop_lower.is_constant()
                 && const_value_is_zero(orig_loop_lower.get_constant())
                 && orig_loop_step.is_constant()
                 && const_value_is_one(orig_loop_step.get_constant()))
         {
-            // Do nothing
-            _transformation = Nodecl::List::make(
-                    this->_loop.shallow_copy()
-                    );
+            _transformation = Nodecl::List::make(this->_loop.shallow_copy());
             return;
         }
 
