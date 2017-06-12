@@ -27,6 +27,8 @@
 
 #include "tl-nanos6-lower.hpp"
 #include "tl-nanos6-task-properties.hpp"
+#include "tl-nanos6-fortran-support.hpp"
+
 #include "tl-counters.hpp"
 #include "tl-source.hpp"
 
@@ -136,10 +138,12 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::NodeclBase args_size;
         TL::Type data_env_struct;
+        bool requires_initialization;
         task_properties.create_environment_structure(
                 /* out */
                 data_env_struct,
-                args_size);
+                args_size,
+                requires_initialization);
 
         TL::Symbol task_info, task_invocation_info;
         Nodecl::NodeclBase local_init_task_info;
@@ -301,6 +305,44 @@ namespace TL { namespace Nanos6 {
                         node.get_locus());
 
             new_stmts.append(call_to_nanos_create_task);
+        }
+
+        if (requires_initialization)
+        {
+            // FORTRAN ONLY
+            ERROR_CONDITION(IS_CXX_LANGUAGE || IS_C_LANGUAGE, "Unreachable code\n", 0);
+
+            TL::Symbol nanos6_bzero_sym =
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos6_bzero");
+            ERROR_CONDITION(!nanos6_bzero_sym.is_valid()
+                    || !nanos6_bzero_sym.is_function(),
+                    "Invalid symbol", 0);
+
+            //  TYPE(ARGS_T), POINTER :: ARGS
+            //
+            //  What we want to set to zero is the storage of this pointer, not
+            //  the descriptor itself: LOC(ARGS)
+            Nodecl::NodeclBase address_of_args =
+                Nodecl::Reference::make(
+                        Nodecl::Dereference::make(
+                            args.make_nodecl(/*set_ref_type*/true),
+                            args.get_type().points_to()),
+                        args.get_type().no_ref());
+
+            Nodecl::NodeclBase call_to_nanos6_bzero =
+                Nodecl::ExpressionStatement::make(
+                        Nodecl::FunctionCall::make(
+                           nanos6_bzero_sym.make_nodecl( /* set_ref_type */ true),
+                           Nodecl::List::make(
+                               address_of_args,
+                               args_size.shallow_copy()),
+                           /* alternate symbol */ Nodecl::NodeclBase::null(),
+                           /* alternate symbol */ Nodecl::NodeclBase::null(),
+                           TL::Type::get_void_type(),
+                           node.get_locus()),
+                        node.get_locus());
+
+            new_stmts.append(call_to_nanos6_bzero);
         }
 
         // Capture environment

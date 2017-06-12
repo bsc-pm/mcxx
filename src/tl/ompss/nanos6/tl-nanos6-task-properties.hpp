@@ -322,10 +322,17 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol &task_invocation_info,
                     Nodecl::NodeclBase& local_init);
 
+            //! This function creates a new class type that represents the arguments structure.
+            /*!
+             * @param data_env_struct The new class type
+             * @param arg_size An expression that evaluates to the number of bytes to be allocated
+             * @param requires_initialization This boolean states whether the current argument structure should be initialized
+             */
             void create_environment_structure(
                     /* out */
                     TL::Type& data_env_struct,
-                    Nodecl::NodeclBase& args_size);
+                    Nodecl::NodeclBase& args_size,
+                    bool &requires_initialization);
 
             void capture_environment(
                     TL::Symbol args,

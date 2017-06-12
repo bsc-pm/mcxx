@@ -1520,9 +1520,13 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_environment_structure(
             /* out */
             TL::Type& data_env_struct,
-            Nodecl::NodeclBase& args_size)
+            Nodecl::NodeclBase& args_size,
+            bool &requires_initialization)
     {
         field_map.clear();
+
+        // By default the arguments structure doesn't require to be initialized
+        requires_initialization = false;
 
         TL::Scope sc = compute_scope_for_environment_structure();
 
@@ -1661,6 +1665,19 @@ namespace TL { namespace Nanos6 {
             else
             {
                 type_of_field = type_of_field.get_unqualified_type();
+            }
+
+            // Fields that require an array descriptor have to be initialized
+            if (IS_FORTRAN_LANGUAGE
+                    && (
+                        (type_of_field.is_array()
+                         && type_of_field.array_requires_descriptor())
+                        ||
+                        (type_of_field.is_pointer()
+                            && type_of_field.points_to().is_array()
+                            && type_of_field.points_to().array_requires_descriptor())))
+            {
+                requires_initialization = true;
             }
 
             TL::Symbol field = add_field_to_class(
