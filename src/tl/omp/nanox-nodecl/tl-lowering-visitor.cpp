@@ -41,6 +41,12 @@ namespace TL { namespace Nanox {
 
     LoweringVisitor::~LoweringVisitor() { }
 
+
+    void LoweringVisitor::visit(const Nodecl::OpenMP::TaskLoop& node)
+    {
+        fatal_error("Error: Nanos++ lowering of a Taskloop construct has not been implemented yet\n");
+    }
+
     // We redefine the visitor of Nodecl::FunctionCode because  we need to
     // visit first the internal functions and later the statements
     void LoweringVisitor::visit(const Nodecl::FunctionCode& function_code)

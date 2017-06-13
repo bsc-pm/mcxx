@@ -73,6 +73,12 @@ namespace TL {
                 walk(task_call.get_call());
              }
 
+             void visit(const Nodecl::OpenMP::TaskLoop& taskloop)
+             {
+                ++_num_task_related_pragmas;
+                walk(taskloop.get_loop());
+             }
+
              void visit(const Nodecl::OmpSs::TaskExpression& task_expr)
              {
                 ++_num_task_related_pragmas;
@@ -179,6 +185,12 @@ namespace TL {
              {
                 task_call.replace(task_call.get_call());
                 walk(task_call);
+             }
+
+             void visit(const Nodecl::OpenMP::TaskLoop& taskloop)
+             {
+                taskloop.replace(taskloop.get_loop());
+                walk(taskloop);
              }
 
              void visit(const Nodecl::OmpSs::TaskExpression& task_expr)
@@ -351,6 +363,15 @@ namespace TL {
         //std::cerr << "task call: " << task_call.get_locus_str() << std::endl;
         Nodecl::NodeclBase final_stmts = generate_final_stmts(task_call.get_call());
         _final_stmts_map.insert(std::make_pair(task_call, final_stmts));
+    }
+
+    void FinalStmtsGenerator::visit(const Nodecl::OpenMP::TaskLoop& node)
+    {
+        walk(node.get_loop());
+
+        //std::cerr << "taskloop: " << node.get_locus_str() << std::endl;
+        Nodecl::NodeclBase final_stmts = generate_final_stmts(node.get_loop());
+        _final_stmts_map.insert(std::make_pair(node, final_stmts));
     }
 
     void FinalStmtsGenerator::visit(const Nodecl::OmpSs::TaskExpression& task_expr)
