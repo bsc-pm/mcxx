@@ -71,19 +71,21 @@ namespace TL { namespace Nanos6 {
         return ((int)expected_version) <= real_version;
     }
 
+    void Interface::family_must_be_at_least(const std::string &family, unsigned int expected_version)
+    {
+        if (!family_is_at_least(family, expected_version))
+        {
+            fatal_error("Error: the version of the '%s' Nanos6 interface should be at least %d", family.c_str(), expected_version);
+        }
+    }
     void Interface::check_nanos6_deprecated_headers()
     {
-        bool min_version =
-            family_is_at_least("nanos6_final_api", 1) &&
-            family_is_at_least("nanos6_multidimensional_dependencies_api", 1) &&
-            family_is_at_least("nanos6_task_info_registration_api", 1) &&
-            family_is_at_least("nanos6_task_info_contents", 1) &&
-            family_is_at_least("nanos6_instantiation_api", 1) &&
-            family_is_at_least("nanos6_taskwait_api", 1) &&
-            family_is_at_least("nanos6_locking_api", 1);
-
-        if (!min_version)
-            fatal_error("Error: you are using a deprecated version of the Nanos6 headers,"
-                    " you need to update your installation");
+        family_must_be_at_least("nanos6_final_api", 1);
+        family_must_be_at_least("nanos6_multidimensional_dependencies_api", 1);
+        family_must_be_at_least("nanos6_task_info_registration_api", 1);
+        family_must_be_at_least("nanos6_task_info_contents", 1);
+        family_must_be_at_least("nanos6_instantiation_api", 1);
+        family_must_be_at_least("nanos6_taskwait_api", 1);
+        family_must_be_at_least("nanos6_locking_api", 1);
     }
 }}

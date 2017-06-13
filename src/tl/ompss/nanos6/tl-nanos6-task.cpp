@@ -28,6 +28,7 @@
 #include "tl-nanos6-lower.hpp"
 #include "tl-nanos6-task-properties.hpp"
 #include "tl-nanos6-fortran-support.hpp"
+#include "tl-nanos6-interface.hpp"
 
 #include "tl-counters.hpp"
 #include "tl-source.hpp"
@@ -311,6 +312,8 @@ namespace TL { namespace Nanos6 {
         {
             // FORTRAN ONLY
             ERROR_CONDITION(IS_CXX_LANGUAGE || IS_C_LANGUAGE, "Unreachable code\n", 0);
+
+            Interface::family_must_be_at_least("nanos6_utils_api", 1);
 
             TL::Symbol nanos6_bzero_sym =
                 TL::Scope::get_global_scope().get_symbol_from_name("nanos6_bzero");
