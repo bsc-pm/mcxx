@@ -71,21 +71,25 @@ namespace TL { namespace Nanos6 {
         return ((int)expected_version) <= real_version;
     }
 
-    void Interface::family_must_be_at_least(const std::string &family, unsigned int expected_version)
+    void Interface::family_must_be_at_least(
+            const std::string &family, unsigned int expected_version, const std::string& feature)
     {
         if (!family_is_at_least(family, expected_version))
         {
-            fatal_error("Error: the version of the '%s' Nanos6 interface should be at least %d", family.c_str(), expected_version);
+            fatal_error("Error: the version of the '%s' Nanos6 interface should be at least %d to support '%s'",
+                    family.c_str(), expected_version, feature.c_str());
         }
     }
+
     void Interface::check_nanos6_deprecated_headers()
     {
-        family_must_be_at_least("nanos6_final_api", 1);
-        family_must_be_at_least("nanos6_multidimensional_dependencies_api", 1);
-        family_must_be_at_least("nanos6_task_info_registration_api", 1);
-        family_must_be_at_least("nanos6_task_info_contents", 1);
-        family_must_be_at_least("nanos6_instantiation_api", 1);
-        family_must_be_at_least("nanos6_taskwait_api", 1);
-        family_must_be_at_least("nanos6_locking_api", 1);
+        std::string any_feature = "any Nanos6 feature";
+        family_must_be_at_least("nanos6_final_api", 1, any_feature);
+        family_must_be_at_least("nanos6_multidimensional_dependencies_api", 1, any_feature);
+        family_must_be_at_least("nanos6_task_info_registration_api", 1, any_feature);
+        family_must_be_at_least("nanos6_task_info_contents", 1, any_feature);
+        family_must_be_at_least("nanos6_instantiation_api", 1, any_feature);
+        family_must_be_at_least("nanos6_taskwait_api", 1, any_feature);
+        family_must_be_at_least("nanos6_locking_api", 1, any_feature);
     }
 }}

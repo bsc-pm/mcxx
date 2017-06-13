@@ -313,7 +313,7 @@ namespace TL { namespace Nanos6 {
             // FORTRAN ONLY
             ERROR_CONDITION(IS_CXX_LANGUAGE || IS_C_LANGUAGE, "Unreachable code\n", 0);
 
-            Interface::family_must_be_at_least("nanos6_utils_api", 1);
+            Interface::family_must_be_at_least("nanos6_utils_api", 1, "the 'nanos6_bzero' function");
 
             TL::Symbol nanos6_bzero_sym =
                 TL::Scope::get_global_scope().get_symbol_from_name("nanos6_bzero");
