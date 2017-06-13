@@ -274,7 +274,7 @@ namespace TL { namespace Nanos6 {
             _task_properties.locus_of_task_declaration = n.get_locus();
         }
 
-        virtual void visit(const Nodecl::OpenMP::TaskwaitDep &n)
+        virtual void visit(const Nodecl::OpenMP::TaskIsTaskwait &n)
         {
             _task_properties.is_taskwait_dep = true;
         }
