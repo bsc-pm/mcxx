@@ -369,8 +369,10 @@ namespace TL { namespace Nanos6 {
             return res;
         }
     }
+    namespace
+    {
 
-    void Lower::capture_argument_for_task_call(
+    void capture_argument_for_task_call(
         TL::Symbol called_sym,
         TL::Scope new_block_context_sc,
         TL::Type parameter_type,
@@ -441,6 +443,7 @@ namespace TL { namespace Nanos6 {
         argument_captures.append(Nodecl::ObjectInit::make(new_symbol));
 
         argument_captures_syms.append(new_symbol);
+    }
     }
 
     void Lower::visit_task_call_c(const Nodecl::OmpSs::TaskCall& construct)
