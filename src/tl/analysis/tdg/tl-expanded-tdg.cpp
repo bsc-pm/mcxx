@@ -564,6 +564,19 @@ namespace {
         }
 
         purge_etdg();
+
+#ifdef ETDG_DEBUG
+        std::cerr << "List of roots:" << std::endl;
+        for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
+        {
+            std::cerr << "   - " << (*it)->get_id() << std::endl;
+        }
+        std::cerr << "List of leafs:" << std::endl;
+        for (std::set<ETDGNode*>::iterator it = _leafs.begin(); it != _leafs.end(); ++it)
+        {
+            std::cerr << "   - " << (*it)->get_id() << std::endl;
+        }
+#endif
     }
 
     void ExpandedTaskDependencyGraph::expand_loop(
@@ -833,10 +846,11 @@ namespace {
                 // Replace variables with the corresponding constant values in the dependency expression
                 std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> itn_vars_map = (*itn)->get_vars_map();
                 ReplaceAndEvalVisitor rev(/*lhs*/ itn_vars_map, /*rhs*/ etdg_n_vars_map);
-                bool res = rev.walk(cond.shallow_copy());
+                bool res = (cond.is_null() ? true : rev.walk(cond.shallow_copy()));
 #ifdef ETDG_DEBUG
                 std::cerr << "        (source " << (*itn)->get_id() << ") codition : "
-                          << (*it)->get_condition().prettyprint() << " evaluates to " << res << std::endl;
+                          << (cond.is_null() ? "true" : cond.prettyprint())
+                          << " evaluates to " << res << std::endl;
 #endif
 
                 // If the condition evaluates to true, then connect the nodes
@@ -970,12 +984,23 @@ namespace {
             }
             delete n;
 
-            // Connect all parents with all children
-            for (std::set<ETDGNode*>::const_iterator its = inputs.begin(); its != inputs.end(); ++its)
+            if (outputs.empty())
             {
-                for (std::set<ETDGNode*>::const_iterator itt = outputs.begin(); itt != outputs.end(); ++itt)
+                // Restore the list of leafs
+                for (std::set<ETDGNode*>::const_iterator it = inputs.begin(); it != inputs.end(); ++it)
                 {
-                    connect_nodes(*its, *itt);
+                    _leafs.insert(*it);
+                }
+            }
+            else
+            {
+                // Connect all parents with all children
+                for (std::set<ETDGNode*>::const_iterator its = inputs.begin(); its != inputs.end(); ++its)
+                {
+                    for (std::set<ETDGNode*>::const_iterator itt = outputs.begin(); itt != outputs.end(); ++itt)
+                    {
+                        connect_nodes(*its, *itt);
+                    }
                 }
             }
         }

@@ -1088,7 +1088,6 @@ namespace {
         if (_analysis_mask._which_analysis & WhichAnalysis::CORRECTNESS)
         {
             analysis.liveness(ast, /*propagate_graph_nodes*/ true);
-            analysis.tune_task_synchronizations(ast);
             TL::OpenMP::launch_correctness(analysis, _correctness_log_path);
         }
         

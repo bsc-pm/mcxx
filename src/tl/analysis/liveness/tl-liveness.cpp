@@ -27,7 +27,7 @@ Cambridge, MA 02139, USA.
 #include "tl-analysis-utils.hpp"
 #include "tl-liveness.hpp"
 #include "tl-node.hpp"
-#include "tl-task-sync.hpp"
+#include "tl-task-concurrency.hpp"
 
 namespace TL {
 namespace Analysis {
