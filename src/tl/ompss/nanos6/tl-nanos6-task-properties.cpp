@@ -351,29 +351,6 @@ namespace TL { namespace Nanos6 {
         return tp;
     }
 
-    TaskProperties TaskProperties::gather_task_properties(
-            LoweringPhase* phase,
-            Lower* lower,
-            const Nodecl::OmpSs::TaskCall& node)
-    {
-        TaskProperties tp(phase, lower);
-
-        tp.locus_of_task_creation = node.get_locus();
-        Nodecl::FunctionCall call = node.get_call().as<Nodecl::FunctionCall>();
-        tp.locus_of_task_declaration = call.get_called().get_symbol().get_locus();
-
-        TaskPropertiesVisitor tv(tp);
-        tv.walk(node.get_environment());
-        tp.remove_redundant_data_sharings();
-
-        tp.compute_captured_values();
-
-        tp.remove_data_sharing_of_this();
-        tp.related_function = Nodecl::Utils::get_enclosing_function(node);
-        tp.is_function_task = true;
-
-        return tp;
-    }
 
     void TaskProperties::remove_redundant_data_sharings()
     {

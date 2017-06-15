@@ -290,7 +290,6 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<Nodecl::NodeclBase> copy_out;
             TL::ObjectList<Nodecl::NodeclBase> copy_inout;
 
-            bool is_function_task;
             Nodecl::NodeclBase task_body;
 
             // For inline related_function is the enclosing task,
@@ -304,17 +303,13 @@ namespace TL { namespace Nanos6 {
 
             TaskProperties(LoweringPhase* lowering_phase, Lower* lower_vis)
                 : phase(lowering_phase), lower_visitor(lower_vis),
-                is_tied(true), is_taskwait_dep(false), is_function_task(false),
+                is_tied(true), is_taskwait_dep(false),
                 any_task_dependence(false) { }
 
             static TaskProperties gather_task_properties(
                     LoweringPhase* phase,
                     Lower* lower,
                     const Nodecl::OpenMP::Task& node);
-            static TaskProperties gather_task_properties(
-                    LoweringPhase* phase,
-                    Lower* lower,
-                    const Nodecl::OmpSs::TaskCall& node);
 
             void create_task_info(
                     /* out */
