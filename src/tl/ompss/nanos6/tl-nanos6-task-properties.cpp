@@ -574,18 +574,21 @@ namespace TL { namespace Nanos6 {
 
     namespace
     {
-
+        //! Given a name (parameter) and a list of symbols (non-static data
+        //! member), this functor constructs a Nodecl::Symbol if there is a
+        //! symbol whose name is exactly the same as the parameter. Otherwise, it
+        //! emits an error.
         struct GetField
         {
-            TL::ObjectList<TL::Symbol>& fields;
+            const TL::ObjectList<TL::Symbol>& fields;
 
-            GetField(TL::ObjectList<TL::Symbol>& fields_)
-                : fields(fields_) { }
+            GetField(const TL::ObjectList<TL::Symbol>& fields_) : fields(fields_) {}
+
 
             Nodecl::NodeclBase operator()(const std::string& name)
             {
                 TL::ObjectList<TL::Symbol> l;
-                ERROR_CONDITION( ( l = fields.find<std::string>(&TL::Symbol::get_name, std::string(name))).empty(),
+                ERROR_CONDITION( ( l = fields.find<std::string>(&TL::Symbol::get_name, name)).empty(),
                         "Field '%s' not found", name.c_str());
                 return l[0].make_nodecl(/* set_ref_type */ true);
             }
