@@ -71,7 +71,7 @@ const char *register_dependences[] =
 void fix_entry_point(std::string name)
 {
     TL::Symbol sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
-    ERROR_CONDITION(!sym.is_valid(), "Nanos 6 entry point '%s' not found", name);
+    ERROR_CONDITION(!sym.is_valid(), "Nanos 6 entry point '%s' not found", name.c_str());
 
     symbol_entity_specs_set_bind_info(
             sym.get_internal_symbol(),
