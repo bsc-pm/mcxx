@@ -1883,8 +1883,7 @@ namespace TL { namespace Nanos6 {
                         TL::ObjectList<std::string> &parameter_names,
                         TL::ObjectList<TL::Type> &parameter_types,
                         std::map<TL::Symbol, std::string> &symbols_to_param_names)
-                    : _parameter_names(_parameter_names),
-                    _parameter_types(_parameter_types),
+                    : _parameter_names(parameter_names), _parameter_types(parameter_types),
                     _symbols_to_param_names(symbols_to_param_names)
                 {}
 
