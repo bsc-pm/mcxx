@@ -1874,20 +1874,19 @@ namespace TL { namespace Nanos6 {
         struct AddParameter
         {
             private:
-                TL::ObjectList<std::string> &_unpack_parameter_names;
-                TL::ObjectList<TL::Type> &_unpack_parameter_types;
+                TL::ObjectList<std::string> &_parameter_names;
+                TL::ObjectList<TL::Type> &_parameter_types;
                 std::map<TL::Symbol, std::string> &_symbols_to_param_names;
 
             public:
                 AddParameter(
-                        TL::ObjectList<std::string> &unpack_parameter_names,
-                        TL::ObjectList<TL::Type> &unpack_parameter_types,
+                        TL::ObjectList<std::string> &parameter_names,
+                        TL::ObjectList<TL::Type> &parameter_types,
                         std::map<TL::Symbol, std::string> &symbols_to_param_names)
-                    : _unpack_parameter_names(unpack_parameter_names),
-                    _unpack_parameter_types(unpack_parameter_types),
+                    : _parameter_names(_parameter_names),
+                    _parameter_types(_parameter_types),
                     _symbols_to_param_names(symbols_to_param_names)
-            {
-            }
+                {}
 
                 void handle_symbol(TL::Symbol sym, const std::string& name)
                 {
@@ -1896,8 +1895,8 @@ namespace TL { namespace Nanos6 {
                         fixed_name = "_this";
 
                     _symbols_to_param_names.insert(std::make_pair(sym, fixed_name));
-                    _unpack_parameter_names.append(fixed_name);
-                    _unpack_parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
+                    _parameter_names.append(fixed_name);
+                    _parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
                 }
 
                 void operator()(TL::Symbol sym)
@@ -3583,8 +3582,8 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_dependences_function_fortran_proper()
     {
         // This is similar to the dep_fun function
-        TL::ObjectList<std::string> unpack_parameter_names;
-        TL::ObjectList<TL::Type> unpack_parameter_types;
+        TL::ObjectList<std::string> dep_fun_param_names;
+        TL::ObjectList<TL::Type> dep_fun_param_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
 
         std::string dep_fun_name;
@@ -3597,12 +3596,12 @@ namespace TL { namespace Nanos6 {
             dep_fun_name = ss.str();
         }
 
-        unpack_parameter_names.append("handler");
-        unpack_parameter_types.append(TL::Type::get_void_type().get_pointer_to());
+        dep_fun_param_names.append("handler");
+        dep_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
 
         AddParameter add_params_functor(
-                /* out */ unpack_parameter_names,
-                /* out */ unpack_parameter_types,
+                /* out */ dep_fun_param_names,
+                /* out */ dep_fun_param_types,
                 /* out */ symbols_to_param_names);
 
         captured_value.map(add_params_functor);
@@ -3613,8 +3612,8 @@ namespace TL { namespace Nanos6 {
             = SymbolUtils::new_function_symbol(related_function,
                                                dep_fun_name,
                                                TL::Type::get_void_type(),
-                                               unpack_parameter_names,
-                                               unpack_parameter_types);
+                                               dep_fun_param_names,
+                                               dep_fun_param_types);
 
         Nodecl::NodeclBase dep_fun_function_code, dep_fun_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
