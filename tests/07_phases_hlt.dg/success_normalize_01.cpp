@@ -57,10 +57,10 @@ void test2(void)
         d[i]++;
     }
 
-#pragma hlt normalize
-    for (i = 100; i >= 3; i -= 11)
+    #pragma hlt normalize
+    for (int k = 100; k >= 3; k -= 11)
     {
-        c[i]++;
+        c[k]++;
     }
 
     for (i = 100; i >= 3; i -= 11)

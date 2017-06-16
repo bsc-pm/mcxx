@@ -204,87 +204,78 @@ namespace TL { namespace HLT {
         ReplaceInductionVar replace_induction_var(induction_var, orig_loop_lower, orig_loop_step);
         replace_induction_var.walk(normalized_loop_body);
 
-        // Nodecl::NodeclBase normalized_for = 
-        //     Nodecl::ForStatement::make(
-        //             Nodecl::RangeLoopControl::make(
-        //                 induction_var.make_nodecl(),
-        //                 const_value_to_nodecl(const_value_get_signed_int(0)),
-        //                 new_upper,
-        //                 const_value_to_nodecl(const_value_get_signed_int(1))),
-        //             normalized_loop_body,
-        //             /* loop-name */ Nodecl::NodeclBase::null());
+        Nodecl::NodeclBase loop_control;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            loop_control =
+                Nodecl::RangeLoopControl::make(
+                        induction_var.make_nodecl(),
+                        const_value_to_nodecl(const_value_get_signed_int(0)),
+                        new_upper,
+                        const_value_to_nodecl(const_value_get_signed_int(1)));
+        }
+        else // IS_C_LANGUAGE || IS_CXX_LANGUAGE
+        {
+            Nodecl::NodeclBase init;
+            // i = 0
+            if (for_stmt.induction_variable_in_separate_scope())
+            {
+                induction_var.set_value(const_value_to_nodecl(const_value_get_signed_int(0)));
+                init = Nodecl::ObjectInit::make(induction_var);
+            }
+            else
+            {
+                init =
+                    Nodecl::Assignment::make(
+                            induction_var.make_nodecl(/* ref */ true),
+                            const_value_to_nodecl(const_value_get_signed_int(0)),
+                            induction_var.get_type().no_ref().get_lvalue_reference_to());
+            }
 
-        // i = 0
-        Nodecl::NodeclBase init = 
-            Nodecl::Assignment::make(
-                    induction_var.make_nodecl(/* ref */ true),
-                    const_value_to_nodecl(const_value_get_signed_int(0)),
-                    induction_var.get_type().no_ref().get_lvalue_reference_to());
-
-        // i <= new_upper
-        Nodecl::NodeclBase cond =
-            Nodecl::LowerOrEqualThan::make(
-                    induction_var.make_nodecl(/* set_ref_type */ true),
-                    new_upper,
-                    ::get_bool_type());
-
-        // i = i + 1
-        Nodecl::NodeclBase next = 
-            Nodecl::Assignment::make(
-                    induction_var.make_nodecl(/* set_ref_type */ true),
-                    Nodecl::Add::make(
+            // i <= new_upper
+            Nodecl::NodeclBase cond =
+                Nodecl::LowerOrEqualThan::make(
                         induction_var.make_nodecl(/* set_ref_type */ true),
-                        const_value_to_nodecl(const_value_get_signed_int(1)),
-                        induction_var.get_type().no_ref()),
-                    induction_var.get_type().no_ref().get_lvalue_reference_to());
+                        new_upper,
+                        ::get_bool_type());
 
-        // for (i = 0; i <= upper; i = i + 1)
-        Nodecl::NodeclBase normalized_for = 
-            Nodecl::ForStatement::make(
-                    Nodecl::LoopControl::make(
+            // i = i + 1
+            Nodecl::NodeclBase next =
+                Nodecl::Assignment::make(
+                        induction_var.make_nodecl(/* set_ref_type */ true),
+                        Nodecl::Add::make(
+                            induction_var.make_nodecl(/* set_ref_type */ true),
+                            const_value_to_nodecl(const_value_get_signed_int(1)),
+                            induction_var.get_type().no_ref()),
+                        induction_var.get_type().no_ref().get_lvalue_reference_to());
+
+            loop_control =
+                Nodecl::LoopControl::make(
                         Nodecl::List::make(init),
                         cond,
-                        next),
+                        next);
+        }
+
+        Nodecl::NodeclBase normalized_for =
+            Nodecl::ForStatement::make(
+                    loop_control,
                     normalized_loop_body,
                     /* loop-name */ Nodecl::NodeclBase::null());
 
-        TL::ObjectList<Nodecl::NodeclBase> result_stmts;
-        result_stmts.append(normalized_for);
-
-        if (!for_stmt.induction_variable_in_separate_scope())
-        {
-            Nodecl::NodeclBase ind_var_ref =
-                Nodecl::Conversion::make(
-                    induction_var.make_nodecl(/* ref_type */ true),
-                    induction_var.get_type().no_ref());
-            replace_induction_var.walk(ind_var_ref);
-
-            Nodecl::NodeclBase new_assig_stmt =
-                Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                            induction_var.make_nodecl(/* ref_type */ true),
-                            ind_var_ref,
-                            induction_var.get_type().no_ref().get_lvalue_reference_to())
-                        );
-
-            result_stmts.append(new_assig_stmt);
-        }
-
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            _transformation = 
+            _transformation =
                 Nodecl::List::make(
                         Nodecl::Context::make(
                             Nodecl::List::make(
                                 Nodecl::CompoundStatement::make(
-                                    Nodecl::List::make(result_stmts),
+                                    Nodecl::List::make(normalized_for),
                                     /* destructors */ Nodecl::NodeclBase::null())),
-                            orig_loop_scope)
-                        );
+                            orig_loop_scope));
         }
         else
         {
-            _transformation = Nodecl::List::make(result_stmts);
+            _transformation = Nodecl::List::make(normalized_for);
         }
     }
 
