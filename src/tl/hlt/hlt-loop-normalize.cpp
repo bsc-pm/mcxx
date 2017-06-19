@@ -142,7 +142,7 @@ namespace TL { namespace HLT {
                 && orig_loop_step.is_constant()
                 && const_value_is_one(orig_loop_step.get_constant()))
         {
-            _transformation = Nodecl::List::make(this->_loop.shallow_copy());
+            _transformation = _loop.shallow_copy();
             return;
         }
 
@@ -187,27 +187,15 @@ namespace TL { namespace HLT {
                     orig_loop_upper.get_type());
         }
 
-        TL::Scope normalized_loop_scope;
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            // We do this because for C/C++ we will wrap everything into a bigger compound statement
-            normalized_loop_scope = (new_block_context(orig_loop_scope.get_decl_context()));
-        }
-        else
-        {
-            normalized_loop_scope = orig_loop_scope;
-        }
-
-        Nodecl::NodeclBase orig_loop_body = loop.get_statement();
-        Nodecl::NodeclBase normalized_loop_body = Nodecl::Utils::deep_copy(orig_loop_body, normalized_loop_scope);
+        Nodecl::NodeclBase normalized_loop_body = loop.get_statement().shallow_copy();
 
         ReplaceInductionVar replace_induction_var(induction_var, orig_loop_lower, orig_loop_step);
         replace_induction_var.walk(normalized_loop_body);
 
-        Nodecl::NodeclBase loop_control;
+        Nodecl::NodeclBase normalized_loop_control;
         if (IS_FORTRAN_LANGUAGE)
         {
-            loop_control =
+            normalized_loop_control =
                 Nodecl::RangeLoopControl::make(
                         induction_var.make_nodecl(),
                         const_value_to_nodecl(const_value_get_signed_int(0)),
@@ -249,7 +237,7 @@ namespace TL { namespace HLT {
                             induction_var.get_type().no_ref()),
                         induction_var.get_type().no_ref().get_lvalue_reference_to());
 
-            loop_control =
+            normalized_loop_control =
                 Nodecl::LoopControl::make(
                         Nodecl::List::make(init),
                         cond,
@@ -258,25 +246,11 @@ namespace TL { namespace HLT {
 
         Nodecl::NodeclBase normalized_for =
             Nodecl::ForStatement::make(
-                    loop_control,
+                    normalized_loop_control,
                     normalized_loop_body,
                     /* loop-name */ Nodecl::NodeclBase::null());
 
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            _transformation =
-                Nodecl::List::make(
-                        Nodecl::Context::make(
-                            Nodecl::List::make(
-                                Nodecl::CompoundStatement::make(
-                                    Nodecl::List::make(normalized_for),
-                                    /* destructors */ Nodecl::NodeclBase::null())),
-                            orig_loop_scope));
-        }
-        else
-        {
-            _transformation = Nodecl::List::make(normalized_for);
-        }
+        _transformation = normalized_for;
     }
 
 } }

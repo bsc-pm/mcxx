@@ -6,13 +6,15 @@ test_generator="config/mercurium-hlt run"
 
 #include <assert.h>
 
-char c[200];
-char d[200];
+#define N 100
+
+char c[N];
+char d[N];
 
 void init()
 {
     int i;
-    for (i = 0; i < 200; i++)
+    for (i = 0; i < N; i++)
     {
         c[i] = 0;
         d[i] = 0;
@@ -24,26 +26,18 @@ void test1(void)
     init();
 
     int i;
-    for (i = 4; i < 100; i+=7)
-    {
+    for (i = 4; i < N; i+=7)
         d[i]++;
-    }
 
-#pragma hlt normalize
-    for (i = 4; i < 100; i+=7)
-    {
+    #pragma hlt normalize
+    for (i = 4; i < N; i+=7)
         c[i]++;
-    }
 
-    for (i = 4; i < 100; i+=7)
-    {
+    for (i = 4; i < N; i+=7)
         assert(c[i] == 1);
-    }
 
-    for (i = 0; i < 200; i++)
-    {
+    for (i = 0; i < N; i++)
         assert(c[i] == d[i]);
-    }
 }
 
 void test2(void)
@@ -52,26 +46,18 @@ void test2(void)
     init();
 
     int i;
-    for (i = 100; i >= 3; i -= 11)
-    {
+    for (i = N-1; i >= 3; i -= 11)
         d[i]++;
-    }
 
     #pragma hlt normalize
-    for (int k = 100; k >= 3; k -= 11)
-    {
+    for (int k = N-1; k >= 3; k -= 11)
         c[k]++;
-    }
 
-    for (i = 100; i >= 3; i -= 11)
-    {
+    for (i = N-1; i >= 3; i -= 11)
         assert(c[i] == 1);
-    }
 
-    for (i = 0; i < 200; i++)
-    {
+    for (i = 0; i < N-1; i++)
         assert(c[i] == d[i]);
-    }
 }
 
 int main(int argc, char *argv[])
