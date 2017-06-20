@@ -566,18 +566,6 @@ namespace TL { namespace Nanos6 {
     };
     }
 
-    void TaskProperties::remove_data_sharing_of_this()
-    {
-        if (!IS_CXX_LANGUAGE)
-            return;
-
-        TL::Symbol dummy;
-        TL::ObjectList<TL::Symbol>::iterator it
-            = std::remove_if(shared.begin(), shared.end(), SymbolThis(dummy));
-
-        shared.erase(it, shared.end());
-    }
-
     void TaskProperties::fix_data_sharing_of_this()
     {
         if (!IS_CXX_LANGUAGE)
