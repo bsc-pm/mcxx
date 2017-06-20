@@ -183,6 +183,8 @@ namespace TL { namespace Nanos6 {
                     task_ptr.get_internal_symbol(), 1);
         }
 
+        Nodecl::List new_stmts;
+
         TL::Symbol taskloop_bounds_ptr;
         if (Interface::family_is_at_least("nanos6_task_execution_api", 1))
         {
@@ -201,9 +203,9 @@ namespace TL { namespace Nanos6 {
 
             taskloop_bounds_ptr.set_type(taskloop_bounds_struct.get_user_defined_type().get_pointer_to());
             symbol_entity_specs_set_is_user_declared(taskloop_bounds_ptr.get_internal_symbol(), 1);
+            new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), taskloop_bounds_ptr));
         }
 
-        Nodecl::List new_stmts;
         if (!local_init_task_info.is_null())
         {
             // Init task info if it happens to be local
@@ -216,7 +218,6 @@ namespace TL { namespace Nanos6 {
             {
                 new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), args));
                 new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_ptr));
-                new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), taskloop_bounds_ptr));
             }
 
             TL::Symbol nanos_create_task_sym =
