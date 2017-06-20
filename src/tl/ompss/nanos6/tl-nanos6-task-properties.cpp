@@ -2114,8 +2114,11 @@ namespace TL { namespace Nanos6 {
                 loop_control = Nodecl::RangeLoopControl::make(
                         induction_variable.make_nodecl(/*set_ref_type*/ true),
                         taskloop_lower_bound,
-                        taskloop_upper_bound,
-                        /* step*/ Nodecl::NodeclBase::null());
+                        Nodecl::Minus::make(
+                            taskloop_upper_bound,
+                            const_value_to_nodecl(const_value_get_signed_int(1)),
+                            taskloop_upper_bound.get_type().no_ref()),
+                        /* step */ Nodecl::NodeclBase::null());
             }
             return loop_control;
         }
