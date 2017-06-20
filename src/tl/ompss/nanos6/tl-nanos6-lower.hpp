@@ -46,8 +46,10 @@ namespace TL { namespace Nanos6 {
             : _phase(phase), _final_stmts_map(final_stmts_map) { }
 
             void visit(const Nodecl::OpenMP::Task& n);
-            void visit(const Nodecl::OpenMP::Taskwait& n);
             void visit(const Nodecl::OmpSs::TaskCall& n);
+            void visit(const Nodecl::OpenMP::TaskLoop& n);
+
+            void visit(const Nodecl::OpenMP::Taskwait& n);
             void visit(const Nodecl::OpenMP::Critical& n);
             void visit(const Nodecl::OpenMP::Atomic& n);
 

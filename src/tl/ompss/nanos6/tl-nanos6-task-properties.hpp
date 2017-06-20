@@ -265,12 +265,24 @@ namespace TL { namespace Nanos6 {
 
             TL::ObjectList<ReductionItem> reduction;
 
+            struct TaskloopInfo
+            {
+                Nodecl::NodeclBase lower_bound;
+                Nodecl::NodeclBase upper_bound;
+                Nodecl::NodeclBase step;
+                Nodecl::NodeclBase chunksize;
+            };
+
+            TaskloopInfo taskloop_info;
+
             Nodecl::NodeclBase final_clause;
             Nodecl::NodeclBase if_clause;
             Nodecl::NodeclBase cost_clause;
             Nodecl::NodeclBase priority_clause;
+
             bool is_tied;
             bool is_taskwait_dep;
+            bool is_taskloop;
             std::string task_label;
 
             TL::ObjectList<Nodecl::NodeclBase> dep_in;
@@ -303,8 +315,9 @@ namespace TL { namespace Nanos6 {
 
             TaskProperties(LoweringPhase* lowering_phase, Lower* lower_vis)
                 : phase(lowering_phase), lower_visitor(lower_vis),
-                is_tied(true), is_taskwait_dep(false),
-                any_task_dependence(false) { }
+                is_tied(true), is_taskwait_dep(false), is_taskloop(false),
+                any_task_dependence(false)
+            { }
 
             static TaskProperties gather_task_properties(
                     LoweringPhase* phase,
@@ -333,6 +346,16 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol args,
                     /* out */
                     Nodecl::NodeclBase& capture_env);
+
+            //! This function captures the lower bound, upper bound, step and the chunksize of a taskloop construct
+            /*!
+             * @param taskloop_bounds This symbol represents the bariable that we should initialize with the taskloop bounds
+             * @param stmts Node Output parameter that should contain the initialization of the taskloop bounds
+             */
+            void capture_taskloop_information(
+                    TL::Symbol taskloop_bounds_ptr,
+                    /* out */
+                    Nodecl::NodeclBase& stmts) const;
 
             void compute_task_flags(
                     TL::Symbol task_flags,
