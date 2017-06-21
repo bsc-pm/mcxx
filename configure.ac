@@ -1452,9 +1452,7 @@ then
             MPICC=$MPI_CNAME
             MPICXX=$MPI_CXXNAME
             MPIFORT=$MPI_FORTNAME
-        fi
-
-        if test x$mpi_found = xno -a -f $MPIPATH/bin/$MPI_CNAME; then
+        elif test -f $MPIPATH/bin/$MPI_CNAME; then
             mpi_found=yes
             MPICC=$MPI_CNAME
             MPICXX=$MPI_CXXNAME
@@ -1475,9 +1473,7 @@ then
             MPICC=$MPI_CNAME
             MPICXX=$MPI_CXXNAME
             MPIFORT=$MPI_FORTNAME
-        fi
-
-        if test x$mpi_found = xno -a -f $MPIPATH/bin/$MPI_CNAME; then
+        elif test -f  $MPIPATH/bin/$MPI_CNAME; then
             mpi_found=yes
             MPICC=$MPI_CNAME
             MPICXX=$MPI_CXXNAME
