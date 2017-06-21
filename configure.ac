@@ -1419,12 +1419,7 @@ AC_ARG_ENABLE([nanox-mpi-device],
 
 if test x$mpi_enabled = xyes;
 then
-   # I think these variables are not used anymore
-   ENABLEMPI_GCC=":true:"
-   ENABLEMPI_ICC=":true:"
-
    mpi_found=no
-   MPIMODULE=""
    MPIPATH=""
 
    #check the directory and get the right compiler path and name
@@ -1452,7 +1447,6 @@ then
       MPICC=$MPI_CNAME
       MPICXX=$MPI_CXXNAME
       MPIFORT=$MPI_FORTNAME
-      ENABLEMPI_GCC=":false:"
    else
       mpi_valid=no
    fi
@@ -1464,7 +1458,6 @@ then
          MPICC=$MPI_CNAME
          MPICXX=$MPI_CXXNAME
          MPIFORT=$MPI_FORTNAME
-         ENABLEMPI_GCC=":false:"
        else
                     mpi_valid=no
        fi
@@ -1479,7 +1472,6 @@ then
            MPICC=$MPI_CNAME
            MPICXX=$MPI_CXXNAME
            MPIFORT=$MPI_FORTNAME                            
-           ENABLEMPI_ICC=":false:"
       else
            mpi_valid=no
       fi
@@ -1491,7 +1483,6 @@ then
            MPICC=$MPI_CNAME
            MPICXX=$MPI_CXXNAME
            MPIFORT=$MPI_FORTNAME
-           ENABLEMPI_ICC=":false:"
          else
            mpi_valid=no
          fi
@@ -1509,7 +1500,6 @@ then
        MPIFORT=mpif90
     fi
 
-   ENABLE_MPI=":true:"
    if test x$mpi_found = xyes; then
        AC_MSG_CHECKING([if nanox has mpi enabled])
        #tests if mpi headers are usable and correct
@@ -1538,18 +1528,14 @@ then
    fi
 
    SCRIPT_COMPILER_NAMES="${SCRIPT_COMPILER_NAMES} mpimcc mpimcxx mpimfc"
-else
-    ENABLE_MPI=":false:"
 fi
+
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_MPI], test x$mpi_valid = xyes)
 
-AC_SUBST([ENABLEMPI_ICC])
-AC_SUBST([ENABLEMPI_GCC])
 AC_SUBST([MPICC])
 AC_SUBST([MIC_LIBS])
 AC_SUBST([MPICXX])
 AC_SUBST([MPIFORT])
-AC_SUBST([ENABLE_MPI])
 
 dnl --------------------- End MPI support in Mercurium --------------------------------
 
