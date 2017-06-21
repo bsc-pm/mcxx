@@ -1388,11 +1388,9 @@ AM_CONDITIONAL([BUILD_NANOX_DEVICE_OPENCL], test x$is_enabled_tl_omp_nanox = xye
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
-dnl --------------------- Start MPI support in Mercurium --------------------------------
 
+dnl --------------------- Start MPI support in Mercurium --------------------------------
 mpi_enabled=yes
-mpi_valid=no
-mpi_forced=no
 
 AC_MSG_CHECKING([if the use of MPI devices was disabled])
 AC_ARG_ENABLE([nanox-mpi-device],
@@ -1415,119 +1413,122 @@ AC_ARG_ENABLE([nanox-mpi-device],
     mpi_enabled="yes"
     AC_MSG_RESULT([no])
   ]
-) 
+)
 
+mpi_valid=no
 if test x$mpi_enabled = xyes;
 then
-   mpi_found=no
-   MPIPATH=""
+    mpi_found=no
+    mpi_forced=no
+    MPIPATH=""
 
-   #check the directory and get the right compiler path and name
-   AC_ARG_WITH([mpi],
-   AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
-      [
-         MPIPATH="${withval}"
-         mpi_forced=yes
-   	],
-   	[   		
-        AC_CHECK_PROG([MPIICC], [mpiicc], [mpiicc])
-        MPIPATH=${MPIICC%mpiicc}
-        if test x$MPIPATH = x; then		
-            AC_CHECK_PROG([MPICC], [mpicc], [mpicc])
-            MPIPATH=${MPICC%mpicc}
+    #check the directory and get the right compiler path and name
+    AC_ARG_WITH([mpi],
+                AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
+                [
+                 MPIPATH="${withval}"
+                 mpi_forced=yes
+                 ],
+                 [
+                  AC_CHECK_PROG([MPIICC], [mpiicc], [mpiicc])
+                  MPIPATH=${MPIICC%mpiicc}
+                  if test x$MPIPATH = x; then
+                      AC_CHECK_PROG([MPICC], [mpicc], [mpicc])
+                      MPIPATH=${MPICC%mpicc}
+                  fi
+                  ]
+                 )
+
+    # First attempt: try to find Intel MPI wrappers
+    if test x$mpi_found = xno; then
+        MPI_CNAME=mpiicc
+        MPI_CXXNAME=mpiicpc
+        MPI_FORTNAME=mpiifort
+
+        # Checking the presence of these wrappers in $MPIPATH (???) and $MPIPATH/bin
+
+        if test -f $MPIPATH/$MPI_CNAME; then
+            mpi_found=yes
+            MPICC=$MPI_CNAME
+            MPICXX=$MPI_CXXNAME
+            MPIFORT=$MPI_FORTNAME
         fi
-   	]
-   )
 
-   MPI_CNAME=mpiicc
-   MPI_CXXNAME=mpiicpc
-   MPI_FORTNAME=mpiifort
-   if test -f $MPIPATH/$MPI_CNAME; then
-      mpi_found=yes
-      MPICC=$MPI_CNAME
-      MPICXX=$MPI_CXXNAME
-      MPIFORT=$MPI_FORTNAME
-   else
-      mpi_valid=no
-   fi
-   #search in the path without bin
-   if test x$mpi_found = xno; then		
-      mpi_found=no
-      if test -f $MPIPATH/bin/$MPI_CNAME; then 
-         mpi_found=yes
-         MPICC=$MPI_CNAME
-         MPICXX=$MPI_CXXNAME
-         MPIFORT=$MPI_FORTNAME
-       else
-                    mpi_valid=no
-       fi
-   fi		
-
-   if test x$mpi_found = xno; then
-      MPI_CNAME=mpicc
-      MPI_CXXNAME=mpicxx
-      MPI_FORTNAME=mpif90
-      if test -f $MPIPATH/$MPI_CNAME; then	
-           mpi_found=yes 
-           MPICC=$MPI_CNAME
-           MPICXX=$MPI_CXXNAME
-           MPIFORT=$MPI_FORTNAME                            
-      else
-           mpi_valid=no
-      fi
-      #search in the path without bin
-      if test x$mpi_found = xno; then		
-         mpi_found=no
-         if test -f $MPIPATH/bin/$MPI_CNAME; then           
-           mpi_found=yes 
-           MPICC=$MPI_CNAME
-           MPICXX=$MPI_CXXNAME
-           MPIFORT=$MPI_FORTNAME
-         else
-           mpi_valid=no
-         fi
-      fi
-   fi
-
-   if test x$mpi_found = xno; then
-       if test x$mpi_forced = xyes; then
-          AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
-       fi
-       #fill with dummy variables, the ones in user's PATH at compilation time will be used
-       mpi_found=yes
-       MPICC=mpicc
-       MPICXX=mpicxx
-       MPIFORT=mpif90
+        if test x$mpi_found = xno -a -f $MPIPATH/bin/$MPI_CNAME; then
+            mpi_found=yes
+            MPICC=$MPI_CNAME
+            MPICXX=$MPI_CXXNAME
+            MPIFORT=$MPI_FORTNAME
+        fi
     fi
 
-   if test x$mpi_found = xyes; then
-       AC_MSG_CHECKING([if nanox has mpi enabled])
-       #tests if mpi headers are usable and correct
-       #backup vars before we do the tests
-       CFLAGSBACKUP="$CFLAGS"
-       CPPFLAGSBACKUP="$CPPFLAGS"
-       CXXFLAGSBACKUP="$CXXFLAGS"
+    # Second attempt: try to find generic MPI wrappers
+    if test x$mpi_found = xno; then
+        MPI_CNAME=mpicc
+        MPI_CXXNAME=mpicxx
+        MPI_FORTNAME=mpif90
 
-       CFLAGS="$CFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
-       CPPFLAGS="$CPPFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
-       CXXFLAGS="$CXXFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
-       AC_CHECK_HEADER([nanos-mpi.h], [mpi_valid=yes],[])
+        # Checking the presence of these wrappers in $MPIPATH (???) and $MPIPATH/bin
 
-       CFLAGS="$CFLAGSBACKUP"
-       CPPFLAGS="$CPPFLAGSBACKUP"
-       CXXFLAGS="$CXXFLAGSBACKUP"
-   fi
+        if test -f $MPIPATH/$MPI_CNAME; then
+            mpi_found=yes
+            MPICC=$MPI_CNAME
+            MPICXX=$MPI_CXXNAME
+            MPIFORT=$MPI_FORTNAME
+        fi
+
+        if test x$mpi_found = xno -a -f $MPIPATH/bin/$MPI_CNAME; then
+            mpi_found=yes
+            MPICC=$MPI_CNAME
+            MPICXX=$MPI_CXXNAME
+            MPIFORT=$MPI_FORTNAME
+        fi
+    fi
+
+    # Final attempt: best effort configuration
+    if test x$mpi_found = xno; then
+
+        # if the user specified a MPI version we should emit an error
+        if test x$mpi_forced = xyes; then
+            AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
+            fi
+
+            #fill with dummy variables, the ones in user's PATH at compilation time will be used
+            mpi_found=yes
+            MPICC=mpicc
+            MPICXX=mpicxx
+            MPIFORT=mpif90
+        fi
+    fi
+
+    if test x$mpi_found = xyes; then
+        AC_MSG_CHECKING([if nanox has mpi enabled])
+        #tests if mpi headers are usable and correct
+        #backup vars before we do the tests
+        CFLAGSBACKUP="$CFLAGS"
+        CPPFLAGSBACKUP="$CPPFLAGS"
+        CXXFLAGSBACKUP="$CXXFLAGS"
+
+        CFLAGS="$CFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
+        CPPFLAGS="$CPPFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
+        CXXFLAGS="$CXXFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
+        AC_CHECK_HEADER([nanos-mpi.h], [mpi_valid=yes],[])
+
+        CFLAGS="$CFLAGSBACKUP"
+        CPPFLAGS="$CPPFLAGSBACKUP"
+        CXXFLAGS="$CXXFLAGSBACKUP"
+    fi
 fi
 
 if test x$mpi_valid = xyes;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
-   if test x"$ICC" != x -o x$"ICPC" != x -o x"$IFORT" != x;
-   then
-       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.intel.mpi"
-   fi
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
+    if test x"$ICC" != x -o x$"ICPC" != x -o x"$IFORT" != x;
+    then
+        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.intel.mpi"
+    fi
 
-   SCRIPT_COMPILER_NAMES="${SCRIPT_COMPILER_NAMES} mpimcc mpimcxx mpimfc"
+    SCRIPT_COMPILER_NAMES="${SCRIPT_COMPILER_NAMES} mpimcc mpimcxx mpimfc"
 fi
 
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_MPI], test x$mpi_valid = xyes)
