@@ -1452,9 +1452,7 @@ then
             MPICC=$MPI_CNAME
             MPICXX=$MPI_CXXNAME
             MPIFORT=$MPI_FORTNAME
-        fi
-
-        if test x$mpi_found = xno -a -f $MPIPATH/bin/$MPI_CNAME; then
+        elif test -f $MPIPATH/bin/$MPI_CNAME; then
             mpi_found=yes
             MPICC=$MPI_CNAME
             MPICXX=$MPI_CXXNAME
@@ -1475,9 +1473,7 @@ then
             MPICC=$MPI_CNAME
             MPICXX=$MPI_CXXNAME
             MPIFORT=$MPI_FORTNAME
-        fi
-
-        if test x$mpi_found = xno -a -f $MPIPATH/bin/$MPI_CNAME; then
+        elif test -f  $MPIPATH/bin/$MPI_CNAME; then
             mpi_found=yes
             MPICC=$MPI_CNAME
             MPICXX=$MPI_CXXNAME
@@ -1491,14 +1487,13 @@ then
         # if the user specified a MPI version we should emit an error
         if test x$mpi_forced = xyes; then
             AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
-            fi
-
-            #fill with dummy variables, the ones in user's PATH at compilation time will be used
-            mpi_found=yes
-            MPICC=mpicc
-            MPICXX=mpicxx
-            MPIFORT=mpif90
         fi
+
+        #fill with dummy variables, the ones in user's PATH at compilation time will be used
+        mpi_found=yes
+        MPICC=mpicc
+        MPICXX=mpicxx
+        MPIFORT=mpif90
     fi
 
     if test x$mpi_found = xyes; then
