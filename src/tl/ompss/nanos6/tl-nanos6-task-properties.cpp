@@ -1919,7 +1919,7 @@ namespace TL { namespace Nanos6 {
                     if (IS_CXX_LANGUAGE && name == "this")
                         fixed_name = "_this";
 
-                    _symbols_to_param_names.insert(std::make_pair(sym, fixed_name));
+                    _symbols_to_param_names[sym] = fixed_name;
                     _parameter_names.append(fixed_name);
                     _parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
                 }
