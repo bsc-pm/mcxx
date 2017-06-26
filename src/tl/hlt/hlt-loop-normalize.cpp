@@ -26,6 +26,7 @@
 
 
 #include "hlt-loop-normalize.hpp"
+#include "hlt-utils.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 
@@ -47,6 +48,11 @@ namespace TL { namespace HLT {
         ERROR_CONDITION(!for_stmt.is_omp_valid_loop(), "Loop is too complicated", 0);
 
         return *this;
+    }
+
+    Nodecl::NodeclBase LoopNormalize::get_post_transformation_stmts() const
+    {
+        return _post_transformation_stmts;
     }
 
     namespace {
@@ -251,6 +257,23 @@ namespace TL { namespace HLT {
                     /* loop-name */ Nodecl::NodeclBase::null());
 
         _transformation = normalized_for;
+
+        // Compute what value the induction variable should take after the loop
+        if (!for_stmt.induction_variable_in_separate_scope())
+        {
+            Nodecl::NodeclBase induction_variable =
+                for_stmt.get_induction_variable().make_nodecl(/* set_ref_type */ true);
+
+            Nodecl::NodeclBase expr =
+                HLT::Utils::compute_induction_variable_final_expr(_loop);
+
+            _post_transformation_stmts.append(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            induction_variable,
+                            expr,
+                            induction_variable.get_type())));
+        }
     }
 
 } }

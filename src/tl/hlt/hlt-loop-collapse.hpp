@@ -103,6 +103,11 @@ namespace TL { namespace HLT {
 
             int _collapse_factor;
 
+            //! This list contains the statements required to adjust the value
+            //! of the collapsed induction variables after the loop to match
+            //! their original value
+            Nodecl::List _post_transformation_stmts;
+
             //! After collapsing a loop that was annotated with a OpenMP
             //! directive, this list contains symbols that should be captured
             TL::ObjectList<TL::Symbol> _omp_capture_symbols;
@@ -120,6 +125,7 @@ namespace TL { namespace HLT {
 
             // Results
             Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
+            Nodecl::NodeclBase get_post_transformation_stmts() const;
             TL::ObjectList<TL::Symbol> get_omp_capture_symbols() const;
     };
 }}

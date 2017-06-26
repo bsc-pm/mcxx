@@ -30,6 +30,7 @@
 #include "hlt-loop-unroll.hpp"
 #include "hlt-loop-normalize.hpp"
 #include "hlt-loop-collapse.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 
@@ -136,6 +137,9 @@ void HLTPragmaPhase::do_loop_normalize(TL::PragmaCustomStatement construct)
 
     Nodecl::NodeclBase transformed_code = loop_normalize.get_whole_transformation();
     construct.replace(transformed_code);
+
+    Nodecl::NodeclBase posterior_stmts = loop_normalize.get_post_transformation_stmts();
+    Nodecl::Utils::append_items_after(construct, posterior_stmts);
 }
 
 void HLTPragmaPhase::do_loop_collapse(TL::PragmaCustomStatement construct)
@@ -191,6 +195,9 @@ void HLTPragmaPhase::do_loop_collapse(TL::PragmaCustomStatement construct)
 
             Nodecl::NodeclBase transformed_code = loop_collapse.get_whole_transformation();
             construct.replace(transformed_code);
+
+            Nodecl::NodeclBase posterior_stmts = loop_collapse.get_post_transformation_stmts();
+            Nodecl::Utils::append_items_after(construct, posterior_stmts);
         }
 
         info_printf_at(construct.get_locus(),

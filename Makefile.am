@@ -1599,6 +1599,8 @@ src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) \
 
 src_tl_hlt_libtl_hlt_la_SOURCES = \
       src/tl/hlt/hlt-common.hpp \
+      src/tl/hlt/hlt-utils.hpp \
+      src/tl/hlt/hlt-utils.cpp \
       src/tl/hlt/hlt-transform.hpp \
       src/tl/hlt/hlt-transform.cpp \
       src/tl/hlt/hlt-loop-normalize.hpp \
