@@ -1,10 +1,7 @@
 # OpenMP + Nanos
 [omp-base-common]
 options = --openmp
-{omp-dry-run} options = --variable=omp_dry_run:1
 {debug} options = -g
-{@NANOX_GATE@,debug} options = --variable=nanos-debug:1
-{(instrument|instrumentation)} options = --variable=instrument:1
 preprocessor_name = @GCC@
 preprocessor_options = -E
 compiler_name = @GCC@
@@ -13,6 +10,7 @@ linker_name = @GCC@
 
 
 # OpenMP & OmpSs (runtime independent)
+{openmp,omp-dry-run} options = --variable=omp_dry_run:1
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} preprocessor_options = -D_OPENMP=200805
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
@@ -117,6 +115,8 @@ linker_options =
 linker_options = -Xlinker --enable-new-dtags
 
 #Nanos++
+{@NANOX_GATE@,openmp,debug} options = --variable=nanos-debug:1
+{@NANOX_GATE@,openmp,(instrument|instrumentation)} options = --variable=instrument:1
 {@NANOX_GATE@,openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -include nanos.h -include nanos_omp.h
 {@NANOX_GATE@,openmp,mmic} preprocessor_options = -I@NANOX_MIC_INCLUDES@ -include nanos.h -include nanos_omp.h
 {@NANOX_GATE@,openmp,!omp-dry-run,!debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
