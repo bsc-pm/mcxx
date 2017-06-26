@@ -10,9 +10,26 @@ preprocessor_options = -E
 compiler_name = @GCC@
 compiler_options =
 linker_name = @GCC@
-{openmp} compiler_phase = libtlomp-base.so
 
-#analysis
+
+# OpenMP & OmpSs (runtime independent)
+{openmp} compiler_phase = libtlomp-base.so
+{openmp} preprocessor_options = -D_OPENMP=200805
+{openmp} fortran_preprocessor_options = -D_OPENMP=200805
+{ompss} preprocessor_options = -D_OMPSS=1
+{ompss} fortran_preprocessor_options = -D_OMPSS=1
+
+{ompss} options = --variable=ompss_mode:1
+{!ompss} options = --variable=copy_deps_by_default:0
+{ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
+{ompss,?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
+
+{!ompss} options = --variable=untied_tasks_by_default:0
+{ompss,(!?untied-tasks|untied-tasks),!?tied-tasks} options = --variable=untied_tasks_by_default:1
+{ompss,tied-tasks,!?untied-tasks} options = --variable=untied_tasks_by_default:0
+
+
+#Analysis
 {analysis} compiler_phase = libtest_analysis.so
 {analysis-verbose} options = --debug-flags=analysis_verbose
 {pcfg} options = --variable=pcfg_enabled:1
@@ -33,16 +50,15 @@ linker_name = @GCC@
 {(openmp|ompss), (openmp-lint|task-correctness)} options = --variable=correctness_log_dir:@CORRECTNESS_LOG_DIR@
 {openmp-lint} options = --variable=lint_deprecated_flag:1
 
-#simd
-{openmp, simd} compiler_phase = libtlomp-simd.so
-{openmp, simd} compiler_phase = libtlvector-lowering.so
 
-# nanos++
+# Nanos++
 {@NANOX_GATE@,openmp} pragma_prefix = nanos
 {@NANOX_GATE@,openmp} compiler_phase = libtlnanos-version.so
-{ompss} preprocessor_options = -D_OMPSS=1
-{openmp} fortran_preprocessor_options = -D_OPENMP=200805
-{ompss} fortran_preprocessor_options = -D_OMPSS=1
+{@NANOX_GATE@,cluster} options = --variable=nanos_main_enabled:1
+{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-lowering.so
+{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-smp.so
+{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
+
 
 #simd
 {svml} preprocessor_options = -include math.h
@@ -73,22 +89,14 @@ linker_name = @GCC@
 {neon} options = --vector-flavor=neon
 {romol} options = --vector-flavor=romol
 {!(neon|romol)} options = --vector-flavor=gnu
+{prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
+{prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
+{only-adjacent-accesses} options = --variable=only_adjacent_accesses:1
+{only-aligned-accesses} options = --variable=only_aligned_accesses:1
+{overlap-in-place} options = --variable=overlap_in_place:1
+{openmp, simd} compiler_phase = libtlomp-simd.so
+{openmp, simd} compiler_phase = libtlvector-lowering.so
 
-{@NANOX_GATE@,cluster} options = --variable=nanos_main_enabled:1
-
-#omp
-{ompss} options = --variable=ompss_mode:1
-{!ompss} options = --variable=copy_deps_by_default:0
-{ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
-{ompss,?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
-
-{!ompss} options = --variable=untied_tasks_by_default:0
-{ompss,(!?untied-tasks|untied-tasks),!?tied-tasks} options = --variable=untied_tasks_by_default:1
-{ompss,tied-tasks,!?untied-tasks} options = --variable=untied_tasks_by_default:0
-
-{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-lowering.so
-{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-smp.so
-{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
 
 # Force ompss for Nanos 6 (unless explicitly disabled)
 {@NANOS6_GATE@,!?ompss} preprocessor_options = -D_OMPSS=1
@@ -100,24 +108,17 @@ linker_name = @GCC@
 {@NANOS6_GATE@,!?ompss,tied-tasks,!?untied-tasks} options = --variable=untied_tasks_by_default:0
 {@NANOS6_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanos6-lowering.so
 
-#simd
-{prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
-{prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
-{only-adjacent-accesses} options = --variable=only_adjacent_accesses:1
-{only-aligned-accesses} options = --variable=only_aligned_accesses:1
-{overlap-in-place} options = --variable=overlap_in_place:1
+
+
+
 
 [omp-base : omp-base-common]
-#dlb
-{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
-#
 linker_options =
-
 linker_options = -Xlinker --enable-new-dtags
 
-#nanos++
-{@NANOX_GATE@,openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
-{@NANOX_GATE@,openmp,mmic} preprocessor_options = -I@NANOX_MIC_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+#Nanos++
+{@NANOX_GATE@,openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -include nanos.h -include nanos_omp.h
+{@NANOX_GATE@,openmp,mmic} preprocessor_options = -I@NANOX_MIC_INCLUDES@ -include nanos.h -include nanos_omp.h
 {@NANOX_GATE@,openmp,!omp-dry-run,!debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
 {@NANOX_GATE@,openmp,!omp-dry-run,debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug
 {@NANOX_GATE@,openmp,!omp-dry-run,!debug,(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation
@@ -137,14 +138,17 @@ linker_options = -Xlinker --enable-new-dtags
 # needed for the new link mechanism
 {@NANOX_GATE@,openmp,!?dynamic-list|dynamic-list} linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 
-#nanos 6
+
+#Nanos 6
 {@NANOS6_GATE@,openmp} pragma_prefix = oss
 {@NANOS6_GATE@,openmp,!?default-nanos6-inc|default-nanos6-inc} preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
 {@NANOS6_GATE@,openmp,!?default-nanos6-lib|default-nanos6-lib} linker_options = -L@NANOS6_LIB@
 {@NANOS6_GATE@,openmp,!?default-nanos6-lib|default-nanos6-lib} linker_options = @NANOS6_LIB@/libnanos6-main-wrapper.a -lnanos6 -ldl
 {@NANOS6_GATE@,openmp,!?default-nanos6-lib|default-nanos6-lib} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
+
 # dlb
+{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
 {@DLB_GATE@} linker_options = -L@DLB_LIB@
 {@DLB_GATE@,!(instrument|instrumentation|debug)} linker_options= -ldlb
 {@DLB_GATE@,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
@@ -152,13 +156,15 @@ linker_options = -Xlinker --enable-new-dtags
 {@DLB_GATE@,(instrument|instrumentation),debug} linker_options  = -ldlb_instr_dbg
 {@DLB_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
 
+
+
+
+
 [omp-base-ibm : omp-base-common]
-#dlb
-{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
-#
 linker_options =
-#nanos++
-{@NANOX_GATE@,openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -qinclude=nanos.h -qinclude=nanos_omp.h
+
+#Nanos++
+{@NANOX_GATE@,openmp} preprocessor_options = -I@NANOX_INCLUDES@ -qinclude=nanos.h -qinclude=nanos_omp.h
 linker_options = -Wl,--enable-new-dtags
 {@NANOX_GATE@,openmp,!omp-dry-run,!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
 {@NANOX_GATE@,openmp,!omp-dry-run,debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
@@ -174,7 +180,10 @@ linker_options = -Wl,--enable-new-dtags
 {@NANOX_GATE@,openmp,!omp-dry-run} linker_options = @NANOX_IBM_LDFLAGS@
 # needed for the new link mechanism
 {@NANOX_GATE@,openmp,!?dynamic-list|dynamic-list} linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+
+
 # dlb
+{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
 {@DLB_GATE@} linker_options = -L@DLB_LIB@
 {@DLB_GATE@,!(instrument|instrumentation|debug)} linker_options = -ldlb
 {@DLB_GATE@,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
