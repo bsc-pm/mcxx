@@ -32,7 +32,6 @@
 #include "tl-ompss-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 
-#include "config.h"
 #include "tl-nodecl-utils.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-counters.hpp"

@@ -32,7 +32,7 @@
 
 #ifdef HAVE_CONFIG_H
   // Required for DEFAULT_TYPE_ENVIRONMENT
-  #include "config.h"
+  #include <config.h>
 #endif
 
 #include "libmcxx-common.h"

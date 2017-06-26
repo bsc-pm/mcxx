@@ -31,7 +31,7 @@
 #define CXX_TYPEENVIRON_DECLS_H
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
 #endif
 
 #include "cxx-macros.h"

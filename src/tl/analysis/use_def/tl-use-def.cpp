@@ -23,10 +23,12 @@ License along with Mercurium C/C++ source-to-source compiler; if
 not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 
 #include "tl-analysis-utils.hpp"
-#include "config.h"
 #include "tl-node.hpp"
 #include "tl-pcfg-visitor.hpp"      // For IPA analysis
 #include "tl-use-def.hpp"
