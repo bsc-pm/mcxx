@@ -49,15 +49,6 @@ linker_name = @GCC@
 {openmp-lint} options = --variable=lint_deprecated_flag:1
 
 
-# Nanos++
-{@NANOX_GATE@,openmp} pragma_prefix = nanos
-{@NANOX_GATE@,openmp} compiler_phase = libtlnanos-version.so
-{@NANOX_GATE@,cluster} options = --variable=nanos_main_enabled:1
-{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-lowering.so
-{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-smp.so
-{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
-
-
 #simd
 {svml} preprocessor_options = -include math.h
 {simd, !(mmic|knl|avx2|neon|romol)} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
@@ -94,6 +85,15 @@ linker_name = @GCC@
 {overlap-in-place} options = --variable=overlap_in_place:1
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
+
+
+# Nanos++
+{@NANOX_GATE@,openmp} pragma_prefix = nanos
+{@NANOX_GATE@,openmp} compiler_phase = libtlnanos-version.so
+{@NANOX_GATE@,cluster} options = --variable=nanos_main_enabled:1
+{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-lowering.so
+{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-smp.so
+{@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
 
 
 # Force ompss for Nanos 6 (unless explicitly disabled)
