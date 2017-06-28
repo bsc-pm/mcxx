@@ -147,8 +147,8 @@ void matmul(int N, int BS, float a[N][N], float b[N][N])
    free(c2);
 }
 
-#define SIZE 1024
-#define BLOCK_SIZE 64
+#define SIZE 128
+#define BLOCK_SIZE 4
 
 float a[SIZE][SIZE];
 float b[SIZE][SIZE];
