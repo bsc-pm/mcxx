@@ -1689,14 +1689,67 @@ AM_CONDITIONAL([BUILD_TL_EXAMPLES], test x$is_enabled_tl_examples = xyes)
 
 dnl ------------------------------------
 
-dnl ---------------------- TL Vectorization ----------------------------
 
+dnl ---------------------- TL Analysis ----------------------------
+
+is_enabled_analysis="yes"
+AC_MSG_CHECKING([if Analysis phase is enabled])
+AC_ARG_ENABLE([analysis],
+  AS_HELP_STRING([--disable-analysis], [Disables analysis phase (default is enabled)]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+      is_enabled_analysis="yes"
+      AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+      then
+
+        is_enabled_analysis="no"
+        AC_MSG_RESULT([no])
+      else
+        AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+      fi
+    fi
+  ],
+  [
+    is_enabled_analysis="yes"
+    AC_MSG_RESULT([yes])
+  ]
+)
+
+if test x$is_enabled_analysis = xyes;
+then
+  AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
+fi
+
+AM_CONDITIONAL([BUILD_ANALYSIS],      test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_AUTO_SCOPE],    test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
+
+CORRECTNESS_LOG_DIR=""
+
+if test x$is_enabled_analysis = xyes;
+then
+    AC_ARG_WITH([correctness-logs],
+        AS_HELP_STRING([--with-correctness-logs=dir], [Directory to store correctness logs]),
+            [
+                CORRECTNESS_LOG_DIR="${withval}"
+            ]
+    )
+fi
+
+AC_SUBST([CORRECTNESS_LOG_DIR])
+dnl ------------------------------------
+
+dnl ---------------------- TL Vectorization ----------------------------
 is_enabled_vectorization="no"
-AC_MSG_CHECKING([if enabling Vectorization build and install])
+AC_MSG_CHECKING([if Vectorization phase is enabled])
 if test x$HAVE_CXX11 = x1;
 then
     AC_ARG_ENABLE([vectorization],
-        AS_HELP_STRING([--enable-vectorization], [Enables vectorization support in the compiler (default is disabled)]),
+        AS_HELP_STRING([--enable-vectorization], [Enables Vectorization phase (default is disabled)]),
         [
             if test x$enableval = xyes -o x$enableval = x;
             then
@@ -1725,73 +1778,16 @@ then
   AC_DEFINE([VECTORIZATION_DISABLED], 1, [Disables vectorization])
 fi
 
-AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$is_enabled_vectorization = xyes])
-
-dnl ------------------------------------
-
-dnl ---------------------- TL Analysis ----------------------------
-
-is_enabled_analysis="yes"
-AC_MSG_CHECKING([if enabling Analysis build and install])
-AC_ARG_ENABLE([analysis],
-  AS_HELP_STRING([--disable-analysis], [Disables build and install Analysis]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-      is_enabled_analysis="yes"
-      AC_MSG_RESULT([no])
-    else if test x$enableval = xno;
-      then
-
-        is_enabled_analysis="no"
-        AC_MSG_RESULT([yes])
-      else
-        AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-      fi
-    fi
-  ],
-  [
-    is_enabled_analysis="yes"
-    AC_MSG_RESULT([no])
-  ]
-)
-
-if test x$is_enabled_analysis = xyes;
+if test x$is_enabled_analysis = xno -a x$is_enabled_vectorization = xyes;
 then
-  AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
-else
-  if test x$is_enabled_vectorization = xyes
-  then
     AC_MSG_ERROR([You must disable Vectorization when Analysis is disabled.
 * To do that, you should use the --disable-vectorization flag])
-  fi
 fi
 
-AM_CONDITIONAL([BUILD_ANALYSIS],      test x$is_enabled_analysis = xyes)
-AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$is_enabled_analysis = xyes)
-AM_CONDITIONAL([BUILD_AUTO_SCOPE],    test x$is_enabled_analysis = xyes)
-AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
-AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$is_enabled_vectorization = xyes])
 
-VECTORIZATION_ENABLED=$is_enabled_vectorization
-AC_SUBST([VECTORIZATION_ENABLED])
-
-CORRECTNESS_LOG_DIR=""
-
-if test x$is_enabled_analysis = xyes;
-then
-    AC_ARG_WITH([correctness-logs],
-        AS_HELP_STRING([--with-correctness-logs=dir], [Directory to store correctness logs]),
-            [
-                CORRECTNESS_LOG_DIR="${withval}"
-            ]
-    )
-fi
-
-AC_SUBST([CORRECTNESS_LOG_DIR])
-
+AC_SUBST([VECTORIZATION_ENABLED], $is_enabled_vectorization)
 dnl ------------------------------------
-
 
 dnl --------------------- Regeneration files ---------------------
 
@@ -2591,21 +2587,8 @@ echo ""
 
 echo " * Optional phases :"
 echo ""
-
-if test x$is_enabled_vectorization = xyes;
-then
-  echo "   Vectorization build and install enabled"
-else
-  echo "   Vectorization build and install disabled"
-fi
-
-if test x$is_enabled_analysis = xyes;
-then
-  echo "   Analysis build and install enabled"
-else
-  echo "   Analysis build and install disabled"
-fi
-
+echo "   Analysis phase enabled:" $is_enabled_analysis
+echo "   Vectorization phase enabled:" $is_enabled_vectorization
 echo ""
 
 if test x$extrae_support = xyes;
