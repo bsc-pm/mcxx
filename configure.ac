@@ -1689,32 +1689,6 @@ AM_CONDITIONAL([BUILD_TL_EXAMPLES], test x$is_enabled_tl_examples = xyes)
 
 dnl ------------------------------------
 
-dnl ---------------------- TL tests ----------------------------
-is_enabled_tl_tests="no"
-
-AC_ARG_ENABLE([tl-tests],
-  AS_HELP_STRING([--enable-tl-tests], [Build and install TL self testing phases]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        is_enabled_tl_tests="yes"
-    else if test x$enableval = xno;
-         then
-            is_enabled_tl_tests="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      is_enabled_tl_tests="no"
-  ]
-)
-
-AM_CONDITIONAL([BUILD_TL_TESTS], test x$is_enabled_tl_tests = xyes)
-
-dnl ------------------------------------
-
 dnl ---------------------- TL Vectorization ----------------------------
 
 is_enabled_vectorization="yes"
