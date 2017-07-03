@@ -1691,35 +1691,34 @@ dnl ------------------------------------
 
 dnl ---------------------- TL Vectorization ----------------------------
 
-is_enabled_vectorization="yes"
+is_enabled_vectorization="no"
 AC_MSG_CHECKING([if enabling Vectorization build and install])
 if test x$HAVE_CXX11 = x1;
 then
     AC_ARG_ENABLE([vectorization],
-        AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
+        AS_HELP_STRING([--enable-vectorization], [Enables vectorization support in the compiler (default is disabled)]),
         [
             if test x$enableval = xyes -o x$enableval = x;
             then
                 is_enabled_vectorization="yes"
-                AC_MSG_RESULT([no])
+                AC_MSG_RESULT([yes])
             else if test x$enableval = xno;
                 then
                     is_enabled_vectorization="no"
-                    AC_MSG_RESULT([yes])
+                    AC_MSG_RESULT([no])
                 else
                     AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
                 fi
             fi
         ],
         [
-            is_enabled_vectorization="yes"
-            AC_MSG_RESULT([no2])
+            is_enabled_vectorization="no"
+            AC_MSG_RESULT([no])
         ])
 else
     is_enabled_vectorization="no"
     AC_MSG_RESULT([no (gcc 4.7 or higher is required)])
 fi
-
 
 if test x$is_enabled_vectorization = xno;
 then
