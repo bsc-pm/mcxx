@@ -35,7 +35,9 @@
 namespace TL {
 namespace Analysis {
 
-// #define ETDG_DEBUG
+    static unsigned nt = 0;
+
+    std::set<ETDGNode*> etdg_visited_nodes; // extern variable
 
     struct LoopInfo {
         Utils::InductionVar* _iv;
@@ -429,9 +431,8 @@ namespace {
         : _ftdg(NULL), _maxI(0), _maxT(0), _roots(), _leafs(), _tasks(), _source_to_etdg_nodes()
     {
         _ftdg = new FlowTaskDependencyGraph(pcfg);
-#ifdef ETDG_DEBUG
-        _ftdg->print_tdg_to_dot();
-#endif
+        if (TDG_DEBUG)
+            _ftdg->print_tdg_to_dot();
         compute_constants();
         expand_tdg();
     }
@@ -503,9 +504,8 @@ namespace {
             compute_constants_rec(*it);
         }
 
-#ifdef ETDG_DEBUG
-        std::cerr << "_maxT = " << _maxT << ". _maxI = " << _maxI << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "_maxT = " << _maxT << ". _maxI = " << _maxI << std::endl;
     }
 
     void ExpandedTaskDependencyGraph::expand_tdg()
@@ -565,18 +565,22 @@ namespace {
 
         purge_etdg();
 
-#ifdef ETDG_DEBUG
-        std::cerr << "List of roots:" << std::endl;
-        for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
+        if (TDG_DEBUG)
         {
-            std::cerr << "   - " << (*it)->get_id() << std::endl;
+            std::cerr << "List of roots:" << std::endl;
+            for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
+            {
+                std::cerr << "   - " << (*it)->get_id() << std::endl;
+            }
+            std::cerr << "List of leafs:" << std::endl;
+            for (std::set<ETDGNode*>::iterator it = _leafs.begin(); it != _leafs.end(); ++it)
+            {
+                std::cerr << "   - " << (*it)->get_id() << std::endl;
+            }
         }
-        std::cerr << "List of leafs:" << std::endl;
-        for (std::set<ETDGNode*>::iterator it = _leafs.begin(); it != _leafs.end(); ++it)
-        {
-            std::cerr << "   - " << (*it)->get_id() << std::endl;
-        }
-#endif
+
+        if (nt > 0)
+            std::cerr << std::endl; // This print sets a line break after printing the ETDG progress
     }
 
     void ExpandedTaskDependencyGraph::expand_loop(
@@ -584,19 +588,19 @@ namespace {
             std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
             std::deque<unsigned>& loops_ids)
     {
-#ifdef ETDG_DEBUG
-        std::cerr << "****************** Expanding loop ******************" << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "****************** Expanding loop ******************" << std::endl;
 
         LoopInfo* current_loop_info = ftdgnode_to_loop_info.find(n)->second;
         Utils::InductionVar* iv = current_loop_info->_iv;
 
-#ifdef ETDG_DEBUG
-        std::cerr << "       LB = " << current_loop_info->_lb.prettyprint() << std::endl;
-        std::cerr << "       UB = " << current_loop_info->_ub.prettyprint() << std::endl;
-        std::cerr << "       INCR = " << current_loop_info->_incr.prettyprint() << std::endl;
-        std::cerr << "       NITER = " << current_loop_info->_niter << std::endl;
-#endif
+        if (TDG_DEBUG)
+        {
+            std::cerr << "       LB = " << current_loop_info->_lb.prettyprint() << std::endl;
+            std::cerr << "       UB = " << current_loop_info->_ub.prettyprint() << std::endl;
+            std::cerr << "       INCR = " << current_loop_info->_incr.prettyprint() << std::endl;
+            std::cerr << "       NITER = " << current_loop_info->_niter << std::endl;
+        }
 
         // Store the variables that will be involved in dependency expressions
         Node* pcfg_n = n->get_pcfg_node();
@@ -604,9 +608,8 @@ namespace {
         std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
         store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/false,
                                        fixed_relevant_vars, variable_relevant_vars);
-#ifdef ETDG_DEBUG
-        print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
-#endif
+        if (TDG_DEBUG)
+            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
 
         const_value_t* c = current_loop_info->_lb.get_constant();
         NBase cn(const_value_to_nodecl(c));
@@ -615,9 +618,9 @@ namespace {
         const ObjectList<FTDGNode*>& inner = n->get_inner();
         while (const_value_is_zero(const_value_gt(c, current_loop_info->_ub.get_constant())))
         {
-#ifdef ETDG_DEBUG
-            std::cerr << "* IV " << iv->get_variable().prettyprint() << " = " << cn.prettyprint() << std::endl;
-#endif
+            if (TDG_DEBUG)
+                std::cerr << "* IV " << iv->get_variable().prettyprint() << " = " << cn.prettyprint() << std::endl;
+
             for (ObjectList<FTDGNode*>::const_iterator it = inner.begin();
                  it != inner.end(); ++it)
             {
@@ -668,9 +671,8 @@ namespace {
             cn = NBase(const_value_to_nodecl(c));
         }
         loops_ids.pop_back();
-#ifdef ETDG_DEBUG
-        std::cerr << "**************** END expanding loop ****************" << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "**************** END expanding loop ****************" << std::endl;
     }
 
     void ExpandedTaskDependencyGraph::expand_condition(
@@ -678,9 +680,8 @@ namespace {
             std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
             std::deque<unsigned>& loops_ids)
     {
-#ifdef ETDG_DEBUG
-        std::cerr << "**************** Expanding condition ****************" << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "**************** Expanding condition ****************" << std::endl;
 
         Node* pcfg_n = n->get_pcfg_node();
 
@@ -689,10 +690,9 @@ namespace {
         NBase cond = get_condition_stmts(cond_node);
         ReplaceAndEvalVisitor rev(/*lhs*/ current_relevant_vars, /*rhs*/ current_relevant_vars);
         bool res = rev.walk(cond.shallow_copy());
-#ifdef ETDG_DEBUG
-        std::cerr << "        (ifelse " << pcfg_n->get_id() << ") codition : "
-                    << cond.prettyprint() << " evaluates to " << res << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "        (ifelse " << pcfg_n->get_id() << ") codition : "
+                      << cond.prettyprint() << " evaluates to " << res << std::endl;
 
         // If the condition evaluates to true, then create tasks within the true branch
         // otherwise create tasks within the false edge
@@ -711,9 +711,9 @@ namespace {
             store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/false,
                                            fixed_relevant_vars, variable_relevant_vars);
         }
-#ifdef ETDG_DEBUG
-        print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
-#endif
+        if (TDG_DEBUG)
+            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
+
         ERROR_CONDITION(!variable_relevant_vars.empty(),
                         "Variable relevant variables found when expanding condition. This is not yet supported.\n", 0);
 
@@ -757,27 +757,24 @@ namespace {
             };
         }
 
-#ifdef ETDG_DEBUG
-        std::cerr << "************** END expanding condition **************" << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "************** END expanding condition **************" << std::endl;
     }
 
     void ExpandedTaskDependencyGraph::connect_nodes(ETDGNode* source, ETDGNode* target)
     {
         source->add_output(target);
         target->add_input(source);
-#ifdef ETDG_DEBUG
-        std::cerr << "        connecting " << source->get_id() << " -> " << target->get_id() << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "        connecting " << source->get_id() << " -> " << target->get_id() << std::endl;
     }
 
     void ExpandedTaskDependencyGraph::disconnect_nodes(ETDGNode* source, ETDGNode* target)
     {
         source->remove_output(target);
         target->remove_input(source);
-#ifdef ETDG_DEBUG
-        std::cerr << "        disconnecting " << source->get_id() << " -> " << target->get_id() << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "        disconnecting " << source->get_id() << " -> " << target->get_id() << std::endl;
     }
 
     ETDGNode* ExpandedTaskDependencyGraph::create_task_node(FTDGNode* ftdg_n, std::deque<unsigned> loops_ids)
@@ -795,9 +792,8 @@ namespace {
                                         source_task);
         _source_to_etdg_nodes[source_task].append(etdg_n);
 
-#ifdef ETDG_DEBUG
-        std::cerr << "    task node " << etdg_n->get_id() << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "    task node " << etdg_n->get_id() << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
 
         _tasks.append(etdg_n);
         _leafs.insert(etdg_n);
@@ -807,15 +803,18 @@ namespace {
 
     unsigned ExpandedTaskDependencyGraph::get_etdg_node_id(unsigned task_id, std::deque<unsigned> loops_ids)
     {
-        std::cerr << "TASK " << task_id << "(";
+        if (TDG_DEBUG)
+            std::cerr << "TASK " << task_id << "(";
         unsigned sum = 0;
         while (!loops_ids.empty())
         {
-            std::cerr << loops_ids.back() << ", ";
+            if (TDG_DEBUG)
+                std::cerr << loops_ids.back() << ", ";
             sum = (sum + loops_ids.back()) * _maxI;
             loops_ids.pop_back();
         }
-        std::cerr << ")  ->  " << task_id + (_maxT * sum) << std::endl;
+        if (TDG_DEBUG)
+            std::cerr << ")  ->  " << task_id + (_maxT * sum) << std::endl;
         return task_id + (_maxT * sum);
     }
 
@@ -847,11 +846,10 @@ namespace {
                 std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> itn_vars_map = (*itn)->get_vars_map();
                 ReplaceAndEvalVisitor rev(/*lhs*/ itn_vars_map, /*rhs*/ etdg_n_vars_map);
                 bool res = (cond.is_null() ? true : rev.walk(cond.shallow_copy()));
-#ifdef ETDG_DEBUG
-                std::cerr << "        (source " << (*itn)->get_id() << ") codition : "
-                          << (cond.is_null() ? "true" : cond.prettyprint())
-                          << " evaluates to " << res << std::endl;
-#endif
+//                 if (TDG_DEBUG)
+//                     std::cerr << "        (source " << (*itn)->get_id() << ") condition : "
+//                               << (cond.is_null() ? "true" : cond.prettyprint())
+//                               << " evaluates to " << res << std::endl;
 
                 // If the condition evaluates to true, then connect the nodes
                 if (res)
@@ -867,9 +865,8 @@ namespace {
             if (last_synchronization == NULL)
             {
                 // The only entry node is the creation of the task
-#ifdef ETDG_DEBUG
-                std::cerr << "         Insert " << etdg_n->get_id() << " in the list of roots" << std::endl;
-#endif
+                if (TDG_DEBUG)
+                    std::cerr << "         Insert " << etdg_n->get_id() << " in the list of roots" << std::endl;
                 _roots.insert(etdg_n);
             }
             else
@@ -920,9 +917,8 @@ namespace {
         ERROR_CONDITION(ftdg_n->get_type() != FTDGTaskwait && ftdg_n->get_type() != FTDGBarrier,
                         "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
                         ftdg_n->get_type());
-#ifdef ETDG_DEBUG
-        std::cerr << "    sync node " << sync_id << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "    sync node " << sync_id << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
         return new ETDGNode(sync_id--);
     }
 
@@ -964,10 +960,10 @@ namespace {
 
     void ExpandedTaskDependencyGraph::remove_barrier_nodes_rec(ETDGNode* n)
     {
-        if (n->is_visited())
+        if (etdg_visited_nodes.find(n) != etdg_visited_nodes.end())
             return;
 
-        n->set_visited(true);
+        etdg_visited_nodes.insert(n);
 
         if (n->get_id() < 0)
         {
@@ -1018,19 +1014,18 @@ namespace {
 
     void ExpandedTaskDependencyGraph::purge_etdg()
     {
-#ifdef ETDG_DEBUG
-        std::cerr << "Remove barrier nodes" << std::endl;
-#endif
+        if (TDG_DEBUG)
+            std::cerr << "Remove barrier nodes" << std::endl;
         remove_barrier_nodes();
         clear_visits();
     }
 
     void ExpandedTaskDependencyGraph::clear_visits_rec(ETDGNode* n)
     {
-        if (!n->is_visited())
+        if (etdg_visited_nodes.find(n) == etdg_visited_nodes.end())
             return;
 
-        n->set_visited(false);
+        etdg_visited_nodes.erase(n);
 
         const std::set<ETDGNode*>& outputs = n->get_outputs();
         for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)

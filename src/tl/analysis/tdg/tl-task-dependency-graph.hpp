@@ -32,10 +32,10 @@
 
 #include <deque>
 
+#define TDG_DEBUG debug_options.tdg_verbose
+
 namespace TL { 
 namespace Analysis {
-
-    #define TDG_DEBUG debug_options.tdg_verbose
 
     extern int tdg_node_id;
 
@@ -342,6 +342,9 @@ namespace Analysis {
     // ******************************************************************* //
     // ****************** Expanded Task Dependency Graph ***************** //
 
+    class ETDGNode;
+    extern std::set<ETDGNode*> etdg_visited_nodes;
+
     class ETDGNode {
     private:
         unsigned _id;
@@ -349,10 +352,6 @@ namespace Analysis {
 
         std::set<ETDGNode*> _inputs;
         std::set<ETDGNode*> _outputs;
-
-        Nodecl::NodeclBase _source_task;
-
-        bool _visited;
 
     public:
         ETDGNode(int id, Nodecl::NodeclBase source_task = Nodecl::NodeclBase::null());
@@ -369,10 +368,7 @@ namespace Analysis {
         std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> get_vars_map() const;
         void set_vars_map(std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> var_to_value);
 
-        Nodecl::NodeclBase get_source_task() const;
-
-        bool is_visited() const;
-        void set_visited(bool visited);
+        static Nodecl::NodeclBase get_source_task();
     };
 
     class ReplaceAndEvalVisitor : public Nodecl::NodeclVisitor<bool>
