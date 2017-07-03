@@ -67,7 +67,6 @@ namespace {
               _liveness_enabled_str(""), _liveness_enabled(false),
               _reaching_defs_enabled_str(""), _reaching_defs_enabled(false),
               _induction_vars_enabled_str(""), _induction_vars_enabled(false),
-              _task_sync_tune_enabled_str(""), _task_sync_tune_enabled(false),
               _tdg_enabled_str(""), _tdg_enabled(false),
               _range_analysis_enabled_str(""), _range_analysis_enabled(false),
               _cyclomatic_complexity_enabled_str(""), _cyclomatic_complexity_enabled(false),
@@ -101,11 +100,6 @@ namespace {
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _induction_vars_enabled_str,
                            "0").connect(std::bind(&TestAnalysisPhase::set_induction_vars, this, std::placeholders::_1));
-                            
-        register_parameter("task_sync_tune_enabled",
-                           "If set to '1' enables task synchronizations tunning in the PCFG",
-                           _task_sync_tune_enabled_str,
-                           "0").connect(std::bind(&TestAnalysisPhase::set_task_sync_tune, this, std::placeholders::_1));
                             
         register_parameter("tdg_enabled",
                            "If set to '1' enables tdg analysis, otherwise it is disabled",
@@ -196,15 +190,6 @@ namespace {
             analysis.induction_variables(ast, /*propagate_graph_nodes*/ true, functions, _call_graph_enabled);
             if (VERBOSE)
                 std::cerr << "==========  Testing Induction Variables analysis done  ========" << std::endl;
-        }
-        
-        if (_task_sync_tune_enabled)
-        {
-            if (VERBOSE)
-                std::cerr << "============  Testing Tasks synchronization tunning  ===========" << std::endl;
-            analysis.tune_task_synchronizations(ast, functions, _call_graph_enabled);
-            if (VERBOSE)
-                std::cerr << "=========  Testing Tasks synchronization tunning done  =========" << std::endl;
         }
 
         if (_range_analysis_enabled)
@@ -300,13 +285,7 @@ namespace {
         if (induction_vars_enabled_str == "1")
             _induction_vars_enabled = true;
     }
-    
-    void TestAnalysisPhase::set_task_sync_tune(const std::string& task_sync_tune_enabled_str)
-    {
-        if (task_sync_tune_enabled_str == "1")
-            _task_sync_tune_enabled = true;
-    }
-    
+
     void TestAnalysisPhase::set_tdg(const std::string& tdg_enabled_str)
     {
         ERROR_CONDITION(_etdg_enabled,

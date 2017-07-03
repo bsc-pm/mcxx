@@ -369,8 +369,10 @@ namespace TL { namespace Nanos6 {
             return res;
         }
     }
+    namespace
+    {
 
-    void Lower::capture_argument_for_task_call(
+    void capture_argument_for_task_call(
         TL::Symbol called_sym,
         TL::Scope new_block_context_sc,
         TL::Type parameter_type,
@@ -442,6 +444,7 @@ namespace TL { namespace Nanos6 {
 
         argument_captures_syms.append(new_symbol);
     }
+    }
 
     void Lower::visit_task_call_c(const Nodecl::OmpSs::TaskCall& construct)
     {
@@ -467,8 +470,6 @@ namespace TL { namespace Nanos6 {
 
         Scope sc = construct.retrieve_context();
         Scope new_block_context_sc = new_block_context(sc.get_decl_context());
-
-        TaskProperties parameter_task_properties = TaskProperties::gather_task_properties(_phase, this, construct);
 
         Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 

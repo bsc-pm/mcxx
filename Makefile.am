@@ -1263,9 +1263,9 @@ PCFG_COMMON_FLAGS= $(tl_cflags) \
         -I $(srcdir)/src/tl/omp/common \
         $(END)
 
-src_tl_analysis_pcfg_libpcfg_la_CFLAGS   = $(PCFG_COMMON_FLAGS) \
+src_tl_analysis_pcfg_libpcfg_la_CFLAGS   = $(PCFG_COMMON_FLAGS)
+src_tl_analysis_pcfg_libpcfg_la_CXXFLAGS = $(PCFG_COMMON_FLAGS) \
                                            -I $(srcdir)/src/tl/analysis/aliasing
-src_tl_analysis_pcfg_libpcfg_la_CXXFLAGS = $(PCFG_COMMON_FLAGS)
 src_tl_analysis_pcfg_libpcfg_la_LDFLAGS  = $(tl_ldflags)
 src_tl_analysis_pcfg_libpcfg_la_LIBADD   = $(tl_libadd) \
                                            src/tl/libtl.la \
@@ -1342,8 +1342,7 @@ analysisdata_DATA = \
 
 lib_LTLIBRARIES += src/tl/analysis/liveness/libliveness.la
 
-src_tl_analysis_liveness_libliveness_la_CFLAGS = $(tl_cflags) \
-                                                 -I $(srcdir)/src/tl/analysis/tasks
+src_tl_analysis_liveness_libliveness_la_CFLAGS = $(tl_cflags)
 src_tl_analysis_liveness_libliveness_la_CXXFLAGS = $(tl_cflags) \
                                                    -I $(srcdir)/src/tl/analysis/tasks \
                                                    $(ANALYSIS_CFLAGS)
@@ -1600,6 +1599,8 @@ src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) \
 
 src_tl_hlt_libtl_hlt_la_SOURCES = \
       src/tl/hlt/hlt-common.hpp \
+      src/tl/hlt/hlt-utils.hpp \
+      src/tl/hlt/hlt-utils.cpp \
       src/tl/hlt/hlt-transform.hpp \
       src/tl/hlt/hlt-transform.cpp \
       src/tl/hlt/hlt-loop-normalize.hpp \
@@ -2355,6 +2356,7 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 								 src/tl/ompss/nanos6/tl-nanos6-lower.hpp \
 								 src/tl/ompss/nanos6/tl-nanos6-task.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-taskcall.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-taskloop.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-task-properties.hpp \
 								 src/tl/ompss/nanos6/tl-nanos6-task-properties.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-support.hpp \
@@ -3264,11 +3266,9 @@ config_edit = \
      -e "s|@CUDA_RPATH[@]|$(CUDA_RPATH)|g" \
      -e 's|@ENABLE_CUDA[@]|$(ENABLE_CUDA)|g' \
      -e 's|@ENABLE_OPENCL[@]|$(ENABLE_OPENCL)|g' \
-     -e 's|@ENABLE_MPI[@]|$(ENABLE_MPI)|g' \
      -e 's|@MPIFORT[@]|$(MPIFORT)|g' \
      -e 's|@MPICXX[@]|$(MPICXX)|g' \
      -e 's|@MPICC[@]|$(MPICC)|g' \
-     -e 's|@MPIMODULE[@]|$(MPIMODULE)|g' \
      -e "s|@abs_top_srcdir[@]|$(abs_top_srcdir)|g" \
      -e 's|@prefix[@]|$(prefix)|g' \
      -e 's|@includedir[@]|$(includedir)|g' \
@@ -3288,8 +3288,6 @@ config_edit = \
      -e 's|@MPICC[@]|$(MPICC)|g' \
      -e 's|@MPICXX[@]|$(MPICXX)|g' \
      -e 's|@MIC_LIBS[@]|$(MIC_LIBS)|g' \
-     -e 's|@ENABLEMPI_ICC[@]|$(ENABLEMPI_ICC)|g' \
-     -e 's|@ENABLEMPI_GCC[@]|$(ENABLEMPI_GCC)|g' \
      -e 's|@INTEL_OMP_LIB[@]|$(INTEL_OMP_LIB)|g' \
      -e 's|@INTEL_OMP_INCLUDE[@]|$(INTEL_OMP_INCLUDE)|g' \
      -e 's|@MIC_TOOLS[@]|$(MIC_TOOLS)|g' \

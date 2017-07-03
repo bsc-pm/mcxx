@@ -26,6 +26,7 @@
 
 
 #include "hlt-loop-normalize.hpp"
+#include "hlt-utils.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 
@@ -47,6 +48,11 @@ namespace TL { namespace HLT {
         ERROR_CONDITION(!for_stmt.is_omp_valid_loop(), "Loop is too complicated", 0);
 
         return *this;
+    }
+
+    Nodecl::NodeclBase LoopNormalize::get_post_transformation_stmts() const
+    {
+        return _post_transformation_stmts;
     }
 
     namespace {
@@ -136,15 +142,13 @@ namespace TL { namespace HLT {
         Nodecl::NodeclBase orig_loop_upper = for_stmt.get_upper_bound();
         Nodecl::NodeclBase orig_loop_step = for_stmt.get_step();
 
+        // Do nothing if the loop is already a normalized loop
         if ( orig_loop_lower.is_constant()
                 && const_value_is_zero(orig_loop_lower.get_constant())
                 && orig_loop_step.is_constant()
                 && const_value_is_one(orig_loop_step.get_constant()))
         {
-            // Do nothing
-            _transformation = Nodecl::List::make(
-                    this->_loop.shallow_copy()
-                    );
+            _transformation = _loop.shallow_copy();
             return;
         }
 
@@ -189,104 +193,86 @@ namespace TL { namespace HLT {
                     orig_loop_upper.get_type());
         }
 
-        TL::Scope normalized_loop_scope;
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            // We do this because for C/C++ we will wrap everything into a bigger compound statement
-            normalized_loop_scope = (new_block_context(orig_loop_scope.get_decl_context()));
-        }
-        else
-        {
-            normalized_loop_scope = orig_loop_scope;
-        }
-
-        Nodecl::NodeclBase orig_loop_body = loop.get_statement();
-        Nodecl::NodeclBase normalized_loop_body = Nodecl::Utils::deep_copy(orig_loop_body, normalized_loop_scope);
+        Nodecl::NodeclBase normalized_loop_body = loop.get_statement().shallow_copy();
 
         ReplaceInductionVar replace_induction_var(induction_var, orig_loop_lower, orig_loop_step);
         replace_induction_var.walk(normalized_loop_body);
 
-        // Nodecl::NodeclBase normalized_for = 
-        //     Nodecl::ForStatement::make(
-        //             Nodecl::RangeLoopControl::make(
-        //                 induction_var.make_nodecl(),
-        //                 const_value_to_nodecl(const_value_get_signed_int(0)),
-        //                 new_upper,
-        //                 const_value_to_nodecl(const_value_get_signed_int(1))),
-        //             normalized_loop_body,
-        //             /* loop-name */ Nodecl::NodeclBase::null());
+        Nodecl::NodeclBase normalized_loop_control;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            normalized_loop_control =
+                Nodecl::RangeLoopControl::make(
+                        induction_var.make_nodecl(),
+                        const_value_to_nodecl(const_value_get_signed_int(0)),
+                        new_upper,
+                        const_value_to_nodecl(const_value_get_signed_int(1)));
+        }
+        else // IS_C_LANGUAGE || IS_CXX_LANGUAGE
+        {
+            Nodecl::NodeclBase init;
+            // i = 0
+            if (for_stmt.induction_variable_in_separate_scope())
+            {
+                induction_var.set_value(const_value_to_nodecl(const_value_get_signed_int(0)));
+                init = Nodecl::ObjectInit::make(induction_var);
+            }
+            else
+            {
+                init =
+                    Nodecl::Assignment::make(
+                            induction_var.make_nodecl(/* ref */ true),
+                            const_value_to_nodecl(const_value_get_signed_int(0)),
+                            induction_var.get_type().no_ref().get_lvalue_reference_to());
+            }
 
-        // i = 0
-        Nodecl::NodeclBase init = 
-            Nodecl::Assignment::make(
-                    induction_var.make_nodecl(/* ref */ true),
-                    const_value_to_nodecl(const_value_get_signed_int(0)),
-                    induction_var.get_type().no_ref().get_lvalue_reference_to());
-
-        // i <= new_upper
-        Nodecl::NodeclBase cond =
-            Nodecl::LowerOrEqualThan::make(
-                    induction_var.make_nodecl(/* set_ref_type */ true),
-                    new_upper,
-                    ::get_bool_type());
-
-        // i = i + 1
-        Nodecl::NodeclBase next = 
-            Nodecl::Assignment::make(
-                    induction_var.make_nodecl(/* set_ref_type */ true),
-                    Nodecl::Add::make(
+            // i <= new_upper
+            Nodecl::NodeclBase cond =
+                Nodecl::LowerOrEqualThan::make(
                         induction_var.make_nodecl(/* set_ref_type */ true),
-                        const_value_to_nodecl(const_value_get_signed_int(1)),
-                        induction_var.get_type().no_ref()),
-                    induction_var.get_type().no_ref().get_lvalue_reference_to());
+                        new_upper,
+                        ::get_bool_type());
 
-        // for (i = 0; i <= upper; i = i + 1)
-        Nodecl::NodeclBase normalized_for = 
-            Nodecl::ForStatement::make(
-                    Nodecl::LoopControl::make(
+            // i = i + 1
+            Nodecl::NodeclBase next =
+                Nodecl::Assignment::make(
+                        induction_var.make_nodecl(/* set_ref_type */ true),
+                        Nodecl::Add::make(
+                            induction_var.make_nodecl(/* set_ref_type */ true),
+                            const_value_to_nodecl(const_value_get_signed_int(1)),
+                            induction_var.get_type().no_ref()),
+                        induction_var.get_type().no_ref().get_lvalue_reference_to());
+
+            normalized_loop_control =
+                Nodecl::LoopControl::make(
                         Nodecl::List::make(init),
                         cond,
-                        next),
+                        next);
+        }
+
+        Nodecl::NodeclBase normalized_for =
+            Nodecl::ForStatement::make(
+                    normalized_loop_control,
                     normalized_loop_body,
                     /* loop-name */ Nodecl::NodeclBase::null());
 
-        TL::ObjectList<Nodecl::NodeclBase> result_stmts;
-        result_stmts.append(normalized_for);
+        _transformation = normalized_for;
 
+        // Compute what value the induction variable should take after the loop
         if (!for_stmt.induction_variable_in_separate_scope())
         {
-            Nodecl::NodeclBase ind_var_ref =
-                Nodecl::Conversion::make(
-                    induction_var.make_nodecl(/* ref_type */ true),
-                    induction_var.get_type().no_ref());
-            replace_induction_var.walk(ind_var_ref);
+            Nodecl::NodeclBase induction_variable =
+                for_stmt.get_induction_variable().make_nodecl(/* set_ref_type */ true);
 
-            Nodecl::NodeclBase new_assig_stmt =
-                Nodecl::ExpressionStatement::make(
+            Nodecl::NodeclBase expr =
+                HLT::Utils::compute_induction_variable_final_expr(_loop);
+
+            _post_transformation_stmts.append(
+                    Nodecl::ExpressionStatement::make(
                         Nodecl::Assignment::make(
-                            induction_var.make_nodecl(/* ref_type */ true),
-                            ind_var_ref,
-                            induction_var.get_type().no_ref().get_lvalue_reference_to())
-                        );
-
-            result_stmts.append(new_assig_stmt);
-        }
-
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            _transformation = 
-                Nodecl::List::make(
-                        Nodecl::Context::make(
-                            Nodecl::List::make(
-                                Nodecl::CompoundStatement::make(
-                                    Nodecl::List::make(result_stmts),
-                                    /* destructors */ Nodecl::NodeclBase::null())),
-                            orig_loop_scope)
-                        );
-        }
-        else
-        {
-            _transformation = Nodecl::List::make(result_stmts);
+                            induction_variable,
+                            expr,
+                            induction_variable.get_type())));
         }
     }
 

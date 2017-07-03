@@ -487,6 +487,11 @@ namespace TL
             Nodecl::NodeclBase _upper_bound;
             Nodecl::NodeclBase _step;
 
+            // This flag states whether the induction variable of the loop was
+            // defined in the scope of the loop control.
+            //
+            //      for (int k = 0; k < 42; ++k) -> true
+            //      for (k = 0; k < 42; ++k) -> false
             bool _induction_variable_in_separate_scope;
             bool _is_omp_valid;
 

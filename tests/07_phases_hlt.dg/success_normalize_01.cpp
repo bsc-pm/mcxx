@@ -42,6 +42,7 @@ void test1(void)
 
 void test2(void)
 {
+
     init();
 
     int i;
@@ -49,13 +50,13 @@ void test2(void)
         d[i]++;
 
     #pragma hlt normalize
-    for (i = N-1; i >= 3; i -= 11)
-        c[i]++;
+    for (int k = N-1; k >= 3; k -= 11)
+        c[k]++;
 
     for (i = N-1; i >= 3; i -= 11)
         assert(c[i] == 1);
 
-    for (i = 0; i < N; i++)
+    for (i = 0; i < N-1; i++)
         assert(c[i] == d[i]);
 }
 
@@ -63,5 +64,6 @@ int main(int argc, char *argv[])
 {
     test1();
     test2();
+
     return 0;
 }

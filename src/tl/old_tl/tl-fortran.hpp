@@ -30,7 +30,7 @@
 #define TL_FORTRAN
 
 #ifdef HAVE_CONFIG_H
- #include "config.h"
+ #include <config.h>
 #endif
 
 

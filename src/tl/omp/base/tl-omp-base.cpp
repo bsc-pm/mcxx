@@ -32,11 +32,12 @@
 #include "tl-ompss-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 
-#include "config.h"
 #include "tl-nodecl-utils.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-counters.hpp"
 #include "tl-compilerpipeline.hpp"
+
+#include "hlt-loop-normalize.hpp"
 
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
@@ -171,9 +172,9 @@ namespace TL { namespace OpenMP {
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_post, this, std::placeholders::_1));
 
         dispatcher("oss").statement.pre["taskloop"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::taskloop_handler_pre, this, std::placeholders::_1));
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::taskloop_runtime_based_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["taskloop"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::taskloop_handler_post, this, std::placeholders::_1));
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::taskloop_runtime_based_handler_post, this, std::placeholders::_1));
 
         dispatcher("oss").statement.pre["critical"].connect(
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_pre, this, std::placeholders::_1));
@@ -1447,6 +1448,7 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause num_tasks_clause = pragma_line.get_clause("num_tasks");
         PragmaCustomClause nogroup = pragma_line.get_clause("nogroup");
 
+
         Nodecl::NodeclBase grainsize_expr, num_tasks_expr;
         if (grainsize_clause.is_defined() == num_tasks_clause.is_defined())
         {
@@ -1525,6 +1527,108 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List list;
         list.append(statement);
+        if (taskwait_at_the_end)
+        {
+            list.append(
+                    Nodecl::OpenMP::Taskwait::make(
+                        /*environment*/ nodecl_null(),
+                        directive.get_locus()));
+        }
+
+        directive.replace(list);
+    }
+
+    void Base::taskloop_runtime_based_handler_pre(TL::PragmaCustomStatement directive) { }
+    void Base::taskloop_runtime_based_handler_post(TL::PragmaCustomStatement directive)
+    {
+        Nodecl::NodeclBase statement = directive.get_statements();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << directive.get_locus_str() << ": " << "TASKLOOP construct\n"
+                << directive.get_locus_str() << ": " << "------------------\n"
+                ;
+        }
+
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        warn_printf_at(pragma_line.get_locus(), "'taskloop' construct is EXPERIMENTAL\n");
+
+        PragmaCustomClause chunksize_clause = pragma_line.get_clause("chunksize");
+        Nodecl::NodeclBase chunksize;
+        if (chunksize_clause.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> args = chunksize_clause.get_arguments_as_expressions();
+            int num_args = args.size();
+            if (num_args == 1)
+            {
+                chunksize = args[0];
+            }
+            else
+            {
+                error_printf_at(pragma_line.get_locus(), "Invalid number of expressions in the 'chunksize' clause\n");
+            }
+        }
+        else
+        {
+            error_printf_at(pragma_line.get_locus(), "missing a 'chunksize' clause\n");
+        }
+
+        PragmaCustomClause nogroup = pragma_line.get_clause("nogroup");
+        bool taskwait_at_the_end = true;
+        if (nogroup.is_defined())
+            taskwait_at_the_end = false;
+
+        // Since we are going to transform the taskloop construct into a loop
+        // that creates several tasks, we should set the 'is_inline_task' to true.
+        // This flag is only used to generate task reductions instead of
+        // worksharing reductions
+        Nodecl::List execution_environment = this->make_execution_environment(
+                ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
+
+
+        handle_label_clause(directive, execution_environment);
+
+        handle_task_if_clause(directive, /* parsing_context */ statement, execution_environment);
+        handle_task_final_clause(directive, /* parsing_context */ statement, execution_environment);
+        handle_task_priority_clause(directive, /* parsing_context */ statement, execution_environment);
+
+        pragma_line.diagnostic_unused_clauses();
+
+        TL::ForStatement for_statement(
+                statement.as<Nodecl::Context>()
+                .get_in_context()
+                .as<Nodecl::List>().front()
+                .as<Nodecl::ForStatement>());
+
+        TL::HLT::LoopNormalize loop_normalize;
+        loop_normalize.set_loop(for_statement);
+
+        loop_normalize.normalize();
+
+        Nodecl::NodeclBase normalized_loop = loop_normalize.get_whole_transformation();
+        ERROR_CONDITION(!normalized_loop.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+        TL::ForStatement new_for_statement(normalized_loop.as<Nodecl::ForStatement>());
+        TL::Symbol induction_variable = new_for_statement.get_induction_variable();
+        execution_environment.append(
+                Nodecl::OpenMP::Private::make(
+                    Nodecl::List::make(induction_variable.make_nodecl(/* set_ref_type */ true))));
+
+        execution_environment.append(Nodecl::OmpSs::Chunksize::make(chunksize));
+
+        Nodecl::List list;
+        list.append(
+                Nodecl::OpenMP::TaskLoop::make(
+                    execution_environment,
+                    normalized_loop));
+
         if (taskwait_at_the_end)
         {
             list.append(

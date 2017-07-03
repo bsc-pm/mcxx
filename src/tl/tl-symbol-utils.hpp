@@ -45,31 +45,31 @@ namespace SymbolUtils
             TL::Symbol current_function,
             const std::string& function_name,
             TL::Type return_type,
-            TL::ObjectList<std::string> parameter_names,
-            TL::ObjectList<TL::Type> parameter_types);
+            const TL::ObjectList<std::string>& parameter_names,
+            const TL::ObjectList<TL::Type>& parameter_types);
 
     TL::Symbol new_function_symbol(
             TL::Symbol current_function,
             const std::string& function_name,
             const std::string& result_symbol_name,
             TL::Type return_type,
-            TL::ObjectList<std::string> parameter_names,
-            TL::ObjectList<TL::Type> parameter_types);
+            const TL::ObjectList<std::string>& parameter_names,
+            const TL::ObjectList<TL::Type>& parameter_types);
 
     TL::Symbol new_function_symbol(
             TL::Scope sc,
             const std::string& function_name,
             TL::Type return_type,
-            TL::ObjectList<std::string> parameter_names,
-            TL::ObjectList<TL::Type> parameter_types);
+            const TL::ObjectList<std::string>& parameter_names,
+            const TL::ObjectList<TL::Type>& parameter_types);
 
     TL::Symbol new_function_symbol(
             TL::Scope sc,
             const std::string& function_name,
             const std::string& result_symbol_name,
             TL::Type return_type,
-            TL::ObjectList<std::string> parameter_names,
-            TL::ObjectList<TL::Type> parameter_types);
+            const TL::ObjectList<std::string>& parameter_names,
+            const TL::ObjectList<TL::Type>& parameter_types);
 
     void build_empty_body_for_function(
             TL::Symbol function_symbol,

@@ -25,10 +25,12 @@
 --------------------------------------------------------------------*/
 
 
-
-
 #ifndef CXX_CEXPR_H
 #define CXX_CEXPR_H
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <stdint.h>
 

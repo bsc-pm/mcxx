@@ -586,6 +586,7 @@ omp-exec-environment : omp-data-sharings-info
                  | omp-critical-info
                  | omp-simd-info
                  | omp-device-info
+                 | omp-task-flags
 
 omp-data-sharings-info : NODECL_OPEN_M_P*FIRSTPRIVATE([symbols]name-seq)
                        | NODECL_OPEN_M_P*LASTPRIVATE([symbols]name-seq)
@@ -602,7 +603,11 @@ omp-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_sym
 
 omp-construct-info : NODECL_OPEN_M_P*COMBINED_WITH_PARALLEL()
                    | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
-                   | NODECL_OPEN_M_P*TASKWAIT_DEP()
+
+# These nodes represent some flags that indicate that an task represents
+# another kind of node, such a taskwait or a taskloop
+omp-task-flags : NODECL_OPEN_M_P*TASK_IS_TASKWAIT()
+               | NODECL_OPEN_M_P*TASK_IS_TASKLOOP()
 
 omp-sync-info : NODECL_OPEN_M_P*BARRIER_AT_END()
 
@@ -614,7 +619,8 @@ omp-loop-info : NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
               | NODECL_OPEN_M_P*DIST_SCHEDULE([chunk]expression-opt) text
 
 omp-taskloop-info : NODECL_OPEN_M_P*NUM_TASKS([num_tasks]expression)
-                  | NODECL_OPEN_M_P*GRAIN_SIZE([grain_size]expression)
+                  | NODECL_OPEN_M_P*GRAINSIZE([grainsize]expression)
+                  | NODECL_OMP_SS*CHUNKSIZE([chunksize]expression)
 
 omp-deps-info :  NODECL_OPEN_M_P*DEP_IN([exprs]expression-seq)
                  | NODECL_OPEN_M_P*DEP_OUT([exprs]expression-seq)

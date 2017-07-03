@@ -46,8 +46,10 @@ namespace TL { namespace Nanos6 {
             : _phase(phase), _final_stmts_map(final_stmts_map) { }
 
             void visit(const Nodecl::OpenMP::Task& n);
-            void visit(const Nodecl::OpenMP::Taskwait& n);
             void visit(const Nodecl::OmpSs::TaskCall& n);
+            void visit(const Nodecl::OpenMP::TaskLoop& n);
+
+            void visit(const Nodecl::OpenMP::Taskwait& n);
             void visit(const Nodecl::OpenMP::Critical& n);
             void visit(const Nodecl::OpenMP::Atomic& n);
 
@@ -69,15 +71,6 @@ namespace TL { namespace Nanos6 {
             void visit_task_call(const Nodecl::OmpSs::TaskCall& construct);
             void visit_task_call_c(const Nodecl::OmpSs::TaskCall& construct);
             void visit_task_call_fortran(const Nodecl::OmpSs::TaskCall& construct);
-
-            void capture_argument_for_task_call(
-                TL::Symbol called_sym,
-                TL::Scope new_block_context_sc,
-                TL::Type parameter_type,
-                Nodecl::NodeclBase argument,
-                /* out */ TL::ObjectList<TL::Symbol> &argument_captures_syms,
-                /* out */ Nodecl::List &new_args,
-                /* out */ Nodecl::List &argument_captures);
     };
 
 } }

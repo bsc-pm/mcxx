@@ -30,7 +30,7 @@
 #endif
 
 #ifdef HAVE_CONFIG_H
-  #include "config.h"
+  #include <config.h>
 #endif
 #ifdef HAVE_OPEN_MEMSTREAM
   // Needed, otherwise open_memstream is not declared

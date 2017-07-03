@@ -39,8 +39,8 @@ namespace
             const std::string& function_name,
             const std::string& result_symbol_name,
             TL::Type return_type,
-            TL::ObjectList<std::string> parameter_names,
-            TL::ObjectList<TL::Type> parameter_types)
+            const TL::ObjectList<std::string>& parameter_names,
+            const TL::ObjectList<TL::Type>& parameter_types)
     {
         decl_context_t* decl_context = decl_context_clone(sc.get_decl_context());
 
@@ -69,8 +69,8 @@ namespace
 
         parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
         parameter_info_t* it_ptypes = &(p_types[0]);
-        TL::ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
-        for (TL::ObjectList<std::string>::iterator it = parameter_names.begin();
+        TL::ObjectList<TL::Type>::const_iterator type_it = parameter_types.begin();
+        for (TL::ObjectList<std::string>::const_iterator it = parameter_names.begin();
                 it != parameter_names.end();
                 it++, it_ptypes++, type_it++)
         {
@@ -256,8 +256,8 @@ TL::Symbol SymbolUtils::new_function_symbol(
         TL::Symbol current_function,
         const std::string& function_name,
         TL::Type return_type,
-        TL::ObjectList<std::string> parameter_names,
-        TL::ObjectList<TL::Type> parameter_types)
+        const TL::ObjectList<std::string>& parameter_names,
+        const TL::ObjectList<TL::Type>& parameter_types)
 {
     return SymbolUtils::new_function_symbol(
             current_function,
@@ -272,8 +272,8 @@ TL::Symbol SymbolUtils::new_function_symbol(
         TL::Scope sc,
         const std::string& function_name,
         TL::Type return_type,
-        TL::ObjectList<std::string> parameter_names,
-        TL::ObjectList<TL::Type> parameter_types)
+        const TL::ObjectList<std::string>& parameter_names,
+        const TL::ObjectList<TL::Type>& parameter_types)
 {
     return SymbolUtils::new_function_symbol(
             sc,
@@ -289,8 +289,8 @@ TL::Symbol SymbolUtils::new_function_symbol(
         const std::string& function_name,
         const std::string& result_symbol_name,
         TL::Type return_type,
-        TL::ObjectList<std::string> parameter_names,
-        TL::ObjectList<TL::Type> parameter_types)
+        const TL::ObjectList<std::string>& parameter_names,
+        const TL::ObjectList<TL::Type>& parameter_types)
 {
     if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
     {
@@ -313,8 +313,8 @@ TL::Symbol SymbolUtils::new_function_symbol(
         const std::string& function_name,
         const std::string& result_symbol_name,
         TL::Type return_type,
-        TL::ObjectList<std::string> parameter_names,
-        TL::ObjectList<TL::Type> parameter_types)
+        const TL::ObjectList<std::string>& parameter_names,
+        const TL::ObjectList<TL::Type>& parameter_types)
 {
     return new_function_symbol_internal(
             sc,

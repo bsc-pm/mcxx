@@ -33,7 +33,6 @@
 
 namespace TL { namespace Nanos6 {
 
-
 class Interface
 {
     private:
@@ -57,6 +56,13 @@ class Interface
          * the 'expected_version'. Note that it returns false if the family is not present.
          */
         static bool family_is_at_least(const std::string& family, unsigned int expected_version);
+
+        /**
+         * this function emits a fatal error if the 'family' family is not at least the 'expected_version'.
+         * The 'feature' string is the feature that requires at least that version of the runtime.
+         */
+        static void family_must_be_at_least(
+                const std::string& family, unsigned int expected_version, const std::string& feature);
 
         /**
          * This function checks whether the Nanos6 headers are deprecated

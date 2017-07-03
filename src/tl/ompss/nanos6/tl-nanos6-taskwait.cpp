@@ -78,7 +78,7 @@ namespace TL { namespace Nanos6 {
     {
         Nodecl::List environment = node.get_environment().as<Nodecl::List>();
 
-        // Prepare if(0) task reusing environment and set TaskwaitDep info
+        // Prepare if(0) task reusing environment and set TaskIsTaskwait flag
         Nodecl::NodeclBase zero_expr;
         if(IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
@@ -91,7 +91,7 @@ namespace TL { namespace Nanos6 {
                     const_value_get_zero(/* bytes */ 4, /* sign */0));
         }
         environment.append(Nodecl::OpenMP::If::make(zero_expr));
-        environment.append(Nodecl::OpenMP::TaskwaitDep::make());
+        environment.append(Nodecl::OpenMP::TaskIsTaskwait::make());
 
         Nodecl::OpenMP::Task taskwait_task = Nodecl::OpenMP::Task::make(
                 environment,

@@ -24,6 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "fortran03-modules.h"
 #include "fortran03-modules-data.h"
 #include "fortran03-buildscope.h"
@@ -39,10 +43,6 @@
 #include "cxx-driver-fortran.h"
 #include "cxx-entrylist.h"
 #include "cxx-asttype-str.h"
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include <stdio.h>
 #include <sqlite3.h>

@@ -105,7 +105,6 @@ namespace Analysis {
         bool _loops;                //!<True when loops analysis has been applied
         bool _reaching_definitions; //!<True when reaching definitions has been calculated
         bool _induction_variables;  //!<True when induction variable analysis has been applied
-//         bool _tune_task_syncs;      //!<True when the task synchronization has been tuned
         bool _range;                //!<True when range analysis has been applied
         bool _cyclomatic_complexity;//!<True when cyclomatic complexity has been computed
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
@@ -200,11 +199,6 @@ namespace Analysis {
                 bool propagate_graph_nodes,
                 std::set<std::string> functions = std::set<std::string>(),
                 bool call_graph = true);
-
-//         void tune_task_synchronizations(
-//                 const NBase& ast,
-//                 std::set<std::string> functions = std::set<std::string>(),
-//                 bool call_graph = true);
 
         void range_analysis(
                 const NBase& ast,

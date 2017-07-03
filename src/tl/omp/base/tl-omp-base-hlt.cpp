@@ -31,22 +31,17 @@ namespace TL { namespace OpenMP {
 
         int collapse_factor = const_value_cast_to_signed_int(expr.get_constant());
 
-        if (collapse_factor < 0)
+        if (collapse_factor <= 0)
         {
             error_printf_at(
                     construct.get_locus(),
-                    "Negative factor (%d) is not allowed in the 'collapse' clause\n",
+                    "Non-positive factor (%d) is not allowed in the 'collapse' clause\n",
                     collapse_factor);
         }
-        else if (collapse_factor == 0)
+        else if (collapse_factor == 1)
         {
             // Removing the collapse clause from the pragma
             pragma_line.remove_clause("collapse");
-
-            warn_printf_at(
-                    construct.get_locus(),
-                    "'collapse' clause with factor (%d) ignored\n",
-                    collapse_factor);
         }
         else if (collapse_factor > 1)
         {

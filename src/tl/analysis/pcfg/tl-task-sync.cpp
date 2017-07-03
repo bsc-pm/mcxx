@@ -27,7 +27,7 @@
 #include "cxx-cexpr.h"
 #include "tl-datareference.hpp"
 #include "tl-pcfg-utils.hpp"
-// #include "tl-alias-analysis.hpp"
+#include "tl-alias-analysis.hpp"
 #include "tl-task-sync.hpp"
 #include "tl-tribool.hpp"
 
@@ -1006,42 +1006,12 @@ namespace {
                 cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
             }
         }
-        
+
         // Rebuild the condition composing the old condition and the new computed part
         if (condition.is_null())
             condition = cond_part;
         else if (!cond_part.is_null())
             condition = Nodecl::LogicalAnd::make(condition.shallow_copy(), cond_part, condition.get_type());
-    }
-
-    // Restriction: #n must be a constant nodecl and # m a non-constant nodecl
-    void match_const_and_var_values(
-        Node* n_node, Node* m_node,
-        const NBase& n, const NBase& m,
-        NBase& condition)
-    {
-        const NodeclMap& m_reaching_defs_in = m_node->get_reaching_definitions_in();
-        const NodeclSet& m_killed_vars = m_node->get_killed_vars();
-        if (m_reaching_defs_in.count(m) == 1
-            && m_killed_vars.find(m) == m_killed_vars.end())
-        {   // There is a unique reaching definition of the subscript and it is not defined inside the m_node node
-            NBase m_reach_def = m_reaching_defs_in.find(m)->second.first;
-            if (!m_reach_def.is_constant())
-            {
-                if (m_reach_def.is<Nodecl::Symbol>())
-                {
-                    match_const_and_var_values(n_node, m_node, n, m_reach_def, condition);
-                }
-                else
-                {   // We do not know whether the indexes are equal => compute the condition
-                    compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
-                }
-            }
-        }
-        else
-        {   // We do not know whether the indexes are equal => compute the condition
-            compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
-        }
     }
 
     void match_array_subscripts(
@@ -1053,26 +1023,7 @@ namespace {
         Nodecl::List::iterator itm = m_subs.begin();
         for (; (itn != n_subs.end() && itm != m_subs.end()); ++itn, ++itm)
         {
-            const Nodecl::NodeclBase& n = *itn;
-            const Nodecl::NodeclBase& m = *itm;
-            if (n.is_constant())
-            {   // n_node[c1]
-                if (!m.is_constant())
-                {   // m_node[v2]
-                    match_const_and_var_values(n_node, m_node, n, m, condition);
-                }
-            }
-            else
-            {   // n_node[v1]
-                if (m.is_constant())
-                {   // m_node[c2]
-                    match_const_and_var_values(m_node, n_node, m, n, condition);
-                }
-                else
-                {   // m_node[v2]
-                    compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
-                }
-            }
+            compute_condition_for_unmatched_values(n_node, m_node, *itn, *itm, condition);
         }
     }
 
@@ -1106,13 +1057,13 @@ namespace {
         {
             const Nodecl::ArraySubscript& m_arr = m_.as<Nodecl::ArraySubscript>();
             const Nodecl::ArraySubscript& n_arr = n_.as<Nodecl::ArraySubscript>();
-            
+
             // Check the base refers to the same object
             const NBase& m_base = m_arr.get_subscripted();
             const NBase& n_base = n_arr.get_subscripted();
             if (!Nodecl::Utils::structurally_equal_nodecls(m_base, n_base, /*skip_conversions*/ true))
             {
-                tribool there_exists_alias/* = accesses_may_be_alias(n_, m_)*/;
+                tribool there_exists_alias = accesses_may_be_alias(n_, m_);
                 if (there_exists_alias.is_true())
                 {   // The condition depend on the bases to point to the same memory location
                     condition = Nodecl::Equal::make(m_base.shallow_copy(), n_base.shallow_copy(), n.get_type());
@@ -1222,7 +1173,7 @@ namespace {
         {
             // Treat the inner nodes recursively
             compute_task_synchronization_conditions_rec(current->get_graph_entry_node());
-            
+
             // If the current node is a task or a target,
             // then try to simplify its synchronizations
             if (current->is_omp_task_node()
@@ -1271,14 +1222,14 @@ namespace {
         Nodecl::NodeclBase (DependenceNode::*get_dependences)() const)
     {
         ObjectList<NBase> deps = list.find_all<DependenceNode>()
-        .template map<NBase>(get_dependences)                            // ObjectList<NBase>
-        .template map<Nodecl::List>(&NBase::as<Nodecl::List>)            // ObjectList<Nodecl::List>
-        .template map<ObjectList<NBase> >(&Nodecl::List::to_object_list) // ObjectList<ObjectList<NBase> >
-        .reduction(append_two_lists<NBase>);             // ObjectList<NBase>
-        
+            .template map<NBase>(get_dependences)                            // ObjectList<NBase>
+            .template map<Nodecl::List>(&NBase::as<Nodecl::List>)            // ObjectList<Nodecl::List>
+            .template map<ObjectList<NBase> >(&Nodecl::List::to_object_list) // ObjectList<ObjectList<NBase> >
+            .reduction(append_two_lists<NBase>);                             // ObjectList<NBase>
+
         return deps;
     }
-    
+
     /*!This method returns the condition that has to be associated to an edge of type 'maybe' that connects two tasks which:
      * \param source_environ is the environment of the source task
      * \param target_environ is the environment of the target task
@@ -1291,7 +1242,7 @@ namespace {
     NBase TaskSynchronizations::match_dependencies(Node* source, Node* target)
     {
         NBase condition;
-        
+
         // 1.- Collect the variables in the dependency clauses
         Nodecl::List source_environ = source->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
         Nodecl::List target_environ = target->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
@@ -1322,7 +1273,7 @@ namespace {
             append_two_lists(target_inout_deps,
                              append_two_lists(target_in_deps, target_out_deps));
         ObjectList<NBase> target_all_out_deps = append_two_lists(target_out_deps, target_inout_deps);
-        
+
         // 2.- Check each pair of dependencies to build the condition and obtain the modification we have to perform in the dependency edge
         // 2.1.- (RAW, WAW) Match source(out, inout) with target(in, out, inout)
         for (ObjectList<NBase>::iterator its = source_all_out_deps.begin(); its != source_all_out_deps.end(); ++its)

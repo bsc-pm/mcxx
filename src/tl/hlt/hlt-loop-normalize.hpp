@@ -42,6 +42,12 @@ namespace TL { namespace HLT {
         private:
             Nodecl::NodeclBase _transformation;
             Nodecl::NodeclBase _loop;
+
+            //! This list contains the statements required to adjust the value
+            //! of the induction variable after the loop to match its original
+            //! value (without normalization)
+            Nodecl::List _post_transformation_stmts;
+
         public:
             LoopNormalize();
 
@@ -53,6 +59,7 @@ namespace TL { namespace HLT {
 
             // Results
             Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
+            Nodecl::NodeclBase get_post_transformation_stmts() const;
     };
 
 } }

@@ -24,18 +24,15 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"

@@ -26,6 +26,7 @@
 
 #include "hlt-loop-collapse.hpp"
 
+#include "hlt-utils.hpp"
 #include "tl-nodecl-utils.hpp"
 
 #include "cxx-cexpr.h"
@@ -57,6 +58,11 @@ namespace TL { namespace HLT {
         _pragma_context = context;
 
         return *this;
+    }
+
+    Nodecl::NodeclBase LoopCollapse::get_post_transformation_stmts() const
+    {
+        return _post_transformation_stmts;
     }
 
     TL::ObjectList<TL::Symbol> LoopCollapse::get_omp_capture_symbols() const
@@ -434,7 +440,8 @@ namespace TL { namespace HLT {
                 int collapse_factor,
                 // Out
                 TL::ObjectList<LoopInfo>& loop_info,
-                Nodecl::Context& context_innermost_loop)
+                Nodecl::Context& context_innermost_loop,
+                Nodecl::List& post_trasformation_stmts)
         {
             for (int i = 0; i < collapse_factor; ++i)
             {
@@ -454,6 +461,24 @@ namespace TL { namespace HLT {
 
                 node = context_innermost_loop.get_in_context();
 
+                // Compute what value the induction variable should take after the loop
+                if (!for_stmt.induction_variable_in_separate_scope())
+                {
+                    Nodecl::NodeclBase induction_variable =
+                        for_stmt.get_induction_variable().make_nodecl(/* set_ref_type */ true);
+
+                    Nodecl::NodeclBase expr =
+                        HLT::Utils::compute_induction_variable_final_expr(for_stmt);
+
+                    post_trasformation_stmts.append(
+                            Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    induction_variable,
+                                    expr,
+                                    induction_variable.get_type())));
+                }
+
+                // Advance to next nested loop
                 // Compound statement found in this level only for C/C++
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
@@ -489,7 +514,8 @@ namespace TL { namespace HLT {
         TL::ObjectList<LoopInfo> loop_info;
         Nodecl::Context context_innermost_loop;
 
-        compute_loop_information(_loop, _collapse_factor, loop_info, context_innermost_loop);
+        compute_loop_information(_loop, _collapse_factor, loop_info,
+                context_innermost_loop, _post_transformation_stmts);
 
         // Compute collapse statements
 

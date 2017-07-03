@@ -32,7 +32,7 @@
 #include <stdlib.h>
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
 #endif
 
 #if defined(__GNUC__) && __GNUC__ >= 4
