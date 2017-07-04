@@ -841,9 +841,19 @@ namespace {
                     continue;
 
                 // Replace variables with the corresponding constant values in the dependency expression
-                std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> itn_vars_map = (*itn)->get_vars_map();
-                ReplaceAndEvalVisitor rev(/*lhs*/ itn_vars_map, /*rhs*/ etdg_n_vars_map);
-                bool res = (cond.is_null() ? true : rev.walk(cond.shallow_copy()));
+                bool res;
+                if (cond.is_null())
+                {
+                    res = true;
+                }
+                else
+                {
+                    std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> itn_vars_map = (*itn)->get_vars_map();
+                    ReplaceAndEvalVisitor rev(/*lhs*/ itn_vars_map, /*rhs*/ etdg_n_vars_map);
+                    NBase cond_cp = cond.shallow_copy();
+                    res = rev.walk(cond_cp);
+                    nodecl_free(cond_cp.get_internal_nodecl());
+                }
 //                 if (TDG_DEBUG)
 //                     std::cerr << "        (source " << (*itn)->get_id() << ") condition : "
 //                               << (cond.is_null() ? "true" : cond.prettyprint())
