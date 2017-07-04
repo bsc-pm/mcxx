@@ -2820,15 +2820,18 @@ static nodecl_t simplify_nint(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
             || (!nodecl_is_null(kind) && !nodecl_is_constant(kind)))
         return nodecl_null();
 
-
-    int kind_ = type_get_size(no_ref(nodecl_get_type(arg)));
+    type_t* integer_type = NULL;
     if (!nodecl_is_null(kind))
     {
-        kind_ = const_value_cast_to_signed_int(nodecl_get_constant(kind));
+        int kind_ = const_value_cast_to_signed_int(nodecl_get_constant(kind));
+        integer_type = choose_int_type_from_kind(kind, kind_);
+    }
+    else
+    {
+        integer_type = fortran_get_default_integer_type();
     }
 
-    type_t* integer_type = choose_int_type_from_kind(kind, kind_);
-    const_value_t* integer_value = 
+    const_value_t* integer_value =
         const_value_cast_to_bytes(
                 compute_nint(nodecl_get_constant(arg)),
                 type_get_size(integer_type),
