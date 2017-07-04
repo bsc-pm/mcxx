@@ -197,13 +197,10 @@ namespace Analysis {
         _outer.insert(n);
     }
 
-    static std::map<ETDGNode*, Nodecl::NodeclBase> etdg_task_to_source;
-
     ETDGNode::ETDGNode(int id, Nodecl::NodeclBase source_task)
-            : _id(id), _var_to_value(), _inputs(), _outputs()
-    {
-        etdg_task_to_source[this] = source_task;
-    }
+            : _id(id), _var_to_value(), _inputs(), _outputs(),
+              _source_task(source_task), _visited(false)
+    {}
 
     int ETDGNode::get_id() const
     {
@@ -250,9 +247,19 @@ namespace Analysis {
         _var_to_value = var_to_value;
     }
 
-    Nodecl::NodeclBase get_source_task(ETDGNode* n)
+    Nodecl::NodeclBase ETDGNode::get_source_task() const
     {
-        return etdg_task_to_source[n];
+        return _source_task;
+    }
+
+    bool ETDGNode::is_visited() const
+    {
+        return _visited;
+    }
+
+    void ETDGNode::set_visited(bool visited)
+    {
+        _visited = visited;
     }
 
     // **************** Flow and Expanded TDG components ***************** //

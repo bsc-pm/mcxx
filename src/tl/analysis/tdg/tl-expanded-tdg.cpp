@@ -37,8 +37,6 @@ namespace Analysis {
 
     static unsigned nt = 0;
 
-    std::set<ETDGNode*> etdg_visited_nodes; // extern variable
-
     struct LoopInfo {
         Utils::InductionVar* _iv;
         NBase _lb;
@@ -960,10 +958,10 @@ namespace {
 
     void ExpandedTaskDependencyGraph::remove_barrier_nodes_rec(ETDGNode* n)
     {
-        if (etdg_visited_nodes.find(n) != etdg_visited_nodes.end())
+        if (n->is_visited())
             return;
 
-        etdg_visited_nodes.insert(n);
+        n->set_visited(true);
 
         if (n->get_id() < 0)
         {
@@ -1022,10 +1020,10 @@ namespace {
 
     void ExpandedTaskDependencyGraph::clear_visits_rec(ETDGNode* n)
     {
-        if (etdg_visited_nodes.find(n) == etdg_visited_nodes.end())
+        if (!n->is_visited())
             return;
 
-        etdg_visited_nodes.erase(n);
+        n->set_visited(false);
 
         const std::set<ETDGNode*>& outputs = n->get_outputs();
         for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)

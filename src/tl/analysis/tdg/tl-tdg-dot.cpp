@@ -169,10 +169,10 @@ namespace Analysis {
 
     void ExpandedTaskDependencyGraph::print_tdg_to_dot_rec(ETDGNode* n, std::ofstream& dot_tdg)
     {
-        if (etdg_visited_nodes.find(n) != etdg_visited_nodes.end())
+        if (n->is_visited())
             return;
 
-        etdg_visited_nodes.insert(n);
+        n->set_visited(true);
 
         // Print the node
         std::stringstream ss_target; ss_target << n->get_id();

@@ -342,9 +342,6 @@ namespace Analysis {
     // ******************************************************************* //
     // ****************** Expanded Task Dependency Graph ***************** //
 
-    class ETDGNode;
-    extern std::set<ETDGNode*> etdg_visited_nodes;
-
     class ETDGNode {
     private:
         unsigned _id;
@@ -352,6 +349,10 @@ namespace Analysis {
 
         std::set<ETDGNode*> _inputs;
         std::set<ETDGNode*> _outputs;
+
+        Nodecl::NodeclBase _source_task;
+
+        bool _visited;
 
     public:
         ETDGNode(int id, Nodecl::NodeclBase source_task = Nodecl::NodeclBase::null());
@@ -368,7 +369,10 @@ namespace Analysis {
         std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> get_vars_map() const;
         void set_vars_map(std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> var_to_value);
 
-        static Nodecl::NodeclBase get_source_task();
+        Nodecl::NodeclBase get_source_task() const;
+
+        bool is_visited() const;
+        void set_visited(bool visited);
     };
 
     class ReplaceAndEvalVisitor : public Nodecl::NodeclVisitor<bool>
