@@ -775,6 +775,19 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        if (pragma_line.get_clause("wait").is_defined())
+        {
+            execution_environment.append(
+                    Nodecl::OmpSs::Wait::make(directive.get_locus()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "This task waits for its children.\n"
+                    ;
+            }
+        }
 
         PragmaCustomClause cost = pragma_line.get_clause("cost");
         {
@@ -1592,6 +1605,8 @@ namespace TL { namespace OpenMP {
         Nodecl::List execution_environment = this->make_execution_environment(
                 ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
 
+        if (pragma_line.get_clause("wait").is_defined())
+            execution_environment.append(Nodecl::OmpSs::Wait::make());
 
         handle_label_clause(directive, execution_environment);
 

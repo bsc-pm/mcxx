@@ -585,10 +585,10 @@ namespace TL { namespace OmpSs {
 
 
         if (function_task_info.get_untied())
-        {
-            result_list.append(
-                    Nodecl::OpenMP::Untied::make(locus));
-        }
+            result_list.append(Nodecl::OpenMP::Untied::make(locus));
+
+        if (function_task_info.get_wait())
+            result_list.append(Nodecl::OmpSs::Wait::make(locus));
 
         if (!function_task_info.get_if_clause_conditional_expression().is_null())
         {

@@ -631,6 +631,8 @@ omp-execution-control : NODECL_OPEN_M_P*IF([condition]expression)
                       | NODECL_OPEN_M_P*PRIORITY([priority]expression)
                       | NODECL_OPEN_M_P*MERGEABLE()
                       | NODECL_OPEN_M_P*UNTIED()
+# OmpSsv2 clause that  means that a task/taskloop has to wait for its children
+                      | NODECL_OMP_SS*WAIT()
 
 omp-critical-info: NODECL_OPEN_M_P*CRITICAL_NAME() text
 

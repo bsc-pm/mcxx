@@ -280,9 +280,11 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase cost_clause;
             Nodecl::NodeclBase priority_clause;
 
-            bool is_tied;
-            bool is_taskwait_dep;
-            bool is_taskloop;
+            bool is_tied,
+                 is_taskwait_dep,
+                 is_taskloop,
+                 wait_clause;
+
             std::string task_label;
 
             TL::ObjectList<Nodecl::NodeclBase> dep_in;
@@ -315,7 +317,7 @@ namespace TL { namespace Nanos6 {
 
             TaskProperties(LoweringPhase* lowering_phase, Lower* lower_vis)
                 : phase(lowering_phase), lower_visitor(lower_vis),
-                is_tied(true), is_taskwait_dep(false), is_taskloop(false),
+                is_tied(true), is_taskwait_dep(false), is_taskloop(false), wait_clause(false),
                 any_task_dependence(false)
             { }
 

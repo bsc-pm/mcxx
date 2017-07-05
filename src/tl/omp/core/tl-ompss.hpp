@@ -196,15 +196,13 @@ namespace TL { namespace OmpSs {
 
             TargetInfo _target_info;
 
+            bool _untied,
+                 _wait;  // OmpSsv2 wait clause
+
             Nodecl::NodeclBase _if_clause_cond_expr;
-
             Nodecl::NodeclBase _final_clause_cond_expr;
-
-            bool _untied;
-
             Nodecl::NodeclBase _priority_clause_expr;
             Nodecl::NodeclBase _cost_clause_expr;
-
             Nodecl::NodeclBase _task_label;
 
             TL::Scope _parsing_scope;
@@ -212,7 +210,7 @@ namespace TL { namespace OmpSs {
             const locus_t* _locus;
 
         public:
-            FunctionTaskInfo() : _untied(false) { }
+            FunctionTaskInfo() : _untied(false), _wait(false) { }
 
             FunctionTaskInfo(Symbol sym,
                     ObjectList<FunctionTaskDependency> parameter_info);
@@ -253,6 +251,9 @@ namespace TL { namespace OmpSs {
 
             bool get_untied() const;
             void set_untied(bool b);
+
+            bool get_wait() const;
+            void set_wait(bool b);
 
             Symbol get_symbol() const;
 
