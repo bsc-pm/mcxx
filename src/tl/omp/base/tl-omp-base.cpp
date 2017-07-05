@@ -1606,7 +1606,12 @@ namespace TL { namespace OpenMP {
                 ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
 
         if (pragma_line.get_clause("wait").is_defined())
-            execution_environment.append(Nodecl::OmpSs::Wait::make());
+        {
+            error_printf_at(pragma_line.get_locus(),
+                    "The 'wait' clause is not supported on the taskloop construct\n");
+
+            // execution_environment.append(Nodecl::OmpSs::Wait::make());
+        }
 
         handle_label_clause(directive, execution_environment);
 
