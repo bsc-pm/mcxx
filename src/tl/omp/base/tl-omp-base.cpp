@@ -1573,24 +1573,27 @@ namespace TL { namespace OpenMP {
 
         warn_printf_at(pragma_line.get_locus(), "'taskloop' construct is EXPERIMENTAL\n");
 
-        PragmaCustomClause chunksize_clause = pragma_line.get_clause("chunksize");
         Nodecl::NodeclBase chunksize;
+        PragmaCustomClause chunksize_clause = pragma_line.get_clause("chunksize");
         if (chunksize_clause.is_defined())
         {
             TL::ObjectList<Nodecl::NodeclBase> args = chunksize_clause.get_arguments_as_expressions();
-            int num_args = args.size();
-            if (num_args == 1)
+            if (args.size() == 1)
             {
                 chunksize = args[0];
             }
             else
             {
-                error_printf_at(pragma_line.get_locus(), "Invalid number of expressions in the 'chunksize' clause\n");
+                error_printf_at(pragma_line.get_locus(),
+                        "Invalid number of expressions in the 'chunksize' clause\n");
             }
         }
         else
         {
-            error_printf_at(pragma_line.get_locus(), "missing a 'chunksize' clause\n");
+            // When the 'chunksize' clause is not present we defined its value
+            // to be 0. This is a special value that indicates to the runtime
+            // that they can distribute the iterations in any way.
+            chunksize = const_value_to_nodecl(const_value_get_signed_int(0));
         }
 
         PragmaCustomClause nogroup = pragma_line.get_clause("nogroup");
