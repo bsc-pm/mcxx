@@ -1,6 +1,6 @@
 # OpenMP + Nanos
 [omp-base-common]
-options = --openmp
+{openmp|ompss} options = --openmp
 {debug} options = -g
 preprocessor_name = @GCC@
 preprocessor_options = -E
@@ -96,6 +96,16 @@ linker_name = @GCC@
 {@NANOX_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
 
 
+# Nanos++ & CUDA
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss} options = --cuda
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss} compiler_phase = libtlnanox-cuda.so
+
+
+# Nanos++ & OpenCL
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} options = --opencl
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} compiler_phase = libtlnanox-opencl.so
+
+
 # Force ompss for Nanos 6 (unless explicitly disabled)
 {@NANOS6_GATE@,!?ompss} preprocessor_options = -D_OMPSS=1
 {@NANOS6_GATE@,!?ompss} fortran_preprocessor_options = -D_OMPSS=1
@@ -139,6 +149,16 @@ linker_options = -Xlinker --enable-new-dtags
 {@NANOX_GATE@,openmp,!?dynamic-list|dynamic-list} linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 
 
+# Nanos++ & CUDA
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss} linker_options = -lnanox-gpu-api
+
+
+# Nanos++ & OpenCL
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} linker_options = -lnanox-opencl-api
+
+
 #Nanos 6
 {@NANOS6_GATE@,openmp} pragma_prefix = oss
 {@NANOS6_GATE@,openmp,!?default-nanos6-inc|default-nanos6-inc} preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
@@ -180,6 +200,16 @@ linker_options = -Wl,--enable-new-dtags
 {@NANOX_GATE@,openmp,!omp-dry-run} linker_options = @NANOX_IBM_LDFLAGS@
 # needed for the new link mechanism
 {@NANOX_GATE@,openmp,!?dynamic-list|dynamic-list} linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+
+
+# Nanos++ & CUDA
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -qinclude nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss} linker_options = -lnanox-gpu-api
+
+
+# Nanos++ & OpenCL
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} preprocessor_options = -qinclude nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} linker_options = -lnanox-opencl-api
 
 
 # dlb
