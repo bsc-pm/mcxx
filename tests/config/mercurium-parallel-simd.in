@@ -7,6 +7,18 @@ EOF
 
 exit
 
+if [ "@VECTORIZATION_ENABLED@" = "no" ];
+then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="Vectorization not enabled"
+EOF
+
+exit
+
+fi
+
 if [ "@NANOX_ENABLED@" = "no" -o "@NANOX_SSE@" = "no" ];
 then
 

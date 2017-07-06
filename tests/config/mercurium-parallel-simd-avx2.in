@@ -6,6 +6,18 @@ test_ignore=yes
 EOF
 exit
 
+if [ "@VECTORIZATION_ENABLED@" = "no" ];
+then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="Vectorization not enabled"
+EOF
+
+exit
+
+fi
+
 if [ "@MIC_COMPILATION@" = "no" ];
 then
 
