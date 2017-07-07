@@ -57,74 +57,75 @@ namespace TL { namespace OpenMP {
         : PragmaCustomCompilerPhase(),
         _core(),
         _simd_enabled(false),
-        _ompss_mode(false),
-        _omp_report(false),
-        _copy_deps_by_default(true),
-        _untied_tasks_by_default(true)
+        _omp_report(false)
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
 
+
+        // TL::Base phase flags
         register_parameter("omp_dry_run",
                 "Disables OpenMP transformation",
                 _openmp_dry_run,
                 "0");
-
-        register_parameter("discard_unused_data_sharings",
-                "Discards unused data sharings in the body of the construct. "
-                "This behaviour may cause wrong code be emitted, use at your own risk",
-                _discard_unused_data_sharings_str,
-                "0").connect(std::bind(&Base::set_discard_unused_data_sharings, this, std::placeholders::_1));
 
         register_parameter("simd_enabled",
                 "If set to '1' enables simd constructs, otherwise it is disabled",
                 _simd_enabled_str,
                 "0").connect(std::bind(&Base::set_simd, this, std::placeholders::_1));
 
-        register_parameter("allow_shared_without_copies",
-                "If set to '1' allows shared without any copy directionality, otherwise they are set to copy_inout",
-                _allow_shared_without_copies_str,
-                "0").connect(std::bind(&Base::set_allow_shared_without_copies, this, std::placeholders::_1));
-
-        register_parameter("allow_array_reductions",
-                "If set to '1' enables extended support for array reductions in C/C++",
-                _allow_array_reductions_str,
-                "1").connect(std::bind(&Base::set_allow_array_reductions, this, std::placeholders::_1));
-
-        register_parameter("ompss_mode",
-                "Enables OmpSs semantics instead of OpenMP semantics",
-                _ompss_mode_str,
-                "0").connect(std::bind(&Base::set_ompss_mode, this, std::placeholders::_1));
-
         register_parameter("omp_report",
                 "Emits an OpenMP report describing the OpenMP semantics of the code",
                 _omp_report_str,
                 "0").connect(std::bind(&Base::set_omp_report_parameter, this, std::placeholders::_1));
-
-        register_parameter("copy_deps_by_default",
-                "Enables copy_deps by default",
-                _copy_deps_str,
-                "1").connect(std::bind(&Base::set_copy_deps_by_default, this, std::placeholders::_1));
-
-        register_parameter("untied_tasks_by_default",
-                "If set to '1' tasks are untied by default, otherwise they are tied. This flag is only valid in OmpSs",
-                _untied_tasks_by_default_str,
-                "1").connect(std::bind(&Base::set_untied_tasks_by_default, this, std::placeholders::_1));
 
         register_parameter("disable_task_expression_optimization",
                 "Disables some optimizations applied to task expressions",
                 _disable_task_expr_optim_str,
                 "0");
 
+
+        // TL::Core phase flags
+        register_parameter("ompss_mode",
+                "Enables OmpSs semantics instead of OpenMP semantics",
+                _ompss_mode_str,
+                "0").connect(std::bind(&Core::set_ompss_mode_from_str, &this->_core, std::placeholders::_1));
+
+        register_parameter("copy_deps_by_default",
+                "Enables copy_deps by default",
+                _copy_deps_str,
+                "1").connect(std::bind(&Core::set_copy_deps_from_str, &this->_core, std::placeholders::_1));
+
+        register_parameter("untied_tasks_by_default",
+                "If set to '1' tasks are untied by default, otherwise they are tied. This flag is only valid in OmpSs",
+                _untied_tasks_by_default_str,
+                "1").connect(std::bind(&Core::set_untied_tasks_by_default_from_str, &this->_core, std::placeholders::_1));
+
+        register_parameter("discard_unused_data_sharings",
+                "Discards unused data sharings in the body of the construct. "
+                "This behaviour may cause wrong code be emitted, use at your own risk",
+                _discard_unused_data_sharings_str,
+                "0").connect(std::bind(&Core::set_discard_unused_data_sharings_from_str, &this->_core, std::placeholders::_1));
+
+        register_parameter("allow_shared_without_copies",
+                "If set to '1' allows shared without any copy directionality, otherwise they are set to copy_inout",
+                _allow_shared_without_copies_str,
+                "0").connect(std::bind(&Core::set_allow_shared_without_copies_from_str, &this->_core, std::placeholders::_1));
+
+        register_parameter("allow_array_reductions",
+                "If set to '1' enables extended support for array reductions in C/C++",
+                _allow_array_reductions_str,
+                "1").connect(std::bind(&Core::set_allow_array_reductions_from_str, &this->_core, std::placeholders::_1));
+
         register_parameter("enable_input_by_value_dependences",
                 "Enables input by value experimental dependences",
                 _enable_input_by_value_dependences,
-                "0").connect(std::bind(&Base::set_enable_input_by_value_dependences, this, std::placeholders::_1));
+                "0").connect(std::bind(&Core::set_enable_input_by_value_dependences_from_str, &this->_core, std::placeholders::_1));
 
         register_parameter("enable_nonvoid_function_tasks",
                 "Enables experimental nonvoid function tasks (Only for C/C++)",
                 _enable_nonvoid_function_tasks,
-                "0").connect(std::bind(&Base::set_enable_nonvoid_function_tasks, this, std::placeholders::_1));
+                "0").connect(std::bind(&Core::set_enable_nonvoid_function_tasks_from_str, &this->_core, std::placeholders::_1));
 
         register_omp();
         register_ompss();
@@ -365,12 +366,6 @@ namespace TL { namespace OpenMP {
                 "Assuming false");
     }
 
-    void Base::set_ompss_mode(const std::string& str)
-    {
-        parse_boolean_option("ompss_mode", str, _ompss_mode, "Assuming false.");
-        _core.set_ompss_mode(_ompss_mode);
-    }
-
     void Base::set_omp_report_parameter(const std::string& str)
     {
         parse_boolean_option("omp_report", str, _omp_report, "Assuming false.");
@@ -378,74 +373,12 @@ namespace TL { namespace OpenMP {
 
     bool Base::in_ompss_mode() const
     {
-        return _ompss_mode;
+        return _core.in_ompss_mode();
     }
 
     bool Base::emit_omp_report() const
     {
         return _omp_report;
-    }
-
-    void Base::set_copy_deps_by_default(const std::string& str)
-    {
-        parse_boolean_option("copy_deps", str, _copy_deps_by_default, "Assuming true.");
-        _core.set_copy_deps_by_default(_copy_deps_by_default);
-    }
-
-    bool Base::copy_deps_by_default() const
-    {
-        return _copy_deps_by_default;
-    }
-
-    void Base::set_untied_tasks_by_default(const std::string& str)
-    {
-         parse_boolean_option("untied_tasks", str, _untied_tasks_by_default, "Assuming true.");
-        _core.set_untied_tasks_by_default(_untied_tasks_by_default);
-    }
-
-    void Base::set_enable_input_by_value_dependences(const std::string& str)
-    {
-        bool b;
-         parse_boolean_option("enable_input_by_value_dependences", str, b, "Assuming false.");
-        _core.set_enable_input_by_value_dependences(b);
-    }
-
-    void Base::set_enable_nonvoid_function_tasks(const std::string& str)
-    {
-        bool b;
-         parse_boolean_option("enable_nonvoid_function_tasks", str, b, "Assuming false.");
-        _core.set_enable_nonvoid_function_tasks(b);
-    }
-
-    bool Base::untied_tasks_by_default() const
-    {
-        return _untied_tasks_by_default;
-    }
-
-    void Base::set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str)
-    {
-        bool b = false;
-        parse_boolean_option("allow_shared_without_copies",
-                allow_shared_without_copies_str, b, "Assuming false");
-        _core.set_allow_shared_without_copies(b);
-    }
-
-    void Base::set_allow_array_reductions(const std::string &allow_array_reductions)
-    {
-        bool b = true;
-        parse_boolean_option("allow_array_reductions",
-                allow_array_reductions, b, "Assuming true");
-        _core.set_allow_array_reductions(b);
-    }
-
-    void Base::set_discard_unused_data_sharings(const std::string& str)
-    {
-        bool b = false;
-        parse_boolean_option("discard_unused_data_sharings",
-                str,
-                b,
-                "Assuming false");
-        _core.set_discard_unused_data_sharings(b);
     }
 
     void Base::atomic_handler_pre(TL::PragmaCustomStatement) { }
@@ -748,7 +681,7 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause untied = pragma_line.get_clause("untied");
         if (untied.is_defined()
                 // The tasks are untied by default and the current task has not defined the 'tied' clause
-                || (_untied_tasks_by_default && !tied.is_defined()))
+                || (_core.untied_tasks_by_default() && !tied.is_defined()))
         {
             execution_environment.append(
                     Nodecl::OpenMP::Untied::make(

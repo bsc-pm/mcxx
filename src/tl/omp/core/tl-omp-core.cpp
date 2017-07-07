@@ -49,11 +49,14 @@ namespace TL { namespace OpenMP {
 
     Core::Core()
         : PragmaCustomCompilerPhase(),
+        _ompss_mode(false),
+        _copy_deps_by_default(true),
+        _untied_tasks_by_default(true),
         _discard_unused_data_sharings(false),
         _allow_shared_without_copies(false),
         _allow_array_reductions(true),
-        _ompss_mode(false),
-        _copy_deps_by_default(true),
+        _enable_input_by_value_dependences(false),
+        _enable_nonvoid_function_tasks(false),
         _inside_declare_target(false)
     {
         set_phase_name("OpenMP Core Analysis");
@@ -141,6 +144,61 @@ namespace TL { namespace OpenMP {
         }
 
         _function_task_set->emit_module_info();
+    }
+
+    bool Core::in_ompss_mode() const
+    {
+        return _ompss_mode;
+    }
+
+    bool Core::untied_tasks_by_default() const
+    {
+        return _untied_tasks_by_default;
+    }
+
+    void Core::set_ompss_mode_from_str(const std::string& str)
+    {
+        parse_boolean_option("ompss_mode", str, _ompss_mode, "Assuming false.");
+    }
+
+    void Core::set_copy_deps_from_str(const std::string& str)
+    {
+        parse_boolean_option("copy_deps", str, _copy_deps_by_default, "Assuming true.");
+    }
+
+    void Core::set_untied_tasks_by_default_from_str(const std::string& str)
+    {
+        parse_boolean_option("untied_tasks", str, _untied_tasks_by_default, "Assuming true.");
+    }
+
+    void Core::set_discard_unused_data_sharings_from_str(const std::string& str)
+    {
+        parse_boolean_option("discard_unused_data_sharings",
+                str, _discard_unused_data_sharings, "Assuming false");
+    }
+
+    void Core::set_allow_shared_without_copies_from_str(const std::string& str)
+    {
+        parse_boolean_option("allow_shared_without_copies",
+                str, _allow_shared_without_copies, "Assuming false");
+    }
+
+    void Core::set_allow_array_reductions_from_str(const std::string& str)
+    {
+        parse_boolean_option("allow_array_reductions",
+                str, _allow_array_reductions, "Assuming true");
+    }
+
+    void Core::set_enable_input_by_value_dependences_from_str(const std::string& str)
+    {
+        parse_boolean_option("enable_input_by_value_dependences",
+                str, _enable_input_by_value_dependences, "Assuming false.");
+    }
+
+    void Core::set_enable_nonvoid_function_tasks_from_str(const std::string& str)
+    {
+        parse_boolean_option("enable_nonvoid_function_tasks",
+                str, _enable_nonvoid_function_tasks, "Assuming false.");
     }
 
     std::shared_ptr<OpenMP::Info> Core::get_openmp_info()
@@ -1072,7 +1130,7 @@ namespace TL { namespace OpenMP {
             DataEnvironment& data_environment,
             ObjectList<Symbol>& extra_symbols)
     {
-        ERROR_CONDITION(_ompss_mode, "Visiting a OpenMP::Parallel in OmpSs", 0);
+        ERROR_CONDITION(in_ompss_mode(), "Visiting a OpenMP::Parallel in OmpSs", 0);
         data_environment.set_is_parallel(true);
 
         common_construct_handler(construct, data_environment, extra_symbols);
@@ -1453,7 +1511,7 @@ namespace TL { namespace OpenMP {
             = nonlocal_symbols_occurrences.map<TL::Symbol>(
                 &Nodecl::NodeclBase::get_symbol);
 
-        if (!_ompss_mode)
+        if (!in_ompss_mode())
         {
             // OpenMP extra stuff
             // Add the base symbol of every dependence to the nonlocal_symbols list
@@ -1781,7 +1839,7 @@ namespace TL { namespace OpenMP {
     // Handlers
     void Core::parallel_handler_pre(TL::PragmaCustomStatement construct)
     {
-        if (!_ompss_mode)
+        if (!in_ompss_mode())
         {
             DataEnvironment& data_environment = _openmp_info->get_new_data_environment(construct);
             _openmp_info->push_current_data_environment(data_environment);
@@ -1794,14 +1852,14 @@ namespace TL { namespace OpenMP {
 
     void Core::parallel_handler_post(TL::PragmaCustomStatement construct)
     {
-        if (!_ompss_mode)
+        if (!in_ompss_mode())
             _openmp_info->pop_current_data_environment();
     }
 
     void Core::parallel_for_handler_pre(TL::PragmaCustomStatement construct)
     {
         Nodecl::NodeclBase stmt = get_statement_from_pragma(construct);
-        if (_ompss_mode)
+        if (in_ompss_mode())
         {
             loop_handler_pre(construct, stmt, &Core::common_for_handler);
         }
@@ -1889,7 +1947,7 @@ namespace TL { namespace OpenMP {
     {
         Nodecl::NodeclBase stmt = get_statement_from_pragma(construct);
 
-        if (_ompss_mode)
+        if (in_ompss_mode())
         {
             loop_handler_pre(construct, stmt, &Core::common_for_handler);
         }
@@ -1985,7 +2043,7 @@ namespace TL { namespace OpenMP {
         _openmp_info->push_current_data_environment(data_environment);
 
         ObjectList<Symbol> extra_symbols;
-        if (_ompss_mode)
+        if (in_ompss_mode())
         {
             common_workshare_handler(construct, data_environment, extra_symbols);
         }
