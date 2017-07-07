@@ -62,8 +62,6 @@ namespace TL
                 bool _simd_enabled;
                 void set_simd(const std::string &simd_enabled_str);
 
-                bool in_ompss_mode() const;
-
                 std::ofstream* _omp_report_file;
                 std::string _omp_report_str;
                 bool _omp_report;

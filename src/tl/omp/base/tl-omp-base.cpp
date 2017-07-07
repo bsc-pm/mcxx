@@ -217,17 +217,17 @@ namespace TL { namespace OpenMP {
         {
             TL::CompiledFile current = TL::CompilationProcess::get_current_file();
             std::string report_filename = current.get_filename() + "." +
-                    std::string(in_ompss_mode() ? "ompss.report" : "openmp.report");
+                    std::string(_core.in_ompss_mode() ? "ompss.report" : "openmp.report");
 
             info_printf_at(
                     ::make_locus(current.get_filename().c_str(), 0, 0),
                     "creating %s report in '%s'\n",
-                    in_ompss_mode() ? "OmpSs" : "OpenMP",
+                    _core.in_ompss_mode() ? "OmpSs" : "OpenMP",
                     report_filename.c_str());
 
             _omp_report_file = new std::ofstream(report_filename.c_str());
             *_omp_report_file
-                << (in_ompss_mode() ? "OmpSs " : "OpenMP ") << "Report for file '" << current.get_filename() << "'\n"
+                << (_core.in_ompss_mode() ? "OmpSs " : "OpenMP ") << "Report for file '" << current.get_filename() << "'\n"
                 << "=================================================================\n";
         }
 
@@ -369,11 +369,6 @@ namespace TL { namespace OpenMP {
     void Base::set_omp_report_parameter(const std::string& str)
     {
         parse_boolean_option("omp_report", str, _omp_report, "Assuming false.");
-    }
-
-    bool Base::in_ompss_mode() const
-    {
-        return _core.in_ompss_mode();
     }
 
     bool Base::emit_omp_report() const
@@ -804,7 +799,7 @@ namespace TL { namespace OpenMP {
 
     void Base::parallel_handler_pre(TL::PragmaCustomStatement)
     {
-        if (this->in_ompss_mode())
+        if (_core.in_ompss_mode())
         {
             return;
         }
@@ -819,7 +814,7 @@ namespace TL { namespace OpenMP {
                 << directive.get_locus_str() << ": " << "------------------\n"
                 ;
         }
-        if (this->in_ompss_mode())
+        if (_core.in_ompss_mode())
         {
             warn_printf_at(directive.get_locus(),
                     "explicit parallel regions do not have any effect in OmpSs\n");
@@ -1177,8 +1172,11 @@ namespace TL { namespace OpenMP {
 
         handle_label_clause(directive, execution_environment);
 
-        if (this->in_ompss_mode())
-            handle_task_final_clause(directive, /* parsing_context */ directive, execution_environment);
+        if (_core.in_ompss_mode())
+        {
+            handle_task_final_clause(
+                    directive, /* parsing_context */ directive, execution_environment);
+        }
 
         if (pragma_line.get_clause("schedule").is_defined())
         {
@@ -1616,7 +1614,7 @@ namespace TL { namespace OpenMP {
 
     void Base::parallel_do_handler_pre(TL::PragmaCustomStatement directive)
     {
-        if (this->in_ompss_mode())
+        if (_core.in_ompss_mode())
         {
             do_handler_pre(directive);
             return;
@@ -1636,7 +1634,7 @@ namespace TL { namespace OpenMP {
             ;
         }
 
-        if (this->in_ompss_mode())
+        if (_core.in_ompss_mode())
         {
             // In OmpSs this is like a simple DO
             warn_printf_at(directive.get_locus(),
@@ -1755,7 +1753,7 @@ namespace TL { namespace OpenMP {
 
     void Base::target_handler_pre(TL::PragmaCustomStatement stmt)
     {
-        if (!this->in_ompss_mode())
+        if (!_core.in_ompss_mode())
         {
             omp_target_handler_pre(stmt);
         }
@@ -1766,7 +1764,7 @@ namespace TL { namespace OpenMP {
     }
     void Base::target_handler_pre(TL::PragmaCustomDeclaration decl)
     {
-        if (!this->in_ompss_mode())
+        if (!_core.in_ompss_mode())
         {
             omp_target_handler_pre(decl);
         }
@@ -1778,7 +1776,7 @@ namespace TL { namespace OpenMP {
 
     void Base::target_handler_post(TL::PragmaCustomStatement stmt)
     {
-        if (!this->in_ompss_mode())
+        if (!_core.in_ompss_mode())
         {
             omp_target_handler_post(stmt);
         }
@@ -1790,7 +1788,7 @@ namespace TL { namespace OpenMP {
 
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        if (!this->in_ompss_mode())
+        if (!_core.in_ompss_mode())
         {
             omp_target_handler_post(decl);
         }
@@ -2482,7 +2480,7 @@ namespace TL { namespace OpenMP {
 
     void Base::parallel_sections_handler_pre(TL::PragmaCustomStatement directive)
     {
-        if (this->in_ompss_mode())
+        if (_core.in_ompss_mode())
         {
             sections_handler_pre(directive);
             return;
@@ -2502,7 +2500,7 @@ namespace TL { namespace OpenMP {
                 << directive.get_locus_str() << ": " << directive.get_statements().prettyprint() << "\n"
                 ;
         }
-        if (this->in_ompss_mode())
+        if (_core.in_ompss_mode())
         {
             warn_printf_at(directive.get_locus(), "explicit parallel regions do not have any effect in OmpSs\n");
             if (emit_omp_report())
@@ -2628,7 +2626,7 @@ namespace TL { namespace OpenMP {
 
     void Base::parallel_for_handler_pre(TL::PragmaCustomStatement directive)
     {
-        if (this->in_ompss_mode())
+        if (_core.in_ompss_mode())
         {
             for_handler_pre(directive);
             return;
@@ -2647,7 +2645,7 @@ namespace TL { namespace OpenMP {
                 << directive.get_locus_str() << ": " << directive.get_statements().prettyprint() << "\n"
                 ;
         }
-        if (this->in_ompss_mode())
+        if (_core.in_ompss_mode())
         {
             // In OmpSs this is like a simple for
             warn_printf_at(directive.get_locus(), "explicit parallel regions do not have any effect in OmpSs\n");
