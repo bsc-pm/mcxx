@@ -498,8 +498,51 @@ static p_compilation_configuration_line process_option_line(
     return result;
 }
 
+#if 0
+const char* flag_expr_print(flag_expr_t* flag_expr)
+{
+    switch (flag_expr->kind)
+    {
+        case FLAG_OP_NAME:
+            {
+                return flag_expr->text;
+            }
+        case FLAG_OP_IS_DEFINED:
+            {
+                return strappend(strappend("(?", flag_expr->text), ")");
+            }
+        case FLAG_OP_NOT:
+            {
+                return strappend(strappend("(!", flag_expr_print(flag_expr->op[0])), ")");
+            }
+        case FLAG_OP_OR:
+            {
+                return strappend(strappend("(", strappend(strappend(flag_expr_print(flag_expr->op[0]), " || "), flag_expr_print(flag_expr->op[1]))), ")");
+            }
+        case FLAG_OP_AND:
+            {
+                return strappend(strappend("(", strappend(strappend(flag_expr_print(flag_expr->op[0]), " && "), flag_expr_print(flag_expr->op[1]))), ")");
+            }
+        case FLAG_OP_TRUE:
+            {
+                return "true";
+            }
+        case FLAG_OP_FALSE:
+            {
+                return "false";
+            }
+        default:
+            {
+                internal_error("Invalid flag expr", 0);
+            }
+    }
+    return "invalid";
+}
+#endif
+
 char flag_expr_eval(flag_expr_t* flag_expr)
 {
+    char result = 0;
     switch (flag_expr->kind)
     {
         case FLAG_OP_NAME:
@@ -518,11 +561,11 @@ char flag_expr_eval(flag_expr_t* flag_expr)
 
                 if (flag_expr->kind == FLAG_OP_NAME)
                 {
-                    return (value_of_flag == PFV_TRUE);
+                    result = (value_of_flag == PFV_TRUE);
                 }
                 else if (flag_expr->kind == FLAG_OP_IS_DEFINED)
                 {
-                    return (value_of_flag != PFV_UNDEFINED);
+                    result = (value_of_flag != PFV_UNDEFINED);
                 }
                 else
                 {
@@ -532,30 +575,34 @@ char flag_expr_eval(flag_expr_t* flag_expr)
             }
         case FLAG_OP_NOT:
             {
-                return !flag_expr_eval(flag_expr->op[0]);
+                result = !flag_expr_eval(flag_expr->op[0]);
+                break;
             }
         case FLAG_OP_OR:
             {
-                return flag_expr_eval(flag_expr->op[0]) || flag_expr_eval(flag_expr->op[1]);
+                result = flag_expr_eval(flag_expr->op[0]) || flag_expr_eval(flag_expr->op[1]);
+                break;
             }
         case FLAG_OP_AND:
             {
-                return flag_expr_eval(flag_expr->op[0]) && flag_expr_eval(flag_expr->op[1]);
+                result = flag_expr_eval(flag_expr->op[0]) && flag_expr_eval(flag_expr->op[1]);
+                break;
             }
         case FLAG_OP_TRUE:
             {
-                return 1;
+                result = 1;
+                break;
             }
         case FLAG_OP_FALSE:
             {
-                return 0;
+                result = 0;
+                break;
             }
         default:
             {
                 internal_error("Invalid flag expr", 0);
-                return 0;
             }
     }
-
-    return 0;
+    //printf("FLAG EVAL: '%s' -> %d\n", flag_expr_print(flag_expr), result);
+    return result;
 }
