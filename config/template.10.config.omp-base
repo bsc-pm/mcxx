@@ -23,8 +23,8 @@ linker_name = @GCC@
 {ompss,?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
 
 {!ompss} options = --variable=untied_tasks_by_default:0
-{ompss,(!?untied-tasks|untied-tasks),!?tied-tasks} options = --variable=untied_tasks_by_default:1
-{ompss,tied-tasks,!?untied-tasks} options = --variable=untied_tasks_by_default:0
+{ompss,!?untied-tasks|untied-tasks} options = --variable=untied_tasks_by_default:1
+{ompss,?untied-tasks,!untied_tasks} options = --variable=untied_tasks_by_default:0
 
 
 #Analysis
@@ -102,8 +102,8 @@ linker_name = @GCC@
 {@NANOS6_GATE@,!?ompss} options = --variable=ompss_mode:1
 {@NANOS6_GATE@,!?ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
 {@NANOS6_GATE@,!?ompss,?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
-{@NANOS6_GATE@,!?ompss,(!?untied-tasks|untied-tasks),!?tied-tasks} options = --variable=untied_tasks_by_default:1
-{@NANOS6_GATE@,!?ompss,tied-tasks,!?untied-tasks} options = --variable=untied_tasks_by_default:0
+{@NANOS6_GATE@,!?ompss,!?untied-tasks|untied-tasks} options = --variable=untied_tasks_by_default:1
+{@NANOS6_GATE@,!?ompss,?untied-tasks,!untied-tasks} options = --variable=untied_tasks_by_default:0
 {@NANOS6_GATE@,openmp,!do-not-lower-omp} compiler_phase = libtlnanos6-lowering.so
 
 
