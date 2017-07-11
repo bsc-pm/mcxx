@@ -599,11 +599,6 @@ NANOX_GATE=":false:"
 NANOX_NEW_LINK=":false:"
 NANOX_OLD_LINK=":false:"
 
-if test x$is_enabled_ompss = xyes;
-then
-    nanox_include="${prefix}/include/nanox"
-    nanox_lib="${prefix}/lib"
-fi
 
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
