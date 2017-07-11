@@ -203,7 +203,9 @@ namespace TL { namespace Nanos6 {
 
             taskloop_bounds_ptr.set_type(taskloop_bounds_struct.get_user_defined_type().get_pointer_to());
             symbol_entity_specs_set_is_user_declared(taskloop_bounds_ptr.get_internal_symbol(), 1);
-            new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), taskloop_bounds_ptr));
+
+            if (IS_CXX_LANGUAGE)
+                new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), taskloop_bounds_ptr));
         }
 
         if (!local_init_task_info.is_null())
