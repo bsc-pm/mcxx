@@ -508,11 +508,14 @@ dnl --------------------- End support for plain profiles for Intel Compilers ---
 
 dnl -- End of extra compiler checks ---
 
-dnl --------------------- Support for OMPSS ------------------------------------------
+
+
+
+dnl --------------------- Support for OmpSs ------------------------------------------
 is_enabled_ompss="no"
 AC_MSG_CHECKING([if enabled OmpSs support in the compiler for Nanos++])
 AC_ARG_ENABLE([ompss],
-    AS_HELP_STRING([--enable-ompss], [Enables support of OmpSs Programming Model using Nanos++]),
+    AS_HELP_STRING([--enable-ompss], [Enables support of OmpSs Programming Model using Nanos++ (default is disabled)]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
@@ -532,22 +535,20 @@ AC_ARG_ENABLE([ompss],
     ]
 )
 
-dnl --------------------- Support for OpenMP Nanox --------------------------------------
-
-is_enabled_tl_omp_nanox="no"
-
-AC_MSG_CHECKING([if enabled OpenMP TL support for Nanos++])
-AC_ARG_ENABLE([tl-openmp-nanox],
-  AS_HELP_STRING([--enable-tl-openmp-nanox], [Enables support of OpenMP TL for Nanos++]),
+dnl --------------------- Support for OpenMP --------------------------------------
+is_enabled_openmp="no"
+AC_MSG_CHECKING([if enabled OpenMP support in the compiler for Nanos++])
+AC_ARG_ENABLE([openmp],
+  AS_HELP_STRING([--enable-openmp], [Enables support of OpenMP using Nanos++ (default is disabled, unless OmpSs is enabled)]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-        is_enabled_tl_omp_nanox="yes"
+        is_enabled_openmp="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
             AC_MSG_RESULT([no])
-            is_enabled_tl_omp_nanox="no"
+            is_enabled_openmp="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
@@ -556,14 +557,23 @@ AC_ARG_ENABLE([tl-openmp-nanox],
   [
     if test x$is_enabled_ompss = xyes;
     then
-        is_enabled_tl_omp_nanox="yes"
+        is_enabled_openmp="yes"
           AC_MSG_RESULT([yes])
     else
-          is_enabled_tl_omp_nanox="no"
+          is_enabled_openmp="no"
           AC_MSG_RESULT([no])
     fi
   ]
 )
+
+
+dnl --------------------- Support for OmpSs / OpenMP Nanox --------------------------------------
+
+is_enabled_tl_omp_nanox="no"
+if test x$is_enabled_openmp = xyes -o x$is_enabled_ompss = xyes;
+then
+    is_enabled_tl_omp_nanox="yes"
+fi
 
 nanox_include=""
 nanox_lib=""
@@ -2503,7 +2513,7 @@ echo "   Fortran tests enabled: " $fortran_tests_enabled
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
-echo " * Nanos++ OpenMP :" $is_enabled_tl_omp_nanox
+echo " * Nanos++ OmpSs / OpenMP :" $is_enabled_tl_omp_nanox
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
   echo ""
