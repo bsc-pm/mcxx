@@ -630,6 +630,19 @@ then
            ]
    )
 
+   CFLAGSBACKUP="$CFLAGS"
+   CPPFLAGSBACKUP="$CPPFLAGS"
+
+   CPPFLAGS="$CPPFLAGS -I$nanox_include"
+   CFLAGS="$CFLAGS -I$nanox_include"
+
+   AC_CHECK_HEADER([nanos.h],
+                   [break],
+                   [AC_MSG_ERROR([Nanos++ support was required but 'nanos.h' was not found])])
+
+   CPPFLAGS="$CPPFLAGSBACKUP"
+   CFLAGS="$CFLAGSBACKUP"
+
    AC_MSG_CHECKING([linking mechanism of Nanos++])
 
     AC_ARG_ENABLE([nanos-new-link-mechanism],
