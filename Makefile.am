@@ -3241,10 +3241,6 @@ CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
 # Replacements are defined in this file
 config_edit = \
      $(SED) \
-     -e 's|@ACOLIB_INCLUDES[@]|$(ACOLIB_INCLUDES)|g' \
-     -e 's|@ACOLIB_LIBS[@]|$(ACOLIB_LIBS)|g' \
-     -e 's|@ACOTES_MSF_INCLUDES[@]|$(ACOTES_MSF_INCLUDES)|g' \
-     -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
      -e 's|@NANOX_NEW_LINK[@]|$(NANOX_NEW_LINK)|g' \
@@ -3255,12 +3251,6 @@ config_edit = \
      -e 's|@NANOX_MIC_INCLUDES[@]|$(NANOX_MIC_INCLUDES)|g' \
      -e 's|@NANOX_MIC_LIBS[@]|$(NANOX_MIC_LIBS)|g' \
      -e 's|@NANOX_MIC[@]|$(NANOX_MIC)|g' \
-     -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
-     -e 's|@NANOS4_LIBS[@]|$(NANOS4_LIBS)|g' \
-     -e 's|@NEBELUNG_INCLUDES[@]|$(NEBELUNG_INCLUDES)|g' \
-     -e 's|@NEBELUNG_LIBS[@]|$(NEBELUNG_LIBS)|g' \
-     -e "s|@SUPERSCALAR_INCLUDES[@]|$(SUPERSCALAR_INCLUDES)|g" \
-     -e "s|@SUPERSCALAR_LIBS[@]|$(SUPERSCALAR_LIBS)|g" \
      -e "s|@CUDA_INCLUDES[@]|$(CUDA_INCLUDES)|g" \
      -e "s|@CUDA_LIBS[@]|$(CUDA_LIBS)|g" \
      -e "s|@CUDA_RPATH[@]|$(CUDA_RPATH)|g" \
@@ -3273,7 +3263,6 @@ config_edit = \
      -e 's|@prefix[@]|$(prefix)|g' \
      -e 's|@includedir[@]|$(includedir)|g' \
      -e 's|@libdir[@]|$(libdir)|g' \
-     -e 's|@superscalar_version[@]|$(superscalar_version)|g' \
      -e 's|@RPATH_PARAMETER[@]|$(RPATH_PARAMETER)|g' \
      -e 's|@ICC[@]|$(ICC)|g' \
      -e 's|@ICPC[@]|$(ICPC)|g' \
