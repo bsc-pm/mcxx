@@ -26,7 +26,7 @@ if [ "@NANOS6_ENABLED@" = "yes" ];
 then
     if [ "$nanos6_test_disabled" != "yes" ];
     then
-        @abs_builddir@/mercurium-nanos6 ompss $1;
+        @abs_builddir@/mercurium-nanos6 ompss-v2 $1;
     elif [ "@NANOX_ENABLED@" != "yes" ];
     then
 

@@ -79,12 +79,6 @@ EOF
 
 COMMON_NANOX_CFLAGS="-DNANOX"
 
-NANOX_GATE=""
-if [ "@DEFAULT_OMPSS_RUNTIME@" = "nanos6" ];
-then
-    NANOX_GATE="--nanox"
-fi
-
 cat <<EOF
 compile_versions="\${compile_versions} nanox_mercurium"
 
@@ -94,9 +88,9 @@ test_FC_nanox_mercurium="\${NANOX_MFC}"
 
 test_FFLAGS="\${test_FFLAGS} --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner"
 
-test_CFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_CXXFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_FFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${NANOX_GATE}"
+test_CFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_FFLAGS_nanox_mercurium="${PROGRAMMING_MODEL}"
 
 test_LDFLAGS_nanox_mercurium="@abs_top_builddir@/lib/perish.o"
 
@@ -110,7 +104,7 @@ cat <<EOF
 NANOX_IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanox_imcc"
 test_CC_nanox_imcc="\${NANOX_IMCC}"
-test_CFLAGS_nanox_imcc="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_imcc="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_LDFLAGS_nanox_imcc="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
@@ -121,7 +115,7 @@ cat <<EOF
 NANOX_XLMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmcc --config-dir=@abs_top_builddir@/config --verbose"
 compile_versions="\${compile_versions} nanox_xlmcc"
 test_CC_nanox_xlmcc="\${NANOX_XLMCC}"
-test_CFLAGS_nanox_xlmcc="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_xlmcc="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_LDFLAGS_nanox_xlmcc="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
@@ -135,7 +129,7 @@ cat <<EOF
 NANOX_IMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcxx --config-dir=@abs_top_builddir@/config --verbose ${CPLUSPLUS_2011_FLAG}"
 compile_versions="\${compile_versions} nanox_imcxx"
 test_CXX_nanox_imcxx="\${NANOX_IMCXX}"
-test_CXXFLAGS_nanox_imcxx="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CXXFLAGS_nanox_imcxx="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_LDFLAGS_nanox_imcxx="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
@@ -146,7 +140,7 @@ cat <<EOF
 NANOX_XLMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmcxx --config-dir=@abs_top_builddir@/config --verbose ${CPLUSPLUS_2011_FLAG}"
 compile_versions="\${compile_versions} nanox_xlmcxx"
 test_CXX_nanox_xlmcxx="\${NANOX_XLMCXX}"
-test_CXXFLAGS_nanox_xlmcxx="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CXXFLAGS_nanox_xlmcxx="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_LDFLAGS_nanox_xlmcxx="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
@@ -160,7 +154,7 @@ cat <<EOF
 NANOX_IMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose"
 compile_versions="\${compile_versions} nanox_imfc"
 test_FC_nanox_imfc="\${NANOX_IMFC}"
-test_FFLAGS_nanox_imfc="${PROGRAMMING_MODEL} ${NANOX_GATE}"
+test_FFLAGS_nanox_imfc="${PROGRAMMING_MODEL}"
 test_LDFLAGS_nanox_imfc="@abs_top_builddir@/lib/perish.o"
 test_ENV_nanox_imfc="FOR_IGNORE_EXCEPTIONS=1"
 EOF
@@ -172,7 +166,7 @@ cat <<EOF
 NANOX_XLMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose"
 compile_versions="\${compile_versions} nanox_xlmfc"
 test_FC_nanox_xlmfc="\${NANOX_XLMFC}"
-test_FFLAGS_nanox_xlmfc="${PROGRAMMING_MODEL} ${NANOX_GATE}"
+test_FFLAGS_nanox_xlmfc="${PROGRAMMING_MODEL}"
 test_LDFLAGS_nanox_xlmfc="@abs_top_builddir@/lib/perish.o"
 EOF
   fi

@@ -535,6 +535,7 @@ AC_ARG_ENABLE([ompss],
     ]
 )
 
+
 dnl --------------------- Support for OpenMP --------------------------------------
 is_enabled_openmp="no"
 AC_MSG_CHECKING([if enabled OpenMP support in the compiler for Nanos++])
@@ -563,6 +564,32 @@ AC_ARG_ENABLE([openmp],
           is_enabled_openmp="no"
           AC_MSG_RESULT([no])
     fi
+  ]
+)
+
+
+dnl --------------------- Support for OmpSs-v2  --------------------------------------
+is_enabled_ompss_v2="no"
+AC_MSG_CHECKING([if enabled OmpSs-v2 support in the compiler for Nanos6])
+AC_ARG_ENABLE([ompss-v2],
+  AS_HELP_STRING([--enable-ompss-v2], [Enables support of OmpSs-v2 using Nanos6 (default is disabled)]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_ompss_v2="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            is_enabled_ompss_v2="no"
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+     is_enabled_ompss_v2="no"
+     AC_MSG_RESULT([no])
   ]
 )
 
@@ -879,39 +906,21 @@ AC_SUBST([NANOX_SSE])
 
 NANOX_AVX2=$nanox_avx2
 AC_SUBST([NANOX_AVX2])
-
-
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
-dnl ---------------------- Support for Nanos 6 -----------------------------------------
 
+dnl ---------------------- Support for OmpSs-v2 Nanos6 -----------------------------------------
 is_enabled_tl_ompss_nanos6="no"
+if test x$is_enabled_ompss_v2 = xyes;
+then
+    is_enabled_tl_ompss_nanos6="yes"
+fi
+
+nanos6=""
+nanos6_include=""
+nanos6_lib=""
 
 NANOS6_GATE=":false:"
-
-AC_MSG_CHECKING([if enabled OmpSs TL support for Nanos 6])
-AC_ARG_ENABLE([tl-ompss-nanos6],
-  AS_HELP_STRING([--enable-tl-ompss-nanos6], [Enables support of OmpSs TL for Nanos 6]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        is_enabled_tl_ompss_nanos6="yes"
-        AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-            is_enabled_tl_ompss_nanos6="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-     is_enabled_tl_ompss_nanos6="no"
-     AC_MSG_RESULT([no])
-  ]
-)
-
 if test x$is_enabled_tl_ompss_nanos6 = xyes;
 then
    NANOS6_GATE=":true:"
@@ -942,71 +951,36 @@ then
             nanos6_lib="${withval}"
            ]
    )
+
+   CFLAGSBACKUP="$CFLAGS"
+   CPPFLAGSBACKUP="$CPPFLAGS"
+
+   CPPFLAGS="$CPPFLAGS -I$nanos6_include"
+   CFLAGS="$CFLAGS -I$nanos6_include"
+
+   AC_CHECK_HEADER([nanos6.h],
+                   [break],
+                   [AC_MSG_ERROR([Nanos6 support was required but 'nanos6.h' was not found])])
+
+   CPPFLAGS="$CPPFLAGSBACKUP"
+   CFLAGS="$CFLAGSBACKUP"
 fi
 
 AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
-NANOS6_INCLUDES="${nanos6_include}"
-NANOS6_LIB="${nanos6_lib}"
-NANOS6="${nanos6}"
 
-NANOS6_ENABLED="$is_enabled_tl_ompss_nanos6"
+AC_SUBST([NANOS6],          ["${nanos6}"])
+AC_SUBST([NANOS6_INCLUDES], ["${nanos6_include}"])
+AC_SUBST([NANOS6_LIB],      ["${nanos6_lib}"])
+AC_SUBST([NANOS6_ENABLED],  ["${is_enabled_tl_ompss_nanos6}"])
 
-AC_SUBST([NANOS6])
-AC_SUBST([NANOS6_INCLUDES])
-AC_SUBST([NANOS6_LIB])
-AC_SUBST([NANOS6_ENABLED])
 AC_SUBST([NANOS6_GATE])
-
-AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
-
-DEFAULT_OMPSS_RUNTIME=""
-if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
-then
-  AC_MSG_CHECKING([default OmpSs runtime])
-  AC_ARG_WITH([default-ompss-runtime],
-         AS_HELP_STRING([--with-default-ompss-runtime=nanos++|nanos6], [Select default OmpSs runtime. Only used if both Nanos++ and Nanos 6 are enabled]),
-         [
-          case ${withval} in
-             nanos6|nanos++)
-              DEFAULT_OMPSS_RUNTIME="${withval}"
-              AC_MSG_RESULT([${withval}])
-              ;;
-             *)
-              AC_MSG_ERROR([This option only allows 'nanos++' or 'nanos6'])
-              ;;
-          esac
-         ],
-         [
-              DEFAULT_OMPSS_RUNTIME="nanos++"
-              AC_MSG_RESULT([nanos++ (by default)])
-         ]
-  )
-
-  if test "${DEFAULT_OMPSS_RUNTIME}" = "nanos++";
-  then
-    NANOX_GATE='!nanos6'
-    NANOS6_GATE='nanos6'
-  else
-    if test "${DEFAULT_OMPSS_RUNTIME}" = "nanos6";
-    then
-      NANOX_GATE='nanox'
-      NANOS6_GATE='!nanox'
-    else
-      # Should not happen
-      AC_MSG_ERROR([invalid value for DEFAULT_OMPSS_RUNTIME])
-    fi
-  fi
-
-fi
-
-AC_SUBST([DEFAULT_OMPSS_RUNTIME])
 
 if test x$is_enabled_tl_ompss_nanos6 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
 fi
+dnl ---------------------- End of Support for OmpSs-v2 Nanos6 -----------------------------------------
 
-dnl ---------------------- End of Support for Nanos 6 -----------------------------------------
 
 dnl --------------------- Dynamic Load Balancing -------------------------------
 # Eventually we can attempt to figure this out from the nanos-installation
@@ -2547,23 +2521,12 @@ then
 fi
 
 echo ""
-echo " * Nanos 6 OmpSs :" $is_enabled_tl_ompss_nanos6
+echo " * Nanos6 OmpSs-v2 :" $is_enabled_tl_ompss_nanos6
 if test x$is_enabled_tl_ompss_nanos6 = xyes;
 then
   echo ""
-  echo "   Nanos 6 includes :" $nanos6_include
-  echo "   Nanos 6 libraries:" $nanos6_lib
-
-  if test ! -e "$nanos6_include" -o ! -d "$nanos6_include";
-  then
-     AC_MSG_WARN([directory '${nanos6_include}' does not seem to exist, compilation is likely to fail])
-  fi
-fi
-
-if test x$is_enabled_tl_ompss_nanos6 = xyes -a x$is_enabled_tl_omp_nanox = xyes;
-then
-  echo ""
-  echo " * Default OmpSs runtime: " ${DEFAULT_OMPSS_RUNTIME}
+  echo "   Nanos6 includes :" $nanos6_include
+  echo "   Nanos6 libraries:" $nanos6_lib
 fi
 
 echo ""

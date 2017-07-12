@@ -13,17 +13,10 @@ fi
 
 source @abs_builddir@/mercurium-libraries
 
-
-NANOX_GATE=""
-if [ "@NANOS6_ENABLED@" = "yes" ];
-then
-    NANOX_GATE="--nanox"
-fi
-
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmcc --config-dir=@abs_top_builddir@/config --verbose ${NANOX_GATE}"
-MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmfc --config-dir=@abs_top_builddir@/config --verbose ${NANOX_GATE}"
-MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmcxx --config-dir=@abs_top_builddir@/config --verbose ${NANOX_GATE}"
+MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmcc --config-dir=@abs_top_builddir@/config --verbose"
+MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmfc --config-dir=@abs_top_builddir@/config --verbose"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=oclmcxx --config-dir=@abs_top_builddir@/config --verbose"
 EOF
 
 
