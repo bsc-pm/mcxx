@@ -10,37 +10,24 @@ preprocessor_uses_stdout = yes
 preprocessor_options = -qsuppress=1506-224
 compiler_name = @XLC@
 linker_name = @XLC@
-#cuda
-{@ENABLE_CUDA@} options = --cuda
-{@NANOX_GATE@,@ENABLE_CUDA@,openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
-{@NANOX_GATE@,@ENABLE_CUDA@,openmp} linker_options = -lnanox-gpu-api
-{@NANOX_GATE@,@ENABLE_CUDA@,openmp} compiler_phase = libtlnanox-cuda.so
-#opencl
-{@ENABLE_OPENCL@} options = --opencl
-{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
-{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} compiler_phase = libtlnanox-opencl.so
-{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} linker_options = -lnanox-opencl-api
+
+
+
+
 
 [xlmcxx : omp-base-ibm]
 language = C++
 {openmp} preprocessor_options = -qinclude=new
 options = --vector-flavor=altivec
 options = --xl-compat
-
 preprocessor_name = @XLCXX@
 preprocessor_uses_stdout = yes
 compiler_name = @XLCXX@
 linker_name = @XLCXX@
-#cuda
-{@ENABLE_CUDA@} options = --cuda
-{@NANOX_GATE@,@ENABLE_CUDA@,openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -qinclude=nanos-gpu.h
-{@NANOX_GATE@,@ENABLE_CUDA@,openmp} linker_options = -lnanox-gpu-api
-{@NANOX_GATE@,@ENABLE_CUDA@,openmp} compiler_phase = libtlnanox-cuda.so
-#opencl
-{@ENABLE_OPENCL@} options = --opencl
-{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} preprocessor_options = -qinclude=nanos-opencl.h -D_MERCURIUM_OPENCL_
-{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} compiler_phase = libtlnanox-opencl.so
-{@NANOX_GATE@,@ENABLE_OPENCL@,openmp} linker_options = -lnanox-opencl-api
+
+
+
+
 
 # IBM XL
 [xlmfc : omp-base]
@@ -58,5 +45,9 @@ compiler_name = @XLF@
 compiler_options = -qextname -qxlf2003=autorealloc
 linker_name = @XLF@
 linker_options =
+
+
+
+
 
 [xlmf95 : xlmfc]

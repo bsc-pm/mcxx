@@ -13,6 +13,8 @@ fi
 
 source @abs_builddir@/mercurium-libraries
 
+PROGRAMMING_MODEL="--openmp"
+
 cat <<EOF
 MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose"
 MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
@@ -20,19 +22,13 @@ MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/test
 compile_versions="\${compile_versions} nanox_mercurium"
 EOF
 
-NANOX_GATE=""
-if [ "@NANOS6_ENABLED@" = "yes" ];
-then
-    NANOX_GATE="--nanox"
-fi
-
 cat <<EOF
 test_CC="\${MCC} --profile=mcc"
 test_CXX="\${MCXX} --profile=mcxx"
 test_FC="\${MFC} --profile=mfc"
 
-test_CFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
-test_CXXFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS} ${NANOX_GATE}"
+test_CFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_FFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose"
 
 if [ "$test_nolink" == "no" -o "$1" = "run" ];

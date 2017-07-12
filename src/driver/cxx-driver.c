@@ -2714,14 +2714,17 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->output_column_width = 132;
 
     // Add openmp as an implicitly enabled
-    parameter_flags_t *new_parameter_flag = NEW0(parameter_flags_t);
+    // SMATEO: is this suff needed anymore??
+    //
+    // printf("adding OpenMP as an implicitly enabled flag\n");
+    // parameter_flags_t *new_parameter_flag = NEW0(parameter_flags_t);
 
-    new_parameter_flag->name = uniquestr("openmp");
-    new_parameter_flag->value = PFV_UNDEFINED;
+    // new_parameter_flag->name = uniquestr("openmp");
+    // new_parameter_flag->value = PFV_UNDEFINED;
 
-    P_LIST_ADD(compilation_process.parameter_flags,
-            compilation_process.num_parameter_flags,
-            new_parameter_flag);
+    // P_LIST_ADD(compilation_process.parameter_flags,
+    //         compilation_process.num_parameter_flags,
+    //         new_parameter_flag);
 
     //num args linker command  = 0
     CURRENT_CONFIGURATION->num_args_linker_command = 0;
