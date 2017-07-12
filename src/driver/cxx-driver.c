@@ -3025,7 +3025,8 @@ static void finalize_committed_configuration(compilation_configuration_t* config
     }
     if (!found)
     {
-        internal_error("'openmp' implicit flag was not properly registered", 0);
+        configuration->enable_openmp = 0;
+        //internal_error("'openmp' implicit flag was not properly registered", 0);
     }
 
     // OpenMP support involves omp pragma
