@@ -386,6 +386,40 @@ runner_sde ()
    return $ret
 }
 
+
+compute_mask ()
+{
+    hex_mask=`taskset -p $$ | cut -d':' -f 2 | cut -d' ' -f 2`
+
+    dec_mask=$((0x${hex_mask}))
+
+    req_cores=$1
+    ena_cores=0
+
+    res_mask=0
+    num_bit=0
+    while [ $dec_mask -ne 0 -a $ena_cores -lt $req_cores ];
+    do
+        current_bit=$(($dec_mask & 1))
+        if [ $current_bit -eq 1 ];
+        then
+            res_mask=$(($res_mask | (1 << $num_bit)))
+            ena_cores=$(($ena_cores + 1))
+        fi
+        dec_mask=$(($dec_mask >> 1))
+        num_bit=$(($num_bit + 1))
+    done
+
+    if [ $ena_cores -ne $req_cores ];
+    then
+        echo REQUESTING MORE CORES THAN RESOURCES AVAILABLE
+        exit -1
+    fi
+
+    res_hex_mask=`echo "obase=16; ibase=10; $res_mask" | bc`
+    echo $res_hex_mask
+}
+
 runner_taskset ()
 {
    local tmpdir
@@ -406,7 +440,8 @@ runner_taskset ()
       # We need to evaluate ENV to pass ${TASKSET_NUM_CPUS}
       echo "set -x" >> $tmpfile
       eval $env;
-      echo $env taskset -c 0-$((${TASKSET_NUM_CPUS}-1)) $tmpdir/$exec $args >> $tmpfile
+      mask=$(compute_mask ${TASKSET_NUM_CPUS})
+      echo $env taskset 0x${mask} $tmpdir/$exec $args >> $tmpfile
       echo "ret=\$?" >> $tmpfile
       echo "set +x" >> $tmpfile
       echo "exit \$ret" >> $tmpfile
