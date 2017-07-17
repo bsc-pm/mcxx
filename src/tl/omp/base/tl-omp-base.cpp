@@ -1403,12 +1403,9 @@ namespace TL { namespace OpenMP {
         OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
-        warn_printf_at(pragma_line.get_locus(), "'taskloop' construct is EXPERIMENTAL\n");
-
         PragmaCustomClause grainsize_clause = pragma_line.get_clause("grainsize");
         PragmaCustomClause num_tasks_clause = pragma_line.get_clause("num_tasks");
         PragmaCustomClause nogroup = pragma_line.get_clause("nogroup");
-
 
         Nodecl::NodeclBase grainsize_expr, num_tasks_expr;
         if (grainsize_clause.is_defined() == num_tasks_clause.is_defined())
@@ -1518,8 +1515,6 @@ namespace TL { namespace OpenMP {
 
         OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
-
-        warn_printf_at(pragma_line.get_locus(), "'taskloop' construct is EXPERIMENTAL\n");
 
         Nodecl::NodeclBase chunksize;
         PragmaCustomClause chunksize_clause = pragma_line.get_clause("chunksize");
