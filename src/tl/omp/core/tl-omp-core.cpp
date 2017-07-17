@@ -256,12 +256,11 @@ namespace TL { namespace OpenMP {
 
     void Core::register_oss_constructs()
     {
+        // OSS constructs
         register_directive("oss", "taskwait");
         register_construct("oss", "task");
-        register_construct("oss", "taskloop");
         register_construct("oss", "critical");
 
-        // OSS constructs
         dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Core::taskwait_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Core::taskwait_handler_post, this, std::placeholders::_1));
 
@@ -274,11 +273,6 @@ namespace TL { namespace OpenMP {
                 std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["task"].connect(
                 std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_post, this, std::placeholders::_1));
-
-        dispatcher("oss").statement.pre["taskloop"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::taskloop_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").statement.post["taskloop"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::taskloop_handler_post, this, std::placeholders::_1));
 
         dispatcher("oss").statement.pre["critical"].connect(
                 std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_pre, this, std::placeholders::_1));
@@ -2138,12 +2132,30 @@ namespace TL { namespace OpenMP {
     // Inline tasks
     void Core::task_handler_pre(TL::PragmaCustomStatement construct)
     {
-        task_inline_handler_pre(construct);
+        // In OmpSs-v2 the taskloop construct is supported as '#pragma oss task loop'
+        if (PragmaUtils::is_pragma_construct("oss", construct)
+                && construct.get_pragma_line().get_clause("loop").is_defined())
+        {
+            taskloop_handler_pre(construct);
+        }
+        else
+        {
+            task_inline_handler_pre(construct);
+        }
     }
     void Core::task_handler_post(TL::PragmaCustomStatement construct)
     {
-        ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
-        _openmp_info->pop_current_data_environment();
+        // In OmpSs-v2 the taskloop construct is supported as '#pragma oss task loop'
+        if (PragmaUtils::is_pragma_construct("oss", construct)
+                && construct.get_pragma_line().get_clause("loop").is_defined())
+        {
+            taskloop_handler_post(construct);
+        }
+        else
+        {
+            ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
+            _openmp_info->pop_current_data_environment();
+        }
     }
 
     // Function tasks

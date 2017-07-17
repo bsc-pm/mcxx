@@ -172,11 +172,6 @@ namespace TL { namespace OpenMP {
         dispatcher("oss").statement.post["task"].connect(
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_post, this, std::placeholders::_1));
 
-        dispatcher("oss").statement.pre["taskloop"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::taskloop_runtime_based_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").statement.post["taskloop"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::taskloop_runtime_based_handler_post, this, std::placeholders::_1));
-
         dispatcher("oss").statement.pre["critical"].connect(
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["critical"].connect(
@@ -654,11 +649,33 @@ namespace TL { namespace OpenMP {
     }
 
     // Inline tasks
-    void Base::task_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::task_handler_pre(TL::PragmaCustomStatement construct)
+    {
+        // In OmpSs-v2 the taskloop construct is supported as '#pragma oss task loop'
+        if(PragmaUtils::is_pragma_construct("oss", construct)
+                && construct.get_pragma_line().get_clause("loop").is_defined())
+        {
+            taskloop_runtime_based_handler_pre(construct);
+        }
+        else
+        {
+            // Do nothing
+        }
+    }
+
     void Base::task_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
+        // In OmpSs-v2 the taskloop construct is supported as '#pragma oss task loop'
         PragmaCustomLine pragma_line = directive.get_pragma_line();
+        if(PragmaUtils::is_pragma_construct("oss", directive)
+                && pragma_line.get_clause("loop").is_defined())
+        {
+            taskloop_runtime_based_handler_post(directive);
+            return;
+        }
+
+
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
 
         if (emit_omp_report())
         {
@@ -1494,7 +1511,7 @@ namespace TL { namespace OpenMP {
         {
             *_omp_report_file
                 << "\n"
-                << directive.get_locus_str() << ": " << "TASKLOOP construct\n"
+                << directive.get_locus_str() << ": " << "TASK LOOP construct\n"
                 << directive.get_locus_str() << ": " << "------------------\n"
                 ;
         }
@@ -1527,10 +1544,10 @@ namespace TL { namespace OpenMP {
             chunksize = const_value_to_nodecl(const_value_get_signed_int(0));
         }
 
-        PragmaCustomClause nogroup = pragma_line.get_clause("nogroup");
-        bool taskwait_at_the_end = true;
-        if (nogroup.is_defined())
-            taskwait_at_the_end = false;
+        // PragmaCustomClause nogroup = pragma_line.get_clause("nogroup");
+        // bool taskwait_at_the_end = true;
+        // if (nogroup.is_defined())
+        //     taskwait_at_the_end = false;
 
         // Since we are going to transform the taskloop construct into a loop
         // that creates several tasks, we should set the 'is_inline_task' to true.
@@ -1583,13 +1600,13 @@ namespace TL { namespace OpenMP {
                     execution_environment,
                     normalized_loop));
 
-        if (taskwait_at_the_end)
-        {
-            list.append(
-                    Nodecl::OpenMP::Taskwait::make(
-                        /*environment*/ nodecl_null(),
-                        directive.get_locus()));
-        }
+        // if (taskwait_at_the_end)
+        // {
+        //     list.append(
+        //             Nodecl::OpenMP::Taskwait::make(
+        //                 /*environment*/ nodecl_null(),
+        //                 directive.get_locus()));
+        // }
 
         directive.replace(list);
     }
