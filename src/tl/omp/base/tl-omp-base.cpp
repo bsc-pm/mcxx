@@ -1544,11 +1544,6 @@ namespace TL { namespace OpenMP {
             chunksize = const_value_to_nodecl(const_value_get_signed_int(0));
         }
 
-        // PragmaCustomClause nogroup = pragma_line.get_clause("nogroup");
-        // bool taskwait_at_the_end = true;
-        // if (nogroup.is_defined())
-        //     taskwait_at_the_end = false;
-
         // Since we are going to transform the taskloop construct into a loop
         // that creates several tasks, we should set the 'is_inline_task' to true.
         // This flag is only used to generate task reductions instead of
@@ -1599,14 +1594,6 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::TaskLoop::make(
                     execution_environment,
                     normalized_loop));
-
-        // if (taskwait_at_the_end)
-        // {
-        //     list.append(
-        //             Nodecl::OpenMP::Taskwait::make(
-        //                 /*environment*/ nodecl_null(),
-        //                 directive.get_locus()));
-        // }
 
         directive.replace(list);
     }
