@@ -595,13 +595,20 @@ namespace TL
             static std::string remove_separators_of_directive(const std::string& str);
     };
 
-    namespace PragmaUtils 
+    namespace PragmaUtils
     {
-        LIBTL_EXTERN bool is_pragma_construct(const std::string& prefix, 
+        //! This function returns whether n is a pragma that has 'sentinel' as the pragma sentinel.
+        LIBTL_EXTERN bool is_pragma_construct(
+                const std::string& sentinel,
+                Nodecl::NodeclBase n);
+
+        //! This function returns whether n is a pragma that has 'sentinel' as
+        //! the pragma sentinel and 'pragma_name' as the pragma name.
+        LIBTL_EXTERN bool is_pragma_construct(
+                const std::string& sentinel,
                 const std::string& pragma_name,
                 Nodecl::NodeclBase n);
-        LIBTL_EXTERN bool is_pragma_construct(const std::string& prefix, 
-                Nodecl::NodeclBase n);
+
     }
 }
 
