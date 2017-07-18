@@ -1953,7 +1953,9 @@ static const char* std_version_flag = NULL;
 static const char* default_mercurium_std_version[] =
 {
     [SOURCE_LANGUAGE_C]       = "-std=gnu99",
-    [SOURCE_LANGUAGE_CXX]     = "-std=c++03",
+    // We used to define the default c++ version of Mercurium to c++03, but
+    // Intel C++ Compiler didn't recognize that version...
+    [SOURCE_LANGUAGE_CXX]     = "-std=gnu++98",
     [SOURCE_LANGUAGE_FORTRAN] = "-std=gnu",
 };
 
