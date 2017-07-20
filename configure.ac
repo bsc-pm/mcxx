@@ -1510,7 +1510,7 @@ fi
 if test x$mpi_valid = xyes;
 then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
-    if test x"$ICC" != x -o x$"ICPC" != x -o x"$IFORT" != x;
+    if test x"$ICC" != x -o x"$ICPC" != x -o x"$IFORT" != x;
     then
         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.intel.mpi"
     fi
