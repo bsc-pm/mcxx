@@ -1577,7 +1577,7 @@ then
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel 57.config.omp.smp.intel"
 
-      # Intel C/C++/Fortran + Nanos++
+      # Intel Mercurium C/C++/Fortran profiles
       if test x"$ICC" != x;
       then
           COMPILER_NAMES="${COMPILER_NAMES} imcc ismpcc"
@@ -1596,22 +1596,22 @@ then
 
 
 
-   if test x$XLC != x -o x$XLCXX != x -o x$XLF != x;
+   if test x"$XLC" != x -o x"$XLCXX" != x -o x"$XLF" != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm 57.config.omp.smp.ibm"
 
-      # IBM XL C/C++/Fortran + Nanos++
-      if test x$XLC != x;
+      # IBM XL Mercurium C/C++/Fortran
+      if test x"$XLC" != x;
       then
           COMPILER_NAMES="${COMPILER_NAMES} xlmcc xlsmpcc"
       fi
 
-      if test x$XLCXX != x;
+      if test x"$XLCXX" != x;
       then
           COMPILER_NAMES="${COMPILER_NAMES} xlmcxx xlsmpcxx"
       fi
 
-      if test x$XLF != x;
+      if test x"$XLF" != x;
       then
           COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95 xlsmpfc"
       fi
