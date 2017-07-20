@@ -4017,6 +4017,48 @@ namespace TL { namespace Nanos6 {
                 field_map[*it].get_type().get_lvalue_reference_to()));
         }
 
+        for (TL::ObjectList<ReductionItem>::const_iterator it = reduction.begin();
+                it != reduction.end();
+                it++)
+        {
+            ERROR_CONDITION(field_map.find(it->symbol) == field_map.end(),
+                    "Symbol is not mapped", 0);
+
+            // First, original variable
+            {
+                TL::Symbol field = field_map[it->symbol];
+
+                forwarded_parameter_names.append(field.get_name());
+                forwarded_parameter_types.append(field.get_type());
+
+                args.append(
+                        Nodecl::ClassMemberAccess::make(
+                            arg.make_nodecl(/* set_ref_type */ true),
+                            field_map[it->symbol].make_nodecl(),
+                            /* member_literal */ Nodecl::NodeclBase::null(),
+                            field_map[it->symbol].get_type().no_ref().get_lvalue_reference_to()));
+            }
+
+            // Second, local variable
+            {
+                TL::Scope inner_class_context(
+                        class_type_get_inner_context(info_structure.get_internal_type()));
+
+                TL::Symbol local_symbol = inner_class_context.get_symbol_from_name(it->symbol.get_name() + "_local_red");
+                TL::Type expr_type = local_symbol.get_type().no_ref().get_lvalue_reference_to();
+
+                forwarded_parameter_names.append(local_symbol.get_name());
+                forwarded_parameter_types.append(expr_type);
+
+                args.append(
+                        Nodecl::ClassMemberAccess::make(
+                            arg.make_nodecl(/* set_ref_type */ true),
+                            local_symbol.make_nodecl(),
+                            /* member_literal */ Nodecl::NodeclBase::null(),
+                            expr_type));
+            }
+        }
+
         TL::Symbol forwarded_function
             = SymbolUtils::new_function_symbol(TL::Scope::get_global_scope(),
                                                forwarded_name,
