@@ -925,7 +925,7 @@ if test x$is_enabled_tl_ompss_nanos6 = xyes;
 then
    NANOS6_GATE=":true:"
    AC_ARG_WITH([nanos6],
-           AS_HELP_STRING([--with-nanos6=dir], [Directory of Nanos 6 installation]),
+           AS_HELP_STRING([--with-nanos6=dir], [Directory of Nanos6 installation]),
            [
             nanos6_include="${withval}/include"
             nanos6_lib="${withval}/lib"
@@ -939,14 +939,14 @@ then
    )
 
    AC_ARG_WITH([nanos6-include],
-           AS_HELP_STRING([--with-nanos6-include=dir], [Directory of Nanos 6 headers]),
+           AS_HELP_STRING([--with-nanos6-include=dir], [Directory of Nanos6 headers]),
            [
             nanos6_include="${withval}"
            ]
    )
 
    AC_ARG_WITH([nanos6-lib],
-           AS_HELP_STRING([--with-nanos6-lib=dir], [Directory of Nanos 6 libraries]),
+           AS_HELP_STRING([--with-nanos6-lib=dir], [Directory of Nanos6 libraries]),
            [
             nanos6_lib="${withval}"
            ]
