@@ -19,8 +19,10 @@ PROGRAM P
         !$OMP END TASK
     ENDDO
 
-   !$OMP TASKWAIT
+    !$OMP TASK IN(RES)
+        IF (RES /= ((N*(N+1))/2)) STOP 1
+    !$OMP END TASK
 
-   IF (RES /= ((N*(N+1))/2)) STOP 1
+    !$OMP TASKWAIT
 
 END PROGRAM P

@@ -60,6 +60,11 @@ int main()
         }
 
     }
-#pragma omp taskwait
-    assert(res == (( (N*N) * ((N*N)+1)) / 2));
+
+    #pragma omp task in(res)
+    {
+        assert(res == (( (N*N) * ((N*N)+1)) / 2));
+    }
+
+    #pragma omp taskwait
 }

@@ -1919,37 +1919,42 @@ namespace TL { namespace Nanos6 {
                 TL::ObjectList<std::string> &_parameter_names;
                 TL::ObjectList<TL::Type> &_parameter_types;
                 std::map<TL::Symbol, std::string> &_symbols_to_param_names;
+                bool _map_reduction_local_symbol;
 
             public:
                 AddParameter(
                         TL::ObjectList<std::string> &parameter_names,
                         TL::ObjectList<TL::Type> &parameter_types,
-                        std::map<TL::Symbol, std::string> &symbols_to_param_names)
+                        std::map<TL::Symbol, std::string> &symbols_to_param_names,
+                        bool map_reduction_local_symbol = true)
                     : _parameter_names(parameter_names), _parameter_types(parameter_types),
-                    _symbols_to_param_names(symbols_to_param_names)
+                    _symbols_to_param_names(symbols_to_param_names),
+                    _map_reduction_local_symbol(map_reduction_local_symbol)
                 {}
 
-                void handle_symbol(TL::Symbol sym, const std::string& name)
+                void handle_symbol(TL::Symbol sym, const std::string& name, bool add_to_map)
                 {
                     std::string fixed_name = name;
                     if (IS_CXX_LANGUAGE && name == "this")
                         fixed_name = "_this";
 
-                    _symbols_to_param_names[sym] = fixed_name;
+                    if (add_to_map)
+                        _symbols_to_param_names[sym] = fixed_name;
+
                     _parameter_names.append(fixed_name);
                     _parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
                 }
 
                 void operator()(TL::Symbol sym)
                 {
-                    handle_symbol(sym, sym.get_name());
+                    handle_symbol(sym, sym.get_name(), /* add_to_map */ true);
                 }
 
                 void operator()(const TaskProperties::ReductionItem& red_item)
                 {
                     TL::Symbol sym = red_item.symbol;
-                    handle_symbol(sym, sym.get_name());
-                    handle_symbol(sym, sym.get_name() + "_local_red");
+                    handle_symbol(sym, sym.get_name(), !_map_reduction_local_symbol);
+                    handle_symbol(sym, sym.get_name() + "_local_red", _map_reduction_local_symbol);
                 }
         };
 
@@ -2016,6 +2021,7 @@ namespace TL { namespace Nanos6 {
                             "Symbol '%s' not mapped",sym.get_name().c_str());
 
                     TL::Symbol param_sym = _function_scope.get_symbol_from_name(it_param_name->second);
+
 
                     ERROR_CONDITION(!param_sym.is_valid()
                             || (!param_sym.is_parameter() && !param_sym.is_saved_expression()),
@@ -3759,7 +3765,8 @@ namespace TL { namespace Nanos6 {
         AddParameter add_params_functor(
                 /* out */ dep_fun_param_names,
                 /* out */ dep_fun_param_types,
-                /* out */ symbols_to_param_names);
+                /* out */ symbols_to_param_names,
+                /* map_reduction_local_symbol */ false);
 
         captured_value.map(add_params_functor);
         shared.map(add_params_functor);

@@ -63,6 +63,11 @@ int main()
             }
         }
     }
-#pragma omp taskwait
-    assert(serial_max_val == max_val);
+
+    #pragma omp task in(max_val)
+    {
+        assert(serial_max_val == max_val);
+    }
+
+    #pragma omp taskwait
 }
