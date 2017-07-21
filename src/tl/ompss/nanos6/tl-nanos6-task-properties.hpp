@@ -82,7 +82,7 @@ namespace TL { namespace Nanos6 {
 
             static const int VLA_OVERALLOCATION_ALIGN = 8;
 
-            unsigned int num_reductions = 0;
+            unsigned int num_reductions;
 
             TL::Type info_structure;
 
@@ -316,7 +316,7 @@ namespace TL { namespace Nanos6 {
             const locus_t* locus_of_task_declaration;
 
             TaskProperties(LoweringPhase* lowering_phase, Lower* lower_vis)
-                : phase(lowering_phase), lower_visitor(lower_vis),
+                : phase(lowering_phase), lower_visitor(lower_vis), num_reductions(0),
                 is_tied(true), is_taskwait_dep(false), is_taskloop(false), wait_clause(false),
                 any_task_dependence(false)
             { }
