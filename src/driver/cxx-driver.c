@@ -159,11 +159,6 @@
 "                           a specific compiler profile\n" \
 "  --openmp                 Enables OpenMP support (default)\n" \
 "  --no-openmp              Disables OpenMP support\n" \
-"  --config-file=<file>     Uses <file> as config file.\n" \
-"                           Use --print-config-file to get the\n" \
-"                           default path\n" \
-"  --print-config-file      Prints the path of the default\n" \
-"                           configuration file and finishes.\n" \
 "  --config-dir=<dir>       Sets <dir> as the configuration directory\n" \
 "                           Use --print-config-dir to get the\n" \
 "                           default path\n" \
@@ -377,7 +372,6 @@ typedef enum
     // Keep the following options sorted (but leave OPTION_UNDEFINED as is)
     OPTION_ALWAYS_PREPROCESS,
     OPTION_CONFIG_DIR,
-    OPTION_CONFIG_FILE,
     OPTION_DEBUG_FLAG,
     OPTION_DISABLE_FILE_LOCKING,
     OPTION_DISABLE_GXX_TRAITS,
@@ -431,7 +425,6 @@ typedef enum
     OPTION_PREPROCESSOR_NAME,
     OPTION_PREPROCESSOR_USES_STDOUT,
     OPTION_PRINT_CONFIG_DIR,
-    OPTION_PRINT_CONFIG_FILE,
     OPTION_PROFILE,
     OPTION_SEARCH_INCLUDES,
     OPTION_SEARCH_MODULES,
@@ -457,14 +450,14 @@ struct command_line_long_options command_line_long_options[] =
     {"keep-files",  CLP_NO_ARGUMENT, 'k'},
     {"keep-all-files", CLP_NO_ARGUMENT, 'K'},
     {"output",      CLP_REQUIRED_ARGUMENT, 'o'},
+
     // This option has a chicken-and-egg problem. If we delay till getopt_long
     // to open the configuration file we overwrite variables defined in the
     // command line. Thus "load_configuration" is invoked before command line parsing
-    // and looks for "--config-file" / "-m" in the arguments
-    {"config-file", CLP_REQUIRED_ARGUMENT, OPTION_CONFIG_FILE},
-    // This option has a chicken-and-egg similar to the --config-file.
-    // It is handled in "load_configuration"
+    // and looks for "--profile" and "--config-dir" in the arguments
+    {"config-dir", CLP_REQUIRED_ARGUMENT, OPTION_CONFIG_DIR},
     {"profile", CLP_REQUIRED_ARGUMENT, OPTION_PROFILE},
+
     {"output-dir",  CLP_REQUIRED_ARGUMENT, OPTION_OUTPUT_DIRECTORY},
     {"cc", CLP_REQUIRED_ARGUMENT, OPTION_NATIVE_COMPILER_NAME},
     {"cxx", CLP_REQUIRED_ARGUMENT, OPTION_NATIVE_COMPILER_NAME},
@@ -484,7 +477,6 @@ struct command_line_long_options command_line_long_options[] =
     {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     {"list-environments", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
-    {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
@@ -1145,7 +1137,7 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->do_not_link = 1;
                         break;
                     }
-                case OPTION_CONFIG_FILE :
+                case OPTION_PROFILE :
                 case OPTION_CONFIG_DIR:
                     {
                         // These options are handled in "load_configuration"
@@ -1313,10 +1305,6 @@ int parse_arguments(int argc, const char* argv[],
                         exit(EXIT_SUCCESS);
                         break;
                     }
-                case OPTION_PROFILE :
-                    {
-                        break;
-                    }
                 case OPTION_EXTERNAL_VAR :
                     {
                         if (strchr(parameter_info.argument, ':') == NULL)
@@ -1461,12 +1449,6 @@ int parse_arguments(int argc, const char* argv[],
                         {
                             CURRENT_CONFIGURATION->module_out_pattern = uniquestr(parameter_info.argument);
                         }
-                        break;
-                    }
-                case OPTION_PRINT_CONFIG_FILE:
-                    {
-                        printf("Default config file: %s%s\n", compilation_process.home_directory, CONFIG_RELATIVE_PATH);
-                        exit(EXIT_SUCCESS);
                         break;
                     }
                 case OPTION_PRINT_CONFIG_DIR:
@@ -2676,7 +2658,6 @@ static void initialize_default_values(void)
 {
     int dummy = 0;
     // Initialize here all default values
-    compilation_process.config_file = strappend(compilation_process.home_directory, CONFIG_RELATIVE_PATH);
     compilation_process.config_dir = strappend(compilation_process.home_directory, DIR_CONFIG_RELATIVE_PATH);
     compilation_process.num_translation_units = 0;
 
@@ -2756,7 +2737,6 @@ static void remove_parameter_from_argv(int i)
 
 static void load_configuration(void)
 {
-    // Solve here the egg and chicken problem of the option --config-file
     int i;
     char restart = 1;
 
@@ -2766,32 +2746,17 @@ static void load_configuration(void)
         restart = 0;
         for (i = 1; i < compilation_process.argc; i++)
         {
-            if (strncmp(compilation_process.argv[i], 
-                        "--config-file=", strlen("--config-file=")) == 0)
-            {
-                const char *config_file = NULL;
-                config_file = compilation_process.config_file = 
-                    uniquestr(&(compilation_process.argv[i][strlen("--config-file=") ]));
-
-                // Load the configuration file at this point should the user have
-                // specified more than one config file
-                load_configuration_file(config_file);
-
-                remove_parameter_from_argv(i);
-                restart = 1;
-                break;
-            }
-            else if (strncmp(compilation_process.argv[i], 
+            if (strncmp(compilation_process.argv[i],
                         "--config-dir=", strlen("--config-dir=")) == 0)
             {
-                compilation_process.config_dir = 
+                compilation_process.config_dir =
                     uniquestr(&(compilation_process.argv[i][strlen("--config-dir=") ]));
 
                 remove_parameter_from_argv(i);
                 restart = 1;
                 break;
             }
-            else if (strncmp(compilation_process.argv[i], 
+            else if (strncmp(compilation_process.argv[i],
                         "--profile=", strlen("--profile=")) == 0)
             {
                 // Change the basename, from now it will look like the compiler

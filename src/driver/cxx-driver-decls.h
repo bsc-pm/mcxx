@@ -234,9 +234,6 @@ typedef struct compilation_process_tag
     // Result of the execution
     int execution_result;
 
-    // Config file
-    const char *config_file;
-
     // Config dir
     const char *config_dir;
 

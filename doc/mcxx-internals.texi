@@ -296,11 +296,7 @@ means, the main being configuration files.
 
 Configuration files are stored in the directory
 @file{@emph{pkgdatadir}/config.d}. mcxx will read all files there and load
-them, so you can split your configurations in several files. There is also a
-global configuration file whose usage is deprecated. It is located at
-@file{@emph{pkgdatadir}/config.mcxx}. Using a directory with configuration files
-is preferred since it is more flexible when installing external phases, a global
-file easily suffers from overwrites.
+them, so you can split your configurations in several files.
 
 Directory @file{@emph{pkgdatadir}} is
 defined at @command{configure} time and by default it is

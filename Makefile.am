@@ -3182,10 +3182,6 @@ src_driver_fortran_libmf03_driver_la_CFLAGS = $(fortran_driver_common_cflags)
 # config
 ##########################################################################
 
-CONFIG_MCXX=\
-            config/config.mcxx \
-            $(END)
-
 # We need a dist hook to keep these files in sync with their template.*
 # see below
 CONFIG_FILES =  \
@@ -3231,13 +3227,13 @@ REMOVE_CONFIG_FILES=\
 
 config-files-dist-hook:
 	$(MKDIR_P) $(distdir)/config
-	for i in $(notdir $(CONFIG_FILES)) $(notdir $(CONFIG_MCXX)); \
+	for i in $(notdir $(CONFIG_FILES)); \
     do \
        cp -v "$(srcdir)/config/template.$${i}" "$(distdir)/config" || exit $?; \
     done
 
 
-CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
+CLEANFILES += $(CONFIG_FILES)
 
 # Replacements are defined in this file
 config_edit = \
@@ -3311,7 +3307,7 @@ config_edit += $(foreach profile, $(profiles), \
   -e 's|^\( *\)*target_options\[\( *\)$(profile)\( *\)\]\( .*\)=|\1target_options[\2'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\3]\4=|g' \
    )
 
-BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES) $(INSTALL_SCRIPT_COMPILER_NAMES)
+BUILT_SOURCES += $(INSTALL_CONFIG_FILES) $(INSTALL_SCRIPT_COMPILER_NAMES)
 
 # Generates configs
 config/% : config/template.$(notdir %) Makefile
@@ -3349,11 +3345,6 @@ remove-old-profiles:
 	done
 
 install-data-hook: config-install-data-hook script-driver-install-data-hook
-
-# Where and what to install
-pkgdata_DATA = \
-		config/config.mcxx \
-		$(END)
 
 configdir = $(pkgdatadir)/config.d
 config_DATA = \
