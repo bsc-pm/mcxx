@@ -4,7 +4,7 @@ language = C
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
+options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 {simd, mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
 {mmic} preprocessor_options = -mmic
@@ -17,6 +17,8 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-bui
 {avx2} linker_options = -march=core-avx2 -mtune=core-avx2
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
 
+{@NANOX_GATE@,openmp} options = --variable=weaks_as_statics:1
+
 
 
 
@@ -27,7 +29,7 @@ language = C++
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
+options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 {simd, mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
 {mmic} preprocessor_options = -mmic
@@ -36,6 +38,8 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-bui
 {avx2} preprocessor_options = -march=core-avx2 -mtune=core-avx2
 {avx2} linker_options = -march=core-avx2 -mtune=core-avx2
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
+
+{@NANOX_GATE@,openmp} options = --variable=weaks_as_statics:1
 
 
 
