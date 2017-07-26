@@ -7402,7 +7402,18 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
     {
         CXX_LANGUAGE()
         {
-            if (!same_functional_expression(
+            if (nodecl_get_kind(t1->whole_size) == NODECL_SYMBOL
+                    && symbol_entity_specs_get_is_saved_expression(nodecl_get_symbol(t1->whole_size))
+                    && nodecl_get_kind(t2->whole_size) == NODECL_SYMBOL
+                    && symbol_entity_specs_get_is_saved_expression(nodecl_get_symbol(t2->whole_size)))
+            {
+                // Compare the saved expressions rather than the symbols that captured them
+                nodecl_t val1 = nodecl_get_symbol(t1->whole_size)->value;
+                nodecl_t val2 = nodecl_get_symbol(t2->whole_size)->value;
+
+                return same_functional_expression(val1, val2);
+            }
+            else if (!same_functional_expression(
                         t1->whole_size,
                         t2->whole_size))
                 return 0;
