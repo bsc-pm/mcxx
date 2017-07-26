@@ -42,6 +42,7 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x config/mercurium-hlt
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ompss
+	chmod +x config/mercurium-ompss-v2
 	chmod +x config/mercurium-serial-simd
 	chmod +x config/mercurium-parallel-simd
 	chmod +x config/mercurium-serial-simd-avx2
@@ -119,6 +120,7 @@ OMP_DIRS= \
 
 OMPSS_DIRS=\
         $(BETS_DIRS)/07_phases_ompss.dg \
+        $(BETS_DIRS)/07_phases_ompss_v2.dg \
 		$(END)
 
 ANALYSIS_DIRS=\
