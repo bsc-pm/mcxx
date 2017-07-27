@@ -387,6 +387,8 @@ runner_sde ()
 }
 
 
+# Given a process mask and a number of requested cores, this function computes
+# a mask that exaclty enables that number of cores.
 compute_mask ()
 {
     hex_mask=`taskset -p $$ | cut -d':' -f 2 | cut -d' ' -f 2`
@@ -412,12 +414,12 @@ compute_mask ()
 
     if [ $ena_cores -ne $req_cores ];
     then
-        echo REQUESTING MORE CORES THAN RESOURCES AVAILABLE
+        echo REQUESTING MORE CORES THAN AVAILABLE RESOURCES
         exit -1
     fi
 
     res_hex_mask=`echo "obase=16; ibase=10; $res_mask" | bc`
-    echo $res_hex_mask
+    echo 0x${res_hex_mask}
 }
 
 runner_taskset ()
@@ -440,8 +442,8 @@ runner_taskset ()
       # We need to evaluate ENV to pass ${TASKSET_NUM_CPUS}
       echo "set -x" >> $tmpfile
       eval $env;
-      mask=$(compute_mask ${TASKSET_NUM_CPUS})
-      echo $env taskset 0x${mask} $tmpdir/$exec $args >> $tmpfile
+      hex_mask=$(compute_mask ${TASKSET_NUM_CPUS})
+      echo $env taskset ${hex_mask} $tmpdir/$exec $args >> $tmpfile
       echo "ret=\$?" >> $tmpfile
       echo "set +x" >> $tmpfile
       echo "exit \$ret" >> $tmpfile
