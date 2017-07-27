@@ -32,34 +32,6 @@ DISTCLEANFILES=
 DISTCLEANFILES+=test.log test.log.xml
 
 prepare-check: ./config/bets wipe-modules
-	chmod +x config/bets
-	chmod +x config/mercurium-libraries
-	chmod +x config/mercurium-fe-only
-	chmod +x config/mercurium-extensions
-	chmod +x config/mercurium-fortran
-	chmod +x config/mercurium-nanox
-	chmod +x config/mercurium-nanos6
-	chmod +x config/mercurium-hlt
-	chmod +x config/mercurium-omp
-	chmod +x config/mercurium-ompss
-	chmod +x config/mercurium-ompss-v2
-	chmod +x config/mercurium-serial-simd
-	chmod +x config/mercurium-parallel-simd
-	chmod +x config/mercurium-serial-simd-avx2
-	chmod +x config/mercurium-parallel-simd-avx2
-	chmod +x config/mercurium-serial-simd-mic
-	chmod +x config/mercurium-parallel-simd-mic
-	chmod +x config/mercurium-serial-simd-avx2
-	chmod +x config/mercurium-parallel-simd-avx2
-	chmod +x config/mercurium-serial-simd-romol
-	chmod +x config/mercurium-cuda
-	chmod +x config/mercurium-opencl
-	chmod +x config/mercurium-run
-	chmod +x config/mercurium-analysis
-	chmod +x */mercurium
-	chmod +x */mercurium-c11
-	chmod +x */mercurium-cxx11
-	chmod +x */mercurium-cxx14
 	rm -f config/libraries-libtool.cache
 
 wipe-modules:

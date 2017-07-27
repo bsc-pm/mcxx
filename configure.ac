@@ -2378,38 +2378,43 @@ AC_CONFIG_FILES([Makefile
            src/driver/cxx-driver-build-info.h
            tests/Makefile
            tests/config/Makefile
-           tests/config/mercurium
-           tests/config/mercurium-c11
-           tests/config/mercurium-cxx11
-           tests/config/mercurium-cxx14
-           tests/config/mercurium-run
-           tests/config/mercurium-fortran
-           tests/config/mercurium-libraries
-           tests/config/mercurium-extensions
-           tests/config/mercurium-fe-only
-           tests/config/mercurium-hlt
-           tests/config/mercurium-nanox
-           tests/config/mercurium-nanos6
-           tests/config/mercurium-omp
-           tests/config/mercurium-ompss
-           tests/config/mercurium-ompss-v2
-           tests/config/mercurium-serial-simd
-           tests/config/mercurium-parallel-simd
-           tests/config/mercurium-serial-simd-avx2
-           tests/config/mercurium-parallel-simd-avx2
-           tests/config/mercurium-serial-simd-mic
-           tests/config/mercurium-parallel-simd-mic
-           tests/config/mercurium-serial-simd-romol
-           tests/config/mercurium-cuda
-           tests/config/mercurium-opencl
-           tests/config/mercurium-analysis
-           tests/config/bets
-           tests/05_torture_cxx_1.dg/mercurium
-           tests/05_torture_cxx_1.dg/mercurium-cxx11
-           tests/05_torture_cxx_2.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
            ])
+
+## Generic profiles
+AC_CONFIG_FILES([tests/config/bets], [chmod +x tests/config/bets])
+AC_CONFIG_FILES([tests/config/mercurium], [chmod +x tests/config/mercurium])
+AC_CONFIG_FILES([tests/config/mercurium-analysis], [chmod +x tests/config/mercurium-analysis])
+AC_CONFIG_FILES([tests/config/mercurium-c11], [chmod +x tests/config/mercurium-c11])
+AC_CONFIG_FILES([tests/config/mercurium-cuda], [chmod +x tests/config/mercurium-cuda])
+AC_CONFIG_FILES([tests/config/mercurium-cxx11], [chmod +x tests/config/mercurium-cxx11])
+AC_CONFIG_FILES([tests/config/mercurium-cxx14], [chmod +x tests/config/mercurium-cxx14])
+AC_CONFIG_FILES([tests/config/mercurium-extensions], [chmod +x tests/config/mercurium-extensions])
+AC_CONFIG_FILES([tests/config/mercurium-fe-only], [chmod +x tests/config/mercurium-fe-only])
+AC_CONFIG_FILES([tests/config/mercurium-fortran], [chmod +x tests/config/mercurium-fortran])
+AC_CONFIG_FILES([tests/config/mercurium-hlt], [chmod +x tests/config/mercurium-hlt])
+AC_CONFIG_FILES([tests/config/mercurium-libraries], [chmod +x tests/config/mercurium-libraries])
+AC_CONFIG_FILES([tests/config/mercurium-nanos6], [chmod +x tests/config/mercurium-nanos6])
+AC_CONFIG_FILES([tests/config/mercurium-nanox], [chmod +x tests/config/mercurium-nanox])
+AC_CONFIG_FILES([tests/config/mercurium-omp], [chmod +x tests/config/mercurium-omp])
+AC_CONFIG_FILES([tests/config/mercurium-ompss], [chmod +x tests/config/mercurium-ompss])
+AC_CONFIG_FILES([tests/config/mercurium-ompss-v2], [chmod +x tests/config/mercurium-ompss-v2])
+AC_CONFIG_FILES([tests/config/mercurium-opencl], [chmod +x tests/config/mercurium-opencl])
+AC_CONFIG_FILES([tests/config/mercurium-parallel-simd], [chmod +x tests/config/mercurium-parallel-simd])
+AC_CONFIG_FILES([tests/config/mercurium-parallel-simd-avx2], [chmod +x tests/config/mercurium-parallel-simd-avx2])
+AC_CONFIG_FILES([tests/config/mercurium-parallel-simd-mic], [chmod +x tests/config/mercurium-parallel-simd-mic])
+AC_CONFIG_FILES([tests/config/mercurium-run], [chmod +x tests/config/mercurium-run])
+AC_CONFIG_FILES([tests/config/mercurium-serial-simd], [chmod +x tests/config/mercurium-serial-simd])
+AC_CONFIG_FILES([tests/config/mercurium-serial-simd-avx2], [chmod +x tests/config/mercurium-serial-simd-avx2])
+AC_CONFIG_FILES([tests/config/mercurium-serial-simd-mic], [chmod +x tests/config/mercurium-serial-simd-mic])
+AC_CONFIG_FILES([tests/config/mercurium-serial-simd-romol], [chmod +x tests/config/mercurium-serial-simd-romol])
+
+## Specific profiles
+AC_CONFIG_FILES([tests/05_torture_cxx_1.dg/mercurium], [chmod +x tests/05_torture_cxx_1.dg/mercurium])
+AC_CONFIG_FILES([tests/05_torture_cxx_1.dg/mercurium-cxx11], [chmod +x tests/05_torture_cxx_1.dg/mercurium-cxx11])
+AC_CONFIG_FILES([tests/05_torture_cxx_2.dg/mercurium], [chmod +x tests/05_torture_cxx_2.dg/mercurium])
+
 AC_OUTPUT
 
 AS_MKDIR_P([scripts])
