@@ -973,6 +973,8 @@ namespace {
 
         n->set_visited(true);
 
+        // Note: get here the list of outputs, before the node may be removed and disconnected
+        const std::set<ETDGNode*>& outputs = n->get_outputs();
         if (n->get_id() < 0)
         {
             // Disconnect the node from its parents and children and remove it
@@ -981,7 +983,6 @@ namespace {
             {
                 disconnect_nodes(*it, n);
             }
-            const std::set<ETDGNode*>& outputs = n->get_outputs();
             for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
             {
                 disconnect_nodes(n, *it);
@@ -1009,7 +1010,6 @@ namespace {
             }
         }
 
-        const std::set<ETDGNode*>& outputs = n->get_outputs();
         for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
             remove_barrier_nodes_rec(*it);
     }
