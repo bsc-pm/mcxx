@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator=config/mercurium-ompss
+! test_generator="config/mercurium-ompss no-nanos6"
 ! test_FFLAGS="-O2"
 ! </testinfo>
 
