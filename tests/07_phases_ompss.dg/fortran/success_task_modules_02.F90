@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator=config/mercurium-ompss
+! test_generator=(config/mercurium-ompss config/mercurium-ompss-v2)
 ! compile_versions="mod0 mod1"
 ! test_FFLAGS_mod0="-DMOD0"
 ! test_FFLAGS_mod1="-DMOD1"

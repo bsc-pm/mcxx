@@ -1,5 +1,9 @@
 ! <testinfo>
-! test_generator="config/mercurium-ompss no-nanos6"
+! test_generator=(config/mercurium-ompss config/mercurium-ompss-v2)
+! test_compile_fail_nanos6_mercurium_mod0=yes
+! test_compile_fail_nanos6_mercurium_mod1=yes
+! test_compile_fail_nanos6_imfc_mod0=yes
+! test_compile_fail_nanos6_imfc_mod1=yes
 ! compile_versions="mod0 mod1"
 ! test_FFLAGS_mod0="-DMOD0"
 ! test_FFLAGS_mod1="-DMOD1"

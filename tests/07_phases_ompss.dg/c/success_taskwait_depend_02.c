@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator="config/mercurium-ompss"
+test_generator=(config/mercurium-ompss config/mercurium-ompss-v2)
 test_CFLAGS="--no-copy-deps"
 </testinfo>
 */

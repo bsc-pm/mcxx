@@ -27,7 +27,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
+test_generator=(config/mercurium-ompss config/mercurium-ompss-v2)
 </testinfo>
 */
 #include<stdio.h>

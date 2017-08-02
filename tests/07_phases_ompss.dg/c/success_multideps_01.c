@@ -27,7 +27,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
+test_generator=(config/mercurium-ompss config/mercurium-ompss-v2)
 test_ENV="NX_THROTTLE=dummy"
 test_CFLAGS="--no-copy-deps"
 </testinfo>

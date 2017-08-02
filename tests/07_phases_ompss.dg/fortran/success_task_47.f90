@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator=config/mercurium-ompss
+! test_generator=(config/mercurium-ompss config/mercurium-ompss-v2)
 ! </testinfo>
 SUBROUTINE FOO(M, N, V1, V2)
     IMPLICIT NONE
