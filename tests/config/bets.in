@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #constants
-readonly bets_version=0.9.7
+readonly bets_version=0.9.11
 
 #color constants
 
@@ -91,6 +91,29 @@ escape_xml ()
     cat $1 | @SED@ -e 's~&~\&amp;~g' -e 's~<~\&lt;~g'  -e  's~>~\&gt;~g' 1> $2
 }
 
+utility=
+for u in bc awk perl ; do
+    hash $u && utility=$u && break
+done
+
+arithmetic ()
+{
+    case "$utility" in
+        bc)
+            echo $* | bc -l
+            ;;
+        awk)
+            awk "BEGIN{print $* }"
+            ;;
+        perl)
+            echo print $* | perl
+            ;;
+        *)
+            echo 0
+            ;;
+    esac
+}
+
 # action functions
 
 passfail ()
@@ -109,7 +132,7 @@ passfail ()
    $* 1>> $junit_log_OUT 2>> $junit_log_ERR || ret=1
    END=$(date "+%s.%N")
 
-   ELAPSED=$(echo $END - $START | bc -l)
+   ELAPSED=$(arithmetic $END - $START)
 
    cat $junit_log_ERR $junit_log_OUT >> $logfile
 
@@ -183,9 +206,10 @@ compile_c ()
 
    local cc
    local cflags
+   local cppflags
    local ldflags
    local tmp
-   
+
    #defaults
    cc=${CC:=cc}
 
@@ -230,10 +254,11 @@ compile_cpp ()
    local srcdir=$4
 
    local cxx
+   local cppflags
    local cxxflags
    local ldflags
    local tmp
-   
+
    #defaults
    cxx=${CXX:=c++}
 
@@ -282,7 +307,7 @@ compile_fortran ()
    local fflags
    local ldflags
    local tmp
-   
+
    #defaults
    fc_=${FC:=f95}
 
@@ -309,7 +334,7 @@ compile_fortran ()
    unset current_test_nolink
 
    pushd $tmpdir
-   logcmd $fc_ $fflags $ldflags $out_param $srcdir/$source 
+   logcmd $fc_ $fflags $out_param $srcdir/$source $ldflags
    local ret=$?
    popd
 
@@ -391,15 +416,15 @@ runner_sde ()
 # a mask that exaclty enables that number of cores.
 compute_mask ()
 {
-    hex_mask=`taskset -p $$ | cut -d':' -f 2 | cut -d' ' -f 2`
+    local hex_mask=`taskset -p $$ | cut -d':' -f 2 | cut -d' ' -f 2`
 
-    dec_mask=$((0x${hex_mask}))
+    local dec_mask=$((0x${hex_mask}))
 
-    req_cores=$1
-    ena_cores=0
+    local req_cores=$1
+    local ena_cores=0
 
-    res_mask=0
-    num_bit=0
+    local res_mask=0
+    local num_bit=0
     while [ $dec_mask -ne 0 -a $ena_cores -lt $req_cores ];
     do
         current_bit=$(($dec_mask & 1))
@@ -418,7 +443,7 @@ compute_mask ()
         exit -1
     fi
 
-    res_hex_mask=`echo "obase=16; ibase=10; $res_mask" | bc`
+    local res_hex_mask=`echo "obase=16; ibase=10; $res_mask" | bc`
     echo 0x${res_hex_mask}
 }
 
@@ -442,7 +467,7 @@ runner_taskset ()
       # We need to evaluate ENV to pass ${TASKSET_NUM_CPUS}
       echo "set -x" >> $tmpfile
       eval $env;
-      hex_mask=$(compute_mask ${TASKSET_NUM_CPUS})
+      local hex_mask=$(compute_mask ${TASKSET_NUM_CPUS})
       echo $env taskset ${hex_mask} $tmpdir/$exec $args >> $tmpfile
       echo "ret=\$?" >> $tmpfile
       echo "set +x" >> $tmpfile
@@ -597,19 +622,6 @@ run_test ()
           test_generator_env="declare -x \"\${test_generator_ENV[@]}\"";
    fi
 
-   if [ "$test_max_cpus" ]; then
-      export NX_TEST_MAX_CPUS="$test_max_cpus"
-   fi
-   if [ "$test_schedule" ]; then
-      export NX_TEST_SCHEDULE="$test_schedule"
-   fi
-   if [ "$test_deps_plugins" ]; then
-      generator_args="-d $test_deps_plugins"
-   fi
-   if [ "$test_mode" ]; then
-      generator_args="-m $test_mode"
-   fi
-
    if [ "$test_ignore" ]; then
        mark_test_as_ignored $name "$test_ignore_reason"
        return
@@ -636,7 +648,7 @@ run_test ()
 
            if [ "$test_ignore" ]; then
               mark_test_as_ignored $name "$test_ignore_reason"
-              continue
+              exit 0
            fi
 
            ## By default, all_compile_versions = test_compile_versions(embedded script)
@@ -740,15 +752,42 @@ run_test ()
        log "***Removing uncompressed file $uncompressed_name"
        rm -f $tmpdir/$uncompressed_name
    fi
-
-   if [ "$test_max_cpus" ]; then
-      unset NX_TEST_MAX_CPUS
-   fi
-
-   if [ "$test_schedule" ]; then
-      unset NX_TEST_SCHEDULE
-   fi
 )
+
+run_package()
+{
+    local name=$1
+    local compressed=$2
+
+    if [ "$compressed" = compressed ]; then
+        local file=$name
+        local name=$(basename ${file%.pkg.bz2})
+        log "***Uncompressing package '$file' to '$tmpdir/$name'"
+        tar -C "$tmpdir" -xJf "$file"
+        pushd "$tmpdir/$name" > /dev/null
+    fi
+
+    debug "Starting $name test"
+    filtered_message -n "Compile test $name"
+    log "***Start compile test $name"
+    logcmd "make -s clean"
+    passfail "$name" logcmd "make"
+    local ok=$?
+    log "***End compile test $name"
+    if [ "$ok" -eq "0" ]; then
+        filtered_message -n "Execute test $name"
+        log "***Start execute test $name"
+        passfail "$name" logcmd "make check"
+        logcmd "make -s clean"
+        log "***End execute test $name"
+    fi
+
+    if [ "$compressed" = compressed ]; then
+        popd > /dev/null
+        log "***Removing uncompressed package directory '$tmpdir/$name'"
+        rm -rf "$tmpdir/$name"
+    fi
+}
 
 run_file()
 {
@@ -769,6 +808,9 @@ run_file()
      *.cpp.bz2)
        run_test $file cpp compressed
        ;;
+     *.pkg.bz2)
+       run_package $file compressed
+       ;;
    esac
 }
 
@@ -783,7 +825,11 @@ run_dir()
   local dirs=$(find . -maxdepth 1 -type d -path "./*" | cut -c3- | sort)
   for d in $dirs; do
      cd $d
-     run_dir $base/$d
+     if [ -f Makefile -o -f makefile -o -f GNUmakefile ] ; then
+         run_package $d
+     else
+        run_dir $base/$d
+     fi
      cd ..
   done
 
@@ -831,6 +877,7 @@ do_run ()
    export TMPDIR=$tmpdir
    declare -r tmpfile=$(mktemp)
    local old_dir=""
+   local ret=0
 
    if [ "${logfile:0:1}" != "/" ]; then
      logfile=$basedir/$logfile
@@ -894,10 +941,12 @@ EOF
        message "Pass tests: $pass"
        message "${YELLOW}Faulty tests: $faulty${NORMAL}"
        message "${RED}Failed tests: $fail${NORMAL}"
+       ret=1
      fi
      message
    fi
-   return $fail
+
+   return $ret
 }
 
 do_list()
