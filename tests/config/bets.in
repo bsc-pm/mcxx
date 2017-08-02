@@ -523,9 +523,22 @@ allow_all_versions()
     return 0
 }
 
+mark_test_as_ignored()
+{
+    local name=$1
+    local test_ignore_reason=$2
+    junit_log "<testcase name=\"${name}\"><skipped>Ignored test</skipped></testcase>"
+    local test_ignore_message="${YELLOW}ignored${NORMAL}"
+    if [ "$test_ignore_reason" ]; then
+        test_ignore_message="$test_ignore_message (${test_ignore_reason})"
+    fi
+    filtered_message "Test $name $test_ignore_message"
+}
+
+
 # run functions
 
-run_gen_test ()
+run_test ()
 (
    local source=$1
    local type=$2
@@ -567,13 +580,14 @@ run_gen_test ()
    }'
 
    @SED@ -e "${SED_SCRIPT}" -n $srcdir/$source > $tmpfile
+
+   ## Executing the embedded script at the beginning of each test
    source $tmpfile >> $logfile
 
+   ## Saving some variables of the embedded script
    test_generator=${test_generator:-$TEST_GENERATOR}
-
-   #build versions
-   all_compile_versions=$compile_versions
-   all_exec_versions=$exec_versions
+   test_compile_versions=$compile_versions
+   test_exec_versions=$exec_versions
    compile_versions=
    exec_versions=
 
@@ -582,7 +596,7 @@ run_gen_test ()
    then
           test_generator_env="declare -x \"\${test_generator_ENV[@]}\"";
    fi
-   
+
    if [ "$test_max_cpus" ]; then
       export NX_TEST_MAX_CPUS="$test_max_cpus"
    fi
@@ -596,112 +610,135 @@ run_gen_test ()
       generator_args="-m $test_mode"
    fi
 
-   if [ "$test_generator" ]; then
-      debug "Using version generator $test_generator"
-      export TEST_LANGUAGE=$type
-      export TEST_SOURCE=$source
-      ( eval "$test_generator_env" ; $basedir/$test_generator $generator_args > $tmpfile )
-      unset TEST_LANGUAGE
-      unset TEST_SOURCE
-      source $tmpfile >> $logfile
-      if [ "$compile_versions" -a ! "$test_ignore" ]; then
-        if [ "$all_compile_versions" ]; then
-          local tmp=
-          for v1 in $compile_versions; do
-             for v2 in $all_compile_versions; do
-                v="$v1"_"$v2"
-                tmp="$tmp $v" 
-
-                merge_common_compile_vars $v $v1 $v2
-                merge_${type}_compile_vars $v $v1 $v2
-                merge_exec_vars $v $v1 $v2
-             done
-          done
-          all_compile_versions=$tmp
-        else
-          all_compile_versions=$compile_versions
-        fi
-      fi
-      if [ "$exec_versions" -a ! "$test_ignore" ]; then
-        if [ "$all_exec_versions" ]; then
-          local tmp=
-          for v1 in $all_exec_versions; do
-             for v2 in $exec_versions; do
-                v="$v1"_"$v2"
-                tmp="$tmp $v"
-                merge_exec_vars $v $v1 $v2
-             done
-          done
-          all_exec_versions=$tmp
-        else
-          all_exec_versions=$exec_versions
-        fi
-      fi
-   fi
-
-   if [ ! "$all_compile_versions" ]; then
-       all_compile_versions="default"
-   fi
-
-   if [ ! "$all_exec_versions" ]; then
-       all_exec_versions="default"
-   fi
-
-   filter_test_versions=${filter_test_versions:-allow_all_versions}
-
    if [ "$test_ignore" ]; then
-      junit_log "<testcase name=\"${name}\"><skipped>Ignored test</skipped></testcase>"
-      local test_ignore_message="${YELLOW}ignored${NORMAL}"
-      if [ "$test_ignore_reason" ];
-      then
-          test_ignore_message="$test_ignore_message (${test_ignore_reason})"
-      fi
-      filtered_message "Test $name $test_ignore_message"
-   else
-     for v in $all_compile_versions; do
-        filtered_message -n "Compile test $name-$v "
-        log "***Start compile test $name-$v"
-        eval test_fail=\${test_compile_fail_$v}
-        test_fail=${test_fail:-$test_compile_fail}
-        eval test_faulty=\${test_compile_faulty_$v}
-        test_faulty=${test_faulty:-$test_compile_faulty}
-        passfail "$name-$v" compile_$type $v $source $name $srcdir
-        local ok=$?
+       mark_test_as_ignored $name "$test_ignore_reason"
+       return
+   fi
 
-        log "***End compile test $name-$v"
-        if [ "$ok" -eq "0" ]; then
-          for e in $all_exec_versions; do
+   if [ ! "$test_generator" ]; then
+      echo "Invalid $name test: missing test_generator"
+      exit -1
+   fi
 
-             if ! $filter_test_versions $v $e;
-             then
-                 continue
+   for gen in "${test_generator[@]}"
+   do
+       debug "Using version generator $gen"
+
+       export TEST_LANGUAGE=$type
+       export TEST_SOURCE=$source
+       ( eval "$test_generator_env" ; $basedir/$gen $generator_args > $tmpfile )
+       unset TEST_LANGUAGE
+       unset TEST_SOURCE
+
+       (
+           ## Executing the output of each test generator
+           source $tmpfile >> $logfile
+
+           if [ "$test_ignore" ]; then
+              mark_test_as_ignored $name "$test_ignore_reason"
+              continue
+           fi
+
+           ## By default, all_compile_versions = test_compile_versions(embedded script)
+           local all_compile_versions=$test_compile_versions
+           if [ "$compile_versions" ]; then
+             if [ "$test_compile_versions" ]; then
+                ## all_compile_versions =
+                ##        compile_versions(test_generator) x test_compile_versions(embedded script)
+                all_compile_versions=
+                for v1 in $compile_versions; do
+                  for v2 in $test_compile_versions; do
+                     v="$v1"_"$v2"
+                     all_compile_versions="$all_compile_versions $v"
+
+                     merge_common_compile_vars $v $v1 $v2
+                     merge_${type}_compile_vars $v $v1 $v2
+                     merge_exec_vars $v $v1 $v2
+                  done
+               done
+             else
+               all_compile_versions=$compile_versions
              fi
+           fi
 
-             current_test_noexec=${test_noexec:-${test_nolink}}
-             eval current_test_noexec=\${current_test_noexec:-\${test_noexec_$e}}
-             eval current_test_noexec=\${current_test_noexec:-\${test_noexec_${v}_${e}}}
-             eval current_test_noexec=\${current_test_noexec:-\${test_nolink_$v}}
-
-             if [ -z "$current_test_noexec" ]; then
-                 filtered_message -n "Execute test $name-$v-$e "
-                 log "***Start execute test $name-$v-$e"
-                 eval test_fail=\${test_exec_fail_${v}_${e}}
-                 eval test_fail=\${test_fail:-\$test_exec_fail_${e}}
-                 test_fail=${test_fail:-$test_exec_fail}
-                 eval test_faulty=\${test_exec_faulty_${v}_${e}}
-                 eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
-                 test_faulty=${test_faulty:-$test_exec_faulty}
-                 eval test_ignore_fail=\${test_ignore_fail}
-                 eval test_exec_command=\${test_exec_command}
-                 passfail "$name-$v-$e" execute $e $name $v
-                 log "***End execute test $name-$v-$e"
+           ## By default, all_exec_versions = test_exec_versions(embedded script)
+           local all_exec_versions=$test_exec_versions
+           if [ "$exec_versions" ]; then
+             if [ "$test_exec_versions" ]; then
+               ## all_exec_versions =
+               ##        compile_versions(test_generator) x test_compile_versions(embedded script)
+               all_exec_versions=
+               for v1 in $test_exec_versions; do
+                  for v2 in $exec_versions; do
+                     v="$v1"_"$v2"
+                     all_exec_versions="$all_exec_versions $v"
+                     merge_exec_vars $v $v1 $v2
+                  done
+               done
+             else
+               all_exec_versions=$exec_versions
              fi
+           fi
 
-             unset current_test_noexec
-          done
-        fi
+           if [ ! "$all_compile_versions" ]; then
+               all_compile_versions="default"
+           fi
 
-     done
+           if [ ! "$all_exec_versions" ]; then
+               all_exec_versions="default"
+           fi
+
+           filter_test_versions=${filter_test_versions:-allow_all_versions}
+
+           for v in $all_compile_versions; do
+              filtered_message -n "Compile test $name-$v "
+              log "***Start compile test $name-$v"
+              eval test_fail=\${test_compile_fail_$v}
+              test_fail=${test_fail:-$test_compile_fail}
+              eval test_faulty=\${test_compile_faulty_$v}
+              test_faulty=${test_faulty:-$test_compile_faulty}
+              passfail "$name-$v" compile_$type $v $source $name $srcdir
+              local ok=$?
+
+              log "***End compile test $name-$v"
+              if [ "$ok" -eq "0" ]; then
+                for e in $all_exec_versions; do
+
+                   if ! $filter_test_versions $v $e; then
+                       continue
+                   fi
+
+                   current_test_noexec=${test_noexec:-${test_nolink}}
+                   eval current_test_noexec=\${current_test_noexec:-\${test_noexec_$e}}
+                   eval current_test_noexec=\${current_test_noexec:-\${test_noexec_${v}_${e}}}
+                   eval current_test_noexec=\${current_test_noexec:-\${test_nolink_$v}}
+
+                   if [ -z "$current_test_noexec" ]; then
+                       filtered_message -n "Execute test $name-$v-$e "
+                       log "***Start execute test $name-$v-$e"
+                       eval test_fail=\${test_exec_fail_${v}_${e}}
+                       eval test_fail=\${test_fail:-\$test_exec_fail_${e}}
+                       test_fail=${test_fail:-$test_exec_fail}
+                       eval test_faulty=\${test_exec_faulty_${v}_${e}}
+                       eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
+                       test_faulty=${test_faulty:-$test_exec_faulty}
+                       eval test_ignore_fail=\${test_ignore_fail}
+                       eval test_exec_command=\${test_exec_command}
+                       passfail "$name-$v-$e" execute $e $name $v
+                       log "***End execute test $name-$v-$e"
+                   fi
+
+                   unset current_test_noexec
+                done
+              fi
+           done
+       )
+   done
+
+   if [ "$compressed" = compressed ];
+   then
+       log "***Removing uncompressed file $uncompressed_name"
+       rm -f $tmpdir/$uncompressed_name
    fi
 
    if [ "$test_max_cpus" ]; then
@@ -711,32 +748,26 @@ run_gen_test ()
    if [ "$test_schedule" ]; then
       unset NX_TEST_SCHEDULE
    fi
-
-   if [ "$compressed" = compressed ];
-   then
-       log "***Removing uncompressed file $uncompressed_name"
-       rm -f $tmpdir/$uncompressed_name
-   fi
 )
 
 run_file()
 {
    local file=$1
-   case $file in 
+   case $file in
      *.c)
-       run_gen_test $file c 
+       run_test $file c
        ;;
      *.f|*.F|*.f77|*.F77|*.f90|*.F90|*.f95|*.F95)
-       run_gen_test $file fortran
+       run_test $file fortran
        ;;
      *.c.bz2)
-       run_gen_test $file c compressed
+       run_test $file c compressed
        ;;
-     *.cpp|*.cu) 
-       run_gen_test $file cpp 
+     *.cpp|*.cu)
+       run_test $file cpp
        ;;
      *.cpp.bz2)
-       run_gen_test $file cpp compressed
+       run_test $file cpp compressed
        ;;
    esac
 }
