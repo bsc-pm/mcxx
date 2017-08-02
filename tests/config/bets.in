@@ -518,100 +518,6 @@ merge_exec_vars ()
    eval test_ARGS_$1=\"\${test_ARGS_$2} \${test_ARGS_$3}\"
 }
 
-clean_c_compile_vars ()
-{
-   unset test_CC
-   unset test_CPPFLAGS
-   unset test_CFLAGS
-   unset test_LDFLAGS
-}
-
-clean_fortran_compile_vars ()
-{
-   unset test_FC
-   unset test_FFLAGS
-   unset test_LDFLAGS
-}
-
-clean_cpp_compile_vars ()
-{
-   unset test_CXX
-   unset test_CPPFLAGS
-   unset test_CXXFLAGS
-   unset test_LDFLAGS
-}
-
-clean_common_compile_version_vars ()
-{
-    unset test_nolink_$1
-}
-
-clean_c_compile_version_vars ()
-{
-   unset test_CC_$1
-   unset test_CPPFLAGS_$1
-   unset test_CFLAGS_$1
-   unset test_LDFLAGS_$1
-   unset test_compile_fail_$1
-   unset test_compile_faulty_$1
-}
-
-clean_fortran_compile_version_vars ()
-{
-   unset test_FC_$1
-   unset test_FFLAGS_$1
-   unset test_LDFLAGS_$1
-   unset test_compile_fail_$1
-   unset test_compile_faulty_$1
-}
-
-clean_cpp_compile_version_vars ()
-{
-   unset test_CXX_$1
-   unset test_CPPFLAGS_$1
-   unset test_CXXFLAGS_$1
-   unset test_LDFLAGS_$1
-   unset test_compile_fail_$1
-   unset test_compile_faulty_$1
-}
-
-clean_exec_vars()
-{
-   unset test_ENV
-   unset test_ARGS
-}
-
-clean_exec_version_vars()
-{
-   local v=$1
-   local e=$2
-   unset test_ENV_$e
-   unset test_ARGS_$e
-   unset test_exec_fail_$e
-   unset test_exec_faulty_$e
-   unset test_exec_fail_${v}_${e}
-   unset test_exec_faulty_${v}_${e}
-   unset test_noexec_$e
-   unset test_noexec_${v}_${e}
-}
-
-clean_test_vars ()
-{
-   unset test_generator_ENV
-   unset test_generator
-   unset test_compile_fail
-   unset test_compile_faulty
-   unset test_exec_fail
-   unset test_exec_faulty
-   unset test_exec_command
-   unset test_nolink
-   unset test_noexec
-   unset test_ignore
-   unset test_ignore_reason
-   unset test_ignore_fail
-   unset runner
-}
-
 allow_all_versions()
 {
     return 0
@@ -620,7 +526,7 @@ allow_all_versions()
 # run functions
 
 run_gen_test ()
-{
+(
    local source=$1
    local type=$2
    local compressed=$3
@@ -649,9 +555,6 @@ run_gen_test ()
    local test_deps_plugins=
    local test_mode=
    local generator_args=
-   clean_test_vars
-   clean_${type}_compile_vars
-   clean_exec_vars
 
    SED_SCRIPT='/<testinfo>/,/<\/testinfo>/{
        /<testinfo>/d
@@ -714,10 +617,6 @@ run_gen_test ()
                 merge_exec_vars $v $v1 $v2
              done
           done
-          for v in $all_compile_versions $compile_versions; do
-             clean_common_compile_version_vars $v
-             clean_${type}_compile_version_vars $v
-          done
           all_compile_versions=$tmp
         else
           all_compile_versions=$compile_versions
@@ -729,14 +628,9 @@ run_gen_test ()
           for v1 in $all_exec_versions; do
              for v2 in $exec_versions; do
                 v="$v1"_"$v2"
-                tmp="$tmp $v" 
+                tmp="$tmp $v"
                 merge_exec_vars $v $v1 $v2
              done
-          done
-          for v in $all_compile_versions $compile_versions; do
-            for e in $all_exec_versions $exec_versions; do
-               clean_exec_version_vars $v $e
-            done
           done
           all_exec_versions=$tmp
         else
@@ -809,7 +703,7 @@ run_gen_test ()
 
      done
    fi
-   
+
    if [ "$test_max_cpus" ]; then
       unset NX_TEST_MAX_CPUS
    fi
@@ -817,22 +711,13 @@ run_gen_test ()
    if [ "$test_schedule" ]; then
       unset NX_TEST_SCHEDULE
    fi
-   
-   for v in $all_compile_versions; do
-      clean_${type}_compile_version_vars $v
-   done
-   for v in $all_compile_versions; do
-     for e in $all_exec_versions; do
-        clean_exec_version_vars $v $e
-     done
-   done
 
    if [ "$compressed" = compressed ];
    then
        log "***Removing uncompressed file $uncompressed_name"
        rm -f $tmpdir/$uncompressed_name
    fi
-}
+)
 
 run_file()
 {
