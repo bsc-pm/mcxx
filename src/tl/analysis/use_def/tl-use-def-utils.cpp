@@ -757,15 +757,13 @@ namespace Analysis {
         }
 
         NodeclSet private_ue_vars, private_killed_vars, private_undef_vars;
-        if (n->is_omp_loop_node() || n->is_omp_sections_node() || n->is_omp_single_node()
-            || n->is_omp_parallel_node() || n->is_omp_task_node()
-            || n->is_omp_async_target_node() || n->is_omp_sync_target_node())
+        if (n->is_omp_node())
         {   // Take into account data-sharing clauses in Use-Def Task node computation
             const Nodecl::List& environ =
             n->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
             for (Nodecl::List::iterator it = environ.begin(); it != environ.end(); ++it)
             {
-                if (it->is<Nodecl::OpenMP::Private>())
+                if (it->is<Nodecl::OpenMP::Private>() || it->is<Nodecl::OpenMP::Lastprivate>())
                 {   // Remove any usage computed in the inner nodes,
                     // because is the usage of a copy of this variable
                     const Nodecl::List& private_syms =
@@ -794,7 +792,7 @@ namespace Analysis {
                         }
                     }
                 }
-                if (it->is<Nodecl::OpenMP::Firstprivate>())
+                else if (it->is<Nodecl::OpenMP::Firstprivate>())
                 {   // This variable is Upper Exposed in the task
                     const Nodecl::List& firstprivate_syms =
                     it->as<Nodecl::OpenMP::Firstprivate>().get_symbols().as<Nodecl::List>();
