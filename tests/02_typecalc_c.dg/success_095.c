@@ -28,30 +28,65 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
-
-
-#include<new>
 #include<assert.h>
 
-template <typename T>
-struct A
+typedef struct B_t
 {
-    T x;
-    A(T n) : x(n) {}
-};
+    int z0, z1;
+} B;
 
-template < typename T1, typename T2>
-A<T1>* f(T1 n, T2 c)
+typedef struct A_t
 {
-    return (new (c) A<T1>(n));
-}
+    int name[4];
+    B m;
+
+} A;
+
+
+A a0 = { 1, 2, {5, 6} };
+A a1 = { 1, 2, 5, 6};
+A a2 = { {1, 2}, {5, 6} };
+A a3 = { 1, 2, 5, 6, 7, 8};
+
 
 int main()
 {
-    char c[sizeof(A<int>)];
-    A<int>* a = f(42, c);
-    assert(a->x == 42);
+    assert(a0.name[0] == 1);
+    assert(a1.name[0] == 1);
+    assert(a2.name[0] == 1);
+    assert(a3.name[0] == 1);
+
+    assert(a0.name[1] == 2);
+    assert(a1.name[1] == 2);
+    assert(a2.name[1] == 2);
+    assert(a3.name[1] == 2);
+
+
+    assert(a0.name[2] == 5);
+    assert(a1.name[2] == 5);
+    assert(a2.name[2] == 0);
+    assert(a3.name[2] == 5);
+
+
+    assert(a0.name[3] == 0);
+    assert(a1.name[3] == 6);
+    assert(a2.name[3] == 0);
+    assert(a3.name[3] == 6);
+
+
+    assert(a0.m.z0 == 0);
+    assert(a1.m.z0 == 0);
+    assert(a2.m.z0 == 5);
+    assert(a3.m.z0 == 7);
+
+
+    assert(a0.m.z1 == 0);
+    assert(a1.m.z1 == 0);
+    assert(a2.m.z1 == 6);
+    assert(a3.m.z1 == 8);
+
+    return 0;
 }

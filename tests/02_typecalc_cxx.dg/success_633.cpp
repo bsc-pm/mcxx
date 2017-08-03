@@ -28,39 +28,30 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-#include <stdlib.h>
-
-int k;
-
+template <typename T>
 struct A
 {
-    virtual void f(int x)
-    {
-        abort();
-    }
-
-    virtual ~A() { }
+  static int value;
 };
 
-struct B : A
-{
-    void f(int x)
-    {
-        k = x;
-    }
-};
+struct B {};
 
-int main(int argc, char *argv[])
-{
-    A* a = new B();
-    a->f(3);
-    if (k != 3)
-        abort();
-    delete a;
+template<>
+int A<B>::value;
 
+template struct A<B>;
+
+template<>
+int A<B>::value = 42;
+
+extern "C" extern void abort(void);
+
+int main(int, char**)
+{
+    if (A<B>::value != 42) abort();
     return 0;
 }

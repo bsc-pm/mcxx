@@ -28,8 +28,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
-
+test_generator="config/mercurium run"
 </testinfo>
 */
 

@@ -28,29 +28,34 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
-
-
-#include<new>
-#include<assert.h>
+#include <assert.h>
 
 struct A
 {
-    int x;
-    A(int n) : x(n) {}
+    virtual void foo()
+    {
+    }
 };
 
-template < typename T>
-A* f(T c)
+struct B : A
 {
-    return (new (c) A(42));
-}
 
-int main()
+    virtual void foo()
+    {
+        assert(false);
+    }
+
+    void bar()
+    {
+        A::foo(); // Call to A::foo
+    }
+};
+
+int main(int, char**)
 {
-    char c[sizeof(A)];
-    A* a = f(c);
-    assert(a->x == 42);
+    B b;
+    b.bar();
 }

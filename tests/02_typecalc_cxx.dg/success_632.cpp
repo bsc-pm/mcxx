@@ -28,49 +28,37 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-#include <stdlib.h>
+#include <assert.h>
 
-class A {
-  public:
-    virtual void operator()() {
-      return;
-    }
-    virtual void foo() {
-        return;
-    }
-};
+int foo = 1;
 
-
-class B : public A {
-  public:
-      virtual void operator()() {
-          static int in = 0;
-          in++;
-          if (in > 1)
-              abort();
-          this->A::operator()();
-          in--;
-      }
-
-    virtual void foo()
+template <typename T>
+struct A
+{
+    A(int b)
     {
-        static int in = 0;
-        in++;
-        if (in > 1)
-            abort();
-        this->A::foo();
-        in--;
     }
 };
 
-int main() {
-  B b;
-  b.foo();
-  b();
+template <>
+A<int>::A(int m)
+{
+    foo = m;
+}
 
-  return 0;
+int main(int argc, char *argv[])
+{
+    A<float> a(10);
+
+    assert(foo == 1);
+
+    A<int> b(42);
+
+    assert(foo == 42);
+
+    return 0;
 }

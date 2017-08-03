@@ -28,30 +28,45 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-template <typename T>
-struct A
+#if __GNUC__ >= 6
+
+int main()
 {
-  static int value;
+}
+
+#else
+
+#include<assert.h>
+
+class C
+{
+    int x;
+
+    public:
+    C(int n) :x(n) {}
+
+    int get_x() { return x; }
+
+    template < typename T2>
+    friend void f(T2, C);
 };
 
-struct B {};
-
-template<>
-int A<B>::value;
-
-template struct A<B>;
-
-template<>
-int A<B>::value = 42;
-
-extern "C" extern void abort(void);
-
-int main(int, char**)
+template <>
+void f<int>(int _x, C c)
 {
-    if (A<B>::value != 42) abort();
-    return 0;
+    c.x +=  _x;
 }
+
+
+int main()
+{
+    C c(1);
+    f<int>(2, c);
+    assert(c.get_x() != 3);
+}
+
+#endif

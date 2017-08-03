@@ -28,37 +28,51 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-#include <assert.h>
+#include <cstdlib>
 
-int foo = 1;
+int x = 2;
 
 template <typename T>
 struct A
 {
-    A(int b)
+    A() { x = 1; }
+    virtual ~A()
+    {
+        x = 0;
+    }
+
+    virtual void foo()
+    {
+        abort();
+    }
+};
+
+template <typename T>
+struct B : A<T>
+{
+    virtual ~B()
+    {
+    }
+
+    virtual void foo()
     {
     }
 };
 
-template <>
-A<int>::A(int m)
+int main(int argc, char* argv[])
 {
-    foo = m;
-}
+    A<int> * a = new B<int>();
 
-int main(int argc, char *argv[])
-{
-    A<float> a(10);
+    a->foo();
 
-    assert(foo == 1);
+    delete a;
 
-    A<int> b(42);
-
-    assert(foo == 42);
+    if (x == 1)
+        abort();
 
     return 0;
 }

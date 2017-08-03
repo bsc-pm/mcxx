@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,51 +28,21 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
+#include <stdio.h>
+#include <stdlib.h>
 
-#include <cstdlib>
-
-int x = 2;
-
-template <typename T>
-struct A
+enum E
 {
-    A() { x = 1; }
-    virtual ~A()
-    {
-        x = 0;
-    }
-
-    virtual void foo()
-    {
-        abort();
-    }
-};
-
-template <typename T>
-struct B : A<T>
-{
-    virtual ~B()
-    {
-    }
-
-    virtual void foo()
-    {
-    }
+    A = -5U,
+    B,
 };
 
 int main(int argc, char* argv[])
 {
-    A<int> * a = new B<int>();
-
-    a->foo();
-
-    delete a;
-
-    if (x == 1)
+    if (B <= 0)
         abort();
-
     return 0;
 }

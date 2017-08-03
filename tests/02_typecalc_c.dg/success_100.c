@@ -28,66 +28,31 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
-void *global = 0;
+#include <assert.h>
 
-void f(int @ref@n, int @ref@m, int (*@ref@v)[m])
-{
-    // fprintf(stderr, "(1) n = %d | m = %d | %p\n", n, m, &(v[n-1][m-1]));
-    global = &(v[n-1][m-1]);
-    v[n-1][m-1] = 42;
-}
+    struct A1 {
+        int x;
+        short y;
+    };
 
-struct A
-{
-    int n1;
-    int m1;
-    void *p;
-};
+    struct A2 {
+        short y;
+        int x;
+    };
 
-void g(struct A@ref@ a)
-{
-    f(a.n1, a.m1, (int (*@ref@)[a.m1]) a.p);
-}
+    struct B {
+        struct A1 a1;
+        struct A2 a2;
+    };
 
-void h(int n, int m)
-{
-    struct A a;
-
-    int b[n][m];
-    memset(b, 0, sizeof(b));
-    fprintf(stderr, "SIZEOF -> %zd\n", sizeof(b));
-
-    a.n1 = n;
-    a.m1 = m;
-    a.p = b;
-
-    g(a);
-
-    // fprintf(stderr, "(2) n = %d | m = %d | %p\n\n", n, m, &(b[n-1][m-1]));
-
-    if (b[n-1][m-1] != 42)
-        abort();
-
-    if (global != &(b[n-1][m-1]))
-        abort();
-}
+    struct B b[] = { [17] = {1, 2, 3, 4} };
 
 int main(int argc, char *argv[])
 {
-    h(11, 21);
-    h(12, 22);
-    h(11, 22);
-    h(23, 11);
-    h(12, 22);
-    h(23, 23);
-    h(24, 24);
-
+    assert(sizeof(b) == sizeof(struct B[18]));
     return 0;
 }

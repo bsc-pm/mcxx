@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
 	size_t step = 2;
 	size_t newSize = 3;
 
-    i < step ? i += newSize - step  : i -= step;
+    i < step ? i += newSize - step  : (i -= step);
 
     return !( i == 2 );
 }

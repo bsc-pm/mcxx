@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,15 +28,21 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
+#include <stdio.h>
+#include <stdlib.h>
 
-int main(int argc, char *argv[])
+enum E
 {
-    int a = 1, b = 2, c = 3;
+    A = -5,
+    B,
+};
 
-    (a ? b : c) = 4;
-
-    return !(b == 4);
+int main(int argc, char* argv[])
+{
+    if (B >= 0)
+        abort();
+    return 0;
 }

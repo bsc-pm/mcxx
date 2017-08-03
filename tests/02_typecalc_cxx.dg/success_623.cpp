@@ -28,45 +28,29 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-#if __GNUC__ >= 6
 
-int main()
-{
-}
-
-#else
-
+#include<new>
 #include<assert.h>
 
-class C
+struct A
 {
     int x;
-
-    public:
-    C(int n) :x(n) {}
-
-    int get_x() { return x; }
-
-    template < typename T2>
-    friend void f(T2, C);
+    A(int n) : x(n) {}
 };
 
-template <>
-void f<int>(int _x, C c)
+template < typename T>
+A* f(T c)
 {
-    c.x +=  _x;
+    return (new (c) A(42));
 }
-
 
 int main()
 {
-    C c(1);
-    f<int>(2, c);
-    assert(c.get_x() != 3);
+    char c[sizeof(A)];
+    A* a = f(c);
+    assert(a->x == 42);
 }
-
-#endif

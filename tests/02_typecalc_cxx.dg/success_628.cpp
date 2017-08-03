@@ -28,42 +28,33 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-#include <list>
+#include <stdlib.h>
 
-struct A
+namespace A
 {
-    virtual void foo() = 0;
-};
+    template <typename T>
+        struct B
+        {
+            static int x;
+            void f()
+            {
+                this->x++;
+            }
+        };
 
-template < class _T>
-struct B : public A
-{
-     void foo()
-     {
-     }
-};
+    template <typename T>
+        int B<T>::x = 0;
 
-template < class _T>
-struct D
-{
-    std::list<A*> _list;
-    void bar()
-    {
-        std::list<A*>::iterator p = _list.begin();
-        while(p != _list.end())
-            (*p++)->foo();
-    }
-
-};
+}
 
 int main(int, char**)
 {
-    D<int> d;
-    d.bar();
+    A::B<int> b;
+    b.f();
 
-    return 0;
+    if (A::B<int>::x != 1) abort();
 }

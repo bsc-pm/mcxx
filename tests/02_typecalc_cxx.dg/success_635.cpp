@@ -28,17 +28,15 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
-#include<assert.h>
-#include<stdio.h>
-int main()
+
+int main(int argc, char *argv[])
 {
-    printf("foooo\n");
-    int y = {1 , 2};
-    printf("%d\n", y);
-    assert(y == 1);
-    printf("%d\n", y);
-    return 0;
+    int a = 1, b = 2, c = 3;
+
+    (a ? b : c) = 4;
+
+    return !(b == 4);
 }

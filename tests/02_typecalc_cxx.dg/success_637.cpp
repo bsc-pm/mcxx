@@ -28,22 +28,49 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-enum E {
-    A = 10, C = 1
+#include <stdlib.h>
+
+class A {
+  public:
+    virtual void operator()() {
+      return;
+    }
+    virtual void foo() {
+        return;
+    }
 };
 
-int a[] = { [A] = 10, [C] = 1 };
 
-extern void abort(void);
+class B : public A {
+  public:
+      virtual void operator()() {
+          static int in = 0;
+          in++;
+          if (in > 1)
+              abort();
+          this->A::operator()();
+          in--;
+      }
 
-int main()
-{
-    if (sizeof(a) != sizeof(int[11]))
-        abort();
+    virtual void foo()
+    {
+        static int in = 0;
+        in++;
+        if (in > 1)
+            abort();
+        this->A::foo();
+        in--;
+    }
+};
 
-    return 0;
+int main() {
+  B b;
+  b.foo();
+  b();
+
+  return 0;
 }

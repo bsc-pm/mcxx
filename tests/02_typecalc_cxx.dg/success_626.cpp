@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,33 +28,34 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-#include <stdlib.h>
-
-namespace A
+#include<assert.h>
+template < typename T>
+class C
 {
-    template <typename T>
-        struct B
-        {
-            static int x;
-            void f()
-            {
-                this->x++;
-            }
-        };
+    int x;
 
-    template <typename T>
-        int B<T>::x = 0;
+    public:
+    C(int n) :x(n) {}
 
+    int get_x() { return x; }
+
+    template <typename T2>
+    friend void f(T2, C<T>);
+};
+
+template <typename _T>
+void f(_T _x, C<int> c)
+{
+    c.x +=  _x;
 }
 
-int main(int, char**)
+int main()
 {
-    A::B<int> b;
-    b.f();
-
-    if (A::B<int>::x != 1) abort();
+    C<int> c(1);
+    f<int>(2, c);
+    assert(c.get_x() != 3);
 }

@@ -28,48 +28,30 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
+
+
+#include<new>
 #include<assert.h>
-#include<string.h>
 
-typedef struct B_t
+template <typename T>
+struct A
 {
-    int z0, z1;
-} B;
+    T x;
+    A(T n) : x(n) {}
+};
 
-typedef struct A_t
+template < typename T1, typename T2>
+A<T1>* f(T1 n, T2 c)
 {
-    char name[64];
-    B m;
-
-} A;
-
-
-A a0 = { "FOO", {4, 5} };
-A a1 = { { "FOO" }, {4, 5} };
-A a2 = { "FOO" "FAA" , {4, 5} };
-A a3 = { 'F','O','O', {65, 65} };
+    return (new (c) A<T1>(n));
+}
 
 int main()
 {
-   assert(strcmp(a0.name, "FOO") ==0);
-   assert(strcmp(a1.name, "FOO") ==0);
-   assert(strcmp(a2.name, "FOOFAA") ==0);
-   assert(strcmp(a3.name, "FOOA") ==0);
-
-
-    assert(a0.m.z0 == 4);
-    assert(a1.m.z0 == 4);
-    assert(a2.m.z0 == 4);
-    assert(a3.m.z0 == 0);
-
-
-    assert(a0.m.z1 == 5);
-    assert(a1.m.z1 == 5);
-    assert(a2.m.z1 == 5);
-    assert(a3.m.z1 == 0);
-
-    return 0;
+    char c[sizeof(A<int>)];
+    A<int>* a = f(42, c);
+    assert(a->x == 42);
 }

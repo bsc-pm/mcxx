@@ -28,34 +28,48 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
-
 #include<assert.h>
-template < typename T>
-class C
+#include<string.h>
+
+typedef struct B_t
 {
-    int x;
+    int z0, z1;
+} B;
 
-    public:
-    C(int n) :x(n) {}
-
-    int get_x() { return x; }
-
-    template <typename T2>
-    friend void f(T2, C<T>);
-};
-
-template <typename _T>
-void f(_T _x, C<int> c)
+typedef struct A_t
 {
-    c.x +=  _x;
-}
+    char name[64];
+    B m;
+
+} A;
+
+
+A a0 = { "FOO", {4, 5} };
+A a1 = { { "FOO" }, {4, 5} };
+A a2 = { "FOO" "FAA" , {4, 5} };
+A a3 = { 'F','O','O', {65, 65} };
 
 int main()
 {
-    C<int> c(1);
-    f<int>(2, c);
-    assert(c.get_x() != 3);
+   assert(strcmp(a0.name, "FOO") ==0);
+   assert(strcmp(a1.name, "FOO") ==0);
+   assert(strcmp(a2.name, "FOOFAA") ==0);
+   assert(strcmp(a3.name, "FOOA") ==0);
+
+
+    assert(a0.m.z0 == 4);
+    assert(a1.m.z0 == 4);
+    assert(a2.m.z0 == 4);
+    assert(a3.m.z0 == 0);
+
+
+    assert(a0.m.z1 == 5);
+    assert(a1.m.z1 == 5);
+    assert(a2.m.z1 == 5);
+    assert(a3.m.z1 == 0);
+
+    return 0;
 }

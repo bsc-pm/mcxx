@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,65 +28,19 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
-#include<assert.h>
+#include <stdlib.h>
 
-typedef struct B_t
+int main(int argc, char* argv[])
 {
-    int z0, z1;
-} B;
+    unsigned long long int a;
 
-typedef struct A_t
-{
-    int name[4];
-    B m;
+    a = 65536ULL;
 
-} A;
-
-
-A a0 = { 1, 2, {5, 6} };
-A a1 = { 1, 2, 5, 6};
-A a2 = { {1, 2}, {5, 6} };
-A a3 = { 1, 2, 5, 6, 7, 8};
-
-
-int main()
-{
-    assert(a0.name[0] == 1);
-    assert(a1.name[0] == 1);
-    assert(a2.name[0] == 1);
-    assert(a3.name[0] == 1);
-
-    assert(a0.name[1] == 2);
-    assert(a1.name[1] == 2);
-    assert(a2.name[1] == 2);
-    assert(a3.name[1] == 2);
-
-
-    assert(a0.name[2] == 5);
-    assert(a1.name[2] == 5);
-    assert(a2.name[2] == 0);
-    assert(a3.name[2] == 5);
-
-
-    assert(a0.name[3] == 0);
-    assert(a1.name[3] == 6);
-    assert(a2.name[3] == 0);
-    assert(a3.name[3] == 6);
-
-
-    assert(a0.m.z0 == 0);
-    assert(a1.m.z0 == 0);
-    assert(a2.m.z0 == 5);
-    assert(a3.m.z0 == 7);
-
-
-    assert(a0.m.z1 == 0);
-    assert(a1.m.z1 == 0);
-    assert(a2.m.z1 == 6);
-    assert(a3.m.z1 == 8);
+    if (a == 0)
+        abort();
 
     return 0;
 }

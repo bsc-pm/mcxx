@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,19 +28,23 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
-#include <stdlib.h>
+#include <assert.h>
 
-int main(int argc, char* argv[])
+struct A
 {
-    unsigned long long int a;
+        int a;
+        float b;
+} b[] = { 1,2.3f,
+        3, 4.5f,
+        5, 6.7f};
 
-    a = 65536ULL;
+int main(int argc, char *argv[])
+{
+        const int length = sizeof(b)/ sizeof(b[0]);
 
-    if (a == 0)
-        abort();
-
-    return 0;
+        assert(length == 3);
+        return 0;
 }

@@ -28,17 +28,22 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-run
+test_generator="config/mercurium run"
 </testinfo>
 */
 
+enum E {
+    A = 10, C = 1
+};
+
+int a[] = { [A] = 10, [C] = 1 };
+
 extern void abort(void);
 
-int main(int argc, char *arg[])
+int main()
 {
-    int t[] = { };
-
-    if (sizeof(t) != 0) abort();
+    if (sizeof(a) != sizeof(int[11]))
+        abort();
 
     return 0;
 }
