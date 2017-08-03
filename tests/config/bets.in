@@ -825,7 +825,7 @@ run_dir()
   local dirs=$(find . -maxdepth 1 -type d -path "./*" | cut -c3- | sort)
   for d in $dirs; do
      cd $d
-     if [ -f Makefile -o -f makefile -o -f GNUmakefile ] ; then
+     if [ -f .bets_package ]; then
          run_package $d
      else
         run_dir $base/$d
