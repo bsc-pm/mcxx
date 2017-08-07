@@ -26,6 +26,9 @@ function parse_argument()
         openmp)
         TG_ARG_OPENMP="yes"
         ;;
+        openmp-compatibility)
+        TG_ARG_OPENMP_COMPATIBILITY="yes"
+        ;;
         run)
         TG_ARG_RUN="yes"
         ;;

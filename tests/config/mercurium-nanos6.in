@@ -11,7 +11,6 @@ fi
 
 if [ "$TEST_LANGUAGE" = "fortran" -a @FORTRAN_TESTS_ENABLED@ = no ];
 then
-
     gen_ignore_test "Fortran tests are disabled"
     exit
 fi
@@ -20,10 +19,15 @@ fi
 parse_arguments $@
 
 
-if [ "$TG_ARG_OMPSS_V2" = "yes" ]; then
+if [ "$TG_ARG_OMPSS_V2" = "yes" ];
+then
     PROGRAMMING_MODEL="--ompss-v2"
 fi
-PROGRAMMING_MODEL="${PROGRAMMING_MODEL} --openmp-compatibility"
+
+if [ "$TG_ARG_OPENMP_COMPATIBILITY" = "yes" ];
+then
+    PROGRAMMING_MODEL="${PROGRAMMING_MODEL} --openmp-compatibility"
+fi
 
 
 if [ "$TG_ARG_CXX11" = "yes" ];

@@ -28,7 +28,7 @@
 
 /*
 <testinfo>
-test_generator=(config/mercurium-ompss config/mercurium-ompss-v2)
+test_generator=(config/mercurium-ompss "config/mercurium-ompss-v2 openmp-compatibility")
 </testinfo>
 */
 #include <stdio.h>
