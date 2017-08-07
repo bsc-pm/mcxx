@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 if [ "@VECTORIZATION_ENABLED@" = "no" ];
 then
 
@@ -24,7 +27,10 @@ exit
 
 fi
 
-if [ "$1" = "svml" ];
+# Parsing the test-generator arguments
+parse_arguments $@
+
+if [ "$TG_ARG_SVML" = "yes" ];
 then
 
 cat <<EOF

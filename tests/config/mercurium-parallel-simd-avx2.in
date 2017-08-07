@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 # We cannot detect AVX2 at the moment
 cat <<EOF
 test_ignore=yes
@@ -29,6 +32,15 @@ exit
 
 fi
 
+# Parsing the test-generator arguments
+parse_arguments $@
+
+SVML=
+if [ "$TG_ARG_SVML" = "yes" ];
+then
+    SVML="--svml --fast-math"
+fi
+
 if [ -n "@ICC@" -a "@NANOX_ENABLED@" = "yes" ];
 then
 cat <<EOF
@@ -37,14 +49,9 @@ IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tes
 compile_versions="\${compile_versions} nanox_imcc"
 test_CC_nanox_imcc="\${IMCC}"
 
-if [ "$1" = "svml" ];
-then
-test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-else
-test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-fi
+test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 ${SVML} --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 ${SVML} --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+
 test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib"
 EOF
 
@@ -75,14 +82,9 @@ INTEL_RTL="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir
 compile_versions="\${compile_versions} intel_rtl"
 test_CC_intel_rtl="\${INTEL_RTL}"
 
-if [ "$1" = "svml" ];
-then
-test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL}"
-test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL}"
-else
-test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --enable-ms-builtins ${PROGRAMMING_MODEL}"
-test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --enable-ms-builtins ${PROGRAMMING_MODEL}"
-fi
+test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 ${SVML} --enable-ms-builtins ${PROGRAMMING_MODEL}"
+test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 ${SVML} --enable-ms-builtins ${PROGRAMMING_MODEL}"
+
 test_LDFLAGS_intel_rtl="-L@abs_top_builddir@/lib"
 EOF
 

@@ -1,16 +1,3 @@
 #!/usr/bin/env bash
 
-# Check if there is some OmpSs implementation
-if [ "@NANOX_ENABLED@" = "no" ];
-then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="Nanos++ has not been configured"
-EOF
-
-exit
-
-fi
-
-@abs_builddir@/mercurium-nanox ompss $1
+@abs_builddir@/mercurium-nanox ompss $@

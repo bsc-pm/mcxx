@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 if [ "@VECTORIZATION_ENABLED@" = "no" ];
 then
 
@@ -24,7 +27,10 @@ exit
 
 fi
 
-if [ "$1" = "svml" -a -z "@ICC@" ];
+# Parsing the test-generator arguments
+parse_arguments $@
+
+if [ "$TG_ARG_SVML" = "yes" -a -z "@ICC@" ];
 then
 
 cat <<EOF
@@ -36,7 +42,7 @@ exit
 
 fi
 
-if [ "$1" = "svml" -a "@SVML_ENABLED@" != yes ];
+if [ "$TG_ARG_SVML" = "yes" -a "@SVML_ENABLED@" != yes ];
 then
 
 cat <<EOF
@@ -53,7 +59,7 @@ source @abs_builddir@/mercurium-libraries
 
 COMMON_NANOX_CFLAGS=-DNANOX
 
-if [ "$1" != "svml" ];
+if [ "$TG_ARG_SVML" != "yes" ];
 then
 
 cat <<EOF
@@ -83,7 +89,7 @@ then
     DISABLE_INTEL_INTRINSICS="--disable-intel-intrinsics"
 fi
 
-if [ "$1" = "svml" ]; then
+if [ "$TG_ARG_SVML" = "yes" ]; then
 
 cat <<EOF
 

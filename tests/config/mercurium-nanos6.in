@@ -1,21 +1,18 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
 
-PROGRAMMING_MODEL="--${1} --openmp-compatibility"
-
-CPLUSPLUS_2011=0
-
-if [ "$2" = "c++11" ];
+if [ "@NANOS6_ENABLED@" = "no" ];
 then
-  CPLUSPLUS_2011=1
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="Nanos6 has not been configured"
+EOF
+
+exit
 fi
-
-function detect_gcc_version() {
-
-    A=$(g++ -v 2>&1 | tail -n 1 | sed -e 's,^.*version\s*\([0-9]\)\.\([0-9]\+\)\(\.[0-9]\+\)*.*$,export GCC_VERSION_MAJOR=\1\nexport GCC_VERSION_MINOR=\2,')
-    eval $A
-
-}
 
 if [ "$TEST_LANGUAGE" = "fortran" -a @FORTRAN_TESTS_ENABLED@ = no ];
 then
@@ -25,44 +22,51 @@ test_ignore=yes
 EOF
 
 exit
-
 fi
 
+# Parsing the test-generator arguments
+parse_arguments $@
 
-if [ $CPLUSPLUS_2011 = 1 ];
+
+if [ "$TG_ARG_OMPSS_V2" = "yes" ]; then
+    PROGRAMMING_MODEL="--ompss-v2"
+fi
+PROGRAMMING_MODEL="${PROGRAMMING_MODEL} --openmp-compatibility"
+
+
+function detect_gcc_version() {
+
+    A=$(g++ -v 2>&1 | tail -n 1 | sed -e 's,^.*version\s*\([0-9]\)\.\([0-9]\+\)\(\.[0-9]\+\)*.*$,export GCC_VERSION_MAJOR=\1\nexport GCC_VERSION_MINOR=\2,')
+    eval $A
+
+}
+
+if [ "$TG_ARG_CXX11" = "yes" ];
 then
+    detect_gcc_version
 
-detect_gcc_version
-
-# Only for GCC 4.8
-if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 8 ')' ];
-then
+    # Only for GCC 4.8
+    if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 8 ')' ];
+    then
 
 cat <<EOF
 test_ignore=yes
 test_ignore_reason="requires g++ 4.8 or better"
 EOF
 
-exit
-
-fi
-
+    exit
+    fi
+    CXX11_FLAG="-std=c++11"
 fi
 
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
 NANOS6_CC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose"
-NANOS6_CXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
+NANOS6_CXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose ${CXX11_FLAG}"
 NANOS6_FC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose"
 EOF
 
-if [ $CPLUSPLUS_2011 = 1 ];
-then
-cat <<EOF
-NANOS6_CXX="\${NANOS6_CXX} -std=c++11"
-EOF
-fi
 
 # COMMON_NANOS6_CFLAGS="-DNANOS6"
 
@@ -116,7 +120,7 @@ then
   if [ ! -z "@ICPC@" ];
   then
 cat <<EOF
-NANOS6_IMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcxx --config-dir=@abs_top_builddir@/config --verbose"
+NANOS6_IMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcxx --config-dir=@abs_top_builddir@/config --verbose ${CXX11_FLAG}"
 compile_versions="\${compile_versions} nanos6_imcxx"
 runner_nanos6_imcxx=runner_taskset
 test_CXX_nanos6_imcxx="\${NANOS6_IMCXX}"
@@ -128,7 +132,7 @@ EOF
   if [ ! -z "@XLCXX@" ];
   then
 cat <<EOF
-NANOS6_XLMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmcxx --config-dir=@abs_top_builddir@/config --verbose"
+NANOS6_XLMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmcxx --config-dir=@abs_top_builddir@/config --verbose ${CXX11_FLAG}"
 compile_versions="\${compile_versions} nanos6_xlmcxx"
 runner_nanos6_xlmcxx=runner_taskset
 test_CXX_nanos6_xlmcxx="\${NANOS6_XLMCXX}"

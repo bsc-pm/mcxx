@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 # Unmaintained tests
 cat <<EOF
 test_ignore=yes
@@ -30,6 +33,9 @@ exit
 
 fi
 
+# Parsing the test-generator arguments
+parse_arguments $@
+
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
@@ -39,23 +45,20 @@ EOF
 
 COMMON_NANOX_CFLAGS=-DNANOX
 
+SVML=
+if [ "$TG_ARG_SVML" = "yes" ];
+then
+    SVML="--svml --fast-math"
+fi
+
 cat <<EOF
 compile_versions="\${compile_versions} nanox_mercurium"
 
 test_CC_nanox_mercurium="\${MCC}"
 test_CXX_nanox_mercurium="\${MCXX}"
 
-if [ "$1" = "svml" ];
-then
-
-test_CFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp --svml --fast-math -std=gnu99 ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp --svml --fast-math ${COMMON_NANOX_CFLAGS}"
-
-else
-test_CFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp -std=gnu99 ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp ${COMMON_NANOX_CFLAGS}"
-
-fi
+test_CFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp ${SVML} -std=gnu99 ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp ${SVML} ${COMMON_NANOX_CFLAGS}"
 
 test_LDFLAGS_nanox_mercurium="@abs_top_builddir@/lib/perish.o"
 
@@ -70,14 +73,9 @@ IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tes
 compile_versions="\${compile_versions} nanox_imcc"
 test_CC_nanox_imcc="\${IMCC}"
 
-if [ "$1" = "svml" ];
-then
-test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-else
-test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-fi
+test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp ${SVML} --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp ${SVML} --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+
 test_LDFLAGS_nanox_imcc="@abs_top_builddir@/lib/perish.o"
 EOF
 

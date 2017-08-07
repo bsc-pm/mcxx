@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 if [ @FORTRAN_TESTS_ENABLED@ = no ];
 then
 

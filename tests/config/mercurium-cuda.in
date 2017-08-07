@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 if [ "@NANOX_ENABLED@" = "no" -o "@cuda_valid@" = no ];
 then
 

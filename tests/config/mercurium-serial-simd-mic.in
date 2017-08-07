@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 if [ "@VECTORIZATION_ENABLED@" = "no" ];
 then
 
@@ -67,6 +70,9 @@ fi
 # 
 # fi
 
+# Parsing the test-generator arguments
+parse_arguments $@
+
 if [ ! -z "@ICC@" -a ! -z "@INTEL_OMP_LIB@" ];
 then
 
@@ -77,6 +83,12 @@ then
     DISABLE_INTEL_INTRINSICS="--disable-intel-intrinsics"
 fi
 
+SVML=
+if [ "$TG_ARG_SVML" = "yes" ];
+then
+SVML="--svml --fast-math"
+fi
+
 cat <<EOF
 
 INTEL_RTL_CC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=intel-mcc --config-dir=@abs_top_builddir@/config --verbose"
@@ -85,15 +97,8 @@ compile_versions="\${compile_versions} intel_rtl"
 test_CC_intel_rtl="\${INTEL_RTL_CC}"
 test_CXX_intel_rtl="\${INTEL_RTL_CXX}"
 
-SVML=""
-if [ "$1" = "svml" ];
-then
-SVML="--svml --fast-math"
-fi
-
-test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic \${SVML} ${DISABLE_INTEL_INTRINSICS} -std=gnu99 --enable-ms-builtins   ${PROGRAMMING_MODEL}"
-test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic \${SVML} ${DISABLE_INTEL_INTRINSICS} -std=gnu99 --enable-ms-builtins ${PROGRAMMING_MODEL}"
-
+test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic ${SVML} ${DISABLE_INTEL_INTRINSICS} -std=gnu99 --enable-ms-builtins   ${PROGRAMMING_MODEL}"
+test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic ${SVML} ${DISABLE_INTEL_INTRINSICS} -std=gnu99 --enable-ms-builtins ${PROGRAMMING_MODEL}"
 
 test_LDFLAGS_intel_rtl="-L@abs_top_builddir@/lib"
 EOF
