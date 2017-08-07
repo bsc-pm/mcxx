@@ -1115,6 +1115,7 @@ type {
     }
 #endif
 
+# if 0
     if (system_header_file)
     {
         char path[MCXX_MAX_FILENAME];
@@ -1123,6 +1124,7 @@ type {
         char *name_without_path = basename(path);
         strncpy(filename, name_without_path, MCXX_MAX_FILENAME);
     }
+#endif
 
     if (start_of_new_file 
             || system_header_file)
