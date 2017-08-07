@@ -6,12 +6,8 @@ source @abs_builddir@/test-generators-utilities
 if [ "@ANALYSIS_DISABLED@" = "yes" -o "@NANOX_ENABLED@" = "no" ];
 then
 
-cat <<EOF
-test_ignore=yes
-EOF
-
-exit
-
+    gen_ignore_test "analysis or Nanos++ disabled"
+    exit
 fi
 
 # Parsing the test-generator arguments

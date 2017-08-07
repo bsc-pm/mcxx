@@ -5,25 +5,15 @@ source @abs_builddir@/test-generators-utilities
 
 if [ "@VECTORIZATION_ENABLED@" = "no" ];
 then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="Vectorization not enabled"
-EOF
-
-exit
-
+    gen_ignore_test "Vectorization is disabled"
+    exit
 fi
 
 if [ "@MIC_COMPILATION@" = "no" ];
 then
 
-cat <<EOF
-test_ignore=yes
-EOF
-
-exit
-
+    gen_ignore_test "MIC compilation is disabled"
+    exit
 fi
 
 # if [ -n "@ICC@" -a "@NANOX_ENABLED@" = "yes" ];

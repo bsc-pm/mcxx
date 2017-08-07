@@ -40,3 +40,14 @@ EOF
         ;;
     esac
 }
+
+## This function generates the commands that mark a test as ignored
+function gen_ignore_test()
+{
+    local ignore_reason=$1
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="${ignore_reason}"
+EOF
+}

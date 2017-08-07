@@ -5,13 +5,8 @@ source @abs_builddir@/test-generators-utilities
 
 if [ @FORTRAN_TESTS_ENABLED@ = no ];
 then
-
-cat <<EOF
-test_ignore=yes
-EOF
-
-exit
-
+    gen_ignore_test "Fortran tests are disabled"
+    exit
 fi
 
 # Basic mercurium generator with Fortran support

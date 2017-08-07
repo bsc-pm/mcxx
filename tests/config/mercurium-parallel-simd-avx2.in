@@ -3,33 +3,21 @@
 # Loading some test-generators utilities
 source @abs_builddir@/test-generators-utilities
 
+
 # We cannot detect AVX2 at the moment
-cat <<EOF
-test_ignore=yes
-EOF
+gen_ignore_test "We cannot detect AVX2 at the moment"
 exit
 
 if [ "@VECTORIZATION_ENABLED@" = "no" ];
 then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="Vectorization not enabled"
-EOF
-
-exit
-
+    gen_ignore_test "Vectorization is disabled"
+    exit
 fi
 
 if [ "@MIC_COMPILATION@" = "no" ];
 then
-
-cat <<EOF
-test_ignore=yes
-EOF
-
-exit
-
+    gen_ignore_test "MIC compilation is not enabled"
+    exit
 fi
 
 # Parsing the test-generator arguments

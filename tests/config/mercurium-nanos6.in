@@ -5,23 +5,15 @@ source @abs_builddir@/test-generators-utilities
 
 if [ "@NANOS6_ENABLED@" = "no" ];
 then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="Nanos6 has not been configured"
-EOF
-
-exit
+    gen_ignore_test "Nanos6 has not been configured"
+    exit
 fi
 
 if [ "$TEST_LANGUAGE" = "fortran" -a @FORTRAN_TESTS_ENABLED@ = no ];
 then
 
-cat <<EOF
-test_ignore=yes
-EOF
-
-exit
+    gen_ignore_test "Fortran tests are disabled"
+    exit
 fi
 
 # Parsing the test-generator arguments
@@ -48,13 +40,8 @@ then
     # Only for GCC 4.8
     if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 8 ')' ];
     then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="requires g++ 4.8 or better"
-EOF
-
-    exit
+        gen_ignore_test "requires g++ 4.8 or better"
+        exit
     fi
     CXX11_FLAG="-std=c++11"
 fi
