@@ -51,3 +51,46 @@ test_ignore=yes
 test_ignore_reason="${ignore_reason}"
 EOF
 }
+
+## Internal function that computes the gcc major and minor versions
+function detect_gcc_version()
+{
+    A=$(gcc -v 2>&1 | tail -n 1 | @SED@ -e 's,^.*version\s*\([0-9]\)\.\([0-9]\+\)\(\.[0-9]\+\)*.*$,export GCC_VERSION_MAJOR=\1\nexport GCC_VERSION_MINOR=\2,')
+    eval $A
+}
+
+## This function returns whether the current version of g++ supports c++11 (i.e. g++ version >= 4.8)
+function gcc_supports_cxx11()
+{
+    local ret=0
+    detect_gcc_version
+    if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 8 ')' ];
+    then
+        ret=1
+    fi
+    echo $ret
+}
+
+## This function returns whether the current version of gcc supports c11 (i.e. gcc version >= 4.8)
+function gcc_supports_c11()
+{
+    local ret=0
+    detect_gcc_version
+    if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 8 ')' ];
+    then
+        ret=1
+    fi
+    echo $ret
+}
+
+## This function returns whether the current version of g++ supports c++14 (i.e. g++ version >= 4.9)
+function gcc_supports_cxx14()
+{
+    local ret=0
+    detect_gcc_version
+    if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 9 ')' ];
+    then
+        ret=1
+    fi
+    echo $ret
+}
