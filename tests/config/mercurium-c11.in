@@ -34,14 +34,6 @@ then
 else
    test_nolink=yes
 fi
-
-if [ "$1" = "gcc_fails" ];
-then
-   unset test_nolink
-   test_noexec=yes
-   test_CXXFLAGS="\${test_CXXFLAGS} -y --typecheck"
-fi
-
 EOF
 
 fi
