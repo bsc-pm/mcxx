@@ -1,7 +1,16 @@
 /*
 <testinfo>
+test_generator="config/mercurium-cxx11"
+
 # This test fails in g++ 4.8 but it is supposed to work in the future
-test_generator="config/mercurium-cxx11 gxx_fails"
+
+# This combination of flags is a bit awkward but works.
+# This test is not going to generate a binary but a file that contains
+# the generated code of Mercurium. The 'export test_nolink=no' is used to remove the '-c' flag.
+
+export test_nolink=no
+test_noexec=yes
+test_CXXFLAGS="-y --typecheck"
 </testinfo>
 */
 
