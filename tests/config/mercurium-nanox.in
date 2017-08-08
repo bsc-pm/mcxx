@@ -26,7 +26,7 @@ fi
 
 if [ "$TG_ARG_CXX11" = "yes" ];
 then
-    if [ ! $(gcc_supports_cxx11) ];
+    if ! $(gcc_supports_cxx11);
     then
         gen_ignore_test "requires g++ 4.8 or better"
         exit

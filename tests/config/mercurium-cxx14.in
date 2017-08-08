@@ -9,7 +9,7 @@ parse_arguments $@
 # Basic mercurium generator
 source @abs_top_builddir@/tests/config/mercurium-libraries
 
-if [ ! $(gcc_supports_cxx14) ];
+if ! $(gcc_supports_cxx14);
 then
     gen_ignore_test "requires g++ 4.9 or better"
     exit

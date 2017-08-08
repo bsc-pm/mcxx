@@ -71,7 +71,7 @@ function gcc_supports_cxx11()
     then
         ret=1
     fi
-    echo $ret
+    exit $ret
 }
 
 ## This function returns whether the current version of gcc supports c11 (i.e. gcc version >= 4.8)
@@ -83,7 +83,7 @@ function gcc_supports_c11()
     then
         ret=1
     fi
-    echo $ret
+    exit $ret
 }
 
 ## This function returns whether the current version of g++ supports c++14 (i.e. g++ version >= 4.9)
@@ -95,5 +95,5 @@ function gcc_supports_cxx14()
     then
         ret=1
     fi
-    echo $ret
+    exit $ret
 }
