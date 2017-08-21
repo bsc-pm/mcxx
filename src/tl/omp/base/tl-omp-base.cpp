@@ -3275,11 +3275,12 @@ namespace TL { namespace OpenMP {
         bool old_emit_omp_report = this->_omp_report;
         this->_omp_report = false;
 
-        // Everything should go transparent here
-        make_data_sharing_list<Nodecl::OpenMP::Shared>(
-                data_sharing_env, OpenMP::DS_PRIVATE,
-                locus,
-                result_list);
+        // Everything here but 'private' datasharings should go transparent
+
+        // 'private' datasharings aren't computed as shared as their type gives
+        // enough information and their current value is meaningless to the
+        // inner scope
+
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
                 locus,
