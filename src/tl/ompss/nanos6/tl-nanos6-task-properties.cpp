@@ -2402,9 +2402,15 @@ namespace TL { namespace Nanos6 {
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         field_map[*it].get_type().no_ref().get_lvalue_reference_to());
 
-                if (it->get_type().no_ref().is_array()
-                        && it->get_type().depends_on_nonconstant_values())
+                if (it->get_type().depends_on_nonconstant_values() &&
+                        (it->get_type().no_ref().is_array() ||
+                         it->get_type().no_ref().is_pointer()))
                 {
+                    // A conversion between pointer type (from argument) and
+                    // array type (from parameter) is required. This is done by
+                    // getting a reference (&) from the argument, casting it to a
+                    // pointer to the array type, and dereferencing (*) it afterwards.
+
                     TL::Type param_type = rewrite_type_using_args(
                             arg, it->get_type().no_ref(), TL::ObjectList<TL::Symbol>());
 
