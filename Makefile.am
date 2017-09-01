@@ -3593,8 +3593,14 @@ support/gperf/gperf-compat-types.h: Makefile
 	$(AM_V_GEN)( \
     OUT_FILE="support/gperf/gperf-compat-types.h"; \
 	echo "/* This file has been generated */" > $${OUT_FILE}; \
+	echo >> $${OUT_FILE}; \
+	echo "#ifndef GPERF_COMPAT_TYPES_H" >> $${OUT_FILE}; \
+	echo "#define GPERF_COMPAT_TYPES_H" >> $${OUT_FILE}; \
+	echo >> $${OUT_FILE}; \
 	echo "#include<stddef.h>" >> $${OUT_FILE}; \
 	echo "typedef" $(GPERF_LEN_TYPE) "gperf_length_t;" >> $${OUT_FILE}; \
+	echo >> $${OUT_FILE}; \
+	echo "#endif /* GPERF_COMPAT_TYPES_H */" >> $${OUT_FILE}; \
     )
 endif
 
