@@ -4417,6 +4417,9 @@ namespace TL { namespace Nanos6 {
                         update_address_fun_name.c_str());
             }
 
+            TL::Type lhs_type =
+                _field_map[it->symbol].get_type().no_ref().get_lvalue_reference_to();
+
             rhs = Nodecl::Conversion::make(
                     Nodecl::FunctionCall::make(
                         update_address_fun.make_nodecl(/* set_ref_type */ true),
@@ -4424,12 +4427,9 @@ namespace TL { namespace Nanos6 {
                         /* alternate_name */ Nodecl::NodeclBase::null(),
                         /* function_form */ Nodecl::NodeclBase::null(),
                         TL::Type::get_void_type().get_pointer_to()),
-                    rhs.get_type());
+                    lhs_type.no_ref());
 
             rhs.set_text("C");
-
-            TL::Type lhs_type =
-                _field_map[it->symbol].get_type().no_ref().get_lvalue_reference_to();
 
             Nodecl::NodeclBase lhs =
                 Nodecl::ClassMemberAccess::make(
