@@ -762,6 +762,7 @@ namespace TL { namespace Nanos6 {
             TL::Symbol &task_info)
     {
         create_dependences_function();
+        create_reduction_functions();
         create_priority_function();
 
         TL::Symbol task_info_struct = get_nanos6_class_symbol("nanos_task_info");
@@ -878,6 +879,45 @@ namespace TL { namespace Nanos6 {
                     init_destroy,
                     field_destroy.get_type()));
 
+        if (Interface::family_is_at_least("nanos6_task_info_contents", 6))
+        {
+            Nodecl::NodeclBase field_reduction_initializers = get_field("reduction_initializers");
+            Nodecl::NodeclBase init_reduction_initializers;
+
+            if (_reduction_initializers.is_valid())
+            {
+                init_reduction_initializers =
+                    _reduction_initializers.make_nodecl(/* set_ref_type */ true);
+            }
+            else
+            {
+                init_reduction_initializers =
+                    const_value_to_nodecl(const_value_get_signed_int(0));
+            }
+
+            Nodecl::NodeclBase field_reduction_combiners = get_field("reduction_combiners");
+            Nodecl::NodeclBase init_reduction_combiners;
+
+            if (_reduction_combiners.is_valid())
+            {
+                init_reduction_combiners =
+                    _reduction_combiners.make_nodecl(/* set_ref_type */ true);
+            }
+            else
+            {
+                init_reduction_combiners =
+                    const_value_to_nodecl(const_value_get_signed_int(0));
+            }
+
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_reduction_initializers,
+                        init_reduction_initializers,
+                        field_reduction_initializers.get_type()));
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_reduction_combiners,
+                        init_reduction_combiners,
+                        field_reduction_combiners.get_type()));
+        }
 
         Nodecl::NodeclBase struct_init = Nodecl::StructuredValue::make(
             Nodecl::List::make(field_init),
@@ -3553,6 +3593,635 @@ namespace TL { namespace Nanos6 {
         else if (IS_FORTRAN_LANGUAGE)
         {
             create_dependences_function_fortran();
+        }
+    }
+
+    namespace
+    {
+        struct TranslateReductionExpr: public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                std::map<TL::Symbol, Nodecl::NodeclBase>& _translation_map;
+
+            public:
+                TranslateReductionExpr(std::map<TL::Symbol, Nodecl::NodeclBase>& translation_map)
+                    : _translation_map(translation_map)
+                {}
+
+            virtual void visit(const Nodecl::Symbol& node)
+            {
+                TL::Symbol symbol = node.get_symbol();
+
+                std::map<TL::Symbol, Nodecl::NodeclBase>::iterator it = _translation_map.find(symbol);
+                if (it != _translation_map.end())
+                {
+                    node.replace(it->second.shallow_copy());
+                }
+            }
+        };
+
+        TL::Type get_base_element_type(TL::Type type)
+        {
+            while (type.is_array())
+                type = type.array_element();
+
+            return type;
+        }
+
+        TL::Symbol create_reduction_initializer_function(
+                const ReductionItem& red,
+                const TL::Symbol& related_function,
+                int function_identifier)
+        {
+            OpenMP::Reduction& reduction_info = *red.reduction_info;
+            TL::Symbol omp_priv = reduction_info.get_omp_priv();
+            TL::Symbol omp_orig = reduction_info.get_omp_orig();
+
+            // 1. Create function symbol
+
+            std::string red_init_fun_name;
+            {
+                std::stringstream ss;
+                ss << "nanos6_reduction_init_" << function_identifier;
+                red_init_fun_name = ss.str();
+            }
+
+            TL::ObjectList<std::string> red_init_parameter_names(3);
+            red_init_parameter_names[0] = omp_priv.get_name();
+            red_init_parameter_names[1] = omp_orig.get_name();
+            red_init_parameter_names[2] = "size";
+
+            TL::Type base_element_type =
+                get_base_element_type(red.reduction_type.no_ref());
+
+            TL::ObjectList<TL::Type> red_init_parameter_types(3);
+            red_init_parameter_types[0] = base_element_type.get_pointer_to();
+            red_init_parameter_types[1] = base_element_type.get_pointer_to();
+            red_init_parameter_types[2] = TL::Type::get_size_t_type();
+
+            TL::Symbol red_init_fun_sym = SymbolUtils::new_function_symbol(
+                    related_function,
+                    red_init_fun_name,
+                    TL::Type::get_void_type(),
+                    red_init_parameter_names,
+                    red_init_parameter_types);
+
+            TL::Scope red_init_inside_scope = red_init_fun_sym.get_related_scope();
+
+            // 2. Build function code from OpenMP::Reduction initializer
+
+            ERROR_CONDITION(!reduction_info.is_builtin(),
+                    "UDR are not supported", 0);
+
+            // 2.1. Obtain and prepare the initializer statements
+
+            Nodecl::NodeclBase initializer_expr =
+                reduction_info.get_initializer().shallow_copy();
+
+            if (reduction_info.get_is_initialization())
+            {
+                // Initializer expressions like 'omp_priv = expr'. The initializer
+                // only represents the rhs expression (in our example, 'expr'). We
+                // need to build the assignment manually.
+
+                // We don't mind if it's an array reduction, as we are using
+                // omp_priv symbol here, which will be of the base type
+                initializer_expr = Nodecl::Assignment::make(
+                        omp_priv.make_nodecl(/* set_ref_type */ true),
+                        initializer_expr,
+                        omp_priv.get_type().no_ref());
+            }
+
+            Nodecl::NodeclBase initializer_stmts =
+                Nodecl::ExpressionStatement::make(
+                        initializer_expr);
+
+            // 2.2. Obtain function parameter symbols
+
+            TL::Symbol param_omp_priv =
+                red_init_inside_scope.get_symbol_from_name(omp_priv.get_name());
+            ERROR_CONDITION(!param_omp_priv.is_valid(), "Symbol %s not found",
+                    omp_priv.get_name().c_str());
+
+            TL::Symbol param_omp_orig =
+                red_init_inside_scope.get_symbol_from_name(omp_orig.get_name());
+            ERROR_CONDITION(!param_omp_orig.is_valid(), "Symbol %s not found",
+                    omp_orig.get_name().c_str());
+
+            TL::Symbol param_size =
+                red_init_inside_scope.get_symbol_from_name("size");
+            ERROR_CONDITION(!param_size.is_valid(), "Symbol %s not found",
+                    param_size.get_name().c_str());
+
+            // 2.3. Prepare translation map from original symbols in
+            // OpenMP::Reduction initializer to expressions using function
+            // parameters
+
+            std::map<TL::Symbol, Nodecl::NodeclBase> translation_map;
+
+            if (red.reduction_type.is_array())
+            {
+                // 2.3.A. For array reductions, we need to map an expression
+                // written in terms of scalars onto an array section
+
+                // 2.3.A.1. Generate loops to iterate through the array section
+
+                std::string num_elements_sym_name = "num_elements";
+                TL::Symbol num_elements_sym = red_init_inside_scope.new_symbol(num_elements_sym_name);
+                symbol_entity_specs_set_is_user_declared(num_elements_sym.get_internal_symbol(), 1);
+                num_elements_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                num_elements_sym.set_type(param_size.get_type());
+
+                num_elements_sym.set_value(
+                        Nodecl::Div::make(
+                            param_size.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::Sizeof::make(
+                                Nodecl::Type::make(base_element_type),
+                                /* expr */ Nodecl::NodeclBase::null(),
+                                TL::Type::get_size_t_type()),
+                            param_size.get_type()));
+
+                std::string induction_sym_name = "i";
+                TL::Symbol induction_sym = red_init_inside_scope.new_symbol(induction_sym_name);
+                symbol_entity_specs_set_is_user_declared(induction_sym.get_internal_symbol(), 1);
+                induction_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                induction_sym.set_type(param_size.get_type());
+                induction_sym.set_value(const_value_to_nodecl(const_value_get_signed_int(0)));
+
+                Nodecl::NodeclBase initialization =
+                    Nodecl::ObjectInit::make(induction_sym);
+
+                Nodecl::NodeclBase condition = Nodecl::LowerThan::make(
+                        induction_sym.make_nodecl(/* set_ref_type */ true),
+                        num_elements_sym.make_nodecl(/* set_ref_type */ true),
+                        TL::Type::get_bool_type());
+
+                Nodecl::NodeclBase step = Nodecl::Preincrement::make(
+                        induction_sym.make_nodecl(/* set_ref_type */ true),
+                        induction_sym.get_type());
+
+                Nodecl::NodeclBase loop_control = Nodecl::LoopControl::make(
+                        Nodecl::List::make(initialization),
+                        condition,
+                        step);
+
+                // Note that we are not creating any context / compound stmt
+                // Thus, the body has to be always a single statement
+                Nodecl::NodeclBase loop = Nodecl::ForStatement::make(
+                        loop_control,
+                        Nodecl::List::make(
+                            initializer_stmts),
+                        /* loop-name */ Nodecl::NodeclBase::null());
+
+                // 2.3.A.2. Create array subscript node using induction
+                // variables and add it to translation map
+
+                Nodecl::NodeclBase omp_priv_array_subscript =
+                    Nodecl::ArraySubscript::make(
+                            param_omp_priv.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(
+                                induction_sym.make_nodecl(/* set_ref_type */ true)),
+                            base_element_type);
+
+                translation_map[omp_priv] = omp_priv_array_subscript;
+
+                // 'omp_orig' is not mapped as it can only appear in UDRs, where
+                // the user will provide initialzier function for the whole array
+
+                // 2.3.A.3. Set the initializer statements as the symbols
+                // initializations and the loop itself
+
+                initializer_stmts = Nodecl::List::make(
+                        Nodecl::ObjectInit::make(num_elements_sym),
+                        loop);
+            }
+            else
+            {
+                // 2.3.B. For scalar reductions we only need to map the
+                // expression symbols to parameters
+
+                translation_map[omp_priv] = Nodecl::Dereference::make(
+                        param_omp_priv.make_nodecl(/* set_ref_type */ true),
+                        param_omp_priv.get_type().get_lvalue_reference_to());
+
+                // 'omp_orig' is not mapped as it can only appear in UDRs, where
+                // the user will provide initialzier function for the whole array
+            }
+
+            // 2.4. translate initializer
+
+            TranslateReductionExpr translate_reduction_expr_visitor(translation_map);
+
+            translate_reduction_expr_visitor.walk(initializer_expr);
+
+            // 3. Build function and append to top level
+
+            Nodecl::NodeclBase red_init_fun_code, red_init_empty_stmt;
+            SymbolUtils::build_empty_body_for_function(
+                    red_init_fun_sym,
+                    red_init_fun_code,
+                    red_init_empty_stmt);
+            Nodecl::Utils::append_to_top_level_nodecl(red_init_fun_code);
+
+            red_init_empty_stmt.replace(initializer_stmts);
+
+            return red_init_fun_sym;
+        }
+
+        TL::Symbol create_reduction_combiner_function(
+                const ReductionItem& red,
+                const TL::Symbol& related_function,
+                int function_identifier)
+        {
+            OpenMP::Reduction& reduction_info = *red.reduction_info;
+            TL::Symbol omp_out = reduction_info.get_omp_out();
+            TL::Symbol omp_in = reduction_info.get_omp_in();
+
+            // 1. Create function symbol
+
+            std::string red_comb_fun_name;
+            {
+                std::stringstream ss;
+                ss << "nanos6_reduction_comb_" << function_identifier;
+                red_comb_fun_name = ss.str();
+            }
+
+            TL::ObjectList<std::string> red_comb_parameter_names(3);
+            red_comb_parameter_names[0] = omp_out.get_name();
+            red_comb_parameter_names[1] = omp_in.get_name();
+            red_comb_parameter_names[2] = "size";
+
+            TL::Type base_element_type =
+                get_base_element_type(red.reduction_type.no_ref());
+
+            TL::ObjectList<TL::Type> red_comb_parameter_types(3);
+            red_comb_parameter_types[0] = base_element_type.get_pointer_to();
+            red_comb_parameter_types[1] = base_element_type.get_pointer_to();
+            red_comb_parameter_types[2] = TL::Type::get_size_t_type();
+
+            TL::Symbol red_comb_fun_sym = SymbolUtils::new_function_symbol(
+                    related_function,
+                    red_comb_fun_name,
+                    TL::Type::get_void_type(),
+                    red_comb_parameter_names,
+                    red_comb_parameter_types);
+
+            TL::Scope red_comb_inside_scope = red_comb_fun_sym.get_related_scope();
+
+            // 2. Build function code from OpenMP::Reduction combiner
+
+            ERROR_CONDITION(!reduction_info.is_builtin(),
+                    "UDR are not supported", 0);
+
+            // 2.1. Obtain function parameter symbols
+
+            TL::Symbol param_omp_out =
+                red_comb_inside_scope.get_symbol_from_name(omp_out.get_name());
+            ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol %s not found",
+                    omp_out.get_name().c_str());
+
+            TL::Symbol param_omp_in =
+                red_comb_inside_scope.get_symbol_from_name(omp_in.get_name());
+            ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol %s not found",
+                    omp_in.get_name().c_str());
+
+            TL::Symbol param_size =
+                red_comb_inside_scope.get_symbol_from_name("size");
+            ERROR_CONDITION(!param_size.is_valid(), "Symbol %s not found",
+                    param_size.get_name().c_str());
+
+            // 2.2. Obtain and prepare the combiner statements
+
+            Nodecl::NodeclBase combiner_expr =
+                reduction_info.get_combiner().shallow_copy();
+
+            Nodecl::NodeclBase combiner_stmts =
+                Nodecl::ExpressionStatement::make(
+                        combiner_expr);
+
+            // 2.3. Prepare translation map from original symbols in
+            // OpenMP::Reduction combiner to expressions using function parameters
+
+            std::map<TL::Symbol, Nodecl::NodeclBase> translation_map;
+
+            if (red.reduction_type.is_array())
+            {
+                // 2.3.A. For array reductions, we need to map an expression
+                // written in terms of scalars onto an array section
+
+                // 2.3.A.1. Generate loops to iterate through the array section
+
+                std::string num_elements_sym_name = "num_elements";
+                TL::Symbol num_elements_sym = red_comb_inside_scope.new_symbol(num_elements_sym_name);
+                symbol_entity_specs_set_is_user_declared(num_elements_sym.get_internal_symbol(), 1);
+                num_elements_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                num_elements_sym.set_type(param_size.get_type());
+
+                num_elements_sym.set_value(
+                        Nodecl::Div::make(
+                            param_size.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::Sizeof::make(
+                                Nodecl::Type::make(base_element_type),
+                                /* expr */ Nodecl::NodeclBase::null(),
+                                TL::Type::get_size_t_type()),
+                            param_size.get_type()));
+
+                std::string induction_sym_name = "i";
+                TL::Symbol induction_sym = red_comb_inside_scope.new_symbol(induction_sym_name);
+                symbol_entity_specs_set_is_user_declared(induction_sym.get_internal_symbol(), 1);
+                induction_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                induction_sym.set_type(param_size.get_type());
+                induction_sym.set_value(const_value_to_nodecl(const_value_get_signed_int(0)));
+
+                Nodecl::NodeclBase initialization =
+                    Nodecl::ObjectInit::make(induction_sym);
+
+                Nodecl::NodeclBase condition = Nodecl::LowerThan::make(
+                        induction_sym.make_nodecl(/* set_ref_type */ true),
+                        num_elements_sym.make_nodecl(/* set_ref_type */ true),
+                        TL::Type::get_bool_type());
+
+                Nodecl::NodeclBase step = Nodecl::Preincrement::make(
+                        induction_sym.make_nodecl(/* set_ref_type */ true),
+                        induction_sym.get_type());
+
+                Nodecl::NodeclBase loop_control = Nodecl::LoopControl::make(
+                        Nodecl::List::make(initialization),
+                        condition,
+                        step);
+
+                // Note that we are not creating any context / compound stmt
+                // Thus, the body has to be always a single statement
+                Nodecl::NodeclBase loop = Nodecl::ForStatement::make(
+                        loop_control,
+                        Nodecl::List::make(
+                            combiner_stmts),
+                        /* loop-name */ Nodecl::NodeclBase::null());
+
+                // 2.3.A.2. Create array subscript node using induction
+                // variables and add it to translation map
+
+                Nodecl::NodeclBase omp_out_array_subscript =
+                    Nodecl::ArraySubscript::make(
+                            param_omp_out.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(
+                                induction_sym.make_nodecl(/* set_ref_type */ true)),
+                            base_element_type);
+
+                Nodecl::NodeclBase omp_in_array_subscript =
+                    Nodecl::ArraySubscript::make(
+                            param_omp_in.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(
+                                induction_sym.make_nodecl(/* set_ref_type */ true)),
+                            base_element_type);
+
+                translation_map[omp_out] = omp_out_array_subscript;
+                translation_map[omp_in] = omp_in_array_subscript;
+
+                // 2.3.A.3. Set the initializer statements as the symbols
+                // initializations and the loop itself
+
+                combiner_stmts = Nodecl::List::make(
+                        Nodecl::ObjectInit::make(num_elements_sym),
+                        loop);
+            }
+            else
+            {
+                // 2.3.B. For scalar reductions we only need to map the
+                // expression symbols to parameters
+
+                translation_map[omp_out] = Nodecl::Dereference::make(
+                        param_omp_out.make_nodecl(/* set_ref_type */ true),
+                        param_omp_out.get_type().get_lvalue_reference_to());
+
+                translation_map[omp_in] = Nodecl::Dereference::make(
+                        param_omp_in.make_nodecl(/* set_ref_type */ true),
+                        param_omp_in.get_type().get_lvalue_reference_to());
+            }
+
+            // 2.4. translate combiner
+
+            TranslateReductionExpr translate_reduction_expr_visitor(translation_map);
+
+            translate_reduction_expr_visitor.walk(combiner_expr);
+
+            // 3. Build function and append to top level
+
+            Nodecl::NodeclBase red_comb_fun_code, red_comb_empty_stmt;
+            SymbolUtils::build_empty_body_for_function(
+                    red_comb_fun_sym,
+                    red_comb_fun_code,
+                    red_comb_empty_stmt);
+            Nodecl::Utils::append_to_top_level_nodecl(red_comb_fun_code);
+
+            red_comb_empty_stmt.replace(combiner_stmts);
+
+            return red_comb_fun_sym;
+        }
+    }
+
+    void TaskProperties::create_reduction_functions()
+    {
+        if (_env.reduction.empty())
+            return;
+
+        // 1. Build lists of reduction functions
+
+        Nodecl::List reduction_initializer_functions;
+        Nodecl::List reduction_combiner_functions;
+
+        TL::ObjectList<TL::Type> parameter_types;
+        parameter_types.append(TL::Type::get_void_type().get_pointer_to());
+        parameter_types.append(TL::Type::get_void_type().get_pointer_to());
+        parameter_types.append(TL::Type::get_size_t_type());
+
+        TL::Type reduction_function_type =
+            TL::Type::get_void_type().get_function_returning(
+                    parameter_types)
+            .get_pointer_to();
+
+        for (TL::ObjectList<ReductionItem>::const_iterator it = _env.reduction.begin();
+                it != _env.reduction.end();
+                it++)
+        {
+            // 1.1. Create reduction function symbols
+
+            TL::Counter &counter =
+                TL::CounterManager::get_counter("nanos6-reduction");
+
+            TL::Symbol reduction_initializer_function_sym =
+                create_reduction_initializer_function(*it, _related_function, counter);
+
+            TL::Symbol reduction_combiner_function_sym =
+                create_reduction_combiner_function(*it, _related_function, counter);
+
+            counter++;
+
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                reduction_initializer_function_sym =
+                    compute_mangled_function_symbol_from_symbol(reduction_initializer_function_sym);
+                reduction_combiner_function_sym =
+                    compute_mangled_function_symbol_from_symbol(reduction_combiner_function_sym);
+            }
+            else if (IS_CXX_LANGUAGE)
+            {
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                        _task_body,
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            reduction_initializer_function_sym));
+
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                        _task_body,
+                        Nodecl::CxxDef::make(
+                            Nodecl::NodeclBase::null(),
+                            reduction_combiner_function_sym));
+            }
+
+            // 1.2. Add reduction functions nodes (with type casts) to their
+            // corresponding list
+
+            Nodecl::NodeclBase reduction_initializer_function =
+                Nodecl::Conversion::make(
+                        reduction_initializer_function_sym.make_nodecl(/* set_ref_type */ true),
+                        reduction_function_type);
+            reduction_initializer_function.set_text("C");
+
+            Nodecl::NodeclBase reduction_combiner_function =
+                Nodecl::Conversion::make(
+                        reduction_combiner_function_sym.make_nodecl(/* set_ref_type */ true),
+                        reduction_function_type);
+            reduction_combiner_function.set_text("C");
+
+            reduction_initializer_functions.append(
+                    reduction_initializer_function);
+
+            reduction_combiner_functions.append(
+                    reduction_combiner_function);
+        }
+
+        // 2. Create global symbols to hold reduction functions
+
+        TL::Scope scope;
+        if (IS_CXX_LANGUAGE && _related_function.is_member())
+        {
+            TL::Type class_type = _related_function.get_class_type();
+            scope =
+                ::class_type_get_inner_context(class_type.get_internal_type());
+        }
+        else
+        {
+            scope = TL::Scope::get_global_scope();
+        }
+
+        // 2.1. Reduction initializers
+
+        std::string reduction_initializers_name =
+            get_new_name("nanos6_reduction_initializers");
+
+        _reduction_initializers =
+            scope.new_symbol(reduction_initializers_name);
+        _reduction_initializers.get_internal_symbol()->kind = SK_VARIABLE;
+        symbol_entity_specs_set_is_user_declared(
+                _reduction_initializers.get_internal_symbol(), 1);
+        symbol_entity_specs_set_is_static(
+                _reduction_initializers.get_internal_symbol(), 1);
+        _reduction_initializers.set_type(reduction_function_type.get_array_to());
+
+        // Scope where initializers/combiners arrays definitions belong
+        Nodecl::NodeclBase array_def_context;
+
+        if (IS_CXX_LANGUAGE && _related_function.is_member())
+        {
+            TL::Type class_type = _related_function.get_class_type();
+            symbol_entity_specs_set_is_member(
+                    _reduction_initializers.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(
+                    _reduction_initializers.get_internal_symbol(),
+                    class_type.get_internal_type());
+            symbol_entity_specs_set_is_static(
+                    _reduction_initializers.get_internal_symbol(), 1);
+            symbol_entity_specs_set_access(
+                    _reduction_initializers.get_internal_symbol(),
+                    AS_PUBLIC);
+            class_type_add_member(
+                    class_type.get_internal_type(),
+                    _reduction_initializers.get_internal_symbol(),
+                    _reduction_initializers.get_internal_symbol()->decl_context,
+                    /* is_definition */ 0);
+
+            // No need to use namespace scope, codegen fixes it for us
+            array_def_context = Nodecl::Context::make(
+                    /*statements*/ Nodecl::NodeclBase::null(),
+                    TL::Scope::get_global_scope());
+        }
+
+        // 2.2. Reduction combiners
+
+        std::string reduction_combiners_name =
+            get_new_name("nanos6_reduction_combiners");
+
+        _reduction_combiners =
+            scope.new_symbol(reduction_combiners_name);
+        _reduction_combiners.get_internal_symbol()->kind = SK_VARIABLE;
+        symbol_entity_specs_set_is_user_declared(
+                _reduction_combiners.get_internal_symbol(), 1);
+        symbol_entity_specs_set_is_static(
+                _reduction_combiners.get_internal_symbol(), 1);
+        _reduction_combiners.set_type(reduction_function_type.get_array_to());
+
+        if (IS_CXX_LANGUAGE && _related_function.is_member())
+        {
+            TL::Type class_type = _related_function.get_class_type();
+            symbol_entity_specs_set_is_member(
+                    _reduction_combiners.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(
+                    _reduction_combiners.get_internal_symbol(),
+                    class_type.get_internal_type());
+            symbol_entity_specs_set_is_static(
+                    _reduction_combiners.get_internal_symbol(), 1);
+            symbol_entity_specs_set_access(
+                    _reduction_combiners.get_internal_symbol(),
+                    AS_PUBLIC);
+            class_type_add_member(
+                    class_type.get_internal_type(),
+                    _reduction_combiners.get_internal_symbol(),
+                    _reduction_combiners.get_internal_symbol()->decl_context,
+                    /* is_definition */ 0);
+        }
+
+        // 3. Build brace initializers (ie {A, B, C}) for the global symbols
+        // and set them as their value
+
+        Nodecl::NodeclBase reduction_initializers_value =
+            Nodecl::StructuredValue::make(
+                    reduction_initializer_functions,
+                    /* form */ Nodecl::StructuredValueBracedImplicit::make(),
+                    reduction_function_type.get_array_to());
+
+        Nodecl::NodeclBase reduction_combiners_value =
+            Nodecl::StructuredValue::make(
+                    reduction_combiner_functions,
+                    /* form */ Nodecl::StructuredValueBracedImplicit::make(),
+                    reduction_function_type.get_array_to());
+
+        _reduction_initializers.set_value(reduction_initializers_value);
+        _reduction_combiners.set_value(reduction_combiners_value);
+
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    _task_body,
+                    Nodecl::CxxDef::make(
+                        array_def_context,
+                        _reduction_initializers));
+
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    _task_body,
+                    Nodecl::CxxDef::make(
+                        array_def_context.shallow_copy(),
+                        _reduction_combiners));
         }
     }
 

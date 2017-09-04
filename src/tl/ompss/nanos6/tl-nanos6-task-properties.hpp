@@ -85,6 +85,9 @@ namespace TL { namespace Nanos6 {
             TL::Symbol _dependences_function;
             TL::Symbol _dependences_function_mangled;
 
+            TL::Symbol _reduction_initializers;
+            TL::Symbol _reduction_combiners;
+
             TL::Symbol _priority_function;
             TL::Symbol _priority_function_mangled;
 
@@ -111,6 +114,7 @@ namespace TL { namespace Nanos6 {
             void create_dependences_function_fortran_forward();
             void create_dependences_function_fortran_mangled();
 
+            void create_reduction_functions();
 
             TL::Symbol create_constraints_function() const;
             void create_cost_function();
