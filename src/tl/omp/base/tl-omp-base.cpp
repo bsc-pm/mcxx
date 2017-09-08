@@ -174,6 +174,11 @@ namespace TL { namespace OpenMP {
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["critical"].connect(
                 std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["atomic"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::atomic_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["atomic"].connect(
+                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::atomic_handler_post, this, std::placeholders::_1));
     }
 
     void Base::pre_run(TL::DTO& dto)

@@ -236,6 +236,7 @@ namespace TL { namespace OpenMP {
         register_directive("oss", "taskwait");
         register_construct("oss", "task");
         register_construct("oss", "critical");
+        register_construct("oss", "atomic", /* bound_to_statement */ true);
     }
 
     void Core::bind_omp_constructs()
@@ -284,6 +285,11 @@ namespace TL { namespace OpenMP {
                 std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").statement.post["critical"].connect(
                 std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_post, this, std::placeholders::_1));
+
+        dispatcher("oss").statement.pre["atomic"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::atomic_handler_pre, this, std::placeholders::_1));
+        dispatcher("oss").statement.post["atomic"].connect(
+                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::atomic_handler_post, this, std::placeholders::_1));
     }
 
     void Core::phase_cleanup(DTO& data_flow)
