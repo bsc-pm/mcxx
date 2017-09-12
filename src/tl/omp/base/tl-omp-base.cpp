@@ -980,8 +980,7 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This SINGLE construct does NOT have a BARRIER at the"
-                    " end because of the 'nowait' clause\n";
+                    << "This SINGLE construct implies a BARRIER at the end\n";
                     ;
             }
         }
@@ -991,7 +990,8 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This SINGLE construct implies a BARRIER at the end\n";
+                    << "This SINGLE construct does NOT have a BARRIER at the"
+                    " end because of the 'nowait' clause\n";
                     ;
             }
         }
@@ -1040,8 +1040,7 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This WORKSHARE construct does not have a "
-                    "BARRIER at the end due to the 'nowait' clause\n"
+                    << "This WORKSHARE construct implies a BARRIER at the end\n"
                     ;
             }
         }
@@ -1051,7 +1050,8 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This WORKSHARE construct implies a BARRIER at the end\n"
+                    << "This WORKSHARE construct does not have a "
+                    "BARRIER at the end due to the 'nowait' clause\n"
                     ;
             }
         }
