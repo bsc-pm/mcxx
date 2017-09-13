@@ -1779,8 +1779,6 @@ src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-omp-deps.hpp \
    src/tl/omp/core/tl-omp-deps.cpp \
    src/tl/omp/core/tl-omp-core-devices.cpp \
-   src/tl/omp/core/tl-omp-tasks.hpp \
-   src/tl/omp/core/tl-omp-tasks.cpp \
    src/tl/omp/core/tl-omp-reduction.hpp \
    src/tl/omp/core/tl-omp-reduction.cpp \
    src/tl/omp/core/tl-omp-reduction-builtin.cpp \
