@@ -108,6 +108,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
             OutlineDataItem& outline_data_item);
         void handle_vla_saved_expr(Nodecl::NodeclBase saved_expr, OutlineInfo& outline_info);
 
+        //! This function fills the dynamic properties associated to a workdescriptor.
+        //! If the priority or final expression are invalid, they would be replaced by a 0.
+        void fill_dynamic_properties(
+                const std::string& dyn_props,
+                Nodecl::NodeclBase priority_expr,
+                Nodecl::NodeclBase final_expr,
+                bool is_implicit,
+                // Out
+                Source& source);
+
         //! This function returns true if the current task has at least one reduction.
         //! Otherwise, it returns false
         bool handle_reductions_on_task(

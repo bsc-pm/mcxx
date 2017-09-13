@@ -581,61 +581,17 @@ void LoweringVisitor::emit_async_common(
             outline_info,
             construct);
 
-    if (priority_expr.is_null())
-    {
-        priority_expr = const_value_to_nodecl(const_value_get_signed_int(0));
-    }
-    else
-    {
+    if (!priority_expr.is_null())
         _lowering->seen_task_with_priorities = true;
-    }
 
-    if (final_condition.is_null())
-    {
-        final_condition = const_value_to_nodecl(const_value_get_signed_int(0));
-    }
+    std::string dyn_props_var = "nanos_wd_dyn_props";
+    dynamic_wd_info << "nanos_wd_dyn_props_t " << dyn_props_var << ";";
 
-    dynamic_wd_info
-        << "nanos_wd_dyn_props_t nanos_wd_dyn_props;"
-        << "nanos_wd_dyn_props.tie_to = 0;"
-        << "nanos_wd_dyn_props.priority = " << as_expression(priority_expr) << ";"
-        ;
+    fill_dynamic_properties(dyn_props_var,
+            priority_expr, final_condition, /* is_implicit */ 0, dynamic_wd_info);
 
-    if (!_lowering->final_clause_transformation_disabled()
-            && Nanos::Version::interface_is_at_least("master", 5024))
-    {
-        if (IS_FORTRAN_LANGUAGE
-                && !final_condition.is_constant())
-        {
-            dynamic_wd_info
-                << "if (" << as_expression(final_condition) << ")"
-                << "{"
-                <<      "nanos_wd_dyn_props.flags.is_final = 1;"
-                << "}"
-                << "else"
-                << "{"
-                <<      "nanos_wd_dyn_props.flags.is_final = 0;"
-                << "}"
-                ;
-        }
-        else
-        {
-            dynamic_wd_info
-                << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
-                ;
-        }
-    }
-
-    // Only tasks created in a parallel construct are marked as implicit
-    if (Nanos::Version::interface_is_at_least("master", 5029))
-    {
-        dynamic_wd_info
-            << "nanos_wd_dyn_props.flags.is_implicit = 0;"
-            ;
-    }
 
     Source dynamic_size;
-
     struct_size << "sizeof(imm_args)" << dynamic_size;
 
     allocate_immediate_structure(
@@ -777,7 +733,7 @@ void LoweringVisitor::emit_async_common(
         <<     "nanos_err_t " << err_name <<";"
         <<     register_reductions_opt
         <<     if_condition_begin_opt
-        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
+        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &" <<  dyn_props_var << ", "
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
@@ -799,7 +755,7 @@ void LoweringVisitor::emit_async_common(
                     // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<          statement_placeholder(fill_immediate_arguments_tree)
         <<          copy_imm_setup
-        <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
+        <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &" << dyn_props_var << ", "
         <<                  struct_size << ", "
         <<                  "&imm_args,"
         <<                  num_dependences << ", &dependences[0], "
@@ -1072,6 +1028,61 @@ void LoweringVisitor::visit_task(
             /* parameter_outline_info */ NULL,
             placeholder_task_expr_transformation);
 }
+
+void LoweringVisitor::fill_dynamic_properties(
+        const std::string& dyn_props,
+        Nodecl::NodeclBase priority_expr,
+        Nodecl::NodeclBase final_expr,
+        bool is_implicit,
+        // Out
+        Source& source)
+{
+    source << dyn_props << ".tie_to = 0;";
+
+    if (priority_expr.is_null())
+        priority_expr = const_value_to_nodecl(const_value_get_signed_int(0));
+
+    source << dyn_props << ".priority = " << as_expression(priority_expr) << ";";
+
+    // Do not generate any task flag if the current runtime doesn't support them
+    if (!Nanos::Version::interface_is_at_least("master", 5024))
+        return;
+
+    if (!_lowering->final_clause_transformation_disabled())
+    {
+        if (final_expr.is_null())
+            final_expr = const_value_to_nodecl(const_value_get_signed_int(0));
+
+        if (IS_FORTRAN_LANGUAGE
+                && !final_expr.is_constant())
+        {
+            source
+                << "if (" << as_expression(final_expr) << ")"
+                << "{"
+                <<      dyn_props << ".flags.is_final = 1;"
+                << "}"
+                << "else"
+                << "{"
+                <<      dyn_props << ".flags.is_final = 0;"
+                << "}"
+                ;
+        }
+        else
+        {
+            source << dyn_props << ".flags.is_final = " << as_expression(final_expr) << ";";
+        }
+    }
+    else
+    {
+        // Even if the final clause support is disabled we must initialize the final flag
+        source << dyn_props << ".flags.is_final = 0;";
+    }
+
+    // Only tasks created in a parallel construct are marked as implicit
+    if (Nanos::Version::interface_is_at_least("master", 5029))
+        source << dyn_props << ".flags.is_implicit = " << is_implicit << ";" ;
+}
+
 
 Source LoweringVisitor::compute_num_refs_in_multiref(DataReference& data_ref)
 {

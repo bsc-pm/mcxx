@@ -86,11 +86,13 @@ namespace TL { namespace Nanox {
 
         Source num_dependences;
 
+        std::string dyn_props_var = "nanos_wd_dyn_props";
+
         nanos_create_wd
             << "nanos_create_wd_compact("
             <<       "&nanos_wd_, "
             <<       "&nanos_wd_const_data.base, "
-            <<       "&dyn_props, "
+            <<       "&" << dyn_props_var << ", "
             <<       struct_size << ", "
             <<       "(void**)&ol_args, "
             <<       "nanos_current_wd(), "
@@ -100,7 +102,7 @@ namespace TL { namespace Nanox {
         nanos_create_wd_and_run
             << "nanos_create_wd_and_run_compact("
             <<       "&nanos_wd_const_data.base, "
-            <<       "&dyn_props, "
+            <<       "&" << dyn_props_var << ", "
             <<       struct_size << ", "
             <<       "&imm_args,"
             <<       num_dependences << ", "
@@ -167,28 +169,11 @@ namespace TL { namespace Nanox {
             << "nanos_data_access_t*";
 
         Source dynamic_wd_info;
-        dynamic_wd_info
-            << "nanos_wd_dyn_props_t dyn_props;"
-            << "dyn_props.tie_to = (nanos_thread_t)0;"
-            << "dyn_props.priority = 0;"
-            ;
+        dynamic_wd_info << "nanos_wd_dyn_props_t " << dyn_props_var << ";";
 
+        fill_dynamic_properties(dyn_props_var,
+                /* priority_expr */ nodecl_null(), /* final_expr */ nodecl_null(), /* is_implicit */ 1, dynamic_wd_info);
 
-        if (!_lowering->final_clause_transformation_disabled()
-                && Nanos::Version::interface_is_at_least("master", 5024))
-        {
-            dynamic_wd_info
-                << "dyn_props.flags.is_final = 0;"
-                ;
-        }
-
-        // Only tasks created in a parallel construct are marked as implicit
-        if (Nanos::Version::interface_is_at_least("master", 5029))
-        {
-                dynamic_wd_info
-                    << "dyn_props.flags.is_implicit = 1;"
-                    ;
-        }
 
         TL::Source extra_arg_nanos_create_team;
         if (Nanos::Version::interface_is_at_least("master", 5027))
@@ -216,7 +201,7 @@ namespace TL { namespace Nanox {
             <<   "for (nth_i = 1; nth_i < nanos_num_threads; nth_i = nth_i + 1)"
             <<   "{"
             //   We have to create a nanos_wd_ tied to a thread
-            <<      "dyn_props.tie_to = nanos_team_threads[nth_i];"
+            <<      dyn_props_var << ".tie_to = nanos_team_threads[nth_i];"
             <<      struct_arg_type_name << " *ol_args = 0;"
             <<      "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
             <<      copy_ol_decl
@@ -228,7 +213,7 @@ namespace TL { namespace Nanox {
             <<      "nanos_err = nanos_submit(nanos_wd_, 0, (" <<  dependence_type << ") 0, (nanos_team_t)0);"
             <<      "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             <<   "}"
-            <<   "dyn_props.tie_to = nanos_team_threads[0];"
+            <<   dyn_props_var << ".tie_to = nanos_team_threads[0];"
             // This is a placeholder because arguments are filled using the base language (possibly Fortran)
             <<   statement_placeholder(fill_immediate_arguments_tree)
             <<   copy_imm_setup

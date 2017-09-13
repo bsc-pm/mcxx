@@ -152,28 +152,12 @@ namespace TL { namespace Nanox {
         dependence_type
             << "nanos_data_access_t*";
 
+        std::string dyn_props_var = "nanos_wd_dyn_props";
         Source dynamic_wd_info;
-        dynamic_wd_info
-            << "nanos_wd_dyn_props_t dyn_props;"
-            << "dyn_props.tie_to = (nanos_thread_t)0;"
-            << "dyn_props.priority = 0;"
-            ;
+        dynamic_wd_info << "nanos_wd_dyn_props_t " << dyn_props_var << ";";
 
-        if (!_lowering->final_clause_transformation_disabled()
-                && Nanos::Version::interface_is_at_least("master", 5024))
-        {
-            dynamic_wd_info
-                << "dyn_props.flags.is_final = 0;"
-                ;
-        }
-
-        // Only tasks created in a parallel construct are marked as implicit
-        if (Nanos::Version::interface_is_at_least("master", 5029))
-        {
-            dynamic_wd_info
-                << "dyn_props.flags.is_implicit = 0;"
-                ;
-        }
+        fill_dynamic_properties(dyn_props_var,
+                /* priority_expr */ nodecl_null(), /* final_expr */ nodecl_null(), /* is_implicit */ 0, dynamic_wd_info);
 
         Source spawn_code;
         spawn_code
@@ -216,7 +200,7 @@ namespace TL { namespace Nanox {
         <<                                           "nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
         <<                                           "(size_t)" << struct_size << ",  nanos_wd_const_data.base.data_alignment, "
         <<                                           "(void**)&ol_args, (nanos_wd_t*)0, replicate,"
-        <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0,"
+        <<                                           "&nanos_wd_const_data.base.props, &" << dyn_props_var << ", 0, (nanos_copy_data_t**)0,"
         <<                                           "0, (nanos_region_dimension_internal_t**)0"
         <<                                           ");"
         <<             "if (nanos_err != NANOS_OK)"
