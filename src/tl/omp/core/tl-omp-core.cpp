@@ -1369,7 +1369,7 @@ namespace TL { namespace OpenMP {
     }
 
     void Core::common_for_handler(
-            Nodecl::NodeclBase outer_statement,
+            TL::PragmaCustomStatement custom_statement,
             Nodecl::NodeclBase statement,
             DataEnvironment& data_environment,
             ObjectList<Symbol>& extra_symbols)
@@ -1379,12 +1379,14 @@ namespace TL { namespace OpenMP {
             if (IS_FORTRAN_LANGUAGE)
             {
                 fatal_printf_at(statement.get_locus(),
-                        "a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'");
+                        "a DO-construct is required for this '%s' directive",
+                        custom_statement.get_pragma_line().get_text().c_str());
             }
             else
             {
                 fatal_printf_at(statement.get_locus(),
-                        "a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'");
+                        "a for-statement is required for this '%s' directive",
+                        custom_statement.get_pragma_line().get_text().c_str());
             }
         }
 
@@ -1399,7 +1401,7 @@ namespace TL { namespace OpenMP {
             // Note that we have to use the outer_statement context. This is the context
             // of the pragma itself.
             if (!sym.get_scope()
-                    .scope_is_enclosed_by(outer_statement.retrieve_context()))
+                    .scope_is_enclosed_by(custom_statement.retrieve_context()))
             {
                 DataSharingValue sym_data_sharing =
                     data_environment.get_data_sharing(sym, /* check enclosing */ false);
@@ -1425,13 +1427,15 @@ namespace TL { namespace OpenMP {
         {
             if (IS_FORTRAN_LANGUAGE)
             {
-                fatal_printf_at(statement.get_locus(), "DO-statement in !$OMP DO directive is not valid");
+                fatal_printf_at(statement.get_locus(),
+                        "DO-statement in '%s' directive is not valid",
+                        custom_statement.get_pragma_line().get_text().c_str());
             }
             else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
                 fatal_printf_at(statement.get_locus(),
-                        "for-statement in '#pragma omp for' or '#pragma omp parallel for'"
-                        " is not in OpenMP canonical form");
+                        "for-statement in '%s' directive is not in OpenMP canonical form",
+                        custom_statement.get_pragma_line().get_text().c_str());
             }
             else
             {
@@ -1441,7 +1445,7 @@ namespace TL { namespace OpenMP {
     }
 
     void Core::common_while_handler(
-            Nodecl::NodeclBase outer_statement,
+            TL::PragmaCustomStatement custom_statement,
             Nodecl::NodeclBase statement,
             DataEnvironment& data_environment,
             ObjectList<Symbol>& extra_symbols)
@@ -1894,7 +1898,7 @@ namespace TL { namespace OpenMP {
 
     void Core::loop_handler_pre(TL::PragmaCustomStatement construct,
             Nodecl::NodeclBase loop,
-            void (Core::*common_loop_handler)(Nodecl::NodeclBase,
+            void (Core::*common_loop_handler)(TL::PragmaCustomStatement,
                 Nodecl::NodeclBase, DataEnvironment&, TL::ObjectList<Symbol>&))
     {
         DataEnvironment& data_environment = _openmp_info->get_new_data_environment(construct);

@@ -226,7 +226,7 @@ namespace TL
 
                 void loop_handler_pre(TL::PragmaCustomStatement construct,
                         Nodecl::NodeclBase loop,
-                        void (Core::*common_loop_handler)(Nodecl::NodeclBase,
+                        void (Core::*common_loop_handler)(TL::PragmaCustomStatement,
                             Nodecl::NodeclBase, DataEnvironment&, ObjectList<Symbol>&));
 
                 void handle_map_clause(TL::PragmaCustomLine pragma_line,
@@ -248,13 +248,13 @@ namespace TL
                         ObjectList<Symbol>& extra_symbols);
 
                 void common_for_handler(
-                        Nodecl::NodeclBase outer_statement,
+                        TL::PragmaCustomStatement custom_statement,
                         Nodecl::NodeclBase nodecl,
                         DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
                 void common_while_handler(
-                        Nodecl::NodeclBase outer_statement,
+                        TL::PragmaCustomStatement custom_statement,
                         Nodecl::NodeclBase statement,
                         DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
