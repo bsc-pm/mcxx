@@ -1081,6 +1081,9 @@ void LoweringVisitor::fill_dynamic_properties(
     // Only tasks created in a parallel construct are marked as implicit
     if (Nanos::Version::interface_is_at_least("master", 5029))
         source << dyn_props << ".flags.is_implicit = " << is_implicit << ";" ;
+
+    if (Nanos::Version::interface_is_at_least("resiliency", 1000))
+        source << dyn_props << ".flags.is_recover = 0;" ;
 }
 
 
