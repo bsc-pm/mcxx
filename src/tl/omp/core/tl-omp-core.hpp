@@ -74,7 +74,7 @@ namespace TL
                 void _name##_handler_pre(TL::PragmaCustomStatement); \
                 void _name##_handler_post(TL::PragmaCustomStatement); \
                 void _name##_handler_pre(TL::PragmaCustomDeclaration); \
-                void _name##_handler_post(TL::PragmaCustomDeclaration); 
+                void _name##_handler_post(TL::PragmaCustomDeclaration);
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) \
                 OMP_CONSTRUCT(_directive, _name, _pred)
 #include "tl-omp-constructs.def"
