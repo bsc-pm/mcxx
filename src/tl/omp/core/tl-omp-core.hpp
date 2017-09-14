@@ -66,6 +66,9 @@ namespace TL
                 void register_omp_constructs();
                 void register_oss_constructs();
 
+                void bind_omp_constructs();
+                void bind_oss_constructs();
+
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \

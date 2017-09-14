@@ -63,8 +63,15 @@ namespace TL { namespace OpenMP {
         set_phase_description("This phase is required for any other phase implementing OpenMP. "
                 "It performs the common analysis part required by OpenMP");
 
-        register_omp_constructs();
-        register_oss_constructs();
+        if (!_constructs_already_registered)
+        {
+            register_omp_constructs();
+            register_oss_constructs();
+            _constructs_already_registered = true;
+        }
+
+        bind_omp_constructs();
+        bind_oss_constructs();
     }
 
     void Core::pre_run(TL::DTO& dto)
@@ -213,9 +220,6 @@ namespace TL { namespace OpenMP {
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
         if (_pred) register_construct("omp", _directive, _noend);
 
-        // Register pragmas
-        if (!_constructs_already_registered)
-        {
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
 #include "tl-omp-constructs.def"
@@ -224,10 +228,18 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
-        }
+    }
 
-        _constructs_already_registered = true;
+    void Core::register_oss_constructs()
+    {
+        // OSS constructs
+        register_directive("oss", "taskwait");
+        register_construct("oss", "task");
+        register_construct("oss", "critical");
+    }
 
+    void Core::bind_omp_constructs()
+    {
         // Connect handlers to member functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
         if (_pred) { \
@@ -252,13 +264,9 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_NOEND
     }
 
-    void Core::register_oss_constructs()
-    {
-        // OSS constructs
-        register_directive("oss", "taskwait");
-        register_construct("oss", "task");
-        register_construct("oss", "critical");
 
+    void Core::bind_oss_constructs()
+    {
         dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Core::taskwait_handler_pre, this, std::placeholders::_1));
         dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Core::taskwait_handler_post, this, std::placeholders::_1));
 
