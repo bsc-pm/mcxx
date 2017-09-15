@@ -81,21 +81,34 @@ namespace TL
 
 
                 // Handler functions
-#define OMP_DIRECTIVE(_directive, _name, _pred) \
-                void _name##_handler_pre(TL::PragmaCustomDirective); \
-                void _name##_handler_post(TL::PragmaCustomDirective);
-#define OMP_CONSTRUCT(_directive, _name, _pred) \
-                void _name##_handler_pre(TL::PragmaCustomStatement); \
-                void _name##_handler_post(TL::PragmaCustomStatement); \
-                void _name##_handler_pre(TL::PragmaCustomDeclaration); \
-                void _name##_handler_post(TL::PragmaCustomDeclaration);
-#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) \
-                OMP_CONSTRUCT(_directive, _name, _pred)
+#define DECL_DIRECTIVE(_directive, _name, _pred, _func_prefix) \
+                void _func_prefix##_name##_handler_pre(TL::PragmaCustomDirective); \
+                void _func_prefix##_name##_handler_post(TL::PragmaCustomDirective);
+
+#define DECL_CONSTRUCT(_directive, _name, _pred, _func_prefix) \
+                void _func_prefix##_name##_handler_pre(TL::PragmaCustomStatement); \
+                void _func_prefix##_name##_handler_post(TL::PragmaCustomStatement); \
+                void _func_prefix##_name##_handler_pre(TL::PragmaCustomDeclaration); \
+                void _func_prefix##_name##_handler_post(TL::PragmaCustomDeclaration);
+
+#define OMP_DIRECTIVE(_directive, _name, _pred) DECL_DIRECTIVE(_directive, _name, _pred, /*empty_prefix*/ )
+#define OMP_CONSTRUCT(_directive, _name, _pred) DECL_CONSTRUCT(_directive, _name, _pred, /*empty_prefix*/)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT(_directive, _name, _pred)
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
+#define OSS_DIRECTIVE(_directive, _name, _pred) DECL_DIRECTIVE(_directive, _name, _pred, oss_)
+#define OSS_CONSTRUCT(_directive, _name, _pred) DECL_CONSTRUCT(_directive, _name, _pred, oss_)
+#define OSS_CONSTRUCT_NOEND(_directive, _name, _pred) OSS_CONSTRUCT(_directive, _name, _pred)
+#include "tl-oss-constructs.def"
+#undef OSS_CONSTRUCT
+#undef OSS_CONSTRUCT_NOEND
+#undef OSS_DIRECTIVE
+
+#undef DECL_DIRECTIVE
+#undef DECL_CONSTRUCT
                 void taskloop_runtime_based_handler_pre(TL::PragmaCustomStatement directive);
                 void taskloop_runtime_based_handler_post(TL::PragmaCustomStatement directive);
 
@@ -189,8 +202,8 @@ namespace TL
                         const TL::PragmaCustomStatement& directive,
                         Nodecl::List& execution_environment);
 
-                void register_omp();
-                void register_ompss();
+                void bind_omp_constructs();
+                void bind_oss_constructs();
 
                 //! This function is called before executing the OpenMP::Core phase.
                 //! It applies the OpenMP high level transformations, such as the collapse clause

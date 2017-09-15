@@ -213,49 +213,68 @@ namespace TL { namespace OpenMP {
         return _openmp_info;
     }
 
+#define REG_DIRECTIVE(_sentinel, _directive, _name, _pred) \
+        if (_pred) register_directive(_sentinel, _directive);
+
+#define REG_CONSTRUCT(_sentinel, _directive, _name, _noend, _pred) \
+        if (_pred) register_construct(_sentinel, _directive, _noend);
+
     void Core::register_omp_constructs()
     {
-#define OMP_DIRECTIVE(_directive, _name, _pred) \
-        if (_pred) register_directive("omp", _directive);
-#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
-        if (_pred) register_construct("omp", _directive, _noend);
-
-#define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
-#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
+        // OpenMP & OmpSs constructs
+#define OMP_DIRECTIVE(_directive, _name, _pred) REG_DIRECTIVE("omp", _directive, _name, _pred)
+#define OMP_CONSTRUCT(_directive, _name, _pred) REG_CONSTRUCT("omp", _directive, _name, false, _pred)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) REG_CONSTRUCT("omp", _directive, _name, true, _pred)
 #include "tl-omp-constructs.def"
             // Note that section is not handled specially here, we always want it to be parsed as a directive
 #undef OMP_DIRECTIVE
-#undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
     }
 
     void Core::register_oss_constructs()
     {
-        // OSS constructs
-        register_directive("oss", "taskwait");
-        register_construct("oss", "task");
-        register_construct("oss", "critical");
-        register_construct("oss", "atomic", /* bound_to_statement */ true);
+        // OmpSs-v2 constructs
+#define OSS_DIRECTIVE(_directive, _name, _pred) REG_DIRECTIVE("oss", _directive, _name, _pred)
+#define OSS_CONSTRUCT(_directive, _name, _pred) REG_CONSTRUCT("oss", _directive, _name, false, _pred)
+#define OSS_CONSTRUCT_NOEND(_directive, _name, _pred) REG_CONSTRUCT("oss", _directive, _name, true, _pred)
+#include "tl-oss-constructs.def"
+#undef OSS_DIRECTIVE
+#undef OSS_CONSTRUCT
+#undef OSS_CONSTRUCT_NOEND
     }
+
+#undef REG_DIRECTIVE
+#undef REG_CONSTRUCT
+
+
+#define BIND_DIRECTIVE(_sentinel, _directive, _name, _pred, _func_prefix) \
+        if (_pred) { \
+            std::string directive_name = remove_separators_of_directive(_directive); \
+            dispatcher(_sentinel).directive.pre[directive_name].connect(\
+                    std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_func_prefix##_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher(_sentinel).directive.post[directive_name].connect(\
+                    std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_func_prefix##_name##_handler_post, this, std::placeholders::_1)); \
+        }
+
+#define BIND_CONSTRUCT(_sentinel, _directive, _name, _pred, _func_prefix) \
+        if (_pred) { \
+            std::string directive_name = remove_separators_of_directive(_directive); \
+            dispatcher(_sentinel).declaration.pre[directive_name].connect(\
+                    std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_func_prefix##_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher(_sentinel).declaration.post[directive_name].connect(\
+                    std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_func_prefix##_name##_handler_post, this, std::placeholders::_1)); \
+            dispatcher(_sentinel).statement.pre[directive_name].connect(\
+                    std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_func_prefix##_name##_handler_pre, this, std::placeholders::_1)); \
+            dispatcher(_sentinel).statement.post[directive_name].connect(\
+                    std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_func_prefix##_name##_handler_post, this, std::placeholders::_1)); \
+        }
 
     void Core::bind_omp_constructs()
     {
         // Connect handlers to member functions
-#define OMP_DIRECTIVE(_directive, _name, _pred) \
-        if (_pred) { \
-            std::string directive_name = remove_separators_of_directive(_directive); \
-            dispatcher("omp").directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher("omp").directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
-        }
-#define OMP_CONSTRUCT(_directive, _name, _pred) \
-        if (_pred) { \
-            std::string directive_name = remove_separators_of_directive(_directive); \
-            dispatcher("omp").declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher("omp").declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
-            dispatcher("omp").statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
-            dispatcher("omp").statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
-        }
+#define OMP_DIRECTIVE(_directive, _name, _pred) BIND_DIRECTIVE("omp", _directive, _name, _pred, /* empty prefix */ )
+#define OMP_CONSTRUCT(_directive, _name, _pred) BIND_CONSTRUCT("omp", _directive, _name, _pred, /* empty prefix */ )
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT(_directive, _name, _pred)
 #include "tl-omp-constructs.def"
         // Section is special
@@ -265,32 +284,19 @@ namespace TL { namespace OpenMP {
 #undef OMP_CONSTRUCT_NOEND
     }
 
-
     void Core::bind_oss_constructs()
     {
-        dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Core::taskwait_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Core::taskwait_handler_post, this, std::placeholders::_1));
-
-        dispatcher("oss").declaration.pre["task"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::task_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").declaration.post["task"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::task_handler_post, this, std::placeholders::_1));
-
-        dispatcher("oss").statement.pre["task"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").statement.post["task"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::task_handler_post, this, std::placeholders::_1));
-
-        dispatcher("oss").statement.pre["critical"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").statement.post["critical"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::critical_handler_post, this, std::placeholders::_1));
-
-        dispatcher("oss").statement.pre["atomic"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::atomic_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").statement.post["atomic"].connect(
-                std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::atomic_handler_post, this, std::placeholders::_1));
+#define OSS_DIRECTIVE(_directive, _name, _pred) BIND_DIRECTIVE("oss", _directive, _name, _pred, oss_ )
+#define OSS_CONSTRUCT(_directive, _name, _pred) BIND_CONSTRUCT("oss", _directive, _name, _pred, oss_)
+#define OSS_CONSTRUCT_NOEND(_directive, _name, _pred) OSS_CONSTRUCT(_directive, _name, _pred)
+#include "tl-oss-constructs.def"
+#undef OSS_DIRECTIVE
+#undef OSS_CONSTRUCT
+#undef OSS_CONSTRUCT_NOEND
     }
+
+#undef BIND_DIRECTIVE
+#undef BIND_CONSTRUCT
 
     void Core::phase_cleanup(DTO& data_flow)
     {
@@ -2648,6 +2654,39 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         UNIMPLEMENTED_HANDLER_STATEMENT(ordered)
+
+#define OSS_WRAPPER_TO_OMP_DECLARATION(_name) \
+        void Core::oss_##_name##_handler_pre(TL::PragmaCustomDeclaration construct) {\
+            _name##_handler_pre(construct); \
+        } \
+        void Core::oss_##_name##_handler_post(TL::PragmaCustomDeclaration construct) {\
+            _name##_handler_post(construct); \
+        }
+#define OSS_WRAPPER_TO_OMP_DIRECTIVE(_name) \
+        void Core::oss_##_name##_handler_pre(TL::PragmaCustomDirective construct) {\
+            _name##_handler_pre(construct); \
+        } \
+        void Core::oss_##_name##_handler_post(TL::PragmaCustomDirective construct) {\
+            _name##_handler_post(construct); \
+        }
+#define OSS_WRAPPER_TO_OMP_STATEMENT(_name) \
+        void Core::oss_##_name##_handler_pre(TL::PragmaCustomStatement construct) {\
+            _name##_handler_pre(construct); \
+        } \
+        void Core::oss_##_name##_handler_post(TL::PragmaCustomStatement construct) {\
+            _name##_handler_post(construct); \
+        }
+        OSS_WRAPPER_TO_OMP_DIRECTIVE(taskwait)
+        OSS_WRAPPER_TO_OMP_DECLARATION(task)
+        OSS_WRAPPER_TO_OMP_STATEMENT(task)
+        OSS_WRAPPER_TO_OMP_DECLARATION(critical)
+        OSS_WRAPPER_TO_OMP_STATEMENT(critical)
+        OSS_WRAPPER_TO_OMP_DECLARATION(atomic)
+        OSS_WRAPPER_TO_OMP_STATEMENT(atomic)
+
+#undef OSS_WRAPPER_TO_OMP_DECLARATION
+#undef OSS_WRAPPER_TO_OMP_DIRECTIVE
+#undef OSS_WRAPPER_TO_OMP_STATEMENT
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct)

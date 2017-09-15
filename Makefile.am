@@ -1769,7 +1769,8 @@ src_tl_omp_core_libtlomp_core_la_LIBADD = $(phases_libadd) \
 		$(top_builddir)/src/tl/omp/common/libtlomp-common.la \
 		$(END)
 
-EXTRA_DIST += src/tl/omp/core/tl-omp-constructs.def
+EXTRA_DIST += src/tl/omp/core/tl-omp-constructs.def \
+	      src/tl/omp/core/tl-oss-constructs.def
 
 src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-omp-core.hpp \
