@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator="config/mercurium-ompss no-nanos6"
+! test_generator=(config/mercurium-ompss "config/mercurium-ompss-v2 openmp-compatibility")
 ! </testinfo>
 PROGRAM P
     IMPLICIT NONE

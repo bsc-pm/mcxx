@@ -1,17 +1,3 @@
 #!/usr/bin/env bash
 
-# Check if there is some OmpSs-v2 implementation
-if [ "@NANOS6_ENABLED@" = "no" ];
-then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="Nanos6 has not been configured"
-EOF
-
-exit
-
-fi
-# ----------------------------------------------
-
-@abs_builddir@/mercurium-nanos6 ompss-v2 $1;
+@abs_builddir@/mercurium-nanos6 ompss-v2 $@

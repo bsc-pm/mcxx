@@ -28,7 +28,7 @@
 
 /*
 <testinfo>
-test_generator="config/mercurium-ompss c++11"
+test_generator=("config/mercurium-ompss c++11" "config/mercurium-ompss-v2 openmp-compatibility c++11")
 </testinfo>
 */
 

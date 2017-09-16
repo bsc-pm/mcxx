@@ -1,39 +1,27 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 if [ "@VECTORIZATION_ENABLED@" = "no" ];
 then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="Vectorization not enabled"
-EOF
-
-exit
-
+    gen_ignore_test "Vectorization is disabled"
+    exit
 fi
 
 if [ "@NANOX_ENABLED@" = "no" ];
 then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="Nanos++ not available"
-EOF
-
-exit
-
+    gen_ignore_test "Nanos++ is disabled"
+    exit
 fi
 
-if [ "$1" = "svml" ];
+# Parsing the test-generator arguments
+parse_arguments $@
+
+if [ "$TG_ARG_SVML" = "yes" ];
 then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="SVML not supported"
-EOF
-
-exit
-
+    gen_ignore_test "SVML is not supported"
+    exit
 fi
 
 source @abs_builddir@/mercurium-libraries

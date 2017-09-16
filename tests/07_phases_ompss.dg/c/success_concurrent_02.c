@@ -27,10 +27,8 @@
 
 /*
 <testinfo>
-test_generator="config/mercurium-ompss"
+test_generator=(config/mercurium-ompss "config/mercurium-ompss-v2 openmp-compatibility")
 test_CFLAGS=-std=gnu99
-test_compile_fail_nanos6_mercurium=yes
-test_compile_fail_nanos6_imcc=yes
 </testinfo>
 */
 

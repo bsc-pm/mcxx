@@ -1,0 +1,28 @@
+// These macros are used in several places to automatically generate all OmpSs-v2 support
+//
+// OSS_CONSTRUCT(pragma_directive, id, predicate)
+//    * pragma_directive is a string | separated for compound directive names used when registering the construct
+//    * id an identifier used to build names
+//    * predicate is used to filter between languages: all languages "true"
+//
+// - OSS_DIRECTIVE is the same as OSS_CONSTRUCT but for standalone directives
+// - OSS_CONSTRUCT_NOEND is the same as OSS_CONSTRUCT but *only* for Fortran constructs
+// In Fortran every OMP_CONSTRUCT("x", x) will require the user write
+//
+//   $!SENTINEL X <clauses-opt>
+//      <block-opt>
+//   $!SENTINEL END X <clauses-opt>
+//
+// But sometimes it may be convenient to have something like this
+//
+//   $!SENTINEL X <clauses-opt>
+//     only-one-statement (probably a construct)
+//   [$!SENTINEL END X <clauses-opt>]         <-- optional
+//
+
+// OmpSs-v2 constructs
+OSS_CONSTRUCT("task", task, true)
+OSS_CONSTRUCT("critical", critical, true)
+
+OSS_DIRECTIVE("taskwait", taskwait, true)
+OSS_CONSTRUCT_NOEND("atomic", atomic, true)

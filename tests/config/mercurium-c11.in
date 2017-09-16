@@ -1,26 +1,19 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
+# Parsing the test-generator arguments
+parse_arguments $@
+
 # Basic mercurium generator
 source @abs_top_builddir@/tests/config/mercurium-libraries
 
-function detect_gcc_version() {
-
-    A=$(gcc -v 2>&1 | tail -n 1 | @SED@ -e 's,^.*version\s*\([0-9]\)\.\([0-9]\+\)\(\.[0-9]\+\)*.*$,export GCC_VERSION_MAJOR=\1\nexport GCC_VERSION_MINOR=\2,')
-    eval $A
-
-}
-
-detect_gcc_version
-
-if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 8 ')' ];
+if ! $(gcc_supports_c11);
 then
-
-cat <<EOF
-test_ignore=yes
-test_ignore_reason="requires g++ 4.8 or better"
-EOF
-
-else
+    gen_ignore_test "requires g++ 4.8 or better"
+    exit
+fi
 
 cat <<EOF
 MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose"
@@ -28,20 +21,10 @@ test_CC="\${MCXX} --profile=plaincc -std=c11"
 test_CXX="do_not_use_this_profile_for_cxx"
 test_FC="do_not_use_this_profile_for_fortran"
 
-if [ "$test_nolink" = "no" -o "$1" = "run" ];
+if [ "$test_nolink" = "no" -o "$TG_ARG_RUN" = "yes" ];
 then
    unset test_nolink
 else
    test_nolink=yes
 fi
-
-if [ "$1" = "gcc_fails" ];
-then
-   unset test_nolink
-   test_noexec=yes
-   test_CXXFLAGS="\${test_CXXFLAGS} -y --typecheck"
-fi
-
 EOF
-
-fi

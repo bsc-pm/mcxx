@@ -2404,11 +2404,11 @@ AC_CONFIG_FILES([tests/config/mercurium-opencl], [chmod +x tests/config/mercuriu
 AC_CONFIG_FILES([tests/config/mercurium-parallel-simd], [chmod +x tests/config/mercurium-parallel-simd])
 AC_CONFIG_FILES([tests/config/mercurium-parallel-simd-avx2], [chmod +x tests/config/mercurium-parallel-simd-avx2])
 AC_CONFIG_FILES([tests/config/mercurium-parallel-simd-mic], [chmod +x tests/config/mercurium-parallel-simd-mic])
-AC_CONFIG_FILES([tests/config/mercurium-run], [chmod +x tests/config/mercurium-run])
 AC_CONFIG_FILES([tests/config/mercurium-serial-simd], [chmod +x tests/config/mercurium-serial-simd])
 AC_CONFIG_FILES([tests/config/mercurium-serial-simd-avx2], [chmod +x tests/config/mercurium-serial-simd-avx2])
 AC_CONFIG_FILES([tests/config/mercurium-serial-simd-mic], [chmod +x tests/config/mercurium-serial-simd-mic])
 AC_CONFIG_FILES([tests/config/mercurium-serial-simd-romol], [chmod +x tests/config/mercurium-serial-simd-romol])
+AC_CONFIG_FILES([tests/config/test-generators-utilities], [chmod +x tests/config/test-generators-utilities])
 
 ## Specific profiles
 AC_CONFIG_FILES([tests/05_torture_cxx_1.dg/mercurium], [chmod +x tests/05_torture_cxx_1.dg/mercurium])

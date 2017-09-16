@@ -1769,7 +1769,8 @@ src_tl_omp_core_libtlomp_core_la_LIBADD = $(phases_libadd) \
 		$(top_builddir)/src/tl/omp/common/libtlomp-common.la \
 		$(END)
 
-EXTRA_DIST += src/tl/omp/core/tl-omp-constructs.def
+EXTRA_DIST += src/tl/omp/core/tl-omp-constructs.def \
+	      src/tl/omp/core/tl-oss-constructs.def
 
 src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-omp-core.hpp \
@@ -1779,8 +1780,6 @@ src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-omp-deps.hpp \
    src/tl/omp/core/tl-omp-deps.cpp \
    src/tl/omp/core/tl-omp-core-devices.cpp \
-   src/tl/omp/core/tl-omp-tasks.hpp \
-   src/tl/omp/core/tl-omp-tasks.cpp \
    src/tl/omp/core/tl-omp-reduction.hpp \
    src/tl/omp/core/tl-omp-reduction.cpp \
    src/tl/omp/core/tl-omp-reduction-builtin.cpp \
@@ -2366,6 +2365,7 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-critical.cpp \
+								 src/tl/ompss/nanos6/tl-nanos6-atomic.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-unsupported.cpp \
 								 src/tl/ompss/nanos6/tl-nanos6-interface.hpp \
 								 src/tl/ompss/nanos6/tl-nanos6-interface.cpp \
@@ -3593,8 +3593,14 @@ support/gperf/gperf-compat-types.h: Makefile
 	$(AM_V_GEN)( \
     OUT_FILE="support/gperf/gperf-compat-types.h"; \
 	echo "/* This file has been generated */" > $${OUT_FILE}; \
+	echo >> $${OUT_FILE}; \
+	echo "#ifndef GPERF_COMPAT_TYPES_H" >> $${OUT_FILE}; \
+	echo "#define GPERF_COMPAT_TYPES_H" >> $${OUT_FILE}; \
+	echo >> $${OUT_FILE}; \
 	echo "#include<stddef.h>" >> $${OUT_FILE}; \
 	echo "typedef" $(GPERF_LEN_TYPE) "gperf_length_t;" >> $${OUT_FILE}; \
+	echo >> $${OUT_FILE}; \
+	echo "#endif /* GPERF_COMPAT_TYPES_H */" >> $${OUT_FILE}; \
     )
 endif
 

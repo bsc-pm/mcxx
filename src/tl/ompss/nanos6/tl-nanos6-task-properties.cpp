@@ -2402,9 +2402,15 @@ namespace TL { namespace Nanos6 {
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         field_map[*it].get_type().no_ref().get_lvalue_reference_to());
 
-                if (it->get_type().no_ref().is_array()
-                        && it->get_type().depends_on_nonconstant_values())
+                if (it->get_type().depends_on_nonconstant_values() &&
+                        (it->get_type().no_ref().is_array() ||
+                         it->get_type().no_ref().is_pointer()))
                 {
+                    // A conversion between pointer type (from argument) and
+                    // array type (from parameter) is required. This is done by
+                    // getting a reference (&) from the argument, casting it to a
+                    // pointer to the array type, and dereferencing (*) it afterwards.
+
                     TL::Type param_type = rewrite_type_using_args(
                             arg, it->get_type().no_ref(), TL::ObjectList<TL::Symbol>());
 
@@ -2797,27 +2803,6 @@ namespace TL { namespace Nanos6 {
         }
     };
 
-    Nodecl::NodeclBase make_mutual_exclusive_expr(Nodecl::ExpressionStatement expr_stmt)
-    {
-        Nodecl::NodeclBase expr = expr_stmt.as<Nodecl::ExpressionStatement>().get_nest();
-        bool builtin_atomic = false;
-        bool nanox_api_atomic = false; // Feasible atomic transformation using Nanox API
-
-        if (!allowed_expression_atomic(
-                    expr, builtin_atomic, nanox_api_atomic)
-                || nanox_api_atomic)
-        {
-            return Nodecl::OpenMP::Critical::make(
-                    /* environment */ Nodecl::NodeclBase::null(),
-                    Nodecl::List::make(Nodecl::ExpressionStatement::make(expr)));
-        }
-
-        if (builtin_atomic)
-            return builtin_atomic_int_op(expr);
-
-        return compare_and_exchange(expr);
-    }
-
     void TaskProperties::handle_task_reductions(
             const TL::Scope& unpacked_inside_scope,
             Nodecl::NodeclBase unpacked_empty_stmt)
@@ -2863,7 +2848,19 @@ namespace TL { namespace Nanos6 {
             combiner = Nodecl::ExpressionStatement::make(combiner);
             unpacked_empty_stmt.append_sibling(combiner);
 
-            combiner.replace(make_mutual_exclusive_expr(combiner.as<Nodecl::ExpressionStatement>()));
+            TL::Scope atomic_scope = TL::Scope(
+                    new_block_context(unpacked_inside_scope.get_decl_context()));
+
+            // FIXME warning atomic -> critical should be supressed
+            combiner.replace(
+                    Nodecl::OpenMP::Atomic::make(
+                        /* environment */ Nodecl::NodeclBase::null(),
+                        Nodecl::List::make(
+                            Nodecl::Context::make(
+                                Nodecl::List::make(combiner.shallow_copy()),
+                                atomic_scope.get_decl_context())),
+                        combiner.get_locus()));
+
             lower_visitor->walk(combiner);
         }
     }

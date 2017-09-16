@@ -39,7 +39,6 @@
 
 #include "tl-omp.hpp"
 #include "tl-omp-reduction.hpp"
-#include "tl-omp-tasks.hpp"
 #include "tl-ompss-target.hpp"
 
 namespace TL
@@ -67,23 +66,40 @@ namespace TL
                 void register_omp_constructs();
                 void register_oss_constructs();
 
+                void bind_omp_constructs();
+                void bind_oss_constructs();
+
                 // Handler functions
-#define OMP_DIRECTIVE(_directive, _name, _pred) \
-                void _name##_handler_pre(TL::PragmaCustomDirective); \
-                void _name##_handler_post(TL::PragmaCustomDirective);
-#define OMP_CONSTRUCT(_directive, _name, _pred) \
-                void _name##_handler_pre(TL::PragmaCustomStatement); \
-                void _name##_handler_post(TL::PragmaCustomStatement); \
-                void _name##_handler_pre(TL::PragmaCustomDeclaration); \
-                void _name##_handler_post(TL::PragmaCustomDeclaration); 
-#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) \
-                OMP_CONSTRUCT(_directive, _name, _pred)
+#define DECL_DIRECTIVE(_directive, _name, _pred, _func_prefix) \
+                void _func_prefix##_name##_handler_pre(TL::PragmaCustomDirective); \
+                void _func_prefix##_name##_handler_post(TL::PragmaCustomDirective);
+
+#define DECL_CONSTRUCT(_directive, _name, _pred, _func_prefix) \
+                void _func_prefix##_name##_handler_pre(TL::PragmaCustomStatement); \
+                void _func_prefix##_name##_handler_post(TL::PragmaCustomStatement); \
+                void _func_prefix##_name##_handler_pre(TL::PragmaCustomDeclaration); \
+                void _func_prefix##_name##_handler_post(TL::PragmaCustomDeclaration);
+
+#define OMP_DIRECTIVE(_directive, _name, _pred) DECL_DIRECTIVE(_directive, _name, _pred, /*empty_prefix*/ )
+#define OMP_CONSTRUCT(_directive, _name, _pred) DECL_CONSTRUCT(_directive, _name, _pred, /*empty_prefix*/)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT(_directive, _name, _pred)
 #include "tl-omp-constructs.def"
                 // Section is special
                 OMP_CONSTRUCT("section", section, true)
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
+
+#define OSS_DIRECTIVE(_directive, _name, _pred) DECL_DIRECTIVE(_directive, _name, _pred, oss_)
+#define OSS_CONSTRUCT(_directive, _name, _pred) DECL_CONSTRUCT(_directive, _name, _pred, oss_)
+#define OSS_CONSTRUCT_NOEND(_directive, _name, _pred) OSS_CONSTRUCT(_directive, _name, _pred)
+#include "tl-oss-constructs.def"
+#undef OSS_CONSTRUCT
+#undef OSS_CONSTRUCT_NOEND
+#undef OSS_DIRECTIVE
+
+#undef DECL_DIRECTIVE
+#undef DECL_CONSTRUCT
 
                 static bool _constructs_already_registered;
                 static bool _reductions_already_registered;
@@ -224,7 +240,7 @@ namespace TL
 
                 void loop_handler_pre(TL::PragmaCustomStatement construct,
                         Nodecl::NodeclBase loop,
-                        void (Core::*common_loop_handler)(Nodecl::NodeclBase,
+                        void (Core::*common_loop_handler)(TL::PragmaCustomStatement,
                             Nodecl::NodeclBase, DataEnvironment&, ObjectList<Symbol>&));
 
                 void handle_map_clause(TL::PragmaCustomLine pragma_line,
@@ -246,13 +262,13 @@ namespace TL
                         ObjectList<Symbol>& extra_symbols);
 
                 void common_for_handler(
-                        Nodecl::NodeclBase outer_statement,
+                        TL::PragmaCustomStatement custom_statement,
                         Nodecl::NodeclBase nodecl,
                         DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
                 void common_while_handler(
-                        Nodecl::NodeclBase outer_statement,
+                        TL::PragmaCustomStatement custom_statement,
                         Nodecl::NodeclBase statement,
                         DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);

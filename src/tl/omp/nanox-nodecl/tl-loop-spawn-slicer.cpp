@@ -118,47 +118,13 @@ namespace TL { namespace Nanox {
                     construct);
 
 
+
         Source dynamic_wd_info;
-        dynamic_wd_info
-            <<     "nanos_wd_dyn_props_t nanos_dyn_props;"
-            <<     "nanos_dyn_props.tie_to = (nanos_thread_t)0;"
-            <<     "nanos_dyn_props.priority = 0;"
-            ;
-        if (!_lowering->final_clause_transformation_disabled()
-                && Nanos::Version::interface_is_at_least("master", 5024))
-        {
-           if (final_clause.is_null())
-              final_clause = const_value_to_nodecl(const_value_get_signed_int(0));
+        std::string dyn_props_var = "nanos_wd_dyn_props";
+        dynamic_wd_info << "nanos_wd_dyn_props_t " << dyn_props_var << ";";
 
-           if (IS_FORTRAN_LANGUAGE
-                 && !final_clause.is_constant())
-           {
-              dynamic_wd_info
-                 << "if (" << as_expression(final_clause) << ")"
-                 << "{"
-                 <<      "nanos_dyn_props.flags.is_final = 1;"
-                 << "}"
-                 << "else"
-                 << "{"
-                 <<      "nanos_dyn_props.flags.is_final = 0;"
-                 << "}"
-                 ;
-           }
-           else
-           {
-              dynamic_wd_info
-                 << "nanos_dyn_props.flags.is_final = " << as_expression(final_clause) << ";"
-                 ;
-           }
-        }
-
-        // Only tasks created in a parallel construct are marked as implicit
-        if (Nanos::Version::interface_is_at_least("master", 5029))
-        {
-            dynamic_wd_info
-                << "nanos_dyn_props.flags.is_implicit = 0;"
-                ;
-        }
+        fill_dynamic_properties(dyn_props_var,
+                /* priority_expr */ nodecl_null(), final_clause, /* is_implicit */ 0, dynamic_wd_info);
 
         Source spawn_code, barrier_code;
         spawn_code
@@ -173,7 +139,7 @@ namespace TL { namespace Nanox {
         <<     "nanos_err = nanos_create_sliced_wd(&nanos_wd_, nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
         <<            "(size_t)" << struct_size << ","
         <<            "nanos_wd_const_data.base.data_alignment,"
-        <<            "(void**)&ol_args, nanos_current_wd(), nanos_slicer, &nanos_wd_const_data.base.props, &nanos_dyn_props,"
+        <<            "(void**)&ol_args, nanos_current_wd(), nanos_slicer, &nanos_wd_const_data.base.props, &" << dyn_props_var << ","
         <<            "0, 0, 0, 0);"
         <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
         <<     statement_placeholder(fill_slicer_descriptor_tree)

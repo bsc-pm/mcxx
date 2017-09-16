@@ -28,8 +28,9 @@
 
 /*
 <testinfo>
-test_compile_fail=yes
+# This test will fail when linking
 test_generator="config/mercurium run"
+test_compile_fail=yes
 </testinfo>
 */
 

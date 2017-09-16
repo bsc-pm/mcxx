@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
 if [ "@ANALYSIS_DISABLED@" = "yes" -o "@NANOX_ENABLED@" = "no" ];
 then
 
-cat <<EOF
-test_ignore=yes
-EOF
-
-exit
-
+    gen_ignore_test "analysis or Nanos++ disabled"
+    exit
 fi
+
+# Parsing the test-generator arguments
+parse_arguments $@
 
 source @abs_builddir@/mercurium-libraries
 
@@ -31,9 +33,9 @@ test_CFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose ${P
 test_CXXFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_FFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose"
 
-if [ "$test_nolink" == "no" -o "$1" = "run" ];
+if [ "$test_nolink" == "no" -o "$TG_ARG_RUN" = "yes" ];
 then
-unset test_nolink
+    unset test_nolink
 else
     test_nolink=yes
 fi

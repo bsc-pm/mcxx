@@ -27,12 +27,11 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
+test_generator=(config/mercurium-ompss "config/mercurium-ompss-v2 openmp-compatibility")
 test_CXXFLAGS=--variable=enable_nonvoid_function_tasks:1
-test_compile_fail_nanos6_mercurium=yes
-test_compile_fail_nanos6_imcxx=yes
 </testinfo>
 */
+
 #include<assert.h>
 #define N 10
 #pragma omp task

@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator="config/mercurium-ompss no-nanos6"
+! test_generator=config/mercurium-ompss
 ! compile_versions="write_modules use_modules all"
 !
 ! test_nolink_write_modules="yes"

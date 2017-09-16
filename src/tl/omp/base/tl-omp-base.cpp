@@ -127,55 +127,50 @@ namespace TL { namespace OpenMP {
                 _enable_nonvoid_function_tasks,
                 "0").connect(std::bind(&Core::set_enable_nonvoid_function_tasks_from_str, &this->_core, std::placeholders::_1));
 
-        register_omp();
-        register_ompss();
+        bind_omp_constructs();
+        bind_oss_constructs();
     }
 
-    void Base::register_omp()
+#define BIND_DIRECTIVE(_sentinel, _directive, _name, _pred, _func_prefix) \
+                if (_pred) { \
+                    std::string directive_name = remove_separators_of_directive(_directive); \
+                    dispatcher(_sentinel).directive.pre[directive_name].connect(\
+                            std::bind(&Base::_func_prefix##_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher(_sentinel).directive.post[directive_name].connect(std::bind(\
+                                &Base::_func_prefix##_name##_handler_post, this, std::placeholders::_1)); \
+                }
+#define BIND_CONSTRUCT(_sentinel, _directive, _name, _pred, _func_prefix) \
+                if (_pred) { \
+                    std::string directive_name = remove_separators_of_directive(_directive); \
+                    dispatcher(_sentinel).declaration.pre[directive_name].connect(\
+                            std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_func_prefix##_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher(_sentinel).declaration.post[directive_name].connect(\
+                            std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_func_prefix##_name##_handler_post, this, std::placeholders::_1)); \
+                    dispatcher(_sentinel).statement.pre[directive_name].connect(std::bind(\
+                                (void (Base::*)(TL::PragmaCustomStatement))&Base::_func_prefix##_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher(_sentinel).statement.post[directive_name].connect(std::bind(\
+                                (void (Base::*)(TL::PragmaCustomStatement))&Base::_func_prefix##_name##_handler_post, this, std::placeholders::_1)); \
+                }
+    void Base::bind_omp_constructs()
     {
-#define OMP_DIRECTIVE(_directive, _name, _pred) \
-                if (_pred) { \
-                    std::string directive_name = remove_separators_of_directive(_directive); \
-                    dispatcher("omp").directive.pre[directive_name].connect(std::bind(&Base::_name##_handler_pre, this, std::placeholders::_1)); \
-                    dispatcher("omp").directive.post[directive_name].connect(std::bind(&Base::_name##_handler_post, this, std::placeholders::_1)); \
-                }
-#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
-                if (_pred) { \
-                    std::string directive_name = remove_separators_of_directive(_directive); \
-                    dispatcher("omp").declaration.pre[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, this, std::placeholders::_1)); \
-                    dispatcher("omp").declaration.post[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, this, std::placeholders::_1)); \
-                    dispatcher("omp").statement.pre[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, this, std::placeholders::_1)); \
-                    dispatcher("omp").statement.post[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, this, std::placeholders::_1)); \
-                }
-#define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
-#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
+#define OMP_DIRECTIVE(_directive, _name, _pred) BIND_DIRECTIVE("omp", _directive, _name, _pred, /*empty_prefix*/)
+#define OMP_CONSTRUCT(_directive, _name, _pred) BIND_CONSTRUCT("omp", _directive, _name, _pred, /*empty_prefix*/)
+#define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT(_directive, _name, _pred)
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
-#undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
     }
 
-    void Base::register_ompss()
+    void Base::bind_oss_constructs()
     {
-        // OSS constructs
-        dispatcher("oss").directive.pre["taskwait"].connect(std::bind(&Base::taskwait_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").directive.post["taskwait"].connect(std::bind(&Base::taskwait_handler_post, this, std::placeholders::_1));
-
-        dispatcher("oss").declaration.pre["task"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::task_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").declaration.post["task"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::task_handler_post, this, std::placeholders::_1));
-
-        dispatcher("oss").statement.pre["task"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").statement.post["task"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::task_handler_post, this, std::placeholders::_1));
-
-        dispatcher("oss").statement.pre["critical"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_pre, this, std::placeholders::_1));
-        dispatcher("oss").statement.post["critical"].connect(
-                std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::critical_handler_post, this, std::placeholders::_1));
+#define OSS_DIRECTIVE(_directive, _name, _pred) BIND_DIRECTIVE("oss", _directive, _name, _pred, oss_)
+#define OSS_CONSTRUCT(_directive, _name, _pred) BIND_CONSTRUCT("oss", _directive, _name, _pred, oss_)
+#define OSS_CONSTRUCT_NOEND(_directive, _name, _pred) OSS_CONSTRUCT(_directive, _name, _pred)
+#include "tl-oss-constructs.def"
+#undef OSS_DIRECTIVE
+#undef OSS_CONSTRUCT
+#undef OSS_CONSTRUCT_NOEND
     }
 
     void Base::pre_run(TL::DTO& dto)
@@ -352,6 +347,39 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_STATEMENT(teams_distribute_parallel_do)
         EMPTY_HANDLERS_STATEMENT(target_teams_distribute_parallel_for)
         EMPTY_HANDLERS_STATEMENT(target_teams_distribute_parallel_do)
+
+#define OSS_WRAPPER_TO_OMP_DECLARATION(_name) \
+        void Base::oss_##_name##_handler_pre(TL::PragmaCustomDeclaration construct) {\
+            _name##_handler_pre(construct); \
+        } \
+        void Base::oss_##_name##_handler_post(TL::PragmaCustomDeclaration construct) {\
+            _name##_handler_post(construct); \
+        }
+#define OSS_WRAPPER_TO_OMP_DIRECTIVE(_name) \
+        void Base::oss_##_name##_handler_pre(TL::PragmaCustomDirective construct) {\
+            _name##_handler_pre(construct); \
+        } \
+        void Base::oss_##_name##_handler_post(TL::PragmaCustomDirective construct) {\
+            _name##_handler_post(construct); \
+        }
+#define OSS_WRAPPER_TO_OMP_STATEMENT(_name) \
+        void Base::oss_##_name##_handler_pre(TL::PragmaCustomStatement construct) {\
+            _name##_handler_pre(construct); \
+        } \
+        void Base::oss_##_name##_handler_post(TL::PragmaCustomStatement construct) {\
+            _name##_handler_post(construct); \
+        }
+        OSS_WRAPPER_TO_OMP_DIRECTIVE(taskwait)
+        OSS_WRAPPER_TO_OMP_DECLARATION(task)
+        OSS_WRAPPER_TO_OMP_STATEMENT(task)
+        OSS_WRAPPER_TO_OMP_STATEMENT(critical)
+        OSS_WRAPPER_TO_OMP_DECLARATION(critical)
+        OSS_WRAPPER_TO_OMP_STATEMENT(atomic)
+        OSS_WRAPPER_TO_OMP_DECLARATION(atomic)
+
+#undef OSS_WRAPPER_TO_OMP_DECLARATION
+#undef OSS_WRAPPER_TO_OMP_DIRECTIVE
+#undef OSS_WRAPPER_TO_OMP_STATEMENT
 
     void Base::set_simd(const std::string &simd_enabled_str)
     {
@@ -980,8 +1008,7 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This SINGLE construct does NOT have a BARRIER at the"
-                    " end because of the 'nowait' clause\n";
+                    << "This SINGLE construct implies a BARRIER at the end\n";
                     ;
             }
         }
@@ -991,7 +1018,8 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This SINGLE construct implies a BARRIER at the end\n";
+                    << "This SINGLE construct does NOT have a BARRIER at the"
+                    " end because of the 'nowait' clause\n";
                     ;
             }
         }
@@ -1040,8 +1068,7 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This WORKSHARE construct does not have a "
-                    "BARRIER at the end due to the 'nowait' clause\n"
+                    << "This WORKSHARE construct implies a BARRIER at the end\n"
                     ;
             }
         }
@@ -1051,7 +1078,8 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This WORKSHARE construct implies a BARRIER at the end\n"
+                    << "This WORKSHARE construct does not have a "
+                    "BARRIER at the end due to the 'nowait' clause\n"
                     ;
             }
         }
@@ -3275,11 +3303,12 @@ namespace TL { namespace OpenMP {
         bool old_emit_omp_report = this->_omp_report;
         this->_omp_report = false;
 
-        // Everything should go transparent here
-        make_data_sharing_list<Nodecl::OpenMP::Shared>(
-                data_sharing_env, OpenMP::DS_PRIVATE,
-                locus,
-                result_list);
+        // Everything here but 'private' datasharings should go transparent
+
+        // 'private' datasharings aren't computed as shared as their type gives
+        // enough information and their current value is meaningless to the
+        // inner scope
+
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
                 locus,

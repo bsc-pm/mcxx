@@ -81,7 +81,6 @@ CORE_DIRS=\
 		$(BETS_DIRS)/04_compat_xl.dg \
 		$(BETS_DIRS)/05_torture_cxx_1.dg \
 		$(BETS_DIRS)/05_torture_cxx_2.dg \
-		$(BETS_DIRS)/06_run_cxx.dg \
 		$(BETS_DIRS)/07_phases_hlt.dg \
 		$(END)
 
