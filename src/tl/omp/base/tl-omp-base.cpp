@@ -2975,6 +2975,41 @@ namespace TL { namespace OpenMP {
         directive.replace(new_register_directive);
     }
 
+
+    void Base::oss_release_handler_pre(TL::PragmaCustomDirective construct) { }
+    void Base::oss_release_handler_post(TL::PragmaCustomDirective directive)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << directive.get_locus_str() << ": " << "RELEASE construct\n"
+                << directive.get_locus_str() << ": " << "------------------\n"
+                ;
+        }
+
+        OpenMP::DataEnvironment &data_environment =
+            _core.get_openmp_info()->get_data_environment(directive);
+        Nodecl::List environment = this->make_execution_environment(
+                data_environment,
+                pragma_line,
+                /* ignore_target_info */ true,
+                /* is_inline_task */ false);
+
+        pragma_line.diagnostic_unused_clauses();
+
+        TL::ObjectList<OpenMP::DependencyItem> dependences;
+        data_environment.get_all_dependences(dependences);
+
+        directive.replace(
+                Nodecl::OmpSs::Release::make(
+                    environment,
+                    directive.get_locus()));
+    }
+
+
     struct SymbolBuilder
     {
         private:

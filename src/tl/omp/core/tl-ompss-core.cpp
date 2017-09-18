@@ -819,4 +819,36 @@ namespace TL { namespace OpenMP {
         _target_context = std::stack<TL::OmpSs::TargetContext>();
     }
 
+    void Core::oss_release_handler_pre(TL::PragmaCustomDirective construct)
+    {
+        TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
+
+        DataEnvironment& data_environment =
+            _openmp_info->get_new_data_environment(construct);
+        _openmp_info->push_current_data_environment(data_environment);
+
+        bool there_is_default_clause = false;
+        DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line,
+                /* fallback */ DS_UNDEFINED,
+                there_is_default_clause,
+                /*allow_default_auto*/ true);
+
+        ObjectList<Symbol> extra_symbols;
+
+        handle_task_dependences(
+                pragma_line, /* parsing_scope */ pragma_line,
+                default_data_attr, data_environment, extra_symbols);
+
+        handle_implicit_dependences_of_task_reductions(
+                pragma_line, default_data_attr,
+                data_environment, extra_symbols);
+
+        get_data_extra_symbols(data_environment, extra_symbols);
+    }
+
+    void Core::oss_release_handler_post(TL::PragmaCustomDirective construct)
+    {
+        _openmp_info->pop_current_data_environment();
+    }
+
 } }

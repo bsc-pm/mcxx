@@ -707,11 +707,16 @@ top-level: target-declaration
 
 target-declaration : NODECL_OMP_SS*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 
-parallel-statements: data-coordination
+# Some OmpSs/OmpSs-v2 additional constructs
+parallel-statements: data-coordination-constructs
+                    | release-deps-construct
 
 # register
-data-coordination : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
+data-coordination-constructs : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
                 | NODECL_OMP_SS*UNREGISTER([unregistered_set]expression-seq)
+
+# release dependences construct
+release-deps-construct: NODECL_OMP_SS*RELEASE([environment] omp-exec-environment-seq-opt)
 
 omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
