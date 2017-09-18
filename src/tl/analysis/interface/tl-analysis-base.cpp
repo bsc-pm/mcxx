@@ -342,7 +342,7 @@ namespace Analysis {
             return;
 
         // Required previous analysis
-        liveness(ast, propagate_graph_nodes, functions, call_graph);
+        use_def(ast, propagate_graph_nodes, functions, call_graph);
 
         double init = 0.0;
         if (ANALYSIS_PERFORMANCE_MEASURE)

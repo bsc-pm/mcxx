@@ -294,12 +294,40 @@ namespace Analysis {
             return;
 
         // 1.- LO(graph) = U L0(inner exits)
-        NodeclSet live_out;
+        NodeclSet all_live_out;
         const ObjectList<Node*>& parents = n->get_graph_exit_node()->get_parents();
         for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
         {
             const NodeclSet& lo = (*it)->get_live_out_vars();
-            live_out.insert(lo.begin(), lo.end());
+            all_live_out.insert(lo.begin(), lo.end());
+        }
+
+        // 1.1.- Delete those variables which are local to the graph
+        NodeclSet live_out;
+        if (n->is_context_node())
+        {   // Variables declared within the current context
+            Scope sc(n->get_graph_related_ast().retrieve_context());
+            for(NodeclSet::iterator it = all_live_out.begin(); it != all_live_out.end(); ++it)
+            {
+                const NBase& it_base = Utils::get_nodecl_base(*it);
+                if (!it_base.retrieve_context().scope_is_enclosed_by(sc))
+                    live_out.insert(*it);
+            }
+        }
+        else if (n->is_omp_node())
+        {   // Private and firstprivate variables
+            NodeclSet to_remove_vars = n->get_private_vars();
+            NodeclSet fp_vars = n->get_firstprivate_vars();
+            to_remove_vars.insert(fp_vars.begin(), fp_vars.end());
+            for (NodeclSet::iterator it = all_live_out.begin(); it != all_live_out.end(); ++it)
+            {
+                if (to_remove_vars.find(*it) == to_remove_vars.end())
+                    live_out.insert(*it);
+            }
+        }
+        else
+        {
+            live_out = all_live_out;
         }
         n->set_live_out(live_out);
 
@@ -323,14 +351,14 @@ namespace Analysis {
                     live_in.insert(*it);
             }
         }
-        else if (n->is_omp_task_node()
-                || n->is_omp_async_target_node()
-                || n->is_omp_sync_target_node())
-        {   // Variables private to the task
-            NodeclSet p_vars = n->get_private_vars();
+        else if (n->is_omp_node())
+        {   // Private and lastprivate variables
+            NodeclSet to_remove_vars = n->get_private_vars();
+            NodeclSet lp_vars = n->get_lastprivate_vars();
+            to_remove_vars.insert(lp_vars.begin(), lp_vars.end());
             for (NodeclSet::iterator it = all_live_in.begin(); it != all_live_in.end(); ++it)
             {
-                if (p_vars.find(*it) == p_vars.end())
+                if (to_remove_vars.find(*it) == to_remove_vars.end())
                     live_in.insert(*it);
             }
         }
