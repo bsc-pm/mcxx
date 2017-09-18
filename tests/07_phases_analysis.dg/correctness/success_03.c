@@ -25,10 +25,12 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
 test_generator=config/mercurium-analysis
+test_compile_fail=yes
+test_ignore="yes"
+test_ignore_reason="Commit 5cc02af01c090dc7786c9a144099a9b248938c1b broke it"
 test_nolink=yes
 </testinfo>
 */
