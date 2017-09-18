@@ -41,7 +41,7 @@ namespace TL { namespace Nanos6 {
             struct ImplConstants
             {
                 // Max number of dimensions supported in any kind of dependence clause
-                unsigned int deps_max_dimensions;
+                unsigned int api_max_dimensions;
             };
 
             ImplConstants _constants;
@@ -56,7 +56,7 @@ namespace TL { namespace Nanos6 {
 
             Nodecl::List &get_extra_c_code() { return _extra_c_code; }
 
-            unsigned int get_deps_max_dimensions() const;
+            unsigned int nanos6_api_max_dimensions() const;
 
         private:
             void fortran_preprocess_api(DTO& dto);

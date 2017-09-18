@@ -3356,7 +3356,7 @@ namespace TL { namespace Nanos6 {
 
                 TL::Symbol register_fun;
                 {
-                    int max_dimensions = phase->get_deps_max_dimensions();
+                    int max_dimensions = phase->nanos6_api_max_dimensions();
                     ERROR_CONDITION(data_type.is_array() &&
                             (data_type.get_num_dimensions() > max_dimensions),
                             "Maximum number of data dimensions allowed is %d",
@@ -3845,7 +3845,7 @@ namespace TL { namespace Nanos6 {
 
                 TL::Symbol register_fun;
                 {
-                    int max_dimensions = phase->get_deps_max_dimensions();
+                    int max_dimensions = phase->nanos6_api_max_dimensions();
                     ERROR_CONDITION(data_type.is_array() &&
                             (data_type.get_num_dimensions() > max_dimensions),
                             "Maximum number of data dimensions allowed is %d",

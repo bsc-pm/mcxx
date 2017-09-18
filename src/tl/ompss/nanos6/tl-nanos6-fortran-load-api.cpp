@@ -180,8 +180,7 @@ void fixup_entry_points(int deps_max_dimensions)
     void LoweringPhase::fortran_fixup_api()
     {
         ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
-        fixup_entry_points(get_deps_max_dimensions());
+        fixup_entry_points(nanos6_api_max_dimensions());
     }
-
 
 } }
