@@ -418,7 +418,7 @@ namespace Analysis {
 
         ObjectList<ETDGNode*> _tasks;
 
-        std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*>, Nodecl::Utils::Nodecl_structural_less> _source_to_etdg_nodes;
+        std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*> > _source_to_etdg_nodes;
 
         void compute_constants_rec(FTDGNode* n);
         void compute_constants();
@@ -473,7 +473,7 @@ namespace Analysis {
 
         ObjectList<ETDGNode*> get_tasks() const;
 
-        std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*>, Nodecl::Utils::Nodecl_structural_less> get_source_to_etdg_nodes() const;
+        std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*> > get_source_to_etdg_nodes() const;
 
         void print_tdg_to_dot();
     };
