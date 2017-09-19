@@ -64,6 +64,7 @@ namespace {
     void set_sync_relationship(tribool& task_sync_rel,
             AliveTaskSet::iterator& alive_tasks_it,
             PointsOfSync& points_of_sync,
+            bool keep_alive,
             Node* current,
             Node* current_sync_point)
     {
@@ -109,7 +110,7 @@ namespace {
                     if (!already_a_point_of_sync)
                         points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
 
-                    if (task_sync_rel == tribool::yes)
+                    if (task_sync_rel == tribool::yes && !keep_alive)
                     {
 #ifdef TASK_SYNC_DEBUG
                         std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
@@ -479,7 +480,7 @@ namespace {
     }
 
     // Computes if task source will synchronize with the creation of the task target
-    tribool compute_task_sync_relationship(Node* source, Node* target)
+    tribool compute_task_sync_relationship(Node* source, Node* target, bool keep_alive)
     {
 #ifdef TASK_SYNC_DEBUG
         std::cerr << "CHECKING DEPENDENCES STATICALLY " << source->get_id() << " -> " << target->get_id() << std::endl;
@@ -596,7 +597,6 @@ namespace {
 
         // Match source outputs with target inputs and outputs
         task_matched_src_deps.insert(std::pair<Node*, ObjectList<Nodecl::NodeclBase> >(source, in_sources.to_object_list()));
-
         bool all_sources_are_inputs = false, all_targets_are_inputs = true;
         for (Nodecl::List::iterator its = out_sources.begin(); its != out_sources.end(); ++its)
         {
@@ -625,19 +625,23 @@ namespace {
         if (may_have_dep == tribool::no)
             return may_have_dep;
 
-        // out/inout -> in || remaining unmatched dependences in the source
+        // This tasks will be dead when the next taskwait/barrier is encountered
+        // but we have to keep them alive since they may sincronize in other task
+        if (all_targets_are_inputs && may_have_dep == tribool::yes)
+        {
+            dead_tasks_before_sync.insert(source);
+        }
+
+        // It may happen that, even though a task is synchronized for sure in a nother task,
+        // we may want to keep it alive. This happens when:
+        // * An output dependence has been synchronized with an input dependence
+        //        => other posterior inputs/outputs may need to synchronize with the same source
+        // * There are still dependences in the source that have not match
+        //        => other posterior dependences may match with those previously unmatched
         if ((!all_sources_are_inputs && all_targets_are_inputs)
             || !task_matched_src_deps[source].empty())
         {
-            may_have_dep = tribool::unknown;
-        }
-
-        // This tasks will be dead when the next taskwait/barrier is encountered
-        // but we have to keep them alive since they may sincronize in other task
-        if ((all_targets_are_inputs && may_have_dep == tribool::unknown)
-                || !task_matched_src_deps[source].empty())
-        {
-            dead_tasks_before_sync.insert(source);
+            keep_alive = true;
         }
 
         return may_have_dep;
@@ -797,7 +801,7 @@ namespace {
                 {
                     task_sync_rel = tribool::no;
                 }
-                set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, current);
+                set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, /*keep_alive*/false, current, current);
             }
         }
         else if (current->is_omp_task_creation_node())
@@ -812,15 +816,16 @@ namespace {
                     alive_tasks_it++)
             {
                 tribool task_sync_rel;
+                bool keep_alive = false;
                 if (alive_tasks_it->domain == current_domain_id)
                 {
-                    task_sync_rel = compute_task_sync_relationship(alive_tasks_it->node, task);
+                    task_sync_rel = compute_task_sync_relationship(alive_tasks_it->node, task, keep_alive);
                 }
                 else
                 {
                     task_sync_rel = tribool::no;
                 }
-                set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, task);
+                set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, keep_alive, current, task);
             }
 
             // Add the newly created task as well
