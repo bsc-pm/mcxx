@@ -101,27 +101,10 @@ namespace TL { namespace Nanos6 {
                 const TL::ObjectList<TL::Symbol> &local);
             TL::Type rewrite_type_using_args(TL::Symbol arg, TL::Type t, const TL::ObjectList<TL::Symbol> &local);
 
-            void compute_reduction_arguments_dependence_c(
+            void compute_reduction_arguments_register_dependence(
                     TL::DataReference& data_ref,
-                    TL::Symbol arg,
-                    const TL::ObjectList<TL::Symbol>& local_symbols,
                     // Out
-                    Nodecl::List& arguments);
-
-            void compute_dimensions_dependence_c(
-                    TL::Type array_type,
-                    TL::Symbol arg,
-                    const TL::ObjectList<TL::Symbol>& local_symbols,
-                    // Out
-                    Nodecl::List& arguments_list);
-
-            void compute_arguments_dependence_c(
-                    TL::DataReference& data_ref,
-                    TL::Symbol handler,
-                    TL::Symbol arg,
-                    const TL::ObjectList<TL::Symbol>& local_symbols,
-                    // Out
-                    Nodecl::List& arguments_list);
+                    TL::ObjectList<Nodecl::NodeclBase>& arguments_list);
 
             void register_dependence_c(
                     TL::DataReference& data_ref,
@@ -132,32 +115,16 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List& register_statements);
 
+            /** Note that the list of local_symbols may be modified **/
             void register_multidependence_c(
                     TL::DataReference& data_ref,
                     TL::Symbol handler,
                     TL::Symbol arg,
                     TL::Symbol register_fun,
-                    const TL::ObjectList<TL::Symbol>& local_symbols,
                     TL::Scope scope,
                     // Out
+                    TL::ObjectList<TL::Symbol>& local_symbols,
                     Nodecl::List& register_statements);
-
-            void compute_reduction_arguments_dependence_fortran(
-                    TL::DataReference& data_ref,
-                    // Out
-                    Nodecl::List& arguments_list);
-
-            void compute_dimensions_dependence_fortran(
-                    const TL::DataReference& data_ref,
-                    TL::Type array_type,
-                    // Out
-                    Nodecl::List& arguments_list);
-
-            void compute_arguments_dependence_fortran(
-                    TL::DataReference& data_ref,
-                    TL::Symbol handler,
-                    // Out
-                    Nodecl::List& arguments_list);
 
             void register_multidependence_fortran(
                     TL::DataReference &data_ref,
