@@ -305,6 +305,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, ftell, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getcwd, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, getpid, NULL, T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hostnm, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, irand, "?I", T, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, isnan, "X", E, NULL)  \
@@ -3344,6 +3345,15 @@ scope_entry_t* compute_intrinsic_getlog(scope_entry_t* symbol UNUSED_PARAMETER,
     }
 
     return NULL;
+}
+
+scope_entry_t* compute_intrinsic_getpid(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "getpid", fortran_choose_int_type_from_kind(4));
 }
 
 scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAMETER,
