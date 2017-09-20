@@ -381,6 +381,19 @@ namespace TL { namespace Nanos6 {
         return tp;
     }
 
+    // FIXME
+    TaskProperties TaskProperties::gather_task_properties(
+            LoweringPhase* phase,
+            Lower* lower,
+            const Nodecl::NodeclBase& env)
+    {
+        TaskProperties tp(phase, lower);
+        TaskPropertiesVisitor tv(tp);
+        tv.walk(env);
+        return tp;
+    }
+
+
     void TaskProperties::remove_redundant_data_sharings()
     {
         TL::ObjectList<TL::Symbol> new_shared_list;
@@ -4859,5 +4872,82 @@ namespace TL { namespace Nanos6 {
         all_syms.append(captured_value);
 
         TL::Nanos6::fortran_add_types(all_syms, dest_scope);
+    }
+
+    void TaskProperties::compute_release_statements(/* out */ Nodecl::List& release_stmts)
+    {
+        struct ReleaseSet
+        {
+            TL::ObjectList<Nodecl::NodeclBase> &dep_list;
+            std::string func_name;
+        } deps[] = {
+            { dep_in,    "nanos_release_read_"              },
+            { dep_out,   "nanos_release_write_"             },
+            { dep_inout, "nanos_release_readwrite_"         },
+
+            { dep_weakin,    "nanos_release_weak_read_"      },
+            { dep_weakout,   "nanos_release_weak_write_"     },
+            { dep_weakinout, "nanos_release_weak_readwrite_" },
+
+            { dep_commutative, "nanos_release_commutative_" },
+            { dep_concurrent,  "nanos_release_concurrent_"  },
+
+           // { dep_reduction, "nanos_release_reduction_" },
+        };
+
+        TL::Scope global_context = TL::Scope::get_global_scope();
+
+        for (ReleaseSet *release_set = deps;
+                release_set != (ReleaseSet*)(&deps + 1);
+                release_set++)
+        {
+            TL::ObjectList<Nodecl::NodeclBase> &dep_list = release_set->dep_list;
+            if (dep_list.empty())
+                continue;
+
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                    it = dep_list.begin();
+                    it != dep_list.end();
+                    it++)
+            {
+                TL::DataReference data_ref = *it;
+                TL::Type data_type = data_ref.get_data_type();
+
+                TL::Symbol release_fun;
+                {
+                    int max_dimensions = phase->nanos6_api_max_dimensions();
+                    ERROR_CONDITION(data_type.is_array() &&
+                            (data_type.get_num_dimensions() > max_dimensions),
+                            "Maximum number of data dimensions allowed is %d",
+                            max_dimensions);
+
+                    int num_dims_dep = data_type.is_array() ? data_type.get_num_dimensions() : 1;
+                    std::stringstream ss;
+                    ss << release_set->func_name << num_dims_dep;
+
+                    release_fun = global_context.get_symbol_from_name(ss.str());
+                    if (!release_fun.is_valid())
+                    {
+                        fatal_error(
+                                "'%s' function not found while trying to release dependences\n",
+                                ss.str().c_str());
+                    }
+                }
+
+                ERROR_CONDITION(data_ref.is_multireference(), "Unexpected multi-dependence in a release construct\n", 0);
+
+                TL::ObjectList<Nodecl::NodeclBase> arguments;
+                compute_base_address_and_dimensionality_information(data_ref, arguments);
+                Nodecl::NodeclBase call_to_release = Nodecl::ExpressionStatement::make(
+                        Nodecl::FunctionCall::make(
+                            release_fun.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(arguments),
+                            /* alternate_name */ Nodecl::NodeclBase::null(),
+                            /* function_form */ Nodecl::NodeclBase::null(),
+                            get_void_type()));
+
+                release_stmts.append(call_to_release);
+            }
+        }
     }
 } }

@@ -293,6 +293,12 @@ namespace TL { namespace Nanos6 {
                     Lower* lower,
                     const Nodecl::OpenMP::Task& node);
 
+            // FIXME: This function should'nt be used
+            static TaskProperties gather_task_properties(
+                    LoweringPhase* phase,
+                    Lower* Lower,
+                    const Nodecl::NodeclBase& env);
+
             void create_task_info(
                     /* out */
                     TL::Symbol &task_info,
@@ -334,6 +340,8 @@ namespace TL { namespace Nanos6 {
             void handle_task_reductions(
                     const TL::Scope& unpacked_inside_scope,
                     Nodecl::NodeclBase unpacked_empty_stmt);
+
+            void compute_release_statements(/* out */ Nodecl::List& release_stmts);
 
             void remove_redundant_data_sharings();
 

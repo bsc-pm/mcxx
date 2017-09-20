@@ -53,6 +53,8 @@ namespace TL { namespace Nanos6 {
             void visit(const Nodecl::OpenMP::Critical& n);
             void visit(const Nodecl::OpenMP::Atomic& n);
 
+            void visit(const Nodecl::OmpSs::Release &n);
+
             // Unsupported
             void visit(const Nodecl::OpenMP::Taskyield &n);
             void visit(const Nodecl::OpenMP::For &n);
