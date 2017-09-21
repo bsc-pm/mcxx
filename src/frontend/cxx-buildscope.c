@@ -22021,9 +22021,10 @@ AST get_function_declarator_parameter_list(AST funct_declarator, const decl_cont
     switch (ASTKind(funct_declarator))
     {
         case AST_DECLARATOR :
+        case AST_DECLARATOR_ARRAY :
         case AST_PARENTHESIZED_DECLARATOR :
             {
-                return get_function_declarator_parameter_list(ASTSon0(funct_declarator), decl_context); 
+                return get_function_declarator_parameter_list(ASTSon0(funct_declarator), decl_context);
                 break;
             }
         case AST_POINTER_DECLARATOR :
