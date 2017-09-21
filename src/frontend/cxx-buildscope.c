@@ -22075,29 +22075,21 @@ AST get_declarator_id_expression(AST a, const decl_context_t* decl_context)
 
     switch(ASTKind(a))
     {
+        case AST_DECLARATOR :
+        case AST_DECLARATOR_ARRAY :
+        case AST_DECLARATOR_FUNC :
+        case AST_DECLARATOR_FUNC_TRAIL :
+        case AST_DECLARATOR_ID_PACK :
         case AST_INIT_DECLARATOR :
         case AST_MEMBER_DECLARATOR :
-        case AST_DECLARATOR :
-        case AST_DECLARATOR_ID_PACK:
         case AST_PARENTHESIZED_DECLARATOR :
             {
-                return get_declarator_id_expression(ASTSon0(a), decl_context); 
+                return get_declarator_id_expression(ASTSon0(a), decl_context);
                 break;
             }
         case AST_POINTER_DECLARATOR :
             {
                 return get_declarator_id_expression(ASTSon1(a), decl_context);
-                break;
-            }
-        case AST_DECLARATOR_ARRAY :
-            {
-                return get_declarator_id_expression(ASTSon0(a), decl_context);
-                break;
-            }
-        case AST_DECLARATOR_FUNC :
-        case AST_DECLARATOR_FUNC_TRAIL :
-            {
-                return get_declarator_id_expression(ASTSon0(a), decl_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
