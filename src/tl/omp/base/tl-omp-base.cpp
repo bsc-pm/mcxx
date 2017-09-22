@@ -3016,26 +3016,12 @@ namespace TL { namespace OpenMP {
             const locus_t* _locus;
 
         public:
-            SymbolBuilder(const locus_t* locus)
-                : _locus(locus)
-            {
-            }
+            SymbolBuilder(const locus_t* locus) : _locus(locus)
+            {}
 
             Nodecl::NodeclBase operator()(TL::Symbol arg) const
             {
                 return arg.make_nodecl(/*set_ref*/true, _locus);
-            }
-    };
-
-    struct SymbolReasonBuilder
-    {
-        private:
-            const locus_t* _locus;
-
-        public:
-            SymbolReasonBuilder(const locus_t* locus)
-                : _locus(locus)
-            {
             }
 
             Nodecl::NodeclBase operator()(DataEnvironment::DataSharingInfoPair arg) const
@@ -3194,7 +3180,7 @@ namespace TL { namespace OpenMP {
         if (!symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols =
-                symbols.map<Nodecl::NodeclBase>(SymbolReasonBuilder(locus));
+                symbols.map<Nodecl::NodeclBase>(SymbolBuilder(locus));
 
             if (emit_omp_report())
             {
