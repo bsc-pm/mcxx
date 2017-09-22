@@ -219,10 +219,19 @@ namespace TL
 #endif
 
             public:
+
                 template <typename T>
                 void make_data_sharing_list(
                         OpenMP::DataEnvironment &data_sharing_env,
                         OpenMP::DataSharingAttribute data_attr,
+                        const locus_t* locus,
+                        ObjectList<Nodecl::NodeclBase>& result_list);
+
+                template <typename T>
+                void make_data_sharing_list(
+                        OpenMP::DataEnvironment &data_sharing_env,
+                        OpenMP::DataSharingAttribute data_attr,
+                        const std::function<bool(const DataEnvironment::DataSharingInfoPair&)>& filter_fun,
                         const locus_t* locus,
                         ObjectList<Nodecl::NodeclBase>& result_list);
 

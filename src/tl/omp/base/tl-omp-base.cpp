@@ -3171,16 +3171,20 @@ namespace TL { namespace OpenMP {
     void Base::make_data_sharing_list(
             OpenMP::DataEnvironment &data_sharing_env,
             OpenMP::DataSharingAttribute data_attr,
+            const std::function<bool(const DataEnvironment::DataSharingInfoPair&)>& filter_fun,
             const locus_t* locus,
             ObjectList<Nodecl::NodeclBase>& result_list)
     {
         TL::ObjectList<DataEnvironment::DataSharingInfoPair> symbols;
         data_sharing_env.get_all_symbols_info(data_attr, symbols);
 
+        if (filter_fun)
+            symbols = symbols.filter(filter_fun);
+
         if (!symbols.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols =
-                symbols.map<Nodecl::NodeclBase>(SymbolBuilder(locus));
+            TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols
+                = symbols.map<Nodecl::NodeclBase>(SymbolBuilder(locus));
 
             if (emit_omp_report())
             {
@@ -3189,6 +3193,16 @@ namespace TL { namespace OpenMP {
 
             result_list.append(T::make(Nodecl::List::make(nodecl_symbols), locus));
         }
+    }
+
+    template <typename T>
+    void Base::make_data_sharing_list(
+            OpenMP::DataEnvironment &data_sharing_env,
+            OpenMP::DataSharingAttribute data_attr,
+            const locus_t* locus,
+            ObjectList<Nodecl::NodeclBase>& result_list)
+    {
+        make_data_sharing_list<T>(data_sharing_env, data_attr, /* filter */ NULL, locus, result_list);
     }
 
     void Base::make_execution_environment_target_information(
@@ -3312,6 +3326,13 @@ namespace TL { namespace OpenMP {
                     locus));
     }
 
+    namespace {
+        bool datasharing_pair_is_allocatable(const DataEnvironment::DataSharingInfoPair& p)
+        {
+            return p.first.is_allocatable();
+        }
+    }
+
     Nodecl::List Base::make_execution_environment_for_combined_worksharings(
             OpenMP::DataEnvironment &data_sharing_env,
             PragmaCustomLine pragma_line)
@@ -3326,9 +3347,12 @@ namespace TL { namespace OpenMP {
 
         // Everything here but 'private' datasharings should go transparent
 
-        // 'private' datasharings aren't computed as shared as their type gives
-        // enough information and their current value is meaningless to the
-        // inner scope
+        // 'private' datasharings are only computed as SHARED for allocatable
+        // symbols. For the other cases we only need the type information.
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_PRIVATE,
+                datasharing_pair_is_allocatable, locus,
+                result_list);
 
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTPRIVATE,
