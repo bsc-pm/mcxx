@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #constants
-readonly bets_version=0.9.11
+readonly bets_version=0.9.12
 
 #color constants
 
