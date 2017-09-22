@@ -191,6 +191,16 @@ class ObjectList : public std::vector<T>, public TL::Object
             return (this->filter(p)).map(f);
         }
 
+        //! Combines filter and map
+        /*!
+         * \param p A Predicate over elements of type T
+         * \param f A Functor of elements of type T returning elements of type S
+         */
+        void map_filter(const std::function<bool(T)>& p, const std::function<void(const T&)> &f) const
+        {
+            (this->filter(p)).map(f);
+        }
+
         //! Performs a reduction on a list
         /*!
          * \param red_func Reductor functor receiving a pair of elements of type T and returning elements of type T
