@@ -3139,6 +3139,8 @@ static inline void preanalyze_statement(char expect_label)
                     {
                         // INTEGER*8E1 cannot be lexed as
                         // [INTEGER][*][REAL_LITERAL=8E1] but like [INTEGER][*][INTEGER_LITERAL=8][IDENTIFIER=E1]
+                        // INTEGER*8H12345678 cannot be lexed as
+                        // [INTEGER][*][STRING_LITERAL=12345678] but like [INTEGER][*][INTEGER_LITERAL=8][IDENTIFIER=H12345678]
                         int peek_idx2 = peek_idx_end_of_keyword + 2;
 
                         p = peek(peek_idx2);
@@ -3152,7 +3154,9 @@ static inline void preanalyze_statement(char expect_label)
 
                             if (tolower(p) == 'e'
                                     || tolower(p) == 'd'
-                                    || tolower(p) == 'q')
+                                    || tolower(p) == 'q'
+                                    // Hollerith case
+                                    || tolower(p) == 'h')
                             {
                                 token_location_t loc;
                                 peek_loc(peek_idx2, &loc);
