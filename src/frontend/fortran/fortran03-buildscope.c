@@ -8206,47 +8206,56 @@ static void build_scope_target_stmt(AST a, const decl_context_t* decl_context, n
     {
         AST target_decl = ASTSon1(it);
 
-        AST name = target_decl;
+        AST name = NULL;
+        AST array_spec = NULL;
+        AST coarray_spec = NULL;
+        if (ASTKind(target_decl) == AST_SYMBOL)
+        {
+            name = target_decl;
+        }
+        else if (ASTKind(target_decl) == AST_DIMENSION_DECL)
+        {
+            name = ASTSon0(target_decl);
+            array_spec = ASTSon1(target_decl);
+            coarray_spec = ASTSon2(target_decl);
+        }
+        else
+        {
+            internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(a)));
+        }
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-
-        if (ASTKind(target_decl_list) == AST_DIMENSION_DECL)
+        if (coarray_spec != NULL)
         {
-            name = ASTSon0(target_decl);
-            AST array_spec = ASTSon1(target_decl_list);
-            AST coarray_spec = ASTSon2(target_decl_list);
+            sorry_printf_at(ast_get_locus(name),
+                            "coarrays are not supported\n");
+        }
 
-            if (coarray_spec != NULL)
+        if (array_spec != NULL)
+        {
+            if (fortran_is_array_type(no_ref(entry->type_information))
+                    || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
             {
-                sorry_printf_at(ast_get_locus(name), "coarrays are not supported\n");
+                error_printf_at(ast_get_locus(a), "DIMENSION attribute specified twice for entity '%s'\n",
+                        entry->symbol_name);
+                continue;
             }
 
-            if (array_spec != NULL)
+            char was_ref = is_lvalue_reference_type(entry->type_information);
+
+            compute_type_from_array_spec(
+                    entry,
+                    no_ref(entry->type_information),
+                    array_spec,
+                    decl_context,
+                    /* allow_nonconstant */ 1);
+
+            if (!is_error_type(entry->type_information))
             {
-                if (fortran_is_array_type(no_ref(entry->type_information))
-                        || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
+                if (was_ref)
                 {
-                    error_printf_at(ast_get_locus(a), "DIMENSION attribute specified twice for entity '%s'\n",
-                            entry->symbol_name);
-                    continue;
-                }
-
-                char was_ref = is_lvalue_reference_type(entry->type_information);
-
-                compute_type_from_array_spec(
-                        entry,
-                        no_ref(entry->type_information),
-                        array_spec,
-                        decl_context,
-                        /* allow_nonconstant */ 1);
-
-                if (!is_error_type(entry->type_information))
-                {
-                    if (was_ref)
-                    {
-                        entry->type_information = get_lvalue_reference_type(entry->type_information);
-                    }
+                    entry->type_information = get_lvalue_reference_type(entry->type_information);
                 }
             }
         }
@@ -8265,7 +8274,6 @@ static void build_scope_target_stmt(AST a, const decl_context_t* decl_context, n
         }
         symbol_entity_specs_set_is_target(entry, 1);
     }
-
 }
 
 static void build_scope_declaration_common_stmt(AST a, const decl_context_t* decl_context, 
