@@ -3003,6 +3003,9 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase arg2_id = const_value_to_nodecl(
                 const_value_get_unsigned_int(num_reductions));
 
+        // Increment number of registered reductions for the task (used as id when registering)
+        num_reductions++;
+
         arguments_list.append(arg1_type_op);
         arguments_list.append(arg2_id);
     }
@@ -3231,11 +3234,7 @@ namespace TL { namespace Nanos6 {
         if (is_reduction)
         {
             ERROR_CONDITION(data_ref.get_data_type().is_array(), "Array reductions not supported", 0);
-
             compute_reduction_arguments_register_dependence(data_ref, arguments);
-
-            // Increment number of registered reductions for the task (used as id when registering)
-            num_reductions++;
         }
         compute_arguments_register_dependence(data_ref, handler, arguments);
 
@@ -3521,17 +3520,12 @@ namespace TL { namespace Nanos6 {
                 0, std::string::npos, register_fun.get_name(),
                 0, reduction_register_fun_name.length()) == 0;
 
-
         TL::ObjectList<Nodecl::NodeclBase> arguments_list;
         if (is_reduction)
         {
             ERROR_CONDITION(data_ref.get_data_type().is_array(), "Array reductions not supported", 0);
             compute_reduction_arguments_register_dependence(data_ref, arguments_list);
-
-            // Increment number of registered reductions for the task (used as id when registering)
-            num_reductions++;
         }
-
         compute_arguments_register_dependence(data_ref, handler, arguments_list);
 
         Nodecl::List args = Nodecl::List::make(arguments_list);
