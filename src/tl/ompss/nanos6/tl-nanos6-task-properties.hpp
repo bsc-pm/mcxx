@@ -282,22 +282,13 @@ namespace TL { namespace Nanos6 {
             const locus_t* locus_of_task_creation;
             const locus_t* locus_of_task_declaration;
 
-            TaskProperties(LoweringPhase* lowering_phase, Lower* lower_vis)
-                : phase(lowering_phase), lower_visitor(lower_vis), num_reductions(0),
-                is_tied(true), is_taskwait_dep(false), is_taskloop(false), wait_clause(false),
-                any_task_dependence(false)
-            { }
+            TaskProperties(
+                    const Nodecl::OpenMP::Task& node,
+                    LoweringPhase* lowering_phase,
+                    Lower* lower);
 
-            static TaskProperties gather_task_properties(
-                    LoweringPhase* phase,
-                    Lower* lower,
-                    const Nodecl::OpenMP::Task& node);
-
-            // FIXME: This function should'nt be used
-            static TaskProperties gather_task_properties(
-                    LoweringPhase* phase,
-                    Lower* Lower,
-                    const Nodecl::NodeclBase& env);
+            // FIXME: This constructor shouldn't exist
+            TaskProperties(const Nodecl::OmpSs::Release& node, LoweringPhase* lowering_phase, Lower* lower);
 
             void create_task_info(
                     /* out */

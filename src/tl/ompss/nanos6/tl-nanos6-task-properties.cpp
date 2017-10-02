@@ -344,53 +344,48 @@ namespace TL { namespace Nanos6 {
         }
     };
 
-    TaskProperties TaskProperties::gather_task_properties(
-            LoweringPhase* phase,
-            Lower* lower,
-            const Nodecl::OpenMP::Task& node)
+    TaskProperties::TaskProperties(
+            const Nodecl::OpenMP::Task& node,
+            LoweringPhase* lowering_phase,
+            Lower* lower)
+        : phase(lowering_phase), lower_visitor(lower), num_reductions(0),
+        is_tied(true), is_taskwait_dep(false), is_taskloop(false), wait_clause(false),
+        any_task_dependence(false)
     {
-        TaskProperties tp(phase, lower);
+        locus_of_task_creation = node.get_locus();
+        locus_of_task_declaration = node.get_locus();
 
-        tp.locus_of_task_creation = node.get_locus();
-        tp.locus_of_task_declaration = node.get_locus();
-
-        TaskPropertiesVisitor tv(tp);
+        TaskPropertiesVisitor tv(*this);
         tv.walk(node.get_environment());
-        tp.remove_redundant_data_sharings();
+        remove_redundant_data_sharings();
 
-        tp.compute_captured_values();
+        compute_captured_values();
 
-        tp.fix_data_sharing_of_this();
-        tp.related_function = Nodecl::Utils::get_enclosing_function(node);
-        tp.task_body = node.get_statements();
+        fix_data_sharing_of_this();
+        related_function = Nodecl::Utils::get_enclosing_function(node);
+        task_body = node.get_statements();
 
-        if (tp.is_taskloop)
+        if (is_taskloop)
         {
-            ERROR_CONDITION(!tp.task_body.as<Nodecl::List>().front().is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
-            TL::ForStatement for_stmt(tp.task_body.as<Nodecl::List>().front().as<Nodecl::ForStatement>());
-            tp.taskloop_info.lower_bound = for_stmt.get_lower_bound();
-            // The upper bound shouldn't be included -> add one!
-            tp.taskloop_info.upper_bound =
+            ERROR_CONDITION(!task_body.as<Nodecl::List>().front().is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+            TL::ForStatement for_stmt(task_body.as<Nodecl::List>().front().as<Nodecl::ForStatement>());
+            taskloop_info.lower_bound = for_stmt.get_lower_bound();
+            taskloop_info.upper_bound =
                 Nodecl::Add::make(
                     for_stmt.get_upper_bound(),
                     const_value_to_nodecl(const_value_get_signed_int(1)),
                     for_stmt.get_upper_bound().get_type());
-            tp.taskloop_info.step = for_stmt.get_step();
+            taskloop_info.step = for_stmt.get_step();
         }
-
-        return tp;
     }
 
-    // FIXME
-    TaskProperties TaskProperties::gather_task_properties(
-            LoweringPhase* phase,
-            Lower* lower,
-            const Nodecl::NodeclBase& env)
+    TaskProperties::TaskProperties(const Nodecl::OmpSs::Release& node, LoweringPhase* lowering_phase, Lower* lower) :
+        phase(lowering_phase), lower_visitor(lower), num_reductions(0),
+        is_tied(true), is_taskwait_dep(false), is_taskloop(false), wait_clause(false),
+        any_task_dependence(false)
     {
-        TaskProperties tp(phase, lower);
-        TaskPropertiesVisitor tv(tp);
-        tv.walk(env);
-        return tp;
+        TaskPropertiesVisitor tv(*this);
+        tv.walk(node.get_environment());
     }
 
 
