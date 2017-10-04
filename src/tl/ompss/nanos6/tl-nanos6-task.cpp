@@ -404,7 +404,7 @@ namespace TL { namespace Nanos6 {
         }
 
         // Compute taskloop information initialization
-        if (task_properties.is_taskloop)
+        if (task_properties.is_taskloop())
         {
             Nodecl::NodeclBase taskloop_info_stmts;
             task_properties.capture_taskloop_information(
