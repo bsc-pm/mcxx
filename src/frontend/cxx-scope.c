@@ -3369,7 +3369,10 @@ static type_t* update_type_aux_(type_t* orig_type,
                                 new_sym->type_information,
                                 pack_index);
 
-                        return get_cv_qualified_type(item, cv_qualif_orig | cv_qualif_new);
+                        cv_qualifier_t cv_qualif_item = CV_NONE;
+                        advance_over_typedefs_with_cv_qualif(item, &cv_qualif_item);
+
+                        return get_cv_qualified_type(item, cv_qualif_orig | cv_qualif_item);
                     }
                 }
             }
