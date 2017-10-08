@@ -70,11 +70,11 @@ namespace Utils {
         NBase get_variable() const;
         void set_variable(const NBase& s);
 
-        NodeclSet get_lb() const;
+        const NodeclSet &get_lb() const;
         void set_lb(const NBase& lb);
         void set_lb(const NodeclSet& lb);
 
-        NodeclSet get_ub() const;
+        const NodeclSet &get_ub() const;
         void set_ub(const NBase& ub);
         void set_ub(const NodeclSet& ub);
 

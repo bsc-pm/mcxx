@@ -55,7 +55,7 @@ namespace Utils {
         _var = var;
     }
 
-    NodeclSet InductionVar::get_lb() const
+    const NodeclSet &InductionVar::get_lb() const
     {
         return _lb;
     }
@@ -71,7 +71,7 @@ namespace Utils {
         _lb = lb;
     }
 
-    NodeclSet InductionVar::get_ub() const
+    const NodeclSet &InductionVar::get_ub() const
     {
         return _ub;
     }
