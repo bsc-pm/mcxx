@@ -1515,7 +1515,6 @@ static void build_scope_using_directive(AST a, const decl_context_t* decl_contex
 }
 
 void introduce_using_entities_in_class(
-        nodecl_t nodecl_name,
         scope_entry_list_t* used_entities,
         const decl_context_t* decl_context,
         scope_entry_t* current_class,
@@ -1584,13 +1583,12 @@ void introduce_using_entities_in_class(
         else if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             // Dependent entity like _Base::f where _Base is a template parameter
-            if (nodecl_is_null(nodecl_name))
-            {
-                internal_error("Invalid dependent name found", 0);
-            }
+            scope_entry_t* dependent_entry = NULL;
+            nodecl_t nodecl_dependent_parts = nodecl_null();
+            dependent_typename_get_components(entry->type_information, &dependent_entry, &nodecl_dependent_parts);
 
             // The name of the symbol will be _Base but we do not want that one, we want f
-            nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
+            nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_dependent_parts);
             symbol_name = nodecl_get_text(nodecl_last_part);
         }
         else if (!symbol_entity_specs_get_is_member(entry))
@@ -1764,7 +1762,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
     if (is_class_scope)
     {
         introduce_using_entities_in_class(
-                nodecl_name, used_entities,
+                used_entities,
                 decl_context,
                 current_class,
                 current_access,

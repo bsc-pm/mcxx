@@ -989,7 +989,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     return;
 
                 introduce_using_entities_in_class(
-                        nodecl_null(),
                         entry_list, context_of_being_instantiated,
                         named_type_get_symbol(being_instantiated),
                         symbol_entity_specs_get_access(member_of_template),
