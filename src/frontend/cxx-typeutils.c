@@ -3577,7 +3577,20 @@ static type_t* template_type_get_specialized_type_(
             }
             else
             {
-                set_is_dependent_type(specialized_type, /* is_dependent */ 0);
+                // Even if it doesn't have any dependent template argument the specialized may still be dependent:
+                //
+                //      template < int X, typename T >
+                //      class A {};
+                //
+                //      template < typename T >
+                //      class B {
+                //          template < int X >
+                //          using _A = A< X, T>;
+                //
+                //          _A<O> foo() {}
+                //      };
+                //
+                //
             }
         }
         else if (primary_symbol->kind == SK_FUNCTION)
