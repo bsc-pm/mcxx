@@ -1713,7 +1713,7 @@ static void introduce_using_entities(
                 || original_entry->kind == SK_USING_TYPENAME)
         {
             // We want the ultimate alias
-            original_entry = symbol_entity_specs_get_alias_to(original_entry);
+            original_entry = entry_advance_aliases(original_entry);
         }
 
         // Do not add it twice in the scope
@@ -5256,7 +5256,7 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
     if (entry->kind == SK_USING_TYPENAME)
     {
         ERROR_CONDITION(symbol_entity_specs_get_alias_to(entry)->kind != SK_DEPENDENT_ENTITY, "Expecting a dependent entity", 0);
-        *type_info = symbol_entity_specs_get_alias_to(entry)->type_information;
+        *type_info = entry_advance_aliases(entry)->type_information;
         return;
     }
     // Chances are that through class-scope lookup we have found the injected name
@@ -22247,8 +22247,9 @@ nodecl_t internal_expression_parse(const char *source, const decl_context_t* dec
 
 scope_entry_t* entry_advance_aliases(scope_entry_t* entry)
 {
-    if (entry != NULL 
-            && (entry->kind == SK_USING))
+    if (entry != NULL
+            && (entry->kind == SK_USING ||
+                entry->kind == SK_USING_TYPENAME))
         return entry_advance_aliases(symbol_entity_specs_get_alias_to(entry));
 
     return entry;

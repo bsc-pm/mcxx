@@ -2219,6 +2219,7 @@ static scope_entry_list_t* name_lookup(const decl_context_t* decl_context,
                 SK_TYPEDEF,
                 SK_TEMPLATE_TYPE_PARAMETER,
                 SK_USING,
+                SK_USING_TYPENAME
             };
 
             enum cxx_symbol_kind nested_name_first_cxx11[] = {
@@ -2227,6 +2228,7 @@ static scope_entry_list_t* name_lookup(const decl_context_t* decl_context,
                 SK_TYPEDEF,
                 SK_TEMPLATE_TYPE_PARAMETER,
                 SK_USING,
+                SK_USING_TYPENAME,
                 // C++11
                 SK_ENUM,
                 SK_TEMPLATE_TYPE_PARAMETER_PACK,
