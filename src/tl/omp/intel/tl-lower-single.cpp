@@ -95,17 +95,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Single& construct)
     Nodecl::NodeclBase single_tree = single_code.parse_statement(construct);
 
     Nodecl::Utils::SimpleSymbolMap symbol_map;
-    TL::Counter &private_num = TL::CounterManager::get_counter("intel-omp-privates");
 
     TL::Scope block_scope = stmt_placeholder.retrieve_context();
     for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
             it != private_symbols.end();
             it++)
     {
-        std::stringstream new_name;
-        new_name << "p_" << it->get_name() << (int)private_num;
-        private_num++;
-
         TL::Symbol new_private_sym = Intel::new_private_symbol(*it, block_scope);
 
         symbol_map.add_map(*it, new_private_sym);
