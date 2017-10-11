@@ -24,6 +24,7 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
+#include <iomanip>
 
 #include "cxx-cexpr.h"
 #include "tl-counters.hpp"
@@ -50,7 +51,7 @@ namespace Analysis {
     };
 
 namespace {
-    std::map<Node*, std::vector<ETDGNode*> > pcfg_to_etdg_nodes;
+    std::map<Node*, std::set<ETDGNode*> > pcfg_to_etdg_nodes;
     ETDGNode* last_synchronization = NULL;
     unsigned task_id = 0;
 
@@ -444,7 +445,7 @@ namespace {
                 Node* pcfg_n = n->get_pcfg_node();
                 Utils::InductionVarList& ivs = pcfg_n->get_induction_variables();
                 ERROR_CONDITION(ivs.size() != 1,
-                                "Psocrates does not support loops with more than one Induction Variable.\n",
+                                "ETDG does not support loops with more than one Induction Variable.\n",
                                 0);
 
                 Utils::InductionVar* iv = ivs[0];
@@ -485,8 +486,8 @@ namespace {
             {
                 ftdgnode_to_task_id[n] = ++task_id;
 
-                if (_maxT < task_id + 2)
-                    _maxT = task_id + 2 /*Historially, we have added 2, but don't really know why :-S*/;
+                if (_maxT < task_id)
+                    _maxT = task_id;
                 break;
             }
             default:
@@ -781,19 +782,20 @@ namespace {
                         "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
                         ftdg_n->get_type());
 
-        Nodecl::NodeclBase source_task = ftdg_n->get_pcfg_node()->get_graph_related_ast();
+        Node* source_node = ftdg_n->get_pcfg_node();
+        Nodecl::NodeclBase source_task = source_node->get_graph_related_ast();
         ERROR_CONDITION(!source_task.is<Nodecl::OpenMP::Task>(),
                         "The extensible graph node %d related with an ETDG task node has wrong type %s",
                         ftdg_n->get_pcfg_node()->get_id(),
                         ast_print_node_type(source_task.get_kind()));
-        ETDGNode* etdg_n = new ETDGNode(get_etdg_node_id(ftdgnode_to_task_id.find(ftdg_n)->second, loops_ids),
-                                        source_task);
+        unsigned etask_id = get_etdg_node_id(ftdgnode_to_task_id.find(ftdg_n)->second, loops_ids);
+        ETDGNode* etdg_n = new ETDGNode(etask_id, source_node);
         _source_to_etdg_nodes[source_task].append(etdg_n);
 
         if (TDG_DEBUG)
             std::cerr << "    task node " << etdg_n->get_id() << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
 
-        _tasks.append(etdg_n);
+        _tasks.insert(etdg_n);
         _leafs.insert(etdg_n);
 
         return etdg_n;
@@ -816,55 +818,109 @@ namespace {
         return task_id + (_maxT * sum);
     }
 
+namespace {
+    void remove_ancestors_from_set(ETDGNode* n, std::set<ETDGNode*>& s)
+    {
+        std::set<ETDGNode*> n_ins = n->get_inputs();
+        for (std::set<ETDGNode*>::iterator it = n_ins.begin(); it != n_ins.end(); ++it)
+        {
+            if (s.find(*it) != s.end())
+            {
+                s.erase(*it);
+                remove_ancestors_from_set(*it, s);
+            }
+        }
+    }
+}
+
+    bool ExpandedTaskDependencyGraph::compute_task_connections(
+            ETDGNode* possible_source,
+            ETDGNode* target,
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> target_vars_map,
+            std::set<ETDGNode*>& all_possible_ancestors)
+    {
+        // @possible_source is not a candidate to be an ancestor of @target
+        if (all_possible_ancestors.find(possible_source) == all_possible_ancestors.end())
+            return false;
+
+        // Check the dependency replacing all variables with the corresponding constant values in the dependency expression
+        bool res;
+        Node* possible_source_pcfg_node = possible_source->get_pcfg_node();
+        Node* target_pcfg_node = target->get_pcfg_node();
+        Edge* edge = ExtensibleGraph::get_edge_between_nodes(possible_source_pcfg_node, target_pcfg_node);
+        ERROR_CONDITION(edge==NULL,
+                        "There is no PCFG edge between %d and %d.\n",
+                        possible_source_pcfg_node->get_id(), target_pcfg_node->get_id());
+        NBase cond = edge->get_condition();
+        if (cond.is_null())
+        {
+            res = true;
+        }
+        else
+        {
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> possible_source_vars_map = possible_source->get_vars_map();
+            ReplaceAndEvalVisitor rev(/*lhs*/ possible_source_vars_map, /*rhs*/ target_vars_map);
+            NBase cond_cp = cond.shallow_copy();
+            res = rev.walk(cond_cp);
+            nodecl_free(cond_cp.get_internal_nodecl());
+        }
+
+        // If the condition evaluates to true, then
+        //   - connect the nodes
+        //   - remove all @possible_source ancestors from the list of possible ancestors
+        // otherwise, keep traversing bottom-top the ETDG
+        if (res)
+        {
+            connect_nodes(possible_source, target);
+            remove_ancestors_from_set(possible_source, all_possible_ancestors);
+            _leafs.erase(possible_source);
+        }
+
+        return res;
+    }
+
     void ExpandedTaskDependencyGraph::connect_task_node(ETDGNode* etdg_n, Node* pcfg_n)
     {
         const ObjectList<Edge*>& pcfg_entries = pcfg_n->get_entry_edges();
         std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> etdg_n_vars_map = etdg_n->get_vars_map();
-        for(ObjectList<Edge*>::const_iterator it = pcfg_entries.begin();
-            it != pcfg_entries.end(); ++it)
+        std::set<ETDGNode*> all_possible_ancestors;
+        for (ObjectList<Edge*>::const_iterator it = pcfg_entries.begin(); it != pcfg_entries.end(); ++it)
         {
             // Skip the task creation
             if ((*it)->get_source()->is_omp_task_creation_node())
                 continue;
 
-            std::map<Node*, std::vector<ETDGNode*> >::iterator itm = pcfg_to_etdg_nodes.find((*it)->get_source());
+            std::map<Node*, std::set<ETDGNode*> >::iterator itm = pcfg_to_etdg_nodes.find((*it)->get_source());
             // Its parents have not been created yet
             if (itm == pcfg_to_etdg_nodes.end())
                 continue;
-            NBase cond = (*it)->get_condition();
-            std::vector<ETDGNode*> etdg_nodes = itm->second;
-            for (std::vector<ETDGNode*>::iterator itn = etdg_nodes.begin();
-                 itn != etdg_nodes.end(); ++itn)
+
+            std::set<ETDGNode*> current_possible_ancestors = itm->second;
+            all_possible_ancestors.insert(current_possible_ancestors.begin(),
+                                          current_possible_ancestors.end());
+       }
+
+        std::deque<ETDGNode*> nlist(_leafs.begin(), _leafs.end());
+        std::set<ETDGNode*> already_visited;
+        while (!nlist.empty())
+        {
+            ETDGNode* possible_source = nlist.front();
+            nlist.pop_front();
+            if (already_visited.find(possible_source) != already_visited.end())
+                continue;
+            already_visited.insert(possible_source);
+
+            // Do not connect a ETDG node with itself
+            if (possible_source == etdg_n)
+                continue;
+            bool connected = compute_task_connections(possible_source, etdg_n, etdg_n_vars_map, all_possible_ancestors);
+            if (!connected)
             {
-                // Do not connect a ETDG node with itself
-                if (etdg_n == *itn)
-                    continue;
-
-                // Replace variables with the corresponding constant values in the dependency expression
-                bool res;
-                if (cond.is_null())
-                {
-                    res = true;
-                }
-                else
-                {
-                    std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> itn_vars_map = (*itn)->get_vars_map();
-                    ReplaceAndEvalVisitor rev(/*lhs*/ itn_vars_map, /*rhs*/ etdg_n_vars_map);
-                    NBase cond_cp = cond.shallow_copy();
-                    res = rev.walk(cond_cp);
-                    nodecl_free(cond_cp.get_internal_nodecl());
-                }
-//                 if (TDG_DEBUG)
-//                     std::cerr << "        (source " << (*itn)->get_id() << ") condition : "
-//                               << (cond.is_null() ? "true" : cond.prettyprint())
-//                               << " evaluates to " << res << std::endl;
-
-                // If the condition evaluates to true, then connect the nodes
-                if (res)
-                {
-                    connect_nodes(*itn, etdg_n);
-                    _leafs.erase(*itn);
-                }
+                std::set<ETDGNode*> inputs = possible_source->get_inputs();
+                for (std::set<ETDGNode*>::iterator it = inputs.begin(); it != inputs.end(); ++it)
+                 {
+                    nlist.push_back(*it);
+                 }
             }
         }
 
@@ -909,11 +965,14 @@ namespace {
             std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
             std::deque<unsigned> loops_ids)
     {
+        if (nt == 0)
+            std::cerr << "Tasks expansion progress (this may take some time)" << std::endl;
+        std::cerr << '\r' << std::setw(6) << ++nt << std::flush;
         ETDGNode* etdg_n = create_task_node(ftdg_n, loops_ids);
         etdg_n->set_vars_map(current_relevant_vars);
 
         Node* pcfg_n = ftdg_n->get_pcfg_node();
-        pcfg_to_etdg_nodes[pcfg_n].push_back(etdg_n);
+        pcfg_to_etdg_nodes[pcfg_n].insert(etdg_n);
         connect_task_node(etdg_n, pcfg_n);
 
         remove_task_transitive_inputs(etdg_n);
@@ -927,7 +986,7 @@ namespace {
                         ftdg_n->get_type());
         if (TDG_DEBUG)
             std::cerr << "    sync node " << sync_id << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
-        return new ETDGNode(sync_id--);
+        return new ETDGNode(sync_id--, ftdg_n->get_pcfg_node());
     }
 
     void ExpandedTaskDependencyGraph::connect_sync_node(ETDGNode* etdg_n)
@@ -944,7 +1003,7 @@ namespace {
     {
         ETDGNode* etdg_n = create_sync_node(ftdg_n);
 
-        pcfg_to_etdg_nodes[ftdg_n->get_pcfg_node()].push_back(etdg_n);
+        pcfg_to_etdg_nodes[ftdg_n->get_pcfg_node()].insert(etdg_n);
 
         connect_sync_node(etdg_n);
 

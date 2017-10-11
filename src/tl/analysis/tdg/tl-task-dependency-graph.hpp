@@ -350,12 +350,12 @@ namespace Analysis {
         std::set<ETDGNode*> _inputs;
         std::set<ETDGNode*> _outputs;
 
-        Nodecl::NodeclBase _source_task;
+        Node* _pcfg_node;
 
         bool _visited;
 
     public:
-        ETDGNode(int id, Nodecl::NodeclBase source_task = Nodecl::NodeclBase::null());
+        ETDGNode(int id, Node* n);
 
         int get_id() const;
 
@@ -369,6 +369,7 @@ namespace Analysis {
         std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> get_vars_map() const;
         void set_vars_map(std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> var_to_value);
 
+        Node* get_pcfg_node() const;
         Nodecl::NodeclBase get_source_task() const;
 
         bool is_visited() const;
@@ -437,6 +438,11 @@ namespace Analysis {
 
         ETDGNode* create_task_node(FTDGNode* n, std::deque<unsigned> loops_ids);
         void connect_task_node(ETDGNode* etdg_n, Node* pcfg_n);
+        bool compute_task_connections(
+            ETDGNode* possible_source,
+            ETDGNode* target,
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> target_vars_map,
+            std::set<ETDGNode*>& all_possible_ancestors);
         void task_create_and_connect(
             FTDGNode* ftdg_n,
             std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,

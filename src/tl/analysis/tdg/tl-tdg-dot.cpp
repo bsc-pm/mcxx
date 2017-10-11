@@ -177,7 +177,7 @@ namespace Analysis {
         // Print the node
         std::stringstream ss_target; ss_target << n->get_id();
         std::string target_id = ss_target.str();
-        dot_tdg << "\t" << target_id << " [label=\"" << target_id << "\"];\n";
+        dot_tdg << "\t" << target_id << "\n";
 
          // Print the entry edges
         const std::set<ETDGNode*>& inputs = n->get_inputs();
@@ -185,7 +185,7 @@ namespace Analysis {
         {
             std::stringstream ss_source; ss_source << (*it)->get_id();
             std::string source_id = ss_source.str();
-            dot_tdg << "\t" << source_id << " -> " << target_id << ";\n";
+            dot_tdg << "\t" << source_id << " -> " << target_id << "\n";
         }
 
         // Keep iterating
@@ -224,7 +224,7 @@ namespace Analysis {
         if(VERBOSE)
             std::cerr << "- ETDG DOT file '" << dot_file_name << "'" << std::endl;
         dot_tdg << "digraph ETDG {\n";
-        dot_tdg << "\tcompound=true;\n";
+        dot_tdg << "\tcompound=true\n";
         for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
             print_tdg_to_dot_rec(*it, dot_tdg);
         dot_tdg << "}\n";

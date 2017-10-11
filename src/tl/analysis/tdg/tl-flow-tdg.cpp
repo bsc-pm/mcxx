@@ -95,7 +95,13 @@ namespace {
 
         n->set_visited(true);
 
-        if (n->is_ifelse_statement())
+        if (n->is_omp_task_node())
+        {
+            // Since we do not accept nested tasks, it does not matter what is inside the task
+            // Also, we do not want to follow synchronization edges to preserve the sequential order
+            return;
+        }
+        else if (n->is_ifelse_statement())
         {
             FTDGNode* tdgcs = new FTDGNode(n, get_tdg_type(n));
 
@@ -162,10 +168,6 @@ namespace {
                     _outermost_nodes.push_back(tdgn);
             }
         }
-
-        // Do not follow synchronization edges to preserve the sequential order
-        if (n->is_omp_task_node())
-            return;
 
         const ObjectList<Node*>& children = n->get_children();
         for (ObjectList<Node*>::const_iterator it = children.begin();
