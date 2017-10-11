@@ -21,6 +21,8 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <queue>
+
 #include "cxx-cexpr.h"
 
 #include "tl-analysis-utils.hpp"
@@ -111,7 +113,14 @@ namespace Analysis {
         {
             Node* entry = current->get_graph_entry_node();
             gather_reaching_definitions_initial_information(entry);
-            set_graph_node_reaching_definitions(current);
+            set_graph_node_generated_statements(current);
+        }
+        else if (current->is_omp_task_creation_node())
+        {   // The task must be analyzed first,
+            // so its results are propagated to the task creation node
+            Node* task = ExtensibleGraph::get_task_from_task_creation(current);
+            gather_reaching_definitions_initial_information(task);
+            current->set_generated_stmts(task->get_generated_stmts());
         }
         else if (!current->is_entry_node())
         {
@@ -241,7 +250,6 @@ namespace Analysis {
 
             const NodeclMap& gen = current->get_generated_stmts();
             rd_out = Utils::nodecl_map_union(gen, diff);
-
             if (!Utils::nodecl_map_equivalence(old_rd_in, rd_in) ||
                 !Utils::nodecl_map_equivalence(old_rd_out, rd_out))
             {
@@ -256,6 +264,41 @@ namespace Analysis {
         {
             solve_reaching_definition_equations_rec(*it, changed);
         }
+    }
+
+    void ReachingDefinitions::set_graph_node_generated_statements(Node* current)
+    {
+        // GEN(graph) = U GEN(inner nodes top-bottom)
+        NodeclMap graph_gen;
+        std::queue<Node*> worklist;
+        worklist.push(current->get_graph_entry_node());
+        while (!worklist.empty())
+        {
+            Node* n = worklist.front();
+            worklist.pop();
+
+            if (n == current->get_graph_exit_node())
+                continue;
+
+            NodeclMap n_gen = n->get_generated_stmts();
+            if (!n_gen.empty())
+            {
+                for (NodeclMap::iterator it = n_gen.begin(); it != n_gen.end(); ++it)
+                {
+                    if (graph_gen.find(it->first) == graph_gen.end())
+                    {
+                        graph_gen.insert(std::pair<NBase, NodeclPair>(it->first, it->second));
+                    }
+                }
+            }
+
+            const ObjectList<Node*>& children = n->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            {
+                worklist.push(*it);
+            }
+        }
+        current->set_generated_stmts(graph_gen);
     }
 
     void ReachingDefinitions::set_graph_node_reaching_definitions(Node* current)
@@ -283,7 +326,6 @@ namespace Analysis {
                     }
                 }
             }
-            
             current->set_reaching_definitions_in(graph_rdi);
 
             // RDO(graph) = U RDO(inner exits)

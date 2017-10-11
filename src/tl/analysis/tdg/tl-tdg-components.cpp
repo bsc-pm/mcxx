@@ -197,9 +197,9 @@ namespace Analysis {
         _outer.insert(n);
     }
 
-    ETDGNode::ETDGNode(int id, Nodecl::NodeclBase source_task)
+    ETDGNode::ETDGNode(int id, Node* pcfg_node)
             : _id(id), _var_to_value(), _inputs(), _outputs(),
-              _source_task(source_task), _visited(false)
+              _pcfg_node(pcfg_node), _visited(false)
     {}
 
     int ETDGNode::get_id() const
@@ -247,9 +247,18 @@ namespace Analysis {
         _var_to_value = var_to_value;
     }
 
+    Node* ETDGNode::get_pcfg_node() const
+    {
+        return _pcfg_node;
+    }
+
     Nodecl::NodeclBase ETDGNode::get_source_task() const
     {
-        return _source_task;
+        ERROR_CONDITION(!_pcfg_node->get_graph_related_ast().is<Nodecl::OpenMP::Task>(),
+                        "Cannot retrieve the source task of a node which does not represent a Task, but a %s instead.\n",
+                        (_pcfg_node->is_graph_node() ? _pcfg_node->get_graph_type_as_string().c_str()
+                                                     : _pcfg_node->get_type_as_string().c_str()));
+        return _pcfg_node->get_graph_related_ast();
     }
 
     bool ETDGNode::is_visited() const
