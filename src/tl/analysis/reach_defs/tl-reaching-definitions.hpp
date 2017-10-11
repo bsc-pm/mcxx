@@ -59,6 +59,7 @@ namespace Analysis {
 
         //! Propagates reaching definitions information from inner to outer nodes
         void set_graph_node_reaching_definitions( Node* current );
+        void set_graph_node_generated_statements(Node* current);
 
         NodeclMap combine_generated_statements(Node* current);
 
