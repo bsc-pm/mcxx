@@ -7220,8 +7220,17 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 || (IS_CXX11_LANGUAGE && current_symbol->kind == SK_DECLTYPE)
                 || current_symbol->kind == SK_TYPEDEF
                 || current_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER
-                || current_symbol->kind == SK_DEPENDENT_ENTITY)
+                || current_symbol->kind == SK_DEPENDENT_ENTITY
+                || current_symbol->kind == SK_USING_TYPENAME)
         {
+            if (current_symbol->kind == SK_USING_TYPENAME)
+            {
+                // In this scenario, the current symbol must be an alias
+                // to a dependent entity. Use this dependent entity instead.
+                current_symbol = symbol_entity_specs_get_alias_to(current_symbol);
+                ERROR_CONDITION(current_symbol->kind != SK_DEPENDENT_ENTITY, "Expecting a dependent entity", 0);
+            }
+
             if (current_symbol->kind == SK_TYPEDEF
                     || current_symbol->kind == SK_TEMPLATE_ALIAS)
             {
