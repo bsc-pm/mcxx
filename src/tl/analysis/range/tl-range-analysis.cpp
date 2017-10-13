@@ -1413,18 +1413,16 @@ namespace {
                 ObjectList<CGEdge*> n_entries = (*it)->get_entries();
                 for (ObjectList<CGEdge*>::iterator itt = n_entries.begin();
                      itt != n_entries.end(); ++itt)
-                     {
-                         if ((*itt)->is_back_edge())
-                             continue;
-                         CGNode* parent = (*itt)->get_source();
-                         SCC* parent_scc = _node_to_scc_map[parent];
-                         if (scc != parent_scc                               // This parent belongs to a different component
-                             && visited.find(parent_scc) == visited.end())   // That other component has not been solved yet
-                         {
-                             is_ready = false;
-                             break;
-                         }
-                     }
+                {
+                    CGNode* parent = (*itt)->get_source();
+                    SCC* parent_scc = _node_to_scc_map[parent];
+                    if (scc != parent_scc                               // This parent belongs to a different component
+                        && visited.find(parent_scc) == visited.end())   // That other component has not been solved yet
+                    {
+                        is_ready = false;
+                        break;
+                    }
+                }
             }
             if (!is_ready)
             {
@@ -1497,18 +1495,16 @@ namespace {
                 ObjectList<CGEdge*> n_entries = (*it)->get_entries();
                 for (ObjectList<CGEdge*>::iterator itt = n_entries.begin();
                      itt != n_entries.end(); ++itt)
-                     {
-                         if ((*itt)->is_back_edge())
-                             continue;
-                         CGNode* parent = (*itt)->get_source();
-                         SCC* parent_scc = _node_to_scc_map[parent];
-                         if (scc != parent_scc                               // This parent belongs to a different component
-                             && visited.find(parent_scc) == visited.end())   // That other component has not been solved yet
-                         {
-                             is_ready = false;
-                             break;
-                         }
-                     }
+                {
+                    CGNode* parent = (*itt)->get_source();
+                    SCC* parent_scc = _node_to_scc_map[parent];
+                    if (scc != parent_scc                               // This parent belongs to a different component
+                        && visited.find(parent_scc) == visited.end())   // That other component has not been solved yet
+                    {
+                        is_ready = false;
+                        break;
+                    }
+                }
             }
             if (!is_ready)
             {
