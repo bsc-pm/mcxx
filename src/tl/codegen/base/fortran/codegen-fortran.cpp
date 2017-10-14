@@ -4524,18 +4524,54 @@ OPERATOR_TABLE
         }
         else if (entry.is_enumerator())
         {
-            std::string type_spec;
-            std::string array_specifier;
-            std::string initializer;
+            if (IS_DEFAULT_FORTRAN)
+            {
+                std::string type_spec;
+                std::string array_specifier;
+                std::string initializer;
 
-            codegen_type(entry.get_type(), type_spec, array_specifier);
+                codegen_type(entry.get_type(), type_spec, array_specifier);
 
-            initializer = " = " + codegen_to_str(entry.get_value(),
-                    entry.get_value().retrieve_context());
+                initializer = " = " + codegen_to_str(entry.get_value(),
+                        entry.get_value().retrieve_context());
 
-            // Emit it as a parameter
+                // Emit it as a parameter
+                indent();
+                *(file) << type_spec << ", PARAMETER :: " << rename(entry) << initializer << "\n";
+            }
+            else // if (IS_FORTRAN_2003)
+            {
+                declare_symbol(entry.get_type().get_symbol(), sc);
+            }
+        }
+        else if (entry.is_enum())
+        {
             indent();
-            *(file) << type_spec << ", PARAMETER :: " << rename(entry) << initializer << "\n";
+            *(file) << "ENUM, BIND(C)\n";
+
+            inc_indent();
+
+            TL::ObjectList<TL::Symbol> enumerators
+                = entry.get_type().enum_get_enumerators();
+            for (TL::ObjectList<TL::Symbol>::iterator it = enumerators.begin();
+                 it != enumerators.end();
+                 it++)
+            {
+                TL::Symbol &enumerator(*it);
+
+                std::string initializer
+                    = codegen_to_str(enumerator.get_value(),
+                                     enumerator.get_value().retrieve_context());
+
+                indent();
+                *(file) << "ENUMERATOR :: " << rename(*it) << " = "
+                        << initializer << "\n";
+            }
+
+            dec_indent();
+
+            indent();
+            *(file) << "END ENUM\n";
         }
         else
         {
