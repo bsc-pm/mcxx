@@ -547,6 +547,12 @@ typedef struct compilation_configuration_tag
     // Enable C++14
     char enable_cxx14;
 
+    // Enable full Fortran 2003
+    char enable_f03;
+
+    // Enable full Fortran 2008
+    char enable_f08;
+
     // Enable CUDA
     char enable_cuda;
 
