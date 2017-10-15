@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #constants
-readonly bets_version=0.9.12
+readonly bets_version=0.9.13
 
 #color constants
 
@@ -633,7 +633,9 @@ run_test ()
 
    if [ ! "$test_generator" ]; then
       echo "Invalid $name test: missing test_generator"
-      exit -1
+      let run_fail=1
+      output_results
+      return
    fi
 
    for gen in "${test_generator[@]}"
