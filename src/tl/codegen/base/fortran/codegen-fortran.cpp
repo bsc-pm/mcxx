@@ -5946,6 +5946,10 @@ OPERATOR_TABLE
                                 this->codegen_to_str(string_size, string_size.retrieve_context()))
                         << ")";
             }
+            else if (array_type_with_descriptor(t.get_internal_type()))
+            {
+                ss << "CHARACTER(LEN=:)";
+            }
             else
             {
                 if (!state.emit_interoperable_types)
