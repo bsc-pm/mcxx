@@ -1147,10 +1147,7 @@ static scope_entry_t* get_intrinsic_symbol_(
         char is_inquiry UNUSED_PARAMETER)
 {
     ERROR_CONDITION(result_type == NULL, "This should be void", 0);
-
-    if (generic_symbol != NULL
-            && generic_symbol->symbol_name != NULL)
-        name = generic_symbol->symbol_name;
+    ERROR_CONDITION(name == NULL, "name cannot be null", 0);
 
     int i;
     for (i = 0; i < num_types; i++)
@@ -1499,6 +1496,10 @@ static scope_entry_t* register_specific_intrinsic_name(
     if (strcasecmp(generic_name, specific_name) == 0)
     {
         // If the name is the same, mark it as the specific interface of this intrinsic
+        ERROR_CONDITION(
+            symbol_entity_specs_get_specific_intrinsic(generic_entry) != NULL,
+            "Overwriting the specific intrinsic of generic name '%s'",
+            generic_entry->symbol_name);
         symbol_entity_specs_set_specific_intrinsic(generic_entry, specific_entry);
     }
     else
@@ -1531,15 +1532,10 @@ static scope_entry_t* register_specific_intrinsic_name(
                 result_type,
                 real_num_parameters, param_types,
                 generic_entry->decl_context,
-                symbol_entity_specs_get_is_elemental(generic_entry),
-                symbol_entity_specs_get_is_pure(generic_entry),
+                symbol_entity_specs_get_is_elemental(specific_entry),
+                symbol_entity_specs_get_is_pure(specific_entry),
                 /* is_transformational */ 0,
                 /* is_inquiry */ 0);
-
-        // Note that get_intrinsic_symbol_ uses the name in generic_entry
-        // if it is not NULL, and here it will never be null, so overwrite
-        // the name now
-        new_specific_entry->symbol_name = uniquestr(specific_name);
 
         // Add the keywords that are non null
         for (i = 0; i < MAX_SPECIFIC_PARAMETERS; i++)

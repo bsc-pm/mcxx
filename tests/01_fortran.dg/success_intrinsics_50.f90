@@ -1,0 +1,38 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! </testinfo>
+SUBROUTINE FOO(I4, R4, R8, C4, C8)
+    IMPLICIT NONE
+    INTEGER(KIND=4) :: I4(:)
+    REAL(KIND=4) :: R4(:)
+    REAL(KIND=8) :: R8(:)
+    COMPLEX(KIND=4) :: C4(:)
+    COMPLEX(KIND=8) :: C8(:)
+
+    INTERFACE CHECK_ARRAY
+        SUBROUTINE CHECK_ARRAY_R4(R)
+            REAL(KIND=4) :: R(:)
+        END SUBROUTINE CHECK_ARRAY_R4
+
+        SUBROUTINE CHECK_ARRAY_R8(R)
+            REAL(KIND=8) :: R(:)
+        END SUBROUTINE CHECK_ARRAY_R8
+
+        SUBROUTINE CHECK_ARRAY_I4(R)
+            INTEGER(KIND=4) :: R(:)
+        END SUBROUTINE CHECK_ARRAY_I4
+    END INTERFACE
+
+    ! Generic
+    CALL CHECK_ARRAY(ABS(R4))
+    CALL CHECK_ARRAY(ABS(R8))
+
+    ! Specific
+    CALL CHECK_ARRAY(DABS(R8))
+    CALL CHECK_ARRAY(CABS(C4))
+    CALL CHECK_ARRAY(IABS(I4))
+
+    ! Specific (legacy G77)
+    CALL CHECK_ARRAY(ZABS(C8))
+    CALL CHECK_ARRAY(CDABS(C8))
+END SUBROUTINE FOO
