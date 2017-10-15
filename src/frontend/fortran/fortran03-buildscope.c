@@ -6258,9 +6258,9 @@ static void build_scope_enum_def(AST a,
             else
             {
                 new_enumerator->value = const_value_to_nodecl(current_enum_value);
-                current_enum_value = const_value_add(current_enum_value,
-                                      const_value_get_signed_int(1));
             }
+            current_enum_value = const_value_add(current_enum_value,
+                                                 const_value_get_signed_int(1));
 
             enum_type_add_enumerator(enum_type, new_enumerator);
 
