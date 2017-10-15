@@ -6193,6 +6193,13 @@ static void build_scope_enum_def(AST a,
 
     const_value_t *current_enum_value = const_value_get_signed_int(0);
 
+    if (decl_context->current_scope->related_entry != NULL
+        && decl_context->current_scope->related_entry->kind == SK_MODULE)
+    {
+        scope_entry_t *module = decl_context->current_scope->related_entry;
+        symbol_entity_specs_add_related_symbols(module, new_enum);
+    }
+
     AST it;
     for_each_element(enumerator_def_stmt_seq, it)
     {
@@ -6256,6 +6263,13 @@ static void build_scope_enum_def(AST a,
             }
 
             enum_type_add_enumerator(enum_type, new_enumerator);
+
+            if (decl_context->current_scope->related_entry != NULL
+                    && decl_context->current_scope->related_entry->kind == SK_MODULE)
+            {
+                scope_entry_t* module = decl_context->current_scope->related_entry;
+                symbol_entity_specs_add_related_symbols(module, new_enumerator);
+            }
         }
     }
 }

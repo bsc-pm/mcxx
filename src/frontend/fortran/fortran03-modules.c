@@ -54,7 +54,7 @@
  #error Q cannot be defined here
 #endif
 
-enum { CURRENT_MODULE_VERSION = 21 };
+enum { CURRENT_MODULE_VERSION = 22 };
 
 // Uncomment the next line to let you GCC help in wrong types in formats of sqlite3_mprintf
 // #define DEBUG_SQLITE3_MPRINTF 1
@@ -186,7 +186,8 @@ enum type_kind_table_tag
     TKT_VOID,
     TKT_INDIRECT,
     TKT_NAMED,
-    TKT_COMPUTED_FUNCTION
+    TKT_COMPUTED_FUNCTION,
+    TKT_ENUM
 } type_kind_table_t;
 
 typedef
@@ -1378,6 +1379,25 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
                 computed_function_type_get_computing_function(t));
 
         result = insert_type_simple(handle, t, TKT_COMPUTED_FUNCTION, id);
+    }
+    else if (is_enum_type(t))
+    {
+        sqlite3_uint64 underlying
+            = insert_type(handle, enum_type_get_underlying_type(t));
+
+        int num_enumerators = enum_type_get_num_enumerators(t);
+
+        sqlite3_uint64 enumerator_list[num_enumerators + 1];
+        memset(enumerator_list, 0, sizeof(enumerator_list));
+
+        for (int i = 0; i < num_enumerators; i++)
+        {
+            scope_entry_t *enumerator = enum_type_get_enumerator_num(t, i);
+            enumerator_list[i] = insert_symbol(handle, enumerator);
+        }
+
+        result = insert_type_ref_to_list_symbols(
+            handle, t, TKT_ENUM, underlying, num_enumerators, enumerator_list);
     }
     else
     {
@@ -2684,14 +2704,14 @@ static int get_type(void *datum,
         }
         case TKT_CLASS:
         {
-            char *copy = xstrdup(symbols);
-
             *pt = get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT);
             *pt = get_cv_qualified_type(*pt, cv_qualifier);
             insert_map_ptr(handle, current_oid, *pt);
 
             // All classes are complete in fortran!
             set_is_complete_type(*pt, /* is_complete */ 1);
+
+            char *copy = xstrdup(symbols);
 
             char *context = NULL;
             char *field = strtok_r(copy, ",", &context);
@@ -2797,6 +2817,30 @@ static int get_type(void *datum,
 
             *pt = get_computed_function_type(fun);
             insert_map_ptr(handle, current_oid, *pt);
+            break;
+        }
+        case TKT_ENUM:
+        {
+            // FIXME: we need the right context
+            *pt = get_new_enum_type(CURRENT_COMPILED_FILE->global_decl_context,
+                                    /* enum_is_scoped */ 0);
+            enum_type_set_underlying_type(*pt, load_type(handle, ref));
+
+            char *copy = xstrdup(symbols);
+
+            char *context = NULL;
+            char *field = strtok_r(copy, ",", &context);
+            while (field != NULL)
+            {
+                scope_entry_t *member = load_symbol(handle, safe_atoull(field));
+
+                ERROR_CONDITION(member == NULL, "Invalid member!\n", 0);
+                enum_type_add_enumerator(*pt, member);
+
+                field = strtok_r(NULL, ",", &context);
+            }
+            DELETE(copy);
+
             break;
         }
         default:
