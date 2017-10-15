@@ -5430,6 +5430,270 @@ static char array_is_assumed_shape(scope_entry_t* entry, const decl_context_t* d
     return 1;
 }
 
+static void build_scope_derived_type_data_component_def(
+    AST component_def_stmt,
+    scope_entry_t *class_name,
+    char fields_are_private,
+    const decl_context_t *decl_context,
+    const decl_context_t *inner_decl_context)
+{
+    ERROR_CONDITION(ASTKind(component_def_stmt)
+                        != AST_DATA_COMPONENT_DEF_STATEMENT,
+                    "Invalid tree",
+                    0);
+
+    AST declaration_type_spec = ASTSon0(component_def_stmt);
+    AST component_attr_spec_list = ASTSon1(component_def_stmt);
+    AST component_decl_list = ASTSon2(component_def_stmt);
+
+    attr_spec_t attr_spec;
+    memset(&attr_spec, 0, sizeof(attr_spec));
+
+    if (component_attr_spec_list != NULL)
+    {
+        gather_attr_spec_list(
+            component_attr_spec_list, decl_context, &attr_spec);
+    }
+
+    type_t *basic_type
+        = fortran_gather_type_from_declaration_type_spec_of_component(
+            declaration_type_spec, decl_context, attr_spec.is_pointer);
+
+    AST it2;
+    for_each_element(component_decl_list, it2)
+    {
+        attr_spec_t current_attr_spec = attr_spec;
+        AST declaration = ASTSon1(it2);
+
+        AST component_name = ASTSon0(declaration);
+        AST entity_decl_specs = ASTSon1(declaration);
+
+        // TODO: We should check that the symbol has not been redefined
+        scope_entry_t *entry
+            = new_fortran_symbol(inner_decl_context, ASTText(component_name));
+
+        entry->kind = SK_VARIABLE;
+
+        entry->locus = ast_get_locus(declaration);
+        remove_unknown_kind_symbol(inner_decl_context, entry);
+
+        entry->type_information = basic_type;
+        symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
+
+        entry->defined = 1;
+
+        AST initialization = NULL;
+        AST array_spec = NULL;
+        AST coarray_spec = NULL;
+        AST char_length = NULL;
+
+        if (entity_decl_specs != NULL)
+        {
+            array_spec = ASTSon0(entity_decl_specs);
+            coarray_spec = ASTSon1(entity_decl_specs);
+            char_length = ASTSon2(entity_decl_specs);
+            initialization = ASTSon3(entity_decl_specs);
+        }
+
+        if (array_spec != NULL)
+        {
+            // Override the DIMENSION attribute
+            current_attr_spec.is_dimension = 1;
+            current_attr_spec.array_spec = array_spec;
+        }
+
+        if (coarray_spec != NULL)
+        {
+            if (current_attr_spec.is_codimension)
+            {
+                error_printf_at(ast_get_locus(declaration),
+                                "CODIMENSION attribute specified twice\n");
+            }
+            else
+            {
+                current_attr_spec.is_codimension = 1;
+                current_attr_spec.coarray_spec = coarray_spec;
+            }
+        }
+
+        if (char_length != NULL)
+        {
+            if (!fortran_is_character_type(no_ref(entry->type_information)))
+            {
+                error_printf_at(
+                    ast_get_locus(declaration),
+                    "char-length specified but type is not CHARACTER\n");
+            }
+
+            if (ASTKind(char_length) != AST_SYMBOL
+                || strcmp(ASTText(char_length), "*") != 0)
+            {
+                nodecl_t nodecl_char_length = nodecl_null();
+                fortran_check_expression(
+                    char_length, decl_context, &nodecl_char_length);
+
+                nodecl_char_length
+                    = fortran_expression_as_value(nodecl_char_length);
+                nodecl_t lower_bound = nodecl_make_integer_literal(
+                    get_signed_int_type(),
+                    const_value_get_one(type_get_size(get_signed_int_type()),
+                                        1),
+                    ast_get_locus(char_length));
+
+                entry->type_information = get_array_type_bounds(
+                    array_type_get_element_type(entry->type_information),
+                    lower_bound,
+                    nodecl_char_length,
+                    decl_context);
+            }
+            else
+            {
+                entry->type_information = get_array_type(
+                    array_type_get_element_type(entry->type_information),
+                    nodecl_null(),
+                    decl_context);
+            }
+        }
+
+        // Stop the madness here
+        if (current_attr_spec.is_codimension)
+        {
+            error_printf_at(ast_get_locus(declaration),
+                            "sorry: coarrays are not supported\n");
+        }
+
+        if (current_attr_spec.is_asynchronous)
+        {
+            error_printf_at(ast_get_locus(declaration),
+                            "sorry: ASYNCHRONOUS attribute not supported\n");
+        }
+
+        if (current_attr_spec.is_dimension
+            && !is_error_type(entry->type_information))
+        {
+            compute_type_from_array_spec(entry,
+                                         entry->type_information,
+                                         current_attr_spec.array_spec,
+                                         decl_context,
+                                         /* allow_nonconstant */ 0);
+        }
+
+        if (current_attr_spec.is_allocatable)
+        {
+            if (is_pointer_type(entry->type_information))
+            {
+                error_printf_at(
+                    ast_get_locus(declaration),
+                    "attribute POINTER conflicts with ALLOCATABLE\n");
+            }
+            else
+            {
+                symbol_entity_specs_set_is_allocatable(entry, 1);
+                entry->kind = SK_VARIABLE;
+            }
+        }
+
+        if (symbol_entity_specs_get_is_allocatable(entry)
+            && fortran_is_array_type(entry->type_information))
+        {
+            check_array_type_is_valid_for_allocatable(
+                entry->type_information, entry, ast_get_locus(declaration));
+        }
+
+        symbol_entity_specs_set_is_target(entry, current_attr_spec.is_target);
+        if (fields_are_private
+            && symbol_entity_specs_get_access(entry) == AS_UNKNOWN)
+        {
+            symbol_entity_specs_set_access(entry, AS_PRIVATE);
+        }
+
+        if (current_attr_spec.is_pointer
+            && !is_error_type(entry->type_information))
+        {
+            if (symbol_entity_specs_get_is_allocatable(entry))
+            {
+                error_printf_at(
+                    ast_get_locus(declaration),
+                    "attribute ALLOCATABLE conflicts with POINTER\n");
+            }
+            else
+            {
+                entry->type_information
+                    = get_pointer_type(entry->type_information);
+            }
+        }
+
+        if (fortran_is_pointer_to_array_type(entry->type_information))
+        {
+            check_array_type_is_valid_for_pointer(
+                entry->type_information, entry, ast_get_locus(declaration));
+        }
+
+        symbol_entity_specs_set_is_member(entry, 1);
+        symbol_entity_specs_set_class_type(entry,
+                                           get_user_defined_type(class_name));
+
+        if (current_attr_spec.is_contiguous)
+        {
+            if (!array_is_assumed_shape(entry, decl_context)
+                && !fortran_is_pointer_to_array_type(entry->type_information))
+            {
+                error_printf_at(
+                    ast_get_locus(component_name),
+                    "CONTIGUOUS attribute is only valid for pointers to arrays "
+                    "or assumed-shape arrays\n");
+            }
+            symbol_entity_specs_set_is_contiguous(entry, 1);
+        }
+
+        if (initialization != NULL)
+        {
+            entry->kind = SK_VARIABLE;
+            nodecl_t nodecl_init = nodecl_null();
+
+            if (ASTKind(initialization) == AST_POINTER_INITIALIZATION
+                && current_attr_spec.is_pointer)
+            {
+                initialization = ASTSon0(initialization);
+                fortran_check_initialization(entry,
+                                             initialization,
+                                             decl_context,
+                                             /* is_pointer_init */ 1,
+                                             &nodecl_init);
+            }
+            else if (current_attr_spec.is_pointer)
+            {
+                error_printf_at(ast_get_locus(initialization),
+                                "a POINTER must be initialized using pointer "
+                                "initialization\n");
+            }
+            else if (ASTKind(initialization) == AST_POINTER_INITIALIZATION)
+            {
+                error_printf_at(ast_get_locus(initialization),
+                                "no POINTER attribute, required for pointer "
+                                "initialization\n");
+            }
+            else
+            {
+                fortran_check_initialization(entry,
+                                             initialization,
+                                             decl_context,
+                                             /* is_pointer_init */ 0,
+                                             &nodecl_init);
+            }
+            if (!nodecl_is_err_expr(nodecl_init))
+            {
+                entry->value = nodecl_init;
+            }
+        }
+
+        class_type_add_member(class_name->type_information,
+                              entry,
+                              entry->decl_context,
+                              /* is_definition */ 1);
+    }
+}
+
 static void build_scope_derived_type_def(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST derived_type_stmt = ASTSon0(a);
@@ -5628,229 +5892,11 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                 sorry_printf_at(ast_get_locus(component_def_stmt),
                         "unsupported procedure components in derived type definition\n");
             }
-            ERROR_CONDITION(ASTKind(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
-                    "Invalid tree", 0);
-
-            AST declaration_type_spec = ASTSon0(component_def_stmt);
-            AST component_attr_spec_list = ASTSon1(component_def_stmt);
-            AST component_decl_list = ASTSon2(component_def_stmt);
-
-            memset(&attr_spec, 0, sizeof(attr_spec));
-
-            if (component_attr_spec_list != NULL)
-            {
-                gather_attr_spec_list(component_attr_spec_list, decl_context, &attr_spec);
-            }
-
-            type_t* basic_type = fortran_gather_type_from_declaration_type_spec_of_component(declaration_type_spec, 
-                    decl_context, attr_spec.is_pointer);
-
-            AST it2;
-            for_each_element(component_decl_list, it2)
-            {
-                attr_spec_t current_attr_spec = attr_spec;
-                AST declaration = ASTSon1(it2);
-
-                AST component_name = ASTSon0(declaration);
-                AST entity_decl_specs = ASTSon1(declaration);
-
-                // TODO: We should check that the symbol has not been redefined 
-                scope_entry_t* entry = new_fortran_symbol(inner_decl_context, ASTText(component_name));
-
-                entry->kind = SK_VARIABLE;
-
-                entry->locus = ast_get_locus(declaration);
-                remove_unknown_kind_symbol(inner_decl_context, entry);
-
-                entry->type_information = basic_type;
-                symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
-
-                entry->defined = 1;
-
-                AST initialization = NULL;
-                AST array_spec = NULL;
-                AST coarray_spec = NULL;
-                AST char_length = NULL;
-
-                if (entity_decl_specs != NULL)
-                {
-                    array_spec = ASTSon0(entity_decl_specs);
-                    coarray_spec = ASTSon1(entity_decl_specs);
-                    char_length = ASTSon2(entity_decl_specs);
-                    initialization = ASTSon3(entity_decl_specs);
-                }
-
-                if (array_spec != NULL)
-                {
-                    // Override the DIMENSION attribute
-                    current_attr_spec.is_dimension = 1;
-                    current_attr_spec.array_spec = array_spec;
-                }
-
-                if (coarray_spec != NULL)
-                {
-                    if (current_attr_spec.is_codimension)
-                    {
-                        error_printf_at(ast_get_locus(declaration), "CODIMENSION attribute specified twice\n");
-                    }
-                    else
-                    {
-                        current_attr_spec.is_codimension = 1;
-                        current_attr_spec.coarray_spec = coarray_spec;
-                    }
-                }
-
-                if (char_length != NULL)
-                {
-                    if (!fortran_is_character_type(no_ref(entry->type_information)))
-                    {
-                        error_printf_at(ast_get_locus(declaration), "char-length specified but type is not CHARACTER\n");
-                    }
-
-                    if (ASTKind(char_length) != AST_SYMBOL
-                            || strcmp(ASTText(char_length), "*") != 0)
-                    {
-                        nodecl_t nodecl_char_length = nodecl_null();
-                        fortran_check_expression(char_length, decl_context, &nodecl_char_length);
-
-                        nodecl_char_length = fortran_expression_as_value(nodecl_char_length);
-                        nodecl_t lower_bound = nodecl_make_integer_literal(
-                                get_signed_int_type(),
-                                const_value_get_one(type_get_size(get_signed_int_type()), 1),
-                                ast_get_locus(char_length));
-
-                        entry->type_information = get_array_type_bounds(
-                                array_type_get_element_type(entry->type_information), 
-                                lower_bound, nodecl_char_length, decl_context);
-                    }
-                    else
-                    {
-                        entry->type_information = get_array_type(
-                                array_type_get_element_type(entry->type_information), 
-                                nodecl_null(), decl_context);
-                    }
-                }
-
-                // Stop the madness here
-                if (current_attr_spec.is_codimension)
-                {
-                    error_printf_at(ast_get_locus(declaration), "sorry: coarrays are not supported\n");
-                }
-
-                if (current_attr_spec.is_asynchronous)
-                {
-                    error_printf_at(ast_get_locus(declaration), "sorry: ASYNCHRONOUS attribute not supported\n");
-                }
-
-                if (current_attr_spec.is_dimension 
-                        && !is_error_type(entry->type_information))
-                {
-                    compute_type_from_array_spec(
-                            entry,
-                            entry->type_information, 
-                            current_attr_spec.array_spec,
-                            decl_context,
-                            /* allow_nonconstant */ 0);
-                }
-
-                if (current_attr_spec.is_allocatable)
-                {
-                    if (is_pointer_type(entry->type_information))
-                    {
-                        error_printf_at(ast_get_locus(declaration), "attribute POINTER conflicts with ALLOCATABLE\n");
-                    }
-                    else
-                    {
-                        symbol_entity_specs_set_is_allocatable(entry, 1);
-                        entry->kind = SK_VARIABLE;
-                    }
-                }
-
-                if (symbol_entity_specs_get_is_allocatable(entry)
-                        && fortran_is_array_type(entry->type_information))
-                {
-                    check_array_type_is_valid_for_allocatable(entry->type_information,
-                            entry,
-                            ast_get_locus(declaration));
-                }
-
-                symbol_entity_specs_set_is_target(entry, current_attr_spec.is_target);
-                if (fields_are_private
-                        && symbol_entity_specs_get_access(entry) == AS_UNKNOWN)
-                {
-                    symbol_entity_specs_set_access(entry, AS_PRIVATE);
-                }
-
-                if (current_attr_spec.is_pointer
-                        && !is_error_type(entry->type_information))
-                {
-                    if (symbol_entity_specs_get_is_allocatable(entry))
-                    {
-                        error_printf_at(ast_get_locus(declaration), "attribute ALLOCATABLE conflicts with POINTER\n");
-                    }
-                    else
-                    {
-                        entry->type_information = get_pointer_type(entry->type_information);
-                    }
-                }
-
-                if (fortran_is_pointer_to_array_type(entry->type_information))
-                {
-                    check_array_type_is_valid_for_pointer(entry->type_information,
-                            entry,
-                            ast_get_locus(declaration));
-                }
-
-                symbol_entity_specs_set_is_member(entry, 1);
-                symbol_entity_specs_set_class_type(entry, get_user_defined_type(class_name));
-
-                if (current_attr_spec.is_contiguous)
-                {
-                    if (!array_is_assumed_shape(entry, decl_context)
-                            && !fortran_is_pointer_to_array_type(entry->type_information))
-                    {
-                        error_printf_at(ast_get_locus(name),
-                                "CONTIGUOUS attribute is only valid for pointers to arrays "
-                                "or assumed-shape arrays\n");
-                    }
-                    symbol_entity_specs_set_is_contiguous(entry, 1);
-                }
-
-                if (initialization != NULL)
-                {
-                    entry->kind = SK_VARIABLE;
-                    nodecl_t nodecl_init = nodecl_null();
-
-                    if (ASTKind(initialization) == AST_POINTER_INITIALIZATION
-                            && current_attr_spec.is_pointer)
-                    {
-                        initialization = ASTSon0(initialization);
-                        fortran_check_initialization(entry, initialization, decl_context, 
-                                /* is_pointer_init */ 1,
-                                &nodecl_init);
-                    }
-                    else if (current_attr_spec.is_pointer)
-                    {
-                        error_printf_at(ast_get_locus(initialization), "a POINTER must be initialized using pointer initialization\n");
-                    }
-                    else if (ASTKind(initialization) == AST_POINTER_INITIALIZATION)
-                    {
-                        error_printf_at(ast_get_locus(initialization), "no POINTER attribute, required for pointer initialization\n");
-                    }
-                    else
-                    {
-                        fortran_check_initialization(entry, initialization, decl_context, 
-                                /* is_pointer_init */ 0,
-                                &nodecl_init);
-                    }
-                    if (!nodecl_is_err_expr(nodecl_init))
-                    {
-                        entry->value = nodecl_init;
-                    }
-                }
-
-                class_type_add_member(class_name->type_information, entry, entry->decl_context, /* is_definition */ 1);
-            }
+            build_scope_derived_type_data_component_def(component_def_stmt,
+                                                        class_name,
+                                                        fields_are_private,
+                                                        decl_context,
+                                                        inner_decl_context);
         }
     }
 
