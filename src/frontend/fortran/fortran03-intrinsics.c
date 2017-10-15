@@ -7259,7 +7259,10 @@ static void fortran_init_intrinsic_module_iso_c_binding(const decl_context_t* de
             UNIQUESTR_LITERAL("c_null_ptr"));
     c_null_ptr->locus = locus;
     c_null_ptr->kind = SK_VARIABLE;
-    c_null_ptr->type_information = get_user_defined_type(c_ptr);
+    c_null_ptr->type_information = get_const_qualified_type(get_user_defined_type(c_ptr));
+    c_null_ptr->value = const_value_to_nodecl(
+            const_value_make_struct(0, NULL,
+                get_user_defined_type(c_ptr)));
     symbol_entity_specs_set_in_module(c_null_ptr, iso_c_binding);
     symbol_entity_specs_set_access(c_null_ptr, AS_PUBLIC);
     symbol_entity_specs_add_related_symbols(iso_c_binding,

@@ -5119,7 +5119,6 @@ static void cast_initialization(
             {
                 // We do not expand the full array to a tree, just we keep the original simple tree
                 // and modify the const value of the scalar
-                *nodecl_output = const_value_to_nodecl_with_basic_type(val, rank0_type);
                 nodecl_set_constant(*nodecl_output, *casted_const);
             }
         }

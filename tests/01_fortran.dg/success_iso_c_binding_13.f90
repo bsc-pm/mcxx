@@ -1,0 +1,19 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! </testinfo>
+
+SUBROUTINE FOO
+    USE, INTRINSIC :: ISO_C_BINDING
+    TYPE(C_PTR), SAVE :: A = C_NULL_PTR
+
+    IF (C_ASSOCIATED(A)) STOP 1
+END SUBROUTINE FOO
+
+SUBROUTINE FOO2(I)
+    USE, INTRINSIC :: ISO_C_BINDING
+    IMPLICIT NONE
+    INTEGER :: I
+    TYPE(C_PTR), SAVE :: A(2) = C_NULL_PTR
+
+    IF (C_ASSOCIATED(A(I))) STOP 1
+END SUBROUTINE FOO2
