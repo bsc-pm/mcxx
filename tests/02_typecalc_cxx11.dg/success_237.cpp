@@ -1,3 +1,10 @@
+/*
+<testinfo>
+test_generator="config/mercurium-cxx11"
+test_nolink=yes
+</testinfo>
+*/
+
 template < int X, typename T>
 struct A
 {
