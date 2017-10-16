@@ -270,12 +270,17 @@ namespace Analysis {
     {
         // GEN(graph) = U GEN(inner nodes top-bottom)
         NodeclMap graph_gen;
+        std::set<Node*> visited;
         std::queue<Node*> worklist;
         worklist.push(current->get_graph_entry_node());
         while (!worklist.empty())
         {
             Node* n = worklist.front();
             worklist.pop();
+
+            if (visited.find(n) != visited.end())
+                continue;
+            visited.insert(n);
 
             if (n == current->get_graph_exit_node())
                 continue;
