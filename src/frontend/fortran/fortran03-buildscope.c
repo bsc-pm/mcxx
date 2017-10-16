@@ -2040,6 +2040,23 @@ type_t* fortran_gather_type_from_declaration_type_spec(AST a, const decl_context
     return fortran_gather_type_from_declaration_type_spec_(a, decl_context, character_length_out);
 }
 
+static type_t *fortran_gather_type_from_type_spec(
+    AST a, const decl_context_t *decl_context)
+{
+    AST character_length_out = NULL;
+    type_t *basic_type = fortran_gather_type_from_declaration_type_spec_(
+        a, decl_context, &character_length_out);
+    if (fortran_is_character_type(basic_type) && character_length_out != NULL)
+    {
+        char is_star = 0, is_colon = 0;
+        basic_type = compute_character_length_type(character_length_out,
+                                                   basic_type,
+                                                   decl_context,
+                                                   &is_star,
+                                                   &is_colon);
+    }
+    return basic_type;
+}
 
 static type_t* get_derived_type_name(AST a, const decl_context_t* decl_context);
 
@@ -4962,10 +4979,11 @@ static void build_scope_allocate_stmt(AST a, const decl_context_t* decl_context,
     AST allocation_list = ASTSon1(a);
     AST alloc_opt_list = ASTSon2(a);
 
+    nodecl_t nodecl_type = nodecl_null();
     if (type_spec != NULL)
     {
-        sorry_printf_at(ast_get_locus(type_spec),
-                "type-specifier not supported in ALLOCATE statement\n");
+        type_t* allocate_type = fortran_gather_type_from_type_spec(type_spec, decl_context);
+        nodecl_type = nodecl_make_type(allocate_type, ast_get_locus(type_spec));
     }
 
     nodecl_t nodecl_allocate_list = nodecl_null();
@@ -5027,6 +5045,7 @@ static void build_scope_allocate_stmt(AST a, const decl_context_t* decl_context,
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_fortran_allocate_statement(nodecl_allocate_list, 
                 nodecl_opt_value,
+                nodecl_type,
                 ast_get_locus(a)));
 }
 

@@ -21929,6 +21929,7 @@ static void build_scope_fortran_allocate_statement(AST a, const decl_context_t* 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_fortran_allocate_statement(nodecl_allocate_list, 
                 nodecl_opt_value,
+                nodecl_null(),
                 ast_get_locus(a)));
 }
 

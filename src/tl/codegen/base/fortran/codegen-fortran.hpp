@@ -399,7 +399,8 @@ namespace Codegen
 
             void codegen_allocation_statement(const std::string& keyword,
                     Nodecl::NodeclBase allocation_items,
-                    Nodecl::NodeclBase io_spec);
+                    Nodecl::NodeclBase io_spec,
+                    Nodecl::NodeclBase allocate_type);
 
             void codegen_comparison(
                     Nodecl::NodeclBase lhs, 

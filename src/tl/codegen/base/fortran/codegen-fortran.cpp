@@ -2301,12 +2301,22 @@ OPERATOR_TABLE
         codegen_open_close_statement("CLOSE", node.get_io_items());
     }
 
-    void FortranBase::codegen_allocation_statement(const std::string& keyword,
-            Nodecl::NodeclBase allocation_items,
-            Nodecl::NodeclBase io_spec)
+    void FortranBase::codegen_allocation_statement(
+        const std::string &keyword,
+        Nodecl::NodeclBase allocation_items,
+        Nodecl::NodeclBase io_spec,
+        Nodecl::NodeclBase allocate_type)
     {
         indent();
         *(file) << keyword << " (";
+
+        if (!allocate_type.is_null())
+        {
+            std::string type_spec, array_spec;
+            codegen_type(allocate_type.get_type(), type_spec, array_spec);
+            ERROR_CONDITION(array_spec != "", "An array cannot be here!", 0);
+            *(file) << type_spec << " :: ";
+        }
 
         codegen_comma_separated_list(allocation_items);
 
@@ -2321,12 +2331,18 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranAllocateStatement& node)
     {
-        codegen_allocation_statement("ALLOCATE", node.get_items(), node.get_options());
+        codegen_allocation_statement("ALLOCATE",
+                                     node.get_items(),
+                                     node.get_options(),
+                                     node.get_allocate_type());
     }
 
     void FortranBase::visit(const Nodecl::FortranDeallocateStatement& node)
     {
-        codegen_allocation_statement("DEALLOCATE", node.get_items(), node.get_options());
+        codegen_allocation_statement("DEALLOCATE",
+                                     node.get_items(),
+                                     node.get_options(),
+                                     Nodecl::NodeclBase::null());
     }
 
     void FortranBase::visit(const Nodecl::FortranNullifyStatement& node)
