@@ -3,7 +3,7 @@
 # Loading some test-generators utilities
 source @abs_builddir@/test-generators-utilities
 
-if [ "@ANALYSIS_DISABLED@" = "yes" -o "@NANOX_ENABLED@" = "no" ];
+if [ "@ANALYSIS_ENABLED@" = "no" -o "@NANOX_ENABLED@" = "no" ];
 then
 
     gen_ignore_test "analysis or Nanos++ disabled"

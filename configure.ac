@@ -1728,6 +1728,7 @@ then
 fi
 
 AC_SUBST([CORRECTNESS_LOG_DIR])
+AC_SUBST([ANALYSIS_ENABLED], $is_enabled_analysis)
 dnl ------------------------------------
 
 dnl ---------------------- TL Vectorization ----------------------------
