@@ -1709,11 +1709,6 @@ AC_ARG_ENABLE([analysis],
   ]
 )
 
-if test x$is_enabled_analysis = xyes;
-then
-  AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
-fi
-
 AM_CONDITIONAL([BUILD_ANALYSIS],      test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_AUTO_SCOPE],    test x$is_enabled_analysis = xyes)
