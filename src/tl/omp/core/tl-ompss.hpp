@@ -67,6 +67,11 @@ namespace TL { namespace OmpSs {
                 return _copy_expr.get_base_symbol() == c._copy_expr.get_base_symbol();
             }
 
+            bool is_valid() const
+            {
+                return _copy_expr.is_valid();
+            }
+
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mw);
     };

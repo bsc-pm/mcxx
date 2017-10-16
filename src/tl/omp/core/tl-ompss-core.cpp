@@ -294,11 +294,11 @@ namespace TL { namespace OpenMP {
     struct FunctionCopyItemGenerator
     {
         private:
-            TL::OmpSs::CopyDirection _copy_direction;
+            TL::OmpSs::CopyDirection _direction;
 
         public:
-            FunctionCopyItemGenerator(TL::OmpSs::CopyDirection copy_direction)
-                : _copy_direction(copy_direction)
+            FunctionCopyItemGenerator(TL::OmpSs::CopyDirection direction)
+                : _direction(direction)
             {
             }
 
@@ -306,7 +306,15 @@ namespace TL { namespace OpenMP {
             {
                 DataReference data_ref(node);
 
-                return TL::OmpSs::CopyItem(data_ref, _copy_direction);
+                if (!data_ref.is_valid())
+                {
+                    warn_printf_at(
+                            node.get_locus(),
+                            "invalid copy expression '%s(%s)', skipping\n",
+                            copy_direction_to_str(_direction).c_str(),
+                            data_ref.prettyprint().c_str());
+                }
+                return TL::OmpSs::CopyItem(data_ref, _direction);
             }
     };
 
@@ -578,17 +586,17 @@ namespace TL { namespace OpenMP {
 
             ObjectList<TL::OmpSs::CopyItem> copy_in =
                 target_ctx_copy_in.map<TL::OmpSs::CopyItem>(
-                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_IN));
+                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_IN)).filter(&TL::OmpSs::CopyItem::is_valid);
             target_info.append_to_copy_in(copy_in);
 
             ObjectList<TL::OmpSs::CopyItem> copy_out =
                 target_ctx_copy_out.map<TL::OmpSs::CopyItem>(
-                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_OUT));
+                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_OUT)).filter(&TL::OmpSs::CopyItem::is_valid);
             target_info.append_to_copy_out(copy_out);
 
             ObjectList<TL::OmpSs::CopyItem> copy_inout =
                 target_ctx_copy_inout.map<TL::OmpSs::CopyItem>(
-                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_INOUT));
+                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_INOUT)).filter(&TL::OmpSs::CopyItem::is_valid);
             target_info.append_to_copy_inout(copy_inout);
 
             target_info.set_file(target_context.file);
