@@ -624,23 +624,6 @@ namespace TL { namespace OmpSs {
         return _shared_closure;
     }
 
-    ObjectList<Symbol> FunctionTaskInfo::get_involved_parameters() const
-    {
-        ObjectList<Symbol> result;
-
-        for (ObjectList<FunctionTaskDependency>::const_iterator it = _parameters.begin();
-                it != _parameters.end();
-                it++)
-        {
-            Nodecl::NodeclBase expr(it->get_data_reference());
-
-            ObjectList<Symbol> current_syms = Nodecl::Utils::get_all_symbols(expr);
-            result.insert(current_syms);
-        }
-
-        return result;
-    }
-
     ObjectList<FunctionTaskDependency> FunctionTaskInfo::get_parameter_info() const
     {
         return _parameters;

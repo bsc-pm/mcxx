@@ -234,7 +234,6 @@ namespace TL { namespace OmpSs {
 
             void add_function_task_dependency(const FunctionTaskDependency& dep);
 
-            ObjectList<Symbol> get_involved_parameters() const;
 
             TargetInfo& get_target_info();
             void set_target_info(const TargetInfo& target_info);
