@@ -445,7 +445,7 @@ namespace TL { namespace OmpSs {
     }
 
     FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
-            ObjectList<FunctionTaskDependency> parameter_info)
+            ObjectList<TL::OpenMP::DependencyItem> parameter_info)
         : _sym(sym),
         _parameters(parameter_info)
     {
@@ -463,13 +463,13 @@ namespace TL { namespace OmpSs {
         set_target_info(TargetInfo(task_info._target_info, translation_map, function_sym));
 
         // Copy the function task dependences
-        for (TL::ObjectList<FunctionTaskDependency>::const_iterator it = task_info._parameters.begin();
+        for (TL::ObjectList<TL::OpenMP::DependencyItem>::const_iterator it = task_info._parameters.begin();
                 it != task_info._parameters.end();
                 it++)
         {
-            FunctionTaskDependency dep_item = *it;
-            TL::OpenMP::DependencyDirection dir = dep_item.get_direction();
-            DataReference data_ref = dep_item.get_data_reference();
+            TL::OpenMP::DependencyItem dep_item = *it;
+            TL::OpenMP::DependencyDirection dir = dep_item.get_kind();
+            DataReference data_ref = dep_item.get_dependency_expression();
 
             Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
                     data_ref,
@@ -478,7 +478,7 @@ namespace TL { namespace OmpSs {
 
             DataReference updated_data_ref(updated_expr);
 
-            FunctionTaskDependency updated_dep_item(updated_data_ref, dir);
+            TL::OpenMP::DependencyItem updated_dep_item(updated_data_ref, dir);
             _parameters.append(updated_dep_item);
         }
 
@@ -517,19 +517,19 @@ namespace TL { namespace OmpSs {
         new_function_task_info._wait = _wait;
 
         // Second, instantiate all the dependences
-        for (TL::ObjectList<FunctionTaskDependency>::iterator it = _parameters.begin();
+        for (TL::ObjectList<TL::OpenMP::DependencyItem>::iterator it = _parameters.begin();
                 it != _parameters.end();
                 ++it)
         {
-            FunctionTaskDependency dep = *it;
-            TL::OpenMP::DependencyDirection dir = dep.get_direction();
-            DataReference data_ref = dep.get_data_reference();
+            TL::OpenMP::DependencyItem dep = *it;
+            TL::OpenMP::DependencyDirection dir = dep.get_kind();
+            DataReference data_ref = dep.get_dependency_expression();
 
             // Update the dependence expression
             Nodecl::NodeclBase new_expr = instantiate_expression(data_ref.get_internal_nodecl(),
                     instantiation_context, instantiation_symbol_map, /* pack index */ -1);
 
-            new_function_task_info.add_function_task_dependency(FunctionTaskDependency(new_expr, dir));
+            new_function_task_info.add_function_task_dependency(TL::OpenMP::DependencyItem(new_expr, dir));
         }
 
 
@@ -624,12 +624,12 @@ namespace TL { namespace OmpSs {
         return _shared_closure;
     }
 
-    ObjectList<FunctionTaskDependency> FunctionTaskInfo::get_parameter_info() const
+    ObjectList<TL::OpenMP::DependencyItem> FunctionTaskInfo::get_parameter_info() const
     {
         return _parameters;
     }
 
-    void FunctionTaskInfo::add_function_task_dependency(const FunctionTaskDependency& dependence)
+    void FunctionTaskInfo::add_function_task_dependency(const TL::OpenMP::DependencyItem& dependence)
     {
         _parameters.append(dependence);
     }

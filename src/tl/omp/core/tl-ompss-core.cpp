@@ -274,7 +274,7 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            TL::OmpSs::FunctionTaskDependency operator()(Nodecl::NodeclBase nodecl) const
+            TL::OpenMP::DependencyItem operator()(Nodecl::NodeclBase nodecl) const
             {
                 DataReference expr(nodecl);
 
@@ -287,7 +287,7 @@ namespace TL { namespace OpenMP {
                             expr.prettyprint().c_str());
                 }
 
-                return TL::OmpSs::FunctionTaskDependency(expr, _direction);
+                return TL::OpenMP::DependencyItem(expr, _direction);
             }
     };
 
@@ -491,52 +491,52 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        ObjectList<TL::OmpSs::FunctionTaskDependency> dependence_list;
+        ObjectList<TL::OpenMP::DependencyItem> dependence_list;
 
         dependence_list_check(input_arguments, DEP_DIR_IN, function_sym);
         dependence_list.append(input_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_IN))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_DIR_IN))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(weakinput_arguments, DEP_OMPSS_WEAK_IN, function_sym);
         dependence_list.append(weakinput_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_IN))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_IN))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(input_private_arguments, DEP_OMPSS_DIR_IN_PRIVATE, function_sym);
         dependence_list.append(input_private_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_PRIVATE))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_PRIVATE))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(output_arguments, DEP_DIR_OUT, function_sym);
         dependence_list.append(output_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(weakoutput_arguments, DEP_OMPSS_WEAK_OUT, function_sym);
         dependence_list.append(weakoutput_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_OUT))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_OUT))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(inout_arguments, DEP_DIR_INOUT, function_sym);
         dependence_list.append(inout_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(weakinout_arguments, DEP_OMPSS_WEAK_INOUT, function_sym);
         dependence_list.append(weakinout_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_INOUT))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_INOUT))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(concurrent_arguments, DEP_OMPSS_CONCURRENT, function_sym);
         dependence_list.append(concurrent_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_CONCURRENT))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_CONCURRENT))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(commutative_arguments, DEP_OMPSS_COMMUTATIVE, function_sym);
         dependence_list.append(commutative_arguments
-                .map<TL::OmpSs::FunctionTaskDependency>(FunctionTaskDependencyGenerator(DEP_OMPSS_COMMUTATIVE))
-                .filter(&TL::OmpSs::FunctionTaskDependency::is_valid));
+                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_COMMUTATIVE))
+                .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         // Target-style clauses
         if (_target_context.empty())

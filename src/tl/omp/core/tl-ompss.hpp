@@ -157,46 +157,12 @@ namespace TL { namespace OmpSs {
     };
 
 
-    class LIBTL_CLASS FunctionTaskDependency : public OpenMP::DependencyItem
-    {
-        public:
-            FunctionTaskDependency() { }
-
-            FunctionTaskDependency(DataReference expr, OpenMP::DependencyDirection direction)
-                : OpenMP::DependencyItem(expr, direction) { }
-
-            OpenMP::DependencyDirection get_direction() const
-            {
-                return this->get_kind();
-            }
-
-            DataReference get_data_reference() const
-            {
-                return this->get_dependency_expression();
-            }
-
-            bool is_valid() const
-            {
-                DataReference d = this->get_dependency_expression();
-                return d.is_valid();
-            }
-
-            void module_write(ModuleWriter& mw)
-            {
-                this->OpenMP::DependencyItem::module_write(mw);
-            }
-            void module_read(ModuleReader& mw)
-            {
-                this->OpenMP::DependencyItem::module_read(mw);
-            }
-    };
-
     class LIBTL_CLASS FunctionTaskInfo
     {
         private:
             Symbol _sym;
 
-            ObjectList<FunctionTaskDependency> _parameters;
+            ObjectList<TL::OpenMP::DependencyItem> _parameters;
             ObjectList<TL::Symbol> _shared_closure;
 
             TargetInfo _target_info;
@@ -218,7 +184,7 @@ namespace TL { namespace OmpSs {
             FunctionTaskInfo() : _untied(false), _wait(false) { }
 
             FunctionTaskInfo(Symbol sym,
-                    ObjectList<FunctionTaskDependency> parameter_info);
+                    ObjectList<TL::OpenMP::DependencyItem> parameter_info);
 
             FunctionTaskInfo(
                     const FunctionTaskInfo& task_info,
@@ -230,10 +196,9 @@ namespace TL { namespace OmpSs {
                     TL::Scope context_of_being_instantiated,
                     instantiation_symbol_map_t* instantiation_symbol_map);
 
-            ObjectList<FunctionTaskDependency> get_parameter_info() const;
+            ObjectList<TL::OpenMP::DependencyItem> get_parameter_info() const;
 
-            void add_function_task_dependency(const FunctionTaskDependency& dep);
-
+            void add_function_task_dependency(const TL::OpenMP::DependencyItem& dep);
 
             TargetInfo& get_target_info();
             void set_target_info(const TargetInfo& target_info);

@@ -409,7 +409,7 @@ namespace TL { namespace OmpSs {
 
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
-        TL::ObjectList<TL::OmpSs::FunctionTaskDependency> task_dependences = function_task_info.get_parameter_info();
+        TL::ObjectList<TL::OpenMP::DependencyItem> task_dependences = function_task_info.get_parameter_info();
 
         // This makes the report confusing, disable it
         bool old_omp_report = _base->emit_omp_report();
@@ -473,11 +473,11 @@ namespace TL { namespace OmpSs {
         std::vector<bool> has_dep(function_sym.get_type().parameters().size(), false);
 
         TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates, assumed_shareds;
-        for (TL::ObjectList<TL::OmpSs::FunctionTaskDependency>::iterator it = task_dependences.begin();
+        for (TL::ObjectList<TL::OpenMP::DependencyItem>::iterator it = task_dependences.begin();
                 it != task_dependences.end();
                 it++)
         {
-            TL::DataReference data_ref = it->get_data_reference();
+            TL::DataReference data_ref = it->get_dependency_expression();
             TL::Symbol base_sym = data_ref.get_base_symbol();
 
             // OmpSs Assumption: dependences are passed always as SHARED
@@ -1867,7 +1867,7 @@ namespace TL { namespace OmpSs {
                         return_argument_nodecl.get_type().no_ref().points_to().get_lvalue_reference_to(),
                         return_argument.get_locus()));
 
-            TL::OmpSs::FunctionTaskDependency result_dependence(data_ref_dep, dep_dir_ret_arg);
+            TL::OpenMP::DependencyItem result_dependence(data_ref_dep, dep_dir_ret_arg);
             new_funct_task_info.add_function_task_dependency(result_dependence);
 
             TL::OmpSs::TargetInfo& target_info = new_funct_task_info.get_target_info();

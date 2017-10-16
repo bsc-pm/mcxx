@@ -81,6 +81,11 @@ namespace TL { namespace OpenMP {
             DependencyDirection get_kind() const;
             DataReference get_dependency_expression() const;
 
+            bool is_valid() const
+            {
+                return _dep_expr.is_valid();
+            }
+
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mw);
     };
