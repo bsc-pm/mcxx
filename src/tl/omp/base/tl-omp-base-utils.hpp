@@ -64,7 +64,7 @@ namespace TL { namespace OpenMP {
                         std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
                     ss
-                        << " " << dependency_direction_to_str(kind) << "\n"
+                        << " " << directionality_to_str(kind) << "\n"
                         ;
 
                     *_omp_report_file
@@ -111,7 +111,7 @@ namespace TL { namespace OpenMP {
                         std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
                     ss
-                        << " " << copy_direction_to_str(kind) << "\n"
+                        << " " << directionality_to_str(kind) << "\n"
                         ;
 
                     *_omp_report_file

@@ -46,7 +46,8 @@ namespace TL { namespace OmpSs {
         COPY_DIR_INOUT = COPY_DIR_IN | COPY_DIR_OUT,
     };
 
-    std::string copy_direction_to_str(CopyDirection dir);
+    //! We have the same function name for DependencyDirection
+    std::string directionality_to_str(CopyDirection dir);
 
     class LIBTL_CLASS CopyItem : public TL::DataReference
     {

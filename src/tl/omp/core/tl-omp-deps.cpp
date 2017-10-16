@@ -346,14 +346,14 @@ namespace TL {
                         {
                             error_printf_at(it->get_locus(),
                                     "cannot override '%s' directionality of symbol '%s'\n",
-                                    dependency_direction_to_str(existing_dep_dir).c_str(),
+                                    directionality_to_str(existing_dep_dir).c_str(),
                                     expr.get_base_symbol().get_name().c_str());
                         }
                         else
                         {
                             warn_printf_at(it->get_locus(),
                                     "redundant '%s' directionality clause for symbol '%s'\n",
-                                    dependency_direction_to_str(existing_dep_dir).c_str(),
+                                    directionality_to_str(existing_dep_dir).c_str(),
                                     expr.get_base_symbol().get_name().c_str()
                                     );
                         }
@@ -365,9 +365,9 @@ namespace TL {
                     {
                         error_printf_at(it->get_locus(),
                                 "cannot override '%s' directionality of symbol '%s' with directionality '%s'\n",
-                                dependency_direction_to_str(existing_dep_dir).c_str(),
+                                directionality_to_str(existing_dep_dir).c_str(),
                                 expr.get_base_symbol().get_name().c_str(),
-                                dependency_direction_to_str(dep_dir).c_str());
+                                directionality_to_str(dep_dir).c_str());
                     }
                 }
             }
@@ -774,7 +774,7 @@ namespace TL {
         }
     }
 
-    std::string dependency_direction_to_str(DependencyDirection d)
+    std::string directionality_to_str(DependencyDirection d)
     {
         switch (d)
         {

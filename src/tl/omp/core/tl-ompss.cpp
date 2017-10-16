@@ -47,7 +47,7 @@ namespace TL {
 
 namespace TL { namespace OmpSs {
 
-    std::string copy_direction_to_str(CopyDirection dir)
+    std::string directionality_to_str(CopyDirection dir)
     {
         switch (dir)
         {

@@ -121,7 +121,7 @@ namespace TL { namespace OpenMP {
                                     "skipping useless dependence %s(%s) since it only names a parameter."
                                     "The value of a parameter is never copied out of a function "
                                     "so it cannot generate an output dependence\n",
-                                    dependency_direction_to_str(_direction).c_str(),
+                                    directionality_to_str(_direction).c_str(),
                                     expr.prettyprint().c_str());
                             return true;
                         }
@@ -131,7 +131,7 @@ namespace TL { namespace OpenMP {
                                     expr.get_locus(),
                                     "skipping useless dependence %s(%s) since it only names a parameter."
                                     "The value of a parameter is always copied in and will never define such dependence\n",
-                                    dependency_direction_to_str(_direction).c_str(),
+                                    directionality_to_str(_direction).c_str(),
                                     expr.prettyprint().c_str());
                             return true;
                         }
@@ -283,7 +283,7 @@ namespace TL { namespace OpenMP {
                     warn_printf_at(
                             nodecl.get_locus(),
                             "invalid dependency expression '%s(%s)', skipping\n",
-                            dependency_direction_to_str(_direction).c_str(),
+                            directionality_to_str(_direction).c_str(),
                             expr.prettyprint().c_str());
                 }
 
@@ -311,7 +311,7 @@ namespace TL { namespace OpenMP {
                     warn_printf_at(
                             node.get_locus(),
                             "invalid copy expression '%s(%s)', skipping\n",
-                            copy_direction_to_str(_direction).c_str(),
+                            directionality_to_str(_direction).c_str(),
                             data_ref.prettyprint().c_str());
                 }
                 return TL::OmpSs::CopyItem(data_ref, _direction);

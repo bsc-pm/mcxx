@@ -67,7 +67,8 @@ namespace TL { namespace OpenMP {
     bool is_strict_dependency(DependencyDirection dir);
     bool is_weak_dependency(DependencyDirection dir);
 
-    std::string dependency_direction_to_str(DependencyDirection d);
+    //! We have the same function name for CopyDirection
+    std::string directionality_to_str(DependencyDirection d);
 
     class LIBTL_CLASS DependencyItem : public TL::DataReference
     {
