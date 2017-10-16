@@ -463,7 +463,7 @@ namespace TL
         }
 
         DependencyItem::DependencyItem(DataReference dep_expr, DependencyDirection kind)
-            : _dep_expr(dep_expr), _kind(kind)
+            : DataReference(dep_expr), _kind(kind)
         {
         }
 
@@ -472,20 +472,15 @@ namespace TL
             return _kind;
         }
 
-        DataReference DependencyItem::get_dependency_expression() const
-        {
-            return _dep_expr;
-        }
-
         void DependencyItem::module_write(ModuleWriter& mw)
         {
-            mw.write(_dep_expr);
+            this->TL::DataReference::module_write(mw);
             mw.write(_kind);
         }
 
         void DependencyItem::module_read(ModuleReader& mr)
         {
-            mr.read(_dep_expr);
+            this->TL::DataReference::module_read(mr);
             mr.read(_kind);
         }
     }

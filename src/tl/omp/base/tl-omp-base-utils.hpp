@@ -46,7 +46,7 @@ namespace TL { namespace OpenMP {
                 if (it->get_kind() != kind)
                     continue;
 
-                data_ref_list.append(it->get_dependency_expression().shallow_copy());
+                data_ref_list.append(it->shallow_copy());
 
                 if (emit_omp_report())
                 {
@@ -55,7 +55,7 @@ namespace TL { namespace OpenMP {
                     ss
                         << OpenMP::Report::indent
                         << OpenMP::Report::indent
-                        << it->get_dependency_expression().prettyprint()
+                        << it->prettyprint()
                         ;
 
                     int length = ss.str().size();
@@ -93,7 +93,7 @@ namespace TL { namespace OpenMP {
                 if (it->get_kind() != kind)
                     continue;
 
-                data_ref_list.append(it->get_copy_expression().shallow_copy());
+                data_ref_list.append(it->shallow_copy());
 
                 if (emit_omp_report())
                 {
@@ -102,7 +102,7 @@ namespace TL { namespace OpenMP {
                     ss
                         << OpenMP::Report::indent
                         << OpenMP::Report::indent
-                        << it->get_copy_expression().prettyprint()
+                        << it->prettyprint()
                         ;
 
                     int length = ss.str().size();

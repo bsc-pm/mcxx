@@ -297,7 +297,7 @@ namespace TL { namespace OpenMP {
                     existing_dep != all_deps.end();
                     existing_dep++)
             {
-                Nodecl::NodeclBase existing_dep_expr = existing_dep->get_dependency_expression();
+                Nodecl::NodeclBase existing_dep_expr(*existing_dep);
                 // We only check symbols here because some testcases exists where the
                 // user does inout(a[i][j]) and concurrent(a[0][0]) at the same time
                 if (!expr.is<Nodecl::Symbol>()

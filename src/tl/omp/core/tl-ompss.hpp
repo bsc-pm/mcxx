@@ -48,10 +48,9 @@ namespace TL { namespace OmpSs {
 
     std::string copy_direction_to_str(CopyDirection dir);
 
-    class LIBTL_CLASS CopyItem : public TL::Object
+    class LIBTL_CLASS CopyItem : public TL::DataReference
     {
         private:
-            DataReference _copy_expr;
             CopyDirection _kind;
         public:
             CopyItem() { }
@@ -59,18 +58,6 @@ namespace TL { namespace OmpSs {
             CopyItem(DataReference data_reference, CopyDirection direction);
 
             CopyDirection get_kind() const;
-            DataReference get_copy_expression() const;
-
-            // Convenience operator
-            bool operator==(const CopyItem& c) const
-            {
-                return _copy_expr.get_base_symbol() == c._copy_expr.get_base_symbol();
-            }
-
-            bool is_valid() const
-            {
-                return _copy_expr.is_valid();
-            }
 
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mw);

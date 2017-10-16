@@ -69,22 +69,15 @@ namespace TL { namespace OpenMP {
 
     std::string dependency_direction_to_str(DependencyDirection d);
 
-    class LIBTL_CLASS DependencyItem : public TL::Object
+    class LIBTL_CLASS DependencyItem : public TL::DataReference
     {
         private:
-            DataReference _dep_expr;
             DependencyDirection _kind;
         public:
             DependencyItem() { }
             DependencyItem(DataReference dep_expr, DependencyDirection kind);
 
             DependencyDirection get_kind() const;
-            DataReference get_dependency_expression() const;
-
-            bool is_valid() const
-            {
-                return _dep_expr.is_valid();
-            }
 
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mw);

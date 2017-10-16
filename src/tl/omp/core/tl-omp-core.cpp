@@ -1550,7 +1550,7 @@ namespace TL { namespace OpenMP {
                     it != dependences.end();
                     it++)
             {
-                DataReference data_ref = it->get_dependency_expression();
+                DataReference& data_ref(*it);
                 nonlocal_symbols.insert(data_ref.get_base_symbol());
             }
         }

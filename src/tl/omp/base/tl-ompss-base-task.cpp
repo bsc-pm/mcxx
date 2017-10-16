@@ -477,7 +477,7 @@ namespace TL { namespace OmpSs {
                 it != task_dependences.end();
                 it++)
         {
-            TL::DataReference data_ref = it->get_dependency_expression();
+            TL::DataReference& data_ref(*it);
             TL::Symbol base_sym = data_ref.get_base_symbol();
 
             // OmpSs Assumption: dependences are passed always as SHARED
