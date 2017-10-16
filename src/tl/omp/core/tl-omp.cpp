@@ -37,15 +37,8 @@
 
 namespace TL
 {
-    template <>
-        struct ModuleWriterTrait<OpenMP::DependencyDirection> : EnumWriterTrait<OpenMP::DependencyDirection> { };
-
-    template <>
-        struct ModuleReaderTrait<OpenMP::DependencyDirection> : EnumReaderTrait<OpenMP::DependencyDirection> { };
-
     namespace OpenMP
     {
-
         DataEnvironment::DataEnvironment(DataEnvironment *enclosing)
             : _num_refs(new int(1)), 
             _data_sharing(new data_sharing_map_t()),
@@ -460,28 +453,6 @@ namespace TL
                 = new DataEnvironment(NULL);
             // Why stack is so special?
             _stack_data_environment = std::stack<DataEnvironment*>();
-        }
-
-        DependencyItem::DependencyItem(DataReference dep_expr, DependencyDirection kind)
-            : DataReference(dep_expr), _kind(kind)
-        {
-        }
-
-        DependencyDirection DependencyItem::get_kind() const
-        {
-            return _kind;
-        }
-
-        void DependencyItem::module_write(ModuleWriter& mw)
-        {
-            this->TL::DataReference::module_write(mw);
-            mw.write(_kind);
-        }
-
-        void DependencyItem::module_read(ModuleReader& mr)
-        {
-            this->TL::DataReference::module_read(mr);
-            mr.read(_kind);
         }
     }
 }

@@ -49,7 +49,6 @@ Cambridge, MA 02139, USA.
 #include <stack>
 #include <utility>
 
-#include "tl-modules.hpp"
 #include "tl-ompss.hpp"
 
 namespace TL
