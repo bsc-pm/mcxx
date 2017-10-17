@@ -2244,87 +2244,91 @@ namespace TL { namespace Nanos6 {
                 it++)
         {
             const ReductionItem& red_item(*it);
-            TL::Symbol red_sym =
-                unpacked_inside_scope.get_symbol_from_name(red_item.symbol.get_name());
 
-            TL::Symbol red_storage_sym = unpacked_inside_scope.new_symbol(
+            // FIXME handle finalstmtsgen for weakred
+            if (!red_item.isWeak)
+            {
+                TL::Symbol red_sym =
+                    unpacked_inside_scope.get_symbol_from_name(red_item.symbol.get_name());
+
+                TL::Symbol red_storage_sym = unpacked_inside_scope.new_symbol(
                         red_sym.get_name() + "_storage");
-            symbol_entity_specs_set_is_user_declared(
-                    red_storage_sym.get_internal_symbol(), 1);
-            red_storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            red_storage_sym.set_type(red_item.reduction_type.no_ref().get_lvalue_reference_to());
+                symbol_entity_specs_set_is_user_declared(
+                        red_storage_sym.get_internal_symbol(), 1);
+                red_storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                red_storage_sym.set_type(red_item.reduction_type.no_ref().get_lvalue_reference_to());
 
-            // Map original symbol to new local symbol so that the
-            // posterior deep copy over the task body replaces all its
-            // references
-            symbol_map.add_map(red_item.symbol, red_storage_sym);
+                // Map original symbol to new local symbol so that the
+                // posterior deep copy over the task body replaces all its
+                // references
+                symbol_map.add_map(red_item.symbol, red_storage_sym);
 
-            std::string get_red_storage_fun_name = "nanos_get_reduction_storage";
-            TL::Scope global_context = TL::Scope::get_global_scope();
-            TL::Symbol get_red_storage_fun =
-                global_context.get_symbol_from_name(get_red_storage_fun_name);
+                std::string get_red_storage_fun_name = "nanos_get_reduction_storage";
+                TL::Scope global_context = TL::Scope::get_global_scope();
+                TL::Symbol get_red_storage_fun =
+                    global_context.get_symbol_from_name(get_red_storage_fun_name);
+                if (!get_red_storage_fun.is_valid())
+                {
+                    fatal_error(
+                            "'%s' function not found while trying to register dependences\n",
+                            get_red_storage_fun_name.c_str());
+                }
 
-            if (!get_red_storage_fun.is_valid())
-            {
-                fatal_error(
-                        "'%s' function not found while trying to register dependences\n",
-                        get_red_storage_fun_name.c_str());
+                TL::Type cast_type;
+                if (red_item.reduction_type.no_ref().is_array())
+                {
+                    cast_type =
+                        rewrite_type(red_item.reduction_type.no_ref().get_pointer_to(),
+                                unpacked_inside_scope, symbol_map);
+                }
+                else
+                {
+                    cast_type =
+                        red_item.reduction_type.no_ref().get_pointer_to();
+                }
+
+                Nodecl::NodeclBase arg;
+                if (_env.shared.contains(red_item.symbol))
+                {
+                    arg = Nodecl::Reference::make(
+                            red_sym.make_nodecl(/* set_ref_type */ true),
+                            red_sym.get_type().no_ref().get_lvalue_reference_to());
+                }
+                else
+                {
+                    ERROR_CONDITION(!_env.captured_value.contains(red_item.symbol),
+                            "Unexpected data-sharing for symbol '%s'",
+                            red_sym.get_name().c_str());
+
+                    // For cases like:
+                    //
+                    //      int *ptr;
+                    //      #pragma oss task reduction(+: [1]ptr)
+                    //      { ... }
+                    //
+                    // to avoid getting the address of a pointer
+
+                    arg = red_sym.make_nodecl(/* set_ref_type */ true);
+                }
+
+                // FIXME Works, but is it correct? -> incomplete, should complete for VLA, shared and firstprivate (pointer)
+                Nodecl::NodeclBase cast;
+                Nodecl::NodeclBase function_call = Nodecl::Dereference::make(
+                        cast = Nodecl::Conversion::make(
+                            Nodecl::FunctionCall::make(
+                                get_red_storage_fun.make_nodecl(/* set_ref_type */ true),
+                                Nodecl::List::make(arg),
+                                /* alternate_name */ Nodecl::NodeclBase::null(),
+                                /* function_form */ Nodecl::NodeclBase::null(),
+                                TL::Type::get_void_type().get_pointer_to()),
+                            cast_type),
+                        red_item.reduction_type.no_ref());
+                cast.set_text("C");
+
+                red_storage_sym.set_value(function_call);
+
+                unpacked_empty_stmt.prepend_sibling(Nodecl::ObjectInit::make(red_storage_sym));
             }
-
-            TL::Type cast_type;
-            if (red_item.reduction_type.no_ref().is_array())
-            {
-                cast_type =
-                    rewrite_type(red_item.reduction_type.no_ref().get_pointer_to(),
-                            unpacked_inside_scope, symbol_map);
-            }
-            else
-            {
-                cast_type =
-                    red_item.reduction_type.no_ref().get_pointer_to();
-            }
-
-            Nodecl::NodeclBase arg;
-            if (_env.shared.contains(red_item.symbol))
-            {
-                arg = Nodecl::Reference::make(
-                        red_sym.make_nodecl(/* set_ref_type */ true),
-                        red_sym.get_type().no_ref().get_lvalue_reference_to());
-            }
-            else
-            {
-                ERROR_CONDITION(!_env.captured_value.contains(red_item.symbol),
-                        "Unexpected data-sharing for symbol '%s'",
-                        red_sym.get_name().c_str());
-
-                // For cases like:
-                //
-                //      int *ptr;
-                //      #pragma oss task reduction(+: [1]ptr)
-                //      { ... }
-                //
-                // to avoid getting the address of a pointer
-
-                arg = red_sym.make_nodecl(/* set_ref_type */ true);
-            }
-
-            // FIXME Works, but is it correct? -> incomplete, should complete for VLA, shared and firstprivate (pointer)
-            Nodecl::NodeclBase cast;
-            Nodecl::NodeclBase function_call = Nodecl::Dereference::make(
-                    cast = Nodecl::Conversion::make(
-                        Nodecl::FunctionCall::make(
-                            get_red_storage_fun.make_nodecl(/* set_ref_type */ true),
-                            Nodecl::List::make(arg),
-                            /* alternate_name */ Nodecl::NodeclBase::null(),
-                            /* function_form */ Nodecl::NodeclBase::null(),
-                            TL::Type::get_void_type().get_pointer_to()),
-                        cast_type),
-                    red_item.reduction_type.no_ref());
-            cast.set_text("C");
-
-            red_storage_sym.set_value(function_call);
-
-            unpacked_empty_stmt.prepend_sibling(Nodecl::ObjectInit::make(red_storage_sym));
         }
     }
 
@@ -2675,10 +2679,8 @@ namespace TL { namespace Nanos6 {
             // Out
             Nodecl::List& register_statements)
     {
-        std::string reduction_register_fun_name = "nanos_register_region_reduction_depinfo";
-        bool is_reduction = reduction_register_fun_name.compare(
-                0, std::string::npos, register_fun.get_name(),
-                0, reduction_register_fun_name.length()) == 0;
+        bool is_reduction =
+            register_fun.get_name().find("reduction") != std::string::npos;
 
         TL::ObjectList<Nodecl::NodeclBase> arguments;
         if (is_reduction)
@@ -2863,7 +2865,8 @@ namespace TL { namespace Nanos6 {
             { _env.dep_commutative, "nanos_register_region_commutative_depinfo" },
             { _env.dep_concurrent,  "nanos_register_region_concurrent_depinfo"  },
 
-            { _env.dep_reduction, "nanos_register_region_reduction_depinfo" },
+            { _env.dep_reduction,     "nanos_register_region_reduction_depinfo"      },
+            { _env.dep_weakreduction, "nanos_register_region_weak_reduction_depinfo" },
         };
 
 
@@ -2954,10 +2957,8 @@ namespace TL { namespace Nanos6 {
         TL::Symbol register_fun,
         Nodecl::List &register_statements)
     {
-        std::string reduction_register_fun_name = "nanos_register_region_reduction_depinfo";
-        bool is_reduction = reduction_register_fun_name.compare(
-                0, std::string::npos, register_fun.get_name(),
-                0, reduction_register_fun_name.length()) == 0;
+        bool is_reduction =
+            register_fun.get_name().find("reduction") != std::string::npos;
 
         TL::ObjectList<Nodecl::NodeclBase> arguments_list;
         if (is_reduction)
@@ -3142,7 +3143,8 @@ namespace TL { namespace Nanos6 {
             { _env.dep_commutative, "nanos_register_region_commutative_depinfo" },
             { _env.dep_concurrent,  "nanos_register_region_concurrent_depinfo"  },
 
-            { _env.dep_reduction, "nanos_register_region_reduction_depinfo" },
+            { _env.dep_reduction,     "nanos_register_region_reduction_depinfo"      },
+            { _env.dep_weakreduction, "nanos_register_region_weak_reduction_depinfo" },
         };
 
         for (DependencesSet *dep_set = deps;
@@ -4927,7 +4929,8 @@ namespace TL { namespace Nanos6 {
             { _env.dep_commutative, "nanos_release_commutative_" },
             { _env.dep_concurrent,  "nanos_release_concurrent_"  },
 
-           // { dep_reduction, "nanos_release_reduction_" },
+           // { dep_reduction,     "nanos_release_reduction_" },
+           // { dep_weakreduction, "nanos_release_weak_reduction_" },
         };
 
         TL::Scope global_context = TL::Scope::get_global_scope();
