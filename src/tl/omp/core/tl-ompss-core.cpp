@@ -264,45 +264,20 @@ namespace TL { namespace OpenMP {
         return updated_clauses;
     }
 
-    struct FunctionTaskDependencyGenerator
+
+    //! This functor builds, for a certain expression, a new object of type T using that
+    //! expression and the directionality specified in the constructor.
+    template < typename T>
+    struct ItemGenerator
     {
         private:
-            TL::OpenMP::DependencyDirection _direction;
+            typename T::ItemDirection _direction;
         public:
-            FunctionTaskDependencyGenerator(TL::OpenMP::DependencyDirection direction)
+            ItemGenerator(typename T::ItemDirection direction)
                 : _direction(direction)
-            {
-            }
+            { }
 
-            TL::OpenMP::DependencyItem operator()(Nodecl::NodeclBase nodecl) const
-            {
-                DataReference expr(nodecl);
-
-                if (!expr.is_valid())
-                {
-                    warn_printf_at(
-                            nodecl.get_locus(),
-                            "invalid dependency expression '%s(%s)', skipping\n",
-                            directionality_to_str(_direction).c_str(),
-                            expr.prettyprint().c_str());
-                }
-
-                return TL::OpenMP::DependencyItem(expr, _direction);
-            }
-    };
-
-    struct FunctionCopyItemGenerator
-    {
-        private:
-            TL::OmpSs::CopyDirection _direction;
-
-        public:
-            FunctionCopyItemGenerator(TL::OmpSs::CopyDirection direction)
-                : _direction(direction)
-            {
-            }
-
-            TL::OmpSs::CopyItem operator()(Nodecl::NodeclBase node) const
+            T operator()(Nodecl::NodeclBase node) const
             {
                 DataReference data_ref(node);
 
@@ -310,14 +285,14 @@ namespace TL { namespace OpenMP {
                 {
                     warn_printf_at(
                             node.get_locus(),
-                            "invalid copy expression '%s(%s)', skipping\n",
+                            "invalid expression '%s(%s)', skipping\n",
                             directionality_to_str(_direction).c_str(),
                             data_ref.prettyprint().c_str());
                 }
-                return TL::OmpSs::CopyItem(data_ref, _direction);
+
+                return T(data_ref, _direction);
             }
     };
-
 
     void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
     {
@@ -495,47 +470,47 @@ namespace TL { namespace OpenMP {
 
         dependence_list_check(input_arguments, DEP_DIR_IN, function_sym);
         dependence_list.append(input_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_DIR_IN))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_DIR_IN))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(weakinput_arguments, DEP_OMPSS_WEAK_IN, function_sym);
         dependence_list.append(weakinput_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_IN))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_WEAK_IN))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(input_private_arguments, DEP_OMPSS_DIR_IN_PRIVATE, function_sym);
         dependence_list.append(input_private_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_DIR_IN_PRIVATE))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_DIR_IN_PRIVATE))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(output_arguments, DEP_DIR_OUT, function_sym);
         dependence_list.append(output_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_DIR_OUT))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(weakoutput_arguments, DEP_OMPSS_WEAK_OUT, function_sym);
         dependence_list.append(weakoutput_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_OUT))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_WEAK_OUT))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(inout_arguments, DEP_DIR_INOUT, function_sym);
         dependence_list.append(inout_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_DIR_INOUT))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(weakinout_arguments, DEP_OMPSS_WEAK_INOUT, function_sym);
         dependence_list.append(weakinout_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_WEAK_INOUT))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_WEAK_INOUT))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(concurrent_arguments, DEP_OMPSS_CONCURRENT, function_sym);
         dependence_list.append(concurrent_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_CONCURRENT))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_CONCURRENT))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         dependence_list_check(commutative_arguments, DEP_OMPSS_COMMUTATIVE, function_sym);
         dependence_list.append(commutative_arguments
-                .map<TL::OpenMP::DependencyItem>(FunctionTaskDependencyGenerator(DEP_OMPSS_COMMUTATIVE))
+                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_COMMUTATIVE))
                 .filter(&TL::OpenMP::DependencyItem::is_valid));
 
         // Target-style clauses
@@ -586,17 +561,17 @@ namespace TL { namespace OpenMP {
 
             ObjectList<TL::OmpSs::CopyItem> copy_in =
                 target_ctx_copy_in.map<TL::OmpSs::CopyItem>(
-                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_IN)).filter(&TL::OmpSs::CopyItem::is_valid);
+                    ItemGenerator<TL::OmpSs::CopyItem>(TL::OmpSs::COPY_DIR_IN)).filter(&TL::OmpSs::CopyItem::is_valid);
             target_info.append_to_copy_in(copy_in);
 
             ObjectList<TL::OmpSs::CopyItem> copy_out =
                 target_ctx_copy_out.map<TL::OmpSs::CopyItem>(
-                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_OUT)).filter(&TL::OmpSs::CopyItem::is_valid);
+                    ItemGenerator<TL::OmpSs::CopyItem>(TL::OmpSs::COPY_DIR_OUT)).filter(&TL::OmpSs::CopyItem::is_valid);
             target_info.append_to_copy_out(copy_out);
 
             ObjectList<TL::OmpSs::CopyItem> copy_inout =
                 target_ctx_copy_inout.map<TL::OmpSs::CopyItem>(
-                    FunctionCopyItemGenerator(TL::OmpSs::COPY_DIR_INOUT)).filter(&TL::OmpSs::CopyItem::is_valid);
+                    ItemGenerator<TL::OmpSs::CopyItem>(TL::OmpSs::COPY_DIR_INOUT)).filter(&TL::OmpSs::CopyItem::is_valid);
             target_info.append_to_copy_inout(copy_inout);
 
             target_info.set_file(target_context.file);

@@ -51,17 +51,19 @@ namespace TL { namespace OmpSs {
 
     class LIBTL_CLASS CopyItem : public TL::DataReference
     {
-        private:
-            CopyDirection _kind;
         public:
+            typedef CopyDirection ItemDirection;
+
             CopyItem() { }
 
-            CopyItem(DataReference data_reference, CopyDirection direction);
+            CopyItem(DataReference data_reference, ItemDirection direction);
 
-            CopyDirection get_kind() const;
+            ItemDirection get_kind() const;
 
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mw);
+        private:
+            ItemDirection _kind;
     };
 
     class LIBTL_CLASS TargetInfo

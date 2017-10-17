@@ -43,20 +43,20 @@
 namespace TL {
 
     template <>
-    struct ModuleWriterTrait<OpenMP::DependencyDirection>
-        : EnumWriterTrait<OpenMP::DependencyDirection> { };
+    struct ModuleWriterTrait<OpenMP::DependencyItem::ItemDirection>
+        : EnumWriterTrait<OpenMP::DependencyItem::ItemDirection> { };
 
     template <>
-    struct ModuleReaderTrait<OpenMP::DependencyDirection>
-        : EnumReaderTrait<OpenMP::DependencyDirection> { };
+    struct ModuleReaderTrait<OpenMP::DependencyItem::ItemDirection>
+        : EnumReaderTrait<OpenMP::DependencyItem::ItemDirection> { };
 
     namespace OpenMP {
 
-    DependencyItem::DependencyItem(DataReference dep_expr, DependencyDirection kind)
+    DependencyItem::DependencyItem(DataReference dep_expr, ItemDirection kind)
         : DataReference(dep_expr), _kind(kind)
     { }
 
-    DependencyDirection DependencyItem::get_kind() const
+    DependencyItem::ItemDirection DependencyItem::get_kind() const
     {
         return _kind;
     }

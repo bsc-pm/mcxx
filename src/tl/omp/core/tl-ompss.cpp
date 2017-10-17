@@ -38,11 +38,11 @@
 
 namespace TL {
     template <>
-        struct ModuleWriterTrait<OmpSs::CopyDirection>
-        : EnumWriterTrait<OmpSs::CopyDirection> { };
+        struct ModuleWriterTrait<OmpSs::CopyItem::ItemDirection>
+        : EnumWriterTrait<OmpSs::CopyItem::ItemDirection> { };
     template <>
-        struct ModuleReaderTrait<OmpSs::CopyDirection>
-        : EnumReaderTrait<OmpSs::CopyDirection> { };
+        struct ModuleReaderTrait<OmpSs::CopyItem::ItemDirection>
+        : EnumReaderTrait<OmpSs::CopyItem::ItemDirection> { };
 }
 
 namespace TL { namespace OmpSs {
@@ -829,12 +829,12 @@ namespace TL { namespace OmpSs {
         }
     }
 
-    CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)
+    CopyItem::CopyItem(DataReference copy_expr, ItemDirection direction)
         : DataReference(copy_expr), _kind(direction)
     {
     }
 
-    CopyDirection CopyItem::get_kind() const
+    CopyItem::ItemDirection CopyItem::get_kind() const
     {
         return _kind;
     }

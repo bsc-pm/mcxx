@@ -72,16 +72,19 @@ namespace TL { namespace OpenMP {
 
     class LIBTL_CLASS DependencyItem : public TL::DataReference
     {
-        private:
-            DependencyDirection _kind;
         public:
+            typedef DependencyDirection ItemDirection;
+
             DependencyItem() { }
-            DependencyItem(DataReference dep_expr, DependencyDirection kind);
+            DependencyItem(DataReference dep_expr, ItemDirection kind);
 
             DependencyDirection get_kind() const;
 
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mw);
+
+        private:
+            ItemDirection _kind;
     };
 
 } }
