@@ -141,7 +141,7 @@ namespace TL { namespace OpenMP {
             }
     };
 
-    static void dependence_list_check(
+    static void remove_wrong_or_useless_dependences(
             ObjectList<Nodecl::NodeclBase>& expression_list,
             TL::OpenMP::DependencyDirection direction,
             TL::Symbol function)
@@ -467,51 +467,33 @@ namespace TL { namespace OpenMP {
         }
 
         ObjectList<TL::OpenMP::DependencyItem> dependence_list;
+        {
+            struct DependencesInformation {
+                TL::ObjectList<Nodecl::NodeclBase>& deps_nodes;
+                DependencyItem::ItemDirection direction;
+            } deps_info[] = {
+                { input_arguments,         DEP_DIR_IN               },
+                { weakinput_arguments,     DEP_OMPSS_WEAK_IN        },
+                { input_private_arguments, DEP_OMPSS_DIR_IN_PRIVATE },
+                { output_arguments,        DEP_DIR_OUT              },
+                { weakoutput_arguments,    DEP_OMPSS_WEAK_OUT       },
+                { inout_arguments,         DEP_DIR_INOUT            },
+                { weakinout_arguments,     DEP_OMPSS_WEAK_INOUT     },
+                { concurrent_arguments,    DEP_OMPSS_CONCURRENT     },
+                { commutative_arguments,   DEP_OMPSS_COMMUTATIVE    },
+            };
 
-        dependence_list_check(input_arguments, DEP_DIR_IN, function_sym);
-        dependence_list.append(input_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_DIR_IN))
-                .filter(&TL::DataReference::is_valid));
-
-        dependence_list_check(weakinput_arguments, DEP_OMPSS_WEAK_IN, function_sym);
-        dependence_list.append(weakinput_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_WEAK_IN))
-                .filter(&TL::DataReference::is_valid));
-
-        dependence_list_check(input_private_arguments, DEP_OMPSS_DIR_IN_PRIVATE, function_sym);
-        dependence_list.append(input_private_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_DIR_IN_PRIVATE))
-                .filter(&TL::DataReference::is_valid));
-
-        dependence_list_check(output_arguments, DEP_DIR_OUT, function_sym);
-        dependence_list.append(output_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_DIR_OUT))
-                .filter(&TL::DataReference::is_valid));
-
-        dependence_list_check(weakoutput_arguments, DEP_OMPSS_WEAK_OUT, function_sym);
-        dependence_list.append(weakoutput_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_WEAK_OUT))
-                .filter(&TL::DataReference::is_valid));
-
-        dependence_list_check(inout_arguments, DEP_DIR_INOUT, function_sym);
-        dependence_list.append(inout_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_DIR_INOUT))
-                .filter(&TL::DataReference::is_valid));
-
-        dependence_list_check(weakinout_arguments, DEP_OMPSS_WEAK_INOUT, function_sym);
-        dependence_list.append(weakinout_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_WEAK_INOUT))
-                .filter(&TL::DataReference::is_valid));
-
-        dependence_list_check(concurrent_arguments, DEP_OMPSS_CONCURRENT, function_sym);
-        dependence_list.append(concurrent_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_CONCURRENT))
-                .filter(&TL::DataReference::is_valid));
-
-        dependence_list_check(commutative_arguments, DEP_OMPSS_COMMUTATIVE, function_sym);
-        dependence_list.append(commutative_arguments
-                .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(DEP_OMPSS_COMMUTATIVE))
-                .filter(&TL::DataReference::is_valid));
+            for (DependencesInformation* it = deps_info;
+                    it != (DependencesInformation*) (&deps_info + 1);
+                    it++)
+            {
+                remove_wrong_or_useless_dependences(it->deps_nodes, it->direction, function_sym);
+                dependence_list.append(
+                        it->deps_nodes
+                        .map<TL::OpenMP::DependencyItem>(ItemGenerator<DependencyItem>(it->direction))
+                        .filter(&TL::DataReference::is_valid));
+            }
+        }
 
         // Target-style clauses
         if (_target_context.empty())
@@ -559,20 +541,30 @@ namespace TL { namespace OpenMP {
                 target_ctx_copy_inout.append(commutative_arguments);
             }
 
-            ObjectList<TL::OmpSs::CopyItem> copy_in =
-                target_ctx_copy_in.map<TL::OmpSs::CopyItem>(
-                    ItemGenerator<TL::OmpSs::CopyItem>(TL::OmpSs::COPY_DIR_IN)).filter(&TL::DataReference::is_valid);
-            target_info.append_to_copy_in(copy_in);
 
-            ObjectList<TL::OmpSs::CopyItem> copy_out =
-                target_ctx_copy_out.map<TL::OmpSs::CopyItem>(
-                    ItemGenerator<TL::OmpSs::CopyItem>(TL::OmpSs::COPY_DIR_OUT)).filter(&TL::DataReference::is_valid);
-            target_info.append_to_copy_out(copy_out);
+            struct CopiesInformation
+            {
+                const TL::ObjectList<Nodecl::NodeclBase>& copies_nodes;
+                TL::OmpSs::CopyItem::ItemDirection direction;
+                void (TL::OmpSs::TargetInfo::*pfunc)(const TL::ObjectList<TL::OmpSs::CopyItem>&);
 
-            ObjectList<TL::OmpSs::CopyItem> copy_inout =
-                target_ctx_copy_inout.map<TL::OmpSs::CopyItem>(
-                    ItemGenerator<TL::OmpSs::CopyItem>(TL::OmpSs::COPY_DIR_INOUT)).filter(&TL::DataReference::is_valid);
-            target_info.append_to_copy_inout(copy_inout);
+            } copies_data[] = {
+                { target_ctx_copy_in,    TL::OmpSs::COPY_DIR_IN,    &TL::OmpSs::TargetInfo::append_to_copy_in    },
+                { target_ctx_copy_out,   TL::OmpSs::COPY_DIR_OUT,    &TL::OmpSs::TargetInfo::append_to_copy_out  },
+                { target_ctx_copy_inout, TL::OmpSs::COPY_DIR_INOUT, &TL::OmpSs::TargetInfo::append_to_copy_inout },
+            };
+
+            for (CopiesInformation* it = copies_data;
+                    it != (CopiesInformation*)(&copies_data + 1);
+                    it++)
+            {
+                ObjectList<TL::OmpSs::CopyItem> copy_items =
+                    it->copies_nodes
+                    .map<TL::OmpSs::CopyItem>(ItemGenerator<TL::OmpSs::CopyItem>(it->direction))
+                    .filter(&TL::DataReference::is_valid);
+
+                (target_info.*(it->pfunc))(copy_items);
+            }
 
             target_info.set_file(target_context.file);
             target_info.set_name(target_context.name);
