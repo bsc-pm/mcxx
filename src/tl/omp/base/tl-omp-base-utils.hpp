@@ -31,57 +31,10 @@
 
 namespace TL { namespace OpenMP {
 
-    template <typename T, typename List>
-        void Base::make_dependency_list(
+    template <typename T, typename ItemDirection, typename List>
+        void Base::make_item_list(
                 List& dependences,
-                DependencyDirection kind,
-                const locus_t* locus,
-                ObjectList<Nodecl::NodeclBase>& result_list)
-        {
-            TL::ObjectList<Nodecl::NodeclBase> data_ref_list;
-            for (typename List::iterator it = dependences.begin();
-                    it != dependences.end();
-                    it++)
-            {
-                if (it->get_kind() != kind)
-                    continue;
-
-                data_ref_list.append(it->shallow_copy());
-
-                if (emit_omp_report())
-                {
-                    // Let's make sure this is properly aligned
-                    std::stringstream ss;
-                    ss
-                        << OpenMP::Report::indent
-                        << OpenMP::Report::indent
-                        << it->prettyprint()
-                        ;
-
-                    int length = ss.str().size();
-                    int diff = 20 - length;
-                    if (diff > 0)
-                        std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
-
-                    ss
-                        << " " << directionality_to_str(kind) << "\n"
-                        ;
-
-                    *_omp_report_file
-                        << ss.str();
-                }
-            }
-
-            if (!data_ref_list.empty())
-            {
-                result_list.append(T::make(Nodecl::List::make(data_ref_list), locus));
-            }
-        }
-
-    template <typename T, typename List>
-        void Base::make_copy_list(
-                List& dependences,
-                TL::OmpSs::CopyDirection kind,
+                ItemDirection kind,
                 const locus_t* locus,
                 ObjectList<Nodecl::NodeclBase>& result_list)
         {

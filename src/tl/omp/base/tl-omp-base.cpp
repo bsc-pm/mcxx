@@ -3236,19 +3236,19 @@ namespace TL { namespace OpenMP {
                     ;
             }
         }
-        make_copy_list<Nodecl::OmpSs::CopyIn>(
+        make_item_list<Nodecl::OmpSs::CopyIn>(
                 copy_in,
                 TL::OmpSs::COPY_DIR_IN,
                 locus,
                 target_items);
 
-        make_copy_list<Nodecl::OmpSs::CopyOut>(
+        make_item_list<Nodecl::OmpSs::CopyOut>(
                 copy_out,
                 TL::OmpSs::COPY_DIR_OUT,
                 locus,
                 target_items);
 
-        make_copy_list<Nodecl::OmpSs::CopyInout>(
+        make_item_list<Nodecl::OmpSs::CopyInout>(
                 copy_inout,
                 TL::OmpSs::COPY_DIR_INOUT,
                 locus,
@@ -3541,58 +3541,58 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        make_dependency_list<Nodecl::OpenMP::DepIn>(
+        make_item_list<Nodecl::OpenMP::DepIn>(
                 dependences,
                 OpenMP::DEP_DIR_IN,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OmpSs::DepWeakIn>(
+        make_item_list<Nodecl::OmpSs::DepWeakIn>(
                 dependences,
                 OpenMP::DEP_OMPSS_WEAK_IN,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OmpSs::DepInPrivate>(
+        make_item_list<Nodecl::OmpSs::DepInPrivate>(
                 dependences,
                 OpenMP::DEP_OMPSS_DIR_IN_PRIVATE,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::DepOut>(
+        make_item_list<Nodecl::OpenMP::DepOut>(
                 dependences,
                 OpenMP::DEP_DIR_OUT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OmpSs::DepWeakOut>(
+        make_item_list<Nodecl::OmpSs::DepWeakOut>(
                 dependences,
                 OpenMP::DEP_OMPSS_WEAK_OUT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::DepInout>(
+        make_item_list<Nodecl::OpenMP::DepInout>(
                 dependences, OpenMP::DEP_DIR_INOUT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OmpSs::DepWeakInout>(
+        make_item_list<Nodecl::OmpSs::DepWeakInout>(
                 dependences,
                 OpenMP::DEP_OMPSS_WEAK_INOUT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OmpSs::Concurrent>(
+        make_item_list<Nodecl::OmpSs::Concurrent>(
                 dependences, OpenMP::DEP_OMPSS_CONCURRENT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OmpSs::Commutative>(
+        make_item_list<Nodecl::OmpSs::Commutative>(
                 dependences, OpenMP::DEP_OMPSS_COMMUTATIVE,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OmpSs::DepReduction>(
+        make_item_list<Nodecl::OmpSs::DepReduction>(
                 dependences, OpenMP::DEP_OMPSS_REDUCTION,
                 locus,
                 result_list);

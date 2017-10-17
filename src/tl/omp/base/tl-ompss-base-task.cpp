@@ -415,55 +415,55 @@ namespace TL { namespace OmpSs {
         bool old_omp_report = _base->emit_omp_report();
 
         _base->set_omp_report(false);
-        _base->make_dependency_list<Nodecl::OpenMP::DepIn>(
+        _base->make_item_list<Nodecl::OpenMP::DepIn>(
                 task_dependences,
                 OpenMP::DEP_DIR_IN,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OmpSs::DepWeakIn>(
+        _base->make_item_list<Nodecl::OmpSs::DepWeakIn>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_WEAK_IN,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OmpSs::DepInPrivate>(
+        _base->make_item_list<Nodecl::OmpSs::DepInPrivate>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_DIR_IN_PRIVATE,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OpenMP::DepOut>(
+        _base->make_item_list<Nodecl::OpenMP::DepOut>(
                 task_dependences,
                 OpenMP::DEP_DIR_OUT,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OmpSs::DepWeakOut>(
+        _base->make_item_list<Nodecl::OmpSs::DepWeakOut>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_WEAK_OUT,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OpenMP::DepInout>(
+        _base->make_item_list<Nodecl::OpenMP::DepInout>(
                 task_dependences,
                 OpenMP::DEP_DIR_INOUT,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OmpSs::DepWeakInout>(
+        _base->make_item_list<Nodecl::OmpSs::DepWeakInout>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_WEAK_INOUT,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OmpSs::Concurrent>(
+        _base->make_item_list<Nodecl::OmpSs::Concurrent>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_CONCURRENT,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OmpSs::Commutative>(
+        _base->make_item_list<Nodecl::OmpSs::Commutative>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_COMMUTATIVE,
                 locus,

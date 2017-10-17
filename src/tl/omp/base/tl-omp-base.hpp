@@ -235,17 +235,10 @@ namespace TL
                         const locus_t* locus,
                         ObjectList<Nodecl::NodeclBase>& result_list);
 
-                template <typename T, typename List>
-                    void make_dependency_list(
+                template <typename T, typename ItemDirection, typename List>
+                    void make_item_list(
                             List& dependences,
-                            DependencyDirection kind,
-                            const locus_t* locus,
-                            ObjectList<Nodecl::NodeclBase>& result_list);
-
-                template <typename T, typename List>
-                    void make_copy_list(
-                            List& dependences,
-                            TL::OmpSs::CopyDirection kind,
+                            ItemDirection kind,
                             const locus_t* locus,
                             ObjectList<Nodecl::NodeclBase>& result_list);
 
