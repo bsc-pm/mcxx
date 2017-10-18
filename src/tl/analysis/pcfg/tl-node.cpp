@@ -1128,14 +1128,14 @@ namespace Analysis {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_exprs().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
-        if (task_pragma_info.has_clause(NODECL_OMP_SS_CONCURRENT))
+        if (task_pragma_info.has_clause(NODECL_OMP_SS_DEP_CONCURRENT))
         {
-            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OMP_SS_CONCURRENT).as<Nodecl::OmpSs::Concurrent>().get_exprs().shallow_copy().as<Nodecl::List>();
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OMP_SS_DEP_CONCURRENT).as<Nodecl::OmpSs::DepConcurrent>().get_exprs().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
-        if (task_pragma_info.has_clause(NODECL_OMP_SS_COMMUTATIVE))
+        if (task_pragma_info.has_clause(NODECL_OMP_SS_DEP_COMMUTATIVE))
         {
-            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OMP_SS_COMMUTATIVE).as<Nodecl::OmpSs::Commutative>().get_exprs().shallow_copy().as<Nodecl::List>();
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OMP_SS_DEP_COMMUTATIVE).as<Nodecl::OmpSs::DepCommutative>().get_exprs().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
 

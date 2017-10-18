@@ -416,7 +416,7 @@ namespace {
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 source_dep_inout = *it;
-            else if (it->is<Nodecl::OmpSs::Commutative>())
+            else if (it->is<Nodecl::OmpSs::DepCommutative>())
                 source_dep_commutative = *it;
         }
 
@@ -529,7 +529,7 @@ namespace {
                 in_sources.append(it->as<Nodecl::OpenMP::DepIn>().get_exprs().shallow_copy());
             else if (it->is<Nodecl::OpenMP::DepOut>())
                 out_sources.append(it->as<Nodecl::OpenMP::DepOut>().get_exprs().shallow_copy());
-            else if (it->is<Nodecl::OpenMP::DepInout>() || it->is<Nodecl::OmpSs::Commutative>()) {
+            else if (it->is<Nodecl::OpenMP::DepInout>() || it->is<Nodecl::OmpSs::DepCommutative>()) {
                 in_sources.append(it->as<Nodecl::OpenMP::DepInout>().get_exprs().shallow_copy());
                 out_sources.append(it->as<Nodecl::OpenMP::DepInout>().get_exprs().shallow_copy());
             }
@@ -577,7 +577,7 @@ namespace {
                 all_targets.append(it->as<Nodecl::OpenMP::DepIn>().get_exprs().shallow_copy());
             else if (it->is<Nodecl::OpenMP::DepOut>()
                     || it->is<Nodecl::OpenMP::DepInout>()
-                    || it->is<Nodecl::OmpSs::Commutative>()) {
+                    || it->is<Nodecl::OmpSs::DepCommutative>()) {
                 all_targets.append(it->as<Nodecl::OpenMP::DepOut>().get_exprs().shallow_copy());
                 out_targets.append(it->as<Nodecl::OpenMP::DepOut>().get_exprs().shallow_copy());
             }

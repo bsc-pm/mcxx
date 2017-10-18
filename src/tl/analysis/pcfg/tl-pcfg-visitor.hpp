@@ -344,8 +344,8 @@ namespace Analysis {
         Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::Offset& n);
         Ret visit(const Nodecl::Offsetof& n);
-        Ret visit(const Nodecl::OmpSs::Commutative& n);
-        Ret visit(const Nodecl::OmpSs::Concurrent& n);
+        Ret visit(const Nodecl::OmpSs::DepCommutative& n);
+        Ret visit(const Nodecl::OmpSs::DepConcurrent& n);
         Ret visit(const Nodecl::OmpSs::CopyIn& n);
         Ret visit(const Nodecl::OmpSs::CopyInout& n);
         Ret visit(const Nodecl::OmpSs::CopyOut& n);

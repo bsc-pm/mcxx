@@ -1232,12 +1232,12 @@ namespace TL { namespace Nanox {
                 add_dependences(dep_inout.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_INOUT);
             }
 
-            void visit(const Nodecl::OmpSs::Concurrent& concurrent)
+            void visit(const Nodecl::OmpSs::DepConcurrent& concurrent)
             {
                 add_dependences(concurrent.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_CONCURRENT);
             }
 
-            void visit(const Nodecl::OmpSs::Commutative& commutative)
+            void visit(const Nodecl::OmpSs::DepCommutative& commutative)
             {
                 add_dependences(commutative.get_exprs().as<Nodecl::List>(), OutlineDataItem::DEP_COMMUTATIVE);
             }

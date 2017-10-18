@@ -3582,12 +3582,12 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-        make_item_list<Nodecl::OmpSs::Concurrent>(
+        make_item_list<Nodecl::OmpSs::DepConcurrent>(
                 dependences, OpenMP::DEP_OMPSS_CONCURRENT,
                 locus,
                 result_list);
 
-        make_item_list<Nodecl::OmpSs::Commutative>(
+        make_item_list<Nodecl::OmpSs::DepCommutative>(
                 dependences, OpenMP::DEP_OMPSS_COMMUTATIVE,
                 locus,
                 result_list);
@@ -4351,12 +4351,12 @@ namespace TL { namespace OpenMP {
     //           common_dependency_handler(n);
     //       }
 
-    //       virtual void visit(const Nodecl::OmpSs::Concurrent& n)
+    //       virtual void visit(const Nodecl::OmpSs::DepConcurrent& n)
     //       {
     //           common_dependency_handler(n);
     //       }
 
-    //       virtual void visit(const Nodecl::OmpSs::Commutative& n)
+    //       virtual void visit(const Nodecl::OmpSs::DepCommutative& n)
     //       {
     //           common_dependency_handler(n);
     //       }
@@ -4420,14 +4420,14 @@ namespace TL { namespace OpenMP {
                 _replacing_mode = false;
             }
 
-            virtual void visit(const Nodecl::OmpSs::Concurrent& n)
+            virtual void visit(const Nodecl::OmpSs::DepConcurrent& n)
             {
                 _replacing_mode = true;
                 Nodecl::ExhaustiveVisitor<void>::visit(n);
                 _replacing_mode = false;
             }
 
-            virtual void visit(const Nodecl::OmpSs::Commutative& n)
+            virtual void visit(const Nodecl::OmpSs::DepCommutative& n)
             {
                 _replacing_mode = true;
                 Nodecl::ExhaustiveVisitor<void>::visit(n);

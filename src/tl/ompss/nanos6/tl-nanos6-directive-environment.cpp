@@ -171,12 +171,12 @@ namespace TL { namespace Nanos6 {
                 handle_dependences(n, _env.dep_weakinout);
             }
 
-            virtual void visit(const Nodecl::OmpSs::Commutative &n)
+            virtual void visit(const Nodecl::OmpSs::DepCommutative &n)
             {
                 handle_dependences(n, _env.dep_commutative);
             }
 
-            virtual void visit(const Nodecl::OmpSs::Concurrent &n)
+            virtual void visit(const Nodecl::OmpSs::DepConcurrent &n)
             {
                 handle_dependences(n, _env.dep_concurrent);
             }

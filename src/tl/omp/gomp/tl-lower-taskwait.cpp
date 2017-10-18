@@ -54,12 +54,12 @@ namespace TL { namespace GOMP {
         {
             has_dependences = true;
         }
-        void visit(const Nodecl::OmpSs::Commutative& n)
+        void visit(const Nodecl::OmpSs::DepCommutative& n)
         {
             error_printf_at(n.get_locus(),
                     "commutative dependences are not supported on the taskwait construct\n");
         }
-        void visit(const Nodecl::OmpSs::Concurrent& n)
+        void visit(const Nodecl::OmpSs::DepConcurrent& n)
         {
             error_printf_at(n.get_locus(),
                     "concurrent dependences are not supported on the taskwait construct\n");

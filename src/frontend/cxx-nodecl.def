@@ -724,8 +724,8 @@ omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
 
 omp-exec-environment : ompss-device-info
 
-omp-deps-info: NODECL_OMP_SS*CONCURRENT([exprs]expression-seq)
-                | NODECL_OMP_SS*COMMUTATIVE([exprs]expression-seq)
+omp-deps-info: NODECL_OMP_SS*DEP_CONCURRENT([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_COMMUTATIVE([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_REDUCTION([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_IN_PRIVATE([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_IN([exprs]expression-seq)

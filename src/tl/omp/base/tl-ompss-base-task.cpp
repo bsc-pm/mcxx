@@ -457,13 +457,13 @@ namespace TL { namespace OmpSs {
                 locus,
                 result_list);
 
-        _base->make_item_list<Nodecl::OmpSs::Concurrent>(
+        _base->make_item_list<Nodecl::OmpSs::DepConcurrent>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_CONCURRENT,
                 locus,
                 result_list);
 
-        _base->make_item_list<Nodecl::OmpSs::Commutative>(
+        _base->make_item_list<Nodecl::OmpSs::DepCommutative>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_COMMUTATIVE,
                 locus,
@@ -763,12 +763,12 @@ namespace TL { namespace OmpSs {
             there_are_dependences = true;
         }
 
-        void visit(const Nodecl::OmpSs::Concurrent& dep_inout)
+        void visit(const Nodecl::OmpSs::DepConcurrent& dep_inout)
         {
             there_are_dependences = true;
         }
 
-        void visit(const Nodecl::OmpSs::Commutative& dep_inout)
+        void visit(const Nodecl::OmpSs::DepCommutative& dep_inout)
         {
             there_are_dependences = true;
         }
@@ -864,12 +864,12 @@ namespace TL { namespace OmpSs {
             report_dep(dep_in.get_exprs(), OpenMP::DEP_OMPSS_DIR_IN_PRIVATE);
         }
 
-        void visit(const Nodecl::OmpSs::Concurrent& dep_inout)
+        void visit(const Nodecl::OmpSs::DepConcurrent& dep_inout)
         {
             report_dep(dep_inout.get_exprs(), OpenMP::DEP_OMPSS_CONCURRENT);
         }
 
-        void visit(const Nodecl::OmpSs::Commutative& dep_inout)
+        void visit(const Nodecl::OmpSs::DepCommutative& dep_inout)
         {
             report_dep(dep_inout.get_exprs(), OpenMP::DEP_OMPSS_COMMUTATIVE);
         }
@@ -1237,7 +1237,7 @@ namespace TL { namespace OmpSs {
         if (!concurrent_deps.empty())
         {
             exec_environment.append(
-                    Nodecl::OmpSs::Concurrent::make(
+                    Nodecl::OmpSs::DepConcurrent::make(
                         Nodecl::List::make(concurrent_deps),
                         locus));
         }

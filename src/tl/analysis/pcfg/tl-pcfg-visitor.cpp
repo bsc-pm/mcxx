@@ -1935,13 +1935,13 @@ next_it:    ;
         return visit_binary_node(n, n.get_offset_type(), n.get_designator());
     }
 
-    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::Commutative& n)
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepCommutative& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);
         return ObjectList<Node*>();
     }
 
-    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::Concurrent& n)
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepConcurrent& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);
         return ObjectList<Node*>();
@@ -2821,12 +2821,12 @@ next_it:    ;
             {
                 has_dependences = true;
             }
-            void visit(const Nodecl::OmpSs::Commutative& n)
+            void visit(const Nodecl::OmpSs::DepCommutative& n)
             {
                 error_printf_at(n.get_locus(),
                         "commutative dependences are not supported on the taskwait construct\n");
             }
-            void visit(const Nodecl::OmpSs::Concurrent& n)
+            void visit(const Nodecl::OmpSs::DepConcurrent& n)
             {
                 error_printf_at(n.get_locus(),
                         "concurrent dependences are not supported on the taskwait construct\n");
