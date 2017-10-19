@@ -767,6 +767,7 @@ namespace TL {
             case DEP_DIR_OUT:
             case DEP_DIR_INOUT:
             case DEP_OMPSS_DIR_IN_PRIVATE:
+            case DEP_OMPSS_REDUCTION:
                 return true;
             default:
                 return false;
@@ -780,6 +781,7 @@ namespace TL {
             case DEP_OMPSS_WEAK_IN:
             case DEP_OMPSS_WEAK_OUT:
             case DEP_OMPSS_WEAK_INOUT:
+            case DEP_OMPSS_WEAK_REDUCTION:
                 return true;
             default:
                 return false;
