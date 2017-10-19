@@ -28,12 +28,12 @@ linker_name = @GCC@
 
 
 # OmpSsv2 (runtime independent)
-{ompss-v2} compiler_phase = libtlomp-base.so
-{ompss-v2} pragma_prefix = oss
-{ompss-v2,openmp-compatibility} pragma_prefix = omp
-{ompss-v2} preprocessor_options = -D_OMPSS_V2=1
-{ompss-v2} fortran_preprocessor_options = -D_OMPSS_V2=1
-{ompss-v2} options = --variable=ompss_mode:1 --variable=copy_deps_by_default:0 --variable=untied_tasks_by_default:1
+{ompss-2} compiler_phase = libtlomp-base.so
+{ompss-2} pragma_prefix = oss
+{ompss-2,openmp-compatibility} pragma_prefix = omp
+{ompss-2} preprocessor_options = -D_OMPSS_V2=1
+{ompss-2} fortran_preprocessor_options = -D_OMPSS_V2=1
+{ompss-2} options = --variable=ompss_mode:1 --variable=copy_deps_by_default:0 --variable=untied_tasks_by_default:1
 
 
 #Analysis
@@ -116,7 +116,7 @@ linker_name = @GCC@
 
 
 # Force ompss for Nanos 6 (unless explicitly disabled)
-{@NANOS6_GATE@,ompss-v2,!do-not-lower-omp} compiler_phase = libtlnanos6-lowering.so
+{@NANOS6_GATE@,ompss-2,!do-not-lower-omp} compiler_phase = libtlnanos6-lowering.so
 
 
 
@@ -162,10 +162,10 @@ linker_options = -Xlinker --enable-new-dtags
 
 
 #Nanos 6
-{@NANOS6_GATE@,ompss-v2,!?default-nanos6-inc|default-nanos6-inc} preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
-{@NANOS6_GATE@,ompss-v2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -L@NANOS6_LIB@
-{@NANOS6_GATE@,ompss-v2,!?default-nanos6-lib|default-nanos6-lib} linker_options = @NANOS6_LIB@/libnanos6-main-wrapper.a -lnanos6 -ldl
-{@NANOS6_GATE@,ompss-v2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
+{@NANOS6_GATE@,ompss-2,!?default-nanos6-inc|default-nanos6-inc} preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
+{@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -L@NANOS6_LIB@
+{@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = @NANOS6_LIB@/libnanos6-main-wrapper.a -lnanos6 -ldl
+{@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
 
 # dlb

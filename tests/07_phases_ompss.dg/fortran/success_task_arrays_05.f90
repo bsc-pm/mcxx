@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator=(config/mercurium-ompss "config/mercurium-ompss-v2 openmp-compatibility")
+! test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
 ! </testinfo>
 SUBROUTINE S2(X)
     IMPLICIT NONE

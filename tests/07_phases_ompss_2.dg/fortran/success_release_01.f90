@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator=config/mercurium-ompss-v2
+! test_generator=config/mercurium-ompss-2
 ! </testinfo>
 PROGRAM P
 IMPLICIT NONE

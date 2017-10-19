@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator=(config/mercurium-ompss "config/mercurium-ompss-v2 openmp-compatibility")
+! test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
 ! # Without this flag it will not work
 ! # See ticket #1435
 ! test_FFLAGS="--variable=allow_shared_without_copies:1"

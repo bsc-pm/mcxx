@@ -679,7 +679,7 @@ namespace TL { namespace OpenMP {
     // Inline tasks
     void Base::task_handler_pre(TL::PragmaCustomStatement construct)
     {
-        // In OmpSs-v2 the taskloop construct is supported as '#pragma oss task loop'
+        // In OmpSs-2 the taskloop construct is supported as '#pragma oss task loop'
         if(PragmaUtils::is_pragma_construct("oss", construct)
                 && construct.get_pragma_line().get_clause("loop").is_defined())
         {
@@ -693,7 +693,7 @@ namespace TL { namespace OpenMP {
 
     void Base::task_handler_post(TL::PragmaCustomStatement directive)
     {
-        // In OmpSs-v2 the taskloop construct is supported as '#pragma oss task loop'
+        // In OmpSs-2 the taskloop construct is supported as '#pragma oss task loop'
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         if(PragmaUtils::is_pragma_construct("oss", directive)
                 && pragma_line.get_clause("loop").is_defined())

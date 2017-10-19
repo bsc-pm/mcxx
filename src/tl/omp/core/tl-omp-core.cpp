@@ -234,7 +234,7 @@ namespace TL { namespace OpenMP {
 
     void Core::register_oss_constructs()
     {
-        // OmpSs-v2 constructs
+        // OmpSs-2 constructs
 #define OSS_DIRECTIVE(_directive, _name, _pred) REG_DIRECTIVE("oss", _directive, _name, _pred)
 #define OSS_CONSTRUCT(_directive, _name, _pred) REG_CONSTRUCT("oss", _directive, _name, false, _pred)
 #define OSS_CONSTRUCT_NOEND(_directive, _name, _pred) REG_CONSTRUCT("oss", _directive, _name, true, _pred)
@@ -2162,7 +2162,7 @@ namespace TL { namespace OpenMP {
     // Inline tasks
     void Core::task_handler_pre(TL::PragmaCustomStatement construct)
     {
-        // In OmpSs-v2 the taskloop construct is supported as '#pragma oss task loop'
+        // In OmpSs-2 the taskloop construct is supported as '#pragma oss task loop'
         if (PragmaUtils::is_pragma_construct("oss", construct)
                 && construct.get_pragma_line().get_clause("loop").is_defined())
         {
@@ -2175,7 +2175,7 @@ namespace TL { namespace OpenMP {
     }
     void Core::task_handler_post(TL::PragmaCustomStatement construct)
     {
-        // In OmpSs-v2 the taskloop construct is supported as '#pragma oss task loop'
+        // In OmpSs-2 the taskloop construct is supported as '#pragma oss task loop'
         if (PragmaUtils::is_pragma_construct("oss", construct)
                 && construct.get_pragma_line().get_clause("loop").is_defined())
         {

@@ -28,7 +28,7 @@
 
 /*
 <testinfo>
-test_generator=(config/mercurium-ompss "config/mercurium-ompss-v2 openmp-compatibility")
+test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
 test_exec_faulty=config/mercurium-ompss
 </testinfo>
 */

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+@abs_builddir@/mercurium-nanos6 ompss-2 $@

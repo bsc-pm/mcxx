@@ -20,8 +20,8 @@ function parse_argument()
         ompss)
         TG_ARG_OMPSS="yes"
         ;;
-        ompss-v2)
-        TG_ARG_OMPSS_V2="yes"
+        ompss-2)
+        TG_ARG_OMPSS_2="yes"
         ;;
         openmp)
         TG_ARG_OPENMP="yes"

@@ -17,7 +17,7 @@ options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-built
 {avx2} linker_options = -march=core-avx2 -mtune=core-avx2
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
 
-{@NANOX_GATE@,openmp,!ompss-v2} options = --variable=weaks_as_statics:1
+{@NANOX_GATE@,openmp,!ompss-2} options = --variable=weaks_as_statics:1
 
 
 
@@ -39,7 +39,7 @@ options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-built
 {avx2} linker_options = -march=core-avx2 -mtune=core-avx2
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
 
-{@NANOX_GATE@,openmp,!ompss-v2} options = --variable=weaks_as_statics:1
+{@NANOX_GATE@,openmp,!ompss-2} options = --variable=weaks_as_statics:1
 
 
 

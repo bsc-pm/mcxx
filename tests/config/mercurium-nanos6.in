@@ -19,9 +19,9 @@ fi
 parse_arguments $@
 
 
-if [ "$TG_ARG_OMPSS_V2" = "yes" ];
+if [ "$TG_ARG_OMPSS_2" = "yes" ];
 then
-    PROGRAMMING_MODEL="--ompss-v2"
+    PROGRAMMING_MODEL="--ompss-2"
 fi
 
 if [ "$TG_ARG_OPENMP_COMPATIBILITY" = "yes" ];

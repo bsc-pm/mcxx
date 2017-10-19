@@ -1,4 +1,4 @@
-// These macros are used in several places to automatically generate all OmpSs-v2 support
+// These macros are used in several places to automatically generate all OmpSs-2 support
 //
 // OSS_CONSTRUCT(pragma_directive, id, predicate)
 //    * pragma_directive is a string | separated for compound directive names used when registering the construct
@@ -20,7 +20,7 @@
 //   [$!SENTINEL END X <clauses-opt>]         <-- optional
 //
 
-// OmpSs-v2 constructs
+// OmpSs-2 constructs
 OSS_CONSTRUCT("task", task, true)
 OSS_CONSTRUCT("critical", critical, true)
 

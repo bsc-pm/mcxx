@@ -80,7 +80,7 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<Nodecl::NodeclBase> dep_concurrent;
         TL::ObjectList<Nodecl::NodeclBase> dep_reduction;
 
-        /* --------  OmpSs-v2 scheduling & threshold information ------ */
+        /* --------  OmpSs-2 scheduling & threshold information ------ */
         Nodecl::NodeclBase final_clause;
         Nodecl::NodeclBase if_clause;
         Nodecl::NodeclBase cost_clause;

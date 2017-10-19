@@ -159,7 +159,7 @@
 "                           a specific compiler profile\n" \
 "  --openmp                 Enables OpenMP support\n" \
 "  --ompss                  Enables OmpSs support\n" \
-"  --ompss-v2               Enables OmpSs-v2 support\n" \
+"  --ompss-2                Enables OmpSs-2 support\n" \
 "  --config-dir=<dir>       Sets <dir> as the configuration directory\n" \
 "                           Use --print-config-dir to get the\n" \
 "                           default path\n" \

@@ -707,7 +707,7 @@ top-level: target-declaration
 
 target-declaration : NODECL_OMP_SS*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 
-# Some OmpSs/OmpSs-v2 additional constructs
+# Some OmpSs/OmpSs-2 additional constructs
 parallel-statements: data-coordination-constructs
                     | release-deps-construct
 
