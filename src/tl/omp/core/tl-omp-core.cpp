@@ -523,8 +523,10 @@ namespace TL { namespace OpenMP {
             void operator()(ReductionSymbol red_sym)
             {
                 if(_data_attrib == DS_SIMD_REDUCTION)
-                {
                     _data_environment.set_simd_reduction(red_sym);
+                else if (_data_attrib == DS_WEAKREDUCTION)
+                {
+                    _data_environment.set_weakreduction(red_sym, "mentioned in 'weakreduction' clause");
                 }
                 else
                 {
@@ -615,6 +617,12 @@ namespace TL { namespace OpenMP {
                 nonlocal_symbols, data_environment, simd_reduction_references, extra_symbols);
         std::for_each(simd_reduction_references.begin(), simd_reduction_references.end(),
                 DataEnvironmentSetterReduction(data_environment, DS_SIMD_REDUCTION));
+
+        ObjectList<OpenMP::ReductionSymbol> weakreduction_references;
+        get_reduction_symbols(construct, construct.get_clause("weakreduction"),
+                nonlocal_symbols, data_environment, weakreduction_references, extra_symbols);
+        std::for_each(weakreduction_references.begin(), weakreduction_references.end(),
+                DataEnvironmentSetterReduction(data_environment, DS_WEAKREDUCTION));
 
         // Do not confuse OpenMP copyin (related with threadprivate) with
         // OmpSs copy_in (related to copies between targets)

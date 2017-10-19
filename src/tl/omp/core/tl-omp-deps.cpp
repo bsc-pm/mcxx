@@ -511,16 +511,28 @@ namespace TL {
             DataEnvironment& data_sharing_environment,
             ObjectList<Symbol>& extra_symbols)
     {
-        Nodecl::NodeclBase parsing_context = pragma_line;
-        TL::ObjectList<ReductionSymbol> reductions;
-        data_sharing_environment.get_all_reduction_symbols(reductions);
+        {
+            TL::ObjectList<ReductionSymbol> reductions;
+            data_sharing_environment.get_all_reduction_symbols(reductions);
 
-        TL::ObjectList<Nodecl::NodeclBase> reduction_expressions =
-            reductions.map<Nodecl::NodeclBase>(&ReductionSymbol::get_reduction_expression);
+            TL::ObjectList<Nodecl::NodeclBase> reduction_expressions =
+                reductions.map<Nodecl::NodeclBase>(&ReductionSymbol::get_reduction_expression);
 
-        get_info_from_dependences<DEP_OMPSS_REDUCTION>(
-                reduction_expressions, default_data_attr, this->in_ompss_mode(),
-                "reduction", data_sharing_environment, extra_symbols);
+            get_info_from_dependences<DEP_OMPSS_REDUCTION>(
+                    reduction_expressions, default_data_attr, this->in_ompss_mode(),
+                    "reduction", data_sharing_environment, extra_symbols);
+        }
+        {
+            TL::ObjectList<ReductionSymbol> weakreductions;
+            data_sharing_environment.get_all_weakreduction_symbols(weakreductions);
+
+            TL::ObjectList<Nodecl::NodeclBase> weakreduction_expressions =
+                weakreductions.map<Nodecl::NodeclBase>(&ReductionSymbol::get_reduction_expression);
+
+            get_info_from_dependences<DEP_OMPSS_WEAK_REDUCTION>(
+                    weakreduction_expressions, default_data_attr, this->in_ompss_mode(),
+                    "weakreduction", data_sharing_environment, extra_symbols);
+        }
     }
 
     namespace {
@@ -798,6 +810,8 @@ namespace TL {
                 return "weakinout";
             case DEP_OMPSS_REDUCTION:
                 return "reduction";
+            case DEP_OMPSS_WEAK_REDUCTION:
+                return "weakreduction";
             default:
                 return "<<unknown-dependence-kind?>>";
         }

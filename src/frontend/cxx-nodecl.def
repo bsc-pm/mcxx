@@ -720,6 +720,7 @@ release-deps-construct: NODECL_OMP_SS*RELEASE([environment] omp-exec-environment
 
 omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
+                | NODECL_OMP_SS*TASK_WEAK_REDUCTION([reductions]omp-reduction-item-seq)
                 | NODECL_OMP_SS*COST([cost]expression)
 
 omp-exec-environment : ompss-device-info
@@ -727,6 +728,7 @@ omp-exec-environment : ompss-device-info
 omp-deps-info: NODECL_OMP_SS*DEP_CONCURRENT([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_COMMUTATIVE([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_REDUCTION([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_REDUCTION([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_IN_PRIVATE([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_IN([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_OUT([exprs]expression-seq)

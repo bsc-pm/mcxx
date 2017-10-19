@@ -61,7 +61,9 @@ namespace TL { namespace OpenMP {
         DEP_OMPSS_WEAK_OUT = BITMAP(7),
         DEP_OMPSS_WEAK_INOUT = DEP_OMPSS_WEAK_IN | DEP_OMPSS_WEAK_OUT,
         //   Reduction dependence type
-        DEP_OMPSS_REDUCTION = BITMAP(8)
+        DEP_OMPSS_REDUCTION = BITMAP(8),
+        //   Weakreduction dependence type
+        DEP_OMPSS_WEAK_REDUCTION = BITMAP(9)
     };
 
     bool is_strict_dependency(DependencyDirection dir);

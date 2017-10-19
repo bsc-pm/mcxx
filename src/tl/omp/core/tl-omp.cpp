@@ -74,6 +74,7 @@ namespace TL
             _device_mapping(ds._device_mapping),
             _enclosing(ds._enclosing),
             _reduction_symbols(ds._reduction_symbols),
+            _weakreduction_symbols(ds._weakreduction_symbols),
             _dependency_items(ds._dependency_items),
             _target_info(ds._target_info)
         {
@@ -214,6 +215,16 @@ namespace TL
             _simd_reduction_symbols.append(reduction_symbol);
         }
 
+        void DataEnvironment::set_weakreduction(const ReductionSymbol &reduction_symbol,
+                const std::string& reason)
+        {
+            TL::Symbol sym = reduction_symbol.get_symbol();
+            (*_data_sharing)[sym] = DataSharingAttributeInfo(
+                    DataSharingValue(DS_WEAKREDUCTION, DSK_EXPLICIT),
+                    reason);
+            _weakreduction_symbols.append(reduction_symbol);
+        }
+
         void DataEnvironment::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
         {
             symbols = _reduction_symbols;
@@ -222,6 +233,11 @@ namespace TL
         void DataEnvironment::get_all_simd_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
         {
             symbols = _simd_reduction_symbols;
+        }
+
+        void DataEnvironment::get_all_weakreduction_symbols(ObjectList<ReductionSymbol> &symbols)
+        {
+            symbols = _weakreduction_symbols;
         }
 
         TL::OmpSs::TargetInfo& DataEnvironment::get_target_info()

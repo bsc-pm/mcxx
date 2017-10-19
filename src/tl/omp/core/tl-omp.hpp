@@ -90,9 +90,11 @@ namespace OpenMP
         DS_AUTO = BITMAP(8),
         //! SIMD Reduction data-sharing
         DS_SIMD_REDUCTION = BITMAP(9),
+        //! OmpSs-2 weakreduction data-sharing
+        DS_WEAKREDUCTION = BITMAP(10),
 
         //! Special to state no data sharing
-        DS_NONE = BITMAP(10),
+        DS_NONE = BITMAP(11),
     };
 
     enum DataSharingKind
@@ -251,6 +253,7 @@ namespace OpenMP
 
             ObjectList<ReductionSymbol> _reduction_symbols;
             ObjectList<ReductionSymbol> _simd_reduction_symbols;
+            ObjectList<ReductionSymbol> _weakreduction_symbols;
             ObjectList<DependencyItem> _dependency_items;
 
             TL::OmpSs::TargetInfo _target_info;
@@ -314,6 +317,13 @@ namespace OpenMP
                 */
             void set_simd_reduction(const ReductionSymbol &reduction_symbol);
 
+            //! Adds a OmpSs-2 weakreduction symbol
+            /*!
+                * Reduction symbols are special, adding them sets their attribute
+                * also their attribute and keeps the extra information stored in the ReductionSymbol
+                */
+            void set_weakreduction(const ReductionSymbol &reduction_symbol, const std::string& reason);
+
             //! Gets the data sharing attribute of a symbol
             /*!
                 * \param sym The symbol requested its data sharing attribute
@@ -351,6 +361,9 @@ namespace OpenMP
 
             //! Returns all symbols that are set as SIMD reduction
             void get_all_simd_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
+
+            //! Returns all symbols that are set as SIMD reduction
+            void get_all_weakreduction_symbols(ObjectList<ReductionSymbol> &symbols);
 
             //! Returns the (OmpSs) target information of this data environment
             TL::OmpSs::TargetInfo& get_target_info();

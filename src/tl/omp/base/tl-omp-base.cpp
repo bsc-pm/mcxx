@@ -3128,13 +3128,12 @@ namespace TL { namespace OpenMP {
     {
         private:
             std::ofstream* _omp_report_file;
+            const char* _red_clause_name;
 
         public:
-            ReportReductions(const locus_t*,
-                    std::ofstream* omp_report_file)
-                : _omp_report_file(omp_report_file)
-            {
-            }
+            ReportReductions(const locus_t*, std::ofstream* omp_report_file, const char* red_clause_name)
+                : _omp_report_file(omp_report_file), _red_clause_name(red_clause_name)
+            {}
 
             void operator()(ReductionSymbol arg) const
             {
@@ -3150,7 +3149,7 @@ namespace TL { namespace OpenMP {
                 if (diff > 0)
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
-                ss << "reduction";
+                ss << _red_clause_name;
 
                 length = ss.str().size();
                 diff = 26 - length;
@@ -3158,7 +3157,7 @@ namespace TL { namespace OpenMP {
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
                 ss
-                    << " (explicitly declared as reduction in 'reduction' clause'."
+                    << " (explicitly declared as " << _red_clause_name << " in '" << _red_clause_name << "' clause."
                     " Using reduction declared in '"
                     << arg.get_reduction()->get_symbol().get_locus_str() << ")\n";
 
@@ -3482,7 +3481,7 @@ namespace TL { namespace OpenMP {
 
             if (emit_omp_report())
             {
-                reductions.map(ReportReductions(locus, this->_omp_report_file));
+                reductions.map(ReportReductions(locus, this->_omp_report_file, "reduction"));
             }
 
             if (is_inline_task)
@@ -3508,6 +3507,19 @@ namespace TL { namespace OpenMP {
                     Nodecl::OpenMP::SimdReduction::make(Nodecl::List::make(simd_reduction_nodes),
                         locus)
                     );
+        }
+
+        TL::ObjectList<ReductionSymbol> weakreductions;
+        data_sharing_env.get_all_weakreduction_symbols(weakreductions);
+        if (!weakreductions.empty())
+        {
+            if (emit_omp_report())
+                weakreductions.map(ReportReductions(locus, this->_omp_report_file, "weakreduction"));
+
+            TL::ObjectList<Nodecl::NodeclBase> weakreduction_nodes =
+                weakreductions.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(locus));
+
+            result_list.append(Nodecl::OmpSs::TaskWeakReduction::make(Nodecl::List::make(weakreduction_nodes), locus));
         }
 
         if (emit_omp_report())
@@ -3594,6 +3606,11 @@ namespace TL { namespace OpenMP {
 
         make_item_list<Nodecl::OmpSs::DepReduction>(
                 dependences, OpenMP::DEP_OMPSS_REDUCTION,
+                locus,
+                result_list);
+
+        make_item_list<Nodecl::OmpSs::DepWeakReduction>(
+                dependences, OpenMP::DEP_OMPSS_WEAK_REDUCTION,
                 locus,
                 result_list);
 
