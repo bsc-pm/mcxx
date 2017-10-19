@@ -157,8 +157,9 @@
 "  --Wx:<profile>:<flags>,<options>\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
-"  --openmp                 Enables OpenMP support (default)\n" \
-"  --no-openmp              Disables OpenMP support\n" \
+"  --openmp                 Enables OpenMP support\n" \
+"  --ompss                  Enables OmpSs support\n" \
+"  --ompss-v2               Enables OmpSs-v2 support\n" \
 "  --config-dir=<dir>       Sets <dir> as the configuration directory\n" \
 "                           Use --print-config-dir to get the\n" \
 "                           default path\n" \
