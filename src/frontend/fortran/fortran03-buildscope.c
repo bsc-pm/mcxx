@@ -967,7 +967,7 @@ static void delayed_compute_character_length(
             }
             else if (is_colon)
             {
-                // FIXME - We should check this is either an ALLOCATABLE or a CHARACTER
+                // FIXME - We should check this is either an ALLOCATABLE or a POINTER
 
                 // Replace the array with one with descriptor.
                 type_t *updated_char_type = get_array_type_bounds_with_descriptor(
