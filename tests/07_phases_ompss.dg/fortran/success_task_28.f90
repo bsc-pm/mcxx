@@ -5,6 +5,7 @@
 
 SUBROUTINE FOO(N)
     IMPLICIT NONE
+    INTEGER :: N
     INTEGER :: A(N)
     INTEGER :: B(N)
 
