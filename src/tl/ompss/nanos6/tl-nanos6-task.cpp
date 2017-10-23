@@ -63,8 +63,6 @@ namespace TL { namespace Nanos6 {
         Nodecl::OpenMP::Task new_task = node;
         if (!_phase->_final_clause_transformation_disabled)
         {
-            // Traverse the serial statements since they may contain additional pragmas
-            walk(serial_stmts);
 
             Nodecl::NodeclBase stmts = node.get_statements();
 
@@ -76,13 +74,11 @@ namespace TL { namespace Nanos6 {
                     "Invalid symbol", 0);
 
             Nodecl::NodeclBase call_to_nanos_in_final = Nodecl::FunctionCall::make(
-                nanos_in_final_sym.make_nodecl(/* set_ref_type */ true,
-                    node.get_locus()), /* called */
-                Nodecl::NodeclBase::null(), /* Argument list */
-                Nodecl::NodeclBase::null(), /* Alternate name */
-                Nodecl::NodeclBase::null(), /* Function Form */
-                TL::Type::get_int_type()
-            );
+                /* called */ nanos_in_final_sym.make_nodecl(/* set_ref_type */ true, node.get_locus()),
+                /* arguments */ Nodecl::NodeclBase::null(),
+                /* alternate_name */Nodecl::NodeclBase::null(),
+                /* function_form */ Nodecl::NodeclBase::null(),
+                TL::Type::get_int_type());
 
             new_task = Nodecl::OpenMP::Task::make(node.get_environment(), stmts, node.get_locus());
 
@@ -94,12 +90,9 @@ namespace TL { namespace Nanos6 {
                     Nodecl::CompoundStatement::make(
                         Nodecl::List::make(new_task),
                         /* finally */ Nodecl::NodeclBase::null(),
-                        node.get_locus()
-                        )
-                    ),
+                        node.get_locus())),
                 not_final_context,
-                node.get_locus()
-            );
+                node.get_locus());
 
             Scope in_final_context = new_block_context(sc.get_decl_context());
             Nodecl::NodeclBase in_final_compound_stmts = Nodecl::Context::make(
@@ -107,12 +100,9 @@ namespace TL { namespace Nanos6 {
                     Nodecl::CompoundStatement::make(
                         serial_stmts,
                         /* finally */ Nodecl::NodeclBase::null(),
-                        node.get_locus()
-                        )
-                    ),
+                        node.get_locus())),
                 in_final_context,
-                node.get_locus()
-            );
+                node.get_locus());
 
             Nodecl::NodeclBase if_in_final = Nodecl::IfElseStatement::make(
                     Nodecl::Different::make(
@@ -126,6 +116,9 @@ namespace TL { namespace Nanos6 {
                 );
 
             node.replace(if_in_final);
+
+            // Traverse the serial statements since they may contain additional pragmas
+            walk(serial_stmts);
         }
 
         lower_task(new_task);
