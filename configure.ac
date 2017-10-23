@@ -568,19 +568,19 @@ AC_ARG_ENABLE([openmp],
 )
 
 
-dnl --------------------- Support for OmpSs-v2  --------------------------------------
-is_enabled_ompss_v2="no"
-AC_MSG_CHECKING([if enabled OmpSs-v2 support in the compiler for Nanos6])
-AC_ARG_ENABLE([ompss-v2],
-  AS_HELP_STRING([--enable-ompss-v2], [Enables support of OmpSs-v2 using Nanos6 (default is disabled)]),
+dnl --------------------- Support for OmpSs-2  --------------------------------------
+is_enabled_ompss_2="no"
+AC_MSG_CHECKING([if enabled OmpSs-2 support in the compiler for Nanos6])
+AC_ARG_ENABLE([ompss-2],
+  AS_HELP_STRING([--enable-ompss-2], [Enables support of OmpSs-2 using Nanos6 (default is disabled)]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-        is_enabled_ompss_v2="yes"
+        is_enabled_ompss_2="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
-            is_enabled_ompss_v2="no"
+            is_enabled_ompss_2="no"
             AC_MSG_RESULT([no])
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
@@ -588,7 +588,7 @@ AC_ARG_ENABLE([ompss-v2],
     fi
   ],
   [
-     is_enabled_ompss_v2="no"
+     is_enabled_ompss_2="no"
      AC_MSG_RESULT([no])
   ]
 )
@@ -911,7 +911,7 @@ dnl --------------------- End of Support for OpenMP Nanox ----------------------
 
 dnl ---------------------- Support for OmpSs-v2 Nanos6 -----------------------------------------
 is_enabled_tl_ompss_nanos6="no"
-if test x$is_enabled_ompss_v2 = xyes;
+if test x$is_enabled_ompss_2 = xyes;
 then
     is_enabled_tl_ompss_nanos6="yes"
 fi

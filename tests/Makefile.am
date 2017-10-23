@@ -91,7 +91,7 @@ OMP_DIRS= \
 
 OMPSS_DIRS=\
         $(BETS_DIRS)/07_phases_ompss.dg \
-        $(BETS_DIRS)/07_phases_ompss_v2.dg \
+        $(BETS_DIRS)/07_phases_ompss_2.dg \
 		$(END)
 
 ANALYSIS_DIRS=\
