@@ -909,7 +909,7 @@ AC_SUBST([NANOX_AVX2])
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
 
-dnl ---------------------- Support for OmpSs-v2 Nanos6 -----------------------------------------
+dnl ---------------------- Support for OmpSs-2 Nanos6 -----------------------------------------
 is_enabled_tl_ompss_nanos6="no"
 if test x$is_enabled_ompss_2 = xyes;
 then
@@ -979,7 +979,7 @@ if test x$is_enabled_tl_ompss_nanos6 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
 fi
-dnl ---------------------- End of Support for OmpSs-v2 Nanos6 -----------------------------------------
+dnl ---------------------- End of Support for OmpSs-2 Nanos6 -----------------------------------------
 
 
 dnl --------------------- Dynamic Load Balancing -------------------------------
@@ -2525,7 +2525,7 @@ then
 fi
 
 echo ""
-echo " * Nanos6 OmpSs-v2 :" $is_enabled_tl_ompss_nanos6
+echo " * Nanos6 OmpSs-2 :" $is_enabled_tl_ompss_nanos6
 if test x$is_enabled_tl_ompss_nanos6 = xyes;
 then
   echo ""
