@@ -31,6 +31,7 @@
 #include "tl-nanos6.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include "tl-omp-reduction.hpp"
 
 #include "cxx-diagnostic.h"
 
@@ -72,6 +73,24 @@ namespace TL { namespace Nanos6 {
             UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::Taskyield)
 
 #undef UNIMPLEMENTED_VISITOR
+
+            struct ReductionFunctions
+            {
+                ReductionFunctions()
+                    : initializer(), combiner()
+                {}
+
+                ReductionFunctions(TL::Symbol init, TL::Symbol comb)
+                    : initializer(init), combiner(comb)
+                {}
+
+                TL::Symbol initializer;
+                TL::Symbol combiner;
+            };
+            typedef std::map<TL::OpenMP::Reduction*, ReductionFunctions>
+                reduction_functions_map_t;
+            reduction_functions_map_t _reduction_functions_map;
+
 
         private:
             void lower_taskwait(const Nodecl::OpenMP::Taskwait& n);

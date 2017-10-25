@@ -65,7 +65,7 @@ namespace TL { namespace Nanos6 {
 
             LoweringPhase* _phase;
 
-            //FIXME: Once we have the new implementation of task reductions we may be able to remove this member
+            //! Used to store some shared information between tasks
             Lower* _lower_visitor;
 
             field_map_t _field_map;

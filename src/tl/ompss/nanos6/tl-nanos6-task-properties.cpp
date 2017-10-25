@@ -2442,16 +2442,39 @@ namespace TL { namespace Nanos6 {
 
         TL::OpenMP::Reduction *reduction_info = red_items.begin()->reduction_info;
 
-        Nodecl::NodeclBase type_node;
-        Nodecl::NodeclBase operation_node;
-        get_reduction_type(reduction_info->get_type(), type_node);
-        get_reduction_operation(*reduction_info, operation_node);
+        Nodecl::NodeclBase arg1_type_op;
 
-        Nodecl::NodeclBase arg1_type_op = Nodecl::Add::make(
-                type_node,
-                operation_node,
-                reduction_info->get_type()
-                );
+        if (reduction_info->is_builtin())
+        {
+            Nodecl::NodeclBase type_node;
+            Nodecl::NodeclBase operation_node;
+            get_reduction_type(reduction_info->get_type(), type_node);
+            get_reduction_operation(*reduction_info, operation_node);
+
+            arg1_type_op = Nodecl::Add::make(
+                    type_node,
+                    operation_node,
+                    reduction_info->get_type());
+        }
+        else
+        {
+            // Note: For UDRs, we are using the combiner function address as
+            // the 'type_op' argument. Note that this behaviour doesn't allow
+            // reduction tasks on the same UDR declared on different compile
+            // units to run concurrently. Also, we need to ensure the
+            // combination function is defined at this point.
+
+            TL::Nanos6::Lower::reduction_functions_map_t::iterator it =
+                _lower_visitor->_reduction_functions_map.find(reduction_info);
+
+            ERROR_CONDITION(it == _lower_visitor->_reduction_functions_map.end(),
+                    "No reduction functions found", 0);
+
+            arg1_type_op = Nodecl::Conversion::make(
+                    it->second.combiner.make_nodecl(/* set_ref_type */ true),
+                    TL::Type::get_long_int_type());
+            arg1_type_op.set_text("C");
+        }
 
         // 2nd argument: reduction identifier within task
         Nodecl::NodeclBase arg2_id = const_value_to_nodecl(
@@ -3510,9 +3533,6 @@ namespace TL { namespace Nanos6 {
 
             // 2. Build function code from OpenMP::Reduction initializer
 
-            ERROR_CONDITION(!reduction_info.is_builtin(),
-                    "UDR are not supported", 0);
-
             // 2.1. Obtain and prepare the initializer statements
 
             Nodecl::NodeclBase initializer_expr =
@@ -3623,10 +3643,15 @@ namespace TL { namespace Nanos6 {
                                 induction_sym.make_nodecl(/* set_ref_type */ true)),
                             base_element_type);
 
-                translation_map[omp_priv] = omp_priv_array_subscript;
+                Nodecl::NodeclBase omp_orig_array_subscript =
+                    Nodecl::ArraySubscript::make(
+                            param_omp_orig.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(
+                                induction_sym.make_nodecl(/* set_ref_type */ true)),
+                            base_element_type);
 
-                // 'omp_orig' is not mapped as it can only appear in UDRs, where
-                // the user will provide initialzier function for the whole array
+                translation_map[omp_priv] = omp_priv_array_subscript;
+                translation_map[omp_orig] = omp_orig_array_subscript;
 
                 // 2.3.A.3. Set the initializer statements as the symbols
                 // initializations and the loop itself
@@ -3644,8 +3669,9 @@ namespace TL { namespace Nanos6 {
                         param_omp_priv.make_nodecl(/* set_ref_type */ true),
                         param_omp_priv.get_type().get_lvalue_reference_to());
 
-                // 'omp_orig' is not mapped as it can only appear in UDRs, where
-                // the user will provide initialzier function for the whole array
+                translation_map[omp_orig] = Nodecl::Dereference::make(
+                        param_omp_orig.make_nodecl(/* set_ref_type */ true),
+                        param_omp_orig.get_type().get_lvalue_reference_to());
             }
 
             // 2.4. translate initializer
@@ -3709,9 +3735,6 @@ namespace TL { namespace Nanos6 {
             TL::Scope red_comb_inside_scope = red_comb_fun_sym.get_related_scope();
 
             // 2. Build function code from OpenMP::Reduction combiner
-
-            ERROR_CONDITION(!reduction_info.is_builtin(),
-                    "UDR are not supported", 0);
 
             // 2.1. Obtain function parameter symbols
 
@@ -3884,39 +3907,62 @@ namespace TL { namespace Nanos6 {
                 it != _env.reduction.end();
                 it++)
         {
-            // 1.1. Create reduction function symbols
+            // 1.1. Obtain reduction function symbols
 
-            TL::Counter &counter =
-                TL::CounterManager::get_counter("nanos6-reduction");
+            TL::Symbol reduction_initializer_function_sym;
+            TL::Symbol reduction_combiner_function_sym;
 
-            TL::Symbol reduction_initializer_function_sym =
-                create_reduction_initializer_function(*it, _related_function, counter);
-
-            TL::Symbol reduction_combiner_function_sym =
-                create_reduction_combiner_function(*it, _related_function, counter);
-
-            counter++;
-
-            if (IS_FORTRAN_LANGUAGE)
+            TL::Nanos6::Lower::reduction_functions_map_t::iterator reduction_functions_it =
+                _lower_visitor->_reduction_functions_map.find(it->reduction_info);
+            if (reduction_functions_it == _lower_visitor->_reduction_functions_map.end())
             {
+                // Create new reduction functions
+
+                TL::Counter &counter =
+                    TL::CounterManager::get_counter("nanos6-reduction");
+
                 reduction_initializer_function_sym =
-                    compute_mangled_function_symbol_from_symbol(reduction_initializer_function_sym);
-                reduction_combiner_function_sym =
-                    compute_mangled_function_symbol_from_symbol(reduction_combiner_function_sym);
-            }
-            else if (IS_CXX_LANGUAGE)
-            {
-                Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                        _task_body,
-                        Nodecl::CxxDef::make(
-                            Nodecl::NodeclBase::null(),
-                            reduction_initializer_function_sym));
+                    create_reduction_initializer_function(*it, _related_function, counter);
 
-                Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                        _task_body,
-                        Nodecl::CxxDef::make(
-                            Nodecl::NodeclBase::null(),
-                            reduction_combiner_function_sym));
+                reduction_combiner_function_sym =
+                    create_reduction_combiner_function(*it, _related_function, counter);
+
+                counter++;
+
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    reduction_initializer_function_sym =
+                        compute_mangled_function_symbol_from_symbol(reduction_initializer_function_sym);
+                    reduction_combiner_function_sym =
+                        compute_mangled_function_symbol_from_symbol(reduction_combiner_function_sym);
+                }
+                else if (IS_CXX_LANGUAGE)
+                {
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                            _task_body,
+                            Nodecl::CxxDef::make(
+                                Nodecl::NodeclBase::null(),
+                                reduction_initializer_function_sym));
+
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                            _task_body,
+                            Nodecl::CxxDef::make(
+                                Nodecl::NodeclBase::null(),
+                                reduction_combiner_function_sym));
+                }
+
+                _lower_visitor->_reduction_functions_map[it->reduction_info] =
+                    TL::Nanos6::Lower::ReductionFunctions(reduction_initializer_function_sym, reduction_combiner_function_sym);
+            }
+            else
+            {
+                // Reuse reduction functions
+
+                TL::Nanos6::Lower::ReductionFunctions reduction_functions =
+                    reduction_functions_it->second;
+
+                reduction_initializer_function_sym = reduction_functions.initializer;
+                reduction_combiner_function_sym = reduction_functions.combiner;
             }
 
             // 1.2. Add reduction functions nodes (with type casts) to their
