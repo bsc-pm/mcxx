@@ -149,8 +149,7 @@ namespace TL
                 _data_ref._data_type = t;
 
                 if (IS_FORTRAN_LANGUAGE
-                        && derref.get_rhs().get_type().no_ref().is_pointer()
-                        && derref.get_rhs().get_type().no_ref().points_to().is_fortran_array())
+                        && derref.get_rhs().get_type().no_ref().is_pointer())
                 {
                     _data_ref._base_address = Nodecl::Reference::make(
                             derref.shallow_copy(), t.get_pointer_to(), derref.get_locus());
