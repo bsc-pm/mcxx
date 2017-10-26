@@ -4301,11 +4301,7 @@ static void gather_extra_attributes(AST a,
                 }
             case AST_ATTRIBUTE_SPECIFIER:
                 {
-                    AST attr_list = ASTSon1(item);
-                    if (attr_list != NULL)
-                    {
-                        warn_printf_at(ast_get_locus(attr_list), "ignoring attribute-specifier\n");
-                    }
+                    gather_std_attribute_spec(item, gather_info, decl_context);
                     break;
                 }
             default:
@@ -11542,9 +11538,12 @@ void set_function_type_for_lambda(type_t** declarator_type,
 // This function traverses the declarator tree gathering all attributes that might appear there
 // We need to traverse the declarator twice because of gcc allowing attributes appear in many
 // places
-static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gather_info, const decl_context_t* declarator_context)
+static void gather_extra_attributes_in_declarator(
+        AST a,
+        gather_decl_spec_t* gather_info,
+        const decl_context_t* declarator_context)
 {
-    // FIXME - This function is a no-op currently
+    // FIXME - Currently we only gather the attributes of a DECLARATOR_ID_EXPR
 
     if (a == NULL)
         return;
@@ -11584,6 +11583,11 @@ static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gat
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
+            {
+                AST attribute_list = ASTSon1(a);
+                gather_extra_attributes(attribute_list, gather_info, declarator_context);
+                break;
+            };
         case AST_DECLARATOR_ID_PACK :
             {
                 gather_extra_attributes_in_declarator(ASTSon1(a), gather_info, declarator_context);
