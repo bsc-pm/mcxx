@@ -2308,6 +2308,7 @@ src_tl_omp_intel_libtlintel_omp_lowering_la_SOURCES=\
 								   src/tl/omp/intel/tl-lower-reductions.cpp \
 								   src/tl/omp/intel/tl-cache-rtl-calls.hpp \
 								   src/tl/omp/intel/tl-cache-rtl-calls.cpp \
+								   src/tl/omp/intel/tl-lower-task.cpp \
 								   $(END)
 
 endif

@@ -211,6 +211,43 @@ void __kmpc_threadprivate_register (ident_t *loc, void *data, kmpc_ctor ctor, km
 void * __kmpc_threadprivate_cached (ident_t *loc, kmp_int32 global_tid, void *data, size_t size, void ***cache);
 void __kmpc_threadprivate_register_vec (ident_t *loc, void *data, kmpc_ctor_vec ctor, kmpc_cctor_vec cctor, kmpc_dtor_vec dtor, size_t vector_length);
 
+/* Task support */
+
+typedef kmp_int32 (* kmp_routine_entry_t)( kmp_int32, void * );
+
+#if OMP_40_ENABLED || OMP_45_ENABLED
+typedef union kmp_cmplrdata {
+#if OMP_45_ENABLED
+    kmp_int32           priority;           /**< priority specified by user for the task */
+#endif // OMP_45_ENABLED
+#if OMP_40_ENABLED
+    kmp_routine_entry_t destructors;        /* pointer to function to invoke deconstructors of firstprivate C++ objects */
+#endif // OMP_40_ENABLED
+    /* future data */
+} kmp_cmplrdata_t;
+#endif
+
+/*  sizeof_kmp_task_t passed as arg to kmpc_omp_task call  */
+typedef struct kmp_task {                   /* GEH: Shouldn't this be aligned somehow? */
+    void *              shareds;            /**< pointer to block of pointers to shared vars   */
+    kmp_routine_entry_t routine;            /**< pointer to routine to call for executing task */
+    kmp_int32           part_id;            /**< part id for the task                          */
+#if OMP_40_ENABLED || OMP_45_ENABLED
+    kmp_cmplrdata_t data1;                  /* Two known optional additions: destructors and priority */
+    kmp_cmplrdata_t data2;                  /* Process destructors first, priority second */
+    /* future data */
+#endif
+    /*  private vars  */
+} kmp_task_t;
+
+kmp_int32 __kmpc_omp_task(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t * new_task);
+kmp_task_t* __kmpc_omp_task_alloc(ident_t *loc_ref,
+                                  kmp_int32 gtid,
+                                  kmp_int32 flags,
+                                  size_t sizeof_kmp_task_t,
+                                  size_t sizeof_shareds,
+                                  kmp_routine_entry_t task_entry);
+
 #ifdef __cplusplus
 }
 #endif
