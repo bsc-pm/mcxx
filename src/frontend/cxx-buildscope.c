@@ -3031,6 +3031,19 @@ static void add_gcc_attribute_noreturn(
             gcc_attr);
 }
 
+static void add_gcc_attribute_unused(
+        AST attr_item UNUSED_PARAMETER,
+        gather_decl_spec_t* gather_info,
+        const decl_context_t* decl_context UNUSED_PARAMETER)
+{
+    gcc_attribute_t gcc_attr = { "unused", nodecl_null() };
+
+    P_LIST_ADD(
+            gather_info->gcc_attributes,
+            gather_info->num_gcc_attributes,
+            gcc_attr);
+}
+
 static void add_gcc_attribute_deprecated(
         AST attr_item UNUSED_PARAMETER,
         gather_decl_spec_t* gather_info,
@@ -3063,6 +3076,7 @@ static void gather_std_attribute_spec(AST attribute_spec,
         // "name",              just-once,   0, fun
         { "noreturn",           1,           0, add_gcc_attribute_noreturn },
         { "gnu::noreturn",      1,           0, add_gcc_attribute_noreturn },
+        { "gnu::unused",        1,           0, add_gcc_attribute_unused },
         { "deprecated",         1,           0, add_gcc_attribute_deprecated },
 
         // GCC does not implement this one
