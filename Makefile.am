@@ -2026,14 +2026,18 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-reduction-task.cpp \
 								 $(END)
 
+if DISTRIBUTE_NANOS_EXPORTS
 nanoxdatadir = $(pkgdatadir)/nanos
 nanoxdata_DATA = \
 				 src/tl/omp/nanos-common/nanos-exports.def \
 				 $(END)
+endif
 
 endif
 
+if DISTRIBUTE_NANOS_EXPORTS
 EXTRA_DIST += src/tl/omp/nanos-common/nanos-exports.def
+endif
 
 ##########################################################################
 # src/tl/omp/nanos-main/
@@ -3245,6 +3249,7 @@ config_edit = \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
      -e 's|@NANOX_NEW_LINK[@]|$(NANOX_NEW_LINK)|g' \
      -e 's|@NANOX_OLD_LINK[@]|$(NANOX_OLD_LINK)|g' \
+     -e 's|@NANOX_DYNAMIC_LIST[@]|$(NANOX_DYNAMIC_LIST)|g' \
      -e 's|@NANOX[@]|$(NANOX)|g' \
      -e 's|@NANOX_GNU_LDFLAGS[@]|$(NANOX_GNU_LDFLAGS)|g' \
      -e 's|@NANOX_IBM_LDFLAGS[@]|$(NANOX_IBM_LDFLAGS)|g' \

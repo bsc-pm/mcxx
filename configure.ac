@@ -609,6 +609,8 @@ nanox_mic_include=""
 nanox_mic_lib=""
 nanox=""
 nanox_pm_selection="none"
+# Nanos++ automatic features detection mechanism
+nanox_auto_feat_detection="new"
 NANOX=""
 NANOX_ENABLED="$is_enabled_tl_omp_nanox"
 NANOX_INCLUDES=""
@@ -625,7 +627,7 @@ MIC_LIBS=""
 NANOX_GATE=":false:"
 NANOX_NEW_LINK=":false:"
 NANOX_OLD_LINK=":false:"
-
+NANOX_DYNAMIC_LIST=":false:"
 
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
@@ -667,8 +669,33 @@ then
                    [break],
                    [AC_MSG_ERROR([Nanos++ support was required but 'nanos.h' was not found])])
 
-   CPPFLAGS="$CPPFLAGSBACKUP"
-   CFLAGS="$CFLAGSBACKUP"
+   AC_MSG_CHECKING([Checking Nanos++ RTL automatic features detection mechanism version])
+   AC_PREPROC_IFELSE(
+                     [AC_LANG_SOURCE([[
+                      #include "nanos_version.h"
+
+                      #if NANOS_API_MASTER < 5040
+                      #error "old runtime"
+                      #endif
+                      ]])],
+                      [
+                       AC_MSG_RESULT([new version])
+                       nanox_auto_feat_detection="new"
+                      ],
+                      [
+                       AC_MSG_RESULT([old version])
+                       nanox_auto_feat_detection="old"
+                       ])
+
+    if test x$nanox_auto_feat_detection = xnew;
+    then
+        NANOX_DYNAMIC_LIST=":false:"
+    else
+        NANOX_DYNAMIC_LIST=":true:"
+    fi
+
+    CPPFLAGS="$CPPFLAGSBACKUP"
+    CFLAGS="$CFLAGSBACKUP"
 
    AC_MSG_CHECKING([linking mechanism of Nanos++])
 
@@ -811,11 +838,13 @@ AC_SUBST([NANOX_ENABLED])
 AC_SUBST([NANOX_GATE])
 AC_SUBST([NANOX_NEW_LINK])
 AC_SUBST([NANOX_OLD_LINK])
+AC_SUBST([NANOX_DYNAMIC_LIST])
 
 AM_CONDITIONAL([BUILD_NANOS_COMMON], test x$is_enabled_tl_omp_nanox = xyes)
 AM_CONDITIONAL([BUILD_NANOX_NODECL], test x$is_enabled_tl_omp_nanox = xyes)
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_SMP], test x$is_enabled_tl_omp_nanox = xyes)
 AM_CONDITIONAL([BUILD_NANOX_NANOSMAIN], test x$is_enabled_tl_omp_nanox = xyes)
+AM_CONDITIONAL([DISTRIBUTE_NANOS_EXPORTS], test x$nanox_auto_feat_detection = xold)
 
 NANOX_INSTRUMENTATION=""
 NANOX_MIC_INSTRUMENTATION=""
