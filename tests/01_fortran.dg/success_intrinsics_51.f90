@@ -1,0 +1,13 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! </testinfo>
+PROGRAM TEST_FUNC
+IMPLICIT NONE
+INTEGER :: I
+INTEGER(KIND=8) :: BIGVAR
+INTEGER(KIND=2) :: SMALLVAR
+
+I = 0
+BIGVAR = INT8(I)
+SMALLVAR = INT2(I)
+END PROGRAM TEST_FUNC

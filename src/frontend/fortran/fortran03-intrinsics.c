@@ -307,6 +307,8 @@ FORTRAN_GENERIC_INTRINSIC(NULL, getcwd, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getpid, NULL, T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hostnm, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, int2, "A", E, NULL)  \
+FORTRAN_GENERIC_INTRINSIC(NULL, int8, "A", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, irand, "?I", T, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, isnan, "X", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
@@ -3769,6 +3771,42 @@ scope_entry_t* compute_intrinsic_int(scope_entry_t* symbol UNUSED_PARAMETER,
                 lvalue_ref(fortran_get_default_integer_type()));
     }
     return NULL;
+}
+
+static scope_entry_t* compute_intrinsic_int_x(
+        scope_entry_t* symbol,
+        type_t** argument_types UNUSED_PARAMETER,
+        int int_kind_ret_type)
+{
+    type_t* t0 = fortran_get_rank0_type(argument_types[0]);
+    if (is_integer_type(t0)
+                || is_floating_type(t0)
+                || is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL(symbol, symbol->symbol_name,
+                fortran_choose_int_type_from_kind(int_kind_ret_type),
+                lvalue_ref(t0));
+    }
+    return NULL;
+
+}
+
+scope_entry_t* compute_intrinsic_int2(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_int_x(symbol, argument_types, 2);
+}
+
+scope_entry_t* compute_intrinsic_int8(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_int_x(symbol, argument_types, 8);
 }
 
 scope_entry_t* compute_intrinsic_ior(scope_entry_t* symbol UNUSED_PARAMETER,
