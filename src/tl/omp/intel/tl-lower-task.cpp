@@ -127,7 +127,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     }
 
     // END VARS
-    
+
+
+    // Crear task func
     TL::Type kmp_int32_type = Source("kmp_int32").parse_c_type_id(construct);
     ERROR_CONDITION(!kmp_int32_type.is_valid(), "Type kmp_int32 not in scope", 0);
 
@@ -159,6 +161,40 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             outline_task_code,
             outline_task_stmt);
 
+    // Crear shared_args estructura
+    // TODO: cambiar nombre para tener varias estructuras a la vez (varios omp task)
+    std::stringstream struct_name;
+    struct_name << "shared_args" << outline_task_name;
+
+    Source struct_decl;
+    struct_decl << "struct " << struct_name.str() << " {";
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
+            it != shared_symbols.end();
+            it++)
+    {
+        struct_decl << as_type(it->get_type()) << " " << it->get_name() << ";";
+    }
+
+    struct_decl << "};";
+    TL::Scope global_scope = CURRENT_COMPILED_FILE->global_decl_context;
+    Nodecl::NodeclBase decl = struct_decl.parse_declaration(global_scope);
+
+    // QUESTION: que diferencia hay entre un type y un symbol?
+    TL::Type shared_args_type;
+    if (IS_CXX_LANGUAGE)
+    {
+        // QUESTION: que hace esto?
+        // Nodecl::Utils::prepend_to_enclosing_top_level_location(location, decl);
+        shared_args_type = global_scope
+                            .get_symbol_from_name(struct_name.str())
+                            .get_user_defined_type();
+    }
+    else
+    {
+        shared_args_type = global_scope.get_symbol_from_name("struct " + struct_name.str()).get_user_defined_type();
+    }
+
+    // Copiar codigo a la funcion substituyendo simbolos
     // Hay que rellenar symbol_map_fixed
     Nodecl::Utils::SimpleSymbolMap symbol_map_fixed;
     Nodecl::NodeclBase task_body = Nodecl::Utils::deep_copy(statements,
@@ -168,15 +204,32 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
 
-    // Hay que cambiar esto por el codigo de crear una task
+    // Poner el codigo de crear task, estructuras...
+
+    TL::Type kmp_task_type = global_scope
+                            .get_symbol_from_name("kmp_task_t")
+                            .get_user_defined_type();
+
+    TL::Type kmp_routine_type = global_scope
+                                .get_symbol_from_name("kmp_routine_entry_t")
+                                .get_user_defined_type();
+
     TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
-    Source task_call;
-    task_call << as_symbol(outline_task) << "(0, 0);";
+    Source task_alloc;
+    task_alloc
+    << as_type(kmp_task_type) << " *ret1 = " << "(" << as_type(kmp_task_type) << " *)"
+    << "__kmpc_omp_task_alloc(&"
+        << as_symbol(ident_symbol)
+        << ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+        << "1,"
+        << "sizeof(" << as_type(kmp_task_type) << "),"
+        << "sizeof(" << as_type(shared_args_type) << "),"
+        << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
 
-    Nodecl::NodeclBase task_call_tree = task_call.parse_statement(construct);
+    Nodecl::NodeclBase task_alloc_tree = task_alloc.parse_statement(construct);
 
-    construct.replace(task_call_tree);
+    construct.replace(task_alloc_tree);
 }
 
 } }
