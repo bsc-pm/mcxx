@@ -182,10 +182,6 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             it != private_symbols.end();
             it++)
     {
-        std::stringstream new_name;
-        new_name << "p_" << it->get_name() << (int)private_num;
-        private_num++;
-
         TL::Symbol new_private_sym = Intel::new_private_symbol(*it, block_scope);
 
         symbol_map.add_map(*it, new_private_sym);
