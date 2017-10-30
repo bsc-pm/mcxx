@@ -135,13 +135,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
     std::string outline_task_name;
-    {
-        TL::Counter &outline_num = TL::CounterManager::get_counter("intel-omp-task");
-        std::stringstream ss;
-        ss << "_task_" << enclosing_function.get_name() << "_" << (int)outline_num;
-        outline_task_name = ss.str();
-        outline_num++;
-    }
+
+    TL::Counter &outline_num = TL::CounterManager::get_counter("intel-omp-task");
+    std::stringstream ss;
+    ss << "_task_" << enclosing_function.get_name() << "_" << (int)outline_num;
+    outline_task_name = ss.str();
+    outline_num++;
 
     TL::ObjectList<std::string> parameter_names;
     TL::ObjectList<TL::Type> parameter_types;
@@ -162,9 +161,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             outline_task_stmt);
 
     // Crear shared_args estructura
-    // TODO: cambiar nombre para tener varias estructuras a la vez (varios omp task)
     std::stringstream struct_name;
-    struct_name << "shared_args" << outline_task_name;
+    struct_name << "_shared" << outline_task_name;
 
     Source struct_decl;
     struct_decl << "struct " << struct_name.str() << " {";
@@ -195,7 +193,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     }
 
     // Copiar codigo a la funcion substituyendo simbolos
-    // Hay que rellenar symbol_map_fixed
+    // TODO: Hay que rellenar symbol_map_fixed
     Nodecl::Utils::SimpleSymbolMap symbol_map_fixed;
     Nodecl::NodeclBase task_body = Nodecl::Utils::deep_copy(statements,
             outline_task_stmt,
@@ -216,20 +214,58 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
-    Source task_alloc;
-    task_alloc
-    << as_type(kmp_task_type) << " *ret1 = " << "(" << as_type(kmp_task_type) << " *)"
-    << "__kmpc_omp_task_alloc(&"
-        << as_symbol(ident_symbol)
-        << ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
-        << "1,"
-        << "sizeof(" << as_type(kmp_task_type) << "),"
-        << "sizeof(" << as_type(shared_args_type) << "),"
-        << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
+    Source body;
+    Nodecl::NodeclBase stmt_declarations, stmt_task_alloc, stmt_task_fill, stmt_task;
+    body
+    << "{"
+    << statement_placeholder(stmt_declarations)
+    << statement_placeholder(stmt_task_alloc)
+    << statement_placeholder(stmt_task_fill)
+    << statement_placeholder(stmt_task)
+    << "}";
+    Nodecl::NodeclBase body_tree = body.parse_statement(construct);
 
-    Nodecl::NodeclBase task_alloc_tree = task_alloc.parse_statement(construct);
+    Source src_declarations;
+    src_declarations
+    << as_type(kmp_task_type) << " *ret;"
+    << as_type(shared_args_type) << " *shareds;";
+    Nodecl::NodeclBase src_declarations_tree = src_declarations.parse_statement(stmt_declarations);
+    stmt_declarations.prepend_sibling(src_declarations_tree);
 
-    construct.replace(task_alloc_tree);
+    Source src_task_alloc;
+    src_task_alloc
+    << "ret = __kmpc_omp_task_alloc(&" << as_symbol(ident_symbol) << ","
+                                 << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+                                 << "1,"
+                                 << "sizeof(" << as_type(kmp_task_type) << "),"
+                                 << "sizeof(" << as_type(shared_args_type) << "),"
+                                 << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
+    Nodecl::NodeclBase src_task_alloc_tree = src_task_alloc.parse_statement(stmt_task_alloc);
+    stmt_task_alloc.prepend_sibling(src_task_alloc_tree);
+
+//    Source src_task_fill;
+//    TL::ObjectList<TL::Symbol> fields = shared_args_type.get_fields();
+//    TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
+//    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
+//            it != shared_symbols.end();
+//            it++, it_fields++)
+//    {
+//        src_task_fill
+//        << "ret" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
+//    }
+//    Nodecl::NodeclBase src_task_fill_tree = src_task_fill.parse_statement(stmt_task_fill);
+//    stmt_task_fill.prepend_sibling(src_task_fill_tree);
+
+    Source src_task;
+    src_task
+    << "__kmpc_omp_task(&" << as_symbol(ident_symbol) << ","
+    << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+    << "(" << as_type(kmp_task_type) << " *)ret);";
+    Nodecl::NodeclBase src_task_tree = src_task.parse_statement(stmt_task);
+    stmt_task.prepend_sibling(src_task_tree);
+
+
+    construct.replace(body_tree);
 }
 
 } }
