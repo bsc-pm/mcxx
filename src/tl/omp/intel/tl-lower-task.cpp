@@ -128,6 +128,17 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     // END VARS
 
+    TL::Scope global_scope = CURRENT_COMPILED_FILE->global_decl_context;
+
+    TL::Type kmp_task_type = global_scope
+                            .get_symbol_from_name("kmp_task_t")
+                            .get_user_defined_type();
+
+    TL::Type kmp_routine_type = global_scope
+                                .get_symbol_from_name("kmp_routine_entry_t")
+                                .get_user_defined_type();
+
+    TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
     // Crear task func
     TL::Type kmp_int32_type = Source("kmp_int32").parse_c_type_id(construct);
@@ -146,7 +157,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TL::ObjectList<TL::Type> parameter_types;
 
     parameter_names.append("_global_tid"); parameter_types.append(kmp_int32_type.get_pointer_to());
-    parameter_names.append("_bound_tid"); parameter_types.append(kmp_int32_type.get_pointer_to());
+    parameter_names.append("_task"); parameter_types.append(kmp_task_type.get_pointer_to());
 
     TL::Symbol outline_task = SymbolUtils::new_function_symbol(
             enclosing_function,
@@ -170,49 +181,28 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             it != shared_symbols.end();
             it++)
     {
-        struct_decl << as_type(it->get_type()) << " " << it->get_name() << ";";
+        struct_decl << as_type(it->get_type().no_ref().get_lvalue_reference_to()) << " " << it->get_name() << ";";
     }
 
     struct_decl << "};";
-    TL::Scope global_scope = CURRENT_COMPILED_FILE->global_decl_context;
     Nodecl::NodeclBase decl = struct_decl.parse_declaration(global_scope);
 
-    // QUESTION: que diferencia hay entre un type y un symbol?
-    TL::Type shared_args_type;
     if (IS_CXX_LANGUAGE)
     {
-        // QUESTION: que hace esto?
-        // Nodecl::Utils::prepend_to_enclosing_top_level_location(location, decl);
-        shared_args_type = global_scope
-                            .get_symbol_from_name(struct_name.str())
-                            .get_user_defined_type();
-    }
-    else
-    {
-        shared_args_type = global_scope.get_symbol_from_name("struct " + struct_name.str()).get_user_defined_type();
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, decl);
     }
 
-    // Copiar codigo a la funcion substituyendo simbolos
-    // TODO: Hay que rellenar symbol_map_fixed
-    Nodecl::Utils::SimpleSymbolMap symbol_map_fixed;
-    Nodecl::NodeclBase task_body = Nodecl::Utils::deep_copy(statements,
-            outline_task_stmt,
-            symbol_map_fixed);
-    outline_task_stmt.prepend_sibling(task_body);
+    std::string args_struct_name = struct_name.str();
+    if (IS_C_LANGUAGE)
+	args_struct_name = "struct " + args_struct_name;
 
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
+    TL::Type shared_args_type = global_scope
+	    .get_symbol_from_name(args_struct_name)
+	    .get_user_defined_type();
+
 
     // Poner el codigo de crear task, estructuras...
 
-    TL::Type kmp_task_type = global_scope
-                            .get_symbol_from_name("kmp_task_t")
-                            .get_user_defined_type();
-
-    TL::Type kmp_routine_type = global_scope
-                                .get_symbol_from_name("kmp_routine_entry_t")
-                                .get_user_defined_type();
-
-    TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
     Source body;
     Nodecl::NodeclBase stmt_declarations, stmt_task_alloc, stmt_task_fill, stmt_task;
@@ -230,6 +220,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     << as_type(kmp_task_type) << " *ret;"
     << as_type(shared_args_type) << " *shareds;";
     Nodecl::NodeclBase src_declarations_tree = src_declarations.parse_statement(stmt_declarations);
+    // Por que no puedo hacer replace en lugar de prepend_sibling?
     stmt_declarations.prepend_sibling(src_declarations_tree);
 
     Source src_task_alloc;
@@ -241,20 +232,56 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
                                  << "sizeof(" << as_type(shared_args_type) << "),"
                                  << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
     Nodecl::NodeclBase src_task_alloc_tree = src_task_alloc.parse_statement(stmt_task_alloc);
-    stmt_task_alloc.prepend_sibling(src_task_alloc_tree);
+    stmt_task_alloc.replace(src_task_alloc_tree);
 
+    Nodecl::Utils::SimpleSymbolMap symbol_map_fixed;
+
+    // TODO: Arreglar esto
 //    Source src_task_fill;
+//    src_task_fill
+//    << as_type(shared_args_type) << " *shareds = ret->shareds;" << "*shareds = (" << as_type(shared_args_type) << ") {";
 //    TL::ObjectList<TL::Symbol> fields = shared_args_type.get_fields();
 //    TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
 //    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
-//            it != shared_symbols.end();
-//            it++, it_fields++)
+//		    it != shared_symbols.end();
+//		    it++, it_fields++)
 //    {
-//        src_task_fill
-//        << "ret" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
+//        if (it != shared_symbols.begin()) {
+//            src_task_fill << ",";
+//        }
+//        src_task_fill << "&" << as_symbol(*it);
 //    }
+//    src_task_fill << "};";
 //    Nodecl::NodeclBase src_task_fill_tree = src_task_fill.parse_statement(stmt_task_fill);
 //    stmt_task_fill.prepend_sibling(src_task_fill_tree);
+
+    // -------------
+
+    TL::ObjectList<TL::Symbol> fields = shared_args_type.get_fields();
+    TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
+		    it != shared_symbols.end();
+		    it++, it_fields++)
+    {
+            // Cambiar shareds por ret->shareds->a
+            Source src_task_fill;
+	    src_task_fill
+		    << "shareds" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
+
+	    Nodecl::NodeclBase src_task_fill_tree = src_task_fill.parse_statement(stmt_task_fill);
+	    stmt_task_fill.prepend_sibling(src_task_fill_tree);
+
+    }
+    // END TODO
+
+    // Copiar codigo a la funcion substituyendo simbolos
+    // TODO: Hay que rellenar symbol_map_fixed
+    Nodecl::NodeclBase task_body = Nodecl::Utils::deep_copy(statements,
+            outline_task_stmt,
+            symbol_map_fixed);
+    outline_task_stmt.prepend_sibling(task_body);
+
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
 
     Source src_task;
     src_task
@@ -262,7 +289,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
     << "(" << as_type(kmp_task_type) << " *)ret);";
     Nodecl::NodeclBase src_task_tree = src_task.parse_statement(stmt_task);
-    stmt_task.prepend_sibling(src_task_tree);
+    stmt_task.replace(src_task_tree);
 
 
     construct.replace(body_tree);
