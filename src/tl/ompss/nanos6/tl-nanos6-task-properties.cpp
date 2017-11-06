@@ -1248,12 +1248,6 @@ namespace TL { namespace Nanos6 {
                 {
                     type_of_field = TL::Type::get_void_type().get_pointer_to();
                 }
-                else if (type_of_field.is_array()
-                         && !it->get_type().is_any_reference())
-                {
-                    type_of_field
-                        = type_of_field.array_element().get_pointer_to();
-                }
                 else
                 {
                     type_of_field = type_of_field.get_pointer_to();
@@ -1943,19 +1937,14 @@ namespace TL { namespace Nanos6 {
                 ERROR_CONDITION(it->get_type().depends_on_nonconstant_values()
                         && !it->get_type().no_ref().is_array(), "Unexpected type\n", 0);
 
-                //  Depending on the type of the list item we may have two different scenarios:
-                //  * If the list item is an array (i.e. T a[N][M]),
-                //    in the struct we have 'T (*p)[N]' and the unpacked function expects a 'T (&a)[N][M]'
-                //  * otherwise, if the list item is not an array (i.e. T x),
-                //    in the struct we have 'T*' and the unpacked function expects 'T&'
-
                 Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
                         arg.make_nodecl(/* set_ref_type */ true),
                         field_map[*it].make_nodecl(),
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         field_map[*it].get_type().get_lvalue_reference_to());
 
-                if (it->get_type().no_ref().is_array())
+                if (it->get_type().no_ref().is_array()
+                        && it->get_type().depends_on_nonconstant_values())
                 {
                     TL::Type cast_type_type =
                         rewrite_type_using_args(arg, it->get_type().no_ref().get_pointer_to(), TL::ObjectList<TL::Symbol>());
@@ -3630,24 +3619,14 @@ namespace TL { namespace Nanos6 {
                             field.get_type(),
                             node.get_locus());
 
-                // FIXME: what about Fortran?
-                // if (IS_C_LANGUAGE
-                //         || IS_CXX_LANGUAGE)
+                if ((shared.contains(sym)
+                            || reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, sym)))
                 {
-                    if ((shared.contains(sym)
-                                || reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, sym))
-                            && !sym.get_type().no_ref().is_array())
-                    {
-                        new_expr = Nodecl::Dereference::make(
-                                new_expr,
-                                sym.get_type().no_ref().get_lvalue_reference_to(),
-                                new_expr.get_locus());
-                    }
+                    new_expr = Nodecl::Dereference::make(
+                            new_expr,
+                            sym.get_type().no_ref().get_lvalue_reference_to(),
+                            new_expr.get_locus());
                 }
-                // else if (IS_FORTRAN_LANGUAGE)
-                // {
-                //     // internal_error("Not yet implemented", 0);
-                // }
 
                 node.replace(new_expr);
             }
@@ -4099,20 +4078,11 @@ namespace TL { namespace Nanos6 {
 
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                if (!it->get_type().is_array())
-                {
-                    rhs = Nodecl::Reference::make(
-                            rhs,
-                            rhs.get_type().no_ref().get_pointer_to());
-                }
-                else
-                {
-                    rhs = Nodecl::Conversion::make(
-                            rhs,
-                            rhs.get_type().no_ref().array_element().get_pointer_to());
-                }
+                rhs = Nodecl::Reference::make(
+                        rhs,
+                        rhs.get_type().no_ref().get_pointer_to());
             }
-            else if (IS_FORTRAN_LANGUAGE)
+            else // IS_FORTRAN_LANGUAGE
             {
                 if (it->get_type().no_ref().is_pointer()
                     || it->is_allocatable())
@@ -4176,10 +4146,6 @@ namespace TL { namespace Nanos6 {
                     rhs = Nodecl::Reference::make(
                         rhs, rhs.get_type().no_ref().get_pointer_to());
                 }
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
             }
 
             TL::Type lhs_type =
