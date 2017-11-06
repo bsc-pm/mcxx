@@ -1101,8 +1101,7 @@ AC_SUBST([GOMP_OMP_LIB])
 dnl --------------------- End of Support for GOMP ---------------------------
 
 dnl --------------------- Support for Intel OpenMP RTL ---------------------------------
-is_enabled_tl_omp_intel="no"
-
+is_enabled_tl_omp_intel=""
 AC_MSG_CHECKING([if enabled OpenMP TL support for Intel OpenMP RTL])
 AC_ARG_ENABLE([tl-openmp-intel],
   AS_HELP_STRING([--enable-tl-openmp-intel], [Enables support of OpenMP TL for Intel OpenMP RTL]),
@@ -1126,15 +1125,10 @@ AC_ARG_ENABLE([tl-openmp-intel],
   ]
 )
 
-INTEL_OMP_INCLUDE=""
-INTEL_OMP_LIB=""
-
+intel_omp_include=""
+intel_omp_lib=""
 if test x$is_enabled_tl_omp_intel = xyes;
 then
-
-    intel_omp_include=""
-    intel_omp_lib=""
-
     AC_ARG_WITH([intel-omp],
             AS_HELP_STRING([--with-intel-omp=dir], [Directory of Intel OpenMP RTL]),
             [
@@ -1165,28 +1159,24 @@ dnl             esac
             ]
         )
 
-   INTEL_OMP_INCLUDE=${intel_omp_include}
-   INTEL_OMP_LIB=${intel_omp_lib}
-
-   if test x$"ICC" = x;
-   then
-       AC_MSG_WARN([Intel OpenMP RTL has been enabled but Intel C (icc) has not been found or has been disabled])
-   fi
-
-   if test x$"ICPC" = x;
-   then
-       AC_MSG_WARN([Intel OpenMP RTL has been enabled but Intel C++ (icpc) has not been found or has been disabled])
-   fi
-
-   COMPILER_NAMES="${COMPILER_NAMES} intel-mcc intel-mcxx intel-mfc intel-mf95"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.intel-omp-base 50.config.omp.intel-rtl"
+   COMPILER_NAMES="${COMPILER_NAMES} iomp-mcc iomp-mcxx"
+
+   if test x"$ICC" != x;
+   then
+       COMPILER_NAMES="${COMPILER_NAMES} iomp-imcc"
+   fi
+
+   if test x"$ICPC" != x;
+   then
+       COMPILER_NAMES="${COMPILER_NAMES} iomp-imcxx"
+   fi
 fi
 
 AM_CONDITIONAL([BUILD_OMP_INTEL], test x$is_enabled_tl_omp_intel = xyes)
 
-AC_SUBST([INTEL_OMP_INCLUDE])
-AC_SUBST([INTEL_OMP_LIB])
-
+AC_SUBST([INTEL_OMP_INCLUDE], ${intel_omp_include})
+AC_SUBST([INTEL_OMP_LIB], ${intel_omp_lib})
 dnl --------------------- End of Support for Intel OpenMP RTL ---------------------------
 
 dnl --------------------- Support for CUDA devices in Nanox --------------------------------

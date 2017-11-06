@@ -1,4 +1,31 @@
-[intel-mcc : intel-omp-base]
+## GNU Profiles
+[iomp-mcc : omp-base]
+language = C
+options =
+
+
+
+
+
+[iomp-mcxx : omp-base]
+language = C++
+preprocessor_name = @G++@
+compiler_name = @G++@
+linker_name = @G++@
+
+
+
+
+
+# Not supported yet
+#
+# [iomp-mfc : omp-base]
+# ...
+
+
+####  Intel Profiles
+
+[iomp-imcc : intel-omp-base]
 language = C
 options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
@@ -14,9 +41,9 @@ linker_name = @ICC@
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
 
 
-[intel-mcxx : intel-omp-base]
+[iomp-imcxx : intel-omp-base]
 language = C++
-{openmp} preprocessor_options = -include new 
+{openmp} preprocessor_options = -include new
 options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 preprocessor_name = @ICPC@
@@ -31,13 +58,6 @@ linker_name = @ICPC@
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
 
 # Not supported yet
-# 
-# [intel-mfc : intel-omp-base]
-# language = Fortran
-# options = -I @PKGDATADIR@/fortran/openmp
-# fortran_preprocessor_name = @GFORTRAN@
-# fortran_preprocessor_options = -cpp -E
-# compiler_name = @GFORTRAN@
-# compiler_options = -frecursive
-# linker_name = @GFORTRAN@
-# linker_options =
+#
+# [iomp-imfc : intel-omp-base]
+# ...
