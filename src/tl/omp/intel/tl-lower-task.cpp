@@ -181,7 +181,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             it != shared_symbols.end();
             it++)
     {
-        struct_decl << as_type(it->get_type().no_ref().get_lvalue_reference_to()) << " " << it->get_name() << ";";
+        struct_decl << as_type(it->get_type().no_ref().get_pointer_to()) << " " << it->get_name() << ";";
     }
 
     struct_decl << "};";
@@ -200,10 +200,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 	    .get_symbol_from_name(args_struct_name)
 	    .get_user_defined_type();
 
-
     // Poner el codigo de crear task, estructuras...
-
-
     Source body;
     Nodecl::NodeclBase stmt_declarations, stmt_task_alloc, stmt_task_fill, stmt_task;
     body
@@ -234,51 +231,52 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     Nodecl::NodeclBase src_task_alloc_tree = src_task_alloc.parse_statement(stmt_task_alloc);
     stmt_task_alloc.replace(src_task_alloc_tree);
 
-    Nodecl::Utils::SimpleSymbolMap symbol_map_fixed;
-
-    // TODO: Arreglar esto
-//    Source src_task_fill;
-//    src_task_fill
-//    << as_type(shared_args_type) << " *shareds = ret->shareds;" << "*shareds = (" << as_type(shared_args_type) << ") {";
-//    TL::ObjectList<TL::Symbol> fields = shared_args_type.get_fields();
-//    TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
-//    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
-//		    it != shared_symbols.end();
-//		    it++, it_fields++)
-//    {
-//        if (it != shared_symbols.begin()) {
-//            src_task_fill << ",";
-//        }
-//        src_task_fill << "&" << as_symbol(*it);
-//    }
-//    src_task_fill << "};";
-//    Nodecl::NodeclBase src_task_fill_tree = src_task_fill.parse_statement(stmt_task_fill);
-//    stmt_task_fill.prepend_sibling(src_task_fill_tree);
-
-    // -------------
-
+    Source src_task_fill;
+    src_task_fill
+    << "shareds = (" << as_type(shared_args_type) << "*)" << "ret->shareds;";
     TL::ObjectList<TL::Symbol> fields = shared_args_type.get_fields();
     TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
     for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
 		    it != shared_symbols.end();
 		    it++, it_fields++)
     {
-            // Cambiar shareds por ret->shareds->a
-            Source src_task_fill;
 	    src_task_fill
-		    << "shareds" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
-
-	    Nodecl::NodeclBase src_task_fill_tree = src_task_fill.parse_statement(stmt_task_fill);
-	    stmt_task_fill.prepend_sibling(src_task_fill_tree);
-
+		    << "shareds" << "->" << it_fields->get_name() << " = &" <<it->get_name() << ";";
     }
-    // END TODO
+    Nodecl::NodeclBase src_task_fill_tree = src_task_fill.parse_statement(stmt_task_fill);
+    stmt_task_fill.prepend_sibling(src_task_fill_tree);
 
     // Copiar codigo a la funcion substituyendo simbolos
     // TODO: Hay que rellenar symbol_map_fixed
+
+    Nodecl::Utils::SimpleSymbolMap symbol_map_fixed;
+    Source src_task_prev;
+    src_task_prev
+    << as_type(shared_args_type) << " *_shareds = (" << as_type(shared_args_type) << "*)" << "_task->shareds;";
+
+    fields = shared_args_type.get_fields();
+    it_fields = fields.begin();
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
+		    it != shared_symbols.end();
+		    it++, it_fields++)
+    {
+        src_task_prev << as_type(it->get_type().no_ref().get_lvalue_reference_to()) << " _task_" << it->get_name() << " = " << "*(*_shareds)." << it_fields->get_name() << ";";
+    }
+    Nodecl::NodeclBase src_task_prev_tree = src_task_prev.parse_statement(outline_task_stmt);
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
+		    it != shared_symbols.end();
+		    it++)
+    {
+        // retrieve_context busca por los nodos de arriba el scope
+        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
+        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
+        symbol_map_fixed.add_map(*it, task_sym);
+    }
+
     Nodecl::NodeclBase task_body = Nodecl::Utils::deep_copy(statements,
             outline_task_stmt,
             symbol_map_fixed);
+    outline_task_stmt.prepend_sibling(src_task_prev_tree);
     outline_task_stmt.prepend_sibling(task_body);
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
