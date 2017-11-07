@@ -3566,25 +3566,28 @@ namespace TL { namespace Nanos6 {
     Nodecl::NodeclBase TaskProperties::rewrite_expression_using_args(
             TL::Symbol arg,
             Nodecl::NodeclBase expr,
-            const TL::ObjectList<TL::Symbol>& local)
+            const TL::ObjectList<TL::Symbol>& local) const
     {
         Nodecl::NodeclBase result = expr.shallow_copy();
 
         struct RewriteExpression : public Nodecl::ExhaustiveVisitor<void>
         {
+
             TL::Symbol arg;
-            field_map_t &field_map;
+            const field_map_t &field_map;
             const TL::ObjectList<TL::Symbol>& shared;
             const TL::ObjectList<ReductionItem>& reduction;
-            const TL::ObjectList<TL::Symbol> local;
+            const TL::ObjectList<TL::Symbol>& local;
+            const TaskProperties& tp;
 
             RewriteExpression(TL::Symbol arg_,
-                    field_map_t& field_map_,
+                    const field_map_t& field_map_,
                     const TL::ObjectList<TL::Symbol> &shared_,
                     const TL::ObjectList<ReductionItem> &reduction_,
-                    const TL::ObjectList<TL::Symbol> &local_)
+                    const TL::ObjectList<TL::Symbol> &local_,
+                    const TaskProperties &tp_)
                 : arg(arg_), field_map(field_map_), shared(shared_),
-                  reduction(reduction_), local(local_)
+                  reduction(reduction_), local(local_), tp(tp_)
             {
             }
 
@@ -3600,11 +3603,12 @@ namespace TL { namespace Nanos6 {
                 if (!sym.is_variable())
                     return;
 
-                ERROR_CONDITION(field_map.find(sym) == field_map.end(),
+                field_map_t::const_iterator it = field_map.find(sym);
+                ERROR_CONDITION(it == field_map.end(),
                         "Symbol '%s' not found in the field map!",
                         sym.get_name().c_str());
 
-                TL::Symbol field = field_map[sym];
+                TL::Symbol field(it->second);
 
                 Nodecl::NodeclBase new_expr =
                     Nodecl::ClassMemberAccess::make(
@@ -3617,6 +3621,18 @@ namespace TL { namespace Nanos6 {
                 if ((shared.contains(sym)
                             || reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, sym)))
                 {
+                    if (sym.get_type().depends_on_nonconstant_values())
+                    {
+                        TL::Type updated_cast_type = tp.rewrite_type_using_args(
+                                arg,
+                                sym.get_type().no_ref().get_pointer_to(),
+                                local);
+
+                        new_expr = Nodecl::Conversion::make(
+                                new_expr, updated_cast_type, node.get_locus());
+
+                        new_expr.set_text("C");
+                    }
                     new_expr = Nodecl::Dereference::make(
                             new_expr,
                             sym.get_type().no_ref().get_lvalue_reference_to(),
@@ -3632,7 +3648,7 @@ namespace TL { namespace Nanos6 {
             }
         };
 
-        RewriteExpression r(arg, field_map, _env.shared, _env.reduction, local);
+        RewriteExpression r(arg, field_map, _env.shared, _env.reduction, local, *this);
         r.walk(result);
 
         struct RemoveRedundantRefDerref : public Nodecl::ExhaustiveVisitor<void>
@@ -3660,8 +3676,10 @@ namespace TL { namespace Nanos6 {
         return result;
     }
 
-    TL::Type TaskProperties::rewrite_type_using_args(TL::Symbol arg, TL::Type t,
-            const TL::ObjectList<TL::Symbol> &local)
+    TL::Type TaskProperties::rewrite_type_using_args(
+            TL::Symbol arg,
+            TL::Type t,
+            const TL::ObjectList<TL::Symbol> &local) const
     {
         if (t.is_array())
         {

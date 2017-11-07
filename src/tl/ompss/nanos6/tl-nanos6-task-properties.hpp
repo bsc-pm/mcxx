@@ -99,8 +99,12 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase rewrite_expression_using_args(
                 TL::Symbol args,
                 Nodecl::NodeclBase expr,
-                const TL::ObjectList<TL::Symbol> &local);
-            TL::Type rewrite_type_using_args(TL::Symbol arg, TL::Type t, const TL::ObjectList<TL::Symbol> &local);
+                const TL::ObjectList<TL::Symbol> &local) const;
+
+            TL::Type rewrite_type_using_args(
+                    TL::Symbol arg,
+                    TL::Type t,
+                    const TL::ObjectList<TL::Symbol> &local) const;
 
             void compute_reduction_arguments_register_dependence(
                     TL::DataReference& data_ref,
