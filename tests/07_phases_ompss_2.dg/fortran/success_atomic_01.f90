@@ -1,5 +1,6 @@
 ! <testinfo>
 ! test_generator="config/mercurium-ompss-2"
+! test_ENV=NANOS6_SCHEDULER=naive
 ! </testinfo>
 
 program p
