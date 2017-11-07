@@ -1934,24 +1934,19 @@ namespace TL { namespace Nanos6 {
             {
                 ERROR_CONDITION(field_map.find(*it) == field_map.end(), "Symbol is not mapped", 0);
 
-                ERROR_CONDITION(it->get_type().depends_on_nonconstant_values()
-                        && !it->get_type().no_ref().is_array(), "Unexpected type\n", 0);
-
                 Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
                         arg.make_nodecl(/* set_ref_type */ true),
                         field_map[*it].make_nodecl(),
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         field_map[*it].get_type().get_lvalue_reference_to());
 
-                if (it->get_type().no_ref().is_array()
-                        && it->get_type().depends_on_nonconstant_values())
+                if (it->get_type().depends_on_nonconstant_values())
                 {
-                    TL::Type cast_type_type =
-                        rewrite_type_using_args(arg, it->get_type().no_ref().get_pointer_to(), TL::ObjectList<TL::Symbol>());
+                    TL::Type cast_type_type = rewrite_type_using_args(arg,
+                            it->get_type().no_ref().get_pointer_to(),
+                            TL::ObjectList<TL::Symbol>());
 
-                    // (T (*)[N][M]) arg.v
                     argument = Nodecl::Conversion::make(argument, cast_type_type);
-
                     argument.set_text("C");
                 }
 
