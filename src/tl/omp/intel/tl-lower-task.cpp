@@ -188,6 +188,17 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             << ";";
     }
 
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
+            it != firstprivate_symbols.end();
+            it++)
+    {
+        src_shared_args_struct
+            << as_type(it->get_type().no_ref().get_pointer_to())
+            << " "
+            << it->get_name()
+            << ";";
+    }
+
     src_shared_args_struct << "};";
     Nodecl::NodeclBase tree_shared_args_struct = src_shared_args_struct.parse_declaration(global_scope);
 
@@ -247,6 +258,16 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 	    src_task_fill
 		    << "shareds" << "->" << it_fields->get_name() << " = &" <<it->get_name() << ";";
     }
+
+//    it_fields = fields.begin();
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
+		    it != firstprivate_symbols.end();
+		    it++, it_fields++)
+    {
+	    src_task_fill
+		    << "shareds" << "->" << it_fields->get_name() << " = &" <<it->get_name() << ";";
+    }
     Nodecl::NodeclBase tree_task_fill = src_task_fill.parse_statement(stmt_task_fill);
     stmt_task_fill.prepend_sibling(tree_task_fill);
 
@@ -255,6 +276,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     Nodecl::Utils::SimpleSymbolMap symbol_map;
     Source src_task_prev;
+    TL::Source src_task_fp_array_copy;
     src_task_prev
     << as_type(shared_args_type) << " *_shareds = (" << as_type(shared_args_type) << "*)" << "_task->shareds;";
 
@@ -273,9 +295,23 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         << ";";
     }
 
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
+		    it != firstprivate_symbols.end();
+		    it++, it_fields++)
+    {
+        src_task_prev
+        << as_type(it->get_type().no_ref().get_lvalue_reference_to())
+        << " _tmp_task_"
+        << it->get_name()
+        << " = "
+        << "*(*_shareds)."
+        << it_fields->get_name()
+        << ";";
+    }
+
     for (TL::ObjectList<TL::Symbol>::const_iterator it = private_symbols.begin();
 		    it != private_symbols.end();
-		    it++, it_fields++)
+		    it++)
     {
         src_task_prev
         << as_type(it->get_type())
@@ -283,7 +319,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         << it->get_name()
         << ";";
     }
+
     Nodecl::NodeclBase tree_task_prev = src_task_prev.parse_statement(outline_task_stmt);
+
     for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
 		    it != shared_symbols.end();
 		    it++)
@@ -303,10 +341,30 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         symbol_map.add_map(*it, task_sym);
     }
 
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
+		    it != firstprivate_symbols.end();
+		    it++)
+    {
+        TL::Symbol tmp_task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_tmp_task_" + it->get_name());
+        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
+        if (it->get_type().is_array()) {
+            src_task_fp_array_copy
+            << "__builtin_memcpy(" << as_symbol(tmp_task_sym) << ","
+            <<                        as_symbol(task_sym)
+            <<                        ", sizeof(" << as_symbol(task_sym) << "));";
+        }
+        else {
+            src_task_fp_array_copy
+            << as_symbol(task_sym) << " = " << as_symbol(tmp_task_sym) << ";";
+        }
+    }
+    Nodecl::NodeclBase tree_task_fp_array_copy = src_task_fp_array_copy.parse_statement(outline_task_stmt);
+
     Nodecl::NodeclBase task_func_body = Nodecl::Utils::deep_copy(statements,
             outline_task_stmt,
             symbol_map);
     outline_task_stmt.prepend_sibling(tree_task_prev);
+    outline_task_stmt.prepend_sibling(tree_task_fp_array_copy);
     outline_task_stmt.prepend_sibling(task_func_body);
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
