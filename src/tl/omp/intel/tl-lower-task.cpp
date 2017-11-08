@@ -320,25 +320,27 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         << ";";
     }
 
-    Nodecl::NodeclBase tree_task_prev = src_task_prev.parse_statement(outline_task_stmt);
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
-		    it != shared_symbols.end();
-		    it++)
-    {
-        // retrieve_context busca por los nodos de arriba el scope
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
-        symbol_map.add_map(*it, task_sym);
-    }
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = private_symbols.begin();
-		    it != private_symbols.end();
-		    it++)
-    {
-        // retrieve_context busca por los nodos de arriba el scope
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
-        symbol_map.add_map(*it, task_sym);
+    if (!src_task_prev.empty()) {
+        Nodecl::NodeclBase tree_task_prev = src_task_prev.parse_statement(outline_task_stmt);
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
+                    it != shared_symbols.end();
+                    it++)
+        {
+            // retrieve_context busca por los nodos de arriba el scope
+            TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
+            ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
+            symbol_map.add_map(*it, task_sym);
+        }
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = private_symbols.begin();
+                    it != private_symbols.end();
+                    it++)
+        {
+            // retrieve_context busca por los nodos de arriba el scope
+            TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
+            ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
+            symbol_map.add_map(*it, task_sym);
+        }
+        outline_task_stmt.prepend_sibling(tree_task_prev);
     }
 
     for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
@@ -349,8 +351,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
         if (it->get_type().is_array()) {
             src_task_fp_array_copy
-            << "__builtin_memcpy(" << as_symbol(tmp_task_sym) << ","
-            <<                        as_symbol(task_sym)
+            << "__builtin_memcpy(" << as_symbol(task_sym) << ","
+            <<                        as_symbol(tmp_task_sym)
             <<                        ", sizeof(" << as_symbol(task_sym) << "));";
         }
         else {
@@ -358,13 +360,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             << as_symbol(task_sym) << " = " << as_symbol(tmp_task_sym) << ";";
         }
     }
-    Nodecl::NodeclBase tree_task_fp_array_copy = src_task_fp_array_copy.parse_statement(outline_task_stmt);
+    if (!src_task_fp_array_copy.empty()) {
+        Nodecl::NodeclBase tree_task_fp_array_copy = src_task_fp_array_copy.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_fp_array_copy);
+    }
 
     Nodecl::NodeclBase task_func_body = Nodecl::Utils::deep_copy(statements,
             outline_task_stmt,
             symbol_map);
-    outline_task_stmt.prepend_sibling(tree_task_prev);
-    outline_task_stmt.prepend_sibling(tree_task_fp_array_copy);
     outline_task_stmt.prepend_sibling(task_func_body);
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
