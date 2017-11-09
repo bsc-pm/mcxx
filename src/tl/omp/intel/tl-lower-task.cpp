@@ -171,17 +171,17 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             outline_task_code,
             outline_task_stmt);
 
-    // Crear shared_args estructura
-    std::stringstream shared_args_struct_name;
-    shared_args_struct_name << "_shared" << outline_task_name.str();
+    // Crear task_args estructura
+    std::stringstream task_args_struct_name;
+    task_args_struct_name << "_args" << outline_task_name.str();
 
-    Source src_shared_args_struct;
-    src_shared_args_struct << "struct " << shared_args_struct_name.str() << " {";
+    Source src_task_args_struct;
+    src_task_args_struct << "struct " << task_args_struct_name.str() << " {";
     for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
             it != shared_symbols.end();
             it++)
     {
-        src_shared_args_struct
+        src_task_args_struct
             << as_type(it->get_type().no_ref().get_pointer_to())
             << " "
             << it->get_name()
@@ -192,27 +192,27 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             it != firstprivate_symbols.end();
             it++)
     {
-        src_shared_args_struct
-            << as_type(it->get_type().no_ref().get_pointer_to())
+        src_task_args_struct
+            << as_type(it->get_type().no_ref())
             << " "
             << it->get_name()
             << ";";
     }
 
-    src_shared_args_struct << "};";
-    Nodecl::NodeclBase tree_shared_args_struct = src_shared_args_struct.parse_declaration(global_scope);
+    src_task_args_struct << "};";
+    Nodecl::NodeclBase tree_task_args_struct = src_task_args_struct.parse_declaration(global_scope);
 
     if (IS_CXX_LANGUAGE)
     {
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, tree_shared_args_struct);
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, tree_task_args_struct);
     }
 
-    std::string shared_args_struct_lang_name = shared_args_struct_name.str();
+    std::string task_args_struct_lang_name = task_args_struct_name.str();
     if (IS_C_LANGUAGE)
-        shared_args_struct_lang_name  = "struct " + shared_args_struct_lang_name;
+        task_args_struct_lang_name  = "struct " + task_args_struct_lang_name;
 
-    TL::Type shared_args_type = global_scope
-	    .get_symbol_from_name(shared_args_struct_lang_name)
+    TL::Type task_args_type = global_scope
+	    .get_symbol_from_name(task_args_struct_lang_name)
 	    .get_user_defined_type();
 
     // Poner el codigo de crear task, estructuras...
@@ -229,34 +229,34 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     Source src_declarations;
     src_declarations
-    << as_type(kmp_task_type) << " *ret;"
-    << as_type(shared_args_type) << " *shareds;";
+    << as_type(kmp_task_type) << " *_ret;"
+    << as_type(task_args_type) << " *_args;";
     Nodecl::NodeclBase tree_declarations = src_declarations.parse_statement(stmt_declarations);
     // Por que no puedo hacer replace en lugar de prepend_sibling?
     stmt_declarations.prepend_sibling(tree_declarations);
 
     Source src_task_alloc;
     src_task_alloc
-    << "ret = __kmpc_omp_task_alloc(&" << as_symbol(ident_symbol) << ","
+    << "_ret = __kmpc_omp_task_alloc(&" << as_symbol(ident_symbol) << ","
                                  << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
                                  << "1,"
                                  << "sizeof(" << as_type(kmp_task_type) << "),"
-                                 << "sizeof(" << as_type(shared_args_type) << "),"
+                                 << "sizeof(" << as_type(task_args_type) << "),"
                                  << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
     Nodecl::NodeclBase tree_task_alloc = src_task_alloc.parse_statement(stmt_task_alloc);
     stmt_task_alloc.replace(tree_task_alloc);
 
     Source src_task_fill;
     src_task_fill
-    << "shareds = (" << as_type(shared_args_type) << "*)" << "ret->shareds;";
-    TL::ObjectList<TL::Symbol> fields = shared_args_type.get_fields();
+    << "_args = (" << as_type(task_args_type) << "*)" << "_ret->shareds;";
+    TL::ObjectList<TL::Symbol> fields = task_args_type.get_fields();
     TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
     for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
 		    it != shared_symbols.end();
 		    it++, it_fields++)
     {
 	    src_task_fill
-		    << "shareds" << "->" << it_fields->get_name() << " = &" <<it->get_name() << ";";
+		    << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
     }
 
 //    it_fields = fields.begin();
@@ -265,8 +265,16 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 		    it != firstprivate_symbols.end();
 		    it++, it_fields++)
     {
+        if (!it->get_type().no_ref().is_array()) {
 	    src_task_fill
-		    << "shareds" << "->" << it_fields->get_name() << " = &" <<it->get_name() << ";";
+		    << "_args" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
+        }
+        else {
+            src_task_fill
+            << "__builtin_memcpy(_args->" << it_fields->get_name() << ","
+            <<                        it->get_name()
+            <<                        ", sizeof(" << as_symbol(*it_fields) << "));";
+        }
     }
     Nodecl::NodeclBase tree_task_fill = src_task_fill.parse_statement(stmt_task_fill);
     stmt_task_fill.prepend_sibling(tree_task_fill);
@@ -278,7 +286,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     Source src_task_prev;
     TL::Source src_task_fp_array_copy;
     src_task_prev
-    << as_type(shared_args_type) << " *_shareds = (" << as_type(shared_args_type) << "*)" << "_task->shareds;";
+    << as_type(task_args_type) << " *_args = (" << as_type(task_args_type) << "*)" << "_task->shareds;";
 
     it_fields = fields.begin();
     for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
@@ -290,7 +298,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         << " _task_"
         << it->get_name()
         << " = "
-        << "*(*_shareds)."
+        << "*(*_args)."
         << it_fields->get_name()
         << ";";
     }
@@ -301,10 +309,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     {
         src_task_prev
         << as_type(it->get_type().no_ref().get_lvalue_reference_to())
-        << " _tmp_task_"
+        << " _task_"
         << it->get_name()
         << " = "
-        << "*(*_shareds)."
+        << "(*_args)."
         << it_fields->get_name()
         << ";";
     }
@@ -313,11 +321,13 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 		    it != private_symbols.end();
 		    it++)
     {
-        src_task_prev
-        << as_type(it->get_type())
-        << " _task_"
-        << it->get_name()
-        << ";";
+        if (!firstprivate_symbols.contains(*it)) {
+            src_task_prev
+            << as_type(it->get_type())
+            << " _task_"
+            << it->get_name()
+            << ";";
+        }
     }
 
     if (!src_task_prev.empty()) {
@@ -339,30 +349,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
             ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
             symbol_map.add_map(*it, task_sym);
-        }
+       }
         outline_task_stmt.prepend_sibling(tree_task_prev);
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
-		    it != firstprivate_symbols.end();
-		    it++)
-    {
-        TL::Symbol tmp_task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_tmp_task_" + it->get_name());
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        if (it->get_type().is_array()) {
-            src_task_fp_array_copy
-            << "__builtin_memcpy(" << as_symbol(task_sym) << ","
-            <<                        as_symbol(tmp_task_sym)
-            <<                        ", sizeof(" << as_symbol(task_sym) << "));";
-        }
-        else {
-            src_task_fp_array_copy
-            << as_symbol(task_sym) << " = " << as_symbol(tmp_task_sym) << ";";
-        }
-    }
-    if (!src_task_fp_array_copy.empty()) {
-        Nodecl::NodeclBase tree_task_fp_array_copy = src_task_fp_array_copy.parse_statement(outline_task_stmt);
-        outline_task_stmt.prepend_sibling(tree_task_fp_array_copy);
     }
 
     Nodecl::NodeclBase task_func_body = Nodecl::Utils::deep_copy(statements,
@@ -376,7 +364,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     src_task
     << "__kmpc_omp_task(&" << as_symbol(ident_symbol) << ","
     << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
-    << "(" << as_type(kmp_task_type) << " *)ret);";
+    << "(" << as_type(kmp_task_type) << " *)_ret);";
     Nodecl::NodeclBase tree_task = src_task.parse_statement(stmt_task);
     stmt_task.replace(tree_task);
 
