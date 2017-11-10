@@ -42,12 +42,18 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TL::ObjectList<Nodecl::OpenMP::Shared> shared_list = environment.find_all<Nodecl::OpenMP::Shared>();
     TL::ObjectList<Nodecl::OpenMP::Private> private_list = environment.find_all<Nodecl::OpenMP::Private>();
     TL::ObjectList<Nodecl::OpenMP::Firstprivate> firstprivate_list = environment.find_all<Nodecl::OpenMP::Firstprivate>();
+    TL::ObjectList<Nodecl::OpenMP::DepIn> depin_list = environment.find_all<Nodecl::OpenMP::DepIn>();
+    TL::ObjectList<Nodecl::OpenMP::DepOut> depout_list = environment.find_all<Nodecl::OpenMP::DepOut>();
+    TL::ObjectList<Nodecl::OpenMP::DepInout> depinout_list = environment.find_all<Nodecl::OpenMP::DepInout>();
     TL::ObjectList<Nodecl::OpenMP::Reduction> reduction_list = environment.find_all<Nodecl::OpenMP::Reduction>();
 
     TL::ObjectList<TL::Symbol> all_symbols_passed; // Set of all symbols passed in the outline
     TL::ObjectList<TL::Symbol> private_symbols;
     TL::ObjectList<TL::Symbol> firstprivate_symbols;
     TL::ObjectList<TL::Symbol> shared_symbols;
+    TL::ObjectList<TL::Symbol> depin_symbols;
+    TL::ObjectList<TL::Symbol> depout_symbols;
+    TL::ObjectList<TL::Symbol> depinout_symbols;
 
     if (!shared_list.empty())
     {
@@ -91,6 +97,49 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         firstprivate_symbols.insert(tmp);
         all_symbols_passed.insert(tmp);
     }
+    bool no_deps = true;
+    if (!depin_list.empty())
+    {
+        no_deps = false;
+        TL::ObjectList<Symbol> tmp =
+            depin_list  // TL::ObjectList<OpenMP::DepIn>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepIn::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            ;
+
+        depin_symbols.insert(tmp);
+    }
+    if (!depout_list.empty())
+    {
+        no_deps = false;
+        TL::ObjectList<Symbol> tmp =
+            depout_list  // TL::ObjectList<OpenMP::DepOut>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepOut::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            ;
+
+        depout_symbols.insert(tmp);
+    }
+    if (!depinout_list.empty())
+    {
+        no_deps = false;
+        TL::ObjectList<Symbol> tmp =
+            depinout_list  // TL::ObjectList<OpenMP::DepInout>
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepInout::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
+            ;
+
+        depinout_symbols.insert(tmp);
+    }
 
     // Add the VLA symbols
     {
@@ -132,6 +181,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TL::Type kmp_task_type = global_scope
                             .get_symbol_from_name("kmp_task_t")
+                            .get_user_defined_type();
+
+    TL::Type kmp_depend_info_type = global_scope
+                            .get_symbol_from_name("kmp_depend_info_t")
                             .get_user_defined_type();
 
     TL::Type kmp_routine_type = global_scope
@@ -361,10 +414,48 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
 
     Source src_task;
-    src_task
-    << "__kmpc_omp_task(&" << as_symbol(ident_symbol) << ","
-    << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
-    << "(" << as_type(kmp_task_type) << " *)_ret);";
+    if (no_deps) {
+        // no dependencies
+        src_task
+        << "__kmpc_omp_task(&" << as_symbol(ident_symbol) << ","
+        << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+        << "(" << as_type(kmp_task_type) << " *)_ret);";
+    }
+    else {
+        src_task
+        << as_type(kmp_depend_info_type)
+        << " _deps["
+        << depin_symbols.size() + depout_symbols.size() + depinout_symbols.size()
+        << "];";
+
+        int array_pos = 0;
+
+        for (auto it = depin_symbols.begin(); it != depin_symbols.end(); it++, array_pos++) {
+            src_task
+            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)&" << as_symbol(*it) << ";"
+            << "_deps[" << array_pos << "].len = sizeof(" << as_type(it->get_type()) << ");"
+            << "_deps[" << array_pos << "].flags.in = 1;";
+        }
+        for (auto it = depout_symbols.begin(); it != depout_symbols.end(); it++, array_pos++) {
+            src_task
+            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)&" << as_symbol(*it) << ";"
+            << "_deps[" << array_pos << "].len = sizeof(" << as_type(it->get_type()) << ");"
+            << "_deps[" << array_pos << "].flags.in = 1;" // FIXME: it should be zero, but Intel's Runtime requires that
+            << "_deps[" << array_pos << "].flags.out = 1;";
+        }
+        for (auto it = depinout_symbols.begin(); it != depinout_symbols.end(); it++, array_pos++) {
+            src_task
+            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)&" << as_symbol(*it) << ";"
+            << "_deps[" << array_pos << "].len = sizeof(" << as_type(it->get_type()) << ");"
+            << "_deps[" << array_pos << "].flags.in = 1;"
+            << "_deps[" << array_pos << "].flags.out = 1;";
+        }
+        src_task
+        << "__kmpc_omp_task_with_deps(&" << as_symbol(ident_symbol) << ","
+        << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+        << "(" << as_type(kmp_task_type) << " *)_ret," << array_pos << ", _deps, 0, 0);";
+
+    }
     Nodecl::NodeclBase tree_task = src_task.parse_statement(stmt_task);
     stmt_task.replace(tree_task);
 

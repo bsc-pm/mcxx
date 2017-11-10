@@ -7,6 +7,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 /*
  * Public interface for the Intel OpenMP RTL
@@ -24,10 +25,16 @@ enum {
  KMP_IDENT_BARRIER_IMPL = 0x40,
 };
 
+typedef int8_t kmp_int8;
+typedef uint8_t kmp_uint8;
+typedef int16_t kmp_int16;
+typedef uint16_t kmp_uint16;
 typedef int32_t kmp_int32;
 typedef int64_t kmp_int64;
 typedef uint32_t kmp_uint32;
 typedef uint64_t kmp_uint64;
+typedef intptr_t kmp_intptr_t;
+typedef uintptr_t kmp_uintptr_t;
 
 typedef struct ident {
  kmp_int32 reserved_1;
@@ -240,6 +247,23 @@ typedef struct kmp_task {                   /* GEH: Shouldn't this be aligned so
     /*  private vars  */
 } kmp_task_t;
 
+#if OMP_40_ENABLED
+typedef struct kmp_taskgroup {
+    kmp_uint32            count;   // number of allocated and not yet complete tasks
+    kmp_int32             cancel_request; // request for cancellation of this taskgroup
+    struct kmp_taskgroup *parent;  // parent taskgroup
+} kmp_taskgroup_t;
+
+typedef struct kmp_depend_info {
+     kmp_intptr_t               base_addr;
+     size_t                     len;
+     struct {
+         bool                   in:1;
+         bool                   out:1;
+     } flags;
+} kmp_depend_info_t;
+#endif
+
 kmp_int32 __kmpc_omp_task(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t * new_task);
 kmp_task_t* __kmpc_omp_task_alloc(ident_t *loc_ref,
                                   kmp_int32 gtid,
@@ -248,6 +272,13 @@ kmp_task_t* __kmpc_omp_task_alloc(ident_t *loc_ref,
                                   size_t sizeof_shareds,
                                   kmp_routine_entry_t task_entry);
 
+kmp_int32 __kmpc_omp_task_with_deps (ident_t *loc_ref,
+                                     kmp_int32 gtid,
+                                     kmp_task_t * new_task,
+                                     kmp_int32 ndeps,
+                                     kmp_depend_info_t *dep_list,
+                                     kmp_int32 ndeps_noalias,
+                                     kmp_depend_info_t *noalias_dep_list ); 
 #ifdef __cplusplus
 }
 #endif
