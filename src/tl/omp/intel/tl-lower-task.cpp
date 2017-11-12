@@ -51,9 +51,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TL::ObjectList<TL::Symbol> private_symbols;
     TL::ObjectList<TL::Symbol> firstprivate_symbols;
     TL::ObjectList<TL::Symbol> shared_symbols;
-    TL::ObjectList<TL::Symbol> depin_symbols;
-    TL::ObjectList<TL::Symbol> depout_symbols;
-    TL::ObjectList<TL::Symbol> depinout_symbols;
+    TL::ObjectList<Nodecl::NodeclBase> depin_nodecl;
+    TL::ObjectList<Nodecl::NodeclBase> depout_nodecl;
+    TL::ObjectList<Nodecl::NodeclBase> depinout_nodecl;
 
     if (!shared_list.empty())
     {
@@ -101,44 +101,41 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     if (!depin_list.empty())
     {
         no_deps = false;
-        TL::ObjectList<Symbol> tmp =
+        TL::ObjectList<Nodecl::NodeclBase> tmp =
             depin_list  // TL::ObjectList<OpenMP::DepIn>
             .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepIn::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
             .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
             .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
-        depin_symbols.insert(tmp);
+        depin_nodecl.insert(tmp);
     }
     if (!depout_list.empty())
     {
         no_deps = false;
-        TL::ObjectList<Symbol> tmp =
+        TL::ObjectList<Nodecl::NodeclBase> tmp =
             depout_list  // TL::ObjectList<OpenMP::DepOut>
             .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepOut::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
             .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
             .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
-        depout_symbols.insert(tmp);
+        depout_nodecl.insert(tmp);
     }
     if (!depinout_list.empty())
     {
         no_deps = false;
-        TL::ObjectList<Symbol> tmp =
+        TL::ObjectList<Nodecl::NodeclBase> tmp =
             depinout_list  // TL::ObjectList<OpenMP::DepInout>
             .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepInout::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
             .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
             .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
-        depinout_symbols.insert(tmp);
+        depinout_nodecl.insert(tmp);
     }
 
     // Add the VLA symbols
@@ -425,28 +422,40 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         src_task
         << as_type(kmp_depend_info_type)
         << " _deps["
-        << depin_symbols.size() + depout_symbols.size() + depinout_symbols.size()
+        << depin_nodecl.size() + depout_nodecl.size() + depinout_nodecl.size()
         << "];";
 
         int array_pos = 0;
 
-        for (auto it = depin_symbols.begin(); it != depin_symbols.end(); it++, array_pos++) {
+        for (auto it = depin_nodecl.begin(); it != depin_nodecl.end(); it++, array_pos++) {
+	    DataReference data_ref(*it);
+	    Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
+	    Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
+	    Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
             src_task
-            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)&" << as_symbol(*it) << ";"
-            << "_deps[" << array_pos << "].len = sizeof(" << as_type(it->get_type()) << ");"
+            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
+            << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
             << "_deps[" << array_pos << "].flags.in = 1;";
         }
-        for (auto it = depout_symbols.begin(); it != depout_symbols.end(); it++, array_pos++) {
+        for (auto it = depout_nodecl.begin(); it != depout_nodecl.end(); it++, array_pos++) {
+	    DataReference data_ref(*it);
+	    Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
+	    Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
+	    Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
             src_task
-            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)&" << as_symbol(*it) << ";"
-            << "_deps[" << array_pos << "].len = sizeof(" << as_type(it->get_type()) << ");"
+            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
+            << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
             << "_deps[" << array_pos << "].flags.in = 1;" // FIXME: it should be zero, but Intel's Runtime requires that
             << "_deps[" << array_pos << "].flags.out = 1;";
         }
-        for (auto it = depinout_symbols.begin(); it != depinout_symbols.end(); it++, array_pos++) {
+        for (auto it = depinout_nodecl.begin(); it != depinout_nodecl.end(); it++, array_pos++) {
+	    DataReference data_ref(*it);
+	    Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
+	    Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
+	    Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
             src_task
-            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)&" << as_symbol(*it) << ";"
-            << "_deps[" << array_pos << "].len = sizeof(" << as_type(it->get_type()) << ");"
+            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
+            << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
             << "_deps[" << array_pos << "].flags.in = 1;"
             << "_deps[" << array_pos << "].flags.out = 1;";
         }
