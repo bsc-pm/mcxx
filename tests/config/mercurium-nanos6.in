@@ -3,9 +3,9 @@
 # Loading some test-generators utilities
 source @abs_builddir@/test-generators-utilities
 
-if [ "@NANOS6_ENABLED@" = "no" ];
+if [ "@NANOS6_TESTS_ENABLED@" = "no" ];
 then
-    gen_ignore_test "Nanos6 has not been configured"
+    gen_ignore_test "Nanos6 has not been configured or is being bootstrapped"
     exit
 fi
 
