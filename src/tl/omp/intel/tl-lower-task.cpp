@@ -27,6 +27,7 @@
 #include "tl-counters.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-lowering-utils.hpp"
+#include "tl-lower-task-common.hpp"
 #include "tl-symbol-utils.hpp"
 
 namespace TL { namespace Intel {
@@ -38,6 +39,13 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     walk(statements);
     statements = construct.get_statements(); // Should not be necessary
+
+    TaskEnvironmentVisitor task_environment;
+    task_environment.walk(environment);
+
+    std::cout << "is untied " << task_environment.is_untied << std::endl; // FIXME: not work
+    std::cout << "is final " << !task_environment.final_condition.is_null() << std::endl;
+    std::cout << "is if " << !task_environment.if_condition.is_null() << std::endl;
 
     TL::ObjectList<Nodecl::OpenMP::Shared> shared_list = environment.find_all<Nodecl::OpenMP::Shared>();
     TL::ObjectList<Nodecl::OpenMP::Private> private_list = environment.find_all<Nodecl::OpenMP::Private>();
@@ -206,7 +214,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TL::ObjectList<std::string> parameter_names;
     TL::ObjectList<TL::Type> parameter_types;
 
-    parameter_names.append("_global_tid"); parameter_types.append(kmp_int32_type.get_pointer_to());
+    parameter_names.append("_global_tid"); parameter_types.append(kmp_int32_type);
     parameter_names.append("_task"); parameter_types.append(kmp_task_type.get_pointer_to());
 
     TL::Symbol outline_task = SymbolUtils::new_function_symbol(
@@ -267,10 +275,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     // Poner el codigo de crear task, estructuras...
     Source src_task_call_body;
-    Nodecl::NodeclBase stmt_declarations, stmt_task_alloc, stmt_task_fill, stmt_task;
+    Nodecl::NodeclBase stmt_definitions, stmt_task_alloc, stmt_task_fill, stmt_task;
     src_task_call_body
     << "{"
-    << statement_placeholder(stmt_declarations)
+    << statement_placeholder(stmt_definitions)
     << statement_placeholder(stmt_task_alloc)
     << statement_placeholder(stmt_task_fill)
     << statement_placeholder(stmt_task)
@@ -281,15 +289,27 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     src_declarations
     << as_type(kmp_task_type) << " *_ret;"
     << as_type(task_args_type) << " *_args;";
-    Nodecl::NodeclBase tree_declarations = src_declarations.parse_statement(stmt_declarations);
+    Nodecl::NodeclBase tree_declarations = src_declarations.parse_statement(stmt_definitions);
     // Por que no puedo hacer replace en lugar de prepend_sibling?
-    stmt_declarations.prepend_sibling(tree_declarations);
+    stmt_definitions.prepend_sibling(tree_declarations);
+
+    Source src_task_final;
+    if (!task_environment.final_condition.is_null()) {
+        src_task_final << as_expression(task_environment.final_condition) << "? 2 : 0";
+    }
+    else {
+        src_task_final << "0"; // FIXME: tied...
+    }
+
+    Source src_task_untied;
+    src_task_untied
+    << !task_environment.is_untied;
 
     Source src_task_alloc;
     src_task_alloc
     << "_ret = __kmpc_omp_task_alloc(&" << as_symbol(ident_symbol) << ","
                                  << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
-                                 << "1,"
+                                 << "(" << src_task_final << ") " << "|" << src_task_untied << ","
                                  << "sizeof(" << as_type(kmp_task_type) << "),"
                                  << "sizeof(" << as_type(task_args_type) << "),"
                                  << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
@@ -410,61 +430,96 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
 
-    Source src_task;
+    Source src_task_call;
+    Source src_task_if_with_deps;
+    Source src_task_deps_def;
     if (no_deps) {
-        // no dependencies
-        src_task
+        src_task_call
         << "__kmpc_omp_task(&" << as_symbol(ident_symbol) << ","
         << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
         << "(" << as_type(kmp_task_type) << " *)_ret);";
     }
     else {
-        src_task
-        << as_type(kmp_depend_info_type)
-        << " _deps["
-        << depin_nodecl.size() + depout_nodecl.size() + depinout_nodecl.size()
-        << "];";
+            src_task_deps_def
+            << as_type(kmp_depend_info_type)
+            << " _deps["
+            << depin_nodecl.size() + depout_nodecl.size() + depinout_nodecl.size()
+            << "];";
 
-        int array_pos = 0;
+            int array_pos = 0;
 
-        for (auto it = depin_nodecl.begin(); it != depin_nodecl.end(); it++, array_pos++) {
-	    DataReference data_ref(*it);
-	    Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
-	    Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
-	    Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
-            src_task
-            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
-            << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
-            << "_deps[" << array_pos << "].flags.in = 1;";
-        }
-        for (auto it = depout_nodecl.begin(); it != depout_nodecl.end(); it++, array_pos++) {
-	    DataReference data_ref(*it);
-	    Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
-	    Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
-	    Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
-            src_task
-            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
-            << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
-            << "_deps[" << array_pos << "].flags.in = 1;" // FIXME: it should be zero, but Intel's Runtime requires that
-            << "_deps[" << array_pos << "].flags.out = 1;";
-        }
-        for (auto it = depinout_nodecl.begin(); it != depinout_nodecl.end(); it++, array_pos++) {
-	    DataReference data_ref(*it);
-	    Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
-	    Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
-	    Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
-            src_task
-            << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
-            << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
-            << "_deps[" << array_pos << "].flags.in = 1;"
-            << "_deps[" << array_pos << "].flags.out = 1;";
-        }
-        src_task
-        << "__kmpc_omp_task_with_deps(&" << as_symbol(ident_symbol) << ","
-        << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
-        << "(" << as_type(kmp_task_type) << " *)_ret," << array_pos << ", _deps, 0, 0);";
+            for (auto it = depin_nodecl.begin(); it != depin_nodecl.end(); it++, array_pos++) {
+                DataReference data_ref(*it);
+                Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
+                Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
+                Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
+                src_task_deps_def
+                << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
+                << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
+                << "_deps[" << array_pos << "].flags.in = 1;";
+            }
+            for (auto it = depout_nodecl.begin(); it != depout_nodecl.end(); it++, array_pos++) {
+                DataReference data_ref(*it);
+                Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
+                Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
+                Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
+                src_task_deps_def
+                << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
+                << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
+                << "_deps[" << array_pos << "].flags.in = 1;" // FIXME: it should be zero, but Intel's Runtime requires that
+                << "_deps[" << array_pos << "].flags.out = 1;";
+            }
+            for (auto it = depinout_nodecl.begin(); it != depinout_nodecl.end(); it++, array_pos++) {
+                DataReference data_ref(*it);
+                Nodecl::NodeclBase address_of_object = data_ref.get_base_address();
+                Nodecl::NodeclBase offset_of_object = data_ref.get_offsetof_dependence();
+                Nodecl::NodeclBase sizeof_object = data_ref.get_sizeof();
+                src_task_deps_def
+                << "_deps[" << array_pos << "].base_addr = (kmp_intptr_t)((kmp_uint8 *)" << as_expression(address_of_object) << " + " << as_expression(offset_of_object) << ");"
+                << "_deps[" << array_pos << "].len = " << as_expression(sizeof_object) << ";"
+                << "_deps[" << array_pos << "].flags.in = 1;"
+                << "_deps[" << array_pos << "].flags.out = 1;";
+            }
+            src_task_call
+            << "__kmpc_omp_task_with_deps(&" << as_symbol(ident_symbol) << ","
+            << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+            << "(" << as_type(kmp_task_type) << " *)_ret," << array_pos << ", _deps, 0, 0);";
 
+            // This is used only when task has depenencies and an if clause
+            src_task_if_with_deps
+            << "__kmpc_omp_wait_deps(&" << as_symbol(ident_symbol) << ","
+            << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+            << array_pos << ", _deps, 0, 0);";
     }
+
+    Source src_task_if;
+    if (!task_environment.if_condition.is_null()) {
+        src_task_if
+        << "if (" << as_expression(task_environment.if_condition) << ") {"
+            << src_task_call
+        << "} else {"
+            << src_task_if_with_deps
+            << "__kmpc_omp_task_begin_if0(&" << as_symbol(ident_symbol) << ","
+            << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+            << "(" << as_type(kmp_task_type) << " *)_ret);"
+            << as_symbol(outline_task) << "("
+            << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+            << "(" << as_type(kmp_task_type) << " *)_ret);"
+            << "__kmpc_omp_task_complete_if0(&" << as_symbol(ident_symbol) << ","
+            << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+            << "(" << as_type(kmp_task_type) << " *)_ret);"
+        << "}";
+    }
+    else {
+        src_task_if
+        << src_task_call;
+    }
+    Source src_task;
+    src_task
+    << "{"
+    << src_task_deps_def
+    << src_task_if
+    << "}";
     Nodecl::NodeclBase tree_task = src_task.parse_statement(stmt_task);
     stmt_task.replace(tree_task);
 

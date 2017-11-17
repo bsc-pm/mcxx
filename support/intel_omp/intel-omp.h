@@ -272,15 +272,28 @@ kmp_task_t* __kmpc_omp_task_alloc(ident_t *loc_ref,
                                   size_t sizeof_shareds,
                                   kmp_routine_entry_t task_entry);
 
-kmp_int32 __kmpc_omp_task_with_deps (ident_t *loc_ref,
-                                     kmp_int32 gtid,
-                                     kmp_task_t *new_task,
-                                     kmp_int32 ndeps,
-                                     kmp_depend_info_t *dep_list,
-                                     kmp_int32 ndeps_noalias,
-                                     kmp_depend_info_t *noalias_dep_list);
+void __kmpc_omp_task_begin_if0(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *task);
+void __kmpc_omp_task_complete_if0(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *task);
 
 kmp_int32 __kmpc_omp_taskwait(ident_t *loc_ref, kmp_int32 gtid);
+
+#if OMP_40_ENABLED
+kmp_int32 __kmpc_omp_task_with_deps(ident_t *loc_ref,
+                                    kmp_int32 gtid,
+                                    kmp_task_t *new_task,
+                                    kmp_int32 ndeps,
+                                    kmp_depend_info_t *dep_list,
+                                    kmp_int32 ndeps_noalias,
+                                    kmp_depend_info_t *noalias_dep_list);
+
+void __kmpc_omp_wait_deps(ident_t *loc_ref,
+                          kmp_int32 gtid,
+                          kmp_int32 ndeps,
+                          kmp_depend_info_t *dep_list,
+                          kmp_int32 ndeps_noalias,
+                          kmp_depend_info_t *noalias_dep_list);
+
+#endif
 
 #ifdef __cplusplus
 }
