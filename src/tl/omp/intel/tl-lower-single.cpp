@@ -54,6 +54,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Single& construct)
         <<                       ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")))"
         <<     "{"
         <<        statement_placeholder(stmt_placeholder)
+        <<        "__kmpc_end_single(&" << as_symbol(ident_symbol)
+        <<                          ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "));"
         <<     "}"
         <<     barrier_source
         << "}"
