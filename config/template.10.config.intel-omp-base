@@ -46,5 +46,5 @@ linker_options = -Xlinker --enable-new-dtags
 {simd-reductions} options = --variable=simd-reductions:1
 
 # Lowering Phases
-{openmp} compiler_phase = libtlintel-omp-lowering.so
+{openmp, !do-not-lower-omp} compiler_phase = libtlintel-omp-lowering.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
