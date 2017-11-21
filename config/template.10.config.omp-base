@@ -18,10 +18,9 @@ linker_name = @GCC@
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
 
 {ompss} options = --variable=ompss_mode:1
-{!ompss} options = --variable=copy_deps_by_default:0
-{ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
-{ompss,?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
 
+##  In OmpSs copy_deps is enabled by default, so we have to change the default behavior of OpenMP::Core
+{ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
 ##  In OmpSs tasks are untied by default, so we have to change the default behavior of OpenMP::Core
 {ompss,!?untied-tasks|untied-tasks} options = --variable=untied_tasks_by_default:1
 
@@ -32,7 +31,7 @@ linker_name = @GCC@
 {ompss-2,openmp-compatibility} pragma_prefix = omp
 {ompss-2} preprocessor_options = -D_OMPSS_2=1
 {ompss-2} fortran_preprocessor_options = -D_OMPSS_2=1
-{ompss-2} options = --variable=ompss_mode:1 --variable=copy_deps_by_default:0 --variable=untied_tasks_by_default:1
+{ompss-2} options = --variable=ompss_mode:1 --variable=untied_tasks_by_default:1
 
 
 #Analysis
