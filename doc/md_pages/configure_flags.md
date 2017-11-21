@@ -15,6 +15,8 @@ configured with the ``--enable-ompss-v2`` and ``--with-nanos6=$TARGET`` flags.
 |``--with-nanox=dir``                             | Directory of Nanos++ installation. **This is mandatory for OmpSs support**
 |``--enable-ompss-2``                             | Enables support of OmpSs-2. **This is mandatory for OmpSs-2 support**
 |``--with-nanos6=dir``                            | Directory of Nanos6 installation. **This is mandatory for OmpSs-2 support**
+|``--enable-tl-openmp-intel``                     | Enables support of Intel/LLVM OpenMP RTL.
+|``--with-intel-omp=dir``                         | Directory of Intel/LLVM OpenMP installation.
 |``--with-cuda=dir``                              | Directory of CUDA installation. By default configure checks ``/usr/local/cuda``. If found CUDA support will be enabled
 |``--with-mpi=dir``                               | Directory of MPI installation
 |``--disable-nanox-cuda-device``                  | Disables CUDA support in the compiler. If CUDA is detected this support is enabled automatically. Use this to disable it
