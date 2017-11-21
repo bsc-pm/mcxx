@@ -1,5 +1,5 @@
 ## GNU Profiles
-[iomp-mcc : omp-base]
+[iomp-mcc : intel-omp-base]
 language = C
 options =
 
@@ -7,7 +7,7 @@ options =
 
 
 
-[iomp-mcxx : omp-base]
+[iomp-mcxx : intel-omp-base]
 language = C++
 preprocessor_name = @G++@
 compiler_name = @G++@

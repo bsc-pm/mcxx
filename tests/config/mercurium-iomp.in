@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
+if [ -z "@INTEL_OMP_LIB@" ];
+then
+    gen_ignore_test "Intel OMP is not enabled"
+    exit
+fi
+
+cat <<EOF
+compile_versions="\${compile_versions} iomp_gnu"
+
+test_CC_iomp_gnu="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-mcc --config-dir=@abs_top_builddir@/config --verbose"
+test_CXX_iomp_gnu="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-mcxx --config-dir=@abs_top_builddir@/config --verbose"
+
+test_CFLAGS="\${test_CFLAGS} --openmp"
+test_CXXFLAGS="\${test_CXXFLAGS} --openmp"
+
+test_LDFLAGS_iomp_gnu="@abs_top_builddir@/lib/perish.o"
+EOF
+
+if [ "$TEST_LANGUAGE" = "c" -a ! -z "@ICC@" ];
+then
+cat <<EOF
+compile_versions="\${compile_versions} iomp_imcc"
+test_CC_iomp_imcc="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcc --config-dir=@abs_top_builddir@/config --verbose"
+test_LDFLAGS_iomp_imcc="@abs_top_builddir@/lib/perish.o"
+EOF
+fi
+
+if [ "$TEST_LANGUAGE" = "cpp" -a ! -z "@ICPC@" ];
+then
+cat <<EOF
+compile_versions="\${compile_versions} iomp_imcxx"
+test_CXX_iomp_imcxx="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcxx --config-dir=@abs_top_builddir@/config --verbose"
+test_LDFLAGS_iomp_imcxx="@abs_top_builddir@/lib/perish.o"
+EOF
+fi
+
+cat <<EOF
+exec_versions="\${exec_versions} 1thread 4thread"
+test_ENV_1thread="OMP_NUM_THREADS='1'"
+test_ENV_4thread="OMP_NUM_THREADS='4'"
+EOF
