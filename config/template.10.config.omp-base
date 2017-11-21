@@ -31,8 +31,8 @@ linker_name = @GCC@
 {ompss-2} compiler_phase = libtlomp-base.so
 {ompss-2} pragma_prefix = oss
 {ompss-2,openmp-compatibility} pragma_prefix = omp
-{ompss-2} preprocessor_options = -D_OMPSS_V2=1
-{ompss-2} fortran_preprocessor_options = -D_OMPSS_V2=1
+{ompss-2} preprocessor_options = -D_OMPSS_2=1
+{ompss-2} fortran_preprocessor_options = -D_OMPSS_2=1
 {ompss-2} options = --variable=ompss_mode:1 --variable=copy_deps_by_default:0 --variable=untied_tasks_by_default:1
 
 
