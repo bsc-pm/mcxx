@@ -22,9 +22,8 @@ linker_name = @GCC@
 {ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
 {ompss,?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
 
-{!ompss} options = --variable=untied_tasks_by_default:0
+##  In OmpSs tasks are untied by default, so we have to change the default behavior of OpenMP::Core
 {ompss,!?untied-tasks|untied-tasks} options = --variable=untied_tasks_by_default:1
-{ompss,?untied-tasks,!untied_tasks} options = --variable=untied_tasks_by_default:0
 
 
 # OmpSsv2 (runtime independent)

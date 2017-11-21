@@ -51,7 +51,7 @@ namespace TL { namespace OpenMP {
         : PragmaCustomCompilerPhase(),
         _ompss_mode(false),
         _copy_deps_by_default(true),
-        _untied_tasks_by_default(true),
+        _untied_tasks_by_default(false),
         _discard_unused_data_sharings(false),
         _allow_shared_without_copies(false),
         _allow_array_reductions(true),
@@ -175,7 +175,7 @@ namespace TL { namespace OpenMP {
 
     void Core::set_untied_tasks_by_default_from_str(const std::string& str)
     {
-        parse_boolean_option("untied_tasks", str, _untied_tasks_by_default, "Assuming true.");
+        parse_boolean_option("untied_tasks", str, _untied_tasks_by_default, "Assuming false.");
     }
 
     void Core::set_discard_unused_data_sharings_from_str(const std::string& str)
