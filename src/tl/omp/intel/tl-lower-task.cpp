@@ -285,17 +285,17 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     << "}";
     Nodecl::NodeclBase tree_task_call_body = src_task_call_body.parse_statement(construct);
 
-    Source src_declarations;
-    src_declarations
+    Source src_definitions;
+    src_definitions
     << as_type(kmp_task_type) << " *_ret;"
     << as_type(task_args_type) << " *_args;";
-    Nodecl::NodeclBase tree_declarations = src_declarations.parse_statement(stmt_definitions);
+    Nodecl::NodeclBase tree_definitions = src_definitions.parse_statement(stmt_definitions);
     // Por que no puedo hacer replace en lugar de prepend_sibling?
-    stmt_definitions.prepend_sibling(tree_declarations);
+    stmt_definitions.prepend_sibling(tree_definitions);
 
     Source src_task_final;
     if (!task_environment.final_condition.is_null()) {
-        src_task_final << as_expression(task_environment.final_condition) << "? 2 : 0";
+        src_task_final << "(" << as_expression(task_environment.final_condition) << "? 2 : 0" << ")";
     }
     else {
         src_task_final << "0"; // FIXME: tied...
@@ -309,7 +309,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     src_task_alloc
     << "_ret = __kmpc_omp_task_alloc(&" << as_symbol(ident_symbol) << ","
                                  << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
-                                 << "(" << src_task_final << ") " << "|" << src_task_untied << ","
+                                 << src_task_final << "|" << src_task_untied << ","
                                  << "sizeof(" << as_type(kmp_task_type) << "),"
                                  << "sizeof(" << as_type(task_args_type) << "),"
                                  << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
@@ -328,8 +328,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 	    src_task_fill
 		    << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
     }
-
-//    it_fields = fields.begin();
 
     for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
 		    it != firstprivate_symbols.end();
@@ -350,7 +348,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     stmt_task_fill.prepend_sibling(tree_task_fill);
 
     // Copiar codigo a la funcion substituyendo simbolos
-    // TODO: Hay que rellenar symbol_map
 
     Nodecl::Utils::SimpleSymbolMap symbol_map;
     Source src_task_prev;
