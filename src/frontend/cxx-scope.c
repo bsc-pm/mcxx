@@ -4530,9 +4530,11 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         case AST_TEMPLATE_EXPRESSION_ARGUMENT_PACK :
             {
                 char is_expansion = 0;
+                char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
                 if (ASTKind(template_parameter) == AST_TEMPLATE_EXPRESSION_ARGUMENT_PACK)
                 {
                     is_expansion = 1;
+                    set_is_inside_pack_expansion(1);
                 }
 
                 template_parameter_value_t* t_argument = NEW0(template_parameter_value_t);
@@ -4541,6 +4543,8 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 nodecl_t nodecl_expr = nodecl_null();
                 check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
+
+                set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
 
                 if (nodecl_is_err_expr(nodecl_expr))
                 {
