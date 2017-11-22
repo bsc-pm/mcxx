@@ -30463,23 +30463,33 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
 
 static void instantiate_dep_sizeof_pack(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
-    scope_entry_t* entry = nodecl_get_symbol(nodecl_get_child(node, 0));
-    if (entry != NULL
-            && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-                || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
-                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
+    // This is overly complicated because sizeof...(X) allows either a parameter
+    // pack or a template pack.
+    scope_entry_t *entry = nodecl_get_symbol(nodecl_get_child(node, 0));
+    if (entry == NULL)
+    {
+        v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+    }
+    else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+             || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
     {
         entry = lookup_of_template_parameter(
-                v->decl_context,
-                symbol_entity_specs_get_template_parameter_nesting(entry),
-                symbol_entity_specs_get_template_parameter_position(entry));
-
-        check_symbol_sizeof_pack(entry, nodecl_get_locus(node), &v->nodecl_result);
+            v->decl_context,
+            symbol_entity_specs_get_template_parameter_nesting(entry),
+            symbol_entity_specs_get_template_parameter_position(entry));
+    }
+    else if (entry->kind == SK_VARIABLE_PACK)
+    {
+        entry = instantiation_symbol_try_to_map(v->instantiation_symbol_map,
+                                                entry);
     }
     else
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
     }
+
+    check_symbol_sizeof_pack(entry, nodecl_get_locus(node), &v->nodecl_result);
 }
 
 static void instantiate_dep_alignof_expr(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
