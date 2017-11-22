@@ -108,29 +108,21 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OpenMP::TaskReduction &n)
             {
-                if(TL::Nanos6::Interface::family_is_at_least("nanos6_multidimensional_dependencies_api", 2))
+                Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = reductions.begin();
+                        it != reductions.end();
+                        it++)
                 {
-                    Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
-                    for (Nodecl::List::iterator it = reductions.begin();
-                            it != reductions.end();
-                            it++)
-                    {
-                        Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
+                    Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
 
-                        TL::Symbol reductor_sym = red_item.get_reductor().get_symbol();
-                        TL::Symbol reduction_symbol = red_item.get_reduced_symbol().get_symbol();
-                        TL::Type reduction_type = red_item.get_reduction_type().get_type();
+                    TL::Symbol reductor_sym = red_item.get_reductor().get_symbol();
+                    TL::Symbol reduction_symbol = red_item.get_reduced_symbol().get_symbol();
+                    TL::Type reduction_type = red_item.get_reduction_type().get_type();
 
-                        OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
-                        ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
+                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
+                    ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
 
-                        _env.reduction.insert(ReductionItem(reduction_symbol, reduction_type, red));
-                    }
-                }
-                else
-                {
-                    not_supported("task reductions",
-                            n.get_reductions().as<Nodecl::List>());
+                    _env.reduction.insert(ReductionItem(reduction_symbol, reduction_type, red));
                 }
             }
 
@@ -183,15 +175,7 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OmpSs::DepReduction &n)
             {
-                if(TL::Nanos6::Interface::family_is_at_least("nanos6_multidimensional_dependencies_api", 2))
-                {
-                    handle_dependences(n, _env.dep_reduction);
-                }
-                else
-                {
-                    not_supported("task reductions",
-                            n.get_exprs().as<Nodecl::List>());
-                }
+                handle_dependences(n, _env.dep_reduction);
             }
 
             virtual void visit(const Nodecl::OpenMP::Final &n)

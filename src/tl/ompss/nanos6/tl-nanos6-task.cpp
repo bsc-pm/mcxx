@@ -179,7 +179,6 @@ namespace TL { namespace Nanos6 {
         Nodecl::List new_stmts;
 
         TL::Symbol taskloop_bounds_ptr;
-        if (Interface::family_is_at_least("nanos6_task_execution_api", 1))
         {
             TL::Counter &counter = TL::CounterManager::get_counter("nanos6-taskloop-bounds");
             std::stringstream ss;
@@ -278,7 +277,6 @@ namespace TL { namespace Nanos6 {
 
 
             // (void**) &taskloop_bounds_ptr
-            if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
                 Nodecl::NodeclBase taskloop_bounds_out =
                     cast = Nodecl::Conversion::make(
@@ -350,8 +348,6 @@ namespace TL { namespace Nanos6 {
         {
             // FORTRAN ONLY
             ERROR_CONDITION(IS_CXX_LANGUAGE || IS_C_LANGUAGE, "Unreachable code\n", 0);
-
-            Interface::family_must_be_at_least("nanos6_utils_api", 1, "the 'nanos6_bzero' function");
 
             TL::Symbol nanos6_bzero_sym =
                 TL::Scope::get_global_scope().get_symbol_from_name("nanos6_bzero");

@@ -696,13 +696,12 @@ namespace TL { namespace Nanos6 {
 
         TL::ObjectList<TL::Type> run_type_params;
         run_type_params.append(TL::Type::get_void_type().get_pointer_to());
-        if (Interface::family_is_at_least("nanos6_task_execution_api", 1))
-        {
-            TL::Symbol taskloop_bounds_struct
-                = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_taskloop_bounds_t");
 
-            run_type_params.append(taskloop_bounds_struct.get_user_defined_type().get_pointer_to());
-        }
+        TL::Symbol taskloop_bounds_struct
+            = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_taskloop_bounds_t");
+
+        run_type_params.append(taskloop_bounds_struct.get_user_defined_type().get_pointer_to());
+
 
         TL::Type run_type =
             TL::Type::get_void_type().get_function_returning(run_type_params).get_pointer_to();
@@ -1835,14 +1834,11 @@ namespace TL { namespace Nanos6 {
         ol_param_names.append("arg");
         ol_param_types.append(info_structure.get_lvalue_reference_to());
 
-        if (Interface::family_is_at_least("nanos6_task_execution_api", 1))
-        {
-            TL::Symbol taskloop_bounds_struct
-                = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_taskloop_bounds_t");
+        TL::Symbol taskloop_bounds_struct
+            = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_taskloop_bounds_t");
 
-            ol_param_names.append("taskloop_bounds");
-            ol_param_types.append(taskloop_bounds_struct.get_user_defined_type().get_lvalue_reference_to());
-        }
+        ol_param_names.append("taskloop_bounds");
+        ol_param_types.append(taskloop_bounds_struct.get_user_defined_type().get_lvalue_reference_to());
 
         outline_function
             = SymbolUtils::new_function_symbol(
@@ -2138,8 +2134,6 @@ namespace TL { namespace Nanos6 {
 
             if (_env.is_taskloop)
             {
-                TL::Symbol taskloop_bounds_struct
-                    = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_taskloop_bounds_t");
                 forwarded_parameter_names.append("taskloop_bounds");
                 forwarded_parameter_types.append(taskloop_bounds_struct.get_user_defined_type().get_lvalue_reference_to());
 

@@ -37,11 +37,6 @@ namespace TL { namespace Nanos6 {
 
     void Lower::visit(const Nodecl::OpenMP::TaskLoop& construct)
     {
-        std::string feature = "the 'loop' clause on the task construct";
-        Interface::family_must_be_at_least("nanos6_task_execution_api", 1, feature);
-        Interface::family_must_be_at_least("nanos6_task_info_contents", 1, feature);
-        Interface::family_must_be_at_least("nanos6_instantiation_api",  2, feature);
-
         Nodecl::NodeclBase loop = construct.get_loop();
         ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(), "Unreachable code\n", 0);
 

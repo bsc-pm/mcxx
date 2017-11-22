@@ -115,24 +115,18 @@ void fixup_entry_points(int deps_max_dimensions)
         }
     }
 
-    if (Interface::family_is_at_least("nanos6_utils_api", 1))
-    {
-        fix_entry_point("nanos6_bzero");
-    }
+    fix_entry_point("nanos6_bzero");
 
-    if (Interface::family_is_at_least("nanos6_multidimensional_release_api", 1))
+    for(int dim = 1; dim <= deps_max_dimensions; dim++)
     {
-        for(int dim = 1; dim <= deps_max_dimensions; dim++)
+        for(const char **it = release_dependences;
+                it < (const char**)(&release_dependences + 1);
+                it++)
         {
-            for(const char **it = release_dependences;
-                    it < (const char**)(&release_dependences + 1);
-                    it++)
-            {
-                std::stringstream ss;
-                ss << *it << dim;
+            std::stringstream ss;
+            ss << *it << dim;
 
-                fix_entry_point(ss.str());
-            }
+            fix_entry_point(ss.str());
         }
     }
 }
