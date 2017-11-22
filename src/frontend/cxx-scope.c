@@ -2424,12 +2424,28 @@ static template_parameter_value_t* update_template_parameter_value_aux(
         {
             if (nodecl_is_list(v->value))
             {
+                // The type might fail to be updated
+                type_t* updated_type = update_type_aux_(v->type, decl_context, locus,
+                        instantiation_symbol_map, pack_index);
+                if (updated_type == NULL)
+                {
+                    DELETE(result);
+                    return NULL;
+                }
+                ERROR_CONDITION(!is_sequence_of_types(updated_type), "Expecting a sequence here", 0);
+
                 int num_items;
+
                 nodecl_t* list = nodecl_unpack_list(v->value, &num_items);
                 int i;
                 nodecl_t updated_list = nodecl_null();
 
                 type_t* type_sequence = NULL;
+
+                ERROR_CONDITION(sequence_of_types_get_num_types(updated_type)
+                                    != num_items,
+                                "Mismatch in number of items",
+                                0);
 
                 for (i = 0; i < num_items; i++)
                 {
@@ -2447,7 +2463,9 @@ static template_parameter_value_t* update_template_parameter_value_aux(
 
                     updated_list = nodecl_append_to_list(updated_list, updated_expr);
 
-                    type_sequence = get_sequence_of_types_append_type(type_sequence, nodecl_get_type(updated_expr));
+                    type_sequence = get_sequence_of_types_append_type(
+                        type_sequence,
+                        sequence_of_types_get_type_num(updated_type, i));
                 }
 
                 result->value = updated_list;
@@ -2455,6 +2473,21 @@ static template_parameter_value_t* update_template_parameter_value_aux(
             }
             else
             {
+                // The type might fail to be updated
+                type_t* updated_type = update_type_aux_(v->type, decl_context, locus,
+                        instantiation_symbol_map, pack_index);
+                if (updated_type == NULL)
+                {
+                    DELETE(result);
+                    return NULL;
+                }
+
+                if (is_template_class)
+                {
+                    updated_type = advance_over_typedefs(updated_type);
+                }
+
+                result->type = updated_type;
                 result->value =
                     update_nodecl_template_argument_expression(v->value, decl_context,
                             instantiation_symbol_map, pack_index);
@@ -2466,8 +2499,6 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                         DELETE(result);
                         return NULL;
                     }
-
-                    result->type = nodecl_get_type(result->value);
                 }
                 else
                 {
