@@ -13641,6 +13641,7 @@ static void check_nodecl_function_call_cxx(
     // If any in the expression list is type dependent this call is all dependent
     char any_arg_is_type_dependent = 0;
     char any_arg_is_value_dependent = 0;
+    char any_arg_is_value_pack = 0;
     int i, num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
     for (i = 0; i < num_items && !any_arg_is_type_dependent; i++)
@@ -13653,6 +13654,10 @@ static void check_nodecl_function_call_cxx(
         if (nodecl_expr_is_value_dependent(argument))
         {
             any_arg_is_value_dependent = 1;
+        }
+        if (nodecl_get_kind(argument) == NODECL_CXX_VALUE_PACK)
+        {
+            any_arg_is_value_pack = 1;
         }
     }
     DELETE(list);
@@ -13749,7 +13754,8 @@ static void check_nodecl_function_call_cxx(
 
     if (!nodecl_is_err_expr(nodecl_called)
             && (any_arg_is_type_dependent
-                || nodecl_expr_is_type_dependent(nodecl_called)))
+                || nodecl_expr_is_type_dependent(nodecl_called)
+                || any_arg_is_value_pack))
     {
         // If the called entity or one of the arguments is dependent, all the
         // call is dependent
