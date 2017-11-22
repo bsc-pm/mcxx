@@ -55,9 +55,9 @@ namespace Analysis {
                          std::string branch = it->second;
                          label += " (" + std::string(branch=="1" ? "true" : "false") + ")";
                      }
-                     dot_tdg << indent << "label=\"" << label << "\";\n";
-                     dot_tdg << indent << "color=\"" << (cs->get_type()==Loop ? "deeppink" : "deepskyblue1") << "\";\n";
-                     dot_tdg << indent << "style=\"dashed\";\n";
+                     dot_tdg << indent << "label=\"" << label << "\"\n";
+                     dot_tdg << indent << "color=\"" << (cs->get_type()==Loop ? "deeppink" : "deepskyblue1") << "\"\n";
+                     dot_tdg << indent << "style=\"dashed\"\n";
                      ++n_cs;
                  }
              }
@@ -102,7 +102,7 @@ namespace Analysis {
              // print the node
              std::stringstream ss; ss << tdg_n->_id;
              std::string current_id = ss.str();
-             dot_tdg << indent << current_id << " [label=\"[" << current_id << "] " << task_label << "\"];\n";
+             dot_tdg << indent << current_id << " [label=\"[" << current_id << "] " << task_label << "\"]\n";
              
              
              // Close the subgraphs of the control structures
@@ -125,7 +125,7 @@ namespace Analysis {
                  // Create the dot edge
                  std::stringstream child_id; child_id << (*it)->_target->_id;
                  dot_tdg << "\t" << current_id << " -> " << child_id.str() 
-                 << "[" << style << condition /*<< headlabel << ", " << taillabel*/ << "];\n";
+                 << "[" << style << condition /*<< headlabel << ", " << taillabel*/ << "]\n";
              }
     }
     
@@ -157,7 +157,7 @@ namespace Analysis {
         if(VERBOSE)
             std::cerr << "- TDG DOT file '" << dot_file_name << "'" << std::endl;
         dot_tdg << "digraph TDG {\n";
-        dot_tdg << "\tcompound=true;\n";
+        dot_tdg << "   compound=true\n";
         for (TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
             print_tdg_node_to_dot(it->second, dot_tdg);
         dot_tdg << "}\n";
@@ -224,7 +224,7 @@ namespace Analysis {
         if(VERBOSE)
             std::cerr << "- ETDG DOT file '" << dot_file_name << "'" << std::endl;
         dot_tdg << "digraph ETDG {\n";
-        dot_tdg << "\tcompound=true\n";
+        dot_tdg << "   compound=true\n";
         for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
             print_tdg_to_dot_rec(*it, dot_tdg);
         dot_tdg << "}\n";
@@ -234,24 +234,27 @@ namespace Analysis {
         clear_visits();
     }
 
-    unsigned ftdg_node_id = 1;
     unsigned ftdg_cluster_id = 1;
     void FlowTaskDependencyGraph::print_tdg_node_to_dot(
             FTDGNode* n,
             std::string indent, std::string color,
-            std::ofstream& dot_tdg)
+            std::ofstream& dot_tdg,
+            FTDGNode*& parent,
+            FTDGNode*& head)
     {
-        switch (n->get_type())
+        FTDGNodeType nt = n->get_type();
+        switch (nt)
         {
             case FTDGLoop:
             {
                 dot_tdg << indent << "subgraph cluster_" << ftdg_cluster_id++ << " {\n";
-                    dot_tdg << indent << "   label=Loop_" << n->get_pcfg_node()->get_id() << ";\n";
-                    dot_tdg << indent << "   color=" << color << ";\n";
+                    dot_tdg << indent << "   label=Loop_" << n->get_id() << "\n";
+                    dot_tdg << indent << "   color=" << color << "\n";
                     const ObjectList<FTDGNode*>& inner = n->get_inner();
-                    for (ObjectList<FTDGNode*>::const_iterator it = inner.begin(); it != inner.end(); ++it)
+                    for (ObjectList<FTDGNode*>::const_iterator it = inner.begin();
+                         it != inner.end(); ++it)
                     {
-                        print_tdg_node_to_dot(*it, indent+"   ", color, dot_tdg);
+                        print_tdg_node_to_dot(*it, indent+"   ", color, dot_tdg, parent, head);
                     }
                 dot_tdg << indent << "}\n";
                 break;
@@ -259,47 +262,49 @@ namespace Analysis {
             case FTDGCondition:
             {
                 dot_tdg << indent << "subgraph cluster_" << ftdg_cluster_id++ << " {\n";
-                    dot_tdg << indent << "   label=IfElse_" << n->get_pcfg_node()->get_id() << ";\n";
-                    dot_tdg << indent << "   color=" << color << ";\n";
+                    dot_tdg << indent << "   label=IfElse_" << n->get_id() << "\n";
+                    dot_tdg << indent << "   color=" << color << "\n";
                     const ObjectList<FTDGNode*>& inner_true = n->get_inner_true();
-                    for (ObjectList<FTDGNode*>::const_iterator it = inner_true.begin(); it != inner_true.end(); ++it)
+                    for (ObjectList<FTDGNode*>::const_iterator it = inner_true.begin();
+                         it != inner_true.end(); ++it)
                     {
-                        print_tdg_node_to_dot(*it, indent+"   ", "deepskyblue", dot_tdg);
+                        print_tdg_node_to_dot(*it, indent+"   ", "deepskyblue", dot_tdg, parent, head);
                     }
                     const ObjectList<FTDGNode*>& inner_false = n->get_inner_false();
-                    for (ObjectList<FTDGNode*>::const_iterator it = inner_false.begin(); it != inner_false.end(); ++it)
+                    for (ObjectList<FTDGNode*>::const_iterator it = inner_false.begin();
+                         it != inner_false.end(); ++it)
                     {
-                        print_tdg_node_to_dot(*it, indent+"   ", "deeppink1", dot_tdg);
+                        print_tdg_node_to_dot(*it, indent+"   ", "deeppink1", dot_tdg, parent, head);
                     }
                 dot_tdg << indent << "}\n";
                 break;
             }
             case FTDGTarget:
             {
-                dot_tdg << indent << ftdg_node_id++
-                        << " [label=\"Target " << n->get_pcfg_node()->get_id()
-                        << "\", fillcolor=" << color << ", style=filled];\n";
+                dot_tdg << indent << n->get_id()
+                        << " [label=\"Target " << n->get_id()
+                        << "\", color=" << color << "]\n";
                 break;
             }
             case FTDGTask:
             {
-                dot_tdg << indent << ftdg_node_id++
-                        << " [label=\"Task " << n->get_pcfg_node()->get_id()
-                        << "\", fillcolor=" << color << ", style=filled];\n";
+                dot_tdg << indent << n->get_id()
+                        << " [label=\"Task " << n->get_id()
+                        << "\", color=" << color << "]\n";
                 break;
             }
             case FTDGTaskwait:
             {
-                dot_tdg << indent << ftdg_node_id++
-                        << " [label=\"Taskwait " << n->get_pcfg_node()->get_id()
-                        << "\", fillcolor=" << color << ", style=filled];\n";
+                dot_tdg << indent << n->get_id()
+                        << " [label=\"Taskwait " << n->get_id()
+                        << "\", color=" << color << "]\n";
                 break;
             }
             case FTDGBarrier:
             {
-                dot_tdg << indent << ftdg_node_id++
-                        << " [label=\"Barrier " << n->get_pcfg_node()->get_id()
-                        << "\", fillcolor=" << color << ", style=filled];\n";
+                dot_tdg << indent << n->get_id()
+                        << " [label=\"Barrier " << n->get_id()
+                        << "\", color=" << color << "]\n";
                 break;
             }
             default:
@@ -307,6 +312,23 @@ namespace Analysis {
                 internal_error("Unexpected node type %d\n.", n->get_type());
             }
         };
+
+        if (nt == FTDGTarget || nt == FTDGTask || nt == FTDGTaskwait || nt == FTDGBarrier)
+        {
+            parent = n->get_parent();
+            if (head == NULL)
+                head = n;
+
+            const ObjectList<FTDGNode*>& predecessors = n->get_predecessors();
+            if (!predecessors.empty())
+            {
+                for (ObjectList<FTDGNode*>::const_iterator it = predecessors.begin();
+                        it != predecessors.end(); ++it)
+                {
+                    dot_tdg << indent << (*it)->get_id() << " -> " << n->get_id() << "\n";
+                }
+            }
+        }
     }
 
     void FlowTaskDependencyGraph::print_tdg_to_dot()
@@ -337,21 +359,35 @@ namespace Analysis {
         if(VERBOSE)
             std::cerr << "- FTDG DOT file '" << dot_file_name << "'" << std::endl;
         dot_tdg << "digraph FTDG {\n";
-        dot_tdg << "   compound=true;\n";
-        std::set<int> outermost_nodes_ids;
-        for (std::vector<FTDGNode*>::iterator it = _outermost_nodes.begin(); it != _outermost_nodes.end(); ++it)
+        dot_tdg << "   compound=true\n";
+
+        unsigned tdg_id = 0;
+        std::string indent = "   ";
+        for (std::vector<std::vector<FTDGNode*> >::iterator it = _outermost_nodes.begin();
+             it != _outermost_nodes.end(); ++it)
         {
-            outermost_nodes_ids.insert(ftdg_node_id);
-            print_tdg_node_to_dot(*it, /*indent*/"   ", /*color*/"black", dot_tdg);
+            // Outermostnodes without any node inside do not need to be printed
+            // These nodes appear because the generation of the FTDG is naïve
+            // and creates an outernode each time a task appears, in case it contains nested tasks
+            if (it->empty())
+                continue;
+
+            unsigned current_cluster_id = ftdg_cluster_id;
+            dot_tdg << indent << "subgraph cluster_" << ftdg_cluster_id++ << " {\n";
+                dot_tdg << indent << "   label=TDG_" << tdg_id++ << "\n";
+                dot_tdg << indent << "   color=goldenrod1\n";
+                FTDGNode* parent = NULL;
+                FTDGNode* head = NULL;
+                for (std::vector<FTDGNode*>::iterator itt = it->begin(); itt != it->end(); ++itt)
+                    print_tdg_node_to_dot(*itt, indent+"   ", /*color*/"black", dot_tdg, parent, head);
+                if (parent != NULL)
+                {
+                    dot_tdg << indent << "   " << parent->get_id() << " -> " << head->get_id()
+                            << " [style=\"dashed\", lhead=cluster_" << current_cluster_id << "]\n";
+                }
+            dot_tdg << indent << "}\n";
         }
-        std::set<int>::iterator it = outermost_nodes_ids.begin();
-        while (it != outermost_nodes_ids.end())
-        {
-            int tmp = *it;
-            ++it;
-            if (it != outermost_nodes_ids.end())
-                dot_tdg << tmp << " -> " << *it << ";\n";
-        }
+
         dot_tdg << "}\n";
         dot_tdg.close();
         if(!dot_tdg.good())

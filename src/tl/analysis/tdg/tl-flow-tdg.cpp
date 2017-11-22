@@ -67,19 +67,25 @@ namespace {
             outer->add_inner_false(inner);
         inner->add_outer(outer);
     }
+
+    unsigned current_nesting_level = 0;
+    unsigned ftdg_node_id = 1;
 }
 
     FlowTaskDependencyGraph::FlowTaskDependencyGraph(ExtensibleGraph* pcfg)
         : _pcfg(pcfg), _outermost_nodes()
     {
-        build_flow_tdg();
+        std::stack<Node*> parent; // nesting level 0 => empty list of parents
+        build_siblings_flow_tdg(_pcfg->get_graph(), parent);
+        ExtensibleGraph::clear_visits(_pcfg->get_graph());
     }
 
-    void FlowTaskDependencyGraph::build_flow_tdg()
+    void FlowTaskDependencyGraph::build_siblings_flow_tdg(Node* n, std::stack<Node*> parent)
     {
         std::vector<FTDGNode*> control;
-        build_flow_tdg_rec(_pcfg->get_graph(), control, /*conditional*/ false, /*true_edge*/ false);
-        ExtensibleGraph::clear_visits(_pcfg->get_graph());
+        std::vector<FTDGNode*> new_set_of_outermost;
+        _outermost_nodes.push_back(new_set_of_outermost);
+        build_flow_tdg_rec(n, parent, control, /*conditional*/ false, /*true_edge*/ false);
     }
 
     /**
@@ -87,29 +93,37 @@ namespace {
      * @param true_edge Traversal is within the true/false edge of a conditional branch
      */
     void FlowTaskDependencyGraph::build_flow_tdg_rec(
-            Node* n, std::vector<FTDGNode*>& control,
+            Node* n, std::stack<Node*> parent,
+            std::vector<FTDGNode*>& control,
             bool conditional, bool true_edge)
     {
         if (n->is_visited())
             return;
-
         n->set_visited(true);
 
         if (n->is_omp_task_node())
         {
-            // Since we do not accept nested tasks, it does not matter what is inside the task
-            // Also, we do not want to follow synchronization edges to preserve the sequential order
+            // Recursively generate the TDG inside the current task, if necessary
+            ObjectList<Node*> nested_tasks;
+            if (ExtensibleGraph::node_contains_tasks(n, n, nested_tasks))
+            {
+                parent.push(n);
+                unsigned old_nesting_level = current_nesting_level++;
+                build_siblings_flow_tdg(n->get_graph_entry_node(), parent);
+                current_nesting_level = old_nesting_level;
+            }
+            // Do not follow synchronization edges to preserve the sequential order
             return;
         }
         else if (n->is_ifelse_statement())
         {
-            FTDGNode* tdgcs = new FTDGNode(n, get_tdg_type(n));
+            FTDGNode* tdgcs = new FTDGNode(ftdg_node_id++, n, get_tdg_type(n));
 
             // Connect with previous control structure
             if (!control.empty())
                 add_relation(control.back(), tdgcs, conditional, true_edge);
             else
-                _outermost_nodes.push_back(tdgcs);
+                _outermost_nodes[current_nesting_level].push_back(tdgcs);
 
             control.push_back(tdgcs);
 
@@ -120,7 +134,7 @@ namespace {
             const ObjectList<Edge*>& exits = cond->get_exit_edges();
             for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
             {
-                build_flow_tdg_rec((*it)->get_target(), control,
+                build_flow_tdg_rec((*it)->get_target(), parent, control,
                                    /*conditional*/ true, /*true_edge*/ (*it)->is_true_edge());
             }
 
@@ -128,44 +142,68 @@ namespace {
         }
         else if (n->is_loop_node())
         {
-            FTDGNode* tdgcs = new FTDGNode(n, get_tdg_type(n));
+            FTDGNode* tdgcs = new FTDGNode(ftdg_node_id++, n, get_tdg_type(n));
 
             // Connect with previous control structure
             if (!control.empty())
                 add_relation(control.back(), tdgcs, conditional, true_edge);
             else
-                _outermost_nodes.push_back(tdgcs);
+                _outermost_nodes[current_nesting_level].push_back(tdgcs);
 
             control.push_back(tdgcs);
-            build_flow_tdg_rec(n->get_graph_entry_node(), control, conditional, true_edge);
+            build_flow_tdg_rec(n->get_graph_entry_node(), parent, control, conditional, true_edge);
             control.pop_back();
         }
         else if (n->is_graph_node())
         {
-            build_flow_tdg_rec(n->get_graph_entry_node(), control, conditional, true_edge);
+            build_flow_tdg_rec(n->get_graph_entry_node(), parent, control, conditional, true_edge);
         }
         else
         {
             FTDGNode* tdgn = NULL;
+            Node* tdgn_related_n;
             // Create task nodes when the task creation is found to preserve the sequential order
             if (n->is_omp_task_creation_node())
             {
                 Node* task = ExtensibleGraph::get_task_from_task_creation(n);
-                tdgn = new FTDGNode(task, get_tdg_type(task));
+                tdgn = new FTDGNode(ftdg_node_id++, task, get_tdg_type(task));
+                tdgn_related_n = task;
             }
             else if (n->is_omp_async_target_node()
                 || n->is_omp_taskwait_node()
                 || n->is_omp_barrier_graph_node())
             {
-                tdgn = new FTDGNode(n, get_tdg_type(n));
+                tdgn = new FTDGNode(ftdg_node_id++, n, get_tdg_type(n));
+                tdgn_related_n = n;
             }
 
             if (tdgn != NULL)
             {
+                // Set nesting relationships
+                if (!parent.empty())
+                {
+                    std::map<Node*, FTDGNode*>::iterator parent_ftdg_node_it = pcfg_to_tdg.find(parent.top());
+                    ERROR_CONDITION(parent_ftdg_node_it == pcfg_to_tdg.end(),
+                                    "No FTDG node found for PCFG node %d.\n",
+                                    parent.top()->get_id());
+                    tdgn->set_parent(parent_ftdg_node_it->second);
+                }
+
+                // Set control- and data-flow relationships between simple nodes (task, target, taskwait or barrier)
+                ObjectList<Node*> n_parents = tdgn_related_n->get_parents();
+                for (ObjectList<Node*>::iterator it = n_parents.begin();
+                     it != n_parents.end(); ++it)
+                {
+                    if ((*it)->is_omp_task_node())
+                        tdgn->add_predecessor(pcfg_to_tdg[*it]);
+                }
+
+                // Set control-flow relationships between the recently created simple node
+                // and the control structures it belongs to
                 if (!control.empty())
                     add_relation(control.back(), tdgn, conditional, true_edge);
                 else
-                    _outermost_nodes.push_back(tdgn);
+                    _outermost_nodes[current_nesting_level].push_back(tdgn);
             }
         }
 
@@ -173,7 +211,10 @@ namespace {
         for (ObjectList<Node*>::const_iterator it = children.begin();
              it != children.end(); ++it)
         {
-            build_flow_tdg_rec(*it, control, conditional, true_edge);
+            if (!parent.empty() &&
+                !ExtensibleGraph::node_contains_node(parent.top(), *it))
+                parent.pop();
+            build_flow_tdg_rec(*it, parent, control, conditional, true_edge);
         }
     }
 
@@ -182,7 +223,7 @@ namespace {
         return _pcfg;
     }
 
-    std::vector<FTDGNode*> FlowTaskDependencyGraph::get_outermost_nodes() const
+    const std::vector<std::vector<FTDGNode*> > & FlowTaskDependencyGraph::get_outermost_nodes() const
     {
         return _outermost_nodes;
     }

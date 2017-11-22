@@ -139,15 +139,41 @@ namespace Analysis {
     // ******************************************************************* //
     // **************** Flow and Expanded TDG components ***************** //
 
-    FTDGNode::FTDGNode(Node* n, FTDGNodeType type)
-        : _n(n), _type(type), _inner_true(), _inner_false()
+    FTDGNode::FTDGNode(unsigned id, Node* n, FTDGNodeType type)
+        : _id(id), _n(n), _parent(NULL), _predecessors(),
+          _type(type), _inner_true(), _inner_false()
     {
         pcfg_to_tdg.insert(std::pair<Node*, FTDGNode*>(n, this));
+    }
+
+    unsigned FTDGNode::get_id() const
+    {
+        return _id;
     }
 
     Node* FTDGNode::get_pcfg_node() const
     {
         return _n;
+    }
+
+    FTDGNode* FTDGNode::get_parent() const
+    {
+        return _parent;
+    }
+
+    void FTDGNode::set_parent(FTDGNode* parent)
+    {
+        _parent = parent;
+    }
+
+    ObjectList<FTDGNode*> FTDGNode::get_predecessors() const
+    {
+        return _predecessors;
+    }
+
+    void FTDGNode::add_predecessor(FTDGNode* predecessor)
+    {
+        _predecessors.push_back(predecessor);
     }
 
     FTDGNodeType FTDGNode::get_type() const

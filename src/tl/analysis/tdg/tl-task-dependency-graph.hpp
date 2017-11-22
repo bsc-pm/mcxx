@@ -280,7 +280,11 @@ namespace Analysis {
 
     class FTDGNode {
     private:
+        unsigned _id;
         Node* _n;
+
+        FTDGNode* _parent;                      // Nested tasks, parent
+        ObjectList<FTDGNode*> _predecessors;    // Control and data-flow predecessors (siblings)
 
         enum FTDGNodeType _type;
 
@@ -290,9 +294,15 @@ namespace Analysis {
         ObjectList<FTDGNode*> _outer;
 
     public:
-        FTDGNode(Node* n, FTDGNodeType type);
+        FTDGNode(unsigned id, Node* n, FTDGNodeType type);
 
+        unsigned get_id() const;
         Node* get_pcfg_node() const;
+
+        FTDGNode* get_parent() const;
+        void set_parent(FTDGNode* n);
+        ObjectList<FTDGNode*> get_predecessors() const;
+        void add_predecessor(FTDGNode* predecessor);
 
         FTDGNodeType get_type() const;
 
@@ -311,11 +321,14 @@ namespace Analysis {
     {
     private:
         ExtensibleGraph* _pcfg;
-        std::vector<FTDGNode*> _outermost_nodes;
+        std::vector<std::vector<FTDGNode*> > _outermost_nodes;  // Set of outermost nodes for each nesting level of parallelism
 
-        void build_flow_tdg();
+        void build_siblings_flow_tdg(
+            Node* n,
+            std::stack<Node*> parent);
         void build_flow_tdg_rec(
             Node* n,
+            std::stack<Node*> parent,
             std::vector<FTDGNode*>& control,
             bool conditional,
             bool true_edge);
@@ -323,13 +336,15 @@ namespace Analysis {
         void print_tdg_node_to_dot(
                 FTDGNode* n,
                 std::string indent, std::string color,
-                std::ofstream& dot_tdg);
+                std::ofstream& dot_tdg,
+                /*out*/ FTDGNode*& parent,
+                /*out*/ FTDGNode*& head);
 
     public:
         FlowTaskDependencyGraph(ExtensibleGraph* pcfg);
 
-        std::vector<FTDGNode*> get_outermost_nodes() const;
         ExtensibleGraph* get_pcfg() const;
+        const std::vector<std::vector<FTDGNode*> >& get_outermost_nodes() const;
 
         void print_tdg_to_dot();
     };

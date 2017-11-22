@@ -496,9 +496,15 @@ namespace {
     }
     void ExpandedTaskDependencyGraph::compute_constants()
     {
-        const std::vector<FTDGNode*>& ftdg_outermost_nodes = _ftdg->get_outermost_nodes();
-        for (std::vector<FTDGNode*>::const_iterator it = ftdg_outermost_nodes.begin();
-             it != ftdg_outermost_nodes.end(); ++it)
+        std::vector<std::vector<FTDGNode*> > ftdg_outermost_nodes = _ftdg->get_outermost_nodes();
+        if (ftdg_outermost_nodes.size() != 1)
+        {
+            WARNING_MESSAGE("More than one level of parallelism. "
+                "Currently, the computation of _maxT and _maxI only considers the most outer level.", 0);
+        }
+        std::vector<FTDGNode*> current_outermost_nodes = ftdg_outermost_nodes[0];
+        for (std::vector<FTDGNode*>::const_iterator it = current_outermost_nodes.begin();
+             it != current_outermost_nodes.end(); ++it)
         {
             compute_constants_rec(*it);
         }
@@ -510,9 +516,10 @@ namespace {
     void ExpandedTaskDependencyGraph::expand_tdg()
     {
         std::deque<unsigned> loops_ids;
-        const std::vector<FTDGNode*>& ftdg_outermost_nodes = _ftdg->get_outermost_nodes();
-        for (std::vector<FTDGNode*>::const_iterator it = ftdg_outermost_nodes.begin();
-             it != ftdg_outermost_nodes.end(); ++it)
+        const std::vector<std::vector<FTDGNode*> >& ftdg_outermost_nodes = _ftdg->get_outermost_nodes();
+        std::vector<FTDGNode*> current_outermost_nodes = ftdg_outermost_nodes[0];
+        for (std::vector<FTDGNode*>::const_iterator it = current_outermost_nodes.begin();
+             it != current_outermost_nodes.end(); ++it)
         {
             switch ((*it)->get_type())
             {
