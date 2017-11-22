@@ -254,7 +254,8 @@ static int check_expression_function_compare(const void *a, const void *b)
 // Like const_value_to_nodecl but does not fold arrays or structures
 static nodecl_t fortran_const_value_to_nodecl(const_value_t* v)
 {
-    if (const_value_is_array(v) 
+    if (const_value_is_array(v)
+            || const_value_is_string(v)
             || const_value_is_structured(v))
     {
         return nodecl_null();
