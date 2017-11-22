@@ -940,6 +940,7 @@ dnl --------------------- End of Support for OpenMP Nanox ----------------------
 
 dnl ---------------------- Support for OmpSs-2 Nanos6 -----------------------------------------
 is_enabled_tl_ompss_nanos6="no"
+is_enabled_tl_ompss_nanos6_tests="no"
 if test x$is_enabled_ompss_2 = xyes;
 then
     is_enabled_tl_ompss_nanos6="yes"
@@ -987,9 +988,26 @@ then
    CPPFLAGS="$CPPFLAGS -I$nanos6_include"
    CFLAGS="$CFLAGS -I$nanos6_include"
 
-   AC_CHECK_HEADER([nanos6.h],
+	AC_MSG_CHECKING([if boostraping Nanos6])
+	AC_ARG_ENABLE([nanos6-bootstrap],
+		AS_HELP_STRING([--enable-nanos6-bootstrap], [Enable compilation before Nanos6 is installed]),
+		[
+			AC_MSG_RESULT([yes])
+			boostrapping_nanos6=yes
+			is_enabled_tl_ompss_nanos6_tests=no
+		],
+		[
+			AC_MSG_RESULT([no])
+			boostrapping_nanos6=no
+			is_enabled_tl_ompss_nanos6_tests=yes
+		]
+	)
+
+	if test x"${boostrapping_nanos6}" != x"yes" ; then
+   	AC_CHECK_HEADER([nanos6.h],
                    [break],
                    [AC_MSG_ERROR([Nanos6 support was required but 'nanos6.h' was not found])])
+	fi
 
    CPPFLAGS="$CPPFLAGSBACKUP"
    CFLAGS="$CFLAGSBACKUP"
@@ -1001,6 +1019,7 @@ AC_SUBST([NANOS6],          ["${nanos6}"])
 AC_SUBST([NANOS6_INCLUDES], ["${nanos6_include}"])
 AC_SUBST([NANOS6_LIB],      ["${nanos6_lib}"])
 AC_SUBST([NANOS6_ENABLED],  ["${is_enabled_tl_ompss_nanos6}"])
+AC_SUBST([NANOS6_TESTS_ENABLED],  ["${is_enabled_tl_ompss_nanos6_tests}"])
 
 AC_SUBST([NANOS6_GATE])
 
