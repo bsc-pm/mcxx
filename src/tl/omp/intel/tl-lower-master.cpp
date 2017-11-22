@@ -46,10 +46,12 @@ namespace TL { namespace Intel {
         Nodecl::NodeclBase placeholder;
         Source transform_code;
         transform_code
-            << "if (__kmpc_global_thread_num(&" << as_symbol(ident_symbol)
-            << ") == 0)"
+            << "if (__kmpc_master(&" << as_symbol(ident_symbol)
+            <<                   ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")))"
             << "{"
-            << statement_placeholder(placeholder)
+            <<     statement_placeholder(placeholder)
+            <<     "__kmpc_end_master(&" << as_symbol(ident_symbol)
+            <<                       ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "));"
             << "}"
             ;
 
