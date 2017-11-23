@@ -143,7 +143,7 @@ namespace Analysis {
         : _id(id), _n(n), _parent(NULL), _predecessors(),
           _type(type), _inner_true(), _inner_false()
     {
-        pcfg_to_tdg.insert(std::pair<Node*, FTDGNode*>(n, this));
+        pcfg_to_ftdg.insert(std::pair<Node*, FTDGNode*>(n, this));
     }
 
     unsigned FTDGNode::get_id() const
@@ -166,7 +166,7 @@ namespace Analysis {
         _parent = parent;
     }
 
-    ObjectList<FTDGNode*> FTDGNode::get_predecessors() const
+    const ObjectList<FTDGNode*>& FTDGNode::get_predecessors() const
     {
         return _predecessors;
     }
@@ -188,17 +188,17 @@ namespace Analysis {
         return res;
     }
 
-    ObjectList<FTDGNode*> FTDGNode::get_inner_true() const
+    const ObjectList<FTDGNode*>& FTDGNode::get_inner_true() const
     {
         return _inner_true;
     }
 
-    ObjectList<FTDGNode*> FTDGNode::get_inner_false() const
+    const ObjectList<FTDGNode*>& FTDGNode::get_inner_false() const
     {
         return _inner_false;
     }
 
-    ObjectList<FTDGNode*> FTDGNode::get_outer() const
+    const ObjectList<FTDGNode*>& FTDGNode::get_outer() const
     {
         return _outer;
     }
@@ -224,8 +224,8 @@ namespace Analysis {
     }
 
     ETDGNode::ETDGNode(int id, Node* pcfg_node)
-            : _id(id), _var_to_value(), _inputs(), _outputs(),
-              _pcfg_node(pcfg_node), _visited(false)
+        : _id(id), _var_to_value(), _inputs(), _outputs(), _child(NULL),
+          _pcfg_node(pcfg_node), _visited(false)
     {}
 
     int ETDGNode::get_id() const
@@ -261,6 +261,16 @@ namespace Analysis {
     void ETDGNode::remove_output(ETDGNode* n)
     {
         _outputs.erase(n);
+    }
+
+    SubETDG* ETDGNode::get_child() const
+    {
+        return _child;
+    }
+
+    void ETDGNode::set_child(SubETDG* child)
+    {
+        _child = child;
     }
 
     std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> ETDGNode::get_vars_map() const

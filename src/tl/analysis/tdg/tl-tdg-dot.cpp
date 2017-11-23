@@ -167,25 +167,29 @@ namespace Analysis {
         ExtensibleGraph::clear_visits(_pcfg->get_graph());
     }
 
+    std::map<ETDGNode*, SubETDG*> etdg_node_to_child_subetdg;
+    std::multimap<unsigned, unsigned> etdg_connections;
     void ExpandedTaskDependencyGraph::print_tdg_to_dot_rec(ETDGNode* n, std::ofstream& dot_tdg)
     {
         if (n->is_visited())
             return;
-
         n->set_visited(true);
 
         // Print the node
-        std::stringstream ss_target; ss_target << n->get_id();
-        std::string target_id = ss_target.str();
-        dot_tdg << "\t" << target_id << "\n";
+        dot_tdg << "      " << n->get_id() << "\n";
 
          // Print the entry edges
         const std::set<ETDGNode*>& inputs = n->get_inputs();
         for (std::set<ETDGNode*>::const_iterator it = inputs.begin(); it != inputs.end(); ++it)
         {
-            std::stringstream ss_source; ss_source << (*it)->get_id();
-            std::string source_id = ss_source.str();
-            dot_tdg << "\t" << source_id << " -> " << target_id << "\n";
+            etdg_connections.insert(std::pair<unsigned, unsigned>((*it)->get_id(), n->get_id()));
+        }
+
+        // Store children edges to be printed later
+        SubETDG* child = n->get_child();
+        if (child != NULL)
+        {
+            etdg_node_to_child_subetdg[n] = child;
         }
 
         // Keep iterating
@@ -196,6 +200,7 @@ namespace Analysis {
         }
     }
     
+    std::map<unsigned, SubETDG*> tdg_id_to_etdg;
     void ExpandedTaskDependencyGraph::print_tdg_to_dot()
     {
         // Create the directory of dot files if it has not been previously created
@@ -225,16 +230,49 @@ namespace Analysis {
             std::cerr << "- ETDG DOT file '" << dot_file_name << "'" << std::endl;
         dot_tdg << "digraph ETDG {\n";
         dot_tdg << "   compound=true\n";
-        for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
-            print_tdg_to_dot_rec(*it, dot_tdg);
+            // Perform reverse iteration, so the nodes get printed within their corresponding cluster
+            // Otherwise, nested clusters get out of the cluster and print nodes from the parent's cluster
+        for (std::vector<SubETDG*>::reverse_iterator it = _etdgs.rbegin(); it != _etdgs.rend(); ++it)
+        {
+            tdg_id_to_etdg[(*it)->get_tdg_id()] = *it;
+            dot_tdg << "   subgraph cluster_" << (*it)->get_tdg_id() << " {\n";
+                dot_tdg << "      label=TDG_" << (*it)->get_tdg_id() << "\n";
+                const ObjectList<ETDGNode*>& roots = (*it)->get_roots();
+                for (ObjectList<ETDGNode*>::const_iterator itr = roots.begin(); itr != roots.end(); ++itr)
+                    print_tdg_to_dot_rec(*itr, dot_tdg);
+            dot_tdg << "   }\n";
+        }
+            // Print connections in the most outer level, so we avoid printing nodes withing clusters they do not belong to
+        for (std::multimap<unsigned, unsigned>::iterator it = etdg_connections.begin();
+             it != etdg_connections.end(); ++it)
+        {
+            dot_tdg << "   " << it->first << " -> " << it->second << "\n";
+        }
+            // Print creation edges
+        for (std::map<ETDGNode*, SubETDG*>::iterator it = etdg_node_to_child_subetdg.begin();
+             it != etdg_node_to_child_subetdg.end(); ++it)
+        {
+            const ObjectList<ETDGNode*>& child_tasks = it->second->get_tasks();
+            ERROR_CONDITION(child_tasks.empty(),
+                            "No tasks found for ETDG %d, cannot connect nested regions",
+                            it->second->get_tdg_id());
+            dot_tdg << "   " << it->first->get_id() << " -> " << child_tasks[0]->get_id()
+                        << "[style=\"dashed\", lhead=cluster_" << it->second->get_tdg_id() << "]\n";
+        }
+        for (std::vector<SubETDG*>::iterator it = _etdgs.begin(); it != _etdgs.end(); ++it)
+        {
+            (*it)->clear_visits();
+        }
         dot_tdg << "}\n";
         dot_tdg.close();
         if(!dot_tdg.good())
             internal_error ("Unable to close the file '%s' where ETDG has been stored.", dot_file_name.c_str());
-        clear_visits();
     }
 
-    unsigned ftdg_cluster_id = 1;
+    static unsigned ftdg_cluster_id = 1;
+    // We store the connections and print them at the end so the nodes are enclosed in their corresponding clusters
+    // In we print on the fly, some nodes may change cluster because the edge is printed within a cluster which is not that of the source
+    static std::multimap<unsigned, unsigned> ftdg_connections;
     void FlowTaskDependencyGraph::print_tdg_node_to_dot(
             FTDGNode* n,
             std::string indent, std::string color,
@@ -250,7 +288,7 @@ namespace Analysis {
                 dot_tdg << indent << "subgraph cluster_" << ftdg_cluster_id++ << " {\n";
                     dot_tdg << indent << "   label=Loop_" << n->get_id() << "\n";
                     dot_tdg << indent << "   color=" << color << "\n";
-                    const ObjectList<FTDGNode*>& inner = n->get_inner();
+                    ObjectList<FTDGNode*> inner = n->get_inner();
                     for (ObjectList<FTDGNode*>::const_iterator it = inner.begin();
                          it != inner.end(); ++it)
                     {
@@ -320,13 +358,10 @@ namespace Analysis {
                 head = n;
 
             const ObjectList<FTDGNode*>& predecessors = n->get_predecessors();
-            if (!predecessors.empty())
+            for (ObjectList<FTDGNode*>::const_iterator it = predecessors.begin();
+                    it != predecessors.end(); ++it)
             {
-                for (ObjectList<FTDGNode*>::const_iterator it = predecessors.begin();
-                        it != predecessors.end(); ++it)
-                {
-                    dot_tdg << indent << (*it)->get_id() << " -> " << n->get_id() << "\n";
-                }
+                ftdg_connections.insert(std::pair<unsigned, unsigned>((*it)->get_id(), n->get_id()));
             }
         }
     }
@@ -386,6 +421,13 @@ namespace Analysis {
                             << " [style=\"dashed\", lhead=cluster_" << current_cluster_id << "]\n";
                 }
             dot_tdg << indent << "}\n";
+        }
+
+        // Print all connections here
+        for (std::map<unsigned, unsigned>::iterator it = ftdg_connections.begin();
+             it != ftdg_connections.end(); ++it)
+        {
+            dot_tdg << indent << it->first << " -> " << it->second << "\n";
         }
 
         dot_tdg << "}\n";

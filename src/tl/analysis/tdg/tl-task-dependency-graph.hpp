@@ -40,7 +40,7 @@ namespace Analysis {
     extern int tdg_node_id;
 
     class FTDGNode;
-    extern std::map<Node*, FTDGNode*> pcfg_to_tdg;
+    extern std::map<Node*, FTDGNode*> pcfg_to_ftdg;
 
     // ******************************************************************* //
     // ************ Task Dependency Graph Control Structures ************* //
@@ -301,15 +301,15 @@ namespace Analysis {
 
         FTDGNode* get_parent() const;
         void set_parent(FTDGNode* n);
-        ObjectList<FTDGNode*> get_predecessors() const;
+        const ObjectList<FTDGNode*>& get_predecessors() const;
         void add_predecessor(FTDGNode* predecessor);
 
         FTDGNodeType get_type() const;
 
         ObjectList<FTDGNode*> get_inner() const;
-        ObjectList<FTDGNode*> get_inner_true() const;
-        ObjectList<FTDGNode*> get_inner_false() const;
-        ObjectList<FTDGNode*> get_outer() const;
+        const ObjectList<FTDGNode*>& get_inner_true() const;
+        const ObjectList<FTDGNode*>& get_inner_false() const;
+        const ObjectList<FTDGNode*>& get_outer() const;
 
         void add_inner(FTDGNode* n);
         void add_inner_true(FTDGNode* n);
@@ -321,6 +321,7 @@ namespace Analysis {
     {
     private:
         ExtensibleGraph* _pcfg;
+        std::vector<FTDGNode*> _parents;                        // Parent FTDGNode for each nesting level of parallelism
         std::vector<std::vector<FTDGNode*> > _outermost_nodes;  // Set of outermost nodes for each nesting level of parallelism
 
         void build_siblings_flow_tdg(
@@ -344,6 +345,7 @@ namespace Analysis {
         FlowTaskDependencyGraph(ExtensibleGraph* pcfg);
 
         ExtensibleGraph* get_pcfg() const;
+        const std::vector<FTDGNode*>& get_parents() const;
         const std::vector<std::vector<FTDGNode*> >& get_outermost_nodes() const;
 
         void print_tdg_to_dot();
@@ -357,6 +359,7 @@ namespace Analysis {
     // ******************************************************************* //
     // ****************** Expanded Task Dependency Graph ***************** //
 
+    class SubETDG;
     class ETDGNode {
     private:
         unsigned _id;
@@ -364,6 +367,8 @@ namespace Analysis {
 
         std::set<ETDGNode*> _inputs;
         std::set<ETDGNode*> _outputs;
+
+        SubETDG* _child;   // Child TDG enclosed in an ETDGNode
 
         Node* _pcfg_node;
 
@@ -380,6 +385,9 @@ namespace Analysis {
         std::set<ETDGNode*> get_outputs() const;
         void add_output(ETDGNode* n);
         void remove_output(ETDGNode* n);
+
+        SubETDG* get_child() const;
+        void set_child(SubETDG* child);
 
         std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> get_vars_map() const;
         void set_vars_map(std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> var_to_value);
@@ -422,10 +430,13 @@ namespace Analysis {
         bool visit(const Nodecl::Symbol& n);
     };
 
-    class LIBTL_CLASS ExpandedTaskDependencyGraph
+    class LIBTL_CLASS SubETDG
     {
     private:
-        FlowTaskDependencyGraph* _ftdg;
+        std::vector<FTDGNode*> _ftdg_outermost_nodes;
+        unsigned _tdg_id;
+        unsigned _parent_tdg_id;
+
         unsigned _maxI;
         unsigned _maxT;
 
@@ -436,10 +447,6 @@ namespace Analysis {
 
         std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*> > _source_to_etdg_nodes;
 
-        void compute_constants_rec(FTDGNode* n);
-        void compute_constants();
-
-        void expand_tdg();
         void expand_loop(
                 FTDGNode* n,
                 std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
@@ -452,16 +459,16 @@ namespace Analysis {
         unsigned get_etdg_node_id(unsigned task_id, std::deque<unsigned> loops_ids);
 
         ETDGNode* create_task_node(FTDGNode* n, std::deque<unsigned> loops_ids);
-        void connect_task_node(ETDGNode* etdg_n, Node* pcfg_n);
+        void connect_task_node(ETDGNode* etdg_n, FTDGNode* pcfg_n);
         bool compute_task_connections(
-            ETDGNode* possible_source,
-            ETDGNode* target,
-            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> target_vars_map,
-            std::set<ETDGNode*>& all_possible_ancestors);
+                ETDGNode* possible_source,
+                ETDGNode* target,
+                std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> target_vars_map,
+                std::set<ETDGNode*>& all_possible_ancestors);
         void task_create_and_connect(
-            FTDGNode* ftdg_n,
-            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
-            std::deque<unsigned> loops_ids);
+                FTDGNode* ftdg_n,
+                std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
+                std::deque<unsigned> loops_ids);
         ETDGNode* create_sync_node(FTDGNode* n);
         void connect_sync_node(ETDGNode* etdg_n);
         void sync_create_and_connect(FTDGNode* n);
@@ -472,12 +479,49 @@ namespace Analysis {
         bool is_ancestor(ETDGNode* source, ETDGNode* target);
 
         void remove_task_transitive_inputs(ETDGNode* n);
-        void remove_barrier_nodes_rec(ETDGNode* n);
-        void remove_barrier_nodes();
-        void purge_etdg();
+        void remove_synchronizations_rec(ETDGNode* n);
+        void remove_synchronizations();
 
         void clear_visits_rec(ETDGNode* n);
+
+    public:
+        SubETDG(
+            unsigned maxI, unsigned maxT,
+            unsigned parent_tdg_id, const std::vector<FTDGNode*>& outermost_nodes);
+
+        void purge_subtdg();
+        void expand_subtdg();
+
+        unsigned get_tdg_id() const;
+        unsigned get_parent_tdg_id() const;
+        void set_parent_tdg_id(unsigned parent_tdg_id);
+
+        unsigned get_maxI() const;
+        unsigned get_maxT() const;
+
+        const ObjectList<ETDGNode*>& get_roots() const;
+        const std::set<ETDGNode*>& get_leafs() const;
+
+        const ObjectList<ETDGNode*>& get_tasks() const;
+        unsigned get_nTasks() const;
+
+        const std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*> >& get_source_to_etdg_nodes() const;
+
         void clear_visits();
+    };
+
+    class LIBTL_CLASS ExpandedTaskDependencyGraph
+    {
+    private:
+        FlowTaskDependencyGraph* _ftdg;
+        std::vector<SubETDG*> _etdgs;
+
+        unsigned _maxI;
+        unsigned _maxT;
+
+        void compute_constants_rec(FTDGNode* n);
+        void compute_constants();
+        void expand_tdg();
 
         void print_tdg_to_dot_rec(ETDGNode* n, std::ofstream& dot_tdg);
 
@@ -485,16 +529,9 @@ namespace Analysis {
         ExpandedTaskDependencyGraph(ExtensibleGraph* pcfg);
 
         FlowTaskDependencyGraph* get_ftdg() const;
+        const std::vector<SubETDG*>& get_etdgs() const;
         unsigned get_maxI() const;
         unsigned get_maxT() const;
-        unsigned get_nTasks() const;
-
-        ObjectList<ETDGNode*> get_roots() const;
-        std::set<ETDGNode*> get_leafs() const;
-
-        ObjectList<ETDGNode*> get_tasks() const;
-
-        std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*> > get_source_to_etdg_nodes() const;
 
         void print_tdg_to_dot();
     };

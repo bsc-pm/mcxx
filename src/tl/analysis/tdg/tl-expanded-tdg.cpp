@@ -51,8 +51,7 @@ namespace Analysis {
     };
 
 namespace {
-    std::map<Node*, std::set<ETDGNode*> > pcfg_to_etdg_nodes;
-    ETDGNode* last_synchronization = NULL;
+    std::map<FTDGNode*, std::set<ETDGNode*> > ftdg_to_etdg_nodes;
     unsigned task_id = 0;
 
     std::map<FTDGNode*, LoopInfo*> ftdgnode_to_loop_info;
@@ -424,10 +423,672 @@ namespace {
 
         return cond_stmt;
     }
+
+    unsigned tdg_id = 0;
+    std::map<FTDGNode*, unsigned> _ftdg_task_to_tdg_id;
 }
 
+    SubETDG::SubETDG(unsigned maxI, unsigned maxT,
+                     unsigned parent_tdg_id, const std::vector<FTDGNode*>& outermost_nodes)
+        : _ftdg_outermost_nodes(outermost_nodes), _tdg_id(tdg_id++),
+          _parent_tdg_id(parent_tdg_id), _maxI(maxI), _maxT(maxT),
+          _roots(), _leafs(), _tasks(), _source_to_etdg_nodes()
+    {}
+
+    void SubETDG::expand_subtdg()
+    {
+        if (TDG_DEBUG)
+            std::cerr << "****************** Expanding ETDG " << _tdg_id << " ******************" << std::endl;
+        std::deque<unsigned> loops_ids;
+        for (std::vector<FTDGNode*>::const_iterator it = _ftdg_outermost_nodes.begin();
+             it != _ftdg_outermost_nodes.end(); ++it)
+        {
+            switch ((*it)->get_type())
+            {
+                case FTDGLoop:
+                {
+                    std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars;
+                    expand_loop(*it, current_relevant_vars, loops_ids);
+                    break;
+                }
+                case FTDGCondition:
+                {
+                    Node* cond_node = (*it)->get_pcfg_node()->get_condition_node();
+                    NBase cond = get_condition_stmts(cond_node);
+                    ObjectList<NBase> cond_syms = Nodecl::Utils::get_all_memory_accesses(cond);
+                    std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars;
+                    for (ObjectList<NBase>::iterator itc = cond_syms.begin(); itc != cond_syms.end(); ++itc)
+                    {
+                        current_relevant_vars[*itc] = get_constant(cond_node, *itc);
+                    }
+                    expand_condition(*it, current_relevant_vars, loops_ids);
+                    break;
+                }
+                case FTDGTaskwait:
+                case FTDGBarrier:
+                {
+                    sync_create_and_connect(*it);
+                    break;
+                }
+                case FTDGTarget:
+                {
+                    internal_error("Unsupported node Target while expanding TDG.\n", 0);
+                    break;
+                }
+                case FTDGTask:
+                {
+                    std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars;
+                    std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
+                    store_dependency_relevant_vars(*it, (*it)->get_pcfg_node(), /*true_edge*/false,
+                                                   fixed_relevant_vars, variable_relevant_vars);
+                    task_create_and_connect(*it, fixed_relevant_vars, loops_ids);
+                    break;
+                }
+                default:
+                {
+                    internal_error("Unexpected node %d while expanding TDG.\n", (*it)->get_type());
+                }
+            };
+        }
+
+        if (nt > 0)
+            std::cerr << std::endl; // This print sets a line break after printing the ETDG progress
+
+        if (TDG_DEBUG)
+            std::cerr << "**************** END expanding ETDG " << _tdg_id << " ****************" << std::endl;
+    }
+
+    void SubETDG::expand_loop(
+            FTDGNode* n,
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
+            std::deque<unsigned>& loops_ids)
+    {
+        if (TDG_DEBUG)
+            std::cerr << "   ****** Expanding loop ******" << std::endl;
+
+        LoopInfo* current_loop_info = ftdgnode_to_loop_info.find(n)->second;
+        Utils::InductionVar* iv = current_loop_info->_iv;
+
+        if (TDG_DEBUG)
+        {
+            std::cerr << "      LB = " << current_loop_info->_lb.prettyprint() << std::endl;
+            std::cerr << "      UB = " << current_loop_info->_ub.prettyprint() << std::endl;
+            std::cerr << "      INCR = " << current_loop_info->_incr.prettyprint() << std::endl;
+            std::cerr << "      NITER = " << current_loop_info->_niter << std::endl;
+        }
+
+        // Store the variables that will be involved in dependency expressions
+        Node* pcfg_n = n->get_pcfg_node();
+        std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars = current_relevant_vars;
+        std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
+        store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/false,
+                                       fixed_relevant_vars, variable_relevant_vars);
+        if (TDG_DEBUG)
+            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
+
+        const_value_t* c = current_loop_info->_lb.get_constant();
+        NBase cn(const_value_to_nodecl(c));
+        unsigned iter = 1;
+        loops_ids.push_back(iter);
+        const ObjectList<FTDGNode*>& inner = n->get_inner();
+        while (const_value_is_zero(const_value_gt(c, current_loop_info->_ub.get_constant())))
+        {
+            if (TDG_DEBUG)
+                std::cerr << "      * IV " << iv->get_variable().prettyprint() << " = " << cn.prettyprint() << std::endl;
+
+            for (ObjectList<FTDGNode*>::const_iterator it = inner.begin();
+                 it != inner.end(); ++it)
+            {
+                std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> inner_relevant_vars = fixed_relevant_vars;
+                // FIXME We are not considering variables that depend on the induction variable
+                inner_relevant_vars.insert(std::pair<NBase, const_value_t*>(iv->get_variable(), c));
+
+                FTDGNodeType it_type = (*it)->get_type();
+                switch (it_type)
+                {
+                    case FTDGLoop:
+                    {
+                        expand_loop(*it, inner_relevant_vars, loops_ids);
+                        break;
+                    }
+                    case FTDGCondition:
+                    {
+                        expand_condition(*it, inner_relevant_vars, loops_ids);
+                        break;
+                    }
+                    case FTDGTarget:
+                    {
+                        internal_error("Target not yet supported for etdg.\n", 0);
+                        break;
+                    }
+                    case FTDGTaskwait:
+                    case FTDGBarrier:
+                    {
+                        sync_create_and_connect(*it);
+                        break;
+                    }
+                    case FTDGTask:
+                    {
+                        task_create_and_connect(*it, inner_relevant_vars, loops_ids);
+                        break;
+                    }
+                    default:
+                    {
+                        internal_error("Unexpected FTDGNode type %d.\n", it_type);
+                    }
+                };
+            }
+
+            ++iter;
+            loops_ids.pop_back();
+            loops_ids.push_back(iter);
+            c = const_value_add(c, current_loop_info->_incr.get_constant());
+            cn = NBase(const_value_to_nodecl(c));
+        }
+        loops_ids.pop_back();
+        if (TDG_DEBUG)
+            std::cerr << "   **** END expanding loop *****" << std::endl;
+    }
+
+    void SubETDG::expand_condition(
+            FTDGNode* n,
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
+            std::deque<unsigned>& loops_ids)
+    {
+        if (TDG_DEBUG)
+            std::cerr << "   ****** Expanding condition ******" << std::endl;
+
+        Node* pcfg_n = n->get_pcfg_node();
+
+        // Evaluate the condition
+        Node* cond_node = pcfg_n->get_condition_node();
+        NBase cond = get_condition_stmts(cond_node);
+        ReplaceAndEvalVisitor rev(/*lhs*/ current_relevant_vars, /*rhs*/ current_relevant_vars);
+        bool res = rev.walk(cond.shallow_copy());
+        if (TDG_DEBUG)
+            std::cerr << "      IfElse node " << pcfg_n->get_id() << " with codition '"
+                      << cond.prettyprint() << "' evaluates to " << res << std::endl;
+
+        // If the condition evaluates to true, then create tasks within the true branch
+        // otherwise create tasks within the false edge
+        ObjectList<FTDGNode*> inner;
+        std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars = current_relevant_vars;
+        std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
+        if (res)
+        {
+            inner = n->get_inner_true();
+            store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/true,
+                                           fixed_relevant_vars, variable_relevant_vars);
+        }
+        else
+        {
+            inner = n->get_inner_false();
+            store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/false,
+                                           fixed_relevant_vars, variable_relevant_vars);
+        }
+        if (TDG_DEBUG)
+            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
+
+        ERROR_CONDITION(!variable_relevant_vars.empty(),
+                        "Variable relevant variables found when expanding condition. This is not yet supported.\n", 0);
+
+        for (ObjectList<FTDGNode*>::const_iterator it = inner.begin();
+                it != inner.end(); ++it)
+        {
+            FTDGNodeType it_type = (*it)->get_type();
+            switch (it_type)
+            {
+                case FTDGLoop:
+                {
+                    internal_error("Nested loop not yet supported for etdg\n", 0);
+                    expand_loop(*it, fixed_relevant_vars, loops_ids);
+                    break;
+                }
+                case FTDGCondition:
+                {
+                    expand_condition(*it, fixed_relevant_vars, loops_ids);
+                    break;
+                }
+                case FTDGTarget:
+                {
+                    internal_error("Target not yet supported for etdg.\n", 0);
+                    break;
+                }
+                case FTDGTaskwait:
+                case FTDGBarrier:
+                {
+                    sync_create_and_connect(*it);
+                    break;
+                }
+                case FTDGTask:
+                {
+                    task_create_and_connect(*it, fixed_relevant_vars, loops_ids);
+                    break;
+                }
+                default:
+                {
+                    internal_error("Unexpected FTDGNode type %d.\n", it_type);
+                }
+            };
+        }
+
+        if (TDG_DEBUG)
+            std::cerr << "   **** END expanding condition ****" << std::endl;
+    }
+
+    void SubETDG::connect_nodes(ETDGNode* source, ETDGNode* target)
+    {
+        source->add_output(target);
+        target->add_input(source);
+        if (TDG_DEBUG)
+            std::cerr << "         Connecting " << source->get_id() << " -> " << target->get_id() << std::endl;
+    }
+
+    void SubETDG::disconnect_nodes(ETDGNode* source, ETDGNode* target)
+    {
+        source->remove_output(target);
+        target->remove_input(source);
+        if (TDG_DEBUG)
+            std::cerr << "         Disconnecting " << source->get_id() << " -> " << target->get_id() << std::endl;
+    }
+
+    ETDGNode* SubETDG::create_task_node(FTDGNode* ftdg_n, std::deque<unsigned> loops_ids)
+    {
+        ERROR_CONDITION(ftdg_n->get_type() != FTDGTask,
+                        "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
+                        ftdg_n->get_type());
+
+        Node* source_node = ftdg_n->get_pcfg_node();
+        Nodecl::NodeclBase source_task = source_node->get_graph_related_ast();
+        ERROR_CONDITION(!source_task.is<Nodecl::OpenMP::Task>(),
+                        "The extensible graph node %d related with an ETDG task node has wrong type %s",
+                        ftdg_n->get_pcfg_node()->get_id(),
+                        ast_print_node_type(source_task.get_kind()));
+        unsigned etask_id = get_etdg_node_id(ftdgnode_to_task_id.find(ftdg_n)->second, loops_ids);
+        ETDGNode* etdg_n = new ETDGNode(etask_id, source_node);
+        _source_to_etdg_nodes[source_task].append(etdg_n);
+
+        if (TDG_DEBUG)
+            std::cerr << "      Created task node " << etdg_n->get_id() << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
+
+        _tasks.insert(etdg_n);
+        _leafs.insert(etdg_n);
+
+        return etdg_n;
+    }
+
+    unsigned SubETDG::get_etdg_node_id(unsigned task_id, std::deque<unsigned> loops_ids)
+    {
+//         if (TDG_DEBUG)
+//             std::cerr << "TASK " << task_id << "(";
+        unsigned sum = 0;
+        while (!loops_ids.empty())
+        {
+//             if (TDG_DEBUG)
+//                 std::cerr << loops_ids.back() << ", ";
+            sum = (sum + loops_ids.back()) * _maxI;
+            loops_ids.pop_back();
+        }
+//         if (TDG_DEBUG)
+//             std::cerr << ")  ->  " << task_id + (_maxT * sum) << std::endl;
+        return task_id + (_maxT * sum);
+    }
+
+namespace {
+    void remove_ancestors_from_set(ETDGNode* n, std::set<ETDGNode*>& s)
+    {
+        std::set<ETDGNode*> n_ins = n->get_inputs();
+        for (std::set<ETDGNode*>::iterator it = n_ins.begin(); it != n_ins.end(); ++it)
+        {
+            if (s.find(*it) != s.end())
+            {
+                s.erase(*it);
+                remove_ancestors_from_set(*it, s);
+            }
+        }
+    }
+}
+
+    bool SubETDG::compute_task_connections(
+            ETDGNode* possible_source,
+            ETDGNode* target,
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> target_vars_map,
+            std::set<ETDGNode*>& all_possible_ancestors)
+    {
+        // @possible_source is not a candidate to be an ancestor of @target
+        if (all_possible_ancestors.find(possible_source) == all_possible_ancestors.end())
+            return false;
+
+        // Check the dependency replacing all variables with the corresponding constant values in the dependency expression
+        bool res;
+        Node* possible_source_pcfg_node = possible_source->get_pcfg_node();
+        Node* target_pcfg_node = target->get_pcfg_node();
+        ObjectList<Node*> children = possible_source_pcfg_node->get_children();
+        Edge* edge = NULL;
+        NBase cond;
+        if (!children.find(target_pcfg_node).empty())
+        {
+            edge = ExtensibleGraph::get_edge_between_nodes(possible_source_pcfg_node, target_pcfg_node);
+            cond = edge->get_condition();
+        }
+        if (edge == NULL /*this a fabricated edge between nodes from different nesting regions*/
+            || cond.is_null() /*the edge is unconditional*/)
+        {
+            res = true;
+        }
+        else
+        {
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> possible_source_vars_map = possible_source->get_vars_map();
+            ReplaceAndEvalVisitor rev(/*lhs*/ possible_source_vars_map, /*rhs*/ target_vars_map);
+            NBase cond_cp = cond.shallow_copy();
+            res = rev.walk(cond_cp);
+            nodecl_free(cond_cp.get_internal_nodecl());
+        }
+
+        // If the condition evaluates to true, then
+        //   - connect the nodes
+        //   - remove all @possible_source ancestors from the list of possible ancestors
+        // otherwise, keep traversing bottom-top the ETDG
+        if (res)
+        {
+            connect_nodes(possible_source, target);
+            remove_ancestors_from_set(possible_source, all_possible_ancestors);
+            _leafs.erase(possible_source);
+        }
+
+        return res;
+    }
+
+    void SubETDG::connect_task_node(ETDGNode* etdg_n, FTDGNode* ftdg_n)
+    {
+        // Gather all possible ancestors
+        std::set<ETDGNode*> current_tdg_possible_ancestors;
+        std::set<ETDGNode*> other_tdg_possible_ancestors;
+        const ObjectList<FTDGNode*> predecessors = ftdg_n->get_predecessors();
+        for (ObjectList<FTDGNode*>::const_iterator it = predecessors.begin(); it != predecessors.end(); ++it)
+        {
+            std::map<FTDGNode*, std::set<ETDGNode*> >::iterator itm = ftdg_to_etdg_nodes.find(*it);
+            // Its parents have not been created yet
+            if (itm == ftdg_to_etdg_nodes.end())
+                continue;
+
+            std::set<ETDGNode*> it_possible_ancestors = itm->second;
+            if (ftdg_n->get_parent() == (*it)->get_parent())
+            {
+                current_tdg_possible_ancestors.insert(it_possible_ancestors.begin(),
+                                                    it_possible_ancestors.end());
+            }
+            else
+            {
+                other_tdg_possible_ancestors.insert(it_possible_ancestors.begin(),
+                                                    it_possible_ancestors.end());
+            }
+        }
+
+        // Connect the node with previous dependences/synchronizations
+        std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> etdg_n_vars_map = etdg_n->get_vars_map();
+            // Connect it with other nodes from the same TDG depending on the predicates
+        std::deque<ETDGNode*> nlist(_leafs.begin(), _leafs.end());
+        std::set<ETDGNode*> already_visited;
+        while (!nlist.empty())
+        {
+            ETDGNode* possible_source = nlist.front();
+            nlist.pop_front();
+            if (already_visited.find(possible_source) != already_visited.end())
+                continue;
+            already_visited.insert(possible_source);
+
+            // Do not connect a ETDG node with itself
+            if (possible_source == etdg_n)
+                continue;
+
+            bool connected = compute_task_connections(possible_source, etdg_n, etdg_n_vars_map, current_tdg_possible_ancestors);
+            if (!connected)
+            {
+                std::set<ETDGNode*> inputs = possible_source->get_inputs();
+                for (std::set<ETDGNode*>::iterator it = inputs.begin(); it != inputs.end(); ++it)
+                {
+                    nlist.push_back(*it);
+                }
+            }
+        }
+            // Connect it with nodes from other TDGs depending on the predicates
+        for (std::set<ETDGNode*>::iterator it = other_tdg_possible_ancestors.begin();
+             it != other_tdg_possible_ancestors.end(); ++it)
+        {
+            compute_task_connections(*it, etdg_n, etdg_n_vars_map, other_tdg_possible_ancestors);
+        }
+
+        // Connect the node with previous synchronizations from the same TDG
+        if (etdg_n->get_inputs().empty())
+        {
+            // The only entry node is the creation of the task
+            _roots.insert(etdg_n);
+        }
+    }
+
+    void SubETDG::remove_task_transitive_inputs(ETDGNode* n)
+    {
+        const std::set<ETDGNode*>& inputs = n->get_inputs();
+        for (std::set<ETDGNode*>::const_iterator its = inputs.begin(); its != inputs.end(); ++its)
+        {
+            for (std::set<ETDGNode*>::const_iterator itt = inputs.begin(); itt != inputs.end(); ++itt)
+            {
+                if (*its == *itt)
+                    continue;
+
+                if (is_ancestor(*its, *itt))
+                {
+                    disconnect_nodes(*its, n);
+                }
+            }
+        }
+    }
+
+    void SubETDG::task_create_and_connect(
+            FTDGNode* ftdg_n,
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
+            std::deque<unsigned> loops_ids)
+    {
+        if (nt == 0)
+            std::cerr << "Tasks expansion progress (this may take some time)" << std::endl;
+        std::cerr << '\r' << std::setw(6) << ++nt << std::flush;
+        ETDGNode* etdg_n = create_task_node(ftdg_n, loops_ids);
+        etdg_n->set_vars_map(current_relevant_vars);
+
+        ftdg_to_etdg_nodes[ftdg_n].insert(etdg_n);
+        connect_task_node(etdg_n, ftdg_n);
+
+        remove_task_transitive_inputs(etdg_n);
+
+        _ftdg_task_to_tdg_id[ftdg_n] = _tdg_id;
+    }
+
+    static int sync_id = -1;
+    ETDGNode* SubETDG::create_sync_node(FTDGNode* ftdg_n)
+    {
+        ERROR_CONDITION(ftdg_n->get_type() != FTDGTaskwait && ftdg_n->get_type() != FTDGBarrier,
+                        "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
+                        ftdg_n->get_type());
+        if (TDG_DEBUG)
+            std::cerr << "      Created sync node " << sync_id << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
+        return new ETDGNode(sync_id--, ftdg_n->get_pcfg_node());
+    }
+
+    void SubETDG::connect_sync_node(ETDGNode* etdg_n)
+    {
+        for (std::set<ETDGNode*>::iterator it = _leafs.begin(); it != _leafs.end(); ++it)
+        {
+            connect_nodes(*it, etdg_n);
+        }
+        _leafs.clear();
+        _leafs.insert(etdg_n);
+    }
+
+    void SubETDG::sync_create_and_connect(
+            FTDGNode* ftdg_n)
+    {
+        ETDGNode* etdg_n = create_sync_node(ftdg_n);
+
+        ftdg_to_etdg_nodes[ftdg_n].insert(etdg_n);
+
+        connect_sync_node(etdg_n);
+    }
+
+    bool SubETDG::is_ancestor(ETDGNode* source, ETDGNode* target)
+    {
+        const std::set<ETDGNode*>& outputs = source->get_outputs();
+        if (outputs.find(target) != outputs.end())
+            return true;
+
+        for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
+        {
+            if (is_ancestor(*it, target))
+                return true;
+        }
+
+        return false;
+    }
+
+    void SubETDG::remove_synchronizations_rec(ETDGNode* n)
+    {
+        if (n->is_visited())
+            return;
+        n->set_visited(true);
+
+        // Note: get here the list of outputs, before the node may be removed and disconnected
+        const std::set<ETDGNode*>& outputs = n->get_outputs();
+        if (n->get_id() < 0)
+        {
+            // Disconnect the node from its parents and children and remove it
+            const std::set<ETDGNode*>& inputs = n->get_inputs();
+            for (std::set<ETDGNode*>::const_iterator it = inputs.begin(); it != inputs.end(); ++it)
+            {
+                disconnect_nodes(*it, n);
+            }
+            for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
+            {
+                disconnect_nodes(n, *it);
+            }
+
+            // Note that a node may be a leaf and have children at the same time
+            // This happens only if the children are from a different TDG
+
+            if (_leafs.find(n) != _leafs.end())
+            {   // Restore the list of leafs
+                _leafs.erase(n);
+                for (std::set<ETDGNode*>::const_iterator it = inputs.begin(); it != inputs.end(); ++it)
+                {
+                    _leafs.insert(*it);
+                }
+            }
+
+            // Connect all parents with all children
+            for (std::set<ETDGNode*>::const_iterator its = inputs.begin(); its != inputs.end(); ++its)
+            {
+                for (std::set<ETDGNode*>::const_iterator itt = outputs.begin(); itt != outputs.end(); ++itt)
+                {
+                    connect_nodes(*its, *itt);
+                }
+            }
+
+            // Remove the node
+            delete n;
+        }
+
+        for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
+            remove_synchronizations_rec(*it);
+    }
+
+    void SubETDG::remove_synchronizations()
+    {
+        for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
+            remove_synchronizations_rec(*it);
+    }
+
+    void SubETDG::purge_subtdg()
+    {
+        if (TDG_DEBUG)
+            std::cerr << "****************** Removing synchronizations from ETDG " << _tdg_id << " ******************" << std::endl;
+        remove_synchronizations();
+        std::cerr << "**************** END removing synchronizations from ETDG " << _tdg_id << " ****************" << std::endl;
+        clear_visits();
+    }
+
+    void SubETDG::clear_visits_rec(ETDGNode* n)
+    {
+        if (!n->is_visited())
+            return;
+
+        n->set_visited(false);
+
+        const std::set<ETDGNode*>& outputs = n->get_outputs();
+        for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
+        {
+            clear_visits_rec(*it);
+        }
+    }
+
+    void SubETDG::clear_visits()
+    {
+        for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
+        {
+            clear_visits_rec(*it);
+        }
+    }
+    unsigned SubETDG::get_tdg_id() const
+    {
+        return _tdg_id;
+    }
+
+    unsigned SubETDG::get_parent_tdg_id() const
+    {
+        return _parent_tdg_id;
+    }
+
+    void SubETDG::set_parent_tdg_id(unsigned parent_tdg_id)
+    {
+        _parent_tdg_id = parent_tdg_id;
+    }
+
+    unsigned SubETDG::get_maxI() const
+    {
+        return _maxI;
+    }
+
+    unsigned SubETDG::get_maxT() const
+    {
+        return _maxT;
+    }
+
+    const ObjectList<ETDGNode*>& SubETDG::get_roots() const
+    {
+        return _roots;
+    }
+
+    const std::set<ETDGNode*>& SubETDG::get_leafs() const
+    {
+        return _leafs;
+    }
+
+    const ObjectList<ETDGNode*>& SubETDG::get_tasks() const
+    {
+        return _tasks;
+    }
+
+    unsigned SubETDG::get_nTasks() const
+    {
+        return _tasks.size();
+    }
+
+    const std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*> >&
+             SubETDG::get_source_to_etdg_nodes() const
+    {
+        return _source_to_etdg_nodes;
+    }
+
     ExpandedTaskDependencyGraph::ExpandedTaskDependencyGraph(ExtensibleGraph* pcfg)
-        : _ftdg(NULL), _maxI(0), _maxT(0), _roots(), _leafs(), _tasks(), _source_to_etdg_nodes()
+        : _ftdg(NULL), _etdgs(), _maxI(0), _maxT(0)
     {
         _ftdg = new FlowTaskDependencyGraph(pcfg);
         if (TDG_DEBUG)
@@ -496,17 +1157,16 @@ namespace {
     }
     void ExpandedTaskDependencyGraph::compute_constants()
     {
-        std::vector<std::vector<FTDGNode*> > ftdg_outermost_nodes = _ftdg->get_outermost_nodes();
-        if (ftdg_outermost_nodes.size() != 1)
+        const std::vector<std::vector<FTDGNode*> >& ftdg_outermost_nodes = _ftdg->get_outermost_nodes();
+        for (std::vector<std::vector<FTDGNode*> >::const_iterator it = ftdg_outermost_nodes.begin();
+             it != ftdg_outermost_nodes.end(); ++it)
         {
-            WARNING_MESSAGE("More than one level of parallelism. "
-                "Currently, the computation of _maxT and _maxI only considers the most outer level.", 0);
-        }
-        std::vector<FTDGNode*> current_outermost_nodes = ftdg_outermost_nodes[0];
-        for (std::vector<FTDGNode*>::const_iterator it = current_outermost_nodes.begin();
-             it != current_outermost_nodes.end(); ++it)
-        {
-            compute_constants_rec(*it);
+            std::vector<FTDGNode*> current_outermost_nodes = *it;
+            for (std::vector<FTDGNode*>::const_iterator itt = current_outermost_nodes.begin();
+                itt != current_outermost_nodes.end(); ++itt)
+            {
+                compute_constants_rec(*itt);
+            }
         }
 
         if (TDG_DEBUG)
@@ -515,610 +1175,74 @@ namespace {
 
     void ExpandedTaskDependencyGraph::expand_tdg()
     {
-        std::deque<unsigned> loops_ids;
+        const std::vector<FTDGNode*>& ftdg_parents = _ftdg->get_parents();
         const std::vector<std::vector<FTDGNode*> >& ftdg_outermost_nodes = _ftdg->get_outermost_nodes();
-        std::vector<FTDGNode*> current_outermost_nodes = ftdg_outermost_nodes[0];
-        for (std::vector<FTDGNode*>::const_iterator it = current_outermost_nodes.begin();
-             it != current_outermost_nodes.end(); ++it)
+        ERROR_CONDITION(ftdg_parents.size() != ftdg_outermost_nodes.size(),
+                        "FTDG corrupted: The number of parents (%d) is different from the number of sets of outermost nodes (%d).\n",
+                        ftdg_parents.size(), ftdg_outermost_nodes.size());
+
+        // Perform reverse iteration, so nested regions are computed before outer regions
+        // Otherwise some predecessors may not have been created
+        std::vector<std::vector<FTDGNode*> >::const_reverse_iterator ito = ftdg_outermost_nodes.rbegin();
+        for (; ito != ftdg_outermost_nodes.rend(); ++ito)
         {
-            switch ((*it)->get_type())
-            {
-                case FTDGLoop:
-                {
-                    std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars;
-                    expand_loop(*it, current_relevant_vars, loops_ids);
-                    break;
-                }
-                case FTDGCondition:
-                {
-                    Node* cond_node = (*it)->get_pcfg_node()->get_condition_node();
-                    NBase cond = get_condition_stmts(cond_node);
-                    ObjectList<NBase> cond_syms = Nodecl::Utils::get_all_memory_accesses(cond);
-                    std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars;
-                    for (ObjectList<NBase>::iterator itc = cond_syms.begin(); itc != cond_syms.end(); ++itc)
-                    {
-                        current_relevant_vars[*itc] = get_constant(cond_node, *itc);
-                    }
-                    expand_condition(*it, current_relevant_vars, loops_ids);
-                    break;
-                }
-                case FTDGTaskwait:
-                case FTDGBarrier:
-                {
-                    sync_create_and_connect(*it);
-                    break;
-                }
-                case FTDGTarget:
-                {
-                    internal_error("Unsupported node Target while expanding TDG.\n", 0);
-                    break;
-                }
-                case FTDGTask:
-                {
-                    std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars;
-                    std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
-                    store_dependency_relevant_vars(*it, (*it)->get_pcfg_node(), /*true_edge*/false,
-                                                   fixed_relevant_vars, variable_relevant_vars);
-                    task_create_and_connect(*it, fixed_relevant_vars, loops_ids);
-                    break;
-                }
-                default:
-                {
-                    internal_error("Unexpected node %d while expanding TDG.\n", (*it)->get_type());
-                }
-            };
+            SubETDG* it_etdg = new SubETDG(_maxI, _maxT, /*default parent_tdg_id*/ 0, *ito);
+            it_etdg->expand_subtdg();
+            _etdgs.push_back(it_etdg);
         }
 
-        purge_etdg();
-
-        if (TDG_DEBUG)
+        // Set parenting relationships for nested regions
+        // The set of etdgs is in reverse order regarding the set of parents
+        // due to the reverse traversal made on the set of outermost nodes
+        std::vector<FTDGNode*>::const_iterator itp = ftdg_parents.begin();
+        for (std::vector<SubETDG*>::reverse_iterator it_etdg = _etdgs.rbegin();
+             it_etdg != _etdgs.rend(); ++it_etdg, ++itp)
         {
-            std::cerr << "List of roots:" << std::endl;
-            for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
+            if (_ftdg_task_to_tdg_id.find(*itp) != _ftdg_task_to_tdg_id.end())
             {
-                std::cerr << "   - " << (*it)->get_id() << std::endl;
-            }
-            std::cerr << "List of leafs:" << std::endl;
-            for (std::set<ETDGNode*>::iterator it = _leafs.begin(); it != _leafs.end(); ++it)
-            {
-                std::cerr << "   - " << (*it)->get_id() << std::endl;
+                unsigned parent_tdg_id = _ftdg_task_to_tdg_id[*itp];
+                (*it_etdg)->set_parent_tdg_id(parent_tdg_id);
+                std::set<ETDGNode*> etdg_nodes = ftdg_to_etdg_nodes[*itp];
+                ERROR_CONDITION(etdg_nodes.size() != 1,
+                                "FTDG node %d has nested tasks and expands to more than one ETDG. This is not yet supported.\n",
+                                (*itp)->get_id());
+                (*etdg_nodes.begin())->set_child(*it_etdg);
             }
         }
-
-        if (nt > 0)
-            std::cerr << std::endl; // This print sets a line break after printing the ETDG progress
-    }
-
-    void ExpandedTaskDependencyGraph::expand_loop(
-            FTDGNode* n,
-            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
-            std::deque<unsigned>& loops_ids)
-    {
-        if (TDG_DEBUG)
-            std::cerr << "****************** Expanding loop ******************" << std::endl;
-
-        LoopInfo* current_loop_info = ftdgnode_to_loop_info.find(n)->second;
-        Utils::InductionVar* iv = current_loop_info->_iv;
-
-        if (TDG_DEBUG)
+        // Purge all TDGs from their synchronization nodes
+        for (std::vector<SubETDG*>::reverse_iterator it_etdg = _etdgs.rbegin();
+             it_etdg != _etdgs.rend(); ++it_etdg)
         {
-            std::cerr << "       LB = " << current_loop_info->_lb.prettyprint() << std::endl;
-            std::cerr << "       UB = " << current_loop_info->_ub.prettyprint() << std::endl;
-            std::cerr << "       INCR = " << current_loop_info->_incr.prettyprint() << std::endl;
-            std::cerr << "       NITER = " << current_loop_info->_niter << std::endl;
-        }
+            (*it_etdg)->purge_subtdg();
 
-        // Store the variables that will be involved in dependency expressions
-        Node* pcfg_n = n->get_pcfg_node();
-        std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars = current_relevant_vars;
-        std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
-        store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/false,
-                                       fixed_relevant_vars, variable_relevant_vars);
-        if (TDG_DEBUG)
-            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
-
-        const_value_t* c = current_loop_info->_lb.get_constant();
-        NBase cn(const_value_to_nodecl(c));
-        unsigned iter = 1;
-        loops_ids.push_back(iter);
-        const ObjectList<FTDGNode*>& inner = n->get_inner();
-        while (const_value_is_zero(const_value_gt(c, current_loop_info->_ub.get_constant())))
-        {
             if (TDG_DEBUG)
-                std::cerr << "* IV " << iv->get_variable().prettyprint() << " = " << cn.prettyprint() << std::endl;
-
-            for (ObjectList<FTDGNode*>::const_iterator it = inner.begin();
-                 it != inner.end(); ++it)
             {
-                std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> inner_relevant_vars = fixed_relevant_vars;
-                // FIXME We are not considering variables that depend on the induction variable
-                inner_relevant_vars.insert(std::pair<NBase, const_value_t*>(iv->get_variable(), c));
-
-                FTDGNodeType it_type = (*it)->get_type();
-                switch (it_type)
+                std::cerr << "****************** Summary of ETDG " << (*it_etdg)->get_tdg_id() << " ******************" << std::endl;
+                std::cerr << "      List of roots:" << std::endl;
+                const ObjectList<ETDGNode*>& roots = (*it_etdg)->get_roots();
+                for (ObjectList<ETDGNode*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
                 {
-                    case FTDGLoop:
-                    {
-                        expand_loop(*it, inner_relevant_vars, loops_ids);
-                        break;
-                    }
-                    case FTDGCondition:
-                    {
-                        expand_condition(*it, inner_relevant_vars, loops_ids);
-                        break;
-                    }
-                    case FTDGTarget:
-                    {
-                        internal_error("Target not yet supported for etdg.\n", 0);
-                        break;
-                    }
-                    case FTDGTaskwait:
-                    case FTDGBarrier:
-                    {
-                        sync_create_and_connect(*it);
-                        break;
-                    }
-                    case FTDGTask:
-                    {
-                        task_create_and_connect(*it, inner_relevant_vars, loops_ids);
-                        break;
-                    }
-                    default:
-                    {
-                        internal_error("Unexpected FTDGNode type %d.\n", it_type);
-                    }
-                };
-            }
-
-            ++iter;
-            loops_ids.pop_back();
-            loops_ids.push_back(iter);
-            c = const_value_add(c, current_loop_info->_incr.get_constant());
-            cn = NBase(const_value_to_nodecl(c));
-        }
-        loops_ids.pop_back();
-        if (TDG_DEBUG)
-            std::cerr << "**************** END expanding loop ****************" << std::endl;
-    }
-
-    void ExpandedTaskDependencyGraph::expand_condition(
-            FTDGNode* n,
-            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
-            std::deque<unsigned>& loops_ids)
-    {
-        if (TDG_DEBUG)
-            std::cerr << "**************** Expanding condition ****************" << std::endl;
-
-        Node* pcfg_n = n->get_pcfg_node();
-
-        // Evaluate the condition
-        Node* cond_node = pcfg_n->get_condition_node();
-        NBase cond = get_condition_stmts(cond_node);
-        ReplaceAndEvalVisitor rev(/*lhs*/ current_relevant_vars, /*rhs*/ current_relevant_vars);
-        bool res = rev.walk(cond.shallow_copy());
-        if (TDG_DEBUG)
-            std::cerr << "        (ifelse " << pcfg_n->get_id() << ") codition : "
-                      << cond.prettyprint() << " evaluates to " << res << std::endl;
-
-        // If the condition evaluates to true, then create tasks within the true branch
-        // otherwise create tasks within the false edge
-        ObjectList<FTDGNode*> inner;
-        std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars = current_relevant_vars;
-        std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
-        if (res)
-        {
-            inner = n->get_inner_true();
-            store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/true,
-                                           fixed_relevant_vars, variable_relevant_vars);
-        }
-        else
-        {
-            inner = n->get_inner_false();
-            store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/false,
-                                           fixed_relevant_vars, variable_relevant_vars);
-        }
-        if (TDG_DEBUG)
-            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
-
-        ERROR_CONDITION(!variable_relevant_vars.empty(),
-                        "Variable relevant variables found when expanding condition. This is not yet supported.\n", 0);
-
-        for (ObjectList<FTDGNode*>::const_iterator it = inner.begin();
-                it != inner.end(); ++it)
-        {
-            FTDGNodeType it_type = (*it)->get_type();
-            switch (it_type)
-            {
-                case FTDGLoop:
-                {
-                    internal_error("Nested loop not yet supported for etdg\n", 0);
-                    expand_loop(*it, fixed_relevant_vars, loops_ids);
-                    break;
+                    std::cerr << "         - " << (*it)->get_id() << std::endl;
                 }
-                case FTDGCondition:
+                std::cerr << "      List of leafs:" << std::endl;
+                const std::set<ETDGNode*>& leafs = (*it_etdg)->get_leafs();
+                for (std::set<ETDGNode*>::const_iterator it = leafs.begin(); it != leafs.end(); ++it)
                 {
-                    expand_condition(*it, fixed_relevant_vars, loops_ids);
-                    break;
+                    std::cerr << "         - " << (*it)->get_id() << std::endl;
                 }
-                case FTDGTarget:
-                {
-                    internal_error("Target not yet supported for etdg.\n", 0);
-                    break;
-                }
-                case FTDGTaskwait:
-                case FTDGBarrier:
-                {
-                    sync_create_and_connect(*it);
-                    break;
-                }
-                case FTDGTask:
-                {
-                    task_create_and_connect(*it, fixed_relevant_vars, loops_ids);
-                    break;
-                }
-                default:
-                {
-                    internal_error("Unexpected FTDGNode type %d.\n", it_type);
-                }
-            };
-        }
-
-        if (TDG_DEBUG)
-            std::cerr << "************** END expanding condition **************" << std::endl;
-    }
-
-    void ExpandedTaskDependencyGraph::connect_nodes(ETDGNode* source, ETDGNode* target)
-    {
-        source->add_output(target);
-        target->add_input(source);
-        if (TDG_DEBUG)
-            std::cerr << "        connecting " << source->get_id() << " -> " << target->get_id() << std::endl;
-    }
-
-    void ExpandedTaskDependencyGraph::disconnect_nodes(ETDGNode* source, ETDGNode* target)
-    {
-        source->remove_output(target);
-        target->remove_input(source);
-        if (TDG_DEBUG)
-            std::cerr << "        disconnecting " << source->get_id() << " -> " << target->get_id() << std::endl;
-    }
-
-    ETDGNode* ExpandedTaskDependencyGraph::create_task_node(FTDGNode* ftdg_n, std::deque<unsigned> loops_ids)
-    {
-        ERROR_CONDITION(ftdg_n->get_type() != FTDGTask,
-                        "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
-                        ftdg_n->get_type());
-
-        Node* source_node = ftdg_n->get_pcfg_node();
-        Nodecl::NodeclBase source_task = source_node->get_graph_related_ast();
-        ERROR_CONDITION(!source_task.is<Nodecl::OpenMP::Task>(),
-                        "The extensible graph node %d related with an ETDG task node has wrong type %s",
-                        ftdg_n->get_pcfg_node()->get_id(),
-                        ast_print_node_type(source_task.get_kind()));
-        unsigned etask_id = get_etdg_node_id(ftdgnode_to_task_id.find(ftdg_n)->second, loops_ids);
-        ETDGNode* etdg_n = new ETDGNode(etask_id, source_node);
-        _source_to_etdg_nodes[source_task].append(etdg_n);
-
-        if (TDG_DEBUG)
-            std::cerr << "    task node " << etdg_n->get_id() << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
-
-        _tasks.insert(etdg_n);
-        _leafs.insert(etdg_n);
-
-        return etdg_n;
-    }
-
-    unsigned ExpandedTaskDependencyGraph::get_etdg_node_id(unsigned task_id, std::deque<unsigned> loops_ids)
-    {
-        if (TDG_DEBUG)
-            std::cerr << "TASK " << task_id << "(";
-        unsigned sum = 0;
-        while (!loops_ids.empty())
-        {
-            if (TDG_DEBUG)
-                std::cerr << loops_ids.back() << ", ";
-            sum = (sum + loops_ids.back()) * _maxI;
-            loops_ids.pop_back();
-        }
-        if (TDG_DEBUG)
-            std::cerr << ")  ->  " << task_id + (_maxT * sum) << std::endl;
-        return task_id + (_maxT * sum);
-    }
-
-namespace {
-    void remove_ancestors_from_set(ETDGNode* n, std::set<ETDGNode*>& s)
-    {
-        std::set<ETDGNode*> n_ins = n->get_inputs();
-        for (std::set<ETDGNode*>::iterator it = n_ins.begin(); it != n_ins.end(); ++it)
-        {
-            if (s.find(*it) != s.end())
-            {
-                s.erase(*it);
-                remove_ancestors_from_set(*it, s);
+                std::cerr << "**************** END summary of ETDG " << (*it_etdg)->get_tdg_id() << " ****************" << std::endl;
             }
-        }
-    }
-}
-
-    bool ExpandedTaskDependencyGraph::compute_task_connections(
-            ETDGNode* possible_source,
-            ETDGNode* target,
-            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> target_vars_map,
-            std::set<ETDGNode*>& all_possible_ancestors)
-    {
-        // @possible_source is not a candidate to be an ancestor of @target
-        if (all_possible_ancestors.find(possible_source) == all_possible_ancestors.end())
-            return false;
-
-        // Check the dependency replacing all variables with the corresponding constant values in the dependency expression
-        bool res;
-        Node* possible_source_pcfg_node = possible_source->get_pcfg_node();
-        Node* target_pcfg_node = target->get_pcfg_node();
-        Edge* edge = ExtensibleGraph::get_edge_between_nodes(possible_source_pcfg_node, target_pcfg_node);
-        ERROR_CONDITION(edge==NULL,
-                        "There is no PCFG edge between %d and %d.\n",
-                        possible_source_pcfg_node->get_id(), target_pcfg_node->get_id());
-        NBase cond = edge->get_condition();
-        if (cond.is_null())
-        {
-            res = true;
-        }
-        else
-        {
-            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> possible_source_vars_map = possible_source->get_vars_map();
-            ReplaceAndEvalVisitor rev(/*lhs*/ possible_source_vars_map, /*rhs*/ target_vars_map);
-            NBase cond_cp = cond.shallow_copy();
-            res = rev.walk(cond_cp);
-            nodecl_free(cond_cp.get_internal_nodecl());
-        }
-
-        // If the condition evaluates to true, then
-        //   - connect the nodes
-        //   - remove all @possible_source ancestors from the list of possible ancestors
-        // otherwise, keep traversing bottom-top the ETDG
-        if (res)
-        {
-            connect_nodes(possible_source, target);
-            remove_ancestors_from_set(possible_source, all_possible_ancestors);
-            _leafs.erase(possible_source);
-        }
-
-        return res;
-    }
-
-    void ExpandedTaskDependencyGraph::connect_task_node(ETDGNode* etdg_n, Node* pcfg_n)
-    {
-        const ObjectList<Edge*>& pcfg_entries = pcfg_n->get_entry_edges();
-        std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> etdg_n_vars_map = etdg_n->get_vars_map();
-        std::set<ETDGNode*> all_possible_ancestors;
-        for (ObjectList<Edge*>::const_iterator it = pcfg_entries.begin(); it != pcfg_entries.end(); ++it)
-        {
-            // Skip the task creation
-            if ((*it)->get_source()->is_omp_task_creation_node())
-                continue;
-
-            std::map<Node*, std::set<ETDGNode*> >::iterator itm = pcfg_to_etdg_nodes.find((*it)->get_source());
-            // Its parents have not been created yet
-            if (itm == pcfg_to_etdg_nodes.end())
-                continue;
-
-            std::set<ETDGNode*> current_possible_ancestors = itm->second;
-            all_possible_ancestors.insert(current_possible_ancestors.begin(),
-                                          current_possible_ancestors.end());
-       }
-
-        std::deque<ETDGNode*> nlist(_leafs.begin(), _leafs.end());
-        std::set<ETDGNode*> already_visited;
-        while (!nlist.empty())
-        {
-            ETDGNode* possible_source = nlist.front();
-            nlist.pop_front();
-            if (already_visited.find(possible_source) != already_visited.end())
-                continue;
-            already_visited.insert(possible_source);
-
-            // Do not connect a ETDG node with itself
-            if (possible_source == etdg_n)
-                continue;
-            bool connected = compute_task_connections(possible_source, etdg_n, etdg_n_vars_map, all_possible_ancestors);
-            if (!connected)
-            {
-                std::set<ETDGNode*> inputs = possible_source->get_inputs();
-                for (std::set<ETDGNode*>::iterator it = inputs.begin(); it != inputs.end(); ++it)
-                 {
-                    nlist.push_back(*it);
-                 }
-            }
-        }
-
-        if (etdg_n->get_inputs().empty())
-        {
-            if (last_synchronization == NULL)
-            {
-                // The only entry node is the creation of the task
-                if (TDG_DEBUG)
-                    std::cerr << "         Insert " << etdg_n->get_id() << " in the list of roots" << std::endl;
-                _roots.insert(etdg_n);
-            }
-            else
-            {
-                // FIXME This may not work if there are nested tasks and
-                // last_synchronization comes from a taskwait node
-                connect_nodes(last_synchronization, etdg_n);
-            }
-        }
-    }
-
-    void ExpandedTaskDependencyGraph::remove_task_transitive_inputs(ETDGNode* n)
-    {
-        const std::set<ETDGNode*>& inputs = n->get_inputs();
-        for (std::set<ETDGNode*>::const_iterator its = inputs.begin(); its != inputs.end(); ++its)
-        {
-            for (std::set<ETDGNode*>::const_iterator itt = inputs.begin(); itt != inputs.end(); ++itt)
-            {
-                if (*its == *itt)
-                    continue;
-
-                if (is_ancestor(*its, *itt))
-                {
-                    disconnect_nodes(*its, n);
-                }
-            }
-        }
-    }
-
-    void ExpandedTaskDependencyGraph::task_create_and_connect(
-            FTDGNode* ftdg_n,
-            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
-            std::deque<unsigned> loops_ids)
-    {
-        if (nt == 0)
-            std::cerr << "Tasks expansion progress (this may take some time)" << std::endl;
-        std::cerr << '\r' << std::setw(6) << ++nt << std::flush;
-        ETDGNode* etdg_n = create_task_node(ftdg_n, loops_ids);
-        etdg_n->set_vars_map(current_relevant_vars);
-
-        Node* pcfg_n = ftdg_n->get_pcfg_node();
-        pcfg_to_etdg_nodes[pcfg_n].insert(etdg_n);
-        connect_task_node(etdg_n, pcfg_n);
-
-        remove_task_transitive_inputs(etdg_n);
-    }
-
-    static int sync_id = -1;
-    ETDGNode* ExpandedTaskDependencyGraph::create_sync_node(FTDGNode* ftdg_n)
-    {
-        ERROR_CONDITION(ftdg_n->get_type() != FTDGTaskwait && ftdg_n->get_type() != FTDGBarrier,
-                        "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
-                        ftdg_n->get_type());
-        if (TDG_DEBUG)
-            std::cerr << "    sync node " << sync_id << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
-        return new ETDGNode(sync_id--, ftdg_n->get_pcfg_node());
-    }
-
-    void ExpandedTaskDependencyGraph::connect_sync_node(ETDGNode* etdg_n)
-    {
-        for (std::set<ETDGNode*>::iterator it = _leafs.begin(); it != _leafs.end(); ++it)
-        {
-            connect_nodes(*it, etdg_n);
-        }
-        _leafs.clear();
-    }
-
-    void ExpandedTaskDependencyGraph::sync_create_and_connect(
-            FTDGNode* ftdg_n)
-    {
-        ETDGNode* etdg_n = create_sync_node(ftdg_n);
-
-        pcfg_to_etdg_nodes[ftdg_n->get_pcfg_node()].insert(etdg_n);
-
-        connect_sync_node(etdg_n);
-
-        last_synchronization = etdg_n;
-    }
-
-    bool ExpandedTaskDependencyGraph::is_ancestor(ETDGNode* source, ETDGNode* target)
-    {
-        const std::set<ETDGNode*>& outputs = source->get_outputs();
-        if (outputs.find(target) != outputs.end())
-            return true;
-
-        for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
-        {
-            if (is_ancestor(*it, target))
-                return true;
-        }
-
-        return false;
-    }
-
-    void ExpandedTaskDependencyGraph::remove_barrier_nodes_rec(ETDGNode* n)
-    {
-        if (n->is_visited())
-            return;
-
-        n->set_visited(true);
-
-        // Note: get here the list of outputs, before the node may be removed and disconnected
-        const std::set<ETDGNode*>& outputs = n->get_outputs();
-        if (n->get_id() < 0)
-        {
-            // Disconnect the node from its parents and children and remove it
-            const std::set<ETDGNode*>& inputs = n->get_inputs();
-            for (std::set<ETDGNode*>::const_iterator it = inputs.begin(); it != inputs.end(); ++it)
-            {
-                disconnect_nodes(*it, n);
-            }
-            for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
-            {
-                disconnect_nodes(n, *it);
-            }
-            delete n;
-
-            if (outputs.empty())
-            {
-                // Restore the list of leafs
-                for (std::set<ETDGNode*>::const_iterator it = inputs.begin(); it != inputs.end(); ++it)
-                {
-                    _leafs.insert(*it);
-                }
-            }
-            else
-            {
-                // Connect all parents with all children
-                for (std::set<ETDGNode*>::const_iterator its = inputs.begin(); its != inputs.end(); ++its)
-                {
-                    for (std::set<ETDGNode*>::const_iterator itt = outputs.begin(); itt != outputs.end(); ++itt)
-                    {
-                        connect_nodes(*its, *itt);
-                    }
-                }
-            }
-        }
-
-        for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
-            remove_barrier_nodes_rec(*it);
-    }
-
-    void ExpandedTaskDependencyGraph::remove_barrier_nodes()
-    {
-        for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
-            remove_barrier_nodes_rec(*it);
-    }
-
-    void ExpandedTaskDependencyGraph::purge_etdg()
-    {
-        if (TDG_DEBUG)
-            std::cerr << "Remove barrier nodes" << std::endl;
-        remove_barrier_nodes();
-        clear_visits();
-    }
-
-    void ExpandedTaskDependencyGraph::clear_visits_rec(ETDGNode* n)
-    {
-        if (!n->is_visited())
-            return;
-
-        n->set_visited(false);
-
-        const std::set<ETDGNode*>& outputs = n->get_outputs();
-        for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
-        {
-            clear_visits_rec(*it);
-        }
-    }
-
-    void ExpandedTaskDependencyGraph::clear_visits()
-    {
-        for (ObjectList<ETDGNode*>::iterator it = _roots.begin(); it != _roots.end(); ++it)
-        {
-            clear_visits_rec(*it);
         }
     }
 
     FlowTaskDependencyGraph* ExpandedTaskDependencyGraph::get_ftdg() const
     {
         return _ftdg;
+    }
+
+    const std::vector<SubETDG*>& ExpandedTaskDependencyGraph::get_etdgs() const
+    {
+        return _etdgs;
     }
 
     unsigned ExpandedTaskDependencyGraph::get_maxI() const
@@ -1129,32 +1253,6 @@ namespace {
     unsigned ExpandedTaskDependencyGraph::get_maxT() const
     {
         return _maxT;
-    }
-
-    unsigned ExpandedTaskDependencyGraph::get_nTasks() const
-    {
-        return _tasks.size();
-    }
-
-    ObjectList<ETDGNode*> ExpandedTaskDependencyGraph::get_tasks() const
-    {
-        return _tasks;
-    }
-
-    std::map<Nodecl::NodeclBase, ObjectList<ETDGNode*> >
-             ExpandedTaskDependencyGraph::get_source_to_etdg_nodes() const
-    {
-        return _source_to_etdg_nodes;
-    }
-
-    ObjectList<ETDGNode*> ExpandedTaskDependencyGraph::get_roots() const
-    {
-        return _roots;
-    }
-
-    std::set<ETDGNode*> ExpandedTaskDependencyGraph::get_leafs() const
-    {
-        return _leafs;
     }
 
 }
