@@ -8406,6 +8406,7 @@ static void cxx_compute_name_from_entry_list(
                 && has_dependent_template_parameters(last_template_args))
         {
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
 
         if (any_is_member_function_of_a_dependent_class(entry_list))
