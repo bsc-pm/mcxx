@@ -81,7 +81,13 @@ namespace Analysis {
         unsigned n_tdg = 0;
         for (ObjectList<ExpandedTaskDependencyGraph*>::iterator it = _etdgs.begin(); it != _etdgs.end(); ++it)
         {
-            ObjectList<ETDGNode*> tasks = (*it)->get_tasks();
+            if ((*it)->get_etdgs().size() != 1)
+            {
+                WARNING_MESSAGE("TDG mapper only supports 1 level of nesting, but %d found. Runtime TDG may be wrong.",
+                                (*it)->get_etdgs().size());
+            }
+            SubETDG* etdg = (*it)->get_etdgs()[0];
+            ObjectList<ETDGNode*> tasks = etdg->get_tasks();
 
             // Map tasks to their position in the data structure (this is needed to fill inputs and outputs fields)
             std::map<unsigned, unsigned> task_to_position;
@@ -92,7 +98,7 @@ namespace Analysis {
             }
 
             // Create the TDG data structure
-            rt_tdg << "struct gomp_tdg gomp_tdg_" << n_tdg << "[" << (*it)->get_nTasks() << "] = {\n";
+            rt_tdg << "struct gomp_tdg gomp_tdg_" << n_tdg << "[" << etdg->get_nTasks() << "] = {\n";
             unsigned next_offin = 0;
             unsigned next_offout = 0;
             for (ObjectList<ETDGNode*>::iterator itt = tasks.begin(); itt != tasks.end(); )
@@ -206,7 +212,7 @@ namespace Analysis {
         rt_tdg << "unsigned gomp_tdg_ntasks[" << n_tdgs << "] = {\n";
             for (ObjectList<ExpandedTaskDependencyGraph*>::iterator it = _etdgs.begin(); it != _etdgs.end(); )
             {
-                rt_tdg << "    " << (*it)->get_nTasks() << "\n";
+                rt_tdg << "    " << (*it)->get_etdgs()[0]->get_nTasks() << "\n";
                 ++it;
                 if (it != _etdgs.end())
                     rt_tdg << ",";
