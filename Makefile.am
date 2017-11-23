@@ -2021,7 +2021,6 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-nanox-array-descriptor.cpp \
 								 src/tl/omp/nanox-nodecl/tl-devices.cpp \
 								 src/tl/omp/nanox-nodecl/tl-devices.hpp \
-								 src/tl/omp/nanox-nodecl/tl-target-information.cpp \
 								 src/tl/omp/nanox-nodecl/tl-target-information.hpp \
 								 src/tl/omp/nanox-nodecl/tl-reduction-task.cpp \
 								 $(END)
