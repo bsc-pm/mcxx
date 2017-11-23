@@ -517,12 +517,12 @@ static void update_target_info_fortran(OutlineInfo& outline_info)
                 ++it)
         {
             TL::Symbol implementor = it->first;
-            TL::Nanox::TargetInformation target_info = it->second;
-            Nodecl::Utils::SimpleSymbolMap& param_to_arg = target_info.get_param_arg_map();
+            const TL::Nanox::TargetInformation& target_info = it->second;
+            Nodecl::Utils::SimpleSymbolMap param_to_arg = target_info.get_param_arg_map();
 
             TL::ObjectList<Nodecl::NodeclBase> new_ndrange_args;
-            TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = ndrange_args.begin();
+            const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args = target_info.get_ndrange();
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it2 = ndrange_args.begin();
                     it2 != ndrange_args.end();
                     it2++)
             {
@@ -531,8 +531,8 @@ static void update_target_info_fortran(OutlineInfo& outline_info)
             }
 
             TL::ObjectList<Nodecl::NodeclBase> new_shmem_args;
-            TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = shmem_args.begin();
+            const TL::ObjectList<Nodecl::NodeclBase>& shmem_args = target_info.get_shmem();
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it2 = shmem_args.begin();
                     it2 != shmem_args.end();
                     it2++)
             {
@@ -558,7 +558,7 @@ static void copy_target_info_from_params_to_args_c(
             ++it)
     {
         TL::Symbol implementor = it->first;
-        TL::Nanox::TargetInformation target_info = it->second;
+        const TL::Nanox::TargetInformation& target_info = it->second;
 
         // Create a new param_to_arg_expr map for every implementation
         TL::ObjectList<TL::Symbol> impl_parameters = implementor.get_function_parameters();
@@ -597,6 +597,7 @@ static void copy_target_info_from_params_to_args_c(
                     new_block_context_sc,
                     initializations_src);
 
+
         ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
@@ -625,9 +626,9 @@ static void create_new_param_to_args_map_for_every_implementation(
     // information will be used in the device code, for translate some clauses
     // (e. g.  ndrange clause)
 
-    OutlineInfo::implementation_table_t
+    const OutlineInfo::implementation_table_t&
         args_implementation_table = outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
+    for (OutlineInfo::implementation_table_t::const_iterator it = args_implementation_table.begin();
             it != args_implementation_table.end();
             ++it)
     {
@@ -651,13 +652,13 @@ static void create_new_param_to_args_map_for_every_implementation(
                 int param_pos = param.get_parameter_position();
                 implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
             }
-            outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+            outline_info.set_param_arg_map(current_implementor, implementor_params_to_args_map);
         }
         else
         {
             // We don't need to create a new map! We should use the
             // 'param_to_args_map' map created in the previous loop
-            outline_info.set_param_arg_map(param_to_args_map, current_implementor);
+            outline_info.set_param_arg_map(current_implementor, param_to_args_map);
         }
     }
 }

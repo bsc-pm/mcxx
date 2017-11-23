@@ -211,15 +211,15 @@ Source LoweringVisitor::fill_const_wd_info(
     }
 
     Nodecl::NodeclBase num_copies_dimensions = count_copies_dimensions(outline_info);
-    OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
+    const OutlineInfo::implementation_table_t& implementation_table = outline_info.get_implementation_table();
 
     int num_implementations = 0;
     {
-        for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+        for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
                 it != implementation_table.end();
                 ++it)
         {
-            TargetInformation target_info = it->second;
+            const TargetInformation& target_info = it->second;
             num_implementations += target_info.get_device_names().size();
         }
     }
@@ -343,12 +343,12 @@ Source LoweringVisitor::fill_const_wd_info(
     // we should get its device descriptor information.
     // Note that in this case we use the implementor outline name as outline name
     int fortran_device_index = 0;
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+    for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
             it != implementation_table.end();
             ++it)
     {
         TL::Symbol implementor_symbol = it->first;
-        TargetInformation target_info = it->second;
+        const TargetInformation& target_info = it->second;
         std::string implementor_outline_name = target_info.get_outline_name();
 
         // The symbol 'real_called_task' will be invalid if the current task is
@@ -357,8 +357,8 @@ Source LoweringVisitor::fill_const_wd_info(
             (is_function_task) ?
             implementor_symbol : TL::Symbol::invalid();
 
-        ObjectList<std::string> devices = target_info.get_device_names();
-        for (ObjectList<std::string>::iterator it2 = devices.begin();
+        const ObjectList<std::string>& devices = target_info.get_device_names();
+        for (ObjectList<std::string>::const_iterator it2 = devices.begin();
                 it2 != devices.end();
                 ++it2, ++fortran_device_index)
         {
@@ -526,7 +526,7 @@ void LoweringVisitor::emit_async_common(
          << structure_symbol.get_qualified_name(function_scope);
 
      // Map with every implementation of the current function task
-    OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
+    const OutlineInfo::implementation_table_t& implementation_table = outline_info.get_implementation_table();
 
 
     // Disallow GPU tasks to be executed at the time they are created
@@ -534,13 +534,13 @@ void LoweringVisitor::emit_async_common(
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
     {
         std::set<std::string> used_devices;
-        for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+        for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
                 it != implementation_table.end() && !mandatory_creation;
                 ++it)
         {
-            TargetInformation target_info = it->second;
-            ObjectList<std::string> devices = target_info.get_device_names();
-            for (ObjectList<std::string>::iterator it2 = devices.begin();
+            const TargetInformation& target_info = it->second;
+            const ObjectList<std::string>& devices = target_info.get_device_names();
+            for (ObjectList<std::string>::const_iterator it2 = devices.begin();
                     it2 != devices.end() && !mandatory_creation;
                     ++it2)
             {
@@ -604,12 +604,12 @@ void LoweringVisitor::emit_async_common(
 
     // For every existant implementation (including the one which defines the task),
     // we should create its outline function.
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+    for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
             it != implementation_table.end();
             ++it)
     {
         TL::Symbol implementor_symbol = it->first;
-        TargetInformation target_info = it->second;
+        const TargetInformation& target_info = it->second;
         std::string implementor_outline_name = target_info.get_outline_name();
 
         // The symbol 'real_called_task' will be invalid if the current task is
@@ -634,12 +634,12 @@ void LoweringVisitor::emit_async_common(
                     symbol_map_copy_statements);
         }
 
-        ObjectList<std::string> devices = target_info.get_device_names();
-        for (ObjectList<std::string>::iterator it2 = devices.begin();
+        const ObjectList<std::string>& devices = target_info.get_device_names();
+        for (ObjectList<std::string>::const_iterator it2 = devices.begin();
                 it2 != devices.end();
                 ++it2)
         {
-            std::string device_name = *it2;
+            const std::string& device_name = *it2;
 
             DeviceProvider* device = device_handler.get_device(device_name);
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());

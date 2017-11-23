@@ -511,25 +511,10 @@ namespace TL
 
                 ObjectList<OutlineDataItem*> get_fields() const;
 
-                void add_device_name(std::string device_name,TL::Symbol function_symbol=Symbol::invalid());
-                ObjectList<std::string> get_device_names(TL::Symbol function_symbol=Symbol::invalid());
+                const implementation_table_t& get_implementation_table() const;
 
-                void set_file(TL::Symbol function_symbol,const std::string& file);
-                std::string get_file(TL::Symbol function_symbol);
+                const TargetInformation& get_target_information(TL::Symbol function_symbol) const;
 
-                void set_name(TL::Symbol function_symbol,const std::string& name);
-                std::string get_name(TL::Symbol function_symbol);
-
-                void set_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
-                void set_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
-                void set_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
-
-                /*
-                 * Adds a new implementation for a certain device to the
-                 * current task. Apart from creating a new entry in the
-                 * implementation table if neeeded, we also register the target
-                 * information of this new implementation
-                 */
                 void add_new_implementation(
                     TL::Symbol function_symbol,
                     const std::string& device_name,
@@ -539,10 +524,14 @@ namespace TL
                     const TL::ObjectList<Nodecl::NodeclBase>& shmem_args,
                     const TL::ObjectList<Nodecl::NodeclBase>& onto_args);
 
-                implementation_table_t& get_implementation_table();
-
-                void set_param_arg_map(const Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol=Symbol::invalid());
-                Nodecl::Utils::SimpleSymbolMap get_param_arg_map(TL::Symbol function_symbol=Symbol::invalid());
+                /* TargetInformation setters */
+                void add_device_name(TL::Symbol function_symbol, const std::string& device_name);
+                void set_file(TL::Symbol function_symbol, const std::string& file);
+                void set_name(TL::Symbol function_symbol, const std::string& name);
+                void set_ndrange(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& ndrange);
+                void set_shmem(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& shmem);
+                void set_onto(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& onto);
+                void set_param_arg_map(TL::Symbol function_symbol, const Nodecl::Utils::SimpleSymbolMap param_arg_map);
 
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
@@ -565,6 +554,8 @@ namespace TL
 
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);
+
+                void implementation_must_be_present(TL::Symbol function_symbol) const;
         };
 
         class OutlineInfoRegisterEntities

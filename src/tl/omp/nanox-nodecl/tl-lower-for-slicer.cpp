@@ -273,15 +273,9 @@ namespace TL { namespace Nanox {
 
         DeviceHandler device_handler = DeviceHandler::get_device_handler();
 
-        TL::Symbol called_task_dummy = TL::Symbol::invalid();
         TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
 
-        OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
-        OutlineInfo::implementation_table_t::iterator implementation_it = implementation_table.find(enclosing_function);
-        ERROR_CONDITION(implementation_it == implementation_table.end(),
-                "No information from the implementation table", 0);
-
-        TargetInformation target_info = implementation_it->second;
+        const TargetInformation& target_info = outline_info.get_target_information(enclosing_function);
         std::string outline_name = target_info.get_outline_name();
         CreateOutlineInfo info(
                 _lowering,
@@ -290,10 +284,12 @@ namespace TL { namespace Nanox {
                 target_info,
                 /* original task statements */ statements,
                 /* current task statements */ statements,
-                task_label, structure_symbol, called_task_dummy);
+                task_label,
+                structure_symbol,
+                /* called_task */ TL::Symbol::invalid());
 
         // List of device names
-        TL::ObjectList<std::string> device_names = outline_info.get_device_names(enclosing_function);
+        const TL::ObjectList<std::string>& device_names = target_info.get_device_names();
         for (TL::ObjectList<std::string>::const_iterator it = device_names.begin();
                 it != device_names.end();
                 it++)

@@ -44,22 +44,22 @@ namespace TL { namespace Nanox {
         const std::string& _outline_name;
         const std::string& _arguments_struct;
         const TL::Symbol& _current_function;
-        TargetInformation& _target_info;
+        const TargetInformation& _target_info;
 
         // Only used in Fortran
         int _fortran_device_index;
 
         ObjectList<OutlineDataItem*> _data_items;
-        const TL::Symbol& _called_task;
+        TL::Symbol _called_task;
 
         DeviceDescriptorInfo(
                 const std::string& outline_name,
                 const std::string& arguments_struct,
                 const TL::Symbol& current_function,
-                TargetInformation& target_info,
+                const TargetInformation& target_info,
                 int fortran_device_index,
                 ObjectList<OutlineDataItem*> data_items,
-                TL::Symbol& called_task)
+                const TL::Symbol& called_task)
             :
             _outline_name(outline_name),
             _arguments_struct(arguments_struct),
@@ -78,7 +78,7 @@ namespace TL { namespace Nanox {
         Lowering* _lowering;
         const std::string& _outline_name;
         ObjectList<OutlineDataItem*> _data_items;
-        TargetInformation& _target_info;
+        const TargetInformation& _target_info;
 
         // The original statements are the statements written by the user
         Nodecl::NodeclBase _original_statements;
@@ -102,18 +102,18 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase _task_statements;
         Nodecl::NodeclBase _task_label;
         const TL::Symbol& _arguments_struct;
-        const TL::Symbol& _called_task;
+        TL::Symbol _called_task;
 
         CreateOutlineInfo(
                 Lowering* lowering,
                 std::string& outline_name,
                 ObjectList<OutlineDataItem*> data_items,
-                TargetInformation& target_info,
+                const TargetInformation& target_info,
                 Nodecl::NodeclBase original_statements,
                 Nodecl::NodeclBase task_statements,
                 Nodecl::NodeclBase task_label,
                 TL::Symbol& args_struct,
-                TL::Symbol& called_task)
+                const TL::Symbol& called_task)
             :
                 _lowering(lowering),
                 _outline_name(outline_name),
