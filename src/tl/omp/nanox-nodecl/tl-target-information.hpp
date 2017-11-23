@@ -60,23 +60,10 @@ namespace TL
 
                 Nodecl::Utils::SimpleSymbolMap _param_to_args;
 
-                // TargetInformation should not be copied / assigned.
-                // It's not enough just to make them private, since this class is friend of Outline Info
-                TargetInformation(const TargetInformation& ti) {
-                    internal_error("TargetInformation should not be copied", 0);
-                }
-
-                TargetInformation& operator=(const TargetInformation& ti) {
-                    internal_error("TargetInformation should not be assigned", 0);
-                    return *this;
-                }
-
             public:
 
                 // Several members of OutlineInfo fill this class, grant them access to the class!
                 friend class OutlineInfo;
-
-                TargetInformation() { }
 
                 const std::string& get_outline_name() const { return _outline_name; }
                 const ObjectList<std::string>& get_device_names() const { return _device_names; }
