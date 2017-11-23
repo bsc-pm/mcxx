@@ -915,7 +915,7 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &ancillary_device_description,
         Source &device_descriptor,
         Source &fortran_dynamic_init UNUSED_PARAMETER) {
-    TargetInformation& target_information = info._target_info;
+    const TargetInformation& target_information = info._target_info;
     const std::string& device_outline_name = get_outline_name(info._outline_name);
     const std::string& arguments_struct = info._arguments_struct;
     if (Nanos::Version::interface_is_at_least("master", 5012)) {         
