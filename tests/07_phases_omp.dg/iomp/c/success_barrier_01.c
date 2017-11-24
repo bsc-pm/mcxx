@@ -9,20 +9,18 @@ test_generator=config/mercurium-iomp
 #include <assert.h>
 #include <unistd.h>
 
-#define N_THREADS 4
-
 int omp_get_num_threads(void);
 int omp_get_thread_num(void);
 
 int main(void) {
-    int a[N_THREADS] = { 0 };
-    #pragma omp parallel num_threads(N_THREADS)
+    int a[4] = { 0 };
+    #pragma omp parallel num_threads(4)
     {
         a[omp_get_thread_num()] = omp_get_thread_num();
 
         #pragma omp barrier
 
-        for (int i = 0; i < N_THREADS; ++i) {
+        for (int i = 0; i < 4; ++i) {
             assert(a[i] == i);
         }
     }

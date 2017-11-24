@@ -9,8 +9,6 @@ test_generator=config/mercurium-iomp
 #include <assert.h>
 #include <unistd.h>
 
-#define N_THREADS 4
-
 int omp_get_num_threads(void);
 int omp_get_thread_num(void);
 int omp_in_final(void);

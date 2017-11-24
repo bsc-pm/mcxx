@@ -9,14 +9,12 @@ test_generator=config/mercurium-iomp
 #include <assert.h>
 #include <unistd.h>
 
-#define N_THREADS 4
-
 int omp_get_num_threads(void);
 int omp_get_thread_num(void);
 
 int main(void) {
     int a = -1;
-    #pragma omp parallel num_threads(N_THREADS)
+    #pragma omp parallel num_threads(4)
     {
         #pragma omp single
         {
@@ -29,7 +27,7 @@ int main(void) {
 
     a = -1;
     int ok = 0;
-    #pragma omp parallel num_threads(N_THREADS)
+    #pragma omp parallel num_threads(4)
     {
         #pragma omp single nowait
         {

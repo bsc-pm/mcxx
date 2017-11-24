@@ -10,8 +10,6 @@ test_generator=config/mercurium-iomp
 #include <unistd.h>
 #include <string.h>
 
-#define N_THREADS 4
-
 int omp_get_num_threads(void);
 int omp_get_thread_num(void);
 int omp_in_final(void);
@@ -30,7 +28,7 @@ int main(void) {
             #pragma omp task depend(out: a[5:5])
             {
                 usleep(100);
-                memset(a, 1, 5);
+                memset(&a[5], 1, 5);
             }
 
             #pragma omp task depend(in: a[0:5])
