@@ -272,10 +272,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     // Poner el codigo de crear task, estructuras...
     Source src_task_call_body;
     Nodecl::NodeclBase stmt_definitions, stmt_task_alloc, stmt_task_fill, stmt_task;
+    Nodecl::NodeclBase stmt_set_priority;
     src_task_call_body
     << "{"
     << statement_placeholder(stmt_definitions)
     << statement_placeholder(stmt_task_alloc)
+    << statement_placeholder(stmt_set_priority)
     << statement_placeholder(stmt_task_fill)
     << statement_placeholder(stmt_task)
     << "}";
@@ -294,7 +296,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         src_task_final << "(" << as_expression(task_environment.final_condition) << "? 2 : 0" << ")";
     }
     else {
-        src_task_final << "0"; // FIXME: tied...
+        src_task_final << "0";
     }
 
     Source src_task_untied;
@@ -309,8 +311,18 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
                                  << "sizeof(" << as_type(kmp_task_type) << "),"
                                  << "sizeof(" << as_type(task_args_type) << "),"
                                  << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
+
     Nodecl::NodeclBase tree_task_alloc = src_task_alloc.parse_statement(stmt_task_alloc);
     stmt_task_alloc.replace(tree_task_alloc);
+
+    if (!task_environment.priority.is_null()) {
+        Source src_set_priority;
+        src_set_priority
+        << "_ret->data2.priority = " << as_expression(task_environment.priority) << ";";
+
+        Nodecl::NodeclBase tree_set_priority = src_set_priority.parse_statement(stmt_set_priority);
+        stmt_set_priority.replace(tree_set_priority);
+    }
 
     Source src_task_fill;
     src_task_fill
