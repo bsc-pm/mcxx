@@ -17,15 +17,16 @@ int main(void) {
     #pragma omp parallel
     {
         #pragma omp single
-        #pragma omp task
         {
-            usleep(100);
-            a++;
+            #pragma omp task
+            {
+                usleep(100);
+                a++;
+            }
+
+            #pragma omp taskwait
+
+            assert(a == 1);
         }
-
-        #pragma omp taskwait
-
-        assert(a == 1);
     }
 }
-
