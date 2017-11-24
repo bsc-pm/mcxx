@@ -2748,9 +2748,10 @@ static int get_length_of_pack_expansion_common(int num_packs_to_expand,
                     decl_context,
                     symbol_entity_specs_get_template_parameter_nesting(packs_to_expand[i]),
                     symbol_entity_specs_get_template_parameter_position(packs_to_expand[i]));
-            if (argument != NULL &&
-                    (nodecl_is_null(argument->value) // An empty sequence
-                     || nodecl_is_list(argument->value)))
+            if (argument != NULL
+                    && argument->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                    && (nodecl_is_null(argument->value) // An empty sequence
+                        || nodecl_is_list(argument->value)))
             {
                 P_LIST_ADD(expanded_values, num_expanded_values, argument->value);
             }
