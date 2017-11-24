@@ -43,10 +43,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
 
-    std::cout << "is untied " << task_environment.is_untied << std::endl; // FIXME: not work
-    std::cout << "is final " << !task_environment.final_condition.is_null() << std::endl;
-    std::cout << "is if " << !task_environment.if_condition.is_null() << std::endl;
-
     TL::ObjectList<Nodecl::OpenMP::Shared> shared_list = environment.find_all<Nodecl::OpenMP::Shared>();
     TL::ObjectList<Nodecl::OpenMP::Private> private_list = environment.find_all<Nodecl::OpenMP::Private>();
     TL::ObjectList<Nodecl::OpenMP::Firstprivate> firstprivate_list = environment.find_all<Nodecl::OpenMP::Firstprivate>();
