@@ -62,7 +62,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void visit(const Nodecl::OpenMP::Untied& untied)
         {
-            this->is_untied = true; // FIXME: untied node is visited even if untied clause does not appear
+            this->is_untied = true;
         }
 
         void visit(const Nodecl::OpenMP::If& if_condition_)
