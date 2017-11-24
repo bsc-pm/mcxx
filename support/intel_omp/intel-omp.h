@@ -110,11 +110,9 @@ enum sched_type {
     kmp_ord_trapezoidal               = 71,
     kmp_ord_upper                     = 72,   /**< upper bound for ordered values */
 
-#if OMP_40_ENABLED
     /* Schedules for Distribute construct */
     kmp_distribute_static_chunked     = 91,   /**< distribute static chunked */
     kmp_distribute_static             = 92,   /**< distribute static unspecialized */
-#endif
 
     /*
      * For the "nomerge" versions, kmp_dispatch_next*() will always return
@@ -222,32 +220,23 @@ void __kmpc_threadprivate_register_vec (ident_t *loc, void *data, kmpc_ctor_vec 
 
 typedef kmp_int32 (* kmp_routine_entry_t)( kmp_int32, void * );
 
-#if OMP_40_ENABLED || OMP_45_ENABLED
 typedef union kmp_cmplrdata {
-#if OMP_45_ENABLED
     kmp_int32           priority;           /**< priority specified by user for the task */
-#endif // OMP_45_ENABLED
-#if OMP_40_ENABLED
     kmp_routine_entry_t destructors;        /* pointer to function to invoke deconstructors of firstprivate C++ objects */
-#endif // OMP_40_ENABLED
     /* future data */
 } kmp_cmplrdata_t;
-#endif
 
 /*  sizeof_kmp_task_t passed as arg to kmpc_omp_task call  */
 typedef struct kmp_task {                   /* GEH: Shouldn't this be aligned somehow? */
     void *              shareds;            /**< pointer to block of pointers to shared vars   */
     kmp_routine_entry_t routine;            /**< pointer to routine to call for executing task */
     kmp_int32           part_id;            /**< part id for the task                          */
-#if OMP_40_ENABLED || OMP_45_ENABLED
     kmp_cmplrdata_t data1;                  /* Two known optional additions: destructors and priority */
     kmp_cmplrdata_t data2;                  /* Process destructors first, priority second */
     /* future data */
-#endif
     /*  private vars  */
 } kmp_task_t;
 
-#if OMP_40_ENABLED
 typedef struct kmp_taskgroup {
     kmp_uint32            count;   // number of allocated and not yet complete tasks
     kmp_int32             cancel_request; // request for cancellation of this taskgroup
@@ -262,7 +251,6 @@ typedef struct kmp_depend_info {
          bool                   out:1;
      } flags;
 } kmp_depend_info_t;
-#endif
 
 kmp_int32 __kmpc_omp_task(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *new_task);
 kmp_task_t* __kmpc_omp_task_alloc(ident_t *loc_ref,
@@ -277,7 +265,6 @@ void __kmpc_omp_task_complete_if0(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *
 
 kmp_int32 __kmpc_omp_taskwait(ident_t *loc_ref, kmp_int32 gtid);
 
-#if OMP_40_ENABLED
 kmp_int32 __kmpc_omp_task_with_deps(ident_t *loc_ref,
                                     kmp_int32 gtid,
                                     kmp_task_t *new_task,
@@ -293,7 +280,6 @@ void __kmpc_omp_wait_deps(ident_t *loc_ref,
                           kmp_int32 ndeps_noalias,
                           kmp_depend_info_t *noalias_dep_list);
 
-#endif
 
 #ifdef __cplusplus
 }
