@@ -30784,7 +30784,45 @@ static void instantiate_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl
     }
     else
     {
-        v->nodecl_result = nodecl_make_cxx_initializer(expr, nodecl_get_type(expr), nodecl_get_locus(node));
+        if (nodecl_is_null(expr))
+        {
+            // Special case for expanded packs.
+            ERROR_CONDITION(nodecl_get_kind(nodecl_get_child(node, 0)) != NODECL_CXX_VALUE_PACK,
+                            "Instantiation gave an empty list but this is not a pack expansion",
+                            0)
+            // Special case for empty expansions expansions
+            v->nodecl_result = nodecl_null();
+        }
+        if (nodecl_is_list(expr))
+        {
+            // Special case for expanded packs.
+            ERROR_CONDITION(nodecl_get_kind(nodecl_get_child(node, 0)) != NODECL_CXX_VALUE_PACK,
+                            "Instantiation gave a list but this is not a pack expansion",
+                            0)
+
+            // Wrap each node in the list in a NODECL_CXX_INITIALIZER to preserve
+            // the validity of the tree.
+            int num_items;
+            nodecl_t* list = nodecl_unpack_list(expr, &num_items);
+            int i;
+            for (i = 0; i < num_items; i++)
+            {
+                nodecl_t parent = nodecl_get_parent(list[i]);
+                nodecl_t wrapped = nodecl_make_cxx_initializer(
+                    list[i], nodecl_get_type(list[i]), nodecl_get_locus(node));
+                // We replace the node because we do not want to leak the
+                // containing list.
+                nodecl_set_child(parent, 1, wrapped);
+                nodecl_set_parent(wrapped, parent);
+            }
+            DELETE(list);
+
+            v->nodecl_result = expr;
+        }
+        else
+        {
+            v->nodecl_result = nodecl_make_cxx_initializer(expr, nodecl_get_type(expr), nodecl_get_locus(node));
+        }
     }
 }
 
@@ -30817,15 +30855,34 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
     {
         nodecl_t expr = instantiate_expr_walk(v, list[i]);
 
+        // We allow this case for empty pack expansions
+        if (nodecl_is_null(expr))
+            continue;
+
         if (nodecl_is_err_expr(expr))
         {
             v->nodecl_result = expr;
             return;
         }
 
-        nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
-
-        P_LIST_ADD(types, num_types, nodecl_get_type(expr));
+        if (!nodecl_is_list(expr))
+        {
+            nodecl_result_list
+                = nodecl_append_to_list(nodecl_result_list, expr);
+            P_LIST_ADD(types, num_types, nodecl_get_type(expr));
+        }
+        else
+        {
+            nodecl_result_list = nodecl_concat_lists(nodecl_result_list, expr);
+            type_t *seq_type = nodecl_get_type(expr);
+            int j, num_seq_types = sequence_of_types_get_num_types(seq_type);
+            for (j = 0; j < num_seq_types; j++)
+            {
+                P_LIST_ADD(types,
+                           num_types,
+                           sequence_of_types_get_type_num(seq_type, j));
+            }
+        }
     }
 
     DELETE(list);
@@ -30833,6 +30890,8 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
     v->nodecl_result = nodecl_make_cxx_braced_initializer(nodecl_result_list,
             get_braced_list_type(num_types, types),
             nodecl_get_locus(node));
+
+    DELETE(types);
 }
 
 static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
