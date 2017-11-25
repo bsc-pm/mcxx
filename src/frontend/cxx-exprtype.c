@@ -26372,6 +26372,35 @@ static const_value_t* evaluate_constexpr_constructor(
         return NULL;
     }
 
+    nodecl_t nodecl_function_code = symbol_entity_specs_get_function_code(entry);
+    if (nodecl_is_null(nodecl_function_code))
+    {
+        // This is a weird case that happens because we always attempt to
+        // evaluate constexpr if possible.  Should not be a problem to ignore
+        // these cases but we lose a bit in terms of defensive programming
+        // here.
+        //
+        // struct A
+        // {
+        //    int x;
+        //    constexpr A() : A(1) { }
+        //                 // ^ Here we attempt to evaluate A(int)
+        //                 // but its code is not yet computed
+        //    constexpr A(int n) : x(n) { }
+        // };
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Evaluation of constexpr constructor fails because the function has been defined but its code is not yet synthesized\n");
+        }
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf_at(locus, "call to undefined constexpr constructor '%s' in constant-expression\n",
+                    print_decl_type_str(entry->type_information, entry->decl_context,
+                        get_qualified_symbol_name(entry, entry->decl_context)));
+        }
+        return NULL;
+    }
+
     stacked_map_of_values_push();
     char args_ok = constexpr_function_set_constants_of_arguments(converted_arg_list, entry, decl_context);
     if (!args_ok)
@@ -26385,12 +26414,7 @@ static const_value_t* evaluate_constexpr_constructor(
         return NULL;
     }
 
-    nodecl_t nodecl_function_code = symbol_entity_specs_get_function_code(entry);
-    ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "Invalid node", 0);
-
-    nodecl_t nodecl_initializers = nodecl_null();
-    if (!nodecl_is_null(nodecl_function_code))
-        nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
+    nodecl_t nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
 
     type_t* class_type = symbol_entity_specs_get_class_type(entry);
     scope_entry_t* class_sym = named_type_get_symbol(class_type);
