@@ -240,7 +240,7 @@ LIBMCXX_EXTERN const char* unmangle_symbol_name(scope_entry_t* entry);
 LIBMCXX_EXTERN const char* symbol_kind_to_str(enum cxx_symbol_kind symbol_kind);
 LIBMCXX_EXTERN enum cxx_symbol_kind symbol_str_to_kind(const char* str);
 
-// Debug
+// Debug. Defined in cxx-printscope.c
 LIBMCXX_EXTERN void print_template_parameter_list(template_parameter_list_t* template_parameters);
 
 // Dependent names
