@@ -3504,8 +3504,11 @@ deduction_result_t handle_explicit_template_arguments(
     decl_context_t* context_for_updating = decl_context_clone(decl_context);
     context_for_updating->template_parameters = *explicit_template_arguments;
 
+    template_parameter_list_t* flat_explicit_template_arguments =
+        flatten_template_arguments(raw_explicit_template_arguments);
+
     int current_arg = 0, current_param = 0;
-    while (current_arg < raw_explicit_template_arguments->num_parameters)
+    while (current_arg < flat_explicit_template_arguments->num_parameters)
     {
         if (current_arg >= template_parameters->num_parameters)
         {
@@ -3515,6 +3518,7 @@ deduction_result_t handle_explicit_template_arguments(
                 fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
             }
             // Too many explicit template arguments
+            free_template_parameter_list(flat_explicit_template_arguments);
             free_template_parameter_list((*explicit_template_arguments));
             return DEDUCTION_FAILURE;
         }
@@ -3531,10 +3535,10 @@ deduction_result_t handle_explicit_template_arguments(
 
             (*explicit_template_arguments)->arguments[current_param] = new_template_argument;
             int pack_index = 0;
-            while (current_arg < raw_explicit_template_arguments->num_parameters)
+            while (current_arg < flat_explicit_template_arguments->num_parameters)
             {
                 if (template_parameter_kind_get_base_kind(template_parameters->parameters[current_param]->kind)
-                        != raw_explicit_template_arguments->arguments[current_arg]->kind)
+                        != flat_explicit_template_arguments->arguments[current_arg]->kind)
                 {
                     // Mismatch in kind of template-parameter
                     DEBUG_CODE()
@@ -3543,11 +3547,12 @@ deduction_result_t handle_explicit_template_arguments(
                                 "and kind of template-argument inside a pack\n");
                         fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
                     }
+                    free_template_parameter_list(flat_explicit_template_arguments);
                     free_template_parameter_list((*explicit_template_arguments));
                     return DEDUCTION_FAILURE;
                 }
 
-                if (raw_explicit_template_arguments->arguments[current_arg]->kind == TPK_NONTYPE)
+                if (flat_explicit_template_arguments->arguments[current_arg]->kind == TPK_NONTYPE)
                 {
                     diagnostic_context_push_buffered();
                     type_t* template_argument_type =
@@ -3565,6 +3570,7 @@ deduction_result_t handle_explicit_template_arguments(
                             fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
                         }
                         // Failure in substitution
+                        free_template_parameter_list(flat_explicit_template_arguments);
                         free_template_parameter_list((*explicit_template_arguments));
                         return DEDUCTION_FAILURE;
                     }
@@ -3579,6 +3585,7 @@ deduction_result_t handle_explicit_template_arguments(
                                     print_declarator(template_argument_type));
                             fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
                         }
+                        free_template_parameter_list(flat_explicit_template_arguments);
                         free_template_parameter_list((*explicit_template_arguments));
                         return DEDUCTION_FAILURE;
                     }
@@ -3592,14 +3599,14 @@ deduction_result_t handle_explicit_template_arguments(
                         nodecl_append_to_list(
                                 new_template_argument->value,
                                 nodecl_shallow_copy(
-                                raw_explicit_template_arguments->arguments[current_arg]->value));
+                                flat_explicit_template_arguments->arguments[current_arg]->value));
                 }
                 else
                 {
                     new_template_argument->type = 
                         get_sequence_of_types_append_type(
                                 new_template_argument->type,
-                                raw_explicit_template_arguments->arguments[current_arg]->type);
+                                flat_explicit_template_arguments->arguments[current_arg]->type);
                 }
 
                 current_arg++;
@@ -3612,7 +3619,7 @@ deduction_result_t handle_explicit_template_arguments(
         else
         {
             if (template_parameter_kind_get_base_kind(template_parameters->parameters[current_param]->kind)
-                    != template_parameter_kind_get_base_kind(raw_explicit_template_arguments->arguments[current_arg]->kind))
+                    != template_parameter_kind_get_base_kind(flat_explicit_template_arguments->arguments[current_arg]->kind))
             {
                 DEBUG_CODE()
                 {
@@ -3620,13 +3627,14 @@ deduction_result_t handle_explicit_template_arguments(
                     fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
                 }
                 // Mismatch in kind of template-parameter
+                free_template_parameter_list(flat_explicit_template_arguments);
                 free_template_parameter_list((*explicit_template_arguments));
                 return DEDUCTION_FAILURE;
             }
 
             template_parameter_value_t* new_template_argument = NEW0(template_parameter_value_t);
             new_template_argument->kind = template_parameters->parameters[current_param]->kind;
-            new_template_argument->type = raw_explicit_template_arguments->arguments[current_arg]->type;
+            new_template_argument->type = flat_explicit_template_arguments->arguments[current_arg]->type;
             if (new_template_argument->kind == TPK_NONTYPE)
             {
                 new_template_argument->type = template_parameters->parameters[current_param]->entry->type_information;
@@ -3644,6 +3652,7 @@ deduction_result_t handle_explicit_template_arguments(
                         fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
                     }
                     // Failure in substitution
+                    free_template_parameter_list(flat_explicit_template_arguments);
                     free_template_parameter_list((*explicit_template_arguments));
                     return DEDUCTION_FAILURE;
                 }
@@ -3656,12 +3665,13 @@ deduction_result_t handle_explicit_template_arguments(
                         fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
                     }
                     // Failure in the deduced type
+                    free_template_parameter_list(flat_explicit_template_arguments);
                     free_template_parameter_list((*explicit_template_arguments));
                     return DEDUCTION_FAILURE;
                 }
 
                 new_template_argument->value = nodecl_shallow_copy(
-                        raw_explicit_template_arguments->arguments[current_arg]->value);
+                        flat_explicit_template_arguments->arguments[current_arg]->value);
             }
 
             (*explicit_template_arguments)->arguments[current_param] = new_template_argument;
@@ -3671,6 +3681,7 @@ deduction_result_t handle_explicit_template_arguments(
         }
     }
 
+    free_template_parameter_list(flat_explicit_template_arguments);
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEDEDUC: Explicit template arguments successfully processed\n");
