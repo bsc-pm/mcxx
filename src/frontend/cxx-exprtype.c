@@ -31023,7 +31023,16 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
 
     if (len < 0)
     {
-        v->nodecl_result = nodecl_shallow_copy(node);
+        // No expansion happening.
+        // Instantiate the inner tree of the pack and then wrap it again
+        char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+        set_is_inside_pack_expansion(1);
+        expansion = instantiate_expr_walk(v, expansion);
+        check_nodecl_initializer_clause_expansion(expansion, 
+                v->decl_context,
+                nodecl_get_locus(node),
+                &v->nodecl_result);
+        set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
         return;
     }
 

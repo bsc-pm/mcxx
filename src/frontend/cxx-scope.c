@@ -2435,9 +2435,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                 ERROR_CONDITION(!is_sequence_of_types(updated_type), "Expecting a sequence here", 0);
 
                 int num_items;
-
                 nodecl_t* list = nodecl_unpack_list(v->value, &num_items);
-                int i;
                 nodecl_t updated_list = nodecl_null();
 
                 type_t* type_sequence = NULL;
@@ -2447,12 +2445,16 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                                 "Mismatch in number of items",
                                 0);
 
+                int i;
                 for (i = 0; i < num_items; i++)
                 {
                     nodecl_t updated_expr =
                         update_nodecl_template_argument_expression(list[i], decl_context,
                                 instantiation_symbol_map,
                                 pack_index);
+
+                    if (nodecl_is_null(updated_expr))
+                        continue;
 
                     if (nodecl_is_err_expr(updated_expr))
                     {
@@ -2461,11 +2463,25 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                         return NULL;
                     }
 
-                    updated_list = nodecl_append_to_list(updated_list, updated_expr);
+                    if (nodecl_is_list(updated_expr))
+                    {
+                        updated_list = nodecl_concat_lists(updated_list, updated_expr);
 
-                    type_sequence = get_sequence_of_types_append_type(
-                        type_sequence,
-                        sequence_of_types_get_type_num(updated_type, i));
+                        int j;
+                        for (j = 0; j < nodecl_list_length(updated_expr); j++)
+                        {
+                            type_sequence = get_sequence_of_types_append_type(
+                                    type_sequence,
+                                    sequence_of_types_get_type_num(updated_type, i));
+                        }
+                    }
+                    else
+                    {
+                        updated_list = nodecl_append_to_list(updated_list, updated_expr);
+                        type_sequence = get_sequence_of_types_append_type(
+                                type_sequence,
+                                sequence_of_types_get_type_num(updated_type, i));
+                    }
                 }
 
                 result->value = updated_list;
@@ -2498,6 +2514,17 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                     {
                         DELETE(result);
                         return NULL;
+                    }
+                    if (nodecl_is_list(result->value))
+                    {
+                        result->type = NULL;
+                        int num_items = nodecl_list_length(result->value);
+                        int i;
+                        for (i = 0; i < num_items; i++)
+                        {
+                            result->type = get_sequence_of_types_append_type(
+                                result->type, updated_type);
+                        }
                     }
                 }
                 else
