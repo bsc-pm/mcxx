@@ -2366,7 +2366,7 @@ extern inline char has_dependent_template_parameters(template_parameter_list_t* 
                 }
             case TPK_NONTYPE:
                 {
-                    if (!nodecl_is_list(curr_argument->value))
+                    if (!nodecl_is_list_or_null(curr_argument->value))
                     {
                         if (nodecl_expr_is_value_dependent(curr_argument->value))
                             return 1;
@@ -2375,9 +2375,10 @@ extern inline char has_dependent_template_parameters(template_parameter_list_t* 
                     {
                         int n;
                         nodecl_t* list = nodecl_unpack_list(curr_argument->value, &n);
-                        for (i = 0; i < n; i++)
+                        int j;
+                        for (j = 0; j < n; j++)
                         {
-                            if (nodecl_expr_is_value_dependent(list[i]))
+                            if (nodecl_expr_is_value_dependent(list[j]))
                                 return 1;
                         }
                         DELETE(list);
