@@ -4980,7 +4980,12 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         there_are_pack_arguments = template_argument_is_pack(result->arguments[i]);
     }
 
-    if (there_are_pack_arguments)
+    char is_template_alias
+        = named_type_get_symbol(template_type_get_primary_type(template_type))
+              ->kind
+          == SK_TEMPLATE_ALIAS;
+
+    if (there_are_pack_arguments && !is_template_alias)
     {
         // We can't actually complete anything here template packs may be assigned
         // to more than one template parameter, so assume this is fine, let it fail
