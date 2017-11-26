@@ -835,6 +835,7 @@ static char template_parameter_participates_in_deduction(
         template_parameter_list_t* explicit_template_arguments,
         int pack_index)
 {
+    // Note that pack_index is only relevant for pack arguments.
     int i;
     for (i = 0; i < explicit_template_arguments->num_parameters; i++)
     {
@@ -856,7 +857,17 @@ static char template_parameter_participates_in_deduction(
                     return 1;
                 }
                 // The pack participates only if the explicit template arguments do not already give a value
-                // for it in this expansion
+                // for it in this expansion. It may happen that the explicit template arguments give some values
+                // for the pack but we can still deduce more arguments for it.
+                //
+                // template <typename ...T> void foo(T...);
+                //
+                //    foo<int, float>(1, 2.3f, 'a');
+                //
+                // here T is already {int, float} but for 'a' (pack_index == 2)
+                // is larger or equal than the length of the currently
+                // explicitly specified T pack. So we still participate in the
+                // deduction so T ends being {int, float, char}
                 else if (sym->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
                 {
                     return !nodecl_is_list_or_null(explicit_template_arguments->arguments[i]->value)
@@ -885,16 +896,9 @@ static char expression_is_a_participating_nontype_parameter(nodecl_t n,
         int pack_index)
 {
     if (nodecl_get_kind(n) == NODECL_SYMBOL
-            && nodecl_get_symbol(n)->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
-    {
-        return template_parameter_participates_in_deduction(
-                nodecl_get_symbol(n),
-                explicit_template_arguments,
-                /* pack_index */ -1);
-    }
-    else if (pack_index != -1
-            && nodecl_get_kind(n) == NODECL_SYMBOL
-            && nodecl_get_symbol(n)->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
+            && (nodecl_get_symbol(n)->kind == SK_TEMPLATE_NONTYPE_PARAMETER
+                ||  nodecl_get_symbol(n)->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK))
+
     {
         return template_parameter_participates_in_deduction(
                 nodecl_get_symbol(n),
@@ -905,6 +909,8 @@ static char expression_is_a_participating_nontype_parameter(nodecl_t n,
     return 0;
 }
 
+// Allows a (non-pack) non-type template parameter or a pack non-type template
+// parameter.
 static char expression_contains_participating_template_parameters(
         nodecl_t n,
         template_parameter_list_t* explicit_template_arguments,
@@ -922,7 +928,7 @@ static char expression_contains_participating_template_parameters(
         return expression_is_a_participating_nontype_parameter(
                 nodecl_get_child(n, 0),
                 explicit_template_arguments,
-                pack_index);
+                /* This would start a new expansion level */ -1);
 
     return 0;
 }
