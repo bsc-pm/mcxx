@@ -26095,7 +26095,9 @@ static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_funct
     }
     DELETE(list);
 
-    ERROR_CONDITION(nodecl_is_null(nodecl_return_statement), "Return statement not found", 0);
+    // This means badness but crashing here is not useful.
+    if (nodecl_is_null(nodecl_return_statement))
+        return nodecl_null();
 
     nodecl_t nodecl_returned_expression = nodecl_get_child(nodecl_return_statement, 0);
 
@@ -26688,17 +26690,32 @@ static const_value_t* evaluate_constexpr_regular_function_call(
     nodecl_t nodecl_returned_expression =
         constexpr_function_get_returned_expression(nodecl_function_code);
 
-    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
-    if (symbol_entity_specs_get_is_member(entry))
+    nodecl_t nodecl_evaluated_expr = nodecl_null();
+    if (!nodecl_is_null(nodecl_returned_expression))
     {
-        instantiation_symbol_map = symbol_entity_specs_get_instantiation_symbol_map(entry);
+        instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+        if (symbol_entity_specs_get_is_member(entry))
+        {
+            instantiation_symbol_map = symbol_entity_specs_get_instantiation_symbol_map(entry);
+        }
+
+        nodecl_evaluated_expr = instantiate_expression(
+                nodecl_returned_expression,
+                nodecl_retrieve_context(nodecl_returned_expression),
+                instantiation_symbol_map,
+                /* pack_index */ -1);
     }
 
-    nodecl_t nodecl_evaluated_expr = instantiate_expression(nodecl_returned_expression,
-            nodecl_retrieve_context(nodecl_returned_expression),
-            instantiation_symbol_map, /* pack_index */ -1);
+    DEBUG_CODE()
+    {
+        if (nodecl_is_null(nodecl_returned_expression))
+        {
+            fprintf(stderr, "EXPRTYPE: Evaluation of regular constexpr did not find the return statement\n");
+        }
+    }
 
-    if (!nodecl_is_constant(nodecl_evaluated_expr))
+    if (nodecl_is_null(nodecl_returned_expression)
+        || !nodecl_is_constant(nodecl_evaluated_expr))
     {
         DEBUG_CODE()
         {
