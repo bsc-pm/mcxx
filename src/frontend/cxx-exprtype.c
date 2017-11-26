@@ -28635,6 +28635,9 @@ char check_nodecl_template_argument_can_be_converted_to_parameter_type(
         return 1;
     }
 
+    if (is_error_type(parameter_type))
+        return 0;
+
     standard_conversion_t scs;
     if (is_integral_type(parameter_type)
             || is_enum_type(parameter_type))
