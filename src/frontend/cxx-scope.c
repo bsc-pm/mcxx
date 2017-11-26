@@ -5016,7 +5016,9 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     {
         // We can't actually complete anything here template packs may be assigned
         // to more than one template parameter, so assume this is fine, let it fail
-        // later when we update the types
+        // later when we update the types.
+        //
+        // Template alias are an exception to this. See C++ DR1430.
         DEBUG_CODE()
         {
             fprintf(stderr, "SCOPE: Cannot complete anything because "
@@ -5167,6 +5169,42 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         "kind of template argument number %d does not match "
                         "that of the corresponding template parameter\n",
                         i + 1);
+
+                free_template_parameter_list(result);
+                return NULL;
+            }
+
+            // C++ DR1430
+            //
+            // In template alias template arguments, an expansion cannot be used to give values
+            // to non-pack template parameters.
+            //
+            // The example below is forbidden (by both GCC and clang) as T3 would be
+            // giving values to T1 and T2 at the same time. This prevents us to
+            // express B in terms of A (which is the intent of the
+            // template-alias as they are like typedefs with template
+            // parameters).
+            //
+            // template <typename T1, typename ...T2>
+            // using A = ...;
+            //
+            // template <typename ...T3>
+            // using B = A<T3...>; 
+            // 
+            // Note that giving many values to packs is fine. For instance, C is fine here.
+            //
+            // template <typename ...T3>
+            // using C = A<int, T3..., float, T3...>;
+            //
+            if (is_template_alias
+                && !template_parameter_kind_is_pack(result->parameters[i]->kind)
+                && template_argument_is_pack(result->arguments[i]))
+            {
+                error_printf_at(locus,
+                                "pack expansion in template argument %d cannot "
+                                "be used as argument of a non-pack parameter "
+                                "of a template alias\n",
+                                i + 1);
 
                 free_template_parameter_list(result);
                 return NULL;
