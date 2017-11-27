@@ -659,8 +659,7 @@ namespace TL { namespace OpenMP {
     void Base::taskgroup_handler_pre(TL::PragmaCustomStatement) { }
     void Base::taskgroup_handler_post(TL::PragmaCustomStatement construct)
     {
-        PragmaCustomLine pragma_line = construct.get_pragma_line();
-
+        OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(construct);
         if (emit_omp_report())
         {
             *_omp_report_file
@@ -670,11 +669,15 @@ namespace TL { namespace OpenMP {
                 ;
         }
 
+        PragmaCustomLine pragma_line = construct.get_pragma_line();
+        Nodecl::List execution_environment = this->make_execution_environment(ds,
+                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
+
         pragma_line.diagnostic_unused_clauses();
 
         construct.replace(
                 Nodecl::OpenMP::Taskgroup::make(
-                    /* environment */ Nodecl::NodeclBase::null(),
+                    execution_environment,
                     construct.get_statements().shallow_copy(),
                     construct.get_locus()));
     }

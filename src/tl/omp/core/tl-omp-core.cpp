@@ -2238,6 +2238,23 @@ namespace TL { namespace OpenMP {
         _openmp_info->pop_current_data_environment();
     }
 
+    void Core::taskgroup_handler_pre(TL::PragmaCustomStatement construct)
+    {
+        DataEnvironment& data_environment = _openmp_info->get_new_data_environment(construct);
+        _openmp_info->push_current_data_environment(data_environment);
+
+        ObjectList<Symbol> extra_symbols;
+        TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
+        get_data_explicit_attributes(pragma_line, construct.get_statements(), data_environment, extra_symbols);
+
+        //get_data_extra_symbols(data_environment, extra_symbols);
+    }
+
+    void Core::taskgroup_handler_post(TL::PragmaCustomStatement construct)
+    {
+        _openmp_info->pop_current_data_environment();
+    }
+
     // #pragma omp target before a declaration/function-definition
     void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
     {
@@ -2668,7 +2685,6 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_STATEMENT(critical)
         EMPTY_HANDLERS_STATEMENT(master)
         EMPTY_HANDLERS_STATEMENT(simd_fortran)
-        EMPTY_HANDLERS_STATEMENT(taskgroup)
 
         EMPTY_HANDLERS_DECLARATION(simd)
         EMPTY_HANDLERS_DECLARATION(declare_simd)
