@@ -72,6 +72,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         virtual void visit(const Nodecl::OpenMP::ForAppendix& construct);
 
+#define UNIMPLEMENTED_VISITOR(TYPE) \
+        virtual void visit(const TYPE &construct) { \
+                error_printf_at(construct.get_locus(), \
+                "this construct is not supported by Nanos++\n"); \
+        }\
+
+        UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::Taskgroup)
+#undef UNIMPLEMENTED_VISITOR
+
         // This typedef should be public because It's used by some local functions
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
     private:

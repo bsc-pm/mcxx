@@ -32,6 +32,8 @@
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-visitor.hpp"
 
+#include "cxx-diagnostic.h"
+
 namespace TL { namespace Nanos6 {
 
     struct Lower : public Nodecl::ExhaustiveVisitor<void>
@@ -56,12 +58,21 @@ namespace TL { namespace Nanos6 {
             void visit(const Nodecl::OmpSs::Release &n);
 
             // Unsupported
-            void visit(const Nodecl::OpenMP::Taskyield &n);
-            void visit(const Nodecl::OpenMP::For &n);
-            void visit(const Nodecl::OpenMP::BarrierFull &n);
-            void visit(const Nodecl::OpenMP::FlushMemory &n);
-            void visit(const Nodecl::OmpSs::Register &n);
-            void visit(const Nodecl::OmpSs::Unregister &n);
+#define UNIMPLEMENTED_VISITOR(TYPE) \
+            void visit(const TYPE &n) { \
+                error_printf_at(n.get_locus(), \
+                        "this construct is not supported by Nanos6\n"); \
+            } \
+
+            UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::Taskyield)
+            UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::For)
+            UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::BarrierFull)
+            UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::FlushMemory)
+            UNIMPLEMENTED_VISITOR(Nodecl::OmpSs::Register)
+            UNIMPLEMENTED_VISITOR(Nodecl::OmpSs::Unregister)
+            UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::Taskgroup)
+
+#undef UNIMPLEMENTED_VISITOR
 
         private:
             void lower_taskwait(const Nodecl::OpenMP::Taskwait& n);
