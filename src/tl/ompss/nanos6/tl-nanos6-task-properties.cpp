@@ -1920,8 +1920,22 @@ namespace TL { namespace Nanos6 {
 
                     cast.set_text("C");
                 }
-
                 args.append(argument);
+
+                if (it->get_type().is_dependent()
+                        || (it->get_type().no_ref().is_class() && !it->get_type().no_ref().is_pod()))
+                {
+                    argument.set_is_type_dependent(1);
+                    TL::Source src;
+
+                    src << "{"
+                        <<      "typedef " << as_type(it->get_type().no_ref().get_unqualified_type()) << " DepType;"
+                        <<      "( " << as_expression(argument.shallow_copy()) << ").~DepType();"
+                        << "}"
+                        ;
+
+                    outline_empty_stmt.append_sibling(src.parse_statement(outline_inside_scope));
+                }
             }
 
             for (TL::ObjectList<TL::Symbol>::iterator it = _env.shared.begin();
@@ -2067,6 +2081,7 @@ namespace TL { namespace Nanos6 {
                 {
                     deallocate_exprs.append(class_member_access.shallow_copy());
                 }
+
             }
 
             for (TL::ObjectList<TL::Symbol>::iterator it = _env.shared.begin();
@@ -3862,16 +3877,7 @@ namespace TL { namespace Nanos6 {
                 it != _env.captured_value.end();
                 it++)
         {
-            ERROR_CONDITION(field_map.find(*it) == field_map.end(),
-                    "Symbol is not mapped", 0);
-
-            if (it->get_type().is_dependent() &&
-                    !is_standard_layout_type(it->get_type().no_ref().get_internal_type()))
-            {
-                error_printf_at(locus_of_task_creation,
-                        "capture of symbol '%s' with non-standard layout type is not supported\n",
-                        it->get_qualified_name().c_str());
-            }
+            ERROR_CONDITION(field_map.find(*it) == field_map.end(), "Symbol is not mapped", 0);
 
             TL::Type lhs_type =
                 field_map[*it].get_type().no_ref().get_lvalue_reference_to();
@@ -3886,7 +3892,24 @@ namespace TL { namespace Nanos6 {
                         lhs_type);
 
             Nodecl::List current_captured_stmts;
-            if (!it->get_type().no_ref().is_array()
+            if (it->get_type().is_dependent()
+                    || (it->get_type().no_ref().is_class() && !it->get_type().no_ref().is_pod()))
+            {
+                type_t *t = it->get_type().get_internal_type();
+
+                // new (&args.e)E(e);
+                Nodecl::NodeclBase new_expr = Nodecl::CxxDepNew::make(
+                        Nodecl::CxxParenthesizedInitializer::make(
+                            Nodecl::List::make(it->make_nodecl(/* set_ref_type */ true)),
+                            get_sequence_of_types(1, &t)),
+                        Nodecl::Type::make(it->get_type().no_ref().get_unqualified_type()),
+                        Nodecl::List::make(Nodecl::Reference::make(lhs, lhs.get_type().no_ref().get_pointer_to())),
+                        it->get_type().no_ref().get_unqualified_type(),
+                        /* global */ "");
+
+                current_captured_stmts.append(Nodecl::ExpressionStatement::make(new_expr));
+            }
+            else if (!it->get_type().no_ref().is_array()
                     && !it->get_type().no_ref().is_function())
             {
                 Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);

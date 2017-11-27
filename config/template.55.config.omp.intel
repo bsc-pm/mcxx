@@ -25,7 +25,7 @@ options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-built
 
 [imcxx : omp-base]
 language = C++
-{openmp} preprocessor_options = -include new
+{openmp|ompss-2} preprocessor_options = -include new
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
