@@ -74,6 +74,8 @@ namespace TL
             _device_mapping(ds._device_mapping),
             _enclosing(ds._enclosing),
             _reduction_symbols(ds._reduction_symbols),
+            _in_reduction_symbols(ds._in_reduction_symbols),
+            _task_reduction_symbols(ds._task_reduction_symbols),
             _weakreduction_symbols(ds._weakreduction_symbols),
             _dependency_items(ds._dependency_items),
             _target_info(ds._target_info)
@@ -199,35 +201,50 @@ namespace TL
         void DataEnvironment::set_reduction(const ReductionSymbol &reduction_symbol,
                 const std::string& reason)
         {
-            TL::Symbol sym = reduction_symbol.get_symbol();
-            (*_data_sharing)[sym] = DataSharingAttributeInfo(
-                    DataSharingValue(DS_REDUCTION, DSK_EXPLICIT),
-                    reason);
+            set_data_sharing(reduction_symbol.get_symbol(), DS_REDUCTION, DSK_EXPLICIT, reason);
             _reduction_symbols.append(reduction_symbol);
+        }
+
+        void DataEnvironment::set_task_reduction(const ReductionSymbol &reduction_symbol,
+                const std::string& reason)
+        {
+            set_data_sharing(reduction_symbol.get_symbol(), DS_TASK_REDUCTION, DSK_EXPLICIT, reason);
+            _task_reduction_symbols.append(reduction_symbol);
+        }
+
+        void DataEnvironment::set_in_reduction(const ReductionSymbol &reduction_symbol,
+                const std::string& reason)
+        {
+            set_data_sharing(reduction_symbol.get_symbol(), DS_IN_REDUCTION, DSK_EXPLICIT, reason);
+            _in_reduction_symbols.append(reduction_symbol);
         }
 
         void DataEnvironment::set_simd_reduction(const ReductionSymbol &reduction_symbol)
         {
-            TL::Symbol sym = reduction_symbol.get_symbol();
-            (*_data_sharing)[sym] = DataSharingAttributeInfo(
-                    DataSharingValue(DS_SIMD_REDUCTION, DSK_EXPLICIT),
-                    /* reason */ "");
+            set_data_sharing(reduction_symbol.get_symbol(), DS_SIMD_REDUCTION, DSK_EXPLICIT, "");
             _simd_reduction_symbols.append(reduction_symbol);
         }
 
         void DataEnvironment::set_weakreduction(const ReductionSymbol &reduction_symbol,
                 const std::string& reason)
         {
-            TL::Symbol sym = reduction_symbol.get_symbol();
-            (*_data_sharing)[sym] = DataSharingAttributeInfo(
-                    DataSharingValue(DS_WEAKREDUCTION, DSK_EXPLICIT),
-                    reason);
+            set_data_sharing(reduction_symbol.get_symbol(), DS_WEAKREDUCTION, DSK_EXPLICIT, reason);
             _weakreduction_symbols.append(reduction_symbol);
         }
 
         void DataEnvironment::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
         {
             symbols = _reduction_symbols;
+        }
+
+        void DataEnvironment::get_all_task_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
+        {
+            symbols = _task_reduction_symbols;
+        }
+
+        void DataEnvironment::get_all_in_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
+        {
+            symbols = _in_reduction_symbols;
         }
 
         void DataEnvironment::get_all_simd_reduction_symbols(ObjectList<ReductionSymbol> &symbols)

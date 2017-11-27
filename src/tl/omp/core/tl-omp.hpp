@@ -92,9 +92,14 @@ namespace OpenMP
         DS_SIMD_REDUCTION = BITMAP(9),
         //! OmpSs-2 weakreduction data-sharing
         DS_WEAKREDUCTION = BITMAP(10),
+        //! OpenMP task_reduction data-sharing
+        DS_TASK_REDUCTION = BITMAP(11),
+        //! OpenMP in_reduction data-sharing
+        DS_IN_REDUCTION = BITMAP(12),
+
 
         //! Special to state no data sharing
-        DS_NONE = BITMAP(11),
+        DS_NONE = BITMAP(16),
     };
 
     enum DataSharingKind
@@ -252,8 +257,11 @@ namespace OpenMP
             DataEnvironment *_enclosing;
 
             ObjectList<ReductionSymbol> _reduction_symbols;
+            ObjectList<ReductionSymbol> _in_reduction_symbols;
+            ObjectList<ReductionSymbol> _task_reduction_symbols;
             ObjectList<ReductionSymbol> _simd_reduction_symbols;
             ObjectList<ReductionSymbol> _weakreduction_symbols;
+
             ObjectList<DependencyItem> _dependency_items;
 
             TL::OmpSs::TargetInfo _target_info;
@@ -303,25 +311,20 @@ namespace OpenMP
                     DataReference data_ref,
                     const std::string& reason);
 
+
             //! Adds a reduction symbol
             /*!
                 * Reduction symbols are special, adding them sets their attribute
                 * also their attribute and keeps the extra information stored in the ReductionSymbol
                 */
             void set_reduction(const ReductionSymbol& reduction_symbol, const std::string& reason);
-
+            //! Adds a task_reduction symbol
+            void set_task_reduction(const ReductionSymbol& reduction_symbol, const std::string& reason);
+            //! Adds an in_reduction symbol
+            void set_in_reduction(const ReductionSymbol& reduction_symbol, const std::string& reason);
             //! Adds a SIMD reduction symbol
-            /*!
-                * Reduction symbols are special, adding them sets their attribute
-                * also their attribute and keeps the extra information stored in the ReductionSymbol
-                */
             void set_simd_reduction(const ReductionSymbol &reduction_symbol);
-
             //! Adds a OmpSs-2 weakreduction symbol
-            /*!
-                * Reduction symbols are special, adding them sets their attribute
-                * also their attribute and keeps the extra information stored in the ReductionSymbol
-                */
             void set_weakreduction(const ReductionSymbol &reduction_symbol, const std::string& reason);
 
             //! Gets the data sharing attribute of a symbol
@@ -358,7 +361,10 @@ namespace OpenMP
 
             //! Returns all symbols that are set as reduction
             void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
-
+            //! Returns all symbols that are set as task_reduction
+            void get_all_task_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
+            //! Returns all symbols that are set as in_reduction
+            void get_all_in_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
             //! Returns all symbols that are set as SIMD reduction
             void get_all_simd_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
 

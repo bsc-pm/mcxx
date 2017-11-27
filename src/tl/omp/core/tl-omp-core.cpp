@@ -522,15 +522,25 @@ namespace TL { namespace OpenMP {
 
             void operator()(ReductionSymbol red_sym)
             {
-                if(_data_attrib == DS_SIMD_REDUCTION)
-                    _data_environment.set_simd_reduction(red_sym);
-                else if (_data_attrib == DS_WEAKREDUCTION)
+                switch(_data_attrib)
                 {
-                    _data_environment.set_weakreduction(red_sym, "mentioned in 'weakreduction' clause");
-                }
-                else
-                {
-                    _data_environment.set_reduction(red_sym, "mentioned in 'reduction' clause");
+                    case DS_REDUCTION:
+                        _data_environment.set_reduction(red_sym, "mentioned in 'reduction' clause");
+                        break;
+                    case DS_TASK_REDUCTION:
+                        _data_environment.set_task_reduction(red_sym, "mentioned in 'task_reduction' clause");
+                        break;
+                    case DS_IN_REDUCTION:
+                        _data_environment.set_in_reduction(red_sym, "mentioned in 'in_reduction' clause");
+                        break;
+                    case DS_SIMD_REDUCTION:
+                        _data_environment.set_simd_reduction(red_sym);
+                        break;
+                    case DS_WEAKREDUCTION:
+                        _data_environment.set_weakreduction(red_sym, "mentioned in 'weakreduction' clause");
+                        break;
+                    default:
+                        internal_error("unreachable code\n", 0);
                 }
             }
     };
@@ -606,23 +616,29 @@ namespace TL { namespace OpenMP {
         std::for_each(firstlastprivate_references.begin(), firstlastprivate_references.end(),
                 DataEnvironmentSetter(construct, data_environment, DS_FIRSTLASTPRIVATE, "firstprivate and lastprivate"));
 
-        ObjectList<OpenMP::ReductionSymbol> reduction_references;
-        get_reduction_symbols(construct, construct.get_clause("reduction"),
-                nonlocal_symbols, data_environment, reduction_references, extra_symbols);
-        std::for_each(reduction_references.begin(), reduction_references.end(),
-                DataEnvironmentSetterReduction(data_environment, DS_REDUCTION));
 
-        ObjectList<OpenMP::ReductionSymbol> simd_reduction_references;
-        get_reduction_symbols(construct, construct.get_clause("simd_reduction"),
-                nonlocal_symbols, data_environment, simd_reduction_references, extra_symbols);
-        std::for_each(simd_reduction_references.begin(), simd_reduction_references.end(),
-                DataEnvironmentSetterReduction(data_environment, DS_SIMD_REDUCTION));
+        struct ReductionClauseInfo {
+            const char* clause_name;
+            DataSharingAttribute data_attr;
+        } reduction_clauses[] = {
+            { "reduction", DS_REDUCTION },
+            { "task_reduction", DS_TASK_REDUCTION },
+            { "in_reduction", DS_IN_REDUCTION },
+            { "weakreduction", DS_WEAKREDUCTION },
+            { "simd_reduction", DS_SIMD_REDUCTION },
+        };
 
-        ObjectList<OpenMP::ReductionSymbol> weakreduction_references;
-        get_reduction_symbols(construct, construct.get_clause("weakreduction"),
-                nonlocal_symbols, data_environment, weakreduction_references, extra_symbols);
-        std::for_each(weakreduction_references.begin(), weakreduction_references.end(),
-                DataEnvironmentSetterReduction(data_environment, DS_WEAKREDUCTION));
+        for (ReductionClauseInfo* it = reduction_clauses;
+                it != (ReductionClauseInfo*) (&reduction_clauses + 1);
+                it++)
+        {
+            ObjectList<OpenMP::ReductionSymbol> reduction_references;
+            get_reduction_symbols(construct, construct.get_clause(it->clause_name),
+                    nonlocal_symbols, data_environment, reduction_references, extra_symbols);
+
+            std::for_each(reduction_references.begin(), reduction_references.end(),
+                    DataEnvironmentSetterReduction(data_environment, it->data_attr));
+        }
 
         // Do not confuse OpenMP copyin (related with threadprivate) with
         // OmpSs copy_in (related to copies between targets)

@@ -3073,6 +3073,10 @@ namespace TL { namespace OpenMP {
                     CASE(DS_LASTPRIVATE, "lastprivate")
                     CASE(DS_FIRSTLASTPRIVATE, "firstprivate and lastprivate")
                     CASE(DS_REDUCTION, "reduction")
+                    CASE(DS_TASK_REDUCTION, "task_reduction")
+                    CASE(DS_IN_REDUCTION, "in_reduction")
+                    CASE(DS_WEAKREDUCTION, "weakreduction")
+                    CASE(DS_SIMD_REDUCTION, "simd_reduction")
                     CASE(DS_THREADPRIVATE, "threadprivate")
                     CASE(DS_COPYIN, "copyin")
                     CASE(DS_COPYPRIVATE, "copyprivate")
@@ -3495,46 +3499,39 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-        TL::ObjectList<ReductionSymbol> reductions;
-        data_sharing_env.get_all_reduction_symbols(reductions);
-        if (!reductions.empty())
-        {
-            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes =
-                reductions.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(locus));
+        struct ReductionClausesInfo {
+            const char * clause_name;
+            void (DataEnvironment::* get_red_symbols)(TL::ObjectList<ReductionSymbol>&);
+            Nodecl::NodeclBase (*make_red_nodecl)(Nodecl::List, const locus_t*);
+        } reduction_clauses[] = {
+            { "reduction", &DataEnvironment::get_all_reduction_symbols,
+                (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OpenMP::Reduction::make},
+            { "task_reduction", &DataEnvironment::get_all_task_reduction_symbols,
+                (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OpenMP::TaskReduction::make},
+            { "in_reduction",  &DataEnvironment::get_all_in_reduction_symbols,
+                (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OpenMP::InReduction::make},
+            { "weakreduction", &DataEnvironment::get_all_weakreduction_symbols,
+                (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OmpSs::TaskWeakReduction::make},
+            { "simd_reduction", &DataEnvironment::get_all_simd_reduction_symbols,
+                (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OpenMP::SimdReduction::make},
+        };
 
-            if (emit_omp_report())
+        for (ReductionClausesInfo* it = reduction_clauses;
+                it != (ReductionClausesInfo*) (&reduction_clauses + 1);
+                ++it)
+        {
+            TL::ObjectList<ReductionSymbol> reductions;
+            (data_sharing_env.*(it->get_red_symbols))(reductions);
+            if (!reductions.empty())
             {
-                reductions.map(ReportReductions(locus, this->_omp_report_file, "reduction"));
+                if (emit_omp_report())
+                    reductions.map(ReportReductions(locus, this->_omp_report_file, it->clause_name));
+
+                TL::ObjectList<Nodecl::NodeclBase> reduction_nodes =
+                    reductions.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(locus));
+                result_list.append(
+                        it->make_red_nodecl(Nodecl::List::make(reduction_nodes), locus));
             }
-
-            result_list.append(
-                    Nodecl::OpenMP::Reduction::make(Nodecl::List::make(reduction_nodes), locus));
-        }
-
-        TL::ObjectList<ReductionSymbol> simd_reductions;
-        data_sharing_env.get_all_simd_reduction_symbols(simd_reductions);
-        if (!simd_reductions.empty())
-        {
-            TL::ObjectList<Nodecl::NodeclBase> simd_reduction_nodes =
-                simd_reductions.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(locus));
-
-            result_list.append(
-                    Nodecl::OpenMP::SimdReduction::make(Nodecl::List::make(simd_reduction_nodes),
-                        locus)
-                    );
-        }
-
-        TL::ObjectList<ReductionSymbol> weakreductions;
-        data_sharing_env.get_all_weakreduction_symbols(weakreductions);
-        if (!weakreductions.empty())
-        {
-            if (emit_omp_report())
-                weakreductions.map(ReportReductions(locus, this->_omp_report_file, "weakreduction"));
-
-            TL::ObjectList<Nodecl::NodeclBase> weakreduction_nodes =
-                weakreductions.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(locus));
-
-            result_list.append(Nodecl::OmpSs::TaskWeakReduction::make(Nodecl::List::make(weakreduction_nodes), locus));
         }
 
         if (emit_omp_report())
