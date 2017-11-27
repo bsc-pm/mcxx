@@ -687,7 +687,9 @@ void LoweringVisitor::visit_task_call_c(
             "task function declared here\n");
 
     // Get parameters outline info
-    OutlineInfo parameters_outline_info(*_lowering, parameters_environment, called_sym, _function_task_set);
+    OutlineInfo parameters_outline_info(
+            *_lowering, parameters_environment, called_sym,
+            /* is_task_construct */ 1, _function_task_set);
 
 
     // Fill arguments outline info using parameters
@@ -1376,7 +1378,8 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    OutlineInfo dummy_outline_info(*_lowering, new_environment, called_function, _function_task_set);
+    OutlineInfo dummy_outline_info(*_lowering, new_environment,
+            called_function, /* is_task_construct */ 1,  _function_task_set);
 
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024)
@@ -1553,7 +1556,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(*_lowering, new_environment, called_task_function, _function_task_set);
+    OutlineInfo new_outline_info(*_lowering, new_environment, called_task_function, /* is_task_construct */ 1,  _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);

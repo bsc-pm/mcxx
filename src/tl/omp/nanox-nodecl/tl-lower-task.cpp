@@ -902,7 +902,7 @@ void LoweringVisitor::visit_task(
     Scope  enclosing_scope = construct.retrieve_context();
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
-    OutlineInfo outline_info(*_lowering, environment, function_symbol);
+    OutlineInfo outline_info(*_lowering, environment, function_symbol, /* is_task_construct */ 1);
 
     bool generate_final_stmts = Nanos::Version::interface_is_at_least("master", 5024)
             && !_lowering->final_clause_transformation_disabled()

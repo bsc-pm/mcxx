@@ -3506,16 +3506,8 @@ namespace TL { namespace OpenMP {
                 reductions.map(ReportReductions(locus, this->_omp_report_file, "reduction"));
             }
 
-            if (is_inline_task)
-            {
-                result_list.append(
-                        Nodecl::OpenMP::TaskReduction::make(Nodecl::List::make(reduction_nodes), locus));
-            }
-            else
-            {
-                result_list.append(
-                        Nodecl::OpenMP::Reduction::make(Nodecl::List::make(reduction_nodes), locus));
-            }
+            result_list.append(
+                    Nodecl::OpenMP::Reduction::make(Nodecl::List::make(reduction_nodes), locus));
         }
 
         TL::ObjectList<ReductionSymbol> simd_reductions;

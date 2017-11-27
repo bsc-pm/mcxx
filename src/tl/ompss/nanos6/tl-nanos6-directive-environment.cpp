@@ -106,7 +106,7 @@ namespace TL { namespace Nanos6 {
                 _env.if_clause = n.get_condition();
             }
 
-            virtual void visit(const Nodecl::OpenMP::TaskReduction &n)
+            virtual void visit(const Nodecl::OpenMP::Reduction &n)
             {
                 Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = reductions.begin();

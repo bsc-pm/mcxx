@@ -597,7 +597,6 @@ omp-data-sharings-info : NODECL_OPEN_M_P*FIRSTPRIVATE([symbols]name-seq)
                        | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
                        | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                        | NODECL_OPEN_M_P*REDUCTION([reductions]omp-reduction-item-seq)
-                       | NODECL_OPEN_M_P*TASK_REDUCTION([reductions]omp-reduction-item-seq)
                        | NODECL_OPEN_M_P*PRIVATE_INIT([value]expression-opt) symbol
 
 omp-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name, [reduction_type]type)

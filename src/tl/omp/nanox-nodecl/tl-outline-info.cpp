@@ -1099,11 +1099,12 @@ namespace TL { namespace Nanox {
     {
         private:
             OutlineInfo& _outline_info;
+            bool _is_task_construct;
 
         public:
-            OutlineInfoSetupVisitor(OutlineInfo& outline_info, TL::Scope sc)
+            OutlineInfoSetupVisitor(OutlineInfo& outline_info, TL::Scope sc, bool is_task_construct)
                 : OutlineInfoRegisterEntities(outline_info, sc),
-                _outline_info(outline_info)
+                  _outline_info(outline_info), _is_task_construct(is_task_construct)
             {
             }
 
@@ -1382,30 +1383,39 @@ namespace TL { namespace Nanox {
 
                     OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
                     ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
-                    add_reduction(reduction_symbol, reduction_type, red, OutlineDataItem::SHARING_REDUCTION);
+
+                    if (!_is_task_construct)
+                    {
+                        add_reduction(reduction_symbol, reduction_type, red, OutlineDataItem::SHARING_REDUCTION);
+                    }
+                    else
+                    {
+                        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(reduction_symbol);
+                        outline_info.set_reduction_info(red, reduction_type);
+                    }
                 }
             }
 
-            void visit(const Nodecl::OpenMP::TaskReduction& reduction)
-            {
-                Nodecl::List reductions = reduction.get_reductions().as<Nodecl::List>();
-                for (Nodecl::List::iterator it = reductions.begin();
-                        it != reductions.end();
-                        it++)
-                {
-                    Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
+            // void visit(const Nodecl::OpenMP::TaskReduction& reduction)
+            // {
+            //     Nodecl::List reductions = reduction.get_reductions().as<Nodecl::List>();
+            //     for (Nodecl::List::iterator it = reductions.begin();
+            //             it != reductions.end();
+            //             it++)
+            //     {
+            //         Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
 
-                    TL::Symbol reductor_sym = red_item.get_reductor().get_symbol();
-                    TL::Symbol reduction_symbol = red_item.get_reduced_symbol().get_symbol();
-                    TL::Type reduction_type = red_item.get_reduction_type().get_type();
+            //         TL::Symbol reductor_sym = red_item.get_reductor().get_symbol();
+            //         TL::Symbol reduction_symbol = red_item.get_reduced_symbol().get_symbol();
+            //         TL::Type reduction_type = red_item.get_reduction_type().get_type();
 
-                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
-                    ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
+            //         OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
+            //         ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
 
-                    OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(reduction_symbol);
-                    outline_info.set_reduction_info(red, reduction_type);
-                }
-            }
+            //         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(reduction_symbol);
+            //         outline_info.set_reduction_info(red, reduction_type);
+            //     }
+            // }
 
             void visit(const Nodecl::OmpSs::Target& target)
             {
@@ -1428,7 +1438,41 @@ namespace TL { namespace Nanox {
             }
     };
 
-    OutlineInfo::OutlineInfo(Nanox::Lowering& lowering) : _lowering(lowering), _data_env_items() { }
+    OutlineInfo::OutlineInfo(Nanox::Lowering& lowering)
+        : _lowering(lowering)
+    {}
+
+    OutlineInfo::OutlineInfo(
+            Nanox::Lowering& lowering,
+            Nodecl::NodeclBase environment,
+            TL::Symbol funct_symbol,
+            bool is_task_construct,
+            std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set)
+            : _lowering(lowering), _funct_symbol(funct_symbol), _function_task_set(function_task_set)
+    {
+        TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
+        if (!environment.is_null())
+        {
+            sc = environment.retrieve_context();
+        }
+
+        if (_funct_symbol.is_valid())
+        {
+            _implementation_table[_funct_symbol]._outline_name = get_outline_name(_funct_symbol);
+        }
+
+        OutlineInfoSetupVisitor setup_visitor(*this, sc, is_task_construct);
+        setup_visitor.walk(environment);
+
+        setup_visitor.purge_saved_expressions();
+
+        // Multicopies may require extra information captured. Note that OutlineInfoSetupVisitor
+        // inherits also from OutlineInfoRegisterEntities as well make it obvious here
+        OutlineInfoRegisterEntities &ol_register = setup_visitor;
+        finish_multicopies(ol_register, sc);
+
+        reset_array_counters();
+    }
 
     OutlineInfo::~OutlineInfo()
     {
@@ -1438,38 +1482,6 @@ namespace TL { namespace Nanox {
         {
             delete *it;
         }
-    }
-
-    OutlineInfo::OutlineInfo(
-            Nanox::Lowering& lowering,
-            Nodecl::NodeclBase environment,
-            TL::Symbol funct_symbol, std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set)
-        : _lowering(lowering), _data_env_items(), _function_task_set(function_task_set)
-    {
-        TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
-        if (!environment.is_null())
-        {
-            sc = environment.retrieve_context();
-        }
-
-        if (funct_symbol.is_valid())
-        {
-            _funct_symbol = funct_symbol;
-            _implementation_table[funct_symbol]._outline_name = get_outline_name(funct_symbol);
-        }
-
-        OutlineInfoSetupVisitor setup_visitor(*this, sc);
-        setup_visitor.walk(environment);
-
-        setup_visitor.purge_saved_expressions();
-
-        // OutlineInfoSetupVisitor inherits also from OutlineInfoRegisterEntities as well
-        // make it obvious here
-        OutlineInfoRegisterEntities &ol_register = setup_visitor;
-        // Multicopies may require extra information captured
-        finish_multicopies(ol_register, sc);
-
-        reset_array_counters();
     }
 
     void OutlineInfo::finish_multicopies(OutlineInfoRegisterEntities& ol_register, TL::Scope sc)

@@ -68,7 +68,7 @@ namespace TL { namespace Nanox {
 
         Scope  enclosing_scope = construct.retrieve_context();
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
-        OutlineInfo outline_info(*_lowering, environment,function_symbol);
+        OutlineInfo outline_info(*_lowering, environment, function_symbol);
 
         Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
             .find_first<Nodecl::OmpSs::TaskLabel>();

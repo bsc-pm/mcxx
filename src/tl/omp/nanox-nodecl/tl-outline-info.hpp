@@ -460,14 +460,18 @@ namespace TL
 
         class OutlineInfo
         {
-            private:
-                Nanox::Lowering& _lowering;
             public:
                 typedef std::map<TL::Symbol, TL::Nanox::TargetInformation> implementation_table_t;
-                TL::Symbol _funct_symbol;
-                TL::Symbol _multicopies_index_symbol;
 
             private:
+
+                Nanox::Lowering& _lowering;
+
+                //! This symbol represents the enclosing function in almost all cases, except when
+                //! the OutlineInfo is associated with a TaskCall. In that case it represents the
+                //! called function
+                TL::Symbol _funct_symbol;
+
                 ObjectList<OutlineDataItem*> _data_env_items;
 
                 // FIXME: This member is needed because when we are creating the node
@@ -476,21 +480,26 @@ namespace TL
                 // FMI check the implementation of handle_implements_clause
                 std::shared_ptr<TL::OmpSs::FunctionTaskSet> _function_task_set;
 
-                std::string get_field_name(std::string name);
+                implementation_table_t _implementation_table;
+                TL::Symbol _multicopies_index_symbol;
 
                 // Do not copy
-                // OutlineInfo(const OutlineInfo&);
-                // OutlineInfo& operator=(const OutlineInfo&);
-
-                implementation_table_t _implementation_table;
-
+                OutlineInfo(const OutlineInfo&);
+                OutlineInfo& operator=(const OutlineInfo&);
             public:
+
+                //! This construct generates an empty OutlineInfo
                 OutlineInfo(Nanox::Lowering& lowering);
+
+                //! this construct builds a new OutlineInfo using the environment of a construct and
+                //! some optional context
                 OutlineInfo(Nanox::Lowering& lowering,
                         Nodecl::NodeclBase environment,
+                        // Optional stuff
                         TL::Symbol funct_symbol = Symbol::invalid(),
-                        std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set
-                            = std::shared_ptr<TL::OmpSs::FunctionTaskSet>());
+                        bool is_task_construct = false,
+                        std::shared_ptr<TL::OmpSs::FunctionTaskSet>
+                            function_task_set = std::shared_ptr<TL::OmpSs::FunctionTaskSet>());
 
                 ~OutlineInfo();
 
@@ -554,6 +563,8 @@ namespace TL
 
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);
+
+                std::string get_field_name(std::string name);
 
                 void implementation_must_be_present(TL::Symbol function_symbol) const;
         };
