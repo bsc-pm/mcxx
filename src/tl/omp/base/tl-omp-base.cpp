@@ -607,8 +607,7 @@ namespace TL { namespace OpenMP {
         Nodecl::List environment = this->make_execution_environment(
                 data_environment,
                 pragma_line,
-                /* ignore_target_info */ true,
-                /* is_inline_task */ false);
+                /* ignore_target_info */ true);
 
         PragmaCustomClause noflush_clause = pragma_line.get_clause("noflush");
         if (noflush_clause.is_defined())
@@ -671,7 +670,7 @@ namespace TL { namespace OpenMP {
 
         PragmaCustomLine pragma_line = construct.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment(ds,
-                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
+                pragma_line, /* ignore_target_info */ false);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -741,7 +740,7 @@ namespace TL { namespace OpenMP {
         }
 
         Nodecl::List execution_environment = this->make_execution_environment(ds,
-                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
+                pragma_line, /* ignore_target_info */ false);
 
         PragmaCustomClause tied = pragma_line.get_clause("tied");
         PragmaCustomClause untied = pragma_line.get_clause("untied");
@@ -906,7 +905,7 @@ namespace TL { namespace OpenMP {
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds,
-                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
+                pragma_line, /* ignore_target_info */ false);
 
         handle_label_clause(directive, execution_environment);
 
@@ -1017,7 +1016,7 @@ namespace TL { namespace OpenMP {
         }
 
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ true, /* is_inline_task */ false);
+                ds, pragma_line, /* ignore_target_info */ true);
 
         if (!pragma_line.get_clause("nowait").is_defined())
         {
@@ -1077,7 +1076,7 @@ namespace TL { namespace OpenMP {
         }
 
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ true, /* is_inline_task */ false);
+                ds, pragma_line, /* ignore_target_info */ true);
 
         if (!pragma_line.get_clause("nowait").is_defined())
         {
@@ -1157,7 +1156,7 @@ namespace TL { namespace OpenMP {
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds,
-                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false );
+                pragma_line, /* ignore_target_info */ false);
 
         // Set the implicit OpenMP flush / barrier nodes to the environment
         if (barrier_at_end)
@@ -1239,7 +1238,7 @@ namespace TL { namespace OpenMP {
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
+                ds, pragma_line, /* ignore_target_info */ false);
 
         handle_label_clause(directive, execution_environment);
 
@@ -1520,12 +1519,8 @@ namespace TL { namespace OpenMP {
         if (nogroup.is_defined())
             taskwait_at_the_end = false;
 
-        // Since we are going to transform the taskloop construct into a loop
-        // that creates several tasks, we should set the 'is_inline_task' to true.
-        // This flag is only used to generate task reductions instead of
-        // worksharing reductions
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
+                ds, pragma_line, /* ignore_target_info */ false);
 
         handle_label_clause(directive, execution_environment);
 
@@ -1593,12 +1588,8 @@ namespace TL { namespace OpenMP {
             chunksize = const_value_to_nodecl(const_value_get_signed_int(0));
         }
 
-        // Since we are going to transform the taskloop construct into a loop
-        // that creates several tasks, we should set the 'is_inline_task' to true.
-        // This flag is only used to generate task reductions instead of
-        // worksharing reductions
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
+                ds, pragma_line, /* ignore_target_info */ false);
 
         if (pragma_line.get_clause("wait").is_defined())
         {
@@ -2263,7 +2254,7 @@ namespace TL { namespace OpenMP {
             OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(stmt);
 
             Nodecl::List environment = this->make_execution_environment(ds,
-                    pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
+                    pragma_line, /* ignore_target_info */ false);
 
             process_common_simd_clauses(pragma_line, stmt, environment);
 
@@ -2356,7 +2347,7 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!function_code.is<Nodecl::FunctionCode>(), "Expecting a symbol with code", 0);
 
         Nodecl::List environment = this->make_execution_environment(ds,
-                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
+                pragma_line, /* ignore_target_info */ false);
 
         process_common_simd_clauses(pragma_line, 
                 context_of_parameters, environment);
@@ -3021,8 +3012,7 @@ namespace TL { namespace OpenMP {
         Nodecl::List environment = this->make_execution_environment(
                 data_environment,
                 pragma_line,
-                /* ignore_target_info */ true,
-                /* is_inline_task */ false);
+                /* ignore_target_info */ true);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -3457,8 +3447,7 @@ namespace TL { namespace OpenMP {
     Nodecl::List Base::make_execution_environment(
             OpenMP::DataEnvironment &data_sharing_env,
             PragmaCustomLine pragma_line,
-            bool ignore_target_info,
-            bool is_inline_task)
+            bool ignore_target_info)
     {
         const locus_t* locus = pragma_line.get_locus();
 

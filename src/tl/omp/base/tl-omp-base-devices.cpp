@@ -276,8 +276,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase dependences = make_execution_environment(data_environment,
                 pragma_line,
-                /* ignore_target_info */ true,
-                /* is_inline_task */ true);
+                /* ignore_target_info */ true);
         device_data_environment.append(dependences);
 
         Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
@@ -489,8 +488,7 @@ namespace TL { namespace OpenMP {
         Nodecl::List data_sharings = make_execution_environment(
                 data_environment,
                 pragma_line,
-                /* ignore_target_info */ true,
-                /* is_inline_task */ false);
+                /* ignore_target_info */ true);
 
         execution_env.append(data_sharings);
 
@@ -601,8 +599,7 @@ namespace TL { namespace OpenMP {
         Nodecl::List data_sharings = make_execution_environment(
                 data_environment,
                 pragma_line,
-                /* ignore_target_info */ true,
-                /* is_inline_task */ false);
+                /* ignore_target_info */ true);
         execution_env.append(data_sharings);
 
         Nodecl::NodeclBase dist_schedule = handle_dist_schedule(pragma_line);

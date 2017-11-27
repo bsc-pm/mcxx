@@ -127,8 +127,7 @@ namespace TL
                 Nodecl::List make_execution_environment(
                         OpenMP::DataEnvironment&,
                         PragmaCustomLine,
-                        bool ignore_targer_info,
-                        bool is_inline_task);
+                        bool ignore_targer_info);
 
                 Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataEnvironment &data_sharing_env, 
                         PragmaCustomLine pragma_line);
