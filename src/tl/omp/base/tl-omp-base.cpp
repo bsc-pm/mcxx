@@ -675,6 +675,7 @@ namespace TL { namespace OpenMP {
         construct.replace(
                 Nodecl::OpenMP::Taskgroup::make(
                     /* environment */ Nodecl::NodeclBase::null(),
+                    construct.get_statements().shallow_copy(),
                     construct.get_locus()));
     }
 
