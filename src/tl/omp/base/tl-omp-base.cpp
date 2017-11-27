@@ -3511,7 +3511,7 @@ namespace TL { namespace OpenMP {
             { "in_reduction",  &DataEnvironment::get_all_in_reduction_symbols,
                 (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OpenMP::InReduction::make},
             { "weakreduction", &DataEnvironment::get_all_weakreduction_symbols,
-                (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OmpSs::TaskWeakReduction::make},
+                (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OmpSs::WeakReduction::make},
             { "simd_reduction", &DataEnvironment::get_all_simd_reduction_symbols,
                 (Nodecl::NodeclBase(*)(Nodecl::List, const locus_t*)) &Nodecl::OpenMP::SimdReduction::make},
         };
