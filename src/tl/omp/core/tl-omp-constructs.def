@@ -45,6 +45,7 @@ OMP_DIRECTIVE("section", section, true)
 
 OMP_CONSTRUCT("task", task, true)
 OMP_DIRECTIVE("taskwait", taskwait, true)
+OMP_CONSTRUCT("taskgroup", taskgroup, true)
 
 OMP_DIRECTIVE("taskyield", taskyield, true)
 

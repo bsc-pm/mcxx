@@ -317,6 +317,7 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_for)
         INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
         INVALID_DECLARATION_HANDLER(taskloop)
+        INVALID_DECLARATION_HANDLER(taskgroup)
 
         INVALID_STATEMENT_HANDLER(declare_simd)
 
@@ -655,6 +656,27 @@ namespace TL { namespace OpenMP {
                     directive.get_locus()));
     }
 
+    void Base::taskgroup_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::taskgroup_handler_post(TL::PragmaCustomStatement construct)
+    {
+        PragmaCustomLine pragma_line = construct.get_pragma_line();
+
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << construct.get_locus_str() << ": " << "TASKGROUP construct\n"
+                << construct.get_locus_str() << ": " << "------------------\n"
+                ;
+        }
+
+        pragma_line.diagnostic_unused_clauses();
+
+        construct.replace(
+                Nodecl::OpenMP::Taskgroup::make(
+                    /* environment */ Nodecl::NodeclBase::null(),
+                    construct.get_locus()));
+    }
 
     void Base::taskyield_handler_pre(TL::PragmaCustomDirective) { }
     void Base::taskyield_handler_post(TL::PragmaCustomDirective directive)

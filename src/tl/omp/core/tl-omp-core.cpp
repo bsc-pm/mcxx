@@ -2623,6 +2623,7 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_for)
         INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
         INVALID_DECLARATION_HANDLER(taskloop)
+        INVALID_DECLARATION_HANDLER(taskgroup)
         INVALID_DECLARATION_HANDLER(atomic)
         INVALID_DECLARATION_HANDLER(critical)
         INVALID_DECLARATION_HANDLER(simd_fortran)
@@ -2651,6 +2652,7 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_STATEMENT(critical)
         EMPTY_HANDLERS_STATEMENT(master)
         EMPTY_HANDLERS_STATEMENT(simd_fortran)
+        EMPTY_HANDLERS_STATEMENT(taskgroup)
 
         EMPTY_HANDLERS_DECLARATION(simd)
         EMPTY_HANDLERS_DECLARATION(declare_simd)
