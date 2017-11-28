@@ -953,64 +953,86 @@ nanos6_lib=""
 NANOS6_GATE=":false:"
 if test x$is_enabled_tl_ompss_nanos6 = xyes;
 then
-   NANOS6_GATE=":true:"
-   AC_ARG_WITH([nanos6],
-           AS_HELP_STRING([--with-nanos6=dir], [Directory of Nanos6 installation]),
-           [
+    NANOS6_GATE=":true:"
+
+    AC_MSG_CHECKING([if boostraping Nanos6])
+    AC_ARG_ENABLE([nanos6-bootstrap],
+        AS_HELP_STRING([--enable-nanos6-bootstrap], [Enable compilation before Nanos6 is installed]),
+   	[
+   	    AC_MSG_RESULT([yes])
+   	    boostrapping_nanos6=yes
+   	    is_enabled_tl_ompss_nanos6_tests=no
+   	],
+   	[
+   	    AC_MSG_RESULT([no])
+   	    boostrapping_nanos6=no
+   	    is_enabled_tl_ompss_nanos6_tests=yes
+   	]
+   )
+
+    AC_ARG_WITH([nanos6],
+        AS_HELP_STRING([--with-nanos6=dir], [Directory of Nanos6 installation]),
+        [
+            nanos6="${withval}"
             nanos6_include="${withval}/include"
             nanos6_lib="${withval}/lib"
-            nanos6="${withval}"
-            # kludge
-            if test -d "${withval}/lib64";
-            then
-             nanos6_lib="${withval}/lib64"
-            fi
-           ]
-   )
+            nanos6_mandatory_lib="no"
+        ]
+    )
 
-   AC_ARG_WITH([nanos6-include],
-           AS_HELP_STRING([--with-nanos6-include=dir], [Directory of Nanos6 headers]),
-           [
+    AC_ARG_WITH([nanos6-include],
+        AS_HELP_STRING([--with-nanos6-include=dir], [Directory of Nanos6 headers]),
+        [
             nanos6_include="${withval}"
-           ]
-   )
+        ]
+    )
 
-   AC_ARG_WITH([nanos6-lib],
-           AS_HELP_STRING([--with-nanos6-lib=dir], [Directory of Nanos6 libraries]),
-           [
+    AC_ARG_WITH([nanos6-lib],
+        AS_HELP_STRING([--with-nanos6-lib=dir], [Directory of Nanos6 libraries]),
+        [
             nanos6_lib="${withval}"
-           ]
-   )
+            nanos6_mandatory_lib="yes"
+        ]
+    )
 
-   CFLAGSBACKUP="$CFLAGS"
-   CPPFLAGSBACKUP="$CPPFLAGS"
+    if test x${boostrapping_nanos6} != xyes ; then
 
-   CPPFLAGS="$CPPFLAGS -I$nanos6_include"
-   CFLAGS="$CFLAGS -I$nanos6_include"
+        CFLAGSBACKUP="$CFLAGS"
+        CPPFLAGSBACKUP="$CPPFLAGS"
 
-	AC_MSG_CHECKING([if boostraping Nanos6])
-	AC_ARG_ENABLE([nanos6-bootstrap],
-		AS_HELP_STRING([--enable-nanos6-bootstrap], [Enable compilation before Nanos6 is installed]),
-		[
-			AC_MSG_RESULT([yes])
-			boostrapping_nanos6=yes
-			is_enabled_tl_ompss_nanos6_tests=no
-		],
-		[
-			AC_MSG_RESULT([no])
-			boostrapping_nanos6=no
-			is_enabled_tl_ompss_nanos6_tests=yes
-		]
-	)
+        CPPFLAGS="$CPPFLAGS -I$nanos6_include"
+        CFLAGS="$CFLAGS -I$nanos6_include"
 
-	if test x"${boostrapping_nanos6}" != x"yes" ; then
-   	AC_CHECK_HEADER([nanos6.h],
-                   [break],
-                   [AC_MSG_ERROR([Nanos6 support was required but 'nanos6.h' was not found])])
-	fi
+        AC_CHECK_HEADER([nanos6.h],
+                [break],
+                [AC_MSG_ERROR([Nanos6 support was required but 'nanos6.h' was not found])])
 
-   CPPFLAGS="$CPPFLAGSBACKUP"
-   CFLAGS="$CFLAGSBACKUP"
+
+        CPPFLAGS="$CPPFLAGSBACKUP -L$nanos6_lib"
+        CFLAGS="$CFLAGSBACKUP -L$nanos6_lib"
+
+        AC_CHECK_LIB([nanos6], [nanos_in_final],
+            [break],
+            [
+                if test x${nanos6_mandatory_lib} = xyes; then
+                    AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])
+                fi
+
+                AS_UNSET(ac_cv_lib_nanos6_nanos_in_final)
+
+                nanos6_lib="${nanos6}/lib64"
+
+                CPPFLAGS="$CPPFLAGSBACKUP -L$nanos6_lib"
+                CFLAGS="$CFLAGSBACKUP -L$nanos6_lib"
+
+                AC_CHECK_LIB([nanos6], [nanos_in_final],
+                    [break],
+                    [AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])])
+            ])
+
+        CPPFLAGS="$CPPFLAGSBACKUP"
+        CFLAGS="$CFLAGSBACKUP"
+    fi
 fi
 
 AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
