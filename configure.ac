@@ -1015,7 +1015,6 @@ fi
 
 AM_CONDITIONAL([BUILD_NANOS6], test x$is_enabled_tl_ompss_nanos6 = xyes)
 
-AC_SUBST([NANOS6],          ["${nanos6}"])
 AC_SUBST([NANOS6_INCLUDES], ["${nanos6_include}"])
 AC_SUBST([NANOS6_LIB],      ["${nanos6_lib}"])
 AC_SUBST([NANOS6_ENABLED],  ["${is_enabled_tl_ompss_nanos6}"])
