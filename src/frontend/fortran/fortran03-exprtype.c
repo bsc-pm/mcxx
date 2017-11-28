@@ -4583,7 +4583,7 @@ static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context
     }
 }
 
-// This function will generate an error if the symbol is neither a variable nor a function
+// This function will generate an error if the symbol is not a variable, an enumerator or a function
 static void check_symbol(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // Entry will never be an intrinsic function
@@ -4599,6 +4599,7 @@ static void check_symbol(AST expr, const decl_context_t* decl_context, nodecl_t*
     }
 
     if (entry->kind != SK_VARIABLE
+            && entry->kind != SK_ENUMERATOR
             && entry->kind != SK_FUNCTION
             && entry->kind != SK_UNDEFINED)
     {
@@ -4637,6 +4638,16 @@ static void check_symbol(AST expr, const decl_context_t* decl_context, nodecl_t*
         {
             nodecl_set_type(*nodecl_output, entry->type_information);
         }
+    }
+    else if (entry->kind == SK_ENUMERATOR)
+    {
+        *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(expr));
+        nodecl_set_type(*nodecl_output,
+                        enum_type_get_underlying_type(entry->type_information));
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
     }
 }
 

@@ -52,7 +52,6 @@
 #include <ctype.h>
 #include "red_black_tree.h"
 
-static void unsupported_construct(AST a, const char* name);
 static void unsupported_statement(AST a, const char* name);
 
 static void null_dtor(const void* p UNUSED_PARAMETER) { }
@@ -4372,11 +4371,6 @@ static void unsupported_statement(AST a, const char* name)
     sorry_printf_at(ast_get_locus(a), "%s statement not supported\n", name);
 }
 
-static void unsupported_construct(AST a, const char* name)
-{
-    sorry_printf_at(ast_get_locus(a), "%s construct not supported\n", name);
-}
-
 static void build_scope_allstop_stmt(AST a, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     unsupported_statement(a, "ALLSTOP");
@@ -6214,11 +6208,116 @@ static void build_scope_entry_stmt(AST a, const decl_context_t* decl_context, no
     }
 }
 
-static void build_scope_enum_def(AST a, 
-        const decl_context_t* decl_context UNUSED_PARAMETER, 
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_enum_def(AST a,
+                                 const decl_context_t *decl_context
+                                     UNUSED_PARAMETER,
+                                 nodecl_t *nodecl_output UNUSED_PARAMETER)
 {
-    unsupported_construct(a, "ENUM");
+    AST enum_def_stmt = ASTSon0(a);
+    AST enumerator_def_stmt_seq = ASTSon1(a);
+    // AST end_enum_stmt = ASTSon2(a);
+
+    static int num_enums = 0;
+    const char *enum_name = NULL;
+    uniquestr_sprintf(&enum_name, ".fortran_enum_%d", num_enums);
+    num_enums++;
+
+    scope_entry_t *new_enum
+        = new_symbol(decl_context, decl_context->current_scope, enum_name);
+    new_enum->locus = ast_get_locus(enum_def_stmt);
+    new_enum->kind = SK_ENUM;
+    new_enum->type_information
+        = get_new_enum_type(decl_context, /* enum_is_scoped */ 0);
+
+    symbol_entity_specs_set_is_user_declared(new_enum, 1);
+
+    // The underlying type must be int because the standard says it has to match C.
+    enum_type_set_underlying_type(new_enum->type_information,
+                                  get_signed_int_type());
+
+    type_t *enum_type = get_user_defined_type(new_enum);
+
+    const_value_t *current_enum_value = const_value_get_signed_int(0);
+
+    if (decl_context->current_scope->related_entry != NULL
+        && decl_context->current_scope->related_entry->kind == SK_MODULE)
+    {
+        scope_entry_t *module = decl_context->current_scope->related_entry;
+        symbol_entity_specs_add_related_symbols(module, new_enum);
+    }
+
+    AST it;
+    for_each_element(enumerator_def_stmt_seq, it)
+    {
+        AST enumerator_def_stmt = ASTSon1(it);
+        AST enumerator_list = ASTSon0(enumerator_def_stmt);
+        AST enumerator_it;
+        for_each_element(enumerator_list, enumerator_it)
+        {
+            AST enumerator = ASTSon1(enumerator_it);
+
+            AST name = ASTSon0(enumerator);
+            const char *enumerator_name = strtolower(ASTText(name));
+            AST expr = ASTSon1(enumerator);
+
+            scope_entry_t *existing_name = fortran_query_name_str(
+                decl_context, enumerator_name, ast_get_locus(name));
+            if (existing_name != NULL)
+            {
+                error_printf_at(ast_get_locus(name),
+                                "name '%s' has already been defined\n",
+                                ASTText(name));
+                continue;
+            }
+
+            scope_entry_t *new_enumerator = new_symbol(
+                decl_context, decl_context->current_scope, enumerator_name);
+            new_enumerator->kind = SK_ENUMERATOR;
+            new_enumerator->locus = ast_get_locus(name);
+            new_enumerator->type_information = enum_type;
+
+            nodecl_t nodecl_expr = nodecl_null();
+            if (expr != NULL)
+            {
+                fortran_check_expression(expr, decl_context, &nodecl_expr);
+                if (nodecl_is_err_expr(nodecl_expr))
+                {
+                    nodecl_expr = nodecl_null();
+                }
+                else if (!nodecl_is_constant(nodecl_expr)
+                         || !is_integer_type(nodecl_get_type(nodecl_expr)))
+                {
+                    error_printf_at(
+                        nodecl_get_locus(nodecl_expr),
+                        "value of enumerator must be an integer constant");
+                    nodecl_expr = nodecl_null();
+                }
+            }
+
+            if (!nodecl_is_null(nodecl_expr))
+            {
+                const_value_t *val = const_value_cast_to_signed_int_value(
+                    nodecl_get_constant(nodecl_expr));
+                new_enumerator->value = const_value_to_nodecl(val);
+                current_enum_value = val;
+            }
+            else
+            {
+                new_enumerator->value = const_value_to_nodecl(current_enum_value);
+            }
+            current_enum_value = const_value_add(current_enum_value,
+                                                 const_value_get_signed_int(1));
+
+            enum_type_add_enumerator(enum_type, new_enumerator);
+
+            if (decl_context->current_scope->related_entry != NULL
+                    && decl_context->current_scope->related_entry->kind == SK_MODULE)
+            {
+                scope_entry_t* module = decl_context->current_scope->related_entry;
+                symbol_entity_specs_add_related_symbols(module, new_enumerator);
+            }
+        }
+    }
 }
 
 static void do_build_scope_equivalence_stmt(AST a, 

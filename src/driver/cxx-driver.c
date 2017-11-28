@@ -2165,6 +2165,18 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     {
                         CURRENT_CONFIGURATION->enable_c11 = 1;
                     }
+                    else if (strcmp(&argument[5], "f95") == 0)
+                    {
+                        // Do nothing
+                    }
+                    else if (strcmp(&argument[5], "f2003") == 0)
+                    {
+                        CURRENT_CONFIGURATION->enable_f03 = 1;
+                    }
+                    else if (strcmp(&argument[5], "f2008") == 0)
+                    {
+                        CURRENT_CONFIGURATION->enable_f08 = 1;
+                    }
                 }
                 else if (strcmp(argument, "-static") == 0) { }
                 else if (strcmp(argument, "-static-libgcc") == 0) { }
