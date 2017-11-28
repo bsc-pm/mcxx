@@ -930,38 +930,89 @@ static delayed_character_length_t* delayed_character_length_new(
     return result;
 }
 
-static void delayed_compute_character_length(void *info, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void delayed_compute_character_length(
+    void *info, nodecl_t *nodecl_output UNUSED_PARAMETER)
 {
-    delayed_character_length_t* data = (delayed_character_length_t*)info;
+    delayed_character_length_t *data = (delayed_character_length_t *)info;
 
     nodecl_t nodecl_len = nodecl_null();
-    fortran_check_expression(data->length, data->decl_context, &nodecl_len);
+    char is_star = 0;
+    char is_colon = 0;
 
-    if (nodecl_is_err_expr(nodecl_len))
+    if (ASTKind(data->length) == AST_SYMBOL
+        && strcmp(ASTText(data->length), "*") == 0)
+    {
+        is_star = 1;
+    }
+    else if (ASTKind(data->length) == AST_SYMBOL
+             && strcmp(ASTText(data->length), ":") == 0)
+    {
+        is_colon = 1;
+    }
+    else
+    {
+        fortran_check_expression(data->length, data->decl_context, &nodecl_len);
+    }
+
+    if (is_star || is_colon)
     {
         int i;
         for (i = 0; i < data->num_symbols; i++)
         {
-            data->symbols[i]->type_information = get_error_type();
+            scope_entry_t *current_symbol = data->symbols[i];
+            if (is_star)
+            {
+                // FIXME - We should check this is either a DUMMY or a PARAMETER of CHARACTER(*)
+            }
+            else if (is_colon)
+            {
+                // FIXME - We should check this is either an ALLOCATABLE or a POINTER
+
+                // Replace the array with one with descriptor.
+                type_t *updated_char_type = get_array_type_bounds_with_descriptor(
+                        array_type_get_element_type(data->character_type),
+                        nodecl_null(),
+                        nodecl_null(),
+                        current_symbol->decl_context);
+
+                current_symbol->type_information = delayed_character_length_update_type(
+                    current_symbol->type_information, updated_char_type);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+    }
+    else if (nodecl_is_err_expr(nodecl_len))
+    {
+        int i;
+        for (i = 0; i < data->num_symbols; i++)
+        {
+            scope_entry_t *current_symbol = data->symbols[i];
+            current_symbol->type_information = get_error_type();
         }
     }
     else
     {
         nodecl_len = fortran_expression_as_value(nodecl_len);
         nodecl_t lower_bound = nodecl_make_integer_literal(
-                get_signed_int_type(),
-                const_value_get_one(type_get_size(get_signed_int_type()), 1),
-                nodecl_get_locus(nodecl_len));
-        type_t* updated_char_type = get_array_type_bounds(
-                array_type_get_element_type(data->character_type),
-                lower_bound, nodecl_len, data->decl_context);
+            get_signed_int_type(),
+            const_value_get_one(type_get_size(get_signed_int_type()), 1),
+            nodecl_get_locus(nodecl_len));
+        type_t *updated_char_type = get_array_type_bounds(
+            array_type_get_element_type(data->character_type),
+            lower_bound,
+            nodecl_len,
+            data->decl_context);
 
         int i;
         for (i = 0; i < data->num_symbols; i++)
         {
-            data->symbols[i]->type_information = delayed_character_length_update_type(
-                    data->symbols[i]->type_information,
-                    updated_char_type);
+            scope_entry_t *current_symbol = data->symbols[i];
+            current_symbol->type_information
+                = delayed_character_length_update_type(
+                    current_symbol->type_information, updated_char_type);
         }
     }
 
@@ -3174,12 +3225,6 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                             const_value_get_one(type_get_size(get_signed_int_type()), 1),
                             nodecl_get_locus(nodecl_len));
                     result = get_array_type_bounds(result, lower_bound, nodecl_len, decl_context);
-                }
-                else if (ASTKind(len) == AST_SYMBOL
-                        && strcmp(ASTText(len), "*") == 0)
-                {
-                    // undefined length
-                    result = get_array_type(result, nodecl_null(), decl_context);
                 }
                 else
                 {
