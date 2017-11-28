@@ -5,6 +5,9 @@ test_nolink=yes
 </testinfo>
 */
 
+// This test doesn't compile with GCC 4.X and previous versions
+#if defined(__GNUC__)
+#if __GNUC__ > 4
 struct A
 {
     int x, y, z;
@@ -27,3 +30,5 @@ constexpr B b(3);
 static_assert(b.x == 4, "");
 static_assert(b.y == 5, "");
 static_assert(b.z == 6, "");
+#endif
+#endif
