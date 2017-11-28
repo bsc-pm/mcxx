@@ -8406,6 +8406,7 @@ static void cxx_compute_name_from_entry_list(
                 && has_dependent_template_parameters(last_template_args))
         {
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
 
         if (any_is_member_function_of_a_dependent_class(entry_list))
@@ -13641,6 +13642,7 @@ static void check_nodecl_function_call_cxx(
     // If any in the expression list is type dependent this call is all dependent
     char any_arg_is_type_dependent = 0;
     char any_arg_is_value_dependent = 0;
+    char any_arg_is_value_pack = 0;
     int i, num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
     for (i = 0; i < num_items && !any_arg_is_type_dependent; i++)
@@ -13653,6 +13655,10 @@ static void check_nodecl_function_call_cxx(
         if (nodecl_expr_is_value_dependent(argument))
         {
             any_arg_is_value_dependent = 1;
+        }
+        if (nodecl_get_kind(argument) == NODECL_CXX_VALUE_PACK)
+        {
+            any_arg_is_value_pack = 1;
         }
     }
     DELETE(list);
@@ -13749,7 +13755,8 @@ static void check_nodecl_function_call_cxx(
 
     if (!nodecl_is_err_expr(nodecl_called)
             && (any_arg_is_type_dependent
-                || nodecl_expr_is_type_dependent(nodecl_called)))
+                || nodecl_expr_is_type_dependent(nodecl_called)
+                || any_arg_is_value_pack))
     {
         // If the called entity or one of the arguments is dependent, all the
         // call is dependent
@@ -26088,7 +26095,9 @@ static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_funct
     }
     DELETE(list);
 
-    ERROR_CONDITION(nodecl_is_null(nodecl_return_statement), "Return statement not found", 0);
+    // This means badness but crashing here is not useful.
+    if (nodecl_is_null(nodecl_return_statement))
+        return nodecl_null();
 
     nodecl_t nodecl_returned_expression = nodecl_get_child(nodecl_return_statement, 0);
 
@@ -26365,6 +26374,35 @@ static const_value_t* evaluate_constexpr_constructor(
         return NULL;
     }
 
+    nodecl_t nodecl_function_code = symbol_entity_specs_get_function_code(entry);
+    if (nodecl_is_null(nodecl_function_code))
+    {
+        // This is a weird case that happens because we always attempt to
+        // evaluate constexpr if possible.  Should not be a problem to ignore
+        // these cases but we lose a bit in terms of defensive programming
+        // here.
+        //
+        // struct A
+        // {
+        //    int x;
+        //    constexpr A() : A(1) { }
+        //                 // ^ Here we attempt to evaluate A(int)
+        //                 // but its code is not yet computed
+        //    constexpr A(int n) : x(n) { }
+        // };
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Evaluation of constexpr constructor fails because the function has been defined but its code is not yet synthesized\n");
+        }
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf_at(locus, "call to undefined constexpr constructor '%s' in constant-expression\n",
+                    print_decl_type_str(entry->type_information, entry->decl_context,
+                        get_qualified_symbol_name(entry, entry->decl_context)));
+        }
+        return NULL;
+    }
+
     stacked_map_of_values_push();
     char args_ok = constexpr_function_set_constants_of_arguments(converted_arg_list, entry, decl_context);
     if (!args_ok)
@@ -26378,12 +26416,7 @@ static const_value_t* evaluate_constexpr_constructor(
         return NULL;
     }
 
-    nodecl_t nodecl_function_code = symbol_entity_specs_get_function_code(entry);
-    ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "Invalid node", 0);
-
-    nodecl_t nodecl_initializers = nodecl_null();
-    if (!nodecl_is_null(nodecl_function_code))
-        nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
+    nodecl_t nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
 
     type_t* class_type = symbol_entity_specs_get_class_type(entry);
     scope_entry_t* class_sym = named_type_get_symbol(class_type);
@@ -26657,17 +26690,32 @@ static const_value_t* evaluate_constexpr_regular_function_call(
     nodecl_t nodecl_returned_expression =
         constexpr_function_get_returned_expression(nodecl_function_code);
 
-    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
-    if (symbol_entity_specs_get_is_member(entry))
+    nodecl_t nodecl_evaluated_expr = nodecl_null();
+    if (!nodecl_is_null(nodecl_returned_expression))
     {
-        instantiation_symbol_map = symbol_entity_specs_get_instantiation_symbol_map(entry);
+        instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+        if (symbol_entity_specs_get_is_member(entry))
+        {
+            instantiation_symbol_map = symbol_entity_specs_get_instantiation_symbol_map(entry);
+        }
+
+        nodecl_evaluated_expr = instantiate_expression(
+                nodecl_returned_expression,
+                nodecl_retrieve_context(nodecl_returned_expression),
+                instantiation_symbol_map,
+                /* pack_index */ -1);
     }
 
-    nodecl_t nodecl_evaluated_expr = instantiate_expression(nodecl_returned_expression,
-            nodecl_retrieve_context(nodecl_returned_expression),
-            instantiation_symbol_map, /* pack_index */ -1);
+    DEBUG_CODE()
+    {
+        if (nodecl_is_null(nodecl_returned_expression))
+        {
+            fprintf(stderr, "EXPRTYPE: Evaluation of regular constexpr did not find the return statement\n");
+        }
+    }
 
-    if (!nodecl_is_constant(nodecl_evaluated_expr))
+    if (nodecl_is_null(nodecl_returned_expression)
+        || !nodecl_is_constant(nodecl_evaluated_expr))
     {
         DEBUG_CODE()
         {
@@ -28587,6 +28635,9 @@ char check_nodecl_template_argument_can_be_converted_to_parameter_type(
         return 1;
     }
 
+    if (is_error_type(parameter_type))
+        return 0;
+
     standard_conversion_t scs;
     if (is_integral_type(parameter_type)
             || is_enum_type(parameter_type))
@@ -30457,23 +30508,33 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
 
 static void instantiate_dep_sizeof_pack(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
-    scope_entry_t* entry = nodecl_get_symbol(nodecl_get_child(node, 0));
-    if (entry != NULL
-            && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-                || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
-                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
+    // This is overly complicated because sizeof...(X) allows either a parameter
+    // pack or a template pack.
+    scope_entry_t *entry = nodecl_get_symbol(nodecl_get_child(node, 0));
+    if (entry == NULL)
+    {
+        v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+    }
+    else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+             || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
     {
         entry = lookup_of_template_parameter(
-                v->decl_context,
-                symbol_entity_specs_get_template_parameter_nesting(entry),
-                symbol_entity_specs_get_template_parameter_position(entry));
-
-        check_symbol_sizeof_pack(entry, nodecl_get_locus(node), &v->nodecl_result);
+            v->decl_context,
+            symbol_entity_specs_get_template_parameter_nesting(entry),
+            symbol_entity_specs_get_template_parameter_position(entry));
+    }
+    else if (entry->kind == SK_VARIABLE_PACK)
+    {
+        entry = instantiation_symbol_try_to_map(v->instantiation_symbol_map,
+                                                entry);
     }
     else
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
     }
+
+    check_symbol_sizeof_pack(entry, nodecl_get_locus(node), &v->nodecl_result);
 }
 
 static void instantiate_dep_alignof_expr(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -30743,7 +30804,45 @@ static void instantiate_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl
     }
     else
     {
-        v->nodecl_result = nodecl_make_cxx_initializer(expr, nodecl_get_type(expr), nodecl_get_locus(node));
+        if (nodecl_is_null(expr))
+        {
+            // Special case for expanded packs.
+            ERROR_CONDITION(nodecl_get_kind(nodecl_get_child(node, 0)) != NODECL_CXX_VALUE_PACK,
+                            "Instantiation gave an empty list but this is not a pack expansion",
+                            0)
+            // Special case for empty expansions expansions
+            v->nodecl_result = nodecl_null();
+        }
+        if (nodecl_is_list(expr))
+        {
+            // Special case for expanded packs.
+            ERROR_CONDITION(nodecl_get_kind(nodecl_get_child(node, 0)) != NODECL_CXX_VALUE_PACK,
+                            "Instantiation gave a list but this is not a pack expansion",
+                            0)
+
+            // Wrap each node in the list in a NODECL_CXX_INITIALIZER to preserve
+            // the validity of the tree.
+            int num_items;
+            nodecl_t* list = nodecl_unpack_list(expr, &num_items);
+            int i;
+            for (i = 0; i < num_items; i++)
+            {
+                nodecl_t parent = nodecl_get_parent(list[i]);
+                nodecl_t wrapped = nodecl_make_cxx_initializer(
+                    list[i], nodecl_get_type(list[i]), nodecl_get_locus(node));
+                // We replace the node because we do not want to leak the
+                // containing list.
+                nodecl_set_child(parent, 1, wrapped);
+                nodecl_set_parent(wrapped, parent);
+            }
+            DELETE(list);
+
+            v->nodecl_result = expr;
+        }
+        else
+        {
+            v->nodecl_result = nodecl_make_cxx_initializer(expr, nodecl_get_type(expr), nodecl_get_locus(node));
+        }
     }
 }
 
@@ -30776,15 +30875,34 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
     {
         nodecl_t expr = instantiate_expr_walk(v, list[i]);
 
+        // We allow this case for empty pack expansions
+        if (nodecl_is_null(expr))
+            continue;
+
         if (nodecl_is_err_expr(expr))
         {
             v->nodecl_result = expr;
             return;
         }
 
-        nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
-
-        P_LIST_ADD(types, num_types, nodecl_get_type(expr));
+        if (!nodecl_is_list(expr))
+        {
+            nodecl_result_list
+                = nodecl_append_to_list(nodecl_result_list, expr);
+            P_LIST_ADD(types, num_types, nodecl_get_type(expr));
+        }
+        else
+        {
+            nodecl_result_list = nodecl_concat_lists(nodecl_result_list, expr);
+            type_t *seq_type = nodecl_get_type(expr);
+            int j, num_seq_types = sequence_of_types_get_num_types(seq_type);
+            for (j = 0; j < num_seq_types; j++)
+            {
+                P_LIST_ADD(types,
+                           num_types,
+                           sequence_of_types_get_type_num(seq_type, j));
+            }
+        }
     }
 
     DELETE(list);
@@ -30792,6 +30910,8 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
     v->nodecl_result = nodecl_make_cxx_braced_initializer(nodecl_result_list,
             get_braced_list_type(num_types, types),
             nodecl_get_locus(node));
+
+    DELETE(types);
 }
 
 static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -30923,7 +31043,16 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
 
     if (len < 0)
     {
-        v->nodecl_result = nodecl_shallow_copy(node);
+        // No expansion happening.
+        // Instantiate the inner tree of the pack and then wrap it again
+        char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+        set_is_inside_pack_expansion(1);
+        expansion = instantiate_expr_walk(v, expansion);
+        check_nodecl_initializer_clause_expansion(expansion, 
+                v->decl_context,
+                nodecl_get_locus(node),
+                &v->nodecl_result);
+        set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
         return;
     }
 

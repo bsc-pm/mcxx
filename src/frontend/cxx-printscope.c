@@ -38,6 +38,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-typeutils.h"
 #include "cxx-codegen.h"
+#include "cxx-scope.h"
 
 /*
  * Building a symbol table for C++ is such a hard thing that we need ways to debug it.
@@ -94,6 +95,8 @@ void print_scope(const decl_context_t* decl_context)
 
 static void print_scope_full_context(const decl_context_t* decl_context, int global_indent)
 {
+    if (decl_context == NULL)
+        return;
     scope_t* st = decl_context->current_scope;
     if (st == NULL)
         return;
@@ -154,6 +157,7 @@ static void print_scope_entry_list(const char* key, scope_entry_list_t* entry_li
 }
 
 
+static void print_template_parameter_list_(template_parameter_list_t* template_parameters, int indent_at_level);
 
 static void print_scope_entry(const char* key, scope_entry_t* entry, int global_indent)
 {
@@ -228,11 +232,13 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
             PRINT_INDENTED_LINE(stderr, global_indent + 1, "Specialization: [%d] %p\n", i, specialization->type_information);
 
             print_scope_entry(specialization->symbol_name, specialization, global_indent + 1);
+
+            print_template_parameter_list_(specialization->decl_context->template_parameters, global_indent + 2);
         }
 
     }
 
-    if (entry->kind == SK_CLASS)
+    if (entry->kind == SK_CLASS && entry->defined)
     {
         print_scope_full_context(class_type_get_inner_context(entry->type_information),
                 global_indent + 1);
@@ -478,3 +484,120 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         PRINT_INDENTED_LINE(stderr, global_indent+1, "No related symbols\n");
     }
 }
+
+static void print_template_parameter_list_aux(template_parameter_list_t* template_parameters, int* n, int global_indent)
+{
+    if (template_parameters == NULL)
+        return;
+
+    print_template_parameter_list_aux(template_parameters->enclosing, n, global_indent);
+
+    (*n)++;
+
+    if (template_parameters->num_parameters > 0)
+    {
+        int i;
+        for (i = 0; i < template_parameters->num_parameters; i++)
+        {
+            const char* kind_name = "<<unknown>>";
+            if (template_parameters->parameters[i] != NULL)
+            {
+                switch (template_parameters->parameters[i]->kind)
+                {
+                    case TPK_NONTYPE: kind_name = "nontype"; break;
+                    case TPK_TYPE: kind_name = "type"; break;
+                    case TPK_TEMPLATE: kind_name = "template"; break;
+
+                    case TPK_NONTYPE_PACK: kind_name = "nontype pack"; break;
+                    case TPK_TYPE_PACK: kind_name = "type pack"; break;
+                    case TPK_TEMPLATE_PACK: kind_name = "template pack"; break;
+                    default: break;
+                }
+                PRINT_INDENTED_LINE(stderr, global_indent, "* Nesting: %d | Position: %d | Name: %s | Kind : %s\n", *n, i, 
+                        template_parameters->parameters[i]->entry != NULL
+                        ?  template_parameters->parameters[i]->entry->symbol_name
+                        : "<<unknown symbol>>",
+                        kind_name);
+            }
+            else
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent, "* Nesting: %d | Position: %d | <<unknown parameter>\n", *n, i);
+            }
+
+            template_parameter_value_t* v = template_parameters->arguments[i];
+            if (v == NULL)
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent, "  Argument: <<NONE>>\n");
+            }
+            else
+            {
+                switch (v->kind)
+                {
+                    case TPK_TYPE:
+                    case TPK_TEMPLATE:
+                        {
+                            PRINT_INDENTED_LINE(stderr, global_indent, "  Argument: %s\n", print_declarator(v->type));
+                            break;
+                        }
+                    case TPK_NONTYPE:
+                        {
+                            PRINT_INDENTED_LINE(stderr, global_indent, "  Argument: ");
+
+                            if (nodecl_is_list(v->value))
+                            {
+                                fprintf(stderr, "<< ");
+                                int num_items;
+                                nodecl_t* list = nodecl_unpack_list(v->value, &num_items);
+                                int j;
+                                for (j = 0; j < num_items; j++)
+                                {
+                                    if (j > 0)
+                                        fprintf(stderr, ", ");
+
+                                    fprintf(stderr, "%s", codegen_to_str(list[j],
+                                                CURRENT_COMPILED_FILE->global_decl_context));
+                                }
+
+                                fprintf(stderr, " >>\n");
+
+                                DELETE(list);
+                            }
+                            else
+                            {
+                                fprintf(stderr, "%s\n", codegen_to_str(v->value,
+                                            CURRENT_COMPILED_FILE->global_decl_context));
+                            }
+
+                            PRINT_INDENTED_LINE(stderr, global_indent, "  (Type: %s)\n", print_declarator(v->type));
+                            break;
+                        }
+                    default:
+                        {
+                            PRINT_INDENTED_LINE(stderr, global_indent, "  Argument: ????\n");
+                            break;
+                        }
+                }
+            }
+        }
+    }
+    else
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent, "* Nesting: %d <<<EMPTY>>>\n", *n);
+    }
+}
+
+static void print_template_parameter_list_(template_parameter_list_t* template_parameters, int indent_at_level)
+{
+    if (template_parameters == NULL)
+    {
+        fprintf(stderr, "<<<No template parameters>>>\n");
+    }
+    int n = 0;
+    print_template_parameter_list_aux(template_parameters, &n, indent_at_level);
+}
+
+void print_template_parameter_list(template_parameter_list_t* template_parameters)
+{
+    print_template_parameter_list_(template_parameters, 0);
+}
+

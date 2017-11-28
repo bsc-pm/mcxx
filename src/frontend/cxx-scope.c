@@ -2424,19 +2424,37 @@ static template_parameter_value_t* update_template_parameter_value_aux(
         {
             if (nodecl_is_list(v->value))
             {
+                // The type might fail to be updated
+                type_t* updated_type = update_type_aux_(v->type, decl_context, locus,
+                        instantiation_symbol_map, pack_index);
+                if (updated_type == NULL)
+                {
+                    DELETE(result);
+                    return NULL;
+                }
+                ERROR_CONDITION(!is_sequence_of_types(updated_type), "Expecting a sequence here", 0);
+
                 int num_items;
                 nodecl_t* list = nodecl_unpack_list(v->value, &num_items);
-                int i;
                 nodecl_t updated_list = nodecl_null();
 
                 type_t* type_sequence = NULL;
 
+                ERROR_CONDITION(sequence_of_types_get_num_types(updated_type)
+                                    != num_items,
+                                "Mismatch in number of items",
+                                0);
+
+                int i;
                 for (i = 0; i < num_items; i++)
                 {
                     nodecl_t updated_expr =
                         update_nodecl_template_argument_expression(list[i], decl_context,
                                 instantiation_symbol_map,
                                 pack_index);
+
+                    if (nodecl_is_null(updated_expr))
+                        continue;
 
                     if (nodecl_is_err_expr(updated_expr))
                     {
@@ -2445,9 +2463,25 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                         return NULL;
                     }
 
-                    updated_list = nodecl_append_to_list(updated_list, updated_expr);
+                    if (nodecl_is_list(updated_expr))
+                    {
+                        updated_list = nodecl_concat_lists(updated_list, updated_expr);
 
-                    type_sequence = get_sequence_of_types_append_type(type_sequence, nodecl_get_type(updated_expr));
+                        int j;
+                        for (j = 0; j < nodecl_list_length(updated_expr); j++)
+                        {
+                            type_sequence = get_sequence_of_types_append_type(
+                                    type_sequence,
+                                    sequence_of_types_get_type_num(updated_type, i));
+                        }
+                    }
+                    else
+                    {
+                        updated_list = nodecl_append_to_list(updated_list, updated_expr);
+                        type_sequence = get_sequence_of_types_append_type(
+                                type_sequence,
+                                sequence_of_types_get_type_num(updated_type, i));
+                    }
                 }
 
                 result->value = updated_list;
@@ -2455,6 +2489,21 @@ static template_parameter_value_t* update_template_parameter_value_aux(
             }
             else
             {
+                // The type might fail to be updated
+                type_t* updated_type = update_type_aux_(v->type, decl_context, locus,
+                        instantiation_symbol_map, pack_index);
+                if (updated_type == NULL)
+                {
+                    DELETE(result);
+                    return NULL;
+                }
+
+                if (is_template_class)
+                {
+                    updated_type = advance_over_typedefs(updated_type);
+                }
+
+                result->type = updated_type;
                 result->value =
                     update_nodecl_template_argument_expression(v->value, decl_context,
                             instantiation_symbol_map, pack_index);
@@ -2466,8 +2515,17 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                         DELETE(result);
                         return NULL;
                     }
-
-                    result->type = nodecl_get_type(result->value);
+                    if (nodecl_is_list(result->value))
+                    {
+                        result->type = NULL;
+                        int num_items = nodecl_list_length(result->value);
+                        int i;
+                        for (i = 0; i < num_items; i++)
+                        {
+                            result->type = get_sequence_of_types_append_type(
+                                result->type, updated_type);
+                        }
+                    }
                 }
                 else
                 {
@@ -2717,9 +2775,10 @@ static int get_length_of_pack_expansion_common(int num_packs_to_expand,
                     decl_context,
                     symbol_entity_specs_get_template_parameter_nesting(packs_to_expand[i]),
                     symbol_entity_specs_get_template_parameter_position(packs_to_expand[i]));
-            if (argument != NULL &&
-                    (nodecl_is_null(argument->value) // An empty sequence
-                     || nodecl_is_list(argument->value)))
+            if (argument != NULL
+                    && argument->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                    && (nodecl_is_null(argument->value) // An empty sequence
+                        || nodecl_is_list(argument->value)))
             {
                 P_LIST_ADD(expanded_values, num_expanded_values, argument->value);
             }
@@ -4530,9 +4589,11 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         case AST_TEMPLATE_EXPRESSION_ARGUMENT_PACK :
             {
                 char is_expansion = 0;
+                char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
                 if (ASTKind(template_parameter) == AST_TEMPLATE_EXPRESSION_ARGUMENT_PACK)
                 {
                     is_expansion = 1;
+                    set_is_inside_pack_expansion(1);
                 }
 
                 template_parameter_value_t* t_argument = NEW0(template_parameter_value_t);
@@ -4541,6 +4602,8 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 nodecl_t nodecl_expr = nodecl_null();
                 check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
+
+                set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
 
                 if (nodecl_is_err_expr(nodecl_expr))
                 {
@@ -4944,11 +5007,18 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         there_are_pack_arguments = template_argument_is_pack(result->arguments[i]);
     }
 
-    if (there_are_pack_arguments)
+    char is_template_alias
+        = named_type_get_symbol(template_type_get_primary_type(template_type))
+              ->kind
+          == SK_TEMPLATE_ALIAS;
+
+    if (there_are_pack_arguments && !is_template_alias)
     {
         // We can't actually complete anything here template packs may be assigned
         // to more than one template parameter, so assume this is fine, let it fail
-        // later when we update the types
+        // later when we update the types.
+        //
+        // Template alias are an exception to this. See C++ DR1430.
         DEBUG_CODE()
         {
             fprintf(stderr, "SCOPE: Cannot complete anything because "
@@ -5099,6 +5169,42 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         "kind of template argument number %d does not match "
                         "that of the corresponding template parameter\n",
                         i + 1);
+
+                free_template_parameter_list(result);
+                return NULL;
+            }
+
+            // C++ DR1430
+            //
+            // In template alias template arguments, an expansion cannot be used to give values
+            // to non-pack template parameters.
+            //
+            // The example below is forbidden (by both GCC and clang) as T3 would be
+            // giving values to T1 and T2 at the same time. This prevents us to
+            // express B in terms of A (which is the intent of the
+            // template-alias as they are like typedefs with template
+            // parameters).
+            //
+            // template <typename T1, typename ...T2>
+            // using A = ...;
+            //
+            // template <typename ...T3>
+            // using B = A<T3...>; 
+            // 
+            // Note that giving many values to packs is fine. For instance, C is fine here.
+            //
+            // template <typename ...T3>
+            // using C = A<int, T3..., float, T3...>;
+            //
+            if (is_template_alias
+                && !template_parameter_kind_is_pack(result->parameters[i]->kind)
+                && template_argument_is_pack(result->arguments[i]))
+            {
+                error_printf_at(locus,
+                                "pack expansion in template argument %d cannot "
+                                "be used as argument of a non-pack parameter "
+                                "of a template alias\n",
+                                i + 1);
 
                 free_template_parameter_list(result);
                 return NULL;
@@ -6317,117 +6423,6 @@ int get_template_nesting_of_template_parameters(template_parameter_list_t* templ
         template_parameters = template_parameters->enclosing;
     }
     return nesting;
-}
-
-// Debugging
-void print_template_parameter_list_aux(template_parameter_list_t* template_parameters, int* n)
-{
-    if (template_parameters == NULL)
-        return;
-
-    print_template_parameter_list_aux(template_parameters->enclosing, n);
-
-    (*n)++;
-
-    if (template_parameters->num_parameters > 0)
-    {
-        int i;
-        for (i = 0; i < template_parameters->num_parameters; i++)
-        {
-            const char* kind_name = "<<unknown>>";
-            if (template_parameters->parameters[i] != NULL)
-            {
-                switch (template_parameters->parameters[i]->kind)
-                {
-                    case TPK_NONTYPE: kind_name = "nontype"; break;
-                    case TPK_TYPE: kind_name = "type"; break;
-                    case TPK_TEMPLATE: kind_name = "template"; break;
-
-                    case TPK_NONTYPE_PACK: kind_name = "nontype pack"; break;
-                    case TPK_TYPE_PACK: kind_name = "type pack"; break;
-                    case TPK_TEMPLATE_PACK: kind_name = "template pack"; break;
-                    default: break;
-                }
-                fprintf(stderr, "* Nesting: %d | Position: %d | Name: %s | Kind : %s\n", *n, i, 
-                        template_parameters->parameters[i]->entry != NULL
-                        ?  template_parameters->parameters[i]->entry->symbol_name
-                        : "<<unknown symbol>>",
-                        kind_name);
-            }
-            else
-            {
-                fprintf(stderr, "* Nesting: %d | Position: %d | <<unknown parameter>\n", *n, i);
-            }
-
-            template_parameter_value_t* v = template_parameters->arguments[i];
-            if (v == NULL)
-            {
-                fprintf(stderr, "  Argument: <<NONE>>\n");
-            }
-            else
-            {
-                switch (v->kind)
-                {
-                    case TPK_TYPE:
-                    case TPK_TEMPLATE:
-                        {
-                            fprintf(stderr, "  Argument: %s\n", print_declarator(v->type));
-                            break;
-                        }
-                    case TPK_NONTYPE:
-                        {
-                            fprintf(stderr, "  Argument: ");
-
-                            if (nodecl_is_list(v->value))
-                            {
-                                int num_items;
-                                nodecl_t* list = nodecl_unpack_list(v->value, &num_items);
-                                int j;
-                                for (j = 0; j < num_items; j++)
-                                {
-                                    if (j > 0)
-                                        fprintf(stderr, ", ");
-
-                                    fprintf(stderr, "%s", codegen_to_str(list[j],
-                                                CURRENT_COMPILED_FILE->global_decl_context));
-                                }
-
-                                fprintf(stderr, "\n");
-
-                                DELETE(list);
-                            }
-                            else
-                            {
-                                fprintf(stderr, "%s\n", codegen_to_str(v->value,
-                                            CURRENT_COMPILED_FILE->global_decl_context));
-                            }
-
-                            fprintf(stderr, "  (Type: %s)\n", print_declarator(v->type));
-                            break;
-                        }
-                    default:
-                        {
-                            fprintf(stderr, "  Argument: ????\n");
-                            break;
-                        }
-                }
-            }
-        }
-    }
-    else
-    {
-        fprintf(stderr, "* Nesting: %d <<<EMPTY>>>\n", *n);
-    }
-}
-
-void print_template_parameter_list(template_parameter_list_t* template_parameters)
-{
-    if (template_parameters == NULL)
-    {
-        fprintf(stderr, "<<<No template parameters>>>\n");
-    }
-    int n = 0;
-    print_template_parameter_list_aux(template_parameters, &n);
 }
 
 scope_entry_list_t* query_nodecl_name_flags(const decl_context_t* decl_context,
