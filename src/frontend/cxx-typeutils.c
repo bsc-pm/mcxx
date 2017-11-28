@@ -16415,7 +16415,7 @@ extern inline type_t* get_sequence_of_types_append_type(type_t* seq_type, type_t
     if (is_sequence_of_types(type))
     {
         type = advance_over_typedefs(type);
-        memcpy(&types[n], type->sequence_type->types, m*sizeof(types));
+        memcpy(&types[n], type->sequence_type->types, m*sizeof(*types));
     }
     else
         types[n] = type;
