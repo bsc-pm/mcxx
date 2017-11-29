@@ -246,30 +246,21 @@ namespace TL { namespace Nanos6 {
         // Since we use a static member we need to generate it, but
         // this requires finding the class definition in the top
         // level so we can append it afterwards
-        add_static_member_definition(task_info.get_class_type().get_symbol(),
-                                     task_info);
+        add_static_member_definition(
+                task_info.get_class_type().get_symbol(),
+                task_info);
 
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body,
-            Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
-                                 task_invocation_info));
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body, Nodecl::ObjectInit::make(task_info));
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body, Nodecl::ObjectInit::make(task_invocation_info));
+                task_body,
+                Nodecl::List::make(
+                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info),
+                    Nodecl::ObjectInit::make(task_invocation_info)));
 
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body,
-            Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info));
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body,
-            Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
-                                 task_invocation_info));
-
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body, Nodecl::ObjectInit::make(task_info));
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body, Nodecl::ObjectInit::make(task_invocation_info));
+                task_body,
+                Nodecl::List::make(
+                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info),
+                    Nodecl::ObjectInit::make(task_info)));
     }
 
     void TaskProperties::create_task_info_dependent_function(
@@ -394,20 +385,20 @@ namespace TL { namespace Nanos6 {
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
             task_body,
             Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_class_symbol));
+
         add_static_member_definition(new_class_symbol, task_info);
 
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body,
-            Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info));
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body,
-            Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
-                                 task_invocation_info));
+                task_body,
+                Nodecl::List::make(
+                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info),
+                    Nodecl::ObjectInit::make(task_invocation_info)));
 
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body, Nodecl::ObjectInit::make(task_info));
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-            task_body, Nodecl::ObjectInit::make(task_invocation_info));
+                task_body,
+                Nodecl::List::make(
+                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info),
+                    Nodecl::ObjectInit::make(task_info)));
     }
 
     void TaskProperties::create_task_invocation_info(
