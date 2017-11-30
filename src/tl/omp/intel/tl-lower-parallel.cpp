@@ -155,8 +155,17 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         }
 
         // VLA symbols are always firstprivate
-        private_symbols.insert(vla_symbols);
-        firstprivate_symbols.insert(vla_symbols);
+        // TODO: hack to have vla symbols first. would be better have an ObjectList function to do this
+        TL::ObjectList<TL::Symbol> private_symbols_ord;
+        TL::ObjectList<TL::Symbol> firstprivate_symbols_ord;
+
+        private_symbols_ord.insert(vla_symbols);
+        private_symbols_ord.insert(private_symbols);
+        private_symbols = private_symbols_ord;
+
+        firstprivate_symbols_ord.insert(vla_symbols);
+        firstprivate_symbols_ord.insert(firstprivate_symbols);
+        firstprivate_symbols = firstprivate_symbols_ord;
 
         // We want all the gathered VLA symbols be the first ones
         vla_symbols.insert(all_symbols_passed);
@@ -293,7 +302,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
                 init_array
                     << "__builtin_memcpy(" << as_symbol(new_private_sym) << ","
                     <<                        as_symbol(symbol_map.map(*it))
-                    <<                        ", sizeof(" << as_symbol(*it) << "));"
+                    <<                        ", sizeof(" << as_symbol(new_private_sym) << "));"
                     ;
 
                 Nodecl::NodeclBase init_array_tree = init_array.parse_statement(outline_function_stmt);
