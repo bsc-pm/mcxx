@@ -115,33 +115,6 @@ namespace TL { namespace Nanos6 {
                 return l[0].make_nodecl(/* set_ref_type */ true);
             }
         };
-
-        void add_static_member_definition(TL::Symbol class_symbol,
-                                          TL::Symbol field_member)
-        {
-            Nodecl::TopLevel top_level = CURRENT_COMPILED_FILE->nodecl;
-
-            bool found = false;
-            Nodecl::List l = top_level.get_top_level().as<Nodecl::List>();
-            for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
-            {
-                if (it->is<Nodecl::CxxDef>()
-                    && it->get_symbol() == class_symbol)
-                {
-                    it->append_sibling(Nodecl::List::make(
-                        Nodecl::ObjectInit::make(field_member),
-                        Nodecl::CxxDef::make(
-                            Nodecl::Context::make(Nodecl::NodeclBase::null(),
-                                                  class_symbol.get_scope()),
-                            field_member)));
-                    found = true;
-                    break;
-                }
-            }
-            ERROR_CONDITION(!found,
-                            "Definition of class '%s' not found\n",
-                            class_symbol.get_qualified_name().c_str());
-        }
     }
 
     void TaskProperties::create_task_info_regular_function(
@@ -241,26 +214,16 @@ namespace TL { namespace Nanos6 {
         // Task invocation info
         create_task_invocation_info(task_info, task_invocation_info);
 
-        // Add required declarations to the tree
-
-        // Since we use a static member we need to generate it, but
-        // this requires finding the class definition in the top
-        // level so we can append it afterwards
-        add_static_member_definition(
-                task_info.get_class_type().get_symbol(),
-                task_info);
-
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
                 task_body,
                 Nodecl::List::make(
                     Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info),
                     Nodecl::ObjectInit::make(task_invocation_info)));
 
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                task_body,
-                Nodecl::List::make(
-                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info),
-                    Nodecl::ObjectInit::make(task_info)));
+        Nodecl::Utils::append_to_top_level_nodecl(
+                 Nodecl::List::make(
+                     Nodecl::CxxDef::make(Nodecl::Context::make(nodecl_null(), TL::Scope::get_global_scope()), task_info),
+                     Nodecl::ObjectInit::make(task_info)));
     }
 
     void TaskProperties::create_task_info_dependent_function(
@@ -386,19 +349,16 @@ namespace TL { namespace Nanos6 {
             task_body,
             Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_class_symbol));
 
-        add_static_member_definition(new_class_symbol, task_info);
-
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
                 task_body,
                 Nodecl::List::make(
                     Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info),
                     Nodecl::ObjectInit::make(task_invocation_info)));
 
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                task_body,
-                Nodecl::List::make(
-                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info),
-                    Nodecl::ObjectInit::make(task_info)));
+        Nodecl::Utils::append_to_top_level_nodecl(
+                 Nodecl::List::make(
+                     Nodecl::CxxDef::make(Nodecl::Context::make(nodecl_null(), TL::Scope::get_global_scope()), task_info),
+                     Nodecl::ObjectInit::make(task_info)));
     }
 
     void TaskProperties::create_task_invocation_info(
@@ -660,19 +620,21 @@ namespace TL { namespace Nanos6 {
                     && (!related_function.is_member()
                         || !related_function.get_class_type().is_dependent())))
             {
-                create_task_info_nondependent_function(task_info_struct,
-                                                       task_info_name,
-                                                       task_info,
-                                                       task_invocation_info,
-                                                       local_init);
+                create_task_info_nondependent_function(
+                        task_info_struct,
+                        task_info_name,
+                        task_info,
+                        task_invocation_info,
+                        local_init);
             }
             else
             {
-                create_task_info_dependent_function(task_info_struct,
-                                                    task_info_name,
-                                                    task_info,
-                                                    task_invocation_info,
-                                                    local_init);
+                create_task_info_dependent_function(
+                        task_info_struct,
+                        task_info_name,
+                        task_info,
+                        task_invocation_info,
+                        local_init);
             }
         }
         else
