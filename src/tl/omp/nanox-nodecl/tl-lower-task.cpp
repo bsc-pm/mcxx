@@ -1816,8 +1816,11 @@ Nodecl::NodeclBase LoweringVisitor::count_multidependences_extent(
             mit++)
     {
         // TL::Symbol iterator_sym = mit->first;
+        //
+        // [beg:end:step]
         Nodecl::Range range = mit->second.as<Nodecl::Range>();
 
+        // m = end - beg;
         Nodecl::NodeclBase m;
         if (range.get_upper().is_constant()
                 && range.get_lower().is_constant())
@@ -1836,19 +1839,28 @@ Nodecl::NodeclBase LoweringVisitor::count_multidependences_extent(
                     range.get_locus());
         }
 
+        // a = (m + step)/step = (end - beg + step)/step
         Nodecl::NodeclBase a;
-        if (m.is_constant())
+        Nodecl::NodeclBase step = range.get_stride();
+        if (m.is_constant() &&
+                step.is_constant())
         {
             a = const_value_to_nodecl(
-                    const_value_add(
-                        m.get_constant(),
-                        const_value_get_signed_int(1)));
+                    const_value_div(
+                        const_value_add(
+                            m.get_constant(),
+                            step.get_constant()),
+                        step.get_constant()));
         }
         else
         {
-            a = Nodecl::Add::make(
-                    m,
-                    const_value_to_nodecl(const_value_get_signed_int(1)),
+            a = Nodecl::Div::make(
+                    Nodecl::Add::make(
+                        m,
+                        step.shallow_copy(),
+                        TL::Type::get_int_type(),
+                        range.get_locus()),
+                    step.shallow_copy(),
                     TL::Type::get_int_type(),
                     range.get_locus());
         }
