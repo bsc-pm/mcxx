@@ -264,6 +264,9 @@ void __kmpc_omp_task_begin_if0(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *tas
 void __kmpc_omp_task_complete_if0(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *task);
 
 kmp_int32 __kmpc_omp_taskwait(ident_t *loc_ref, kmp_int32 gtid);
+void __kmpc_taskgroup(ident_t *loc, int gtid);
+void __kmpc_end_taskgroup(ident_t *loc, int gtid);
+
 
 kmp_int32 __kmpc_omp_task_with_deps(ident_t *loc_ref,
                                     kmp_int32 gtid,
