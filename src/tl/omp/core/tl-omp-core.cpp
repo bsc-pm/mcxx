@@ -2241,18 +2241,25 @@ namespace TL { namespace OpenMP {
     void Core::taskgroup_handler_pre(TL::PragmaCustomStatement construct)
     {
         DataEnvironment& data_environment = _openmp_info->get_new_data_environment(construct);
-        _openmp_info->push_current_data_environment(data_environment);
 
+        // A taskgroup construct is not associated with a data environment in OpenMP.
+        // Despite that, it's useful to keep the information related to the this construct
+        // in a DataEnvironment. However, we will never update the current data environment.
+        //
+        // _openmp_info->push_current_data_environment(data_environment);
+
+
+        // The only clause that can be applied to the taskloop construct is the 'task_reduction' clause
         ObjectList<Symbol> extra_symbols;
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
         get_data_explicit_attributes(pragma_line, construct.get_statements(), data_environment, extra_symbols);
 
-        //get_data_extra_symbols(data_environment, extra_symbols);
     }
 
     void Core::taskgroup_handler_post(TL::PragmaCustomStatement construct)
     {
-        _openmp_info->pop_current_data_environment();
+        // A taskgroup construct is not associated with a data environment in OpenMP.
+        //_openmp_info->pop_current_data_environment();
     }
 
     // #pragma omp target before a declaration/function-definition
