@@ -155,29 +155,31 @@ namespace TL
             return _is_teams;
         }
 
-        std::string string_of_data_sharing(DataSharingAttribute data_attr)
+        std::string data_sharing_to_string(DataSharingAttribute data_attr)
         {
             std::string result;
             switch (data_attr)
             {
-#define CASE(x) case x : result += #x; break;
-                    CASE(DS_UNDEFINED)
-                        CASE(DS_SHARED)
-                        CASE(DS_PRIVATE)
-                        CASE(DS_FIRSTPRIVATE)
-                        CASE(DS_LASTPRIVATE)
-                        CASE(DS_FIRSTLASTPRIVATE)
-                        CASE(DS_REDUCTION)
-                        CASE(DS_SIMD_REDUCTION)
-                        CASE(DS_THREADPRIVATE)
-                        CASE(DS_COPYIN)
-                        CASE(DS_COPYPRIVATE)
-                        CASE(DS_NONE)
-                        CASE(DS_AUTO)
+#define CASE(x, str) case x : result += str; break;
+                CASE(DS_UNDEFINED, "<<undefined>>")
+                CASE(DS_SHARED, "shared")
+                CASE(DS_PRIVATE, "private")
+                CASE(DS_FIRSTPRIVATE, "firstprivate")
+                CASE(DS_LASTPRIVATE, "lastprivate")
+                CASE(DS_FIRSTLASTPRIVATE, "firstprivate and lastprivate")
+                CASE(DS_REDUCTION, "reduction")
+                CASE(DS_TASK_REDUCTION, "task_reduction")
+                CASE(DS_IN_REDUCTION, "in_reduction")
+                CASE(DS_WEAKREDUCTION, "weakreduction")
+                CASE(DS_SIMD_REDUCTION, "simd_reduction")
+                CASE(DS_THREADPRIVATE, "threadprivate")
+                CASE(DS_COPYIN, "copyin")
+                CASE(DS_COPYPRIVATE, "copyprivate")
+                CASE(DS_NONE, "<<none>>")
+                CASE(DS_AUTO, "auto")
 #undef CASE
-                default: result += "<<UNKNOWN?>>";
+                default: result += "<<???unknown>>";
             }
-
             return result;
         }
 

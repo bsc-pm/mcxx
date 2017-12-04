@@ -490,7 +490,7 @@ namespace OpenMP
                 ObjectList<Symbol>& extra_symbols);
 
         // Implemented in tl-omp.cpp
-        std::string string_of_data_sharing(DataSharingAttribute data_attr);
+        std::string data_sharing_to_string(DataSharingAttribute data_attr);
     // @}
     }
 }

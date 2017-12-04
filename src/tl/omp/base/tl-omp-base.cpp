@@ -3052,36 +3052,6 @@ namespace TL { namespace OpenMP {
             DataSharingAttribute _data_sharing;
             std::ofstream *_omp_report_file;
 
-            std::string string_of_data_sharing(DataSharingAttribute data_attr) const
-            {
-                std::string result;
-
-                switch (data_attr)
-                {
-#define CASE(x, str) case x : result += str; break;
-                    CASE(DS_UNDEFINED, "<<undefined>>")
-                    CASE(DS_SHARED, "shared")
-                    CASE(DS_PRIVATE, "private")
-                    CASE(DS_FIRSTPRIVATE, "firstprivate")
-                    CASE(DS_LASTPRIVATE, "lastprivate")
-                    CASE(DS_FIRSTLASTPRIVATE, "firstprivate and lastprivate")
-                    CASE(DS_REDUCTION, "reduction")
-                    CASE(DS_TASK_REDUCTION, "task_reduction")
-                    CASE(DS_IN_REDUCTION, "in_reduction")
-                    CASE(DS_WEAKREDUCTION, "weakreduction")
-                    CASE(DS_SIMD_REDUCTION, "simd_reduction")
-                    CASE(DS_THREADPRIVATE, "threadprivate")
-                    CASE(DS_COPYIN, "copyin")
-                    CASE(DS_COPYPRIVATE, "copyprivate")
-                    CASE(DS_NONE, "<<none>>")
-                    CASE(DS_AUTO, "auto")
-#undef CASE
-                    default: result += "<<???unknown>>";
-                }
-
-                return result;
-            }
-
         public:
             ReportSymbols(const locus_t*,
                     DataSharingAttribute data_sharing,
@@ -3110,7 +3080,7 @@ namespace TL { namespace OpenMP {
                 if (diff > 0)
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
-                ss << " " << string_of_data_sharing(_data_sharing);
+                ss << " " << data_sharing_to_string(_data_sharing);
 
                 length = ss.str().size();
                 diff = 20 - length;
