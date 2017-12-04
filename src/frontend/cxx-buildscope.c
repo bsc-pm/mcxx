@@ -3018,25 +3018,13 @@ void build_scope_decl_specifier_seq(AST a,
     }
 }
 
-static void add_gcc_attribute_noreturn(
+static void add_gcc_attribute_generic(
+        const char* attr_name,
         AST attr_item UNUSED_PARAMETER,
         gather_decl_spec_t* gather_info,
         const decl_context_t* decl_context UNUSED_PARAMETER)
 {
-    gcc_attribute_t gcc_attr = { "noreturn", nodecl_null() };
-
-    P_LIST_ADD(
-            gather_info->gcc_attributes,
-            gather_info->num_gcc_attributes,
-            gcc_attr);
-}
-
-static void add_gcc_attribute_unused(
-        AST attr_item UNUSED_PARAMETER,
-        gather_decl_spec_t* gather_info,
-        const decl_context_t* decl_context UNUSED_PARAMETER)
-{
-    gcc_attribute_t gcc_attr = { "unused", nodecl_null() };
+    gcc_attribute_t gcc_attr = { attr_name, nodecl_null() };
 
     P_LIST_ADD(
             gather_info->gcc_attributes,
@@ -3045,12 +3033,13 @@ static void add_gcc_attribute_unused(
 }
 
 static void add_gcc_attribute_deprecated(
+        const char* attr_name,
         AST attr_item UNUSED_PARAMETER,
         gather_decl_spec_t* gather_info,
         const decl_context_t* decl_context UNUSED_PARAMETER)
 {
     // FIXME: deprecated (string-literal)
-    gcc_attribute_t gcc_attr = { "deprecated", nodecl_null() };
+    gcc_attribute_t gcc_attr = { attr_name, nodecl_null() };
 
     P_LIST_ADD(
             gather_info->gcc_attributes,
@@ -3067,18 +3056,19 @@ static void gather_std_attribute_spec(AST attribute_spec,
         return;
 
     struct {
-        const char* attr_name;
+        const char* attr_name;      // Attribute name
+        const char* old_attr_name;  // Old gcc attribute name
         char just_once;
         char seen;
-        void (*fun)(AST, gather_decl_spec_t*, const decl_context_t*);
+        void (*fun)(const char*, AST, gather_decl_spec_t*, const decl_context_t*);
     } std_attributes[] =
     {
-        // "name",              just-once,   0, fun
-        { "noreturn",           1,           0, add_gcc_attribute_noreturn },
-        { "gnu::noreturn",      1,           0, add_gcc_attribute_noreturn },
-        { "gnu::unused",        1,           0, add_gcc_attribute_unused },
-        { "deprecated",         1,           0, add_gcc_attribute_deprecated },
-
+        // "name",          "old_name",   just-once, 0, fun
+        { "noreturn",       "noreturn",   1,         0, add_gcc_attribute_generic },
+        { "gnu::noreturn",  "noreturn",   1,         0, add_gcc_attribute_generic },
+        { "gnu::unused",    "unused",     1,         0, add_gcc_attribute_generic },
+        { "gnu::may_alias", "may_alias",  1,         0, add_gcc_attribute_generic },
+        { "deprecated",     "deprecated", 1,         0, add_gcc_attribute_deprecated },
         // GCC does not implement this one
         // { "carries_dependency", 1,           0, NULL, },
     };
@@ -3111,7 +3101,7 @@ static void gather_std_attribute_spec(AST attribute_spec,
                         && std_attributes[i].fun != NULL)
                 {
                     // Run attribute specific handler
-                    (std_attributes[i].fun)(attr_item, gather_info, decl_context);
+                    (std_attributes[i].fun)(std_attributes[i].old_attr_name, attr_item, gather_info, decl_context);
                 }
                 std_attributes[i].seen = 1;
                 break;
