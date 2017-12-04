@@ -32,6 +32,99 @@
 
 namespace TL { namespace Intel {
 
+void create_task_function(const Nodecl::OpenMP::Task& construct,
+                          const TL::Scope& scope,
+                          TL::Symbol& outline_task,
+                          Nodecl::NodeclBase& outline_task_code,
+                          Nodecl::NodeclBase& outline_task_stmt) {
+
+    TL::Type kmp_int32_type = scope
+        .get_symbol_from_name("kmp_int32")
+        .get_user_defined_type();
+    ERROR_CONDITION(!kmp_int32_type.is_valid(), "Type kmp_int32 not in scope", 0);
+    TL::Type kmp_task_type = scope
+                            .get_symbol_from_name("kmp_task_t")
+                            .get_user_defined_type();
+    ERROR_CONDITION(!kmp_task_type.is_valid(), "Type kmp_task_type not in scope", 0);
+
+    TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+
+    TL::Counter &task_num = TL::CounterManager::get_counter("intel-omp-task");
+    std::stringstream outline_task_name;
+    outline_task_name << "_task_" << enclosing_function.get_name() << "_" << (int)task_num;
+    task_num++;
+
+    TL::ObjectList<std::string> parameter_names;
+    TL::ObjectList<TL::Type> parameter_types;
+
+    parameter_names.append("_global_tid"); parameter_types.append(kmp_int32_type);
+    parameter_names.append("_task"); parameter_types.append(kmp_task_type.get_pointer_to());
+
+    outline_task = SymbolUtils::new_function_symbol(
+            enclosing_function,
+            outline_task_name.str(),
+            TL::Type::get_void_type(),
+            parameter_names,
+            parameter_types);
+
+    SymbolUtils::build_empty_body_for_function(outline_task,
+            outline_task_code,
+            outline_task_stmt);
+}
+
+void create_task_args(const Nodecl::OpenMP::Task& construct,
+                      const TL::Scope& scope,
+                      const TL::Symbol& outline_task,
+                      const TL::ObjectList<TL::Symbol>& shared_symbols,
+                      const TL::ObjectList<TL::Symbol>& firstprivate_symbols,
+                      TL::Type& task_args_type) {
+
+    std::stringstream task_args_struct_name;
+    task_args_struct_name << "_args" << outline_task.get_name();
+
+    Source src_task_args_struct;
+    src_task_args_struct << "struct " << task_args_struct_name.str() << " {";
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
+            it != shared_symbols.end();
+            it++)
+    {
+        src_task_args_struct
+            << as_type(it->get_type().no_ref().get_pointer_to())
+            << " "
+            << it->get_name()
+            << ";";
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
+            it != firstprivate_symbols.end();
+            it++)
+    {
+        src_task_args_struct
+            << as_type(it->get_type().no_ref())
+            << " "
+            << it->get_name()
+            << ";";
+    }
+
+    src_task_args_struct << "};";
+    Nodecl::NodeclBase tree_task_args_struct = src_task_args_struct.parse_declaration(scope);
+
+    if (IS_CXX_LANGUAGE)
+    {
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, tree_task_args_struct);
+    }
+
+    std::string task_args_struct_lang_name = task_args_struct_name.str();
+    if (IS_C_LANGUAGE)
+        task_args_struct_lang_name  = "struct " + task_args_struct_lang_name;
+
+    
+    task_args_type = scope
+        .get_symbol_from_name(task_args_struct_lang_name)
+        .get_user_defined_type();
+
+}
+
 void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 {
     Nodecl::NodeclBase statements = construct.get_statements();
@@ -71,7 +164,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             ;
 
         shared_symbols.insert(tmp);
-        all_symbols_passed.insert(tmp);
     }
     if (!private_list.empty())
     {
@@ -97,9 +189,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
             ;
 
-        private_symbols.insert(tmp);
         firstprivate_symbols.insert(tmp);
-        all_symbols_passed.insert(tmp);
     }
     bool no_deps = true;
     if (!depin_list.empty())
@@ -142,40 +232,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         depinout_nodecl.insert(tmp);
     }
 
-    // Add the VLA symbols
-    {
-        TL::ObjectList<TL::Symbol> vla_symbols;
-        for (TL::ObjectList<TL::Symbol>::iterator it = all_symbols_passed.begin();
-                it != all_symbols_passed.end();
-                it++)
-        {
-            Intel::gather_vla_symbols(*it, vla_symbols);
-        }
-
-        // VLA symbols are always firstprivate
-        private_symbols.insert(vla_symbols);
-        firstprivate_symbols.insert(vla_symbols);
-
-        // We want all the gathered VLA symbols be the first ones
-        vla_symbols.insert(all_symbols_passed);
-        all_symbols_passed = vla_symbols;
-    }
-
-    TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items;
-    if (!reduction_list.empty())
-    {
-        reduction_items = reduction_list
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Reduction::get_reductions)
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list)
-            .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
-            .map<Nodecl::OpenMP::ReductionItem>(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
-        TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
-        all_symbols_passed.insert(reduction_symbols);
-    }
-
     // END VARS
 
     TL::Scope global_scope = CURRENT_COMPILED_FILE->global_decl_context;
@@ -194,80 +250,21 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
-    // Crear task func
-    TL::Type kmp_int32_type = global_scope
-        .get_symbol_from_name("kmp_int32")
-        .get_user_defined_type();
-    ERROR_CONDITION(!kmp_int32_type.is_valid(), "Type kmp_int32 not in scope", 0);
-
-    TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
-
-    TL::Counter &task_num = TL::CounterManager::get_counter("intel-omp-task");
-    std::stringstream outline_task_name;
-    outline_task_name << "_task_" << enclosing_function.get_name() << "_" << (int)task_num;
-    task_num++;
-
-    TL::ObjectList<std::string> parameter_names;
-    TL::ObjectList<TL::Type> parameter_types;
-
-    parameter_names.append("_global_tid"); parameter_types.append(kmp_int32_type);
-    parameter_names.append("_task"); parameter_types.append(kmp_task_type.get_pointer_to());
-
-    TL::Symbol outline_task = SymbolUtils::new_function_symbol(
-            enclosing_function,
-            outline_task_name.str(),
-            TL::Type::get_void_type(),
-            parameter_names,
-            parameter_types);
-
+    TL::Symbol outline_task;
     Nodecl::NodeclBase outline_task_code, outline_task_stmt;
-    SymbolUtils::build_empty_body_for_function(outline_task,
-            outline_task_code,
-            outline_task_stmt);
+    create_task_function(construct,
+                         global_scope,
+                         outline_task,
+                         outline_task_code,
+                         outline_task_stmt);
 
-    // Crear task_args estructura
-    std::stringstream task_args_struct_name;
-    task_args_struct_name << "_args" << outline_task_name.str();
-
-    Source src_task_args_struct;
-    src_task_args_struct << "struct " << task_args_struct_name.str() << " {";
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
-            it != shared_symbols.end();
-            it++)
-    {
-        src_task_args_struct
-            << as_type(it->get_type().no_ref().get_pointer_to())
-            << " "
-            << it->get_name()
-            << ";";
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
-            it != firstprivate_symbols.end();
-            it++)
-    {
-        src_task_args_struct
-            << as_type(it->get_type().no_ref())
-            << " "
-            << it->get_name()
-            << ";";
-    }
-
-    src_task_args_struct << "};";
-    Nodecl::NodeclBase tree_task_args_struct = src_task_args_struct.parse_declaration(global_scope);
-
-    if (IS_CXX_LANGUAGE)
-    {
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, tree_task_args_struct);
-    }
-
-    std::string task_args_struct_lang_name = task_args_struct_name.str();
-    if (IS_C_LANGUAGE)
-        task_args_struct_lang_name  = "struct " + task_args_struct_lang_name;
-
-    TL::Type task_args_type = global_scope
-	    .get_symbol_from_name(task_args_struct_lang_name)
-	    .get_user_defined_type();
+    TL::Type task_args_type;
+    create_task_args(construct,
+                     global_scope,
+                     outline_task,
+                     shared_symbols,
+                     firstprivate_symbols,
+                     task_args_type);
 
     // Poner el codigo de crear task, estructuras...
     Source src_task_call_body;
@@ -396,20 +393,18 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 		    it != private_symbols.end();
 		    it++)
     {
-        if (!firstprivate_symbols.contains(*it)) {
-            src_task_prev
-            << as_type(it->get_type())
-            << " _task_"
-            << it->get_name()
-            << ";";
-        }
+        src_task_prev
+        << as_type(it->get_type())
+        << " _task_"
+        << it->get_name()
+        << ";";
     }
 
     if (!src_task_prev.empty()) {
         Nodecl::NodeclBase tree_task_prev = src_task_prev.parse_statement(outline_task_stmt);
         for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_symbols.begin();
-                    it != shared_symbols.end();
-                    it++)
+                it != shared_symbols.end();
+                it++)
         {
             // retrieve_context busca por los nodos de arriba el scope
             TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
@@ -417,14 +412,23 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             symbol_map.add_map(*it, task_sym);
         }
         for (TL::ObjectList<TL::Symbol>::const_iterator it = private_symbols.begin();
-                    it != private_symbols.end();
-                    it++)
+                it != private_symbols.end();
+                it++)
         {
             // retrieve_context busca por los nodos de arriba el scope
             TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
             ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
             symbol_map.add_map(*it, task_sym);
-       }
+        }
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
+                it != firstprivate_symbols.end();
+                it++)
+        {
+            // retrieve_context busca por los nodos de arriba el scope
+            TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
+            ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
+            symbol_map.add_map(*it, task_sym);
+        }
         outline_task_stmt.prepend_sibling(tree_task_prev);
     }
 
