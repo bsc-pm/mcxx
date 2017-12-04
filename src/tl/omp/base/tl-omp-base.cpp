@@ -3386,29 +3386,6 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-
-        // FIXME - Dependences for combined worksharings???
-        //
-        // TL::ObjectList<OpenMP::DependencyItem> dependences;
-        // data_sharing_env.get_all_dependences(dependences);
-
-        // make_dependency_list<Nodecl::OpenMP::DepIn>(
-        //         dependences,
-        //         OpenMP::DEP_DIR_IN,
-        //         pragma_line.get_locus(),
-        //         result_list);
-
-        // make_dependency_list<Nodecl::OpenMP::DepOut>(
-        //         dependences,
-        //         OpenMP::DEP_DIR_OUT,
-        //         pragma_line.get_locus(),
-        //         result_list);
-
-        // make_dependency_list<Nodecl::OpenMP::DepInout>(
-        //         dependences, OpenMP::DEP_DIR_INOUT,
-        //         pragma_line.get_locus(),
-        //         result_list);
-
         this->_omp_report = old_emit_omp_report;
 
         return Nodecl::List::make(result_list);
