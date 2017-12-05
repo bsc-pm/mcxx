@@ -4044,6 +4044,25 @@ namespace TL { namespace OpenMP {
                             Nodecl::CompoundStatement::make(new_body, /* finally */ Nodecl::NodeclBase::null())),
                         new_outer_loop_context, locus);
 
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
+                ptr_to_func_t make_relative_operator;
+
+                if (for_statement.is_strictly_increasing_loop())
+                    make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterOrEqualThan::make;
+                else
+                    make_relative_operator = (ptr_to_func_t) &Nodecl::LowerOrEqualThan::make;
+
+                Nodecl::NodeclBase condition = make_relative_operator(
+                        for_statement.get_upper_bound().shallow_copy(),
+                        for_statement.get_lower_bound().shallow_copy(),
+                        TL::Type::get_bool_type(),
+                        0);
+
+                new_statement = Nodecl::IfElseStatement::make(condition, Nodecl::List::make(new_statement), Nodecl::NodeclBase::null());
+            }
+
             return new_statement;
         }
 
