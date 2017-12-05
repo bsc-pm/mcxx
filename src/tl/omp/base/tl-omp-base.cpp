@@ -3579,44 +3579,16 @@ namespace TL { namespace OpenMP {
         return Nodecl::List::make(result_list);
     }
 
-
-
-    // Note that num_tasks_sym and grainsize_adjustment_sym symbols are only created if
-    // require_conversion_num_tasks_to_grainsize is true. Thus, they are only used to
-    // transform the 'num_task' clause to the 'grainsize' clause.
-    void create_auxiliar_symbols(
-            int counter,
-            TL::Type type,
-            TL::Scope new_outer_loop_context,
-            bool require_conversion_num_tasks_to_grainsize,
-            // Out
-            TL::Symbol& grainsize_sym,
-            TL::Symbol &num_tasks_sym,
-            TL::Symbol& grainsize_adjustment_sym)
-
-    {
-        std::stringstream ss;
-        ss << "omp_grainsize_" << counter;
-        grainsize_sym = new_outer_loop_context.new_symbol(ss.str());
-        grainsize_sym.get_internal_symbol()->kind = SK_VARIABLE;
-        grainsize_sym.set_type(type);
-        symbol_entity_specs_set_is_user_declared(grainsize_sym.get_internal_symbol(), 1);
-
-        if (require_conversion_num_tasks_to_grainsize)
+    namespace TaskloopUtils {
+        TL::Symbol new_variable(TL::Scope sc, const std::string& name, int counter, TL::Type type)
         {
-            ss.str("");
-            ss << "omp_num_tasks_" << counter;
-            num_tasks_sym = new_outer_loop_context.new_symbol(ss.str());
-            num_tasks_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            num_tasks_sym.set_type(type);
-            symbol_entity_specs_set_is_user_declared(num_tasks_sym.get_internal_symbol(), 1);
-
-            ss.str("");
-            ss << "omp_it_adjustment_" << counter;
-            grainsize_adjustment_sym = new_outer_loop_context.new_symbol(ss.str());
-            grainsize_adjustment_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            grainsize_adjustment_sym.set_type(type);
-            symbol_entity_specs_set_is_user_declared(grainsize_adjustment_sym.get_internal_symbol(), 1);
+            std::stringstream ss;
+            ss << name << counter;
+            TL::Symbol new_symbol = sc.new_symbol(ss.str());
+            new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+            new_symbol.set_type(type);
+            symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
+            return new_symbol;
         }
     }
 
@@ -3629,17 +3601,7 @@ namespace TL { namespace OpenMP {
             // Out
             Nodecl::List& new_body)
     {
-        // First: introduce the definitions of these extra symbols used to simplify the code generation
-        if (IS_CXX_LANGUAGE)
-        {
-            new_body.append(Nodecl::CxxDef::make(/* context */ nodecl_null(),
-                        num_tasks_sym, num_tasks_sym.get_locus()));
-
-            new_body.append(Nodecl::CxxDef::make( /* context */ nodecl_null(),
-                        grainsize_adjustment_sym, grainsize_adjustment_sym.get_locus()));
-        }
-
-        // Second: storing the value of the 'num_tasks_expr' in a new variable
+        // Storing the value of the 'num_tasks_expr' in a new variable
         Nodecl::NodeclBase assign_num_tasks = Nodecl::ExpressionStatement::make(
                 Nodecl::Assignment::make(
                     num_tasks_sym.make_nodecl(),
@@ -3647,7 +3609,7 @@ namespace TL { namespace OpenMP {
                     num_tasks_sym.get_type().get_lvalue_reference_to()));
         new_body.append(assign_num_tasks);
 
-        // Third: computing the real number of iterations and storing it in the 'grainsize_sym' symbol
+        // Computing the real number of iterations and storing it in the 'grainsize_sym' symbol
         //                grainsize = ((upper - lower) + step) / step
         Nodecl::NodeclBase real_num_iterations_assignment
             = Nodecl::ExpressionStatement::make(
@@ -3668,7 +3630,7 @@ namespace TL { namespace OpenMP {
                         grainsize_sym.get_type().get_lvalue_reference_to()));
         new_body.append(real_num_iterations_assignment);
 
-        // Fourth: If (real_num_iterations % num_tasks != 0) then some tasks will have an additional iteration.
+        // If (real_num_iterations % num_tasks != 0) then some tasks will have an additional iteration.
         // The 'grainsize_adjustment_sym' symbol holds the first index that must have this extra iteration.
         //
         //  grainsize_adjustment  = lower_bound +
@@ -3706,7 +3668,7 @@ namespace TL { namespace OpenMP {
                         grainsize_adjustment_sym.get_type().get_lvalue_reference_to()));
         new_body.append(grainsize_adjustment);
 
-        // Fifth: Finally, we compute the 'grainsize_expr' expression
+        // Finally, we compute the 'grainsize_expr' expression
         // grainsize = (((upper - lower) + step) / step) / num_tasks
         Nodecl::NodeclBase grainsize_expr = Nodecl::Div::make(
                 grainsize_sym.make_nodecl(),
@@ -3730,17 +3692,8 @@ namespace TL { namespace OpenMP {
     {
         bool require_conversion_num_tasks_to_grainsize = !num_tasks_expr.is_null();
 
-        TL::Symbol grainsize_sym, num_tasks_sym, grainsize_adjustment_sym;
-        create_auxiliar_symbols(
-                counter,
-                taskloop_ivar.get_type(),
-                new_outer_loop_context,
-                require_conversion_num_tasks_to_grainsize,
-                /* out */
-                grainsize_sym,
-                num_tasks_sym,
-                grainsize_adjustment_sym);
-
+        TL::Symbol grainsize_sym = TaskloopUtils::new_variable(
+                new_outer_loop_context, "omp_grainsize_", counter, taskloop_ivar.get_type());
 
         Nodecl::List new_body;
         if (IS_CXX_LANGUAGE)
@@ -3750,6 +3703,25 @@ namespace TL { namespace OpenMP {
 
             new_body.append(Nodecl::CxxDef::make(/* context */ nodecl_null(),
                         grainsize_sym, grainsize_sym.get_locus()));
+        }
+
+        TL::Symbol num_tasks_sym, grainsize_adjustment_sym;
+        if (require_conversion_num_tasks_to_grainsize)
+        {
+            num_tasks_sym = TaskloopUtils::new_variable(
+                    new_outer_loop_context, "omp_num_tasks_", counter, taskloop_ivar.get_type());
+
+            grainsize_adjustment_sym = TaskloopUtils::new_variable(
+                    new_outer_loop_context, "omp_it_adjustment_", counter, taskloop_ivar.get_type());
+
+            if (IS_CXX_LANGUAGE)
+            {
+                new_body.append(Nodecl::CxxDef::make(/* context */ nodecl_null(),
+                            num_tasks_sym, num_tasks_sym.get_locus()));
+
+                new_body.append(Nodecl::CxxDef::make( /* context */ nodecl_null(),
+                            grainsize_adjustment_sym, grainsize_adjustment_sym.get_locus()));
+            }
         }
 
         if (require_conversion_num_tasks_to_grainsize)
