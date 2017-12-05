@@ -3587,7 +3587,7 @@ namespace TL { namespace OpenMP {
     void create_auxiliar_symbols(
             int counter,
             TL::Type type,
-            TL::Scope scope_of_directive,
+            TL::Scope new_outer_loop_context,
             bool require_conversion_num_tasks_to_grainsize,
             // Out
             TL::Symbol& grainsize_sym,
@@ -3597,7 +3597,7 @@ namespace TL { namespace OpenMP {
     {
         std::stringstream ss;
         ss << "omp_grainsize_" << counter;
-        grainsize_sym = scope_of_directive.new_symbol(ss.str());
+        grainsize_sym = new_outer_loop_context.new_symbol(ss.str());
         grainsize_sym.get_internal_symbol()->kind = SK_VARIABLE;
         grainsize_sym.set_type(type);
         symbol_entity_specs_set_is_user_declared(grainsize_sym.get_internal_symbol(), 1);
@@ -3606,14 +3606,14 @@ namespace TL { namespace OpenMP {
         {
             ss.str("");
             ss << "omp_num_tasks_" << counter;
-            num_tasks_sym = scope_of_directive.new_symbol(ss.str());
+            num_tasks_sym = new_outer_loop_context.new_symbol(ss.str());
             num_tasks_sym.get_internal_symbol()->kind = SK_VARIABLE;
             num_tasks_sym.set_type(type);
             symbol_entity_specs_set_is_user_declared(num_tasks_sym.get_internal_symbol(), 1);
 
             ss.str("");
             ss << "omp_it_adjustment_" << counter;
-            grainsize_adjustment_sym = scope_of_directive.new_symbol(ss.str());
+            grainsize_adjustment_sym = new_outer_loop_context.new_symbol(ss.str());
             grainsize_adjustment_sym.get_internal_symbol()->kind = SK_VARIABLE;
             grainsize_adjustment_sym.set_type(type);
             symbol_entity_specs_set_is_user_declared(grainsize_adjustment_sym.get_internal_symbol(), 1);
@@ -3726,7 +3726,6 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase new_task,
             TL::Scope new_outer_loop_context,
             TL::Scope new_outer_loop_body_context,
-            TL::Scope scope_of_directive,
             const locus_t* locus)
     {
         bool require_conversion_num_tasks_to_grainsize = !num_tasks_expr.is_null();
@@ -3735,7 +3734,7 @@ namespace TL { namespace OpenMP {
         create_auxiliar_symbols(
                 counter,
                 taskloop_ivar.get_type(),
-                scope_of_directive,
+                new_outer_loop_context,
                 require_conversion_num_tasks_to_grainsize,
                 /* out */
                 grainsize_sym,
@@ -4068,7 +4067,10 @@ namespace TL { namespace OpenMP {
             new_body.append(new_outer_loop);
 
             Nodecl::NodeclBase new_statement =
-                Nodecl::Context::make(new_body, new_outer_loop_context, locus);
+                Nodecl::Context::make(
+                        Nodecl::List::make(
+                            Nodecl::CompoundStatement::make(new_body, /* finally */ Nodecl::NodeclBase::null())),
+                        new_outer_loop_context, locus);
 
             return new_statement;
         }
@@ -4178,6 +4180,7 @@ namespace TL { namespace OpenMP {
         TL::Scope scope_of_directive = directive.retrieve_context();
         TL::Scope scope_created_by_statement = statement.retrieve_context();
 
+        TL::Scope new_outer_loop_context = new_block_context(scope_of_directive.get_decl_context());
 
         // Creating a new symbol: induction variable
         Counter &c = TL::CounterManager::get_counter("taskloop");
@@ -4185,12 +4188,11 @@ namespace TL { namespace OpenMP {
         c++;
         std::stringstream ss;
         ss << "omp_taskloop_" << counter;
-        TL::Symbol taskloop_ivar = scope_of_directive.new_symbol(ss.str());
+        TL::Symbol taskloop_ivar = new_outer_loop_context.new_symbol(ss.str());
         taskloop_ivar.get_internal_symbol()->kind = SK_VARIABLE;
         taskloop_ivar.set_type(for_statement.get_induction_variable().get_type());
         symbol_entity_specs_set_is_user_declared(taskloop_ivar.get_internal_symbol(), 1);
 
-        TL::Scope new_outer_loop_context = new_block_context(scope_of_directive.get_decl_context());
         // Properly nest the existing context to be contained in new_outer_loop_body_context
         // because we will put it inside a new compound statement
         TL::Scope new_outer_loop_body_context = new_block_context(new_outer_loop_context.get_decl_context());
@@ -4242,7 +4244,8 @@ namespace TL { namespace OpenMP {
                    taskloop_ivar,
                    block_extent,
                    new_task,
-                   new_outer_loop_context, new_outer_loop_body_context, scope_of_directive,
+                   new_outer_loop_context,
+                   new_outer_loop_body_context,
                    statement.get_locus());
 
         statement.replace(new_outer_loop);
