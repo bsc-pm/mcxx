@@ -77,7 +77,8 @@ void create_task_args(const Nodecl::OpenMP::Task& construct,
                       const TL::Symbol& outline_task,
                       const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
                       const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
-                      const TL::ObjectList<TL::Symbol>& firstprivate_symbols,
+                      const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
+                      const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
                       TL::Type& task_args_type) {
 
     std::stringstream task_args_struct_name;
@@ -85,13 +86,25 @@ void create_task_args(const Nodecl::OpenMP::Task& construct,
 
     Source src_task_args_struct;
     src_task_args_struct << "struct " << task_args_struct_name.str() << " {";
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
-            it != firstprivate_symbols.end();
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
+            it != firstprivate_no_vla_symbols.end();
             it++)
     {
         // TODO: que hace unqualified_type? donde deberia usarse? en los shared tmb?
         src_task_args_struct
             << as_type(it->get_type().no_ref().get_unqualified_type())
+            << " "
+            << it->get_name()
+            << ";";
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
+            it != firstprivate_vla_symbols.end();
+            it++)
+    {
+        // TODO: que hace unqualified_type? donde deberia usarse? en los shared tmb?
+        src_task_args_struct
+            << as_type(TL::Type::get_void_type().get_pointer_to())
             << " "
             << it->get_name()
             << ";";
@@ -204,6 +217,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TL::ObjectList<TL::Symbol> private_symbols;
     TL::ObjectList<TL::Symbol> firstprivate_symbols;
+    TL::ObjectList<TL::Symbol> firstprivate_no_vla_symbols;
+    TL::ObjectList<TL::Symbol> firstprivate_vla_symbols;
     TL::ObjectList<TL::Symbol> shared_no_vla_symbols;
     TL::ObjectList<TL::Symbol> shared_vla_symbols;
     TL::ObjectList<TL::Symbol> shared_symbols;
@@ -250,6 +265,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             ;
 
         firstprivate_symbols.insert(tmp);
+        split_symbol_list_in_vla_notvla(firstprivate_symbols, firstprivate_no_vla_symbols, firstprivate_vla_symbols);
     }
     bool no_deps = true;
     if (!depin_list.empty())
@@ -324,7 +340,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
                      outline_task,
                      shared_no_vla_symbols,
                      shared_vla_symbols,
-                     firstprivate_symbols,
+                     firstprivate_no_vla_symbols,
+                     firstprivate_vla_symbols,
                      task_args_type);
 
 
@@ -355,13 +372,22 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     create_src_task_final(task_environment, src_task_final);
     create_src_task_untied(task_environment, src_task_untied);
 
+    Source sizeof_args_expr;
+    sizeof_args_expr
+    << "sizeof(" << as_type(task_args_type) << ")";
+
+    for (auto it = firstprivate_vla_symbols.begin(); it != firstprivate_vla_symbols.end(); it++) {
+        sizeof_args_expr << " + sizeof(" << as_symbol(*it) << ")";
+    }
+
+
     Source src_task_alloc;
     src_task_alloc
     << "_ret = __kmpc_omp_task_alloc(&" << as_symbol(ident_symbol) << ","
                                  << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
                                  << src_task_final << "|" << src_task_untied << ","
                                  << "sizeof(" << as_type(kmp_task_type) << "),"
-                                 << "sizeof(" << as_type(task_args_type) << "),"
+                                 << sizeof_args_expr << ","
                                  << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
 
     Nodecl::NodeclBase tree_task_alloc = src_task_alloc.parse_statement(stmt_task_alloc);
@@ -379,21 +405,56 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     Source src_task_fill;
     src_task_fill
     << "_args = (" << as_type(task_args_type) << "*)" << "_ret->shareds;";
+    Nodecl::NodeclBase tree_task_fill = src_task_fill.parse_statement(stmt_task_fill);
+    stmt_task_fill.prepend_sibling(tree_task_fill);
+
     TL::ObjectList<TL::Symbol> fields = task_args_type.get_fields();
     TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
-		    it != firstprivate_symbols.end();
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
+		    it != firstprivate_no_vla_symbols.end();
 		    it++, it_fields++)
     {
+        Source src_task_args_capture;
         if (!it->get_type().no_ref().is_array()) {
-	    src_task_fill
+	    src_task_args_capture
 		    << "_args" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
         }
         else {
-            src_task_fill
+            src_task_args_capture
             << "__builtin_memcpy(_args->" << it_fields->get_name() << ","
             <<                        it->get_name()
             <<                        ", sizeof(" << as_symbol(*it_fields) << "));";
+        }
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
+    }
+
+    Source src_args_vla_fp_points_to;
+    src_args_vla_fp_points_to
+    << "(char *)(_args + 1)";
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
+		    it != firstprivate_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_args_capture;
+        if (!it->get_type().no_ref().is_array()) {
+            src_task_args_capture
+            << "_args" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
+            Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+            stmt_task_fill.prepend_sibling(tree_task_args_capture);
+        }
+        else {
+            src_task_args_capture
+            << "_args" << "->" << it_fields->get_name() << " = " << src_args_vla_fp_points_to << ";"
+            << "__builtin_memcpy(_args->" << it_fields->get_name() << ","
+            <<                        it->get_name()
+            <<                        ", sizeof(" << as_symbol(*it) << "));";
+
+            Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+            stmt_task_fill.prepend_sibling(tree_task_args_capture);
+
+            src_args_vla_fp_points_to
+            << " + sizeof(" << it->get_name() << ")";
         }
     }
 
@@ -401,20 +462,24 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 		    it != shared_no_vla_symbols.end();
 		    it++, it_fields++)
     {
-	    src_task_fill
-		    << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
+        Source src_task_args_capture;
+        src_task_args_capture
+        << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
     }
 
     for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_vla_symbols.begin();
 		    it != shared_vla_symbols.end();
 		    it++, it_fields++)
     {
-	    src_task_fill
-		    << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
+        Source src_task_args_capture;
+        src_task_args_capture
+        << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
     }
 
-    Nodecl::NodeclBase tree_task_fill = src_task_fill.parse_statement(stmt_task_fill);
-    stmt_task_fill.prepend_sibling(tree_task_fill);
 
     // Copiar codigo a la funcion substituyendo simbolos
 
@@ -426,8 +491,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     outline_task_stmt.prepend_sibling(tree_task_prev);
 
     it_fields = fields.begin();
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
-		    it != firstprivate_symbols.end();
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
+		    it != firstprivate_no_vla_symbols.end();
 		    it++, it_fields++)
     {
         Source src_task_var_definition;
@@ -440,6 +505,39 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         << "(*_args)."
         << it_fields->get_name()
         << ";";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
+		    it != firstprivate_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Nodecl::Utils::SimpleSymbolMap vla_symbol_map;
+        TL::ObjectList<TL::Symbol> vla_symbols;
+        Intel::gather_vla_symbols(*it, vla_symbols);
+
+        for (auto vla_it = vla_symbols.begin(); vla_it != vla_symbols.end(); vla_it++) {
+            std::cout << vla_it->get_name() << std::endl;
+            TL::Symbol new_symbol = outline_task_stmt
+                                    .retrieve_context()
+                                    .get_symbol_from_name("_task_" + vla_it->get_name());
+            vla_symbol_map.add_map(*vla_it, new_symbol);
+        }
+
+        TL::Type new_type = ::type_deep_copy(it->get_type().get_internal_type(),
+                                it->get_scope().get_decl_context(),
+                                vla_symbol_map.get_symbol_map());
+
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(new_type.get_lvalue_reference_to())
+        << " _task_"
+        << it->get_name()
+        << " = "
+        << "*(" << as_type(new_type) << "*)((*_args)."
+        << it_fields->get_name()
+        << ");";
         Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
         outline_task_stmt.prepend_sibling(tree_task_var_definition);
     }
@@ -494,6 +592,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         outline_task_stmt.prepend_sibling(tree_task_var_definition);
     }
 
+    // TODO: fix VLA private simbols
     for (TL::ObjectList<TL::Symbol>::const_iterator it = private_symbols.begin();
 		    it != private_symbols.end();
 		    it++)
@@ -537,8 +636,17 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
         symbol_map.add_map(*it, task_sym);
     }
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_symbols.begin();
-            it != firstprivate_symbols.end();
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
+            it != firstprivate_no_vla_symbols.end();
+            it++)
+    {
+        // retrieve_context busca por los nodos de arriba el scope
+        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
+        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
+        symbol_map.add_map(*it, task_sym);
+    }
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
+            it != firstprivate_vla_symbols.end();
             it++)
     {
         // retrieve_context busca por los nodos de arriba el scope
