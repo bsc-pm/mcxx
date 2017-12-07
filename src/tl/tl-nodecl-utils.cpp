@@ -1934,12 +1934,11 @@ namespace Nodecl
 
 namespace TL
 {
-    // This is actually what OpenMP expects
-    // Lower bound and upper bound are closed ranges:
-    //      [lower_bound, upper_bound] if step is positive
-    //      [upper_bound, lower_bound] if step is negative
+    //! Lower bound and upper bound are closed ranges:
+    //!      [lower_bound, upper_bound] if step is positive
+    //!      [upper_bound, lower_bound] if step is negative
     template <typename CopyPolicy>
-    void ForStatementHelper<CopyPolicy>::analyze_loop_header()
+    void ForStatementHelper<CopyPolicy>::analyze_loop_header_old()
     {
         Nodecl::NodeclBase lc = this->get_loop_header();
         if (lc.is<Nodecl::RangeLoopControl>())
@@ -2338,6 +2337,414 @@ namespace TL
         _is_omp_valid = true;
     }
 
+    // Fortran
+    //      [lower_bound, upper_bound] if step is positive
+    //      [upper_bound, lower_bound] if step is negative
+    // C/C++
+    //      [lower_bound, upper_bound) if step is positive
+    //      [upper_bound, lower_bound) if step is negative
+    template <typename CopyPolicy>
+    void ForStatementHelper<CopyPolicy>::analyze_loop_header_new()
+    {
+        Nodecl::NodeclBase lc = this->get_loop_header();
+        if (lc.is<Nodecl::RangeLoopControl>())
+        {
+            // This is trivially true for ranged loops
+            Nodecl::RangeLoopControl loop_control = lc.as<Nodecl::RangeLoopControl>();
+
+            // Empty loops are obviously not allowed
+            if (loop_control.get_lower().is_null())
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            _induction_var = loop_control.get_induction_variable();
+            _lower_bound = CopyPolicy::shallow_copy(loop_control.get_lower());
+            _upper_bound = CopyPolicy::shallow_copy(loop_control.get_upper());
+            _step = CopyPolicy::shallow_copy(loop_control.get_step());
+
+            _is_omp_valid = true;
+
+            _loop_trend = UNKNOWN_LOOP;
+
+            ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "Unexpected language\n", 0);
+        }
+        else if (lc.is<Nodecl::LoopControl>())
+        {
+            Nodecl::LoopControl loop_control = lc.as<Nodecl::LoopControl>();
+            Nodecl::List init_expr_list = loop_control.get_init().as<Nodecl::List>();
+            Nodecl::NodeclBase test_expr = loop_control.get_cond();
+            Nodecl::NodeclBase incr_expr = loop_control.get_next();
+
+            // init-expr must have the following form
+            //
+            //   _induction_var = lb
+            //   integer-type   _induction_var = lb
+            //   random-access-iterator _induction_var = lb    // CURRENTLY NOT SUPPORTED
+            //   pointer-type _induction_var = lb
+
+            _induction_var = Nodecl::NodeclBase::null();
+
+            _induction_variable_in_separate_scope = false;
+
+            if (init_expr_list.size() != 1)
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            Nodecl::NodeclBase init_expr = init_expr_list.front();
+
+            // _induction_var = lb
+            if (init_expr.is<Nodecl::Assignment>())
+            {
+                Nodecl::NodeclBase lhs = init_expr.as<Nodecl::Assignment>().get_lhs();
+                if (lhs.is<Nodecl::Symbol>())
+                {
+                    _induction_var = lhs;
+                }
+
+                Nodecl::NodeclBase rhs = init_expr.as<Nodecl::Assignment>().get_rhs();
+                _lower_bound = CopyPolicy::shallow_copy(rhs);
+            }
+            // T _induction_var = lb
+            else if (init_expr.is<Nodecl::ObjectInit>())
+            {
+                _induction_variable_in_separate_scope = true;
+                _induction_var = init_expr;
+
+                _lower_bound = CopyPolicy::shallow_copy(_induction_var.get_symbol().get_value());
+            }
+            else
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            if (_induction_var.is_null())
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            // test-expr must be
+            //
+            // _induction_var relational-op b
+            // b relational-op _induction_var
+            if ((test_expr.is<Nodecl::LowerThan>()
+                        || test_expr.is<Nodecl::LowerOrEqualThan>()
+                        || test_expr.is<Nodecl::GreaterThan>()
+                        || test_expr.is<Nodecl::GreaterOrEqualThan>())
+                    && (test_expr.as<Nodecl::LowerThan>().get_lhs().no_conv().get_symbol()
+                        == _induction_var.get_symbol()
+                        || test_expr.as<Nodecl::LowerThan>().get_rhs().no_conv().get_symbol()
+                        == _induction_var.get_symbol()))
+
+            {
+                Nodecl::NodeclBase lhs = test_expr.as<Nodecl::LowerThan>().get_lhs();
+                Nodecl::NodeclBase rhs = test_expr.as<Nodecl::LowerThan>().get_rhs();
+
+                bool lhs_is_var = (lhs.no_conv().get_symbol() == _induction_var.get_symbol());
+
+                if (test_expr.is<Nodecl::LowerThan>())
+                {
+                    if (lhs_is_var)
+                    {
+                        // x < E
+                        _upper_bound = CopyPolicy::shallow_copy(rhs);
+                        _loop_trend = STRICTLY_INCREASING_LOOP;
+                    }
+                    else
+                    {
+                        // E < x this is like x > E
+                        _upper_bound = CopyPolicy::shallow_copy(lhs);
+                        _loop_trend = STRICTLY_DECREASING_LOOP;
+                    }
+                }
+                else if (test_expr.is<Nodecl::LowerOrEqualThan>())
+                {
+                    if (lhs_is_var)
+                    {
+                        // x <= E  this is like x < E + 1
+                        TL::Type t = lhs.get_type();
+
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        if (rhs.is_constant())
+                        {
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
+                                    const_value_add(
+                                        rhs.get_constant(),
+                                        const_value_get_one(4, 1))));
+                        }
+                        else
+                        {
+                            _upper_bound =
+                                CopyPolicy::new_node(
+                                        Nodecl::Add::make(
+                                            CopyPolicy::shallow_copy(rhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            rhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
+                        }
+                        _loop_trend = STRICTLY_INCREASING_LOOP;
+                    }
+                    else
+                    {
+                        // E <= x this is like x >= E this is like x > E - 1
+                        TL::Type t = lhs.get_type();
+
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        if (lhs.is_constant())
+                        {
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
+                                        const_value_sub(
+                                            lhs.get_constant(),
+                                            const_value_get_one(4, 1))));
+                        }
+                        else
+                        {
+                            _upper_bound =
+                                CopyPolicy::new_node(
+                                        Nodecl::Minus::make(
+                                            CopyPolicy::shallow_copy(lhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            lhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
+                        }
+                        _loop_trend = STRICTLY_DECREASING_LOOP;
+                    }
+                }
+                else if (test_expr.is<Nodecl::GreaterThan>())
+                {
+                    if (lhs_is_var)
+                    {
+                        // x > E
+                        _upper_bound = CopyPolicy::shallow_copy(rhs);
+                        _loop_trend = STRICTLY_DECREASING_LOOP;
+                    }
+                    else
+                    {
+                        // E > x this is like x < E
+                        _upper_bound = CopyPolicy::shallow_copy(lhs);
+                        _loop_trend = STRICTLY_INCREASING_LOOP;
+                    }
+                }
+                else if (test_expr.is<Nodecl::GreaterOrEqualThan>())
+                {
+                    if (lhs_is_var)
+                    {
+                        // x >= E, this is like x > E - 1
+                        TL::Type t = rhs.get_type();
+
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+
+                        if (rhs.is_constant())
+                        {
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
+                                    const_value_sub(
+                                        rhs.get_constant(),
+                                        const_value_get_one(4, 1))));
+                        }
+                        else
+                        {
+                            _upper_bound = CopyPolicy::new_node(
+                                    Nodecl::Minus::make(
+                                        CopyPolicy::shallow_copy(rhs),
+                                        CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                        t,
+                                        rhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
+                        }
+
+                        _loop_trend = STRICTLY_DECREASING_LOOP;
+                    }
+                    else
+                    {
+                        // E >= x this is like x <= E, this is like x < E + 1
+                        TL::Type t = lhs.get_type();
+
+                        if (t.is_any_reference())
+                            t = t.references_to();
+
+                        if (lhs.is_constant())
+                        {
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
+                                        const_value_add(
+                                            lhs.get_constant(),
+                                            const_value_get_one(4, 1))));
+                        }
+                        else
+                        {
+                            _upper_bound =
+                                CopyPolicy::new_node(
+                                        Nodecl::Add::make(
+                                            CopyPolicy::shallow_copy(lhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            lhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
+                        }
+                        _loop_trend = STRICTLY_INCREASING_LOOP;
+                    }
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+            }
+            else
+            {
+                _is_omp_valid = false;
+                return;
+            }
+
+            // incr-expr must have the following form
+            // ++_induction_var
+            if (incr_expr.is<Nodecl::Preincrement>()
+                    && incr_expr.as<Nodecl::Preincrement>().get_rhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol())
+            {
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1)));
+            }
+            // _induction_var++
+            else if (incr_expr.is<Nodecl::Postincrement>()
+                    && incr_expr.as<Nodecl::Postincrement>().get_rhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol())
+            {
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1)));
+            }
+            // --_induction_var
+            else if (incr_expr.is<Nodecl::Predecrement>()
+                    && incr_expr.as<Nodecl::Predecrement>().get_rhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol())
+            {
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_minus_one(4, 1)));
+            }
+            // _induction_var--
+            else if (incr_expr.is<Nodecl::Postdecrement>()
+                    && incr_expr.as<Nodecl::Postdecrement>().get_rhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol())
+            {
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_minus_one(4, 1)));
+            }
+            // _induction_var += incr
+            else if (incr_expr.is<Nodecl::AddAssignment>()
+                    && incr_expr.as<Nodecl::AddAssignment>().get_lhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol())
+            {
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::AddAssignment>().get_rhs());
+            }
+            // _induction_var -= incr
+            else if (incr_expr.is<Nodecl::MinusAssignment>()
+                    && incr_expr.as<Nodecl::MinusAssignment>().get_lhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol())
+            {
+                Nodecl::NodeclBase rhs = incr_expr.as<Nodecl::AddAssignment>().get_rhs();
+
+                TL::Type t = incr_expr.as<Nodecl::AddAssignment>().get_rhs().get_type();
+
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                if (rhs.is_constant())
+                {
+                    _step = CopyPolicy::new_node(
+                            const_value_to_nodecl(const_value_neg(rhs.get_constant())));
+                }
+                else
+                {
+                    _step = CopyPolicy::new_node(
+                            Nodecl::Neg::make(
+                                rhs,
+                                t,
+                                rhs.get_locus()));
+
+                    _step.set_is_type_dependent(t.is_dependent());
+                }
+            }
+            // _induction_var = _induction_var + incr
+            else if (incr_expr.is<Nodecl::Assignment>()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv().is<Nodecl::Add>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
+                        .as<Nodecl::Add>().get_lhs().no_conv().get_symbol() == _induction_var.get_symbol())
+            {
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs());
+            }
+            // _induction_var = incr + _induction_var
+            else if (incr_expr.is<Nodecl::Assignment>()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv().is<Nodecl::Add>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
+                        .as<Nodecl::Add>().get_rhs().no_conv().get_symbol() == _induction_var.get_symbol())
+            {
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs());
+            }
+            // _induction_var = _induction_var - incr
+            else if (incr_expr.is<Nodecl::Assignment>()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().no_conv().get_symbol()
+                    == _induction_var.get_symbol()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv().is<Nodecl::Minus>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
+                        .as<Nodecl::Minus>().get_lhs().no_conv().get_symbol() == _induction_var.get_symbol())
+            {
+                Nodecl::NodeclBase rhs = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Minus>().get_rhs();
+
+                TL::Type t = rhs.get_type();
+
+                if (t.is_any_reference())
+                    t = t.references_to();
+
+                if (rhs.is_constant())
+                {
+                    _step = CopyPolicy::new_node(
+                            const_value_to_nodecl(
+                            const_value_neg(rhs.get_constant())));
+                }
+                else
+                {
+                    _step = CopyPolicy::new_node(
+                            Nodecl::Neg::make(
+                                CopyPolicy::shallow_copy(rhs),
+                                t,
+                                rhs.get_locus()));
+
+                    _step.set_is_type_dependent(t.is_dependent());
+                }
+            }
+            else
+            {
+                _is_omp_valid = false;
+                return;
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        _is_omp_valid = true;
+    }
+
     bool ForStatementHelperBase::is_omp_valid_loop() const
     {
         return _is_omp_valid;
@@ -2378,8 +2785,11 @@ namespace TL
         return _loop_trend == STRICTLY_INCREASING_LOOP;
     }
 
-    template void ForStatementHelper<UsualCopyPolicy>::analyze_loop_header();
-    template void ForStatementHelper<NoNewNodePolicy>::analyze_loop_header();
+    template void ForStatementHelper<UsualCopyPolicy>::analyze_loop_header_old();
+    template void ForStatementHelper<NoNewNodePolicy>::analyze_loop_header_old();
+
+    template void ForStatementHelper<UsualCopyPolicy>::analyze_loop_header_new();
+    template void ForStatementHelper<NoNewNodePolicy>::analyze_loop_header_new();
 
 
     LoopControlAdapter::LoopControlAdapter(

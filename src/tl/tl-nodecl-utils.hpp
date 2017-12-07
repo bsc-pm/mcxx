@@ -519,18 +519,45 @@ namespace TL
             bool is_strictly_increasing_loop() const;
     };
 
-
     template <typename CopyPolicy>
     struct ForStatementHelper : Nodecl::ForStatement, ForStatementHelperBase
     {
         private:
-            void analyze_loop_header();
+            //! This boolean is used to choose between the different loop analyses. It's important
+            //! to note that they are not equivalent!
+            bool _old_loop_header_analysis;
+
         public:
-            ForStatementHelper(const Nodecl::ForStatement& n)
-                : Nodecl::ForStatement(n), ForStatementHelperBase()
+            //! The default analysis method is the old one. Note that this method is deprecated and at
+            //! some point we may decide to change the default loop header analysis to the new version (see #2796)
+            ForStatementHelper(const Nodecl::ForStatement& n, bool old_loop_header_analysis = true)
+                : Nodecl::ForStatement(n), ForStatementHelperBase(), _old_loop_header_analysis(old_loop_header_analysis)
             {
-                    analyze_loop_header();
+                if (_old_loop_header_analysis)
+                    analyze_loop_header_old();
+                else
+                    analyze_loop_header_new();
             }
+
+        private:
+            //! Deprecated method, please try to use 'analyze_loop_header_new' instead of this one.
+            //! Lower bound and upper bound are closed ranges for Fortran, C and C++:
+            //!      [lower_bound, upper_bound] if step is positive
+            //!      [upper_bound, lower_bound] if step is negative
+            void analyze_loop_header_old();
+
+            //! This is the recommended method to analyze a TL::ForStatement. It would be nice to
+            //! have a common representation for Fortran and C/C++, but there are some situations
+            //! where this is not possible, specially when working with unsigned types (see #2796)
+            //!
+            //! Lower bound and upper bound are closed ranges for Fortran:
+            //!      [lower_bound, upper_bound] if step is positive
+            //!      [upper_bound, lower_bound] if step is negative
+            //
+            //! Whereas in C and C++ the range is left-closed and right-open:
+            //!      [lower_bound, upper_bound) if step is positive
+            //!      [upper_bound, lower_bound) if step is negative
+            void analyze_loop_header_new();
     };
 
     typedef ForStatementHelper<TL::UsualCopyPolicy> ForStatement;
