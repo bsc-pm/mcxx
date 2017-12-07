@@ -3752,21 +3752,6 @@ namespace TL { namespace OpenMP {
 
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                if (for_statement.is_strictly_increasing_loop())
-                {
-                    expr = Nodecl::Minus::make(
-                            expr,
-                            const_value_to_nodecl(const_value_get_one(4, 1)),
-                            expr.get_type());
-                }
-                else
-                {
-                    expr = Nodecl::Add::make(
-                            expr,
-                            const_value_to_nodecl(const_value_get_one(4, 1)),
-                            expr.get_type());
-                }
-
                 init_block_extent = Nodecl::ExpressionStatement::make(
                         Nodecl::Assignment::make(
                             block_extent.make_nodecl(),
@@ -3892,9 +3877,9 @@ namespace TL { namespace OpenMP {
             typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
             ptr_to_func_t make_relative_operator;
             if (for_statement.is_strictly_increasing_loop())
-                make_relative_operator = (ptr_to_func_t) &Nodecl::LowerOrEqualThan::make;
+                make_relative_operator = (ptr_to_func_t) &Nodecl::LowerThan::make;
             else
-                make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterOrEqualThan::make;
+                make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterThan::make;
 
             Nodecl::NodeclBase cond =
                 (*make_relative_operator)(
@@ -4044,25 +4029,6 @@ namespace TL { namespace OpenMP {
                             Nodecl::CompoundStatement::make(new_body, /* finally */ Nodecl::NodeclBase::null())),
                         new_outer_loop_context, locus);
 
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
-                ptr_to_func_t make_relative_operator;
-
-                if (for_statement.is_strictly_increasing_loop())
-                    make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterOrEqualThan::make;
-                else
-                    make_relative_operator = (ptr_to_func_t) &Nodecl::LowerOrEqualThan::make;
-
-                Nodecl::NodeclBase condition = make_relative_operator(
-                        for_statement.get_upper_bound().shallow_copy(),
-                        for_statement.get_lower_bound().shallow_copy(),
-                        TL::Type::get_bool_type(),
-                        0);
-
-                new_statement = Nodecl::IfElseStatement::make(condition, Nodecl::List::make(new_statement), Nodecl::NodeclBase::null());
-            }
-
             return new_statement;
         }
 
@@ -4116,9 +4082,9 @@ namespace TL { namespace OpenMP {
             typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
             ptr_to_func_t make_relative_operator;
             if (for_statement.is_strictly_increasing_loop())
-                make_relative_operator = (ptr_to_func_t) &Nodecl::LowerOrEqualThan::make;
+                make_relative_operator = (ptr_to_func_t) &Nodecl::LowerThan::make;
             else
-                make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterOrEqualThan::make;
+                make_relative_operator = (ptr_to_func_t) &Nodecl::GreaterThan::make;
 
             Nodecl::NodeclBase cond =
                 (*make_relative_operator)(
@@ -4164,7 +4130,7 @@ namespace TL { namespace OpenMP {
                 statement.as<Nodecl::Context>()
                 .get_in_context()
                 .as<Nodecl::List>().front()
-                .as<Nodecl::ForStatement>());
+                .as<Nodecl::ForStatement>(), /* old_mechanism */ false);
 
         ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
 
