@@ -4,7 +4,7 @@ test_generator=config/mercurium-iomp
 </testinfo>
 */
 
-/*This tests task with private vlas*/
+/*This tests task with firstprivate vlas*/
 
 #include <assert.h>
 #include <unistd.h>
