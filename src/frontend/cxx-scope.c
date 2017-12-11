@@ -2721,6 +2721,13 @@ static type_t* update_dependent_typename(
 
         return member->type_information;
     }
+    else if (member->kind == SK_VARIABLE)
+    {
+        if (is_error_type(member->type_information))
+            return NULL;
+
+        return member->type_information;
+    }
     else
     {
         DEBUG_CODE()
