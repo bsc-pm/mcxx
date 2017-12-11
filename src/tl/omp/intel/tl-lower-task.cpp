@@ -90,7 +90,6 @@ void create_task_args(const Nodecl::OpenMP::Task& construct,
             it != firstprivate_no_vla_symbols.end();
             it++)
     {
-        // TODO: que hace unqualified_type? donde deberia usarse? en los shared tmb?
         src_task_args_struct
             << as_type(it->get_type().no_ref().get_unqualified_type())
             << " "
@@ -102,7 +101,6 @@ void create_task_args(const Nodecl::OpenMP::Task& construct,
             it != firstprivate_vla_symbols.end();
             it++)
     {
-        // TODO: que hace unqualified_type? donde deberia usarse? en los shared tmb?
         src_task_args_struct
             << as_type(TL::Type::get_void_type().get_pointer_to())
             << " "
@@ -192,6 +190,272 @@ void split_symbol_list_in_vla_notvla(const TL::ObjectList<TL::Symbol>& symbols,
        else {
            no_vla_symbols.insert(*it);
        }
+    }
+}
+
+void capture_vars(const TL::Type& task_args_type,
+                  const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
+                  const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
+                  const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
+                  const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
+                  Nodecl::NodeclBase& stmt_task_fill) {
+
+    Source src_task_fill;
+    src_task_fill
+    << "_args = (" << as_type(task_args_type) << "*)" << "_ret->shareds;";
+    Nodecl::NodeclBase tree_task_fill = src_task_fill.parse_statement(stmt_task_fill);
+    stmt_task_fill.prepend_sibling(tree_task_fill);
+
+    TL::ObjectList<TL::Symbol> fields = task_args_type.get_fields();
+    TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
+		    it != firstprivate_no_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_args_capture;
+        if (!it->get_type().no_ref().is_array()) {
+	    src_task_args_capture
+		    << "_args" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
+        }
+        else {
+            src_task_args_capture
+            << "__builtin_memcpy(_args->" << it_fields->get_name() << ","
+            <<                        it->get_name()
+            <<                        ", sizeof(" << as_symbol(*it_fields) << "));";
+        }
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
+    }
+
+    Source src_args_vla_fp_points_to;
+    src_args_vla_fp_points_to
+    << "(char *)(_args + 1)";
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
+		    it != firstprivate_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_args_capture;
+        src_task_args_capture
+        << "_args" << "->" << it_fields->get_name() << " = " << src_args_vla_fp_points_to << ";"
+        << "__builtin_memcpy(_args->" << it_fields->get_name() << ","
+        <<                        it->get_name()
+        <<                        ", sizeof(" << as_symbol(*it) << "));";
+
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
+
+        src_args_vla_fp_points_to
+        << " + sizeof(" << it->get_name() << ")";
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_no_vla_symbols.begin();
+		    it != shared_no_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_args_capture;
+        src_task_args_capture
+        << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_vla_symbols.begin();
+		    it != shared_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_args_capture;
+        src_task_args_capture
+        << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
+    }
+}
+
+void task_vars_definition(const TL::Type& task_args_type,
+                          const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
+                          const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
+                          const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
+                          const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
+                          const TL::ObjectList<TL::Symbol>& private_no_vla_symbols,
+                          const TL::ObjectList<TL::Symbol>& private_vla_symbols,
+                          Nodecl::NodeclBase& outline_task_stmt) {
+
+    Source src_task_prev;
+    src_task_prev
+    << as_type(task_args_type) << " *_args = (" << as_type(task_args_type) << "*)" << "_task->shareds;";
+    Nodecl::NodeclBase tree_task_prev = src_task_prev.parse_statement(outline_task_stmt);
+    outline_task_stmt.prepend_sibling(tree_task_prev);
+
+    TL::ObjectList<TL::Symbol> fields = task_args_type.get_fields();
+    TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
+		    it != firstprivate_no_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(it->get_type().no_ref().get_unqualified_type().get_lvalue_reference_to())
+        << " _task_"
+        << it->get_name()
+        << " = "
+        << "(*_args)."
+        << it_fields->get_name()
+        << ";";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
+		    it != firstprivate_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Nodecl::Utils::SimpleSymbolMap vla_symbol_map;
+        TL::ObjectList<TL::Symbol> vla_symbols;
+        Intel::gather_vla_symbols(*it, vla_symbols);
+
+        for (auto vla_it = vla_symbols.begin(); vla_it != vla_symbols.end(); vla_it++) {
+            TL::Symbol new_symbol = outline_task_stmt
+                                    .retrieve_context()
+                                    .get_symbol_from_name("_task_" + vla_it->get_name());
+            vla_symbol_map.add_map(*vla_it, new_symbol);
+        }
+
+        TL::Type new_type = ::type_deep_copy(it->get_type().get_internal_type(),
+                                it->get_scope().get_decl_context(),
+                                vla_symbol_map.get_symbol_map());
+
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(new_type.get_lvalue_reference_to())
+        << " _task_"
+        << it->get_name()
+        << " = "
+        << "*(" << as_type(new_type) << "*)((*_args)."
+        << it_fields->get_name()
+        << ");";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_no_vla_symbols.begin();
+		    it != shared_no_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(it->get_type().no_ref().get_lvalue_reference_to())
+        << " _task_"
+        << it->get_name()
+        << " = "
+        << "*(*_args)."
+        << it_fields->get_name()
+        << ";";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_vla_symbols.begin();
+		    it != shared_vla_symbols.end();
+		    it++, it_fields++)
+    {
+        Nodecl::Utils::SimpleSymbolMap vla_symbol_map;
+        TL::ObjectList<TL::Symbol> vla_symbols;
+        Intel::gather_vla_symbols(*it, vla_symbols);
+
+        for (auto vla_it = vla_symbols.begin(); vla_it != vla_symbols.end(); vla_it++) {
+            TL::Symbol new_symbol = outline_task_stmt
+                                    .retrieve_context()
+                                    .get_symbol_from_name("_task_" + vla_it->get_name());
+            vla_symbol_map.add_map(*vla_it, new_symbol);
+        }
+
+        TL::Type new_type = ::type_deep_copy(it->get_type().get_internal_type(),
+                                it->get_scope().get_decl_context(),
+                                vla_symbol_map.get_symbol_map());
+
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(new_type.get_lvalue_reference_to())
+        << " _task_"
+        << it->get_name()
+        << " = "
+        << "*(" << as_type(new_type) << "*)((*_args)."
+        << it_fields->get_name()
+        << ");";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = private_no_vla_symbols.begin();
+		    it != private_no_vla_symbols.end();
+		    it++)
+    {
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(it->get_type())
+        << " _task_"
+        << it->get_name()
+        << ";";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = private_vla_symbols.begin();
+		    it != private_vla_symbols.end();
+		    it++)
+    {
+        Nodecl::Utils::SimpleSymbolMap vla_symbol_map;
+        TL::ObjectList<TL::Symbol> vla_symbols;
+        Intel::gather_vla_symbols(*it, vla_symbols);
+
+        for (auto vla_it = vla_symbols.begin(); vla_it != vla_symbols.end(); vla_it++) {
+            TL::Symbol new_symbol = outline_task_stmt
+                                    .retrieve_context()
+                                    .get_symbol_from_name("_task_" + vla_it->get_name());
+            vla_symbol_map.add_map(*vla_it, new_symbol);
+        }
+
+        TL::Type new_type = ::type_deep_copy(it->get_type().get_internal_type(),
+                                it->get_scope().get_decl_context(),
+                                vla_symbol_map.get_symbol_map());
+
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(new_type)
+        << " _task_"
+        << it->get_name()
+        << ";";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+    }
+}
+
+void fill_symbol_map(Nodecl::Utils::SimpleSymbolMap& symbol_map,
+                     const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
+                     const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
+                     const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
+                     const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
+                     const TL::ObjectList<TL::Symbol>& private_no_vla_symbols,
+                     const TL::ObjectList<TL::Symbol>& private_vla_symbols,
+                     const Nodecl::NodeclBase& outline_task_stmt) {
+
+    TL::ObjectList<TL::Symbol> all_symbols;
+
+    all_symbols.insert(shared_no_vla_symbols);
+    all_symbols.insert(shared_vla_symbols);
+    all_symbols.insert(private_no_vla_symbols);
+    all_symbols.insert(private_vla_symbols);
+    all_symbols.insert(firstprivate_no_vla_symbols);
+    all_symbols.insert(firstprivate_vla_symbols);
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = all_symbols.begin();
+            it != all_symbols.end();
+            it++)
+    {
+        // retrieve_context busca por los nodos de arriba el scope
+        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
+        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
+        symbol_map.add_map(*it, task_sym);
     }
 }
 
@@ -407,293 +671,31 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         stmt_set_priority.replace(tree_set_priority);
     }
 
-    Source src_task_fill;
-    src_task_fill
-    << "_args = (" << as_type(task_args_type) << "*)" << "_ret->shareds;";
-    Nodecl::NodeclBase tree_task_fill = src_task_fill.parse_statement(stmt_task_fill);
-    stmt_task_fill.prepend_sibling(tree_task_fill);
+    capture_vars(task_args_type,
+                 firstprivate_no_vla_symbols,
+                 firstprivate_vla_symbols,
+                 shared_no_vla_symbols,
+                 shared_vla_symbols,
+                 stmt_task_fill);
 
-    TL::ObjectList<TL::Symbol> fields = task_args_type.get_fields();
-    TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
-		    it != firstprivate_no_vla_symbols.end();
-		    it++, it_fields++)
-    {
-        Source src_task_args_capture;
-        if (!it->get_type().no_ref().is_array()) {
-	    src_task_args_capture
-		    << "_args" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
-        }
-        else {
-            src_task_args_capture
-            << "__builtin_memcpy(_args->" << it_fields->get_name() << ","
-            <<                        it->get_name()
-            <<                        ", sizeof(" << as_symbol(*it_fields) << "));";
-        }
-        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
-        stmt_task_fill.prepend_sibling(tree_task_args_capture);
-    }
-
-    Source src_args_vla_fp_points_to;
-    src_args_vla_fp_points_to
-    << "(char *)(_args + 1)";
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
-		    it != firstprivate_vla_symbols.end();
-		    it++, it_fields++)
-    {
-        Source src_task_args_capture;
-        if (!it->get_type().no_ref().is_array()) {
-            src_task_args_capture
-            << "_args" << "->" << it_fields->get_name() << " = " << it->get_name() << ";";
-            Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
-            stmt_task_fill.prepend_sibling(tree_task_args_capture);
-        }
-        else {
-            src_task_args_capture
-            << "_args" << "->" << it_fields->get_name() << " = " << src_args_vla_fp_points_to << ";"
-            << "__builtin_memcpy(_args->" << it_fields->get_name() << ","
-            <<                        it->get_name()
-            <<                        ", sizeof(" << as_symbol(*it) << "));";
-
-            Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
-            stmt_task_fill.prepend_sibling(tree_task_args_capture);
-
-            src_args_vla_fp_points_to
-            << " + sizeof(" << it->get_name() << ")";
-        }
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_no_vla_symbols.begin();
-		    it != shared_no_vla_symbols.end();
-		    it++, it_fields++)
-    {
-        Source src_task_args_capture;
-        src_task_args_capture
-        << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
-        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
-        stmt_task_fill.prepend_sibling(tree_task_args_capture);
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_vla_symbols.begin();
-		    it != shared_vla_symbols.end();
-		    it++, it_fields++)
-    {
-        Source src_task_args_capture;
-        src_task_args_capture
-        << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
-        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
-        stmt_task_fill.prepend_sibling(tree_task_args_capture);
-    }
-
-
-    // Copiar codigo a la funcion substituyendo simbolos
+    task_vars_definition(task_args_type,
+                         firstprivate_no_vla_symbols,
+                         firstprivate_vla_symbols,
+                         shared_no_vla_symbols,
+                         shared_vla_symbols,
+                         private_no_vla_symbols,
+                         private_vla_symbols,
+                         outline_task_stmt);
 
     Nodecl::Utils::SimpleSymbolMap symbol_map;
-    Source src_task_prev;
-    src_task_prev
-    << as_type(task_args_type) << " *_args = (" << as_type(task_args_type) << "*)" << "_task->shareds;";
-    Nodecl::NodeclBase tree_task_prev = src_task_prev.parse_statement(outline_task_stmt);
-    outline_task_stmt.prepend_sibling(tree_task_prev);
-
-    it_fields = fields.begin();
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
-		    it != firstprivate_no_vla_symbols.end();
-		    it++, it_fields++)
-    {
-        Source src_task_var_definition;
-        src_task_var_definition
-        // TODO: que hace unqualified_type? donde deberia usarse? en los shared tmb?
-        << as_type(it->get_type().no_ref().get_unqualified_type().get_lvalue_reference_to())
-        << " _task_"
-        << it->get_name()
-        << " = "
-        << "(*_args)."
-        << it_fields->get_name()
-        << ";";
-        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
-        outline_task_stmt.prepend_sibling(tree_task_var_definition);
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
-		    it != firstprivate_vla_symbols.end();
-		    it++, it_fields++)
-    {
-        Nodecl::Utils::SimpleSymbolMap vla_symbol_map;
-        TL::ObjectList<TL::Symbol> vla_symbols;
-        Intel::gather_vla_symbols(*it, vla_symbols);
-
-        for (auto vla_it = vla_symbols.begin(); vla_it != vla_symbols.end(); vla_it++) {
-            TL::Symbol new_symbol = outline_task_stmt
-                                    .retrieve_context()
-                                    .get_symbol_from_name("_task_" + vla_it->get_name());
-            vla_symbol_map.add_map(*vla_it, new_symbol);
-        }
-
-        TL::Type new_type = ::type_deep_copy(it->get_type().get_internal_type(),
-                                it->get_scope().get_decl_context(),
-                                vla_symbol_map.get_symbol_map());
-
-        Source src_task_var_definition;
-        src_task_var_definition
-        << as_type(new_type.get_lvalue_reference_to())
-        << " _task_"
-        << it->get_name()
-        << " = "
-        << "*(" << as_type(new_type) << "*)((*_args)."
-        << it_fields->get_name()
-        << ");";
-        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
-        outline_task_stmt.prepend_sibling(tree_task_var_definition);
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_no_vla_symbols.begin();
-		    it != shared_no_vla_symbols.end();
-		    it++, it_fields++)
-    {
-        Source src_task_var_definition;
-        src_task_var_definition
-        << as_type(it->get_type().no_ref().get_lvalue_reference_to())
-        << " _task_"
-        << it->get_name()
-        << " = "
-        << "*(*_args)."
-        << it_fields->get_name()
-        << ";";
-        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
-        outline_task_stmt.prepend_sibling(tree_task_var_definition);
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_vla_symbols.begin();
-		    it != shared_vla_symbols.end();
-		    it++, it_fields++)
-    {
-        Nodecl::Utils::SimpleSymbolMap vla_symbol_map;
-        TL::ObjectList<TL::Symbol> vla_symbols;
-        Intel::gather_vla_symbols(*it, vla_symbols);
-
-        for (auto vla_it = vla_symbols.begin(); vla_it != vla_symbols.end(); vla_it++) {
-            TL::Symbol new_symbol = outline_task_stmt
-                                    .retrieve_context()
-                                    .get_symbol_from_name("_task_" + vla_it->get_name());
-            vla_symbol_map.add_map(*vla_it, new_symbol);
-        }
-
-        TL::Type new_type = ::type_deep_copy(it->get_type().get_internal_type(),
-                                it->get_scope().get_decl_context(),
-                                vla_symbol_map.get_symbol_map());
-
-        Source src_task_var_definition;
-        src_task_var_definition
-        << as_type(new_type.get_lvalue_reference_to())
-        << " _task_"
-        << it->get_name()
-        << " = "
-        << "*(" << as_type(new_type) << "*)((*_args)."
-        << it_fields->get_name()
-        << ");";
-        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
-        outline_task_stmt.prepend_sibling(tree_task_var_definition);
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = private_no_vla_symbols.begin();
-		    it != private_no_vla_symbols.end();
-		    it++)
-    {
-        Source src_task_var_definition;
-        src_task_var_definition
-        << as_type(it->get_type())
-        << " _task_"
-        << it->get_name()
-        << ";";
-        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
-        outline_task_stmt.prepend_sibling(tree_task_var_definition);
-    }
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = private_vla_symbols.begin();
-		    it != private_vla_symbols.end();
-		    it++)
-    {
-        Nodecl::Utils::SimpleSymbolMap vla_symbol_map;
-        TL::ObjectList<TL::Symbol> vla_symbols;
-        Intel::gather_vla_symbols(*it, vla_symbols);
-
-        for (auto vla_it = vla_symbols.begin(); vla_it != vla_symbols.end(); vla_it++) {
-            TL::Symbol new_symbol = outline_task_stmt
-                                    .retrieve_context()
-                                    .get_symbol_from_name("_task_" + vla_it->get_name());
-            vla_symbol_map.add_map(*vla_it, new_symbol);
-        }
-
-        TL::Type new_type = ::type_deep_copy(it->get_type().get_internal_type(),
-                                it->get_scope().get_decl_context(),
-                                vla_symbol_map.get_symbol_map());
-
-        Source src_task_var_definition;
-        src_task_var_definition
-        << as_type(new_type)
-        << " _task_"
-        << it->get_name()
-        << ";";
-        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
-        outline_task_stmt.prepend_sibling(tree_task_var_definition);
-    }
-
-    // Fill symbol map
-
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_no_vla_symbols.begin();
-            it != shared_no_vla_symbols.end();
-            it++)
-    {
-        // retrieve_context busca por los nodos de arriba el scope
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
-        symbol_map.add_map(*it, task_sym);
-    }
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_vla_symbols.begin();
-            it != shared_vla_symbols.end();
-            it++)
-    {
-        // retrieve_context busca por los nodos de arriba el scope
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
-        symbol_map.add_map(*it, task_sym);
-    }
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = private_no_vla_symbols.begin();
-            it != private_no_vla_symbols.end();
-            it++)
-    {
-        // retrieve_context busca por los nodos de arriba el scope
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
-        symbol_map.add_map(*it, task_sym);
-    }
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = private_vla_symbols.begin();
-            it != private_vla_symbols.end();
-            it++)
-    {
-        // retrieve_context busca por los nodos de arriba el scope
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
-        symbol_map.add_map(*it, task_sym);
-    }
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_no_vla_symbols.begin();
-            it != firstprivate_no_vla_symbols.end();
-            it++)
-    {
-        // retrieve_context busca por los nodos de arriba el scope
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
-        symbol_map.add_map(*it, task_sym);
-    }
-    for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
-            it != firstprivate_vla_symbols.end();
-            it++)
-    {
-        // retrieve_context busca por los nodos de arriba el scope
-        TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
-        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
-        symbol_map.add_map(*it, task_sym);
-    }
+    fill_symbol_map(symbol_map,
+                    firstprivate_no_vla_symbols,
+                    firstprivate_vla_symbols,
+                    shared_no_vla_symbols,
+                    shared_vla_symbols,
+                    private_no_vla_symbols,
+                    private_vla_symbols,
+                    outline_task_stmt);
 
     Nodecl::NodeclBase task_func_body = Nodecl::Utils::deep_copy(statements,
             outline_task_stmt,
