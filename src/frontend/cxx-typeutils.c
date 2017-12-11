@@ -12137,7 +12137,7 @@ extern inline type_t* get_unknown_dependent_type(void)
     return _dependent_type;
 }
 
-static char is_unknown_dependent_type(type_t* t)
+char is_unknown_dependent_type(type_t* t)
 {
     return (_dependent_type != NULL
             && t != NULL

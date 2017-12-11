@@ -99,6 +99,7 @@ LIBMCXX_EXTERN type_t* get_float128_type(void);
 LIBMCXX_EXTERN type_t* get_float16_type(void);
 
 LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
+LIBMCXX_EXTERN char is_unknown_dependent_type(type_t* t);
 
 /* Fortran specialities */
 LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);

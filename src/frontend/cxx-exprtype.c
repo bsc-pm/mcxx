@@ -8164,7 +8164,7 @@ static void cxx_compute_name_from_entry_list(
         {
             *nodecl_output = nodecl_shallow_copy(nodecl_name);
             nodecl_set_symbol(*nodecl_output, entry);
-            nodecl_set_type(*nodecl_output, entry->type_information);
+            nodecl_set_type(*nodecl_output, get_unknown_dependent_type());
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             return;
