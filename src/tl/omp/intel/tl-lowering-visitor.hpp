@@ -56,6 +56,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OmpSs::TaskExpression& task_expr);
         virtual void visit(const Nodecl::OpenMP::Taskwait& construct);
         virtual void visit(const Nodecl::OpenMP::Taskgroup& construct);
+        virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
 
         virtual void visit(const Nodecl::OpenMP::ForAppendix& construct);
     private:

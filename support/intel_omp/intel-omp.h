@@ -263,6 +263,8 @@ kmp_task_t* __kmpc_omp_task_alloc(ident_t *loc_ref,
 void __kmpc_omp_task_begin_if0(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *task);
 void __kmpc_omp_task_complete_if0(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *task);
 
+kmp_int32 __kmpc_omp_taskyield(ident_t *loc_ref, kmp_int32 gtid, int end_part);
+
 kmp_int32 __kmpc_omp_taskwait(ident_t *loc_ref, kmp_int32 gtid);
 void __kmpc_taskgroup(ident_t *loc, int gtid);
 void __kmpc_end_taskgroup(ident_t *loc, int gtid);
