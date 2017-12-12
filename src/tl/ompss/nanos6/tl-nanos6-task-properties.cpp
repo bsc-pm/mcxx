@@ -64,6 +64,10 @@ namespace TL { namespace Nanos6 {
             Lower* lower)
         : _env(node.get_environment()), phase(lowering_phase), lower_visitor(lower), num_reductions(0)
     {
+        TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
+        _nanos6_task_counter = (int) counter;
+        counter++;
+
         locus_of_task_creation = node.get_locus();
 
         if (_env.locus_of_task_declaration)
@@ -81,17 +85,31 @@ namespace TL { namespace Nanos6 {
             taskloop_info.lower_bound = for_stmt.get_lower_bound();
             taskloop_info.upper_bound =
                 Nodecl::Add::make(
-                    for_stmt.get_upper_bound(),
-                    const_value_to_nodecl(const_value_get_signed_int(1)),
-                    for_stmt.get_upper_bound().get_type());
+                        for_stmt.get_upper_bound(),
+                        const_value_to_nodecl(const_value_get_signed_int(1)),
+                        for_stmt.get_upper_bound().get_type());
             taskloop_info.step = for_stmt.get_step();
             taskloop_info.chunksize = _env.chunksize;
         }
     }
 
     TaskProperties::TaskProperties(const Nodecl::OmpSs::Release& node, LoweringPhase* lowering_phase, Lower* lower) :
-        _env(node.get_environment()), phase(lowering_phase), lower_visitor(lower), num_reductions(0)
+        _env(node.get_environment()), phase(lowering_phase), lower_visitor(lower), num_reductions(0), _nanos6_task_counter(-1)
     {
+        related_function = Nodecl::Utils::get_enclosing_function(node);
+    }
+
+    std::string TaskProperties::get_new_name(const std::string& prefix) const
+    {
+        std::stringstream ss;
+
+        ss << prefix << "_";
+
+        if (IS_FORTRAN_LANGUAGE)
+            ss << related_function.get_name() << "_";
+
+        ss << _nanos6_task_counter;
+        return ss.str();
     }
 
     namespace
@@ -371,15 +389,7 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(
             !task_invocation_info_struct.is_valid(), "Invalid symbol", 0);
 
-        std::string task_invocation_info_name;
-        {
-            std::stringstream ss;
-            TL::Counter &counter
-                = TL::CounterManager::get_counter("nanos6-args");
-            ss << "task_invocation_info_" << (int)counter;
-            counter++;
-            task_invocation_info_name = ss.str();
-        }
+        std::string task_invocation_info_name = get_new_name("task_invocation_info");
 
         task_invocation_info = TL::Scope::get_global_scope().new_symbol(
             task_invocation_info_name);
@@ -596,14 +606,7 @@ namespace TL { namespace Nanos6 {
                     || task_info_struct.is_class()),
                 "Invalid symbol", 0);
 
-        std::string task_info_name;
-        {
-            std::stringstream ss;
-            TL::Counter &counter = TL::CounterManager::get_counter("nanos6-args");
-            ss << "task_info_var_" << (int)counter;
-            counter++;
-            task_info_name = ss.str();
-        }
+        std::string task_info_name = get_new_name("task_info_var");
 
         if (IS_C_LANGUAGE || IS_FORTRAN_LANGUAGE)
         {
@@ -1609,14 +1612,7 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<TL::Type> unpack_parameter_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        std::string unpacked_name;
-        {
-            TL::Counter &counter = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_unpack_" << (int)counter;
-            counter++;
-            unpacked_name = ss.str();
-        }
+        std::string unpacked_name = get_new_name("nanos6_unpack");
 
         AddParameter add_params_functor(
                 /* out */ unpack_parameter_names,
@@ -1772,14 +1768,7 @@ namespace TL { namespace Nanos6 {
 
 
         // Outline function
-        std::string ol_name;
-        {
-            TL::Counter &counter = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_ol_" << (int)counter;
-            counter++;
-            ol_name = ss.str();
-        }
+        std::string ol_name = get_new_name("nanos6_ol");
 
         TL::ObjectList<std::string> ol_param_names;
         TL::ObjectList<TL::Type>    ol_param_types;
@@ -1984,14 +1973,7 @@ namespace TL { namespace Nanos6 {
         {
             fortran_add_types(outline_inside_scope);
 
-            std::string forwarded_name;
-            {
-                TL::Counter &counter = TL::CounterManager::get_counter("nanos6-outline");
-                std::stringstream ss;
-                ss << "nanos6_fwd_" << (int)counter;
-                counter++;
-                forwarded_name = ss.str();
-            }
+            std::string forwarded_name = get_new_name("nanos6_fwd");
 
             TL::ObjectList<std::string> forwarded_parameter_names;
             TL::ObjectList<TL::Type> forwarded_parameter_types;
@@ -2813,15 +2795,7 @@ namespace TL { namespace Nanos6 {
         dep_parameter_types[0] = TL::Type::get_void_type().get_pointer_to();
         dep_parameter_types[1] = info_structure.get_lvalue_reference_to();
 
-        // Outline function
-        std::string dep_name;
-        {
-            TL::Counter &counter = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_dep_" << (int)counter;
-            counter++;
-            dep_name = ss.str();
-        }
+        std::string dep_name = get_new_name("nanos6_dep");
 
         dependences_function
             = SymbolUtils::new_function_symbol(
@@ -3075,15 +3049,7 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<TL::Type> dep_fun_param_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        std::string dep_fun_name;
-        {
-            TL::Counter &counter
-                = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_dep_1_" << (int)counter;
-            counter++;
-            dep_fun_name = ss.str();
-        }
+        std::string dep_fun_name = get_new_name("nanos6_unpack_dep");
 
         dep_fun_param_names.append("handler");
         dep_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
@@ -3236,15 +3202,7 @@ namespace TL { namespace Nanos6 {
         dep_parameter_types[0] = TL::Type::get_void_type().get_pointer_to();
         dep_parameter_types[1] = info_structure.get_lvalue_reference_to();
 
-        std::string dep_name;
-        {
-            TL::Counter &counter
-                = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_dep_0_" << (int)counter;
-            counter++;
-            dep_name = ss.str();
-        }
+        std::string dep_name = get_new_name("nanos6_ol_dep");
 
         TL::Symbol proper_dependences_function = dependences_function;
 
@@ -3278,15 +3236,7 @@ namespace TL { namespace Nanos6 {
         /* Dependences function that simply calls the forward function */
         /* Fortran side */
         /* ===================== */
-        std::string forwarded_name;
-        {
-            TL::Counter &counter
-                = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_fwd_dep_" << (int)counter;
-            counter++;
-            forwarded_name = ss.str();
-        }
+        std::string forwarded_name = get_new_name("nanos6_fwd_dep");
 
         TL::ObjectList<std::string> forwarded_parameter_names;
         TL::ObjectList<TL::Type> forwarded_parameter_types;
@@ -3705,15 +3655,7 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<TL::Type> parameter_types(1);
         parameter_types[0] = info_structure.get_lvalue_reference_to();
 
-        std::string cost_name;
-        {
-            TL::Counter &counter
-                = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_cost_" << (int)counter;
-            counter++;
-            cost_name = ss.str();
-        }
+        std::string cost_name = get_new_name("nanos6_cost");
 
         cost_function
             = SymbolUtils::new_function_symbol(related_function,
@@ -3761,15 +3703,7 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<TL::Type> parameter_types(
                 1, info_structure.get_lvalue_reference_to());
 
-        std::string priority_name;
-        {
-            TL::Counter &counter
-                = TL::CounterManager::get_counter("nanos6-outline");
-            std::stringstream ss;
-            ss << "nanos6_priority_" << (int)counter;
-            counter++;
-            priority_name = ss.str();
-        }
+        std::string priority_name = get_new_name("nanos6_priority");
 
         priority_function = SymbolUtils::new_function_symbol(
                 related_function,

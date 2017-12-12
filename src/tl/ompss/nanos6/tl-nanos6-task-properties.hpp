@@ -60,6 +60,26 @@ namespace TL { namespace Nanos6 {
             typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
             array_descriptor_map_t array_descriptor_map;
 
+            static const int VLA_OVERALLOCATION_ALIGN = 8;
+
+            unsigned int num_reductions;
+
+            //! It's used (among other things) to avoid name collision when generating new functions
+            int _nanos6_task_counter;
+
+            TL::Type info_structure;
+
+            TL::Symbol outline_function;
+            TL::Symbol outline_function_mangled;
+
+            TL::Symbol dependences_function;
+            TL::Symbol dependences_function_mangled;
+
+            TL::Symbol cost_function;
+            TL::Symbol priority_function;
+
+        private:
+
             void create_outline_function();
             void create_dependences_function();
             void create_dependences_function_c();
@@ -80,21 +100,6 @@ namespace TL { namespace Nanos6 {
                                           TL::Type field_type);
 
             TL::Scope compute_scope_for_environment_structure();
-
-            static const int VLA_OVERALLOCATION_ALIGN = 8;
-
-            unsigned int num_reductions;
-
-            TL::Type info_structure;
-
-            TL::Symbol outline_function;
-            TL::Symbol outline_function_mangled;
-
-            TL::Symbol dependences_function;
-            TL::Symbol dependences_function_mangled;
-
-            TL::Symbol cost_function;
-            TL::Symbol priority_function;
 
             Nodecl::NodeclBase rewrite_expression_using_args(
                 TL::Symbol args,
@@ -207,7 +212,6 @@ namespace TL { namespace Nanos6 {
 
         public:
 
-
             struct TaskloopInfo
             {
                 Nodecl::NodeclBase lower_bound;
@@ -234,6 +238,9 @@ namespace TL { namespace Nanos6 {
 
             // FIXME: This constructor shouldn't exist
             TaskProperties(const Nodecl::OmpSs::Release& node, LoweringPhase* lowering_phase, Lower* lower);
+
+            // FIXME
+            std::string get_new_name(const std::string& prefix) const;
 
             void create_task_info(
                     /* out */
