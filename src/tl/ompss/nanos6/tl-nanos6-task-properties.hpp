@@ -39,7 +39,6 @@
 #include "tl-datareference.hpp"
 
 
-
 namespace TL { namespace Nanos6 {
 
     // Forward declaration of TL::Nanos6::Lower
@@ -48,35 +47,60 @@ namespace TL { namespace Nanos6 {
     struct TaskProperties
     {
         private:
+
+            typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
+            typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
+
+            struct TaskloopInfo
+            {
+                Nodecl::NodeclBase lower_bound;
+                Nodecl::NodeclBase upper_bound;
+                Nodecl::NodeclBase step;
+                Nodecl::NodeclBase chunksize;
+            };
+
             //! This member represents the directive environment
             DirectiveEnvironment _env;
 
-            LoweringPhase* phase;
-            Lower* lower_visitor;
+            LoweringPhase* _phase;
 
-            typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
-            field_map_t field_map;
+            //FIXME: Once we have the new implementation of task reductions we may be able to remove this member
+            Lower* _lower_visitor;
 
-            typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
-            array_descriptor_map_t array_descriptor_map;
+            field_map_t _field_map;
+
+            array_descriptor_map_t _array_descriptor_map;
 
             static const int VLA_OVERALLOCATION_ALIGN = 8;
 
-            unsigned int num_reductions;
+            //FIXME: Once we have the new implementation of task reductions we may be able to remove this member
+            unsigned int _num_reductions;
 
             //! It's used (among other things) to avoid name collision when generating new functions
             int _nanos6_task_counter;
 
-            TL::Type info_structure;
+            TL::Type _info_structure;
 
-            TL::Symbol outline_function;
-            TL::Symbol outline_function_mangled;
+            TL::Symbol _outline_function;
+            TL::Symbol _outline_function_mangled;
 
-            TL::Symbol dependences_function;
-            TL::Symbol dependences_function_mangled;
+            TL::Symbol _dependences_function;
+            TL::Symbol _dependences_function_mangled;
 
-            TL::Symbol cost_function;
-            TL::Symbol priority_function;
+            TL::Symbol _cost_function;
+            TL::Symbol _priority_function;
+
+
+            TaskloopInfo _taskloop_info;
+
+            Nodecl::NodeclBase _task_body;
+
+            // For inline _related_function is the enclosing task,
+            // for function tasks, it is the function task itself
+            TL::Symbol _related_function;
+
+            const locus_t* _locus_of_task_creation;
+            const locus_t* _locus_of_task_declaration;
 
         private:
 
@@ -210,27 +234,10 @@ namespace TL { namespace Nanos6 {
              */
             void firstprivatize_symbols_without_data_sharing();
 
+
+
+
         public:
-
-            struct TaskloopInfo
-            {
-                Nodecl::NodeclBase lower_bound;
-                Nodecl::NodeclBase upper_bound;
-                Nodecl::NodeclBase step;
-                Nodecl::NodeclBase chunksize;
-            };
-
-            TaskloopInfo taskloop_info;
-
-            Nodecl::NodeclBase task_body;
-
-            // For inline related_function is the enclosing task,
-            // for function tasks, it is the function task itself
-            TL::Symbol related_function;
-
-            const locus_t* locus_of_task_creation;
-            const locus_t* locus_of_task_declaration;
-
             TaskProperties(
                     const Nodecl::OpenMP::Task& node,
                     LoweringPhase* lowering_phase,
