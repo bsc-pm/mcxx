@@ -28485,7 +28485,9 @@ nodecl_t cxx_nodecl_make_function_call(
                         function_form, t,
                         locus);
 
-                if (!check_expr_flags.do_not_call_constexpr)
+                if (!check_expr_flags.do_not_call_constexpr
+                        // Skip the evaluation of the function call if any arg is value dependent
+                        && !any_arg_is_value_dependent)
                 {
                     if (symbol_entity_specs_get_is_constexpr(called_symbol))
                     {
