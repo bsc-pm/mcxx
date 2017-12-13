@@ -26433,7 +26433,7 @@ static const_value_t* evaluate_constexpr_constructor(
             // Evaluate it recursively
             nodecl_t nodecl_evaluated_expr = instantiate_expression(
                     nodecl_expr,
-                    nodecl_retrieve_context(nodecl_function_code),
+                    entry->decl_context,
                     symbol_entity_specs_get_instantiation_symbol_map(entry),
                     /* pack_index */ -1);
 
@@ -26498,7 +26498,7 @@ static const_value_t* evaluate_constexpr_constructor(
 
         nodecl_t nodecl_evaluated_expr = instantiate_expression(
                 nodecl_expr,
-                nodecl_retrieve_context(nodecl_function_code),
+                entry->decl_context,
                 symbol_entity_specs_get_instantiation_symbol_map(entry),
                 /* pack_index */ -1);
 
