@@ -2312,6 +2312,7 @@ src_tl_omp_intel_libtlintel_omp_lowering_la_SOURCES=\
 								   src/tl/omp/intel/tl-lower-taskwait.cpp \
 								   src/tl/omp/intel/tl-lower-taskgroup.cpp \
 								   src/tl/omp/intel/tl-lower-taskyield.cpp \
+								   src/tl/omp/intel/tl-lower-critical.cpp \
 								   $(END)
 
 endif
