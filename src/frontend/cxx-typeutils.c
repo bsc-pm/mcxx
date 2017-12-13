@@ -11652,6 +11652,7 @@ static void get_type_name_string_internal_impl(const decl_context_t* decl_contex
         case TK_AUTO:
         case TK_DECLTYPE_AUTO:
         case TK_BRACED_LIST:
+        case TK_ELLIPSIS:
             {
                 break;
             }
