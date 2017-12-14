@@ -108,10 +108,6 @@ namespace TL { namespace Nanos6 {
 
         TL::ObjectList<TL::Symbol> _firstprivate;
 
-        //! If a symbol has a SHARED and a REDUCTION data-sharing, this
-        //! function removes the SHARED part from the directive-environment
-        void remove_redundant_data_sharings();
-
         //! OpenMP::Base marks C++'s 'this' as shared, which concepually is if
         //! it weren't because 'this' is an rvalue pointer. We should
         //! firstprivatized it instead.

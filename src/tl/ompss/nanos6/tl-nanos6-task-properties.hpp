@@ -74,7 +74,7 @@ namespace TL { namespace Nanos6 {
 
             static const int VLA_OVERALLOCATION_ALIGN = 8;
 
-            //FIXME: Once we have the new implementation of task reductions we may be able to remove this member
+            //! Used to store the number of reductions within the task (and to identify them)
             unsigned int _num_reductions;
 
             //! It's used (among other things) to avoid name collision when generating new functions
@@ -267,8 +267,9 @@ namespace TL { namespace Nanos6 {
                     Nodecl::NodeclBase& task_flags_stmts);
 
             void handle_task_reductions(
-                    const TL::Scope& unpacked_inside_scope,
-                    Nodecl::NodeclBase unpacked_empty_stmt);
+                    TL::Scope& unpacked_inside_scope,
+                    Nodecl::NodeclBase unpacked_empty_stmt,
+                    Nodecl::Utils::SimpleSymbolMap &symbol_map);
 
             void compute_release_statements(/* out */ Nodecl::List& release_stmts);
 

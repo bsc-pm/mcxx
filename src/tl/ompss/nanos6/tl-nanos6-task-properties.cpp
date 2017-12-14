@@ -1282,47 +1282,6 @@ namespace TL { namespace Nanos6 {
             _field_map[*it] = field;
         }
 
-        // 3. Create fields for reduction symbols
-        for (TL::ObjectList<ReductionItem>::const_iterator it = _env.reduction.begin();
-                it != _env.reduction.end();
-                it++)
-        {
-            const ReductionItem& curr_red_item = *it;
-
-            // First we add the pointer to the original variable
-            {
-                TL::Type type_of_field = curr_red_item.reduction_type.no_ref();
-                if (IS_FORTRAN_LANGUAGE)
-                    type_of_field = TL::Type::get_void_type().get_pointer_to();
-                else
-                    type_of_field = type_of_field.get_pointer_to();
-
-                TL::Symbol field = add_field_to_class(
-                        new_class_symbol,
-                        class_scope,
-                        curr_red_item.symbol.get_name(),
-                        curr_red_item.symbol.get_locus(),
-                        /* is_allocatable */ false,
-                        type_of_field);
-
-                _field_map[curr_red_item.symbol] = field;
-            }
-
-            // Second, we add the local variable
-            {
-                TL::Type type_of_field = curr_red_item.reduction_type;
-                TL::Symbol field = add_field_to_class(
-                        new_class_symbol,
-                        class_scope,
-                        curr_red_item.symbol.get_name() + "_local_red",
-                        curr_red_item.symbol.get_locus(),
-                        /* is_allocatable */ false,
-                        type_of_field);
-
-                // Note that we do not explicitly map this field to the original list item!
-            }
-        }
-
         nodecl_t nodecl_output = nodecl_null();
         finish_class_type(new_class_type,
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
@@ -1435,42 +1394,26 @@ namespace TL { namespace Nanos6 {
                 TL::ObjectList<std::string> &_parameter_names;
                 TL::ObjectList<TL::Type> &_parameter_types;
                 std::map<TL::Symbol, std::string> &_symbols_to_param_names;
-                bool _map_reduction_local_symbol;
 
             public:
                 AddParameter(
                         TL::ObjectList<std::string> &parameter_names,
                         TL::ObjectList<TL::Type> &parameter_types,
-                        std::map<TL::Symbol, std::string> &symbols_to_param_names,
-                        bool map_reduction_local_symbol = true)
+                        std::map<TL::Symbol, std::string> &symbols_to_param_names)
                     : _parameter_names(parameter_names), _parameter_types(parameter_types),
-                    _symbols_to_param_names(symbols_to_param_names),
-                    _map_reduction_local_symbol(map_reduction_local_symbol)
+                    _symbols_to_param_names(symbols_to_param_names)
                 {}
-
-                void handle_symbol(TL::Symbol sym, const std::string& name, bool add_to_map)
-                {
-                    std::string fixed_name = name;
-                    if (IS_CXX_LANGUAGE && name == "this")
-                        fixed_name = "_this";
-
-                    if (add_to_map)
-                        _symbols_to_param_names[sym] = fixed_name;
-
-                    _parameter_names.append(fixed_name);
-                    _parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
-                }
 
                 void operator()(TL::Symbol sym)
                 {
-                    handle_symbol(sym, sym.get_name(), /* add_to_map */ true);
-                }
+                    std::string fixed_name = sym.get_name();
+                    if (IS_CXX_LANGUAGE && fixed_name == "this")
+                        fixed_name = "_this";
 
-                void operator()(const ReductionItem& red_item)
-                {
-                    TL::Symbol sym = red_item.symbol;
-                    handle_symbol(sym, sym.get_name(), !_map_reduction_local_symbol);
-                    handle_symbol(sym, sym.get_name() + "_local_red", _map_reduction_local_symbol);
+                    _symbols_to_param_names[sym] = fixed_name;
+
+                    _parameter_names.append(fixed_name);
+                    _parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
                 }
         };
 
@@ -1530,11 +1473,11 @@ namespace TL { namespace Nanos6 {
                     _symbol_map(symbol_map)
                 {}
 
-                void compute_mapping(TL::Symbol sym)
+                void operator()(TL::Symbol sym)
                 {
                     std::map<TL::Symbol, std::string>::const_iterator it_param_name = _symbols_to_param_names.find(sym);
                     ERROR_CONDITION(it_param_name == _symbols_to_param_names.end(),
-                            "Symbol '%s' not mapped",sym.get_name().c_str());
+                            "Symbol '%s' not mapped", sym.get_name().c_str());
 
                     TL::Symbol param_sym = _function_scope.get_symbol_from_name(it_param_name->second);
 
@@ -1555,16 +1498,6 @@ namespace TL { namespace Nanos6 {
 
                     if (type_is_runtime_sized(param_sym.get_type()))
                         _parameters_to_update_type.append(param_sym);
-                }
-
-                void operator()(TL::Symbol sym)
-                {
-                    compute_mapping(sym);
-                }
-
-                void operator()(const ReductionItem& red_item)
-                {
-                    compute_mapping(red_item.symbol);
                 }
         };
 
@@ -1727,7 +1660,6 @@ namespace TL { namespace Nanos6 {
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
-        _env.reduction.map(add_params_functor);
 
         // Extra arguments: device_env and address_translation_table
         const char *device_env_name = "device_env";
@@ -1777,7 +1709,6 @@ namespace TL { namespace Nanos6 {
         _env.captured_value.map(map_symbols_functor);
         _env.private_.map(map_symbols_functor);
         _env.shared.map(map_symbols_functor);
-        _env.reduction.map(map_symbols_functor);
 
         update_function_type_if_needed(
                 unpacked_function, parameters_to_update_type, symbol_map);
@@ -1829,7 +1760,7 @@ namespace TL { namespace Nanos6 {
         }
         unpacked_empty_stmt.append_sibling(nested_functions);
 
-        handle_task_reductions(unpacked_inside_scope, unpacked_empty_stmt);
+        handle_task_reductions(unpacked_inside_scope, unpacked_empty_stmt, symbol_map);
 
         if (_env.task_is_loop)
         {
@@ -2008,43 +1939,8 @@ namespace TL { namespace Nanos6 {
                             argument.get_type().no_ref().points_to().get_lvalue_reference_to()));
             }
 
-            // 3. Visiting reduction symbols
-            for (TL::ObjectList<ReductionItem>::const_iterator it = _env.reduction.begin();
-                    it != _env.reduction.end();
-                    it++)
-            {
-                ERROR_CONDITION(_field_map.find(it->symbol) == _field_map.end(), "Symbol is not mapped", 0);
-
-                // 1st. Adding the original reduction variable as an argument
-                {
-                    args.append(
-                            Nodecl::Dereference::make(
-                                Nodecl::ClassMemberAccess::make(
-                                    arg.make_nodecl(/* set_ref_type */ true),
-                                    _field_map[it->symbol].make_nodecl(),
-                                    /* member_literal */ Nodecl::NodeclBase::null(),
-                                    _field_map[it->symbol].get_type().get_lvalue_reference_to()),
-                                _field_map[it->symbol].get_type().points_to().get_lvalue_reference_to())
-                            );
-                }
-
-                // 2nd. Adding the task local variable as an argument
-                {
-                    TL::Scope inner_class_context(
-                            class_type_get_inner_context(_info_structure.get_internal_type()));
-
-                    TL::Symbol local_symbol = inner_class_context.get_symbol_from_name(it->symbol.get_name() + "_local_red");
-                    TL::Type expr_type = local_symbol.get_type().no_ref().get_lvalue_reference_to();
-                    args.append(
-                            Nodecl::ClassMemberAccess::make(
-                                arg.make_nodecl(/* set_ref_type */ true),
-                                local_symbol.make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                expr_type));
-                }
-            }
-
-            // 4. Extra device arguments
+            // 3. Extra device arguments
+||||||| parent of 0c778a1ae... Add support for task array reductions in Nanos6 lowering
             {
                 Nodecl::NodeclBase device_env_or_loop_bounds =
                     outline_inside_scope.get_symbol_from_name(device_env_name).make_nodecl(/*ref_type*/ true);
@@ -2159,50 +2055,6 @@ namespace TL { namespace Nanos6 {
                             _field_map[*it].make_nodecl(),
                             /* member_literal */ Nodecl::NodeclBase::null(),
                             _field_map[*it].get_type().get_lvalue_reference_to()));
-            }
-
-            // 3. Visiting reduction symbols
-            for (TL::ObjectList<ReductionItem>::const_iterator it = _env.reduction.begin();
-                    it != _env.reduction.end();
-                    it++)
-            {
-                ERROR_CONDITION(_field_map.find(it->symbol) == _field_map.end(), "Symbol is not mapped", 0);
-
-                {
-                    TL::Symbol field = _field_map[it->symbol];
-
-                    names_to_fields[field.get_name()] = field;
-
-                    forwarded_parameter_names.append(field.get_name());
-                    forwarded_parameter_types.append(field.get_type());
-
-                    args.append(
-                            Nodecl::ClassMemberAccess::make(
-                        arg.make_nodecl(/* set_ref_type */ true),
-                                _field_map[it->symbol].make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                _field_map[it->symbol].get_type().get_lvalue_reference_to()));
-                }
-
-                {
-                    TL::Scope inner_class_context(
-                            class_type_get_inner_context(_info_structure.get_internal_type()));
-
-                    TL::Symbol local_symbol = inner_class_context.get_symbol_from_name(it->symbol.get_name() + "_local_red");
-                    TL::Type expr_type = local_symbol.get_type().no_ref().get_lvalue_reference_to();
-
-                    names_to_fields[local_symbol.get_name()] = local_symbol;
-
-                    forwarded_parameter_names.append(local_symbol.get_name());
-                    forwarded_parameter_types.append(expr_type);
-
-                    args.append(
-                            Nodecl::ClassMemberAccess::make(
-                                arg.make_nodecl(/* set_ref_type */ true),
-                                local_symbol.make_nodecl(),
-                                /* member_literal */ Nodecl::NodeclBase::null(),
-                                expr_type));
-                }
             }
 
             // Add extra device parameters
@@ -2383,64 +2235,96 @@ namespace TL { namespace Nanos6 {
     };
 
     void TaskProperties::handle_task_reductions(
-            const TL::Scope& unpacked_inside_scope,
-            Nodecl::NodeclBase unpacked_empty_stmt)
+            TL::Scope& unpacked_inside_scope,
+            Nodecl::NodeclBase unpacked_empty_stmt,
+            Nodecl::Utils::SimpleSymbolMap &symbol_map)
     {
         for (TL::ObjectList<ReductionItem>::const_iterator it = _env.reduction.begin();
                 it != _env.reduction.end();
                 it++)
         {
             const ReductionItem& red_item(*it);
+            TL::Symbol red_sym =
+                unpacked_inside_scope.get_symbol_from_name(red_item.symbol.get_name());
 
-            TL::Symbol orig_red_var = unpacked_inside_scope.get_symbol_from_name(red_item.symbol.get_name());
-            TL::Symbol priv_red_var = unpacked_inside_scope.get_symbol_from_name(red_item.symbol.get_name() + "_local_red");
+            TL::Symbol red_storage_sym = unpacked_inside_scope.new_symbol(
+                        red_sym.get_name() + "_storage");
+            symbol_entity_specs_set_is_user_declared(
+                    red_storage_sym.get_internal_symbol(), 1);
+            red_storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            red_storage_sym.set_type(red_item.reduction_type.no_ref().get_lvalue_reference_to());
 
-            // Computing the expression statement that initializes our task local variable
-            Nodecl::NodeclBase initializer = red_item.reduction_info->get_initializer().shallow_copy();
-            std::map<TL::Symbol, TL::Symbol> initializer_translation_map;
+            // Map original symbol to new local symbol so that the
+            // posterior deep copy over the task body replaces all its
+            // references
+            symbol_map.add_map(red_item.symbol, red_storage_sym);
 
-            TL::Symbol omp_orig  = red_item.reduction_info->get_omp_orig();
-            initializer_translation_map[omp_orig] = orig_red_var;
+            std::string get_red_storage_fun_name = "nanos_get_reduction_storage";
+            TL::Scope global_context = TL::Scope::get_global_scope();
+            TL::Symbol get_red_storage_fun =
+                global_context.get_symbol_from_name(get_red_storage_fun_name);
 
-            ReplaceSymbolsVisitor initializer_visitor(initializer_translation_map);
-            initializer_visitor.walk(initializer);
+            if (!get_red_storage_fun.is_valid())
+            {
+                fatal_error(
+                        "'%s' function not found while trying to register dependences\n",
+                        get_red_storage_fun_name.c_str());
+            }
 
-            Nodecl::NodeclBase assignment = Nodecl::Assignment::make(
-                    priv_red_var.make_nodecl(/* set_ref_type */ true),
-                    initializer,
-                    priv_red_var.get_type().no_ref().get_lvalue_reference_to());
+            TL::Type cast_type;
+            if (red_item.reduction_type.no_ref().is_array())
+            {
+                cast_type =
+                    rewrite_type(red_item.reduction_type.no_ref().get_pointer_to(),
+                            unpacked_inside_scope, symbol_map);
+            }
+            else
+            {
+                cast_type =
+                    red_item.reduction_type.no_ref().get_pointer_to();
+            }
 
-            unpacked_empty_stmt.prepend_sibling(Nodecl::ExpressionStatement::make(assignment));
+            Nodecl::NodeclBase arg;
+            if (_env.shared.contains(red_item.symbol))
+            {
+                arg = Nodecl::Reference::make(
+                        red_sym.make_nodecl(/* set_ref_type */ true),
+                        red_sym.get_type().no_ref().get_lvalue_reference_to());
+            }
+            else
+            {
+                ERROR_CONDITION(!_env.captured_value.contains(red_item.symbol),
+                        "Unexpected data-sharing for symbol '%s'",
+                        red_sym.get_name().c_str());
 
+                // For cases like:
+                //
+                //      int *ptr;
+                //      #pragma oss task reduction(+: [1]ptr)
+                //      { ... }
+                //
+                // to avoid getting the address of a pointer
 
-            // Computing the combiner statements
-            Nodecl::NodeclBase combiner = red_item.reduction_info->get_combiner().shallow_copy();
-            std::map<TL::Symbol, TL::Symbol> combiner_translation_map;
+                arg = red_sym.make_nodecl(/* set_ref_type */ true);
+            }
 
-            TL::Symbol omp_in  = red_item.reduction_info->get_omp_in();
-            TL::Symbol omp_out = red_item.reduction_info->get_omp_out();
-            combiner_translation_map[omp_in]  = priv_red_var;
-            combiner_translation_map[omp_out] = orig_red_var;
+            // FIXME Works, but is it correct? -> incomplete, should complete for VLA, shared and firstprivate (pointer)
+            Nodecl::NodeclBase cast;
+            Nodecl::NodeclBase function_call = Nodecl::Dereference::make(
+                    cast = Nodecl::Conversion::make(
+                        Nodecl::FunctionCall::make(
+                            get_red_storage_fun.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(arg),
+                            /* alternate_name */ Nodecl::NodeclBase::null(),
+                            /* function_form */ Nodecl::NodeclBase::null(),
+                            TL::Type::get_void_type().get_pointer_to()),
+                        cast_type),
+                    red_item.reduction_type.no_ref());
+            cast.set_text("C");
 
-            ReplaceSymbolsVisitor combiner_visitor(combiner_translation_map);
-            combiner_visitor.walk(combiner);
-            combiner = Nodecl::ExpressionStatement::make(combiner);
-            unpacked_empty_stmt.append_sibling(combiner);
+            red_storage_sym.set_value(function_call);
 
-            TL::Scope atomic_scope = TL::Scope(
-                    new_block_context(unpacked_inside_scope.get_decl_context()));
-
-            // FIXME warning atomic -> critical should be supressed
-            combiner.replace(
-                    Nodecl::OpenMP::Atomic::make(
-                        /* environment */ Nodecl::NodeclBase::null(),
-                        Nodecl::List::make(
-                            Nodecl::Context::make(
-                                Nodecl::List::make(combiner.shallow_copy()),
-                                atomic_scope.get_decl_context())),
-                        combiner.get_locus()));
-
-            _lower_visitor->walk(combiner);
+            unpacked_empty_stmt.prepend_sibling(Nodecl::ObjectInit::make(red_storage_sym));
         }
     }
 
@@ -2799,7 +2683,6 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<Nodecl::NodeclBase> arguments;
         if (is_reduction)
         {
-            ERROR_CONDITION(data_ref.get_data_type().is_array(), "Array reductions not supported", 0);
             compute_reduction_arguments_register_dependence(data_ref, arguments);
         }
         compute_arguments_register_dependence(data_ref, handler, arguments);
@@ -3201,12 +3084,10 @@ namespace TL { namespace Nanos6 {
         AddParameter add_params_functor(
                 /* out */ dep_fun_param_names,
                 /* out */ dep_fun_param_types,
-                /* out */ symbols_to_param_names,
-                /* map_reduction_local_symbol */ false);
+                /* out */ symbols_to_param_names);
 
         _env.captured_value.map(add_params_functor);
         _env.shared.map(add_params_functor);
-        _env.reduction.map(add_params_functor);
 
         _dependences_function
             = SymbolUtils::new_function_symbol(_related_function,
@@ -3235,7 +3116,6 @@ namespace TL { namespace Nanos6 {
 
         _env.captured_value.map(map_symbols_functor);
         _env.shared.map(map_symbols_functor);
-        _env.reduction.map(map_symbols_functor);
 
         update_function_type_if_needed(
                 _dependences_function, parameters_to_update_type, symbol_map);
@@ -3442,48 +3322,6 @@ namespace TL { namespace Nanos6 {
                 _field_map[*it].make_nodecl(),
                 /* member_literal */ Nodecl::NodeclBase::null(),
                 _field_map[*it].get_type().get_lvalue_reference_to()));
-        }
-
-        for (TL::ObjectList<ReductionItem>::const_iterator it = _env.reduction.begin();
-                it != _env.reduction.end();
-                it++)
-        {
-            ERROR_CONDITION(_field_map.find(it->symbol) == _field_map.end(),
-                    "Symbol is not mapped", 0);
-
-            // First, original variable
-            {
-                TL::Symbol field = _field_map[it->symbol];
-
-                forwarded_parameter_names.append(field.get_name());
-                forwarded_parameter_types.append(field.get_type());
-
-                args.append(
-                        Nodecl::ClassMemberAccess::make(
-                            arg.make_nodecl(/* set_ref_type */ true),
-                            _field_map[it->symbol].make_nodecl(),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            _field_map[it->symbol].get_type().no_ref().get_lvalue_reference_to()));
-            }
-
-            // Second, local variable
-            {
-                TL::Scope inner_class_context(
-                        class_type_get_inner_context(_info_structure.get_internal_type()));
-
-                TL::Symbol local_symbol = inner_class_context.get_symbol_from_name(it->symbol.get_name() + "_local_red");
-                TL::Type expr_type = local_symbol.get_type().no_ref().get_lvalue_reference_to();
-
-                forwarded_parameter_names.append(local_symbol.get_name());
-                forwarded_parameter_types.append(expr_type);
-
-                args.append(
-                        Nodecl::ClassMemberAccess::make(
-                            arg.make_nodecl(/* set_ref_type */ true),
-                            local_symbol.make_nodecl(),
-                            /* member_literal */ Nodecl::NodeclBase::null(),
-                            expr_type));
-            }
         }
 
         TL::Symbol forwarded_function
@@ -4238,18 +4076,16 @@ namespace TL { namespace Nanos6 {
             TL::Symbol arg;
             const field_map_t &_field_map;
             const TL::ObjectList<TL::Symbol>& shared;
-            const TL::ObjectList<ReductionItem>& reduction;
             const TL::ObjectList<TL::Symbol>& local;
             const TaskProperties& tp;
 
             RewriteExpression(TL::Symbol arg_,
                     const field_map_t& field_map_,
                     const TL::ObjectList<TL::Symbol> &shared_,
-                    const TL::ObjectList<ReductionItem> &reduction_,
                     const TL::ObjectList<TL::Symbol> &local_,
                     const TaskProperties &tp_)
                 : arg(arg_), _field_map(field_map_), shared(shared_),
-                  reduction(reduction_), local(local_), tp(tp_)
+                  local(local_), tp(tp_)
             {
             }
 
@@ -4280,8 +4116,7 @@ namespace TL { namespace Nanos6 {
                             field.get_type(),
                             node.get_locus());
 
-                if ((shared.contains(sym)
-                            || reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, sym)))
+                if (shared.contains(sym))
                 {
                     if (sym.get_type().depends_on_nonconstant_values())
                     {
@@ -4310,7 +4145,7 @@ namespace TL { namespace Nanos6 {
             }
         };
 
-        RewriteExpression r(arg, _field_map, _env.shared, _env.reduction, local, *this);
+        RewriteExpression r(arg, _field_map, _env.shared, local, *this);
         r.walk(result);
 
         struct RemoveRedundantRefDerref : public Nodecl::ExhaustiveVisitor<void>
@@ -5058,62 +4893,6 @@ namespace TL { namespace Nanos6 {
                 current_captured_stmt =
                     conditional_capture_src.parse_statement(task_enclosing_scope);
             }
-
-            captured_list.append(current_captured_stmt);
-        }
-
-        // 3. Traversing REDUCTION variables
-        for (TL::ObjectList<ReductionItem>::iterator it = _env.reduction.begin();
-                it != _env.reduction.end();
-                it++)
-        {
-            ERROR_CONDITION(_field_map.find(it->symbol) == _field_map.end(),
-                    "Symbol is not mapped", 0);
-
-            Nodecl::NodeclBase rhs = it->symbol.make_nodecl(/* set_ref_type */ true);
-            rhs = Nodecl::Reference::make(
-                    rhs,
-                    rhs.get_type().no_ref().get_pointer_to());
-
-            std::string update_address_fun_name = "nanos_get_original_reduction_address";
-
-            TL::Symbol update_address_fun =
-                TL::Scope::get_global_scope().get_symbol_from_name(update_address_fun_name);
-            if (!update_address_fun.is_valid())
-            {
-                fatal_error(
-                        "'%s' function not found while trying to register dependences\n",
-                        update_address_fun_name.c_str());
-            }
-
-            TL::Type lhs_type =
-                _field_map[it->symbol].get_type().no_ref().get_lvalue_reference_to();
-
-            rhs = Nodecl::Conversion::make(
-                    Nodecl::FunctionCall::make(
-                        update_address_fun.make_nodecl(/* set_ref_type */ true),
-                        Nodecl::List::make(rhs),
-                        /* alternate_name */ Nodecl::NodeclBase::null(),
-                        /* function_form */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_void_type().get_pointer_to()),
-                    lhs_type.no_ref());
-
-            rhs.set_text("C");
-
-            Nodecl::NodeclBase lhs =
-                Nodecl::ClassMemberAccess::make(
-                        Nodecl::Dereference::make(
-                            args.make_nodecl(/* set_ref_type */ true),
-                            args.get_type().points_to().get_lvalue_reference_to()),
-                        _field_map[it->symbol].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        lhs_type);
-
-            Nodecl::NodeclBase current_captured_stmt = Nodecl::ExpressionStatement::make(
-                    Nodecl::Assignment::make(
-                        lhs,
-                        rhs,
-                        lhs_type));
 
             captured_list.append(current_captured_stmt);
         }

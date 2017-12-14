@@ -111,6 +111,8 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OpenMP::Reduction &n)
             {
+                TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "reduction");
+
                 Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = reductions.begin();
                         it != reductions.end();
@@ -321,38 +323,11 @@ namespace TL { namespace Nanos6 {
         visitor.walk(environment);
 
         // Fixing some data-sharings + capturing some special symbols
-        remove_redundant_data_sharings();
         compute_captured_values();
         fix_data_sharing_of_this();
 
         // Empty the '_firstprivate' list, since it won't be use from this point on
         _firstprivate.erase(_firstprivate.begin(), _firstprivate.end());
-    }
-
-    namespace {
-    struct IsReduction
-    {
-        private:
-            const TL::ObjectList<ReductionItem>& _reduction;
-
-        public:
-            IsReduction(const TL::ObjectList<ReductionItem>& reduction) : _reduction(reduction)
-            { }
-
-            bool operator()(TL::Symbol s) const
-            {
-                return _reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, s);
-            }
-    };
-    }
-
-    void DirectiveEnvironment::remove_redundant_data_sharings()
-    {
-
-        TL::ObjectList<TL::Symbol>::iterator it = std::remove_if(
-                shared.begin(), shared.end(), IsReduction(reduction));
-
-        shared.erase(it, shared.end());
     }
 
     void DirectiveEnvironment::compute_captured_values()
@@ -378,8 +353,7 @@ namespace TL { namespace Nanos6 {
         return shared.contains(sym)         ||
                private_.contains(sym)       ||
                _firstprivate.contains(sym)  ||
-               captured_value.contains(sym) ||
-               reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, sym);
+               captured_value.contains(sym);
     }
 
     struct FirstprivateSymbolsWithoutDataSharing : public Nodecl::ExhaustiveVisitor<void>
