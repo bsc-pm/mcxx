@@ -32,6 +32,7 @@ namespace TL { namespace Intel {
 void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
 {
     TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
+    TL::Scope global_scope = CURRENT_COMPILED_FILE->global_decl_context;
 
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
@@ -52,22 +53,21 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
         lock_name = critical_name.get_text();
     }
 
-
     lock_name += "_critical_lock";
 
-    TL::Scope global_scope = CURRENT_COMPILED_FILE->global_decl_context;
-
-    Source src_critical_lock;
-    src_critical_lock
-    << "kmp_critical_name " << lock_name << ";";
-    Nodecl::NodeclBase tree_critical_lock = src_critical_lock.parse_statement(global_scope);
-
     TL::Symbol lock_sym = global_scope.get_symbol_from_name(lock_name);
-    if (lock_sym.is_valid()) {
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, tree_critical_lock);
+    if (!lock_sym.is_valid()) {
+        Source src_critical_lock;
+        src_critical_lock
+        << "kmp_critical_name " << lock_name << ";";
+        Nodecl::NodeclBase tree_critical_lock = src_critical_lock.parse_statement(global_scope);
         lock_sym = global_scope.get_symbol_from_name(lock_name);
-    }
 
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, tree_critical_lock);
+        }
+    }
 
     Source src_critical;
     src_critical
