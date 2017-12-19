@@ -88,7 +88,9 @@ namespace TL { namespace Nanos6 {
             TL::Symbol _dependences_function_mangled;
 
             TL::Symbol _cost_function;
+            TL::Symbol _cost_function_mangled;
             TL::Symbol _priority_function;
+            TL::Symbol _priority_function_mangled;
 
 
             TaskloopInfo _taskloop_info;

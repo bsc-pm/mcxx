@@ -658,14 +658,12 @@ namespace TL { namespace Nanos6 {
 
         run_type_params.append(taskloop_bounds_struct.get_user_defined_type().get_pointer_to());
 
-
-        TL::Type run_type =
-            TL::Type::get_void_type().get_function_returning(run_type_params).get_pointer_to();
-
-
         Nodecl::NodeclBase init_run;
         if (_outline_function.is_valid())
         {
+            TL::Type run_type =
+                TL::Type::get_void_type().get_function_returning(run_type_params).get_pointer_to();
+
             if (IS_FORTRAN_LANGUAGE)
             {
                 init_run = _outline_function_mangled.make_nodecl(/* set_ref_type */ true);
@@ -730,26 +728,35 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase init_declaration_source =
             const_value_to_nodecl(const_value_make_string_null_ended(c, strlen(c)));
 
-
         Nodecl::NodeclBase field_get_cost = get_field("get_cost");
         Nodecl::NodeclBase init_get_cost;
         if (_cost_function.is_valid())
         {
-            TL::Type cost_fun_type
-                = TL::Type::get_size_t_type()
-                      .get_function_returning(TL::ObjectList<TL::Type>(
-                          1, TL::Type::get_void_type().get_pointer_to()))
-                      .get_pointer_to();
+            TL::Type cost_fun_type =
+                TL::Type::get_size_t_type()
+                .get_function_returning(TL::ObjectList<TL::Type>(
+                            1, TL::Type::get_void_type().get_pointer_to()))
+                .get_pointer_to();
 
-            init_get_cost = _cost_function.make_nodecl(/* set_ref_type */ true);
-            init_get_cost
-                = Nodecl::Conversion::make(init_get_cost, cost_fun_type);
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                init_get_cost =
+                    _cost_function_mangled.make_nodecl(/* set_ref_type */ true);
+            }
+            else
+            {
+                init_get_cost =
+                    _cost_function.make_nodecl(/* set_ref_type */ true);
+            }
+
+            init_get_cost =
+                Nodecl::Conversion::make(init_get_cost, cost_fun_type);
             init_get_cost.set_text("C");
         }
         else
         {
-            init_get_cost
-                = const_value_to_nodecl(const_value_get_signed_int(0));
+            init_get_cost =
+                const_value_to_nodecl(const_value_get_signed_int(0));
         }
 
         Nodecl::NodeclBase field_get_priority = get_field("get_priority");
@@ -762,10 +769,20 @@ namespace TL { namespace Nanos6 {
                             1, TL::Type::get_void_type().get_pointer_to()))
                 .get_pointer_to();
 
-            init_get_priority = Nodecl::Conversion::make(
-                    _priority_function.make_nodecl(/* set_ref_type */ true),
-                    priority_fun_type);
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                init_get_priority =
+                    _priority_function_mangled.make_nodecl(/* set_ref_type */ true);
+            }
+            else
+            {
+                init_get_priority =
+                    _priority_function.make_nodecl(/* set_ref_type */ true);
+            }
 
+            init_get_priority = Nodecl::Conversion::make(
+                    init_get_priority,
+                    priority_fun_type);
             init_get_priority.set_text("C");
         }
         else
@@ -1598,6 +1615,36 @@ namespace TL { namespace Nanos6 {
             }
             return loop_control;
         }
+
+        TL::Symbol compute_mangled_function_symbol_from_symbol(const TL::Symbol &sym)
+        {
+            ERROR_CONDITION(sym.get_internal_symbol()->kind != SK_FUNCTION,
+                    "Unexpected symbol kind", 0);
+
+            // For Fortran we will generate a global variable in C, but this
+            // requires us to use the proper mangling.
+            const char* mangled_name =
+                ::fortran_mangle_symbol(sym.get_internal_symbol());
+
+            // Create a detached symbol that looks like it comes from the global scope
+            TL::Symbol mangled_symbol = NEW0(scope_entry_t);
+            mangled_symbol.get_internal_symbol()->symbol_name = mangled_name;
+            mangled_symbol.get_internal_symbol()->decl_context
+                = TL::Scope::get_global_scope().get_decl_context();
+            mangled_symbol.get_internal_symbol()->kind =
+                sym.get_internal_symbol()->kind;
+
+            // Fake symbol type as "void fun(void)" to avoid matching problems with argument types,
+            // we will need to cast it back to original type when used
+            mangled_symbol.get_internal_symbol()->type_information =
+                TL::Type::get_void_type().get_function_returning(TL::ObjectList<TL::Type>())
+                .get_internal_type();
+
+            symbol_entity_specs_set_is_user_declared(
+                    mangled_symbol.get_internal_symbol(), 1);
+
+            return mangled_symbol;
+        }
     }
 
 
@@ -1792,23 +1839,8 @@ namespace TL { namespace Nanos6 {
 
         if (IS_FORTRAN_LANGUAGE)
         {
-            // For Fortran we will generate a global variable in C, but this
-            // requires us to use the proper mangling.
-            const char* mangled_name = ::fortran_mangle_symbol(_outline_function.get_internal_symbol());
-
-            // Create a detached symbol that looks like it comes from the global scope
-            _outline_function_mangled = NEW0(scope_entry_t);
-            _outline_function_mangled.get_internal_symbol()->symbol_name = mangled_name;
-            _outline_function_mangled.get_internal_symbol()->decl_context
-                = TL::Scope::get_global_scope().get_decl_context();
-            _outline_function_mangled.get_internal_symbol()->kind = SK_FUNCTION;
-            // fake type
-            _outline_function_mangled.get_internal_symbol()->type_information
-                = TL::Type::get_void_type().get_function_returning(TL::ObjectList<TL::Type>())
-                .get_internal_type();
-            symbol_entity_specs_set_is_user_declared(
-                    _outline_function_mangled.get_internal_symbol(),
-                    1);
+            _outline_function_mangled =
+                compute_mangled_function_symbol_from_symbol(_outline_function);
         }
 
         Nodecl::NodeclBase outline_function_code, outline_empty_stmt;
@@ -3428,35 +3460,12 @@ namespace TL { namespace Nanos6 {
         _phase->get_extra_c_code().append(c_forwarded_function_code);
     }
 
-    void TaskProperties::create_dependences_function_fortran_mangled()
-    {
-        // For Fortran we will generate a global function in C, but this
-        // requires us to use the proper mangling.
-        const char *mangled_name = ::fortran_mangle_symbol(
-            _dependences_function.get_internal_symbol());
-
-        // Create a detached symbol that looks like it comes from the global
-        // scope
-        _dependences_function_mangled = NEW0(scope_entry_t);
-        _dependences_function_mangled.get_internal_symbol()->symbol_name
-            = mangled_name;
-        _dependences_function_mangled.get_internal_symbol()->decl_context
-            = TL::Scope::get_global_scope().get_decl_context();
-        _dependences_function_mangled.get_internal_symbol()->kind = SK_FUNCTION;
-        // fake type
-        _dependences_function_mangled.get_internal_symbol()->type_information
-            = TL::Type::get_void_type()
-                  .get_function_returning(TL::ObjectList<TL::Type>())
-                  .get_internal_type();
-        symbol_entity_specs_set_is_user_declared(
-            _dependences_function_mangled.get_internal_symbol(), 1);
-    }
-
     void TaskProperties::create_dependences_function_fortran()
     {
         create_dependences_function_fortran_proper();
         create_dependences_function_fortran_forward();
-        create_dependences_function_fortran_mangled();
+        _dependences_function_mangled =
+            compute_mangled_function_symbol_from_symbol(_dependences_function);
     }
 
     void TaskProperties::create_dependences_function()
@@ -3664,6 +3673,12 @@ namespace TL { namespace Nanos6 {
                                                parameter_names,
                                                parameter_types);
 
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            _cost_function_mangled =
+                compute_mangled_function_symbol_from_symbol(_cost_function);
+        }
+
         Nodecl::NodeclBase cost_function_code, cost_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
             _cost_function, cost_function_code, cost_empty_stmt);
@@ -3711,6 +3726,12 @@ namespace TL { namespace Nanos6 {
                 TL::Type::get_size_t_type(),
                 parameter_names,
                 parameter_types);
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            _priority_function_mangled =
+                compute_mangled_function_symbol_from_symbol(_priority_function);
+        }
 
         Nodecl::NodeclBase priority_function_code;
         Nodecl::NodeclBase priority_empty_stmt;
