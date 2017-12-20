@@ -438,9 +438,10 @@ namespace TL
                 TL::Symbol sym = multi_deps.get_symbol();
                 Nodecl::NodeclBase range = multi_deps.get_range();
 
-                _data_ref._iterators.append(std::make_pair(sym, range));
-
                 walk(multi_deps.get_base());
+
+                // Try to preserve the original order of our iterators: from left to right
+                _data_ref._iterators.append(std::make_pair(sym, range));
 
                 if (!_data_ref._is_valid)
                 {
