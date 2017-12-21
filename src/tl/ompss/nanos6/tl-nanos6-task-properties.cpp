@@ -286,15 +286,7 @@ namespace TL { namespace Nanos6 {
                 _related_function.get_class_type().get_internal_type());
         }
 
-        std::string task_info_tpl_name;
-        {
-            std::stringstream ss;
-            TL::Counter &counter
-                = TL::CounterManager::get_counter("nanos6-args");
-            ss << "task_info_tpl_" << (int)counter;
-            counter++;
-            task_info_tpl_name = ss.str();
-        }
+        std::string task_info_tpl_name = get_new_name("task_info_tpl");
 
         template_parameter_list_t *tpl
             = template_specialized_type_get_template_parameters(
@@ -1034,21 +1026,16 @@ namespace TL { namespace Nanos6 {
 
         TL::Scope sc = compute_scope_for_environment_structure();
 
-        TL::Counter &counter = TL::CounterManager::get_counter("nanos6-args");
-        std::stringstream ss;
-        ss << "nanos_task_args_" << (int)counter;
-        counter++;
-
         std::string structure_name;
         if (IS_C_LANGUAGE
                 || IS_FORTRAN_LANGUAGE)
         {
             // We need an extra 'struct '
-            structure_name = "struct " + ss.str();
+            structure_name = "struct " + get_new_name("nanos_task_args");
         }
         else
         {
-            structure_name = ss.str();
+            structure_name = get_new_name("nanos_task_args");
         }
 
         // Create the class symbol
