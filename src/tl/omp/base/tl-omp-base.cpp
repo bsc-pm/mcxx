@@ -57,7 +57,8 @@ namespace TL { namespace OpenMP {
         : PragmaCustomCompilerPhase(),
         _core(),
         _simd_enabled(false),
-        _omp_report(false)
+        _omp_report(false),
+        _taskloop_as_loop_of_tasks(false)
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
@@ -83,6 +84,11 @@ namespace TL { namespace OpenMP {
                 "Disables some optimizations applied to task expressions",
                 _disable_task_expr_optim_str,
                 "0");
+
+        register_parameter("taskloop_as_loop_of_tasks",
+                "Transforms a taskloop as a loop of tasks with a taskwait at the end.",
+                _taskloop_as_loop_of_tasks_str,
+                "0").connect(std::bind(&Base::set_taskloop_as_loop_of_tasks, this, std::placeholders::_1));
 
 
         // TL::Core phase flags
@@ -393,6 +399,11 @@ namespace TL { namespace OpenMP {
     void Base::set_omp_report_parameter(const std::string& str)
     {
         parse_boolean_option("omp_report", str, _omp_report, "Assuming false.");
+    }
+
+    void Base::set_taskloop_as_loop_of_tasks(const std::string &str)
+    {
+        parse_boolean_option("taskloop_as_loop_of_tasks", str, _taskloop_as_loop_of_tasks, "Assuming false.");
     }
 
     bool Base::emit_omp_report() const
@@ -1515,10 +1526,6 @@ namespace TL { namespace OpenMP {
             (num_tasks_expr.is_null() || num_tasks_expr.is<Nodecl::ErrExpr>()))
             return;
 
-        bool taskwait_at_the_end = true;
-        if (nogroup.is_defined())
-            taskwait_at_the_end = false;
-
         Nodecl::List execution_environment = this->make_execution_environment(
                 ds, pragma_line, /* ignore_target_info */ false);
 
@@ -1530,19 +1537,58 @@ namespace TL { namespace OpenMP {
 
         pragma_line.diagnostic_unused_clauses();
 
-        taskloop_block_loop(directive, statement, execution_environment, grainsize_expr, num_tasks_expr);
-
-        Nodecl::List list;
-        list.append(statement);
-        if (taskwait_at_the_end)
+        if (_taskloop_as_loop_of_tasks)
         {
-            list.append(
-                    Nodecl::OpenMP::Taskwait::make(
-                        /*environment*/ nodecl_null(),
-                        directive.get_locus()));
-        }
+            taskloop_block_loop(directive, statement, execution_environment, grainsize_expr, num_tasks_expr);
 
-        directive.replace(list);
+            Nodecl::List stmts;
+            stmts.append(statement);
+
+            // We transform the taskgroup into a taskwait, despite the fact they are not exaclty the same...
+            if (!nogroup.is_defined())
+                stmts.append(Nodecl::OpenMP::Taskwait::make(
+                            /* environment */ Nodecl::NodeclBase::null(), directive.get_locus()));
+
+            directive.replace(stmts);
+        }
+        else
+        {
+            TL::ForStatement for_statement(
+                    statement.as<Nodecl::Context>()
+                    .get_in_context()
+                    .as<Nodecl::List>().front()
+                    .as<Nodecl::ForStatement>());
+
+            TL::HLT::LoopNormalize loop_normalize;
+            loop_normalize.set_loop(for_statement);
+
+            loop_normalize.normalize();
+
+            Nodecl::NodeclBase normalized_loop = loop_normalize.get_whole_transformation();
+            ERROR_CONDITION(!normalized_loop.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ForStatement new_for_statement(normalized_loop.as<Nodecl::ForStatement>());
+            TL::Symbol induction_variable = new_for_statement.get_induction_variable();
+            execution_environment.append(
+                    Nodecl::OpenMP::Private::make(
+                        Nodecl::List::make(induction_variable.make_nodecl(/* set_ref_type */ true))));
+
+            if (!grainsize_expr.is_null())
+                execution_environment.append(Nodecl::OpenMP::Grainsize::make(grainsize_expr));
+
+            if (!num_tasks_expr.is_null())
+                execution_environment.append(Nodecl::OpenMP::NumTasks::make(num_tasks_expr));
+
+            Nodecl::NodeclBase stmt = Nodecl::OpenMP::TaskLoop::make(
+                    execution_environment, normalized_loop);
+
+            if (!nogroup.is_defined())
+            {
+                stmt = Nodecl::OpenMP::Taskgroup::make(
+                        /* environment */ nodecl_null(), Nodecl::List::make(stmt));
+            }
+            directive.replace(stmt);
+        }
     }
 
     void Base::taskloop_runtime_based_handler_pre(TL::PragmaCustomStatement directive) { }

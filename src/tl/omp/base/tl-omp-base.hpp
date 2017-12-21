@@ -69,6 +69,10 @@ namespace TL
 
                 std::string _disable_task_expr_optim_str;
 
+                std::string _taskloop_as_loop_of_tasks_str;
+                bool _taskloop_as_loop_of_tasks;
+                void set_taskloop_as_loop_of_tasks(const std::string &str);
+
                 // Strings used to store the TL::Core phase flags
                 std::string _ompss_mode_str;
                 std::string _copy_deps_str;

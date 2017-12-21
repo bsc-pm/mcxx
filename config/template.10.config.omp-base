@@ -16,6 +16,7 @@ linker_name = @GCC@
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {ompss} preprocessor_options = -D_OMPSS=1
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
+{openmp|ompss} options = --variable=taskloop_as_loop_of_tasks:1
 
 {ompss} options = --variable=ompss_mode:1
 
@@ -32,6 +33,7 @@ linker_name = @GCC@
 {ompss-2} preprocessor_options = -D_OMPSS_2=1
 {ompss-2} fortran_preprocessor_options = -D_OMPSS_2=1
 {ompss-2} options = --variable=ompss_mode:1 --variable=untied_tasks_by_default:1
+{ompss-2,openmp-compatibility} options = --variable=taskloop_as_loop_of_tasks:1
 
 
 #Analysis
