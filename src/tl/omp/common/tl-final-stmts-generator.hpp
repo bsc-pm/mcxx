@@ -46,7 +46,7 @@ namespace TL {
 
             void visit(const Nodecl::OpenMP::Task& task);
             void visit(const Nodecl::OmpSs::TaskCall& task_call);
-            void visit(const Nodecl::OpenMP::TaskLoop& taskloop);
+            void visit(const Nodecl::OpenMP::Taskloop& taskloop);
             void visit(const Nodecl::OmpSs::TaskExpression& task_expr);
             void visit(const Nodecl::OpenMP::For& for_construct);
 

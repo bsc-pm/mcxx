@@ -1579,7 +1579,7 @@ namespace TL { namespace OpenMP {
             if (!num_tasks_expr.is_null())
                 execution_environment.append(Nodecl::OpenMP::NumTasks::make(num_tasks_expr));
 
-            Nodecl::NodeclBase stmt = Nodecl::OpenMP::TaskLoop::make(
+            Nodecl::NodeclBase stmt = Nodecl::OpenMP::Taskloop::make(
                     execution_environment, normalized_loop);
 
             if (!nogroup.is_defined())
@@ -1677,7 +1677,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List list;
         list.append(
-                Nodecl::OpenMP::TaskLoop::make(
+                Nodecl::OpenMP::Taskloop::make(
                     execution_environment,
                     normalized_loop));
 

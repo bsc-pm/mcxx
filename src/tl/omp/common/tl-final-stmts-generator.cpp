@@ -73,7 +73,7 @@ namespace TL {
                 walk(task_call.get_call());
              }
 
-             void visit(const Nodecl::OpenMP::TaskLoop& taskloop)
+             void visit(const Nodecl::OpenMP::Taskloop& taskloop)
              {
                 ++_num_task_related_pragmas;
                 walk(taskloop.get_loop());
@@ -187,7 +187,7 @@ namespace TL {
                 walk(task_call);
              }
 
-             void visit(const Nodecl::OpenMP::TaskLoop& taskloop)
+             void visit(const Nodecl::OpenMP::Taskloop& taskloop)
              {
                 taskloop.replace(taskloop.get_loop());
                 walk(taskloop);
@@ -365,7 +365,7 @@ namespace TL {
         _final_stmts_map.insert(std::make_pair(task_call, final_stmts));
     }
 
-    void FinalStmtsGenerator::visit(const Nodecl::OpenMP::TaskLoop& node)
+    void FinalStmtsGenerator::visit(const Nodecl::OpenMP::Taskloop& node)
     {
         walk(node.get_loop());
 

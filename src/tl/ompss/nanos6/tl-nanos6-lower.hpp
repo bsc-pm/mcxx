@@ -49,7 +49,7 @@ namespace TL { namespace Nanos6 {
 
             void visit(const Nodecl::OpenMP::Task& n);
             void visit(const Nodecl::OmpSs::TaskCall& n);
-            void visit(const Nodecl::OpenMP::TaskLoop& n);
+            void visit(const Nodecl::OpenMP::Taskloop& n);
 
             void visit(const Nodecl::OpenMP::Taskwait& n);
             void visit(const Nodecl::OpenMP::Critical& n);
