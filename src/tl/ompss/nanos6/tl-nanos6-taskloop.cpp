@@ -38,7 +38,6 @@ namespace TL { namespace Nanos6 {
     void Lower::visit(const Nodecl::OpenMP::Taskloop& construct)
     {
         Nodecl::NodeclBase loop = construct.get_loop();
-        ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(), "Unreachable code\n", 0);
 
         walk(loop);
 

@@ -1569,6 +1569,7 @@ namespace TL { namespace OpenMP {
 
             TL::ForStatement new_for_statement(normalized_loop.as<Nodecl::ForStatement>());
             TL::Symbol induction_variable = new_for_statement.get_induction_variable();
+
             execution_environment.append(
                     Nodecl::OpenMP::Private::make(
                         Nodecl::List::make(induction_variable.make_nodecl(/* set_ref_type */ true))));
@@ -1580,7 +1581,10 @@ namespace TL { namespace OpenMP {
                 execution_environment.append(Nodecl::OpenMP::NumTasks::make(num_tasks_expr));
 
             Nodecl::NodeclBase stmt = Nodecl::OpenMP::Taskloop::make(
-                    execution_environment, normalized_loop);
+                    execution_environment,
+                    Nodecl::Context::make(
+                        Nodecl::List::make(normalized_loop),
+                        statement.as<Nodecl::Context>().retrieve_context()));
 
             if (!nogroup.is_defined())
             {
@@ -1675,13 +1679,13 @@ namespace TL { namespace OpenMP {
 
         execution_environment.append(Nodecl::OmpSs::Chunksize::make(chunksize));
 
-        Nodecl::List list;
-        list.append(
-                Nodecl::OpenMP::Taskloop::make(
-                    execution_environment,
-                    normalized_loop));
+        Nodecl::NodeclBase stmt = Nodecl::OpenMP::Taskloop::make(
+                execution_environment,
+                Nodecl::Context::make(
+                    Nodecl::List::make(normalized_loop),
+                    statement.as<Nodecl::Context>().retrieve_context()));
 
-        directive.replace(list);
+        directive.replace(Nodecl::List::make(stmt));
     }
 
     // Since parallel {for,do,sections} are split into two nodes: parallel and

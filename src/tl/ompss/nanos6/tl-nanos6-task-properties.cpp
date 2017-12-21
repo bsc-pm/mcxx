@@ -80,8 +80,13 @@ namespace TL { namespace Nanos6 {
 
         if (_env.is_taskloop)
         {
-            ERROR_CONDITION(!_task_body.as<Nodecl::List>().front().is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
-            TL::ForStatement for_stmt(_task_body.as<Nodecl::List>().front().as<Nodecl::ForStatement>());
+            ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
+            Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
             _taskloop_info.lower_bound = for_stmt.get_lower_bound();
             _taskloop_info.upper_bound =
                 Nodecl::Add::make(
@@ -1788,8 +1793,13 @@ namespace TL { namespace Nanos6 {
 
         if (_env.is_taskloop)
         {
-            ERROR_CONDITION(!_task_body.as<Nodecl::List>().front().is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
-            TL::ForStatement for_stmt(_task_body.as<Nodecl::List>().front().as<Nodecl::ForStatement>());
+            ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
+            Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
 
             TL::Symbol ind_var = for_stmt.get_induction_variable();
             TL::Symbol taskloop_bounds = unpacked_inside_scope.get_symbol_from_name("taskloop_bounds");
