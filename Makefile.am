@@ -423,6 +423,9 @@ EXTRA_DIST += src/frontend/c99-scanner.c
 
 EXTRA_DIST += src/frontend/cxx03.l
 EXTRA_DIST += src/frontend/cxx03.y
+if ENABLE_GRAPH_GLR
+EXTRA_DIST += src/frontend/cxx03-glr.y
+endif
 EXTRA_DIST += src/frontend/cxx03.y.in
 EXTRA_DIST += src/frontend/cxx-scanner.c
 
@@ -461,6 +464,9 @@ BUILT_SOURCES += src/frontend/cxx03.l
 
 BUILT_SOURCES += src/frontend/c99.y
 BUILT_SOURCES += src/frontend/cxx03.y
+if ENABLE_GRAPH_GLR
+BUILT_SOURCES += src/frontend/cxx03-glr.y
+endif
 
 BUILT_SOURCES += src/frontend/cxx-parser.h
 BUILT_SOURCES += src/frontend/c99-parser.h
@@ -593,15 +599,28 @@ CLEANFILES += src/frontend/cxx-parser.c
 CLEANFILES += src/frontend/cxx-parser-internal.h
 CLEANFILES += src/frontend/cxx-parser.output
 CLEANFILES += src/frontend/cxx03.y
+if ENABLE_GRAPH_GLR
+CLEANFILES += src/frontend/cxx03-glr.y
+endif
 endif
 
 src/frontend/cxx03.y : $(TPP) $(top_srcdir)/src/frontend/cxx03.y.in $(addprefix $(top_srcdir)/, $(ADDITIONAL_GRAMMARS))
 	$(TPP_verbose)(rm -f src/frontend/cxx03.y && $(TPP) -o src/frontend/cxx03.y -D CPLUSPLUS -I$(top_srcdir)/src/frontend $(top_srcdir)/src/frontend/cxx03.y.in && chmod -w src/frontend/cxx03.y)
 
+src/frontend/cxx03-glr.y : $(TPP) $(top_srcdir)/src/frontend/cxx03.y.in $(addprefix $(top_srcdir)/, $(ADDITIONAL_GRAMMARS))
+	$(TPP_verbose)(rm -f src/frontend/cxx03-glr.y && $(TPP) -o src/frontend/cxx03-glr.y -D CPLUSPLUS -D GRAPH_GLR -I$(top_srcdir)/src/frontend $(top_srcdir)/src/frontend/cxx03.y.in && chmod -w src/frontend/cxx03-glr.y)
+
 src/frontend/cxx-parser-internal.h : src/frontend/cxx-parser.c
 if BISON_BUILDING
+if ENABLE_GRAPH_GLR
+src/frontend/cxx-parser.c : src/frontend/cxx03-glr.y
+	rm -f src/frontend/cxx-parser.c
+	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=src/frontend/cxx-parser-internal.h --report=all --output=src/frontend/cxx-parser.c src/frontend/cxx03-glr.y
+	chmod -w src/frontend/cxx-parser.c
+else
 src/frontend/cxx-parser.c : src/frontend/cxx03.y
 	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=src/frontend/cxx-parser-internal.h --report=all --output=src/frontend/cxx-parser.c src/frontend/cxx03.y
+endif
 endif
 
 # These are obtained when invoking bison, if we write a rule like 'a b : d' it

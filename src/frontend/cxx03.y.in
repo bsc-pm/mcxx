@@ -51,7 +51,12 @@
 
 %}
 
+/*!ifnot GRAPH_GLR*/
 %glr-parser
+/*!endif*/
+/*!if GRAPH_GLR*/
+%graph-glr-parser
+/*!endif*/
 
 %union {
 	token_atrib_t token_atrib;
@@ -63,9 +68,6 @@
     const char *text;
 };
 
-
-// This is a specific feature of rofi-bison 2.3
-// %default-merge <ambiguityHandler>
 
 %parse-param {AST* parsed_tree}
 
@@ -4891,6 +4893,9 @@ nested_name_specifier_0 : class_or_namespace_name
     $$ = $1;
 }
 | decltype_specifier
+{
+	$$ = $1;
+}
 ;
 
 nested_name_specifier_1 : nested_name_specifier_0
