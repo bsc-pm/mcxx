@@ -9,4 +9,6 @@ program p
 
     !$omp task cost(10)
     !$omp end task
+
+    !$omp taskwait
 end program p

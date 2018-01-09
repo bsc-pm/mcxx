@@ -387,6 +387,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase capture_env;
             task_properties.capture_environment(
                     args,
+                    sc,
                     /* out */ capture_env);
 
             new_stmts.append(capture_env);

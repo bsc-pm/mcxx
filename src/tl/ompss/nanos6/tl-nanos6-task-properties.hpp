@@ -271,6 +271,7 @@ namespace TL { namespace Nanos6 {
 
             void capture_environment(
                     TL::Symbol args,
+                    TL::Scope task_enclosing_scope,
                     /* out */
                     Nodecl::NodeclBase& capture_env);
 
