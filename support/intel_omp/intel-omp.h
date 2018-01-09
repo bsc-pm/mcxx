@@ -265,6 +265,19 @@ void __kmpc_omp_task_complete_if0(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *
 
 kmp_int32 __kmpc_omp_taskyield(ident_t *loc_ref, kmp_int32 gtid, int end_part);
 
+void __kmpc_taskloop(ident_t *loc,
+                     kmp_int32 gtid,
+                     kmp_task_t *task,
+                     kmp_int32 if_val,
+                     kmp_uint64 *lb,
+                     kmp_uint64 *ub,
+                     kmp_int64 st,
+                     kmp_int32 nogroup,
+                     kmp_int32 sched,
+                     kmp_uint64 grainsize,
+                     void *task_dup);
+
+
 kmp_int32 __kmpc_omp_taskwait(ident_t *loc_ref, kmp_int32 gtid);
 void __kmpc_taskgroup(ident_t *loc, int gtid);
 void __kmpc_end_taskgroup(ident_t *loc, int gtid);

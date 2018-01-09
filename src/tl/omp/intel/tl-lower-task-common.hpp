@@ -37,6 +37,10 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         bool is_untied;
         Nodecl::NodeclBase priority;
 
+        // Grainsize for taskloop
+        Nodecl::NodeclBase grainsize;
+        Nodecl::NodeclBase num_tasks;
+
         // This attribute only for function task. Inline tasks will never have
         // a node here because tl-omp-base.cpp has already lowered the 'if'
         // clause
@@ -49,6 +53,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         TaskEnvironmentVisitor()
             : is_untied(false),
             priority(),
+            grainsize(),
             if_condition(),
             final_condition(),
             task_label()
@@ -58,6 +63,16 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit(const Nodecl::OpenMP::Priority& priority_)
         {
             this->priority = priority_.get_priority();
+        }
+
+        void visit(const Nodecl::OpenMP::Grainsize& grainsize_)
+        {
+            this->grainsize = grainsize_.get_grainsize();
+        }
+
+        void visit(const Nodecl::OpenMP::NumTasks& num_tasks_)
+        {
+            this->num_tasks = num_tasks_.get_num_tasks();
         }
 
         void visit(const Nodecl::OpenMP::Untied& untied)
