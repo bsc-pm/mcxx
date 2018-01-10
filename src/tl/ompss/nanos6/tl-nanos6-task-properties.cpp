@@ -421,6 +421,30 @@ namespace TL { namespace Nanos6 {
     }
 
     namespace {
+
+        template < unsigned int num_arguments>
+        TL::Symbol get_fortran_intrinsic_symbol(const std::string &name, const Nodecl::List& actual_arguments, bool is_call)
+        {
+            // Note that this function is template to avoid to use VLAs in C++ or dynamic memory allocation
+            nodecl_t arguments[num_arguments];
+
+            int index = 0;
+            for (Nodecl::List::const_iterator it = actual_arguments.begin();
+                    it != actual_arguments.end();
+                    it++)
+            {
+                arguments[index++]=it->get_internal_nodecl();
+            }
+            TL::Symbol intrinsic(
+                    fortran_solve_generic_intrinsic_call(
+                        fortran_query_intrinsic_name_str(TL::Scope::get_global_scope().get_decl_context(), name.c_str()),
+                        arguments,
+                        num_arguments,
+                        is_call));
+
+            return intrinsic;
+        }
+
         void compute_generic_flag_c(
                 Nodecl::NodeclBase opt_expr,
                 int default_value,
@@ -464,18 +488,11 @@ namespace TL { namespace Nanos6 {
                         TL::Type::get_bool_type(),
                         const_value_get_unsigned_int(default_value));
 
-            Nodecl::NodeclBase arg1 = Nodecl::FortranActualArgument::make(task_flags.make_nodecl());
-            Nodecl::NodeclBase arg2 = Nodecl::FortranActualArgument::make(const_value_to_nodecl(const_value_get_signed_int(bit)));
-            Nodecl::NodeclBase arguments_list = Nodecl::List::make(arg1, arg2);
+            Nodecl::List arguments_list = Nodecl::List::make(
+                    Nodecl::FortranActualArgument::make(task_flags.make_nodecl()),
+                    Nodecl::FortranActualArgument::make(const_value_to_nodecl(const_value_get_signed_int(bit))));
 
-            nodecl_t actual_arguments[2] = { arg1.get_internal_nodecl(), arg2.get_internal_nodecl() };
-
-            TL::Symbol intrinsic_ibset(
-                    fortran_solve_generic_intrinsic_call(
-                        fortran_query_intrinsic_name_str(TL::Scope::get_global_scope().get_decl_context(), "ibset"),
-                        actual_arguments,
-                        /* explicit_num_actual_arguments */ 2,
-                        /* is_call */ 0));
+            TL::Symbol intrinsic_ibset = get_fortran_intrinsic_symbol<2>("ibset", arguments_list, /* is_call */ 0);
 
             Nodecl::FunctionCall ibset_function_call =
                 Nodecl::FunctionCall::make(
@@ -1012,28 +1029,6 @@ namespace TL { namespace Nanos6 {
         return element_type.get_array_to_with_descriptor(lbound, ubound, sc);
     }
 
-    template < unsigned int num_arguments>
-    TL::Symbol get_fortran_intrinsic_symbol(const std::string &name, const Nodecl::List& actual_arguments, bool is_call)
-    {
-        // Note that this function is template to avoid to use VLAs in C++ or dynamic memory allocation
-        nodecl_t arguments[num_arguments];
-
-        int index = 0;
-        for (Nodecl::List::const_iterator it = actual_arguments.begin();
-                it != actual_arguments.end();
-                it++)
-        {
-            arguments[index++]=it->get_internal_nodecl();
-        }
-        TL::Symbol intrinsic(
-                fortran_solve_generic_intrinsic_call(
-                    fortran_query_intrinsic_name_str(TL::Scope::get_global_scope().get_decl_context(), name.c_str()),
-                    arguments,
-                    num_arguments,
-                    is_call));
-
-            return intrinsic;
-    }
     }
 
     void TaskProperties::create_environment_structure(
