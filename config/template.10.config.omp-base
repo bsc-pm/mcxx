@@ -170,14 +170,7 @@ linker_options = -Xlinker --enable-new-dtags
 
 # dlb
 {@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
-{@DLB_GATE@} linker_options = -L@DLB_LIB@
-{@DLB_GATE@,!(instrument|instrumentation|debug)} linker_options= -ldlb
-{@DLB_GATE@,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
-{@DLB_GATE@,(instrument|instrumentation),!debug} linker_options  = -ldlb_instr
-{@DLB_GATE@,(instrument|instrumentation),debug} linker_options  = -ldlb_instr_dbg
-{@DLB_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
-
-
+{@DLB_GATE@} linker_options = -L@DLB_LIB@  -ldlb  -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
 
 
 
@@ -215,9 +208,4 @@ linker_options = -Wl,--enable-new-dtags
 
 # dlb
 {@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
-{@DLB_GATE@} linker_options = -L@DLB_LIB@
-{@DLB_GATE@,!(instrument|instrumentation|debug)} linker_options = -ldlb
-{@DLB_GATE@,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
-{@DLB_GATE@,(instrument|instrumentation),!debug} linker_options = -ldlb_instr
-{@DLB_GATE@,(instrument|instrumentation),debug} linker_options = -ldlb_instr_dbg
-{@DLB_GATE@} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
+{@DLB_GATE@} linker_options = -L@DLB_LIB@ -ldlb -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
