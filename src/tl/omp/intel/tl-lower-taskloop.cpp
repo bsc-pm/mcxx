@@ -33,6 +33,66 @@
 
 namespace TL { namespace Intel {
 
+static void move_for_loop_to_task(TL::ForStatement& for_statement,
+                                  Nodecl::NodeclBase& outline_task_stmt) {
+    Source src_task_var_definition;
+    src_task_var_definition
+    << "kmp_uint64 lower = "
+    << "(*_taskloop).lb"
+    << ";";
+    src_task_var_definition
+    << "kmp_uint64 upper = "
+    << "(*_taskloop).ub"
+    << ";";
+    src_task_var_definition
+    << "kmp_uint64 incr = "
+    << "(*_taskloop).st"
+    << ";";
+    Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+    outline_task_stmt.prepend_sibling(tree_task_var_definition);
+
+    TL::Symbol task_ind_var = outline_task_stmt
+                             .retrieve_context()
+                             .get_symbol_from_name("_task_" + for_statement.get_induction_variable().get_name());
+    TL::Symbol task_for_lb = outline_task_stmt
+                             .retrieve_context()
+                             .get_symbol_from_name("lower");
+    TL::Symbol task_for_ub = outline_task_stmt
+                             .retrieve_context()
+                             .get_symbol_from_name("upper");
+    TL::Symbol task_for_st = outline_task_stmt
+                             .retrieve_context()
+                             .get_symbol_from_name("incr");
+    Nodecl::LoopControl for_control = for_statement.get_loop_header().as<Nodecl::LoopControl>();
+
+    Nodecl::NodeclBase init =
+        Nodecl::List::make(
+                Nodecl::Assignment::make(
+                    task_ind_var.make_nodecl(),
+                    task_for_lb.make_nodecl(),
+                    task_ind_var.get_type().get_lvalue_reference_to()));
+
+    typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
+    ptr_to_func_t make_relative_operator;
+    make_relative_operator = (ptr_to_func_t) &Nodecl::LowerOrEqualThan::make;
+
+    Nodecl::NodeclBase cond =
+        (*make_relative_operator)(
+                task_ind_var.make_nodecl(),
+                task_for_ub.make_nodecl(),
+                get_bool_type(),
+                0);
+
+    Nodecl::NodeclBase next =
+        Nodecl::AddAssignment::make(
+                task_ind_var.make_nodecl(),
+                task_for_st.make_nodecl(),
+                task_ind_var.get_type().get_lvalue_reference_to());
+
+    Nodecl::LoopControl new_for_control = Nodecl::LoopControl::make(init, cond, next);
+    for_statement.set_loop_header(new_for_control);
+}
+
 static void create_taskloop_type(TL::Type& kmp_taskloop_type,
                                  const Nodecl::OpenMP::Taskloop& construct,
                                  const std::stringstream& outline_task_name) {
@@ -61,7 +121,7 @@ static void create_taskloop_type(TL::Type& kmp_taskloop_type,
     if (IS_C_LANGUAGE)
         task_args_struct_lang_name  = "struct " + task_args_struct_lang_name;
 
-    
+
     kmp_taskloop_type = global_scope
         .get_symbol_from_name(task_args_struct_lang_name)
         .get_user_defined_type();
@@ -181,7 +241,7 @@ static void create_task_args(const Nodecl::OpenMP::Taskloop& construct,
     if (IS_C_LANGUAGE)
         task_args_struct_lang_name  = "struct " + task_args_struct_lang_name;
 
-    
+
     task_args_type = scope
         .get_symbol_from_name(task_args_struct_lang_name)
         .get_user_defined_type();
@@ -207,7 +267,7 @@ static void create_src_task_if(const TaskEnvironmentVisitor& task_environment,
         src_task_if << "(" << as_expression(task_environment.if_condition) << "? 1 : 0" << ")";
     }
     else {
-        src_task_if << "0";
+        src_task_if << "1";
     }
 
 }
@@ -357,24 +417,7 @@ static void task_vars_definition(const TL::Type& task_args_type,
     outline_task_stmt.prepend_sibling(tree_task_prev);
 
 
-    {
-        Source src_task_var_definition;
-        src_task_var_definition
-        << "kmp_uint64 lower = " 
-        << "(*_taskloop).lb"
-        << ";";
-        src_task_var_definition
-        << "kmp_uint64 upper = " 
-        << "(*_taskloop).ub"
-        << ";";
-        src_task_var_definition
-        << "kmp_uint64 incr = " 
-        << "(*_taskloop).st"
-        << ";";
-        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
-        outline_task_stmt.prepend_sibling(tree_task_var_definition);
 
-    }
 
     TL::ObjectList<TL::Symbol> fields = task_args_type.get_fields();
     TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
@@ -727,43 +770,15 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskloop& construct)
                  stmt_task_fill);
 
     Source src_capture_for_bounds;
-    if (for_statement.get_lower_bound().is_constant()) {
-        const_value_t* cval = for_statement.get_lower_bound().get_constant();
-        Nodecl::NodeclBase cval_nodecl = const_value_to_nodecl(cval);
-
-        src_capture_for_bounds
-        << "_ret->lb =" << as_expression(cval_nodecl) << ";";
-
-    }
-    else {
-
-    }
-    if (for_statement.get_upper_bound().is_constant()) {
-        const_value_t* cval = for_statement.get_upper_bound().get_constant();
-        Nodecl::NodeclBase cval_nodecl = const_value_to_nodecl(cval);
-
-        src_capture_for_bounds
-        << "_ret->ub =" << as_expression(cval_nodecl) << ";";
-
-    }
-    else {
-
-    }
-    if (for_statement.get_step().is_constant()) {
-        const_value_t* cval = for_statement.get_step().get_constant();
-        Nodecl::NodeclBase cval_nodecl = const_value_to_nodecl(cval);
-
-        src_capture_for_bounds
-        << "_ret->st =" << as_expression(cval_nodecl) << ";";
-
-    }
-    else {
-
-    }
+    src_capture_for_bounds
+    << "_ret->lb =" << as_expression(for_statement.get_lower_bound()) << ";";
+    src_capture_for_bounds
+    << "_ret->ub =" << as_expression(for_statement.get_upper_bound()) << ";";
+    src_capture_for_bounds
+    << "_ret->st=" << as_expression(for_statement.get_step()) << ";";
     Nodecl::NodeclBase tree_capture_for_bounds = src_capture_for_bounds.parse_statement(stmt_capture_for_bounds);
     stmt_capture_for_bounds.prepend_sibling(tree_capture_for_bounds);
 
- 
     task_vars_definition(task_args_type,
                          firstprivate_no_vla_symbols,
                          firstprivate_vla_symbols,
@@ -773,14 +788,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskloop& construct)
                          private_vla_symbols,
                          outline_task_stmt);
 
-    Source src_new_for;
-    src_new_for
-    << "for (" << as_symbol(for_statement.get_induction_variable()) << " = lower; "
-    << as_symbol(for_statement.get_induction_variable()) << " <= upper;"
-    << as_symbol(for_statement.get_induction_variable()) << " += incr) {"
-    << as_statement(for_statement.get_statement())
-    << "}";
-    Nodecl::NodeclBase tree_new_for = src_new_for.parse_statement(outline_task_stmt);
+    move_for_loop_to_task(for_statement, outline_task_stmt);
 
     Nodecl::Utils::SimpleSymbolMap symbol_map;
     fill_symbol_map(symbol_map,
@@ -792,7 +800,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskloop& construct)
                     private_vla_symbols,
                     outline_task_stmt);
 
-    Nodecl::NodeclBase task_func_body = Nodecl::Utils::deep_copy(tree_new_for,
+    Nodecl::NodeclBase task_func_body = Nodecl::Utils::deep_copy(for_statement,
             outline_task_stmt,
             symbol_map);
     outline_task_stmt.prepend_sibling(task_func_body);
