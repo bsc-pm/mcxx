@@ -1028,7 +1028,11 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                         if ((*it)->get_allocation_policy()
                                 & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
                         {
-                            cleanup_code << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n";
+                            cleanup_code
+                                << "IF (ALLOCATED(args % " << (*it)->get_field_name() << ")) THEN\n"
+                                <<      "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
+                                << "ENDIF\n"
+                                ;
                         }
                     }
                     else

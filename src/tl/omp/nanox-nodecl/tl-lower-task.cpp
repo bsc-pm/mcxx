@@ -1608,12 +1608,24 @@ void LoweringVisitor::fill_arguments(
                             }
                             else
                             {
+                                if (sym.is_allocatable())
+                                {
+                                    fill_outline_arguments   << "if (allocated(" << sym.get_name() << ")) then\n";
+                                    fill_immediate_arguments << "if (allocated(" << sym.get_name() << ")) then\n";
+                                }
+
                                 fill_outline_arguments <<
                                     "ol_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
                                     ;
                                 fill_immediate_arguments <<
                                     "imm_args % " << (*it)->get_field_name() << " = " << (*it)->get_symbol().get_name() << "\n"
                                     ;
+
+                                if (sym.is_allocatable())
+                                {
+                                    fill_outline_arguments << "endif\n";
+                                    fill_immediate_arguments << "endif\n";
+                                }
                             }
                         }
                         else

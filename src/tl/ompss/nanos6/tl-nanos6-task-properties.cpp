@@ -1011,6 +1011,29 @@ namespace TL { namespace Nanos6 {
         array_type.array_get_bounds(lbound, ubound);
         return element_type.get_array_to_with_descriptor(lbound, ubound, sc);
     }
+
+    template < unsigned int num_arguments>
+    TL::Symbol get_fortran_intrinsic_symbol(const std::string &name, const Nodecl::List& actual_arguments, bool is_call)
+    {
+        // Note that this function is template to avoid to use VLAs in C++ or dynamic memory allocation
+        nodecl_t arguments[num_arguments];
+
+        int index = 0;
+        for (Nodecl::List::const_iterator it = actual_arguments.begin();
+                it != actual_arguments.end();
+                it++)
+        {
+            arguments[index++]=it->get_internal_nodecl();
+        }
+        TL::Symbol intrinsic(
+                fortran_solve_generic_intrinsic_call(
+                    fortran_query_intrinsic_name_str(TL::Scope::get_global_scope().get_decl_context(), name.c_str()),
+                    arguments,
+                    num_arguments,
+                    is_call));
+
+            return intrinsic;
+    }
     }
 
     void TaskProperties::create_environment_structure(
@@ -1130,7 +1153,7 @@ namespace TL { namespace Nanos6 {
                 it++)
         {
             TL::Type type_of_field = it->get_type().no_ref();
-            bool is_allocatable = symbol_entity_specs_get_is_allocatable(it->get_internal_symbol());
+            bool is_allocatable = it->is_allocatable();
 
             if (type_of_field.depends_on_nonconstant_values())
             {
@@ -2077,7 +2100,7 @@ namespace TL { namespace Nanos6 {
 
                 // Finally, if the field symbol is an allocatable, we have to deallocate it.
                 // Note that this copy was created when we captured its value.
-                if (symbol_entity_specs_get_is_allocatable(field.get_internal_symbol()))
+                if (field.is_allocatable())
                 {
                     deallocate_exprs.append(class_member_access.shallow_copy());
                 }
@@ -2173,7 +2196,7 @@ namespace TL { namespace Nanos6 {
 
                 // Finally, if the field symbol is an allocatable, we have to deallocate it.
                 // Note that this copy was created when we captured its value.
-                if (symbol_entity_specs_get_is_allocatable(field.get_internal_symbol()))
+                if (field.is_allocatable())
                 {
                     deallocate_exprs.append(class_member_access.shallow_copy());
                 }
@@ -2229,8 +2252,31 @@ namespace TL { namespace Nanos6 {
 
             outline_empty_stmt.prepend_sibling(call_to_forward);
 
-            if(!deallocate_exprs.is_null())
-                outline_empty_stmt.append_sibling(Nodecl::FortranDeallocateStatement::make(deallocate_exprs, nodecl_null()));
+
+            Nodecl::List conditional_deallocation_stmts;
+            for(Nodecl::List::iterator it = deallocate_exprs.begin();
+                    it != deallocate_exprs.end();
+                    it++)
+            {
+                Nodecl::NodeclBase dealloc_expr(*it);
+                Nodecl::List actual_arguments = Nodecl::List::make(Nodecl::FortranActualArgument::make(dealloc_expr));
+
+                TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
+
+                Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
+                        allocated.make_nodecl(),
+                        actual_arguments,
+                        /* alternate-symbol */ Nodecl::NodeclBase::null(),
+                        /* function-form */ Nodecl::NodeclBase::null(),
+                        TL::Type::get_bool_type());
+
+                Nodecl::NodeclBase dealloc_stmt = Nodecl::FortranDeallocateStatement::make(
+                        Nodecl::List::make(dealloc_expr.shallow_copy()), Nodecl::NodeclBase::null());
+
+                outline_empty_stmt.append_sibling(
+                        Nodecl::IfElseStatement::make(cond, Nodecl::List::make(dealloc_stmt), Nodecl::NodeclBase::null()));
+            }
+
 
             TL::ObjectList<std::string> c_forwarded_parameter_names(forwarded_parameter_names.size(), "");
 
@@ -4024,14 +4070,29 @@ namespace TL { namespace Nanos6 {
                 {
                     Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
 
-                    Nodecl::NodeclBase assignment_stmt =
+                    Nodecl::NodeclBase stmt =
                         Nodecl::ExpressionStatement::make(
                                 Nodecl::Assignment::make(
                                     lhs,
                                     rhs,
                                     lhs_type));
 
-                    current_captured_stmts.append(assignment_stmt);
+                    if (it->is_allocatable())
+                    {
+                        Nodecl::List allocated_args = Nodecl::List::make(Nodecl::FortranActualArgument::make(rhs.shallow_copy()));
+                        TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", allocated_args, /* is_call */ 0);
+
+                        Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
+                                allocated.make_nodecl(),
+                                allocated_args,
+                                /* alternate_name */ Nodecl::NodeclBase::null(),
+                                /* function_form */ Nodecl::NodeclBase::null(),
+                                TL::Type::get_bool_type());
+
+                        stmt = Nodecl::IfElseStatement::make(cond, Nodecl::List::make(stmt), Nodecl::NodeclBase::null());
+                    }
+
+                    current_captured_stmts.append(stmt);
                 }
             }
 
@@ -4264,7 +4325,7 @@ namespace TL { namespace Nanos6 {
                 if (!symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()))
                         continue;
 
-                TL::Source allocate_src;
+                Nodecl::NodeclBase allocate_stmt;
                 {
                     std::stringstream shape_list;
                     if (it->get_type().no_ref().is_array())
@@ -4287,17 +4348,24 @@ namespace TL { namespace Nanos6 {
                         shape_list << ")";
                     }
 
+                    TL::Source allocate_src;
                     allocate_src << "ALLOCATE(" << as_symbol(args) << " % " << it->get_name() << shape_list.str() << ")\n";
+                    allocate_stmt = allocate_src.parse_statement(task_enclosing_scope);
                 }
 
-                TL::Source src;
-                src << "IF (ALLOCATED("  <<  it->get_name() << ")) THEN\n"
-                    << allocate_src
-                    << "END IF\n"
-                    ;
+                Nodecl::List actual_arguments = Nodecl::List::make(Nodecl::FortranActualArgument::make(it->make_nodecl(true)));
+                TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
 
+                Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
+                        allocated.make_nodecl(),
+                        actual_arguments,
+                        /* alternate_name */ Nodecl::NodeclBase::null(),
+                        /* function_form */ Nodecl::NodeclBase::null(),
+                        TL::Type::get_bool_type());
 
-                Nodecl::NodeclBase if_stmt = src.parse_statement(task_enclosing_scope);
+                Nodecl::NodeclBase if_stmt =
+                    Nodecl::IfElseStatement::make(cond, allocate_stmt, Nodecl::NodeclBase::null());
+
                 captured_list.append(if_stmt);
             }
         }
