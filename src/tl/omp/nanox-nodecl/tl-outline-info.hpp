@@ -114,8 +114,6 @@ namespace TL
                     ALLOCATION_POLICY_TASK_MUST_DESTROY    = 1 << 2,
                     // Deallocate entity ALLOCATABLE (Fortran)
                     ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE = 1 << 3,
-                    // Deallocate entity POINTER (Fortran)
-                    ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER = 1 << 4,
                 };
 
             private:

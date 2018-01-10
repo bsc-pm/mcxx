@@ -490,15 +490,10 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         }
                         argument << "args % " << (*it)->get_field_name();
 
-                        bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
-                        bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
-
-                        if ((((*it)->get_symbol().is_in_module() || (*it)->get_symbol().is_from_module()) && is_allocatable)
-                                || is_pointer)
+                        if ((*it)->get_allocation_policy()
+                                & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
                         {
-                            cleanup_code
-                                << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
-                                ;
+                            cleanup_code << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n";
                         }
                     }
                     else
