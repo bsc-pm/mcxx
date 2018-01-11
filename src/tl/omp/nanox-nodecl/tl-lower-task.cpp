@@ -3135,30 +3135,19 @@ void LoweringVisitor::fill_dependences_internal(
         // out
         Source& result_src)
 {
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
-
-    int total_dependences = num_static_dependences + num_dynamic_dependences;
-    if (total_dependences == 0)
-    {
-        if (Nanos::Version::interface_is_at_least("deps_api", 1001))
-        {
-            result_src << "nanos_data_access_t dependences[1];"
-                ;
-        }
-        else
-        {
-            result_src << "nanos_dependence_t dependences[1];"
-                ;
-        }
-
-        return;
-    }
-
     if (!Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
         fatal_printf_at(ctr.get_locus(),
                 "please update your runtime version. deps_api < 1001 not supported\n");
     }
+
+    int total_dependences = num_static_dependences + num_dynamic_dependences;
+    if (total_dependences == 0)
+    {
+        result_src << "nanos_data_access_t dependences[1];";
+        return;
+    }
+
 
     Source dependency_regions;
 
@@ -3167,9 +3156,10 @@ void LoweringVisitor::fill_dependences_internal(
         << "nanos_data_access_t dependences[" << runtime_num_dependences << "];"
         ;
 
-
     int current_static_dep_idx = 0;
     bool there_are_dynamic_dependences = false;
+
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
     // Static dependences
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
