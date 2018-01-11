@@ -3156,67 +3156,62 @@ void LoweringVisitor::fill_dependences_internal(
         << "nanos_data_access_t dependences[" << runtime_num_dependences << "];"
         ;
 
-    int current_static_dep_idx = 0;
-    bool there_are_dynamic_dependences = false;
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
     // Static dependences
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
+    if (num_static_dependences)
     {
-        TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
-        for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
-                dep_it != deps.end();
-                dep_it++)
+        int current_static_dep_idx = 0;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
         {
-            OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
-            TL::DataReference dep_expr(dep_it->expression);
-
-            if (dep_expr.is_multireference())
+            TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+            for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
+                    dep_it != deps.end();
+                    dep_it++)
             {
-                there_are_dynamic_dependences = true;
-                // We will handle them later
-                continue;
+                OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
+                TL::DataReference dep_expr(dep_it->expression);
+
+                // Multideps are handled later
+                if (dep_expr.is_multireference())
+                    continue;
+
+                Source current_dep_num;
+                current_dep_num << current_static_dep_idx;
+
+                Type dependency_type = dep_expr.get_data_type();
+                int num_dimensions = dependency_type.get_num_dimensions();
+
+                TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-copy-deps-dimensions");
+                Source dimension_name;
+                dimension_name << "dimensions_" << (int)dep_dim_num;
+                dep_dim_num++;
+                dependency_regions << "nanos_region_dimension_t " << dimension_name << "[" << std::max(num_dimensions, 1) << "];";
+
+                handle_dependency_item(ctr, dep_expr, dir,
+                        dimension_name, current_dep_num, result_src);
+
+                current_static_dep_idx++;
             }
-
-            Source current_dep_num;
-            current_dep_num << current_static_dep_idx;
-
-            Type dependency_type = dep_expr.get_data_type();
-            int num_dimensions = dependency_type.get_num_dimensions();
-
-            TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-copy-deps-dimensions");
-            Source dimension_name;
-            dimension_name << "dimensions_" << (int)dep_dim_num;
-            dep_dim_num++;
-            dependency_regions << "nanos_region_dimension_t " << dimension_name << "[" << std::max(num_dimensions, 1) << "];"
-                ;
-
-            handle_dependency_item(ctr, dep_expr, dir,
-                    dimension_name, current_dep_num, result_src);
-
-            current_static_dep_idx++;
         }
     }
 
     // Dynamic dependences
-    if (there_are_dynamic_dependences)
+    if (num_dynamic_dependences)
     {
-        TL::Scope sc = ctr.retrieve_context();
-        TL::Symbol dyn_dep_idx;
-
         TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-dynamic-deps");
         std::stringstream ss; ss << "nanos_dyn_dep_idx_" << (int)dep_dim_num;
         dep_dim_num++;
 
         // Create the global dynamic index
-        dyn_dep_idx = sc.new_symbol(ss.str());
+        TL::Scope sc = ctr.retrieve_context();
+        TL::Symbol dyn_dep_idx = sc.new_symbol(ss.str());
         dyn_dep_idx.get_internal_symbol()->kind = SK_VARIABLE;
         dyn_dep_idx.get_internal_symbol()->type_information = get_signed_int_type();
-        dyn_dep_idx.get_internal_symbol()->value =
-            const_value_to_nodecl(const_value_get_signed_int(0));
+        dyn_dep_idx.get_internal_symbol()->value = const_value_to_nodecl(const_value_get_signed_int(0));
         symbol_entity_specs_set_is_user_declared(dyn_dep_idx.get_internal_symbol(), 1);
 
         result_src << as_symbol(dyn_dep_idx) << " = " << num_static_dependences << ";";
@@ -3236,7 +3231,6 @@ void LoweringVisitor::fill_dependences_internal(
                 it++)
         {
             TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
-
             for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
                     dep_it++)
@@ -3244,11 +3238,9 @@ void LoweringVisitor::fill_dependences_internal(
                 OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
                 TL::DataReference dep_expr(dep_it->expression);
 
+                // Static dependences were handled above
                 if (!dep_expr.is_multireference())
-                {
-                    // Static dependences were handled above
                     continue;
-                }
 
                 Source dependency_loop;
                 ObjectList<DataReference::MultiRefIterator> m = dep_expr.multireferences();
