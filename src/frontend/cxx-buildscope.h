@@ -244,6 +244,8 @@ void build_scope_nodecl_static_assert(nodecl_t nodecl_predicate,
 
 scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, const decl_context_t* block_context);
 
+nodecl_t flush_extra_declared_symbols(const locus_t* loc);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

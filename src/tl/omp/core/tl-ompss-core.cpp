@@ -757,6 +757,14 @@ namespace TL { namespace OpenMP {
         get_data_implicit_attributes_task(construct, data_environment, default_data_attr, there_is_default_clause);
         get_data_extra_symbols(data_environment, extra_symbols);
 
+
+        // Checking the environment of a task our FE may have generated some extra symbols
+        // (e.g. saved expressions). The initialization of those symbols must be added
+        // to the tree
+        Nodecl::NodeclBase nodes(flush_extra_declared_symbols(construct.get_locus()));
+        if (!nodes.is_null())
+            Nodecl::Utils::prepend_items_before(construct, nodes);
+
         // The target context has been fully consumed by this inline task,
         // this prevents from it leaking to nested tasks (see ticket #2500)
         //

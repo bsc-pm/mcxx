@@ -2085,7 +2085,7 @@ static void copy_gather_info(gather_decl_spec_t* dest, gather_decl_spec_t* src)
 #undef COPY_ARRAY
 }
 
-static nodecl_t flush_extra_declared_symbols(const locus_t* loc)
+nodecl_t flush_extra_declared_symbols(const locus_t* loc)
 {
     nodecl_t result = nodecl_null();
 
