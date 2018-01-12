@@ -1301,6 +1301,12 @@ namespace TL { namespace Nanos6 {
                 if (!symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()))
                     continue;
 
+
+                // When we are privatizing an allocatable array we add an
+                // allocatable component to the arguments structure. For this
+                // reason we must initialize the storage for the arguments!
+                requires_initialization = true;
+
                 TL::Symbol field = add_field_to_class(
                     new_class_symbol,
                     class_scope,
