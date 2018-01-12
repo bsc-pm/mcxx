@@ -113,7 +113,6 @@ void LoweringVisitor::fill_dependences_taskwait(
     }
     fill_dependences_internal(ctr,
             outline_info,
-            /* on_wait */ true,
             num_static_dependences,
             num_dynamic_dependences,
             num_dependences,

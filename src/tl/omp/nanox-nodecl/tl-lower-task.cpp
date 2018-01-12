@@ -2830,7 +2830,7 @@ void LoweringVisitor::fill_dependences(
         // out
         Source& result_src)
 {
-    fill_dependences_internal(ctr, outline_info, /* on_wait */ false,
+    fill_dependences_internal(ctr, outline_info,
             num_static_dependences,
             num_dynamic_dependences,
             runtime_num_dependences,
@@ -3128,7 +3128,6 @@ void LoweringVisitor::handle_dependency_item(
 void LoweringVisitor::fill_dependences_internal(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
-        bool on_wait,
         int num_static_dependences,
         int num_dynamic_dependences,
         Source& runtime_num_dependences,

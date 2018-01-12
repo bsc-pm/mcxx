@@ -233,7 +233,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void fill_dependences_internal(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
-                bool on_wait,
                 int num_static_dependences,
                 int num_dynamic_dependences,
                 Source& num_dependences,
