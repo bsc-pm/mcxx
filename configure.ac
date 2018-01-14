@@ -1904,6 +1904,7 @@ flex_good=no
 
 force_bison=no
 bison_good=no
+enable_graph_glr=no
 
 force_gperf=no
 gperf_good=no
@@ -2020,6 +2021,35 @@ then
     esac
   fi
 
+  if test x$bison_good = xyes;
+  then
+     dnl Check if the current bison supports %graph-glr-parser
+     AC_MSG_CHECKING([bison supports %graph-glr-parser])
+
+     # Mini grammar file using %graph-glr
+     cat <<EOF > tmp.y
+%graph-glr-parser
+%token A
+%start test
+
+%%
+test : A
+;
+EOF
+
+     AS_IF([$BISON -o /dev/null tmp.y &> /dev/null],
+        [
+            enable_graph_glr=yes
+            AC_MSG_RESULT([yes])
+        ],
+        [
+            AC_MSG_RESULT([no])
+        ]
+      )
+
+     rm -f tmp.y
+  fi
+
   dnl Check gperf
   AC_ARG_ENABLE([gperf-regeneration],
           AS_HELP_STRING([--enable-gperf-regeneration], [Forces gperf regeneration, even if the version is not recommended or properly detected.]),
@@ -2073,6 +2103,14 @@ AM_CONDITIONAL([TPP_BUILDING], test "(" x$bison_good = xyes ")" -o "(" x$flex_go
 AM_CONDITIONAL([BISON_BUILDING], test x$bison_good = xyes)
 AM_CONDITIONAL([FLEX_BUILDING], test x$flex_good = xyes)
 AM_CONDITIONAL([GPERF_BUILDING], test x$gperf_good = xyes)
+
+ENABLE_GRAPH_GLR=$enable_graph_glr
+AC_SUBST([ENABLE_GRAPH_GLR])
+AM_CONDITIONAL([ENABLE_GRAPH_GLR], test x$enable_graph_glr = xyes)
+if test x$enable_graph_glr = xyes;
+then
+    AC_DEFINE([ENABLE_GRAPH_GLR], 1, [Define to 1 if the Graph GLR algorithm is used])
+fi
 
 dnl --------------------- End of Regeneration files ---------------------
 
@@ -2520,6 +2558,7 @@ print_tool()
 
 print_tool "Flex " "$FLEX"
 print_tool "GNU bison " "$BISON"
+echo "    - Graph GLR is enabled:" $enable_graph_glr
 print_tool "GNU gperf " "$GPERF"
 
 print_tool "git content tracker" "$GIT"
