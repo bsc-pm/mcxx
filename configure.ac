@@ -133,8 +133,11 @@ dnl --------------------- end check of old gcc ---
 
 INSTALL_CONFIG_FILES="00.config.plain"
 
-# Note that these profiles are just for testing, no soft link
-# is created for them
+# Our configuration file with utilities is always installed although it doesn't
+# generate any binary
+INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 02.config.utilities"
+
+# Note that these profiles are just for testing, no soft link is created for them
 INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.hlt"
 
 # plaincxx is always installed as a binary

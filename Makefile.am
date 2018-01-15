@@ -3192,6 +3192,7 @@ src_driver_fortran_libmf03_driver_la_CFLAGS = $(fortran_driver_common_cflags)
 CONFIG_FILES =  \
        config/00.config.plain \
        config/01.config.intel-plain \
+       config/02.config.utilities \
        config/10.config.hlt \
        config/10.config.omp-base \
        config/10.config.gomp-omp-base \
