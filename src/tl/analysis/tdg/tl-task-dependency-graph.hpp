@@ -510,6 +510,18 @@ namespace Analysis {
         void clear_visits();
     };
 
+    struct LoopInfo {
+        Utils::InductionVar* _iv;
+        NBase _lb;
+        NBase _ub;
+        NBase _incr;
+        unsigned _niter;
+
+        LoopInfo(Utils::InductionVar* iv, NBase lb, NBase ub, NBase incr, unsigned niter)
+            : _iv(iv), _lb(lb), _ub(ub), _incr(incr), _niter(niter)
+        {}
+    };
+
     class LIBTL_CLASS ExpandedTaskDependencyGraph
     {
     private:
@@ -519,7 +531,7 @@ namespace Analysis {
         unsigned _maxI;
         unsigned _maxT;
 
-        void compute_constants_rec(FTDGNode* n);
+        void compute_constants_rec(FTDGNode* n, std::vector<LoopInfo*>& outer_loops_info);
         void compute_constants();
         void expand_tdg();
 
