@@ -62,10 +62,28 @@ namespace TL
     class DataReference : public Nodecl::NodeclBase
     {
         public:
-            DataReference() : _is_valid(false), _diagnostic_context(NULL) { }
+            typedef std::pair<TL::Symbol, Nodecl::NodeclBase> MultiRefIterator;
+
+        private:
+
+            Nodecl::NodeclBase _base_address;
+
+            bool _is_valid;
+            bool _is_assumed_size;
+
+            TL::Symbol _base_symbol;
+            TL::Type _data_type;
+
+            TL::ObjectList<MultiRefIterator> _iterators;
+
+            // Error log
+            diagnostic_context_t* _diagnostic_context;
+
+        public:
+            DataReference() : _is_valid(false), _is_assumed_size(false), _diagnostic_context(NULL) { }
 
             //! Constructors of a DataReference
-            /*! 
+            /*!
               Use is_valid to know if the expression wrapped as a DataReference
               is eligible as a data reference.
              */
@@ -131,7 +149,7 @@ namespace TL
 
             //! States if this is a multireference data-reference
             bool is_multireference() const;
-            typedef std::pair<TL::Symbol, Nodecl::NodeclBase> MultiRefIterator;
+
             TL::ObjectList<MultiRefIterator> multireferences() const;
 
             friend struct DataReferenceVisitor;
@@ -186,19 +204,6 @@ namespace TL
 
             Nodecl::NodeclBase get_address_of_symbol_helper(Nodecl::NodeclBase expr, bool reference) const;
 
-            /* data members */
-            Nodecl::NodeclBase _base_address;
-
-            bool _is_valid;
-            bool _is_assumed_size;
-
-            TL::Symbol _base_symbol;
-            TL::Type _data_type;
-
-            TL::ObjectList<MultiRefIterator> _iterators;
-
-            // Error log
-            diagnostic_context_t* _diagnostic_context;
     };
 }
 
