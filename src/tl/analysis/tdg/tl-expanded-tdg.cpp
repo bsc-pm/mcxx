@@ -38,24 +38,86 @@ namespace Analysis {
 
     static unsigned nt = 0;
 
-    struct LoopInfo {
-        Utils::InductionVar* _iv;
-        NBase _lb;
-        NBase _ub;
-        NBase _incr;
-        unsigned _niter;
-
-        LoopInfo(Utils::InductionVar* iv, NBase lb, NBase ub, NBase incr, unsigned niter)
-            : _iv(iv), _lb(lb), _ub(ub), _incr(incr), _niter(niter)
-        {}
-    };
-
 namespace {
     std::map<FTDGNode*, std::set<ETDGNode*> > ftdg_to_etdg_nodes;
     unsigned task_id = 0;
 
     std::map<FTDGNode*, LoopInfo*> ftdgnode_to_loop_info;
     std::map<FTDGNode*, unsigned> ftdgnode_to_task_id;
+
+    // @param min get the minimum constant value if true, and the maximum otherwise
+    const_value_t* get_constant(
+            Node* n, NBase st, bool min,
+            std::vector<LoopInfo*>& outer_loops_info)
+    {
+        if (st.is_constant())
+            return st.get_constant();
+
+        NBase malleable_st = st.shallow_copy();
+        NodeclList mem_accesses = Nodecl::Utils::get_all_memory_accesses(st);
+        NodeclMap& rd_in = n->get_reaching_definitions_in();
+        for (NodeclList::iterator it = mem_accesses.begin(); it != mem_accesses.end(); ++it)
+        {
+            NBase var = *it;
+            NodeclMap::iterator var_rd_in_it = rd_in.find(var);
+            ERROR_CONDITION(var_rd_in_it == rd_in.end(),
+                            "No reaching definition for variable %s in node %d.\n",
+                            var.prettyprint().c_str(), n->get_id());
+
+            // Get the value of the variable from reaching definitions or from outer loops info
+            NBase var_value;
+            if (rd_in.count(var) < 1)
+            {
+                internal_error("No reaching definition for variable %s in node %d.\n",
+                               var.prettyprint().c_str(), n->get_id());
+            }
+            else if (rd_in.count(var) == 1)
+            {
+                var_value = var_rd_in_it->second.first.shallow_copy();
+                ERROR_CONDITION(var_value.is<Nodecl::Unknown>(),
+                                "Unknown reaching definition for variable %s in node %d.\n",
+                                var.prettyprint().c_str(), n->get_id());
+            }
+            else
+            {
+                LoopInfo* var_loop_info = NULL;
+                for (std::vector<LoopInfo*>::iterator itc = outer_loops_info.begin();
+                     itc != outer_loops_info.end(); ++itc)
+                {
+                    if (Nodecl::Utils::structurally_equal_nodecls(var, (*itc)->_iv->get_variable()))
+                    {
+                        var_loop_info = *itc;
+                        break;
+                    }
+                }
+                ERROR_CONDITION(var_loop_info == NULL,
+                                "More than one reaching definition found for symbol %s in PCFG node %d.\n",
+                                var.prettyprint().c_str(), n->get_id());
+
+                var_value = (min ? var_loop_info->_lb : var_loop_info->_ub);
+            }
+
+            const_value_t* var_value_const;
+            if (var_value.is_constant())
+            {
+                var_value_const = var_value.get_constant();
+            }
+            else
+            {
+                var_value_const = get_constant(n, var_value, min, outer_loops_info);
+            }
+            NBase var_value_const_n(const_value_to_nodecl(var_value_const));
+            Nodecl::Utils::nodecl_replace_nodecl_by_structure(malleable_st, var, var_value_const_n);
+        }
+
+        Optimizations::ReduceExpressionVisitor rev;
+        rev.walk(malleable_st);
+        ERROR_CONDITION(!malleable_st.is_constant(),
+                        "Expression %s could not be reduced to a constant.\n",
+                        st.prettyprint().c_str());
+
+        return malleable_st.get_constant();
+    }
 
     const_value_t* get_constant(Node* n, NBase st)
     {
@@ -64,14 +126,14 @@ namespace {
 
         NBase malleable_st = st.shallow_copy();
         NodeclList mem_accesses = Nodecl::Utils::get_all_memory_accesses(st);
+        NodeclMap& rd_in = n->get_reaching_definitions_in();
         for (NodeclList::iterator it = mem_accesses.begin(); it != mem_accesses.end(); ++it)
         {
             NBase var = *it;
-            NodeclMap& rd_in = n->get_reaching_definitions_in();
-            NodeclMap::iterator var_rd_in_it = rd_in.find(var);
             ERROR_CONDITION(rd_in.count(var) > 1,
-                            "More than one reaching definition found for symbol %s.\n",
-                            var.prettyprint().c_str());
+                            "More than one reaching definition found for symbol %s in PCFG node %d.\n",
+                            var.prettyprint().c_str(), n->get_id());
+            NodeclMap::iterator var_rd_in_it = rd_in.find(var);
             if (var_rd_in_it != rd_in.end())
             {
                 NBase var_rd_in = var_rd_in_it->second.first.shallow_copy();
@@ -1011,7 +1073,8 @@ namespace {
         if (TDG_DEBUG)
             std::cerr << "****************** Removing synchronizations from ETDG " << _tdg_id << " ******************" << std::endl;
         remove_synchronizations();
-        std::cerr << "**************** END removing synchronizations from ETDG " << _tdg_id << " ****************" << std::endl;
+        if (TDG_DEBUG)
+            std::cerr << "**************** END removing synchronizations from ETDG " << _tdg_id << " ****************" << std::endl;
         clear_visits();
     }
 
@@ -1097,7 +1160,8 @@ namespace {
         expand_tdg();
     }
 
-    void ExpandedTaskDependencyGraph::compute_constants_rec(FTDGNode* n)
+    void ExpandedTaskDependencyGraph::compute_constants_rec(
+            FTDGNode* n, std::vector<LoopInfo*>& outer_loops_info)
     {
         switch (n->get_type())
         {
@@ -1116,8 +1180,8 @@ namespace {
                                 "Induction variable %s has an unsupported behavior\n",
                                 iv->get_variable().prettyprint().c_str());
 
-                const_value_t* lbc = get_constant(pcfg_n, *lbs.begin());
-                const_value_t* ubc = get_constant(pcfg_n, *ubs.begin());
+                const_value_t* lbc = get_constant(pcfg_n, *lbs.begin(), /*min*/ true, outer_loops_info);
+                const_value_t* ubc = get_constant(pcfg_n, *ubs.begin(), /*min*/ false, outer_loops_info);
                 const_value_t* incrc = get_constant(pcfg_n, iv->get_increment());
                 const_value_t* niterc = const_value_div(const_value_add(const_value_sub(ubc, lbc),
                                                                         const_value_get_one(4, 1)),
@@ -1133,6 +1197,7 @@ namespace {
                         NBase(const_value_to_nodecl(incrc)),
                         niter);
                 ftdgnode_to_loop_info[n] = li;
+                outer_loops_info.push_back(li);
 
                 // NOTE: No break here because we still have to traverse inner nodes
             }
@@ -1140,7 +1205,7 @@ namespace {
             {
                 const ObjectList<FTDGNode*>& inner = n->get_inner();
                 for (ObjectList<FTDGNode*>::const_iterator it = inner.begin(); it != inner.end(); ++it)
-                    compute_constants_rec(*it);
+                    compute_constants_rec(*it, outer_loops_info);
                 break;
             }
             case FTDGTask:
@@ -1165,7 +1230,8 @@ namespace {
             for (std::vector<FTDGNode*>::const_iterator itt = current_outermost_nodes.begin();
                 itt != current_outermost_nodes.end(); ++itt)
             {
-                compute_constants_rec(*itt);
+                std::vector<LoopInfo*> outer_loops_info;
+                compute_constants_rec(*itt, outer_loops_info);
             }
         }
 

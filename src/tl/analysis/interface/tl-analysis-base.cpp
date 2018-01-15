@@ -176,15 +176,46 @@ namespace Analysis {
             tlv.walk_functions(ast);
             _all_functions = tlv.get_functions();
             if (functions.empty())
+            {
                 unique_asts = _all_functions;
+            }
             else
             {
+                std::set<std::string> not_found_functions(functions);
                 for (ObjectList<NBase>::iterator it = _all_functions.begin();
                         it != _all_functions.end(); ++it)
                 {
                     std::string func_name = it->get_symbol().get_name();
                     if (functions.find(func_name) != functions.end())
+                    {
+                        not_found_functions.erase(func_name);
                         unique_asts.append(*it);
+                    }
+                }
+                // Warn about the functions that have not been found
+                if (!not_found_functions.empty())
+                {
+                    std::string comma_separated_names;
+                    for (std::set<std::string>::iterator it = not_found_functions.begin();
+                         it != not_found_functions.end(); )
+                    {
+                        comma_separated_names += *it;
+                        ++it;
+                        if (it != not_found_functions.end())
+                            comma_separated_names += ", ";
+                    }
+                    if (not_found_functions.size() == 1)
+                    {
+                        WARNING_MESSAGE("Function '%s' specified in parameter 'functions' has not been found.\n"
+                                        "No analysis will be performed on that function.\n",
+                                        comma_separated_names.c_str());
+                    }
+                    else
+                    {
+                        WARNING_MESSAGE("Functions '%s' specified in parameter 'functions' have not been found.\n"
+                                        "No analysis will be performed on that functions.\n",
+                                        comma_separated_names.c_str());
+                    }
                 }
             }
             asserted_funcs = tlv.get_asserted_funcs();
