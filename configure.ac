@@ -1256,13 +1256,10 @@ CUDA_LIBS=""
 
 AC_ARG_WITH([cuda],
 AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
-	[
-		CUDADIR="${withval}"
-	],
-	[
-		CUDADIR="/usr/local/cuda"
-	])
-
+    [
+     CUDADIR="${withval}"
+    ]
+)
 
 if test x$cuda_enabled = xyes ; then
     # Checking CUDA support consists on two steps:
