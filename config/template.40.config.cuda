@@ -9,8 +9,11 @@ preprocessor_name =
 preprocessor_options =
 compiler_name = @NVCC@
 compiler_options = -I@NANOX_INCLUDES@ -include nanos.h -include nanos_omp.h -include nanos-gpu.h
+
+# This profile shouldn't be used to link anything
 linker_name =
-linker_options = -lnanox-gpu-api
+linker_options =
+
 codegen_phase = libcodegen-cuda.so
 target_options[mnvfc] = no_sublink embed:partial_linking
 target_options[mnvcc] = no_sublink embed:partial_linking
