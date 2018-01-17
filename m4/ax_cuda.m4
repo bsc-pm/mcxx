@@ -14,7 +14,7 @@ AC_DEFUN([AX_CHECK_CUDA], [
 
          AC_CHECK_PROG([NVCC], [nvcc], [nvcc], [], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
 
-         AS_IF([est x"$NVCC" != x ], [
+         AS_IF([test x"$NVCC" != x ], [
             ax_cv_check_cuda="yes"
             CUDA_INCLUDES="$CUDADIR/include"
             CUDA_LIBS="$CUDADIR/lib"

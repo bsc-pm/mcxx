@@ -900,7 +900,6 @@ AC_MSG_RESULT([$enable_nanox_cuda_device])
 nanox_support_cuda=no
 if test x"$is_enabled_tl_omp_nanox" = x"yes";
 then
-    AC_MSG_CHECKING([whether Nanos++ was configured with CUDA support])
     #backup vars before we do the test
     CFLAGSBACKUP="$CFLAGS"
     CPPFLAGSBACKUP="$CPPFLAGS"
@@ -915,6 +914,7 @@ then
     CFLAGS="$CFLAGSBACKUP"
     CPPFLAGS="$CPPFLAGSBACKUP"
     CXXFLAGS="$CXXFLAGSBACKUP"
+    AC_MSG_CHECKING([whether Nanos++ was configured with CUDA support])
     AC_MSG_RESULT([$nanox_supports_cuda])
 fi
 
