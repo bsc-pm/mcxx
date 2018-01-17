@@ -1225,31 +1225,13 @@ dnl --------------------- End of Support for Intel OpenMP RTL ------------------
 dnl --------------------- Support for CUDA devices in Nanox --------------------------------
 # Check if CUDA is installed
 cuda_valid=no
-cuda_enabled=yes
-CUDA=""
 
-AC_MSG_CHECKING([if the use of CUDA devices was disabled])
+AC_MSG_CHECKING([whether the CUDA Nanos++ Lowering is enabled])
 AC_ARG_ENABLE([nanox-cuda-device],
-  AS_HELP_STRING([--disable-nanox-cuda-device], [Disables the support for CUDA devices]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        cuda_enabled="yes"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            cuda_enabled="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    cuda_enabled="yes"
-    AC_MSG_RESULT([no])
-  ]
-)
+  AS_HELP_STRING([--disable-nanox-cuda-device], [Disables the CUDA Nanos++ Lowering phase in Mercurium (enabled by default)]),
+  [ ], # enable_nanox_cuda_device=$enable_val
+  [ enable_nanox_cuda_device="yes" ])
+AC_MSG_RESULT([$enable_nanox_cuda_device])
 
 CUDA_INCLUDES=""
 CUDA_LIBS=""
@@ -1261,7 +1243,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
     ]
 )
 
-if test x$cuda_enabled = xyes ; then
+if test x"$enable_nanox_cuda_device" = x"yes" ; then
     # Checking CUDA support consists on two steps:
     #   1. Checking that we have access to a valid nvcc
     #   2. Checking that the runtime was configured with CUDA support
@@ -1329,29 +1311,12 @@ dnl --------------------- End of Support for CUDA in Nanox ---------------------
 
 dnl --------------------- Support for FPGA in Nanox --------------------------------
 
-fpga_enabled=yes
-AC_MSG_CHECKING([if the use of FPGA devices was disabled])
+AC_MSG_CHECKING([whether the FPGA Nanos++ Lowering is enabled])
 AC_ARG_ENABLE([nanox-fpga-device],
-  AS_HELP_STRING([--disable-nanox-fpga-device], [Disables the support for FPGA devices]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        fpga_enabled="yes"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            fpga_enabled="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    fpga_enabled="yes"
-    AC_MSG_RESULT([no])
-  ]
-)
+  AS_HELP_STRING([--disable-nanox-fpga-device], [Disables the FPGA Nanos++ Lowering phase in Mercurium (enabled by default)]),
+  [ ], #enable_nanox_fpga_device=$enableval
+  [ enable_nanox_fpga_device="yes"])
+AC_MSG_RESULT([$enable_nanox_fpga_device])
 
 FPGA_CC=""
 AC_ARG_WITH([fpga-cc],
@@ -1365,46 +1330,28 @@ AS_HELP_STRING([--with-fpga-cc=comp], [Prefix for the fpga system cross compiler
 
 AC_SUBST([FPGA_CC])
 
-if test x$is_enabled_tl_omp_nanox = xyes -a x$fpga_enabled = xyes;
+if test x$is_enabled_tl_omp_nanox = xyes -a x"$enable_nanox_fpga_device" = x"yes";
 then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
     COMPILER_NAMES="${COMPILER_NAMES} fpgacc fpgacxx"
 fi
-AM_CONDITIONAL([BUILD_NANOX_DEVICE_FPGA], test x$is_enabled_tl_omp_nanox = xyes -a x$fpga_enabled = xyes)
+AM_CONDITIONAL([BUILD_NANOX_DEVICE_FPGA], test x$is_enabled_tl_omp_nanox = xyes -a x"$enable_nanox_fpga_device" = x"yes")
 
 dnl --------------------- End of Support for FPGA in Nanox --------------------------------
 
 dnl --------------------- Start OpenCL support in Mercurium --------------------------------
 
-opencl_enabled=yes
 opencl_valid=no
 
-AC_MSG_CHECKING([if the use of OpenCL devices was disabled])
+AC_MSG_CHECKING([whether the OpenCL Nanos++ Lowering is enabled])
 AC_ARG_ENABLE([nanox-opencl-device],
-  AS_HELP_STRING([--disable-nanox-opencl-device], [Disables the support for OpenCL devices]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        opencl_enabled="yes"
-        opencl_valid="yes"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            opencl_enabled="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    opencl_enabled="yes"
-    AC_MSG_RESULT([no])
-  ]
-)
+  AS_HELP_STRING([--disable-nanox-opencl-device], [Disables the OpenCL Nanos++ Lowering phase in Mercurium (enabled by default)]),
+  [ ], # enable_nanox_opencl_device=$enableval
+  [ enable_nanox_opencl_device="yes" ])
+AC_MSG_RESULT($enable_nanox_opencl_device)
 
 
-if test x$opencl_enabled = xyes -a x$opencl_valid = xno;
+if test x$"$enable_nanox_opencl_device" = x"yes";
 then
    AC_MSG_CHECKING([if nanox has opencl header installed])
    #tests if opencl headers are usable and correct
@@ -1441,33 +1388,16 @@ dnl --------------------- End OpenCL support in Nanox --------------------------
 
 
 dnl --------------------- Start MPI support in Mercurium --------------------------------
-mpi_enabled=yes
 
-AC_MSG_CHECKING([if the use of MPI devices was disabled])
+AC_MSG_CHECKING([whether the MPI Nanos++ Lowering is enabled])
 AC_ARG_ENABLE([nanox-mpi-device],
-  AS_HELP_STRING([--disable-nanox-mpi-device], [Disables the support for MPI devices]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        mpi_enabled="yes"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            mpi_enabled="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    mpi_enabled="yes"
-    AC_MSG_RESULT([no])
-  ]
-)
+  AS_HELP_STRING([--disable-nanox-mpi-device], [Disables the MPI Nanos++ Lowering phase in Mercurium (enabled by default)]),
+  [ ], # enable_nanox_mpi_device=$enableval
+  [ enable_nanox_mpi_device="yes" ])
+AC_MSG_RESULT($enable_nanox_mpi_device)
 
 mpi_valid=no
-if test x$mpi_enabled = xyes;
+if test x"$enable_nanox_mpi_device" = x"yes";
 then
     mpi_found=no
     mpi_forced=no
