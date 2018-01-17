@@ -175,6 +175,9 @@ AC_SUBST([sqlite3_LIBS])
 dnl ----- End Sqlite ---------------------------
 
 
+AX_CHECK_CUDA
+
+
 dnl --- Suport for Extrae --------------
 extrae_support="no"
 AC_MSG_CHECKING([if Extrae support has been enabled])
@@ -886,9 +889,6 @@ dnl --------------------- End of Support for OpenMP Nanox ----------------------
 
 
 dnl --------------------- Support for CUDA devices in Nanox --------------------------------
-# Check if CUDA is installed
-cuda_valid=no
-
 AC_MSG_CHECKING([whether the CUDA Nanos++ Lowering is enabled])
 AC_ARG_ENABLE([nanox-cuda-device],
   AS_HELP_STRING([--disable-nanox-cuda-device], [Disables the CUDA Nanos++ Lowering phase in Mercurium (enabled by default)]),
@@ -896,79 +896,47 @@ AC_ARG_ENABLE([nanox-cuda-device],
   [ enable_nanox_cuda_device="yes" ])
 AC_MSG_RESULT([$enable_nanox_cuda_device])
 
-CUDA_INCLUDES=""
-CUDA_LIBS=""
 
-AC_ARG_WITH([cuda],
-AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
-    [
-     CUDADIR="${withval}"
-    ]
-)
-
-if test x"$enable_nanox_cuda_device" = x"yes" ; then
-    # Checking CUDA support consists on two steps:
-    #   1. Checking that we have access to a valid nvcc
-    #   2. Checking that the runtime was configured with CUDA support
-    if test -d "$CUDADIR" ;
-    then
-        AC_CHECK_PROG([NVCC], [nvcc], [nvcc], [], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
-        if test x$NVCC = x ; then
-            AC_MSG_WARN([nvcc not found. Disabling CUDA support])
-            cuda_valid=no
-        else
-            CUDA_INCLUDES="$CUDADIR/include"
-            CUDA_LIBS="$CUDADIR/lib"
-            if test -d "$CUDADIR/lib64" ;
-            then
-                CUDA_LIBS="$CUDADIR/lib64"
-            fi
-
-            #backup vars before we do the test
-            CFLAGSBACKUP="$CFLAGS"
-            CPPFLAGSBACKUP="$CPPFLAGS"
-            CXXFLAGSBACKUP="$CXXFLAGS"
-
-            CFLAGS="$CFLAGS -I$nanox_include -I$CUDA_INCLUDES"
-            CPPFLAGS="$CPPFLAGS -I$nanox_include -I$CUDA_INCLUDES"
-            CXXFLAGS="$CXXFLAGS -I$nanox_include -I$CUDA_INCLUDES"
-
-            AC_CHECK_HEADER([nanos-gpu.h], [cuda_valid=yes],[cuda_valid=no])
-
-            CFLAGS="$CFLAGSBACKUP"
-            CPPFLAGS="$CPPFLAGSBACKUP"
-            CXXFLAGS="$CXXFLAGSBACKUP"
-        fi
-    else
-         AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling CUDA Support])
-	     cuda_valid=no
-    fi
-fi
-
-CUDA_RPATH=""
-if test -n "$CUDA_LIBS";
+nanox_support_cuda=no
+if test x"$is_enabled_tl_omp_nanox" = x"yes";
 then
-  CUDA_RPATH="-Xlinker -rpath -Xlinker $CUDA_LIBS"
+    AC_MSG_CHECKING([whether Nanos++ was configured with CUDA support])
+    #backup vars before we do the test
+    CFLAGSBACKUP="$CFLAGS"
+    CPPFLAGSBACKUP="$CPPFLAGS"
+    CXXFLAGSBACKUP="$CXXFLAGS"
+
+    CFLAGS="$CFLAGS -I$nanox_include -I$CUDA_INCLUDES"
+    CPPFLAGS="$CPPFLAGS -I$nanox_include -I$CUDA_INCLUDES"
+    CXXFLAGS="$CXXFLAGS -I$nanox_include -I$CUDA_INCLUDES"
+
+    AC_CHECK_HEADER([nanos-gpu.h], [nanox_supports_cuda=yes])
+
+    CFLAGS="$CFLAGSBACKUP"
+    CPPFLAGS="$CPPFLAGSBACKUP"
+    CXXFLAGS="$CXXFLAGSBACKUP"
+    AC_MSG_RESULT([$nanox_supports_cuda])
 fi
 
-AC_SUBST([CUDA_INCLUDES])
-AC_SUBST([CUDA_LIBS])
-AC_SUBST([CUDA_RPATH])
+ompss_supports_cuda="no"
+if test x"$ax_cv_check_cuda" = x"yes" -a x"$enable_nanox_cuda_device" = x"yes" -a x"$nanox_supports_cuda" = x"yes";
+then
+    ompss_supports_cuda="yes"
+fi
 
-if test x$is_enabled_tl_omp_nanox = xyes -a x$cuda_valid = xyes;
+
+if test x"$ompss_supports_cuda"=x"yes";
 then
    ENABLE_CUDA=":true:"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvfc mnvcc mnvcxx"
-
-   AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 else
    ENABLE_CUDA=":false:"
 fi
-AM_CONDITIONAL([BUILD_NANOX_DEVICE_CUDA], test x$is_enabled_tl_omp_nanox = xyes -a x$cuda_valid = xyes)
+AM_CONDITIONAL([BUILD_NANOX_DEVICE_CUDA], test x"$ompss_supports_cuda" = x"yes")
 
 AC_SUBST([ENABLE_CUDA])
-AC_SUBST([cuda_valid])
+AC_SUBST([ompss_supports_cuda])
 dnl --------------------- End of Support for CUDA in Nanox --------------------------------
 
 
@@ -2549,7 +2517,7 @@ echo ""
 echo " * Devices testing:"
 echo ""
 echo "   MPI testing enabled:" $mpi_valid
-echo "   CUDA testing enabled:" $cuda_valid
+echo "   CUDA testing enabled:" $ompss_supports_cuda
 echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile

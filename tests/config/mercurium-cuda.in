@@ -3,7 +3,7 @@
 # Loading some test-generators utilities
 source @abs_builddir@/test-generators-utilities
 
-if [ "@NANOX_ENABLED@" = "no" -o "@cuda_valid@" = no ];
+if [ "@NANOX_ENABLED@" = "no" -o "@ompss_supports_cuda@" = no ];
 then
 
     gen_ignore_test "Nanos++ or CUDA are disabled"
