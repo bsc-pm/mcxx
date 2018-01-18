@@ -45,80 +45,6 @@ namespace {
     std::map<FTDGNode*, LoopInfo*> ftdgnode_to_loop_info;
     std::map<FTDGNode*, unsigned> ftdgnode_to_task_id;
 
-    // @param min get the minimum constant value if true, and the maximum otherwise
-    const_value_t* get_constant(
-            Node* n, NBase st, bool min,
-            std::vector<LoopInfo*>& outer_loops_info)
-    {
-        if (st.is_constant())
-            return st.get_constant();
-
-        NBase malleable_st = st.shallow_copy();
-        NodeclList mem_accesses = Nodecl::Utils::get_all_memory_accesses(st);
-        NodeclMap& rd_in = n->get_reaching_definitions_in();
-        for (NodeclList::iterator it = mem_accesses.begin(); it != mem_accesses.end(); ++it)
-        {
-            NBase var = *it;
-            NodeclMap::iterator var_rd_in_it = rd_in.find(var);
-            ERROR_CONDITION(var_rd_in_it == rd_in.end(),
-                            "No reaching definition for variable %s in node %d.\n",
-                            var.prettyprint().c_str(), n->get_id());
-
-            // Get the value of the variable from reaching definitions or from outer loops info
-            NBase var_value;
-            if (rd_in.count(var) < 1)
-            {
-                internal_error("No reaching definition for variable %s in node %d.\n",
-                               var.prettyprint().c_str(), n->get_id());
-            }
-            else if (rd_in.count(var) == 1)
-            {
-                var_value = var_rd_in_it->second.first.shallow_copy();
-                ERROR_CONDITION(var_value.is<Nodecl::Unknown>(),
-                                "Unknown reaching definition for variable %s in node %d.\n",
-                                var.prettyprint().c_str(), n->get_id());
-            }
-            else
-            {
-                LoopInfo* var_loop_info = NULL;
-                for (std::vector<LoopInfo*>::iterator itc = outer_loops_info.begin();
-                     itc != outer_loops_info.end(); ++itc)
-                {
-                    if (Nodecl::Utils::structurally_equal_nodecls(var, (*itc)->_iv->get_variable()))
-                    {
-                        var_loop_info = *itc;
-                        break;
-                    }
-                }
-                ERROR_CONDITION(var_loop_info == NULL,
-                                "More than one reaching definition found for symbol %s in PCFG node %d.\n",
-                                var.prettyprint().c_str(), n->get_id());
-
-                var_value = (min ? var_loop_info->_lb : var_loop_info->_ub);
-            }
-
-            const_value_t* var_value_const;
-            if (var_value.is_constant())
-            {
-                var_value_const = var_value.get_constant();
-            }
-            else
-            {
-                var_value_const = get_constant(n, var_value, min, outer_loops_info);
-            }
-            NBase var_value_const_n(const_value_to_nodecl(var_value_const));
-            Nodecl::Utils::nodecl_replace_nodecl_by_structure(malleable_st, var, var_value_const_n);
-        }
-
-        Optimizations::ReduceExpressionVisitor rev;
-        rev.walk(malleable_st);
-        ERROR_CONDITION(!malleable_st.is_constant(),
-                        "Expression %s could not be reduced to a constant.\n",
-                        st.prettyprint().c_str());
-
-        return malleable_st.get_constant();
-    }
-
     const_value_t* get_constant(Node* n, NBase st)
     {
         if (st.is_constant())
@@ -130,33 +56,29 @@ namespace {
         for (NodeclList::iterator it = mem_accesses.begin(); it != mem_accesses.end(); ++it)
         {
             NBase var = *it;
-            ERROR_CONDITION(rd_in.count(var) > 1,
-                            "More than one reaching definition found for symbol %s in PCFG node %d.\n",
+            ERROR_CONDITION(rd_in.count(var) < 1,
+                            "No reaching definition for variable %s in node %d.\n",
                             var.prettyprint().c_str(), n->get_id());
+            ERROR_CONDITION(rd_in.count(var) > 1,
+                            "More than reaching definition for variable %s in node %d.\n",
+                            var.prettyprint().c_str(), n->get_id());
+
             NodeclMap::iterator var_rd_in_it = rd_in.find(var);
-            if (var_rd_in_it != rd_in.end())
+            NBase var_rd_in = var_rd_in_it->second.first.shallow_copy();
+            ERROR_CONDITION(var_rd_in.is<Nodecl::Unknown>(),
+                            "Unknown reaching definition for variable %s in node %d.\n",
+                            var.prettyprint().c_str(), n->get_id());
+            const_value_t* var_rd_in_const;
+            if (var_rd_in.is_constant())
             {
-                NBase var_rd_in = var_rd_in_it->second.first.shallow_copy();
-                ERROR_CONDITION(var_rd_in.is<Nodecl::Unknown>(),
-                                "Unknown reaching definition for variable %s in node %d.\n",
-                                var.prettyprint().c_str(), n->get_id());
-                const_value_t* var_rd_in_const;
-                if (var_rd_in.is_constant())
-                {
-                    var_rd_in_const = var_rd_in.get_constant();
-                }
-                else
-                {
-                    var_rd_in_const = get_constant(n, var_rd_in);
-                }
-                NBase var_rd_in_const_n(const_value_to_nodecl(var_rd_in_const));
-                Nodecl::Utils::nodecl_replace_nodecl_by_structure(malleable_st, var, var_rd_in_const_n);
+                var_rd_in_const = var_rd_in.get_constant();
             }
             else
             {
-                internal_error("No reaching definition for variable %s in node %d.\n",
-                               var.prettyprint().c_str(), n->get_id());
+                var_rd_in_const = get_constant(n, var_rd_in);
             }
+            NBase var_rd_in_const_n(const_value_to_nodecl(var_rd_in_const));
+            Nodecl::Utils::nodecl_replace_nodecl_by_structure(malleable_st, var, var_rd_in_const_n);
         }
 
         Optimizations::ReduceExpressionVisitor rev;
@@ -166,6 +88,44 @@ namespace {
                         st.prettyprint().c_str());
 
         return malleable_st.get_constant();
+    }
+
+    Nodecl::NodeclBase reduce_to_constant_as_possible(Node* n, NBase st)
+    {
+        if (st.is_constant())
+            return st;
+
+        NBase malleable_st = st.shallow_copy();
+        NodeclList mem_accesses = Nodecl::Utils::get_all_memory_accesses(st);
+        NodeclMap& rd_in = n->get_reaching_definitions_in();
+        for (NodeclList::iterator it = mem_accesses.begin(); it != mem_accesses.end(); ++it)
+        {
+            NBase var = *it;
+            ERROR_CONDITION(rd_in.count(var) < 1,
+                            "No reaching definition for variable %s in node %d.\n",
+                            var.prettyprint().c_str(), n->get_id());
+
+            // This memory access cannot be reduced at this point
+            // because it has more than one possible value
+            if (rd_in.count(var) > 1)
+                continue;
+
+            NodeclMap::iterator var_rd_in_it = rd_in.find(var);
+            NBase var_rd_in = var_rd_in_it->second.first.shallow_copy();
+            ERROR_CONDITION(var_rd_in.is<Nodecl::Unknown>(),
+                            "Unknown reaching definition for variable %s in node %d.\n",
+                            var.prettyprint().c_str(), n->get_id());
+            if (!var_rd_in.is_constant())
+            {
+                var_rd_in = reduce_to_constant_as_possible(n, var_rd_in);
+            }
+            Nodecl::Utils::nodecl_replace_nodecl_by_structure(malleable_st, var, var_rd_in);
+        }
+
+        Optimizations::ReduceExpressionVisitor rev;
+        rev.walk(malleable_st);
+
+        return malleable_st;
     }
 
     class LHSVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -286,7 +246,7 @@ namespace {
                         "No reaching definition found for variable %s in node %d.\n",
                         var.prettyprint().c_str(), pcfg_n->get_id());
 
-        NBase var_reach_def = var_reach_def_it->second.first;
+        NBase var_reach_def = var_reach_def_it->second.first.shallow_copy();
         // If we are in a loop, some variables will depend on the iteration
         // Otherwise, all variables must be fixed at this moment
         if (ctx->is_loop_node())
@@ -446,24 +406,121 @@ namespace {
         };
     }
 
+    void propagate_constant_values(
+        Nodecl::NodeclBase v,
+        std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less>& fixed_relevant_vars)
+    {
+        for (std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less>::iterator itf = fixed_relevant_vars.begin();
+             itf != fixed_relevant_vars.end(); ++itf)
+        {
+            if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(/*haystack*/v, /*needle*/itf->first))
+            {
+                Nodecl::Utils::nodecl_replace_nodecl_by_structure(/*haystack*/v, /*needle*/itf->first,
+                                                                  /*replacement*/Nodecl::NodeclBase(const_value_to_nodecl(itf->second)));
+            }
+        }
+        Optimizations::ReduceExpressionVisitor rev;
+        rev.walk(v);
+    }
+
+    void propagate_constant_values(
+        Nodecl::NodeclBase v,
+        std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>& variable_relevant_vars)
+    {
+        for (std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator itv = variable_relevant_vars.begin();
+             itv != variable_relevant_vars.end(); ++itv)
+        {
+            if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(/*haystack*/v, /*needle*/itv->first))
+            {
+                Nodecl::Utils::nodecl_replace_nodecl_by_structure(/*haystack*/v, /*needle*/itv->first,
+                                                                  /*replacement*/itv->second);
+            }
+        }
+        Optimizations::ReduceExpressionVisitor rev;
+        rev.walk(v);
+    }
+
+    void propagate_constant_values(
+            std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less>& fixed_relevant_vars,
+            std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>& variable_relevant_vars)
+    {
+        bool changes = true;
+        Optimizations::ReduceExpressionVisitor rev;
+        while (changes)
+        {
+            changes = false;
+            for (std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less>::iterator itf = fixed_relevant_vars.begin();
+                 itf != fixed_relevant_vars.end(); ++itf)
+            {
+                for (std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator itv = variable_relevant_vars.begin();
+                     itv != variable_relevant_vars.end(); ++itv)
+                {
+                    if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(/*haystack*/itv->second, /*needle*/itf->first))
+                    {
+                        changes = true;
+                        Nodecl::Utils::nodecl_replace_nodecl_by_structure(/*haystack*/itv->second, /*needle*/itf->first,
+                                                                          /*replacement*/Nodecl::NodeclBase(const_value_to_nodecl(itf->second)));
+                        rev.walk(itv->second);
+                    }
+                }
+            }
+
+            for (std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator itv1 = variable_relevant_vars.begin();
+                 itv1 != variable_relevant_vars.end(); ++itv1)
+            {
+                if (!itv1->second.is_constant())
+                    continue;
+                for (std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator itv2 = variable_relevant_vars.begin();
+                     itv2 != variable_relevant_vars.end(); ++itv2)
+                {
+                    if (Nodecl::Utils::structurally_equal_nodecls(itv1->first, itv2->first))
+                        continue;
+
+                    if (Nodecl::Utils::nodecl_contains_nodecl_by_structure(/*haystack*/itv2->second, /*needle*/itv1->first))
+                    {
+                        changes = true;
+                        Nodecl::Utils::nodecl_replace_nodecl_by_structure(/*haystack*/itv2->second, /*needle*/itv1->first,
+                                                                          /*replacement*/itv1->second);
+                        rev.walk(itv2->second);
+                    }
+                }
+            }
+        }
+    }
+
+    void store_dependency_relevant_vars_and_fix(
+            FTDGNode* ftdg_n,
+            Node* ctx,
+            bool true_edge,
+            /*inout*/std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less>& fixed_relevant_vars,
+            /*inout*/std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>& variable_relevant_vars)
+    {
+        // Store the dependencies
+        store_dependency_relevant_vars(ftdg_n, ctx, true_edge, fixed_relevant_vars, variable_relevant_vars);
+
+        // Propagate constant values in the computed dependencies
+        propagate_constant_values(fixed_relevant_vars, variable_relevant_vars);
+    }
+
     void print_relevant_vars(
         std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars,
-        std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars)
+        std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars,
+        std::string indent)
     {
-        std::cerr << "       MAP : " << std::endl;
-        std::cerr << "           Fixed relevant vars : " << std::endl;
+        std::cerr << indent << "MAP : " << std::endl;
+        std::cerr << indent << "   Fixed relevant vars : " << std::endl;
         for (std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less>::iterator it = fixed_relevant_vars.begin();
              it != fixed_relevant_vars.end(); ++it)
         {
             NBase const_var(const_value_to_nodecl(it->second));
-            std::cerr << "                 -> " << it->first.prettyprint()
+            std::cerr << indent << "      -> " << it->first.prettyprint()
                       << " = " << const_var.prettyprint() << std::endl;
         }
-        std::cerr << "           Variable relevant vars : " << std::endl;
+        std::cerr << indent << "   Variable relevant vars : " << std::endl;
         for (std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator it = variable_relevant_vars.begin();
              it != variable_relevant_vars.end(); ++it)
         {
-            std::cerr << "                 -> " << it->first.prettyprint()
+            std::cerr << indent << "      -> " << it->first.prettyprint()
                       << " = " << it->second.prettyprint() << std::endl;
         }
     }
@@ -510,7 +567,7 @@ namespace {
                 case FTDGLoop:
                 {
                     std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars;
-                    expand_loop(*it, current_relevant_vars, loops_ids);
+                    expand_loop(*it, current_relevant_vars, loops_ids, "   ");
                     break;
                 }
                 case FTDGCondition:
@@ -523,13 +580,13 @@ namespace {
                     {
                         current_relevant_vars[*itc] = get_constant(cond_node, *itc);
                     }
-                    expand_condition(*it, current_relevant_vars, loops_ids);
+                    expand_condition(*it, current_relevant_vars, loops_ids, "   ");
                     break;
                 }
                 case FTDGTaskwait:
                 case FTDGBarrier:
                 {
-                    sync_create_and_connect(*it);
+                    sync_create_and_connect(*it, "   ");
                     break;
                 }
                 case FTDGTarget:
@@ -541,9 +598,9 @@ namespace {
                 {
                     std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars;
                     std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
-                    store_dependency_relevant_vars(*it, (*it)->get_pcfg_node(), /*true_edge*/false,
-                                                   fixed_relevant_vars, variable_relevant_vars);
-                    task_create_and_connect(*it, fixed_relevant_vars, loops_ids);
+                    store_dependency_relevant_vars_and_fix(*it, (*it)->get_pcfg_node(), /*true_edge*/false,
+                                                           fixed_relevant_vars, variable_relevant_vars);
+                    task_create_and_connect(*it, fixed_relevant_vars, loops_ids, "   ");
                     break;
                 }
                 default:
@@ -563,40 +620,84 @@ namespace {
     void SubETDG::expand_loop(
             FTDGNode* n,
             std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
-            std::deque<unsigned>& loops_ids)
+            std::deque<unsigned>& loops_ids,
+            std::string indent)
     {
-        if (TDG_DEBUG)
-            std::cerr << "   ****** Expanding loop ******" << std::endl;
-
         LoopInfo* current_loop_info = ftdgnode_to_loop_info.find(n)->second;
         Utils::InductionVar* iv = current_loop_info->_iv;
+        Nodecl::NodeclBase lb = current_loop_info->_lb.shallow_copy();
+        Nodecl::NodeclBase ub = current_loop_info->_ub.shallow_copy();
+        Nodecl::NodeclBase incr = current_loop_info->_incr.shallow_copy();
 
         if (TDG_DEBUG)
         {
-            std::cerr << "      LB = " << current_loop_info->_lb.prettyprint() << std::endl;
-            std::cerr << "      UB = " << current_loop_info->_ub.prettyprint() << std::endl;
-            std::cerr << "      INCR = " << current_loop_info->_incr.prettyprint() << std::endl;
-            std::cerr << "      NITER = " << current_loop_info->_niter << std::endl;
+        if (TDG_DEBUG)
+            std::cerr << indent << "Expanding loop " << n->get_pcfg_node()->get_graph_related_ast().get_locus_str() << std::endl;
+            std::cerr << indent << "   IV = " << iv->get_variable().prettyprint() << std::endl;
+            std::cerr << indent << "   LB = " << lb.prettyprint() << std::endl;
+            std::cerr << indent << "   UB = " << ub.prettyprint() << std::endl;
+            std::cerr << indent << "   INCR = " << incr.prettyprint() << std::endl;
+            std::cerr << indent << "   NITER = " << current_loop_info->_niter << std::endl;
         }
 
         // Store the variables that will be involved in dependency expressions
         Node* pcfg_n = n->get_pcfg_node();
         std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> fixed_relevant_vars = current_relevant_vars;
         std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> variable_relevant_vars;
-        store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/false,
-                                       fixed_relevant_vars, variable_relevant_vars);
+        store_dependency_relevant_vars_and_fix(n, pcfg_n, /*true_edge*/false,
+                                               fixed_relevant_vars, variable_relevant_vars);
         if (TDG_DEBUG)
-            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
+            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars, indent+"   ");
 
-        const_value_t* c = current_loop_info->_lb.get_constant();
+        // Replace, if necessary, the current values in the loop boundaries
+        bool recompute_niter = false;
+        if (!lb.is_constant())
+        {
+            propagate_constant_values(lb, fixed_relevant_vars);
+            propagate_constant_values(lb, variable_relevant_vars);
+            ERROR_CONDITION(!lb.is_constant(),
+                            "Lower bound of loop %s could not be reduced to a constant",
+                            n->get_pcfg_node()->get_graph_related_ast().get_locus_str().c_str());
+            recompute_niter = true;
+        }
+        if (!ub.is_constant())
+        {
+            propagate_constant_values(ub, fixed_relevant_vars);
+            propagate_constant_values(ub, variable_relevant_vars);
+            ERROR_CONDITION(!ub.is_constant(),
+                            "Upper bound of loop %s could not be reduced to a constant",
+                            n->get_pcfg_node()->get_graph_related_ast().get_locus_str().c_str());
+            recompute_niter = true;
+        }
+        if (!incr.is_constant())
+        {
+            propagate_constant_values(incr, fixed_relevant_vars);
+            propagate_constant_values(incr, variable_relevant_vars);
+            ERROR_CONDITION(!incr.is_constant(),
+                            "Increment of loop %s could not be reduced to a constant",
+                            n->get_pcfg_node()->get_graph_related_ast().get_locus_str().c_str());
+            recompute_niter = true;
+        }
+        if (recompute_niter)
+        {
+            const_value_t* niterc = const_value_div(const_value_add(const_value_sub(ub.get_constant(),
+                                                                                    lb.get_constant()),
+                                                                    const_value_get_one(4, 1)),
+                                                    incr.get_constant());
+            unsigned niter = const_value_cast_to_unsigned_int(niterc);
+            if (_maxI < niter)
+                _maxI = niter;
+        }
+
+        const_value_t* c = lb.get_constant();
         NBase cn(const_value_to_nodecl(c));
         unsigned iter = 1;
         loops_ids.push_back(iter);
         const ObjectList<FTDGNode*>& inner = n->get_inner();
-        while (const_value_is_zero(const_value_gt(c, current_loop_info->_ub.get_constant())))
+        while (const_value_is_zero(const_value_gt(c, ub.get_constant())))
         {
             if (TDG_DEBUG)
-                std::cerr << "      * IV " << iv->get_variable().prettyprint() << " = " << cn.prettyprint() << std::endl;
+                std::cerr << indent << "   * IV " << iv->get_variable().prettyprint() << " = " << cn.prettyprint() << std::endl;
 
             for (ObjectList<FTDGNode*>::const_iterator it = inner.begin();
                  it != inner.end(); ++it)
@@ -610,12 +711,12 @@ namespace {
                 {
                     case FTDGLoop:
                     {
-                        expand_loop(*it, inner_relevant_vars, loops_ids);
+                        expand_loop(*it, inner_relevant_vars, loops_ids, indent+"      ");
                         break;
                     }
                     case FTDGCondition:
                     {
-                        expand_condition(*it, inner_relevant_vars, loops_ids);
+                        expand_condition(*it, inner_relevant_vars, loops_ids, indent+"      ");
                         break;
                     }
                     case FTDGTarget:
@@ -626,12 +727,12 @@ namespace {
                     case FTDGTaskwait:
                     case FTDGBarrier:
                     {
-                        sync_create_and_connect(*it);
+                        sync_create_and_connect(*it, indent+"      ");
                         break;
                     }
                     case FTDGTask:
                     {
-                        task_create_and_connect(*it, inner_relevant_vars, loops_ids);
+                        task_create_and_connect(*it, inner_relevant_vars, loops_ids, indent+"      ");
                         break;
                     }
                     default:
@@ -644,21 +745,20 @@ namespace {
             ++iter;
             loops_ids.pop_back();
             loops_ids.push_back(iter);
-            c = const_value_add(c, current_loop_info->_incr.get_constant());
+            c = const_value_add(c, incr.get_constant());
             cn = NBase(const_value_to_nodecl(c));
         }
         loops_ids.pop_back();
-        if (TDG_DEBUG)
-            std::cerr << "   **** END expanding loop *****" << std::endl;
     }
 
     void SubETDG::expand_condition(
             FTDGNode* n,
             std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
-            std::deque<unsigned>& loops_ids)
+            std::deque<unsigned>& loops_ids,
+            std::string indent)
     {
         if (TDG_DEBUG)
-            std::cerr << "   ****** Expanding condition ******" << std::endl;
+            std::cerr << indent << "Expanding condition " << n->get_pcfg_node()->get_graph_related_ast().get_locus_str() << std::endl;
 
         Node* pcfg_n = n->get_pcfg_node();
 
@@ -668,7 +768,7 @@ namespace {
         ReplaceAndEvalVisitor rev(/*lhs*/ current_relevant_vars, /*rhs*/ current_relevant_vars);
         bool res = rev.walk(cond.shallow_copy());
         if (TDG_DEBUG)
-            std::cerr << "      IfElse node " << pcfg_n->get_id() << " with codition '"
+            std::cerr << indent << "   IfElse node " << pcfg_n->get_id() << " with codition '"
                       << cond.prettyprint() << "' evaluates to " << res << std::endl;
 
         // If the condition evaluates to true, then create tasks within the true branch
@@ -679,17 +779,17 @@ namespace {
         if (res)
         {
             inner = n->get_inner_true();
-            store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/true,
-                                           fixed_relevant_vars, variable_relevant_vars);
+            store_dependency_relevant_vars_and_fix(n, pcfg_n, /*true_edge*/true,
+                                                   fixed_relevant_vars, variable_relevant_vars);
         }
         else
         {
             inner = n->get_inner_false();
-            store_dependency_relevant_vars(n, pcfg_n, /*true_edge*/false,
-                                           fixed_relevant_vars, variable_relevant_vars);
+            store_dependency_relevant_vars_and_fix(n, pcfg_n, /*true_edge*/false,
+                                                   fixed_relevant_vars, variable_relevant_vars);
         }
         if (TDG_DEBUG)
-            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars);
+            print_relevant_vars(fixed_relevant_vars, variable_relevant_vars, indent+"   ");
 
         ERROR_CONDITION(!variable_relevant_vars.empty(),
                         "Variable relevant variables found when expanding condition. This is not yet supported.\n", 0);
@@ -703,12 +803,12 @@ namespace {
                 case FTDGLoop:
                 {
                     internal_error("Nested loop not yet supported for etdg\n", 0);
-                    expand_loop(*it, fixed_relevant_vars, loops_ids);
+                    expand_loop(*it, fixed_relevant_vars, loops_ids, indent+"      ");
                     break;
                 }
                 case FTDGCondition:
                 {
-                    expand_condition(*it, fixed_relevant_vars, loops_ids);
+                    expand_condition(*it, fixed_relevant_vars, loops_ids, indent+"      ");
                     break;
                 }
                 case FTDGTarget:
@@ -719,12 +819,12 @@ namespace {
                 case FTDGTaskwait:
                 case FTDGBarrier:
                 {
-                    sync_create_and_connect(*it);
+                    sync_create_and_connect(*it, indent+"      ");
                     break;
                 }
                 case FTDGTask:
                 {
-                    task_create_and_connect(*it, fixed_relevant_vars, loops_ids);
+                    task_create_and_connect(*it, fixed_relevant_vars, loops_ids, indent+"      ");
                     break;
                 }
                 default:
@@ -738,23 +838,23 @@ namespace {
             std::cerr << "   **** END expanding condition ****" << std::endl;
     }
 
-    void SubETDG::connect_nodes(ETDGNode* source, ETDGNode* target)
+    void SubETDG::connect_nodes(ETDGNode* source, ETDGNode* target, std::string indent)
     {
         source->add_output(target);
         target->add_input(source);
         if (TDG_DEBUG)
-            std::cerr << "         Connecting " << source->get_id() << " -> " << target->get_id() << std::endl;
+            std::cerr << indent << "Connecting " << source->get_id() << " -> " << target->get_id() << std::endl;
     }
 
-    void SubETDG::disconnect_nodes(ETDGNode* source, ETDGNode* target)
+    void SubETDG::disconnect_nodes(ETDGNode* source, ETDGNode* target, std::string indent)
     {
         source->remove_output(target);
         target->remove_input(source);
         if (TDG_DEBUG)
-            std::cerr << "         Disconnecting " << source->get_id() << " -> " << target->get_id() << std::endl;
+            std::cerr << indent << "Disconnecting " << source->get_id() << " -> " << target->get_id() << std::endl;
     }
 
-    ETDGNode* SubETDG::create_task_node(FTDGNode* ftdg_n, std::deque<unsigned> loops_ids)
+    ETDGNode* SubETDG::create_task_node(FTDGNode* ftdg_n, std::deque<unsigned> loops_ids, std::string indent)
     {
         ERROR_CONDITION(ftdg_n->get_type() != FTDGTask,
                         "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
@@ -771,7 +871,7 @@ namespace {
         _source_to_etdg_nodes[source_task].append(etdg_n);
 
         if (TDG_DEBUG)
-            std::cerr << "      Created task node " << etdg_n->get_id() << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
+            std::cerr << indent << "Created task node " << etdg_n->get_id() << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
 
         _tasks.insert(etdg_n);
         _leafs.insert(etdg_n);
@@ -815,7 +915,8 @@ namespace {
             ETDGNode* possible_source,
             ETDGNode* target,
             std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> target_vars_map,
-            std::set<ETDGNode*>& all_possible_ancestors)
+            std::set<ETDGNode*>& all_possible_ancestors,
+            std::string indent)
     {
         // @possible_source is not a candidate to be an ancestor of @target
         if (all_possible_ancestors.find(possible_source) == all_possible_ancestors.end())
@@ -853,7 +954,7 @@ namespace {
         // otherwise, keep traversing bottom-top the ETDG
         if (res)
         {
-            connect_nodes(possible_source, target);
+            connect_nodes(possible_source, target, indent);
             remove_ancestors_from_set(possible_source, all_possible_ancestors);
             _leafs.erase(possible_source);
         }
@@ -861,7 +962,7 @@ namespace {
         return res;
     }
 
-    void SubETDG::connect_task_node(ETDGNode* etdg_n, FTDGNode* ftdg_n)
+    void SubETDG::connect_task_node(ETDGNode* etdg_n, FTDGNode* ftdg_n, std::string indent)
     {
         // Gather all possible ancestors
         std::set<ETDGNode*> current_tdg_possible_ancestors;
@@ -904,7 +1005,7 @@ namespace {
             if (possible_source == etdg_n)
                 continue;
 
-            bool connected = compute_task_connections(possible_source, etdg_n, etdg_n_vars_map, current_tdg_possible_ancestors);
+            bool connected = compute_task_connections(possible_source, etdg_n, etdg_n_vars_map, current_tdg_possible_ancestors, indent);
             if (!connected)
             {
                 std::set<ETDGNode*> inputs = possible_source->get_inputs();
@@ -918,7 +1019,7 @@ namespace {
         for (std::set<ETDGNode*>::iterator it = other_tdg_possible_ancestors.begin();
              it != other_tdg_possible_ancestors.end(); ++it)
         {
-            compute_task_connections(*it, etdg_n, etdg_n_vars_map, other_tdg_possible_ancestors);
+            compute_task_connections(*it, etdg_n, etdg_n_vars_map, other_tdg_possible_ancestors, indent);
         }
 
         // Connect the node with previous synchronizations from the same TDG
@@ -941,7 +1042,7 @@ namespace {
 
                 if (is_ancestor(*its, *itt))
                 {
-                    disconnect_nodes(*its, n);
+                    disconnect_nodes(*its, n, "   ");
                 }
             }
         }
@@ -950,16 +1051,17 @@ namespace {
     void SubETDG::task_create_and_connect(
             FTDGNode* ftdg_n,
             std::map<NBase, const_value_t*, Nodecl::Utils::Nodecl_structural_less> current_relevant_vars,
-            std::deque<unsigned> loops_ids)
+            std::deque<unsigned> loops_ids,
+            std::string indent)
     {
         if (nt == 0)
-            std::cerr << "Tasks expansion progress (this may take some time)" << std::endl;
+            std::cerr << indent << "Tasks expansion progress (this may take some time)" << std::endl;
         std::cerr << '\r' << std::setw(6) << ++nt << std::flush;
-        ETDGNode* etdg_n = create_task_node(ftdg_n, loops_ids);
+        ETDGNode* etdg_n = create_task_node(ftdg_n, loops_ids, indent);
         etdg_n->set_vars_map(current_relevant_vars);
 
         ftdg_to_etdg_nodes[ftdg_n].insert(etdg_n);
-        connect_task_node(etdg_n, ftdg_n);
+        connect_task_node(etdg_n, ftdg_n, indent);
 
         remove_task_transitive_inputs(etdg_n);
 
@@ -967,34 +1069,37 @@ namespace {
     }
 
     static int sync_id = -1;
-    ETDGNode* SubETDG::create_sync_node(FTDGNode* ftdg_n)
+    ETDGNode* SubETDG::create_sync_node(
+            FTDGNode* ftdg_n,
+            std::string indent)
     {
         ERROR_CONDITION(ftdg_n->get_type() != FTDGTaskwait && ftdg_n->get_type() != FTDGBarrier,
                         "Unsuported type %d for an ETDGNode. Only tasks accepted\n",
                         ftdg_n->get_type());
         if (TDG_DEBUG)
-            std::cerr << "      Created sync node " << sync_id << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
+            std::cerr << indent << "Created sync node " << sync_id << " with related pcfg node " << ftdg_n->get_pcfg_node()->get_id() << std::endl;
         return new ETDGNode(sync_id--, ftdg_n->get_pcfg_node());
     }
 
-    void SubETDG::connect_sync_node(ETDGNode* etdg_n)
+    void SubETDG::connect_sync_node(ETDGNode* etdg_n, std::string indent)
     {
         for (std::set<ETDGNode*>::iterator it = _leafs.begin(); it != _leafs.end(); ++it)
         {
-            connect_nodes(*it, etdg_n);
+            connect_nodes(*it, etdg_n, indent);
         }
         _leafs.clear();
         _leafs.insert(etdg_n);
     }
 
     void SubETDG::sync_create_and_connect(
-            FTDGNode* ftdg_n)
+            FTDGNode* ftdg_n,
+            std::string indent)
     {
-        ETDGNode* etdg_n = create_sync_node(ftdg_n);
+        ETDGNode* etdg_n = create_sync_node(ftdg_n, indent);
 
         ftdg_to_etdg_nodes[ftdg_n].insert(etdg_n);
 
-        connect_sync_node(etdg_n);
+        connect_sync_node(etdg_n, indent);
     }
 
     bool SubETDG::is_ancestor(ETDGNode* source, ETDGNode* target)
@@ -1026,11 +1131,11 @@ namespace {
             const std::set<ETDGNode*>& inputs = n->get_inputs();
             for (std::set<ETDGNode*>::const_iterator it = inputs.begin(); it != inputs.end(); ++it)
             {
-                disconnect_nodes(*it, n);
+                disconnect_nodes(*it, n, "   ");
             }
             for (std::set<ETDGNode*>::const_iterator it = outputs.begin(); it != outputs.end(); ++it)
             {
-                disconnect_nodes(n, *it);
+                disconnect_nodes(n, *it, "   ");
             }
 
             // Note that a node may be a leaf and have children at the same time
@@ -1050,7 +1155,7 @@ namespace {
             {
                 for (std::set<ETDGNode*>::const_iterator itt = outputs.begin(); itt != outputs.end(); ++itt)
                 {
-                    connect_nodes(*its, *itt);
+                    connect_nodes(*its, *itt, "   ");
                 }
             }
 
@@ -1160,8 +1265,7 @@ namespace {
         expand_tdg();
     }
 
-    void ExpandedTaskDependencyGraph::compute_constants_rec(
-            FTDGNode* n, std::vector<LoopInfo*>& outer_loops_info)
+    void ExpandedTaskDependencyGraph::compute_constants_rec(FTDGNode* n)
     {
         switch (n->get_type())
         {
@@ -1180,24 +1284,13 @@ namespace {
                                 "Induction variable %s has an unsupported behavior\n",
                                 iv->get_variable().prettyprint().c_str());
 
-                const_value_t* lbc = get_constant(pcfg_n, *lbs.begin(), /*min*/ true, outer_loops_info);
-                const_value_t* ubc = get_constant(pcfg_n, *ubs.begin(), /*min*/ false, outer_loops_info);
-                const_value_t* incrc = get_constant(pcfg_n, iv->get_increment());
-                const_value_t* niterc = const_value_div(const_value_add(const_value_sub(ubc, lbc),
-                                                                        const_value_get_one(4, 1)),
-                                                        incrc);
-                unsigned niter = const_value_cast_to_unsigned_int(niterc);
-                if (_maxI < niter)
-                    _maxI = niter;
+                Nodecl::NodeclBase lbc = reduce_to_constant_as_possible(pcfg_n, *lbs.begin());
+                Nodecl::NodeclBase ubc = reduce_to_constant_as_possible(pcfg_n, *ubs.begin());
+                Nodecl::NodeclBase incrc = reduce_to_constant_as_possible(pcfg_n, iv->get_increment());
 
                 LoopInfo* li = new LoopInfo(
-                        iv,
-                        NBase(const_value_to_nodecl(lbc)),
-                        NBase(const_value_to_nodecl(ubc)),
-                        NBase(const_value_to_nodecl(incrc)),
-                        niter);
+                        iv, lbc, ubc, incrc, 0);
                 ftdgnode_to_loop_info[n] = li;
-                outer_loops_info.push_back(li);
 
                 // NOTE: No break here because we still have to traverse inner nodes
             }
@@ -1205,7 +1298,7 @@ namespace {
             {
                 const ObjectList<FTDGNode*>& inner = n->get_inner();
                 for (ObjectList<FTDGNode*>::const_iterator it = inner.begin(); it != inner.end(); ++it)
-                    compute_constants_rec(*it, outer_loops_info);
+                    compute_constants_rec(*it);
                 break;
             }
             case FTDGTask:
@@ -1230,8 +1323,7 @@ namespace {
             for (std::vector<FTDGNode*>::const_iterator itt = current_outermost_nodes.begin();
                 itt != current_outermost_nodes.end(); ++itt)
             {
-                std::vector<LoopInfo*> outer_loops_info;
-                compute_constants_rec(*itt, outer_loops_info);
+                compute_constants_rec(*itt);
             }
         }
 
