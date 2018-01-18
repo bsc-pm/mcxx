@@ -897,7 +897,7 @@ AC_ARG_ENABLE([nanox-cuda-device],
 AC_MSG_RESULT([$enable_nanox_cuda_device])
 
 
-nanox_support_cuda=no
+nanox_supports_cuda=no
 if test x"$is_enabled_tl_omp_nanox" = x"yes";
 then
     #backup vars before we do the test
@@ -925,7 +925,7 @@ then
 fi
 
 
-if test x"$ompss_supports_cuda"=x"yes";
+if test x"$ompss_supports_cuda" = x"yes";
 then
    ENABLE_CUDA=":true:"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
