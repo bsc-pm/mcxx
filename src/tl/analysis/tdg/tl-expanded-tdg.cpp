@@ -1284,12 +1284,23 @@ namespace {
                                 "Induction variable %s has an unsupported behavior\n",
                                 iv->get_variable().prettyprint().c_str());
 
-                Nodecl::NodeclBase lbc = reduce_to_constant_as_possible(pcfg_n, *lbs.begin());
-                Nodecl::NodeclBase ubc = reduce_to_constant_as_possible(pcfg_n, *ubs.begin());
-                Nodecl::NodeclBase incrc = reduce_to_constant_as_possible(pcfg_n, iv->get_increment());
+                Nodecl::NodeclBase lb = reduce_to_constant_as_possible(pcfg_n, *lbs.begin());
+                Nodecl::NodeclBase ub = reduce_to_constant_as_possible(pcfg_n, *ubs.begin());
+                Nodecl::NodeclBase incr = reduce_to_constant_as_possible(pcfg_n, iv->get_increment());
+                unsigned niter = 0;
+                if (lb.is_constant() && ub.is_constant() && incr.is_constant())
+                {
+                    const_value_t* niterc = const_value_div(const_value_add(const_value_sub(ub.get_constant(),
+                                                                                            lb.get_constant()),
+                                                                            const_value_get_one(4, 1)),
+                                                            incr.get_constant());
+                    niter = const_value_cast_to_unsigned_int(niterc);
+                }
+                if (_maxI < niter)
+                    _maxI = niter;
 
                 LoopInfo* li = new LoopInfo(
-                        iv, lbc, ubc, incrc, 0);
+                        iv, lb, ub, incr, 0);
                 ftdgnode_to_loop_info[n] = li;
 
                 // NOTE: No break here because we still have to traverse inner nodes
