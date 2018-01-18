@@ -5012,7 +5012,8 @@ static nodecl_t convert_node_to_ptrdiff_t(nodecl_t n)
                 get_ptrdiff_t_type(),
                 nodecl_get_locus(n));
 
-        if (cv != NULL)
+        if (cv != NULL
+                && !const_value_is_object(cv))
         {
             cv = const_value_cast_to_bytes(
                     cv,
