@@ -167,6 +167,13 @@ namespace Analysis {
         ExtensibleGraph::clear_visits(_pcfg->get_graph());
     }
 
+    std::vector<std::string> color_names = {
+        "aquamarine3", "crimson", "chartreuse", "blue2", "darkorchid3", "darkgoldenrod1",
+        "deeppink4", "gray19", "indigo", "indianred", "forestgreen", "navy", "orangered2",
+        "slateblue3", "yellowgreen", "salmon", "purple", "mediumturquoise", "slategray3"
+    };
+    unsigned next_color_i = 0;
+    std::map<Nodecl::NodeclBase, std::string> color_to_node_map;
     std::map<ETDGNode*, SubETDG*> etdg_node_to_child_subetdg;
     std::multimap<unsigned, unsigned> etdg_connections;
     void ExpandedTaskDependencyGraph::print_tdg_to_dot_rec(ETDGNode* n, std::ofstream& dot_tdg)
@@ -176,7 +183,15 @@ namespace Analysis {
         n->set_visited(true);
 
         // Print the node
-        dot_tdg << "      " << n->get_id() << "\n";
+        Nodecl::NodeclBase source_n = n->get_source_task();
+        std::string color;
+        if (color_to_node_map.find(source_n) != color_to_node_map.end()) {
+            color = color_to_node_map[source_n];
+        } else {
+            color = color_names[++next_color_i];
+            color_to_node_map[source_n] = color;
+        }
+        dot_tdg << "      " << n->get_id() << "[color=" << color << ",style=bold]\n";
 
          // Print the entry edges
         const std::set<ETDGNode*>& inputs = n->get_inputs();
@@ -263,6 +278,23 @@ namespace Analysis {
         {
             (*it)->clear_visits();
         }
+            // Print the legend
+        dot_tdg << "  node [shape=plaintext];\n";
+        dot_tdg << "   subgraph cluster_1000 {\n";
+        dot_tdg << "      label=\"User functions:\"; style=\"rounded\";\n";
+        dot_tdg << "      user_funcs [label=<<table border=\"0\" cellspacing=\"10\" cellborder=\"0\">\n";
+        for (std::map<Nodecl::NodeclBase, std::string>::iterator it = color_to_node_map.begin();
+             it != color_to_node_map.end(); ++it)
+        {
+            dot_tdg << "      <tr>\n";
+            dot_tdg << "         <td bgcolor=\"" << it->second << "\" width=\"15px\" border=\"1\"></td>\n";
+            dot_tdg << "         <td>" << it->first.get_locus_str() << "</td>\n";
+            dot_tdg << "      </tr>\n";
+        }
+        dot_tdg << "      </table>>]\n";
+        dot_tdg << "   }";
+
+            // Close the file
         dot_tdg << "}\n";
         dot_tdg.close();
         if(!dot_tdg.good())
