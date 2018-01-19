@@ -302,6 +302,22 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     ERROR_CONDITION(is_function_task && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
 
+    // For C/C++, if the 'ndrange' clause is defined, check whether the called task is __global__
+    if ((IS_CXX_LANGUAGE || IS_C_LANGUAGE) && is_function_task && (target_info.get_ndrange().size() > 0))
+    {
+        bool has_gcc_global_attribute = false;
+        ObjectList<GCCAttribute> gcc_attrs = called_task.get_gcc_attributes();
+        for(ObjectList<GCCAttribute>::const_iterator it = gcc_attrs.begin(); it != gcc_attrs.end(); ++it)
+        {
+            if (it->get_attribute_name() == "global")
+                has_gcc_global_attribute = true;
+        }
+
+        if (!has_gcc_global_attribute)
+            error_printf_at(original_statements.get_locus(), "Attribute '__global__' missing for symbol '%s'\n",
+                    called_task.get_name().c_str());
+    }
+
     TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function())
     {
