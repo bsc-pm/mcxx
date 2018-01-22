@@ -123,6 +123,8 @@ namespace TL { namespace Nanos6 {
         void walk_type_for_saved_expressions(TL::Type t);
 
         bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
+
+        friend class FirstprivateSymbolsWithoutDataSharing;
     };
 
 } }

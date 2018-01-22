@@ -325,22 +325,25 @@ namespace TL { namespace Nanos6 {
         _firstprivate.erase(_firstprivate.begin(), _firstprivate.end());
     }
 
+    namespace {
+    struct IsReduction
+    {
+        private:
+            const TL::ObjectList<ReductionItem>& _reduction;
+
+        public:
+            IsReduction(const TL::ObjectList<ReductionItem>& reduction) : _reduction(reduction)
+            { }
+
+            bool operator()(TL::Symbol s) const
+            {
+                return _reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, s);
+            }
+    };
+    }
+
     void DirectiveEnvironment::remove_redundant_data_sharings()
     {
-        struct IsReduction
-        {
-            private:
-                const TL::ObjectList<ReductionItem>& _reduction;
-
-            public:
-                IsReduction(const TL::ObjectList<ReductionItem>& reduction) : _reduction(reduction)
-                { }
-
-                bool operator()(TL::Symbol s) const
-                {
-                    return _reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, s);
-                }
-        };
 
         TL::ObjectList<TL::Symbol>::iterator it = std::remove_if(
                 shared.begin(), shared.end(), IsReduction(reduction));
@@ -375,55 +378,55 @@ namespace TL { namespace Nanos6 {
                reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, sym);
     }
 
+    struct FirstprivateSymbolsWithoutDataSharing : public Nodecl::ExhaustiveVisitor<void>
+    {
+        DirectiveEnvironment& _env;
+        TL::ObjectList<TL::Symbol> _ignore_symbols;
+
+        FirstprivateSymbolsWithoutDataSharing(DirectiveEnvironment& tp) : _env(tp)
+        {}
+
+        void operator()(Nodecl::NodeclBase node)
+        {
+            walk(node);
+        }
+
+        void visit(const Nodecl::MultiExpression& node)
+        {
+            // The iterator of a MultiExpression has to be ignored!
+            _ignore_symbols.push_back(node.get_symbol());
+            Nodecl::ExhaustiveVisitor<void>::visit(node);
+            _ignore_symbols.pop_back();
+        }
+
+        void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+            if (!sym.is_variable()
+                    || sym.is_member()
+                    || _ignore_symbols.contains(sym)
+                    || _env.symbol_has_data_sharing_attribute(sym))
+                return;
+
+            _env._firstprivate.insert(sym);
+        }
+
+        void visit(const Nodecl::Conversion& node)
+        {
+            // FIXME: This should be done in Core, see issue #2766
+
+            // int *v;
+            // #pragma omp task inout( ((int (*)[N]) v)[0;M])
+            Nodecl::ExhaustiveVisitor<void>::visit(node);
+
+            TL::Type type = node.get_type();
+            if (type.depends_on_nonconstant_values())
+                _env.walk_type_for_saved_expressions(type);
+        }
+    };
+
     void DirectiveEnvironment::firstprivatize_symbols_without_data_sharing()
     {
-        struct FirstprivateSymbolsWithoutDataSharing : public Nodecl::ExhaustiveVisitor<void>
-        {
-            DirectiveEnvironment& _env;
-            TL::ObjectList<TL::Symbol> _ignore_symbols;
-
-            FirstprivateSymbolsWithoutDataSharing(DirectiveEnvironment& tp) : _env(tp)
-            {}
-
-            void operator()(Nodecl::NodeclBase node)
-            {
-                walk(node);
-            }
-
-            void visit(const Nodecl::MultiExpression& node)
-            {
-                // The iterator of a MultiExpression has to be ignored!
-                _ignore_symbols.push_back(node.get_symbol());
-                Nodecl::ExhaustiveVisitor<void>::visit(node);
-                _ignore_symbols.pop_back();
-            }
-
-            void visit(const Nodecl::Symbol& node)
-            {
-                TL::Symbol sym = node.get_symbol();
-                if (!sym.is_variable()
-                        || sym.is_member()
-                        || _ignore_symbols.contains(sym)
-                        || _env.symbol_has_data_sharing_attribute(sym))
-                    return;
-
-                _env._firstprivate.insert(sym);
-            }
-
-            void visit(const Nodecl::Conversion& node)
-            {
-                // FIXME: This should be done in Core, see issue #2766
-
-                // int *v;
-                // #pragma omp task inout( ((int (*)[N]) v)[0;M])
-                Nodecl::ExhaustiveVisitor<void>::visit(node);
-
-                TL::Type type = node.get_type();
-                if (type.depends_on_nonconstant_values())
-                    _env.walk_type_for_saved_expressions(type);
-            }
-        };
-
         FirstprivateSymbolsWithoutDataSharing fp_syms_without_data_sharing(*this);
 
         // Dependences
@@ -518,28 +521,30 @@ namespace TL { namespace Nanos6 {
         }
     }
 
+    namespace  {
+    struct SymbolThis
+    {
+        private:
+            TL::Symbol &_found_this;
+
+        public:
+            SymbolThis(TL::Symbol &found_this) : _found_this(found_this)
+        { }
+
+            bool operator()(TL::Symbol s)
+            {
+                if (s.get_name() == "this")
+                {
+                    _found_this = s;
+                    return true;
+                }
+                else
+                    return false;
+            }
+    };
+    }
     void DirectiveEnvironment::fix_data_sharing_of_this()
     {
-        struct SymbolThis
-        {
-            private:
-                TL::Symbol &_found_this;
-
-            public:
-                SymbolThis(TL::Symbol &found_this) : _found_this(found_this)
-            { }
-
-                bool operator()(TL::Symbol s)
-                {
-                    if (s.get_name() == "this")
-                    {
-                        _found_this = s;
-                        return true;
-                    }
-                    else
-                        return false;
-                }
-        };
 
         if (!IS_CXX_LANGUAGE)
             return;
