@@ -167,7 +167,7 @@ namespace Analysis {
         ExtensibleGraph::clear_visits(_pcfg->get_graph());
     }
 
-    std::vector<std::string> color_names = {
+    const char* color_names[] = {
         "aquamarine3", "crimson", "chartreuse", "blue2", "darkorchid3", "darkgoldenrod1",
         "deeppink4", "gray19", "indigo", "indianred", "forestgreen", "navy", "orangered2",
         "slateblue3", "yellowgreen", "salmon", "purple", "mediumturquoise", "slategray3"
