@@ -5,10 +5,15 @@
 [cuda]
 language = C++
 options =
+
 preprocessor_name =
 preprocessor_options =
+
 compiler_name = @NVCC@
-compiler_options = -I@NANOX_INCLUDES@ -include nanos.h -include nanos_omp.h -include nanos-gpu.h
+compiler_options =
+
+# Specific stuff for OmpSs
+{ompss} compiler_options = -I@NANOX_INCLUDES@ -include nanos.h -include nanos_omp.h -include nanos-gpu.h
 
 # This profile shouldn't be used to link anything
 linker_name =
