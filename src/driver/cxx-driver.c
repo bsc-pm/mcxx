@@ -373,6 +373,7 @@ typedef enum
     // Keep the following options sorted (but leave OPTION_UNDEFINED as is)
     OPTION_ALWAYS_PREPROCESS,
     OPTION_CONFIG_DIR,
+    OPTION_CUDA,
     OPTION_DEBUG_FLAG,
     OPTION_DISABLE_FILE_LOCKING,
     OPTION_DISABLE_GXX_TRAITS,
@@ -383,7 +384,6 @@ typedef enum
     OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
     OPTION_DO_NOT_WRAP_FORTRAN_MODULES,
     OPTION_EMPTY_SENTINELS,
-    OPTION_ENABLE_CUDA,
     OPTION_ENABLE_INTEL_BUILTINS_SYNTAX,
     OPTION_ENABLE_INTEL_INTRINSICS,
     OPTION_ENABLE_INTEL_VECTOR_TYPES,
@@ -416,6 +416,7 @@ typedef enum
     OPTION_LIST_VECTOR_FLAVORS,
     OPTION_MODULE_OUT_PATTERN,
     OPTION_NATIVE_COMPILER_NAME,
+    OPTION_NO_CUDA,
     OPTION_NO_OPENMP,
     OPTION_NO_WHOLE_FILE,
     OPTION_OPENCL_OPTIONS,
@@ -480,7 +481,8 @@ struct command_line_long_options command_line_long_options[] =
     {"list-environments", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
-    {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
+    {"cuda", CLP_NO_ARGUMENT, OPTION_CUDA},
+    {"no-cuda", CLP_NO_ARGUMENT, OPTION_NO_CUDA},
     {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},
     {"opencl-build-opts",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_OPTIONS},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
@@ -849,6 +851,29 @@ static void options_error(char* message)
     exit(EXIT_FAILURE);
 }
 
+//! This function is used for long options that are user flags and also implicit flags (i.e. profile flafgs)
+static void handle_special_long_options(const char *flag_name, char from_command_line, char is_enabled)
+{
+    int i;
+    char found = 0;
+    for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+    {
+        if (strcmp(compilation_process.parameter_flags[i]->name, flag_name) == 0)
+        {
+            found = 1;
+            if (from_command_line
+                    // Still undefined
+                    || (compilation_process.parameter_flags[i]->value == PFV_UNDEFINED))
+            {
+                compilation_process.parameter_flags[i]->value = (is_enabled) ? PFV_TRUE : PFV_FALSE;
+            }
+        }
+    }
+    if (!found)
+    {
+        internal_error("'%s' implicit flag was not properly registered", flag_name);
+    }
+}
 
 
 // Returns nonzero if an error happened. In that case we would show the help
@@ -1005,38 +1030,26 @@ int parse_arguments(int argc, const char* argv[],
             }
         }
         // A known option
-        else 
+        else
         {
             // Put here those flags that for some reason have special meanings
             // and at the same time they modify an implicit flag.
-            // Currently only --no-openmp behaves this way
+            // Currently only --no-openmp and --cuda/--no-cuda behave this way
             char already_handled = 1;
             switch (parameter_info.value)
             {
                 case OPTION_OPENMP :
                 case OPTION_NO_OPENMP :
                     {
-                        // If 'openmp' is in the parameter flags, set it to true
-                        int i;
-                        char found = 0;
-                        for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
-                        {
-                            if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
-                            {
-                                found = 1;
-                                if (from_command_line
-                                        // Still undefined
-                                        || (compilation_process.parameter_flags[i]->value == PFV_UNDEFINED))
-                                {
-                                    compilation_process.parameter_flags[i]->value =
-                                        (parameter_info.value == OPTION_OPENMP) ? PFV_TRUE : PFV_FALSE;
-                                }
-                            }
-                        }
-                        if (!found)
-                        {
-                            internal_error("'openmp' implicit flag was not properly registered", 0);
-                        }
+                        handle_special_long_options("openmp", from_command_line, (parameter_info.value == OPTION_OPENMP));
+                        break;
+                    }
+                case OPTION_CUDA:
+                case OPTION_NO_CUDA:
+                    {
+                        char is_enabled = (parameter_info.value == OPTION_CUDA);
+                        handle_special_long_options("cuda", from_command_line, is_enabled);
+                        CURRENT_CONFIGURATION->enable_cuda = is_enabled;
                         break;
                     }
                 default:
@@ -1468,11 +1481,6 @@ int parse_arguments(int argc, const char* argv[],
                                     parameter_info.argument);
                             CURRENT_CONFIGURATION->upc_threads = uniquestr(parameter_info.argument);
                         }
-                        break;
-                    }
-                case OPTION_ENABLE_CUDA:
-                    {
-                        CURRENT_CONFIGURATION->enable_cuda = 1;
                         break;
                     }
                 case OPTION_ENABLE_OPENCL:
