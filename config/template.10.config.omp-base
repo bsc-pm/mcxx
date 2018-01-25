@@ -107,7 +107,7 @@ linker_name = @GCC@
 
 # Nanos++ & CUDA
 {@NANOX_GATE@,@ENABLE_CUDA@,ompss} options = --cuda
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss} compiler_phase = libtlnanox-cuda.so
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} compiler_phase = libtlnanox-cuda.so
 
 
 # Nanos++ & OpenCL
