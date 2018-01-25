@@ -417,10 +417,8 @@ typedef enum
     OPTION_MODULE_OUT_PATTERN,
     OPTION_NATIVE_COMPILER_NAME,
     OPTION_NO_CUDA,
-    OPTION_NO_OPENMP,
     OPTION_NO_WHOLE_FILE,
     OPTION_OPENCL_OPTIONS,
-    OPTION_OPENMP,
     OPTION_OUTPUT_DIRECTORY,
     OPTION_PARALLEL,
     OPTION_PASS_THROUGH,
@@ -468,8 +466,6 @@ struct command_line_long_options command_line_long_options[] =
     {"debug-flags",  CLP_REQUIRED_ARGUMENT, OPTION_DEBUG_FLAG},
     {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
     {"help-target-options", CLP_NO_ARGUMENT, OPTION_HELP_TARGET_OPTIONS},
-    {"openmp", CLP_NO_ARGUMENT, OPTION_OPENMP},
-    {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
     {"pp-stdout", CLP_NO_ARGUMENT, OPTION_PREPROCESSOR_USES_STDOUT},
@@ -1034,16 +1030,10 @@ int parse_arguments(int argc, const char* argv[],
         {
             // Put here those flags that for some reason have special meanings
             // and at the same time they modify an implicit flag.
-            // Currently only --no-openmp and --cuda/--no-cuda behave this way
+            // Currently only --cuda/--no-cuda behaves this way
             char already_handled = 1;
             switch (parameter_info.value)
             {
-                case OPTION_OPENMP :
-                case OPTION_NO_OPENMP :
-                    {
-                        handle_special_long_options("openmp", from_command_line, (parameter_info.value == OPTION_OPENMP));
-                        break;
-                    }
                 case OPTION_CUDA:
                 case OPTION_NO_CUDA:
                     {
