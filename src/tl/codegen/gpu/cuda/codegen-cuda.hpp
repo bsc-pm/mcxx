@@ -29,18 +29,17 @@
 
 #include "codegen-phase.hpp"
 #include "codegen-cxx.hpp"
-// #include "tl-scope.hpp"
-// #include "tl-symbol.hpp"
-// 
-// #include <sstream>
-// #include <map>
-// #include <set>
 
 namespace Codegen
 {
     class CudaGPU : public CxxBase
     {
+        private:
+            std::string _cuda_home;
+
         public:
+            CudaGPU();
+
             using CxxBase::visit;
             void visit(const Nodecl::CudaKernelCall &);
 
@@ -60,6 +59,10 @@ namespace Codegen
             virtual bool cuda_print_special_attributes();
 
             virtual bool cuda_emit_always_extern_linkage();
+
+        private:
+
+            bool check_whether_symbol_comes_from_cuda(TL::Symbol s) const;
     };
 }
 

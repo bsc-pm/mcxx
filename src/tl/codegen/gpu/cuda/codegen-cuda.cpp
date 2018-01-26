@@ -26,34 +26,34 @@
 
 #include "codegen-cuda.hpp"
 
-// #ifdef HAVE_QUADMATH_H
-// MCXX_BEGIN_DECLS
-// #include <quadmath.h>
-// MCXX_END_DECLS
-// #endif
+#include "cxx-diagnostic.h"
+
+//getenv
+#include<cstdlib>
+
 
 namespace Codegen
 {
 
     // Check if the given path file comes from CUDA installation directory
-    namespace CheckIfInCudaCompiler
+    bool CudaGPU::check_whether_symbol_comes_from_cuda(TL::Symbol s) const
     {
-        static bool check(const std::string& path)
-        {
-#ifdef CUDA_DIR
-            std::string cudaPath(CUDA_DIR);
-            return (path.substr(0, cudaPath.size()) == cudaPath);
-#else
+        if (_cuda_home == "")
             return false;
-#endif
-        }
 
-        static bool check_symbol(TL::Symbol s)
-        {
-            return CheckIfInCudaCompiler::check(s.get_filename());
-        }
+        std::string path(s.get_filename());
+        return (path.substr(0, _cuda_home.size()) == _cuda_home);
     }
 
+    CudaGPU::CudaGPU()
+    {
+        const char* path = getenv("CUDA_HOME");
+        _cuda_home = path ? path : "";
+
+        // Ideally, we should emit this warning in the driver...
+        if (path == NULL)
+            warn_printf_at(NULL, "The environment variable '$CUDA_HOME' is not defined\n");
+    }
 
     void CudaGPU::visit(const Nodecl::CudaKernelCall &n)
     {
@@ -87,7 +87,7 @@ namespace Codegen
         if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
             return;
 
-        if (!CheckIfInCudaCompiler::check_symbol(symbol))
+        if (!check_whether_symbol_comes_from_cuda(symbol))
         {
             CxxBase::do_define_symbol(symbol, decl_sym_fun, def_sym_fun, scope);
         }
@@ -106,7 +106,7 @@ namespace Codegen
                 || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)
             return;
 
-        if (!CheckIfInCudaCompiler::check_symbol(symbol))
+        if (!check_whether_symbol_comes_from_cuda(symbol))
         {
             CxxBase::do_declare_symbol(symbol, decl_sym_fun, def_sym_fun, scope);
         }

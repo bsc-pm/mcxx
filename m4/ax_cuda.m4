@@ -2,8 +2,6 @@ AC_DEFUN([AX_CHECK_CUDA], [
 
     ax_cv_check_cuda="no"
 
-    CUDA_DIR=""
-
     CUDA_INCLUDES=""
     CUDA_LIBS=""
     CUDA_RPATH=""
@@ -26,8 +24,6 @@ AC_DEFUN([AX_CHECK_CUDA], [
     AC_SUBST([CUDA_INCLUDES])
     AC_SUBST([CUDA_LIBS])
     AC_SUBST([CUDA_RPATH])
-
-    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 
     AC_MSG_CHECKING(whether a CUDA installation is provided)
     AC_MSG_RESULT($ax_cv_check_cuda)
