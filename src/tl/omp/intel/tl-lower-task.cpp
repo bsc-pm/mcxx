@@ -29,6 +29,7 @@
 #include "tl-lowering-utils.hpp"
 #include "tl-lower-task-common.hpp"
 #include "tl-symbol-utils.hpp"
+#include "cxx-cexpr.h"
 
 namespace TL { namespace Intel {
 
@@ -227,25 +228,112 @@ void capture_vars(const TL::Type& task_args_type,
         stmt_task_fill.prepend_sibling(tree_task_args_capture);
     }
 
-    Source src_args_vla_fp_points_to;
-    src_args_vla_fp_points_to
-    << "(char *)(_args + 1)";
+    TL::Symbol args = stmt_task_fill
+                            .retrieve_context()
+                            .get_symbol_from_name("_args");
+
+    Nodecl::NodeclBase vla_offset;
     for (TL::ObjectList<TL::Symbol>::const_iterator it = firstprivate_vla_symbols.begin();
 		    it != firstprivate_vla_symbols.end();
 		    it++, it_fields++)
     {
-        Source src_task_args_capture;
-        src_task_args_capture
-        << "_args" << "->" << it_fields->get_name() << " = " << src_args_vla_fp_points_to << ";"
-        << "__builtin_memcpy(_args->" << it_fields->get_name() << ","
-        <<                        it->get_name()
-        <<                        ", sizeof(" << as_symbol(*it) << "));";
+        TL::Type lhs_type = it->get_type().no_ref().get_lvalue_reference_to();
 
-        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
-        stmt_task_fill.prepend_sibling(tree_task_args_capture);
+        Nodecl::NodeclBase lhs =
+            Nodecl::ClassMemberAccess::make(
+                    Nodecl::Dereference::make(
+                        args.make_nodecl(/* set_ref_type */ true),
+                        args.get_type().points_to().get_lvalue_reference_to()),
+                    it->make_nodecl(),
+                    /* member_literal */ Nodecl::NodeclBase::null(),
+                    lhs_type);
 
-        src_args_vla_fp_points_to
-        << " + sizeof(" << it->get_name() << ")";
+        if (vla_offset.is_null())
+        {
+            // Skipping the arguments structure
+            Nodecl::NodeclBase cast = Nodecl::Conversion::make(
+                    Nodecl::Add::make(
+                        args.make_nodecl(/* ser_ref_type */ true),
+                        /* 1, */ const_value_to_nodecl(const_value_get_signed_int(1)),
+                        args.get_type().no_ref()),
+                    TL::Type::get_char_type().get_pointer_to());
+
+            cast.set_text("C");
+            vla_offset = cast;
+        }
+
+        // Skipping the extra space allocated for each vla
+        Nodecl::NodeclBase mask_align =
+            const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN - 1));
+
+        // expr = (size_t)(vla_offset + mask_align)
+        Nodecl::NodeclBase cast_expr;
+        cast_expr = Nodecl::Conversion::make(
+                Nodecl::Add::make(
+                    vla_offset,
+                    mask_align,
+                    vla_offset.get_type()),
+                get_size_t_type());
+        cast_expr.set_text("C");
+
+        // expr = (void *)((size_t)(vla_offset + mask_align) & ~mask_align)
+        cast_expr = Nodecl::Conversion::make(
+                Nodecl::BitwiseAnd::make(
+                    cast_expr,
+                    Nodecl::BitwiseNot::make(
+                        mask_align.shallow_copy(),
+                        mask_align.get_type()),
+                    get_size_t_type()),
+                TL::Type::get_void_type().get_pointer_to());
+        cast_expr.set_text("C");
+
+        Nodecl::NodeclBase rhs = cast_expr;
+        Nodecl::NodeclBase assignment_stmt = Nodecl::ExpressionStatement::make(
+                Nodecl::Assignment::make(
+                    lhs.shallow_copy(),
+                    rhs,
+                    lhs_type));
+
+        stmt_task_fill.prepend_sibling(assignment_stmt);
+
+        // Compute the offset for the next vla symbol (current member + its size)
+        vla_offset = Nodecl::Conversion::make(
+                Nodecl::Add::make(
+                    lhs.shallow_copy(),
+                    Nodecl::Sizeof::make(
+                        Nodecl::Type::make(it->get_type()),
+                        Nodecl::NodeclBase::null(),
+                        get_size_t_type()),
+                    get_size_t_type()),
+                TL::Type::get_char_type().get_pointer_to());
+        vla_offset.set_text("C");
+
+        TL::Symbol builtin_memcpy =
+            TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
+
+        ERROR_CONDITION(!builtin_memcpy.is_valid()
+                || !builtin_memcpy.is_function(), "Invalid symbol", 0);
+
+        rhs = Nodecl::Conversion::make(
+                it->make_nodecl(/* set_ref_type */ true),
+                it->get_type().no_ref().array_element().get_pointer_to());
+
+        Nodecl::NodeclBase size_of_array;
+        size_of_array =
+            Nodecl::Sizeof::make(
+                    Nodecl::Type::make(it->get_type()),
+                    Nodecl::NodeclBase::null(),
+                    get_size_t_type());
+
+        Nodecl::NodeclBase function_call_stmt = Nodecl::ExpressionStatement::make(
+                Nodecl::FunctionCall::make(
+                    builtin_memcpy.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::List::make(lhs, rhs, size_of_array),
+                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    TL::Type::get_void_type().get_pointer_to()));
+
+        stmt_task_fill.prepend_sibling(function_call_stmt);
     }
 
     for (TL::ObjectList<TL::Symbol>::const_iterator it = shared_no_vla_symbols.begin();
@@ -641,14 +729,26 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     create_src_task_final(task_environment, src_task_final);
     create_src_task_untied(task_environment, src_task_untied);
 
-    Source sizeof_args_expr;
-    sizeof_args_expr
-    << "sizeof(" << as_type(task_args_type) << ")";
+    Nodecl::NodeclBase stmt_sizeof_args = Nodecl::Sizeof::make(
+                                              Nodecl::Type::make(task_args_type),
+                                              Nodecl::NodeclBase::null(),
+                                              get_size_t_type());
+
 
     for (auto it = firstprivate_vla_symbols.begin(); it != firstprivate_vla_symbols.end(); it++) {
-        sizeof_args_expr << " + sizeof(" << as_symbol(*it) << ")";
-    }
+        Nodecl::NodeclBase size_of_array = Nodecl::Add::make(
+                const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN)),
+                Nodecl::Sizeof::make(
+                    Nodecl::Type::make(it->get_type()),
+                    Nodecl::NodeclBase::null(),
+                    get_size_t_type()),
+                get_size_t_type());
 
+        stmt_sizeof_args = Nodecl::Add::make(
+                stmt_sizeof_args,
+                size_of_array,
+                size_of_array.get_type());
+    }
 
     Source src_task_alloc;
     src_task_alloc
@@ -656,10 +756,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
                                  << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
                                  << src_task_final << "|" << src_task_untied << ","
                                  << "sizeof(" << as_type(kmp_task_type) << "),"
-                                 << sizeof_args_expr << ","
+                                 << as_expression(stmt_sizeof_args) << ","
                                  << "(" << as_type(kmp_routine_type) << ")&" << as_symbol(outline_task) << ");";
 
     Nodecl::NodeclBase tree_task_alloc = src_task_alloc.parse_statement(stmt_task_alloc);
+
     stmt_task_alloc.replace(tree_task_alloc);
 
     if (!task_environment.priority.is_null()) {
