@@ -5013,7 +5013,7 @@ static nodecl_t convert_node_to_ptrdiff_t(nodecl_t n)
                 nodecl_get_locus(n));
 
         if (cv != NULL
-                && !const_value_is_object(cv))
+                && const_value_is_integer(cv))
         {
             cv = const_value_cast_to_bytes(
                     cv,
