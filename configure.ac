@@ -871,9 +871,9 @@ then
     CPPFLAGSBACKUP="$CPPFLAGS"
     CXXFLAGSBACKUP="$CXXFLAGS"
 
-    CFLAGS="$CFLAGS -I$nanox_include -I$CUDA_INCLUDES"
-    CPPFLAGS="$CPPFLAGS -I$nanox_include -I$CUDA_INCLUDES"
-    CXXFLAGS="$CXXFLAGS -I$nanox_include -I$CUDA_INCLUDES"
+    CFLAGS="$CFLAGS -I$nanox_include -I$CUDA_HOME/include"
+    CPPFLAGS="$CPPFLAGS -I$nanox_include -I$CUDA_HOME/include"
+    CXXFLAGS="$CXXFLAGS -I$nanox_include -I$CUDA_HOME/include"
 
     AC_CHECK_HEADER([nanos-gpu.h], [nanox_supports_cuda=yes])
 

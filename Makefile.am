@@ -3236,9 +3236,6 @@ config_edit = \
      -e 's|@NANOX_MIC_INCLUDES[@]|$(NANOX_MIC_INCLUDES)|g' \
      -e 's|@NANOX_MIC_LIBS[@]|$(NANOX_MIC_LIBS)|g' \
      -e 's|@NANOX_MIC[@]|$(NANOX_MIC)|g' \
-     -e "s|@CUDA_INCLUDES[@]|$(CUDA_INCLUDES)|g" \
-     -e "s|@CUDA_LIBS[@]|$(CUDA_LIBS)|g" \
-     -e "s|@CUDA_RPATH[@]|$(CUDA_RPATH)|g" \
      -e 's|@ENABLE_CUDA[@]|$(ENABLE_CUDA)|g' \
      -e 's|@ENABLE_OPENCL[@]|$(ENABLE_OPENCL)|g' \
      -e 's|@MPIFORT[@]|$(MPIFORT)|g' \
