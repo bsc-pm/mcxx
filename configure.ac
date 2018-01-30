@@ -885,7 +885,7 @@ then
 fi
 
 ompss_supports_cuda="no"
-if test x"$ax_cv_check_cuda" = x"yes" -a x"$enable_nanox_cuda_device" = x"yes" -a x"$nanox_supports_cuda" = x"yes";
+if test x"$ax_cv_enable_cuda" = x"yes" -a x"$enable_nanox_cuda_device" = x"yes" -a x"$nanox_supports_cuda" = x"yes";
 then
     ompss_supports_cuda="yes"
 fi
