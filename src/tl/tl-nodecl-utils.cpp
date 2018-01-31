@@ -2007,6 +2007,8 @@ namespace TL
                 _induction_var = init_expr;
 
                 _lower_bound = CopyPolicy::shallow_copy(_induction_var.get_symbol().get_value());
+                if (_lower_bound.is<Nodecl::CxxEqualInitializer>())
+                    _lower_bound = _lower_bound.as<Nodecl::CxxEqualInitializer>().get_init();
             }
             else
             {
@@ -2415,6 +2417,8 @@ namespace TL
                 _induction_var = init_expr;
 
                 _lower_bound = CopyPolicy::shallow_copy(_induction_var.get_symbol().get_value());
+                if (_lower_bound.is<Nodecl::CxxEqualInitializer>())
+                    _lower_bound = _lower_bound.as<Nodecl::CxxEqualInitializer>().get_init();
             }
             else
             {
