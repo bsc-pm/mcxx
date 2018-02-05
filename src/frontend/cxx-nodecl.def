@@ -724,6 +724,7 @@ omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
                 | NODECL_OMP_SS*WEAK_REDUCTION([reductions]omp-reduction-item-seq)
                 | NODECL_OMP_SS*COST([cost]expression)
+                | NODECL_OMP_SS*TASK_LABEL() text
 
 omp-exec-environment : ompss-device-info
 
@@ -736,7 +737,9 @@ omp-deps-info: NODECL_OMP_SS*DEP_CONCURRENT([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_OUT([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_INOUT([exprs]expression-seq)
 
-ompss-device-info : NODECL_OMP_SS*COPY_IN([input_copies]expression-seq)
+ompss-device-info : NODECL_OMP_SS*TARGET([devices]text-seq, [items]ompss-device-info-clauses-seq-opt)
+
+ompss-device-info-clauses : NODECL_OMP_SS*COPY_IN([input_copies]expression-seq)
             | NODECL_OMP_SS*COPY_OUT([output_copies]expression-seq)
             | NODECL_OMP_SS*COPY_INOUT([inout_copies]expression-seq)
             | NODECL_OMP_SS*N_D_RANGE([ndrange_expressions]expression-seq)
@@ -745,8 +748,7 @@ ompss-device-info : NODECL_OMP_SS*COPY_IN([input_copies]expression-seq)
             | NODECL_OMP_SS*NAME([name]text)
             | NODECL_OMP_SS*ONTO([onto_expressions]expression-seq)
             | NODECL_OMP_SS*IMPLEMENTS([device]text, [function_name]name)
-            | NODECL_OMP_SS*TARGET([devices] text-seq, [items] ompss-device-info-seq-opt)
-            | NODECL_OMP_SS*TASK_LABEL() text
+
 
 ##############################
 # CUDA                       #
