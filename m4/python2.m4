@@ -16,17 +16,28 @@ AC_DEFUN([AM_PATH_PYTHON2],
     am_display_PYTHON=python
   ], [
     dnl A version check is needed.
+
+    # smateo: 1st round: checking $PYTHON environment variable
     if test -n "$PYTHON"; then
       # If the user set $PYTHON, use it and don't search something else.
-      AC_MSG_CHECKING([whether $PYTHON version is >= $1 (but not Python 3)])
+      AC_MSG_CHECKING([whether $PYTHON version is >= $1])
       AM_PYTHON_CHECK_VERSION([$PYTHON], [$1],
 			      [AC_MSG_RESULT([yes])],
 			      [AC_MSG_RESULT([no])
 			       AC_MSG_ERROR([Python interpreter is too old])])
-      am_display_PYTHON=$PYTHON
-    else
-      # Otherwise, try each interpreter until we find one that satisfies
-      # VERSION.
+
+      # smateo: if the user set $PYTHON but its version is Python3, we should ignore it!
+      AC_MSG_CHECKING([whether $PYTHON version is Python3 (unsupported version)])
+      AM_PYTHON_CHECK_VERSION([$PYTHON], [3.0],
+			      [AC_MSG_RESULT([yes])
+			       AC_MSG_WARN([Python3 is not supported, ignoring \$PYTHON environment variable])],
+			      [AC_MSG_RESULT([no])
+			       am_display_PYTHON=$PYTHON])
+    fi
+
+    #smateo: 2nd round, looking for one of the supported python2.X versions
+    if test x"$am_display_PYTHON" = x""; then
+      # Otherwise, try each interpreter until we find one that satisfies VERSION.
       AC_CACHE_CHECK([for a Python interpreter with version >= $1],
 	[am_cv_pathless_PYTHON],[
 	for am_cv_pathless_PYTHON in _AM_PYTHON_INTERPRETER_LIST none; do
