@@ -134,35 +134,33 @@ namespace Analysis {
 
             // Create input/output dependencies data structures
             rt_tdg << "unsigned short gomp_tdg_ins_" << n_tdg << "[] = {\n    ";
-            for (ObjectList<ETDGNode*>::iterator itt = tasks.begin(); itt != tasks.end(); )
+            char first_in = 1;
+            for (ObjectList<ETDGNode*>::iterator itt = tasks.begin(); itt != tasks.end(); ++itt)
             {
                 std::set<ETDGNode*> inputs = (*itt)->get_inputs();
-                for (std::set<ETDGNode*>::iterator iti = inputs.begin(); iti != inputs.end(); )
+                for (std::set<ETDGNode*>::iterator iti = inputs.begin(); iti != inputs.end(); ++iti)
                 {
-                    rt_tdg << task_to_position[(*iti)->get_id()];
-                    ++iti;
-                    if (iti != inputs.end())
+                    if (first_in)
+                        first_in = 0;
+                    else
                         rt_tdg << ", ";
+                    rt_tdg << task_to_position[(*iti)->get_id()];
                 }
-                ++itt;
-                if (!inputs.empty() && itt != tasks.end() && (*itt)->get_inputs().size()>0)
-                    rt_tdg << ", ";
             }
             rt_tdg << "};\n";
             rt_tdg << "unsigned short gomp_tdg_outs_" << n_tdg << "[] = {\n    ";
-            for (ObjectList<ETDGNode*>::iterator itt = tasks.begin(); itt != tasks.end(); )
+            char first_out = 1;
+            for (ObjectList<ETDGNode*>::iterator itt = tasks.begin(); itt != tasks.end(); ++itt)
             {
                 std::set<ETDGNode*> outputs = (*itt)->get_outputs();
-                for (std::set<ETDGNode*>::iterator ito = outputs.begin(); ito != outputs.end(); )
+                for (std::set<ETDGNode*>::iterator ito = outputs.begin(); ito != outputs.end(); ++ito)
                 {
-                    rt_tdg << task_to_position[(*ito)->get_id()];
-                    ++ito;
-                    if (ito != outputs.end())
+                    if (first_out)
+                        first_out = 0;
+                    else
                         rt_tdg << ", ";
+                    rt_tdg << task_to_position[(*ito)->get_id()];
                 }
-                ++itt;
-                if (!outputs.empty() && itt != tasks.end() && (*itt)->get_outputs().size()>0)
-                    rt_tdg << ", ";
             }
             rt_tdg << "};\n";
             rt_tdg << "\n";
