@@ -169,7 +169,7 @@ namespace {
             build_flow_tdg_rec(n->get_graph_entry_node(), parent, control, conditional, true_edge);
             control.pop_back();
         }
-        else if (n->is_graph_node())
+        else if (n->is_graph_node() && !n->is_omp_barrier_graph_node())
         {
             build_flow_tdg_rec(n->get_graph_entry_node(), parent, control, conditional, true_edge);
         }

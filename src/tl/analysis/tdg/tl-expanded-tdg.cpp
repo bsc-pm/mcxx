@@ -254,7 +254,9 @@ namespace {
             Scope ctx_sc = ctx->get_graph_related_ast().retrieve_context();
             if (var.get_symbol().get_scope().scope_is_enclosed_by(ctx_sc))
             {
-                internal_error("Task is using a variable that is created within the expanded context. This is not supported yet.\n", 0);
+                internal_error("Task '%s' is using variable '%s' that is created within the expanded context. This is not supported yet.\n",
+                               n->get_pcfg_node()->get_graph_related_ast().get_locus_str().c_str(),
+                               var.prettyprint().c_str());
             }
 
             NodeclSet& ctx_def = ctx->get_killed_vars();
