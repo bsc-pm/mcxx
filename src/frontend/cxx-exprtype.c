@@ -22581,10 +22581,14 @@ type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context
 
     computed_type = clear_special_expr_type_variants(computed_type);
 
-    if (nodecl_get_kind(nodecl_expr) == NODECL_SYMBOL
-            || nodecl_get_kind(nodecl_expr) == NODECL_CLASS_MEMBER_ACCESS)
+    if (nodecl_get_kind(nodecl_expr) == NODECL_SYMBOL)
     {
-        return no_ref(computed_type);
+        return nodecl_get_symbol(nodecl_expr)->type_information;
+    }
+    else if (nodecl_get_kind(nodecl_expr) == NODECL_CLASS_MEMBER_ACCESS)
+    {
+        return nodecl_get_symbol(nodecl_get_child(nodecl_expr, 1))
+            ->type_information;
     }
     else
     {
