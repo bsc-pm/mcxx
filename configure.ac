@@ -1256,47 +1256,9 @@ fi
 dnl ---------------------- End of Support for OmpSs-2 Nanos6 -----------------------------------------
 
 
-dnl --------------------- Dynamic Load Balancing -------------------------------
-# Eventually we can attempt to figure this out from the nanos-installation
-is_enabled_dlb="no"
-dlb_include=""
-dlb_lib=""
-AC_ARG_WITH([dlb],
-       AS_HELP_STRING([--with-dlb=dir], [Directory of Dynamic Load Balancing (DLB) installation]),
-       [
-        dlb_include="${withval}/include"
-        dlb_lib="${withval}/lib"
-       ]
-)
-AC_ARG_WITH([dlb-include],
-       AS_HELP_STRING([--with-dlb-include=dir], [Directory of Dynamic Load Balancing (DLB) headers]),
-       [
-        dlb_include="${withval}"
-       ]
-)
-
-AC_ARG_WITH([dlb-lib],
-       AS_HELP_STRING([--with-dlb-lib=dir], [Directory of Dynamic Load Balancing (DLB) libraries]),
-       [
-        dlb_lib="${withval}"
-       ]
-)
-
-DLB_INCLUDE=$dlb_include
-DLB_LIB=$dlb_lib
-
-DLB_GATE=":false:"
-if test -n "$dlb_include" -a -n "$dlb_lib";
-then
-    is_enabled_dlb="yes"
-    DLB_GATE="dlb"
-fi
-
-AC_SUBST([DLB_GATE])
-
-AC_SUBST([DLB_INCLUDE])
-AC_SUBST([DLB_LIB])
-dnl --------------------- End of Dynamic Load Balancing -------------------------------
+dnl ---------------------- DLB support ---------------------------------
+AX_DLB
+dnl ---------------------- End of DLB support ---------------------------------
 
 
 dnl --------------------- Support for GOMP ---------------------------------
@@ -2487,12 +2449,12 @@ then
 fi
 
 echo ""
-echo " * Dynamic Load Balancing (DLB) :" $is_enabled_dlb
-if test x$is_enabled_dlb = xyes;
+echo " * Dynamic Load Balancing (DLB) :" $ax_cv_is_enabled_dlb
+if test x$ax_cv_is_enabled_dlb = xyes;
 then
   echo ""
-  echo "   DLB includes :" $dlb_include
-  echo "   DLB libraries:" $dlb_lib
+  echo "   DLB includes :" $ax_cv_dlb_include
+  echo "   DLB libraries:" $ax_cv_dlb_lib
 fi
 
 echo ""
