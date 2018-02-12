@@ -169,6 +169,7 @@ linker_options = -Xlinker --enable-new-dtags
 
 
 # dlb
+{@DLB_GATE@} fortran_preprocessor_options = -I@DLB_INCLUDE@
 {@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
 {@DLB_GATE@} linker_options = -L@DLB_LIB@  -ldlb  -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
 
@@ -207,5 +208,6 @@ linker_options = -Wl,--enable-new-dtags
 
 
 # dlb
+{@DLB_GATE@} fortran_preprocessor_options = -I@DLB_INCLUDE@
 {@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
 {@DLB_GATE@} linker_options = -L@DLB_LIB@ -ldlb -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
