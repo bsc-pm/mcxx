@@ -633,7 +633,6 @@ namespace {
 
         if (TDG_DEBUG)
         {
-        if (TDG_DEBUG)
             std::cerr << indent << "Expanding loop " << n->get_pcfg_node()->get_graph_related_ast().get_locus_str() << std::endl;
             std::cerr << indent << "   IV = " << iv->get_variable().prettyprint() << std::endl;
             std::cerr << indent << "   LB = " << lb.prettyprint() << std::endl;
