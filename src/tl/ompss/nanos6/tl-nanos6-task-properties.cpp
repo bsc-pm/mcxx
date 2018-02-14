@@ -145,7 +145,6 @@ namespace TL { namespace Nanos6 {
         const std::string &task_info_name,
         /* out */
         TL::Symbol &task_info,
-        TL::Symbol &task_invocation_info,
         Nodecl::NodeclBase &local_init)
     {
         // task info goes to the global scope
@@ -156,35 +155,22 @@ namespace TL { namespace Nanos6 {
         task_info.set_type(task_info_struct.get_user_defined_type());
         symbol_entity_specs_set_is_static(task_info.get_internal_symbol(), 1);
 
-        // Task invocation info
-        create_task_invocation_info(task_info, task_invocation_info);
-
         // Add required declarations to the tree
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             if (IS_CXX_LANGUAGE)
             {
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                    _task_body,
-                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
-                                         task_info));
-                Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                    _task_body,
-                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
-                                         task_invocation_info));
+                    _task_body, Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_info));
             }
 
             Nodecl::Utils::prepend_to_enclosing_top_level_location(
                 _task_body, Nodecl::ObjectInit::make(task_info));
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                _task_body, Nodecl::ObjectInit::make(task_invocation_info));
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
             _phase->get_extra_c_code().append(
                 Nodecl::ObjectInit::make(task_info));
-            _phase->get_extra_c_code().append(
-                Nodecl::ObjectInit::make(task_invocation_info));
         }
         else
         {
@@ -197,14 +183,12 @@ namespace TL { namespace Nanos6 {
         const std::string &task_info_name,
         /* out */
         TL::Symbol &task_info,
-        TL::Symbol &task_invocation_info,
         Nodecl::NodeclBase &local_init)
     {
         if (!_related_function.is_member())
             return create_task_info_regular_function(task_info_struct,
                                                      task_info_name,
                                                      task_info,
-                                                     task_invocation_info,
                                                      local_init);
 
         // Member
@@ -234,15 +218,6 @@ namespace TL { namespace Nanos6 {
         set_is_dependent_type(class_type.get_internal_type(),
                               _related_function.get_class_type().is_dependent());
 
-        // Task invocation info
-        create_task_invocation_info(task_info, task_invocation_info);
-
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                _task_body,
-                Nodecl::List::make(
-                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info),
-                    Nodecl::ObjectInit::make(task_invocation_info)));
-
         Nodecl::Utils::append_to_top_level_nodecl(
                  Nodecl::List::make(
                      Nodecl::CxxDef::make(Nodecl::Context::make(nodecl_null(), TL::Scope::get_global_scope()), task_info),
@@ -254,7 +229,6 @@ namespace TL { namespace Nanos6 {
         const std::string &task_info_name,
         /* out */
         TL::Symbol &task_info,
-        TL::Symbol &task_invocation_info,
         Nodecl::NodeclBase &local_init)
     {
         ERROR_CONDITION(!IS_CXX_LANGUAGE, "This is only for C++", 0);
@@ -356,19 +330,10 @@ namespace TL { namespace Nanos6 {
                 new_class_symbol.get_type().get_internal_type()),
             /* is_complete */ 1);
 
-        // Task invocation
-        create_task_invocation_info(task_info, task_invocation_info);
-
         // Add required declarations to the tree
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
             _task_body,
             Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), new_class_symbol));
-
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                _task_body,
-                Nodecl::List::make(
-                    Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info),
-                    Nodecl::ObjectInit::make(task_invocation_info)));
 
         Nodecl::Utils::append_to_top_level_nodecl(
                  Nodecl::List::make(
@@ -376,35 +341,59 @@ namespace TL { namespace Nanos6 {
                      Nodecl::ObjectInit::make(task_info)));
     }
 
+    namespace {
+    //! Create a detached symbol with the same name as the real one We need to
+    //! do that otherwise Fortran codegen attempts to initialize this symbol
+    //! (We may want to fix this somehow)
+    TL::Symbol fortran_create_detached_symbol_from_static_symbol(TL::Symbol &static_symbol)
+    {
+        ERROR_CONDITION(!symbol_entity_specs_get_is_static(static_symbol.get_internal_symbol()),
+                "The symbol must be static", 0);
+
+        symbol_entity_specs_set_is_static(static_symbol.get_internal_symbol(), 0);
+
+        scope_entry_t *detached_symbol = NEW0(scope_entry_t);
+        detached_symbol->symbol_name = static_symbol.get_internal_symbol()->symbol_name;
+        detached_symbol->kind = static_symbol.get_internal_symbol()->kind;
+        detached_symbol->decl_context = static_symbol.get_internal_symbol()->decl_context;
+        symbol_entity_specs_set_is_user_declared(detached_symbol, 1);
+
+        const int size_of_ptr = TL::Type::get_void_type().get_pointer_to().get_size();
+        ERROR_CONDITION(static_symbol.get_type().get_size() % size_of_ptr != 0,
+                "Struct size does not divide the size of a pointer", 0);
+
+        int num_elements = static_symbol.get_type().get_size() / size_of_ptr;
+
+        detached_symbol->type_information =
+            TL::Type(fortran_choose_int_type_from_kind(size_of_ptr))
+            .get_array_to(
+                    const_value_to_nodecl(const_value_get_signed_int(num_elements)),
+                    TL::Scope::get_global_scope()).get_internal_type();
+
+        return detached_symbol;
+    }
+    }
+
     void TaskProperties::create_task_invocation_info(
-        TL::Symbol task_info,
         /* out */ TL::Symbol &task_invocation_info)
     {
-        TL::Symbol task_invocation_info_struct
-            = TL::Scope::get_global_scope().get_symbol_from_name(
-                "nanos_task_invocation_info");
-        ERROR_CONDITION(
-            !task_invocation_info_struct.is_valid(), "Invalid symbol", 0);
+        TL::Symbol task_invocation_info_struct =
+            TL::Scope::get_global_scope().get_symbol_from_name("nanos_task_invocation_info");
+        ERROR_CONDITION(!task_invocation_info_struct.is_valid(), "Invalid symbol", 0);
 
         std::string task_invocation_info_name = get_new_name("task_invocation_info");
+        task_invocation_info = TL::Scope::get_global_scope().new_symbol(task_invocation_info_name);
 
-        task_invocation_info = TL::Scope::get_global_scope().new_symbol(
-            task_invocation_info_name);
         task_invocation_info.get_internal_symbol()->kind = SK_VARIABLE;
-        symbol_entity_specs_set_is_user_declared(
-            task_invocation_info.get_internal_symbol(), 1);
-        task_invocation_info.set_type(
-            task_invocation_info_struct.get_user_defined_type());
-        symbol_entity_specs_set_is_static(
-            task_invocation_info.get_internal_symbol(), 1);
+        symbol_entity_specs_set_is_user_declared(task_invocation_info.get_internal_symbol(), 1);
+        task_invocation_info.set_type( task_invocation_info_struct.get_user_defined_type());
+        symbol_entity_specs_set_is_static(task_invocation_info.get_internal_symbol(), 1);
 
-        TL::ObjectList<TL::Symbol> task_invocation_fields
-            = task_invocation_info_struct.get_type()
-                  .get_nonstatic_data_members();
+        TL::ObjectList<TL::Symbol> task_invocation_fields =
+            task_invocation_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field_task_invocation_info(task_invocation_fields);
 
-        Nodecl::NodeclBase field_invocation_source
-            = get_field_task_invocation_info("invocation_source");
+        Nodecl::NodeclBase field_invocation_source = get_field_task_invocation_info("invocation_source");
 
         const char *c = locus_to_str(_locus_of_task_creation);
         Nodecl::NodeclBase init_invocation_source = const_value_to_nodecl(
@@ -416,8 +405,27 @@ namespace TL { namespace Nanos6 {
                 init_invocation_source,
                 field_invocation_source.get_type())),
             Nodecl::StructuredValueBracedImplicit::make(),
-            task_info.get_type());
+            task_invocation_info.get_type());
+
         task_invocation_info.set_value(task_invocation_init);
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            if (IS_CXX_LANGUAGE)
+            {
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                        _task_body,
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_invocation_info));
+            }
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    _task_body,
+                    Nodecl::ObjectInit::make(task_invocation_info));
+        }
+        else // IS_FORTRAN_LANGUAGE
+        {
+            _phase->get_extra_c_code().append(Nodecl::ObjectInit::make(task_invocation_info));
+            task_invocation_info = fortran_create_detached_symbol_from_static_symbol(task_invocation_info);
+        }
     }
 
     namespace {
@@ -604,7 +612,6 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_task_info(
             /* out */
             TL::Symbol &task_info,
-            TL::Symbol &task_invocation_info,
             Nodecl::NodeclBase &local_init)
     {
         create_outline_function();
@@ -627,7 +634,6 @@ namespace TL { namespace Nanos6 {
             create_task_info_regular_function(task_info_struct,
                                               task_info_name,
                                               task_info,
-                                              task_invocation_info,
                                               local_init);
         }
         else if (IS_CXX_LANGUAGE)
@@ -641,7 +647,6 @@ namespace TL { namespace Nanos6 {
                         task_info_struct,
                         task_info_name,
                         task_info,
-                        task_invocation_info,
                         local_init);
             }
             else
@@ -650,7 +655,6 @@ namespace TL { namespace Nanos6 {
                         task_info_struct,
                         task_info_name,
                         task_info,
-                        task_invocation_info,
                         local_init);
             }
         }
@@ -840,65 +844,7 @@ namespace TL { namespace Nanos6 {
 
         if (IS_FORTRAN_LANGUAGE)
         {
-            // Create a detached symbol with the same name as the real one
-            // We need to do that otherwise Fortran codegen attempts to
-            // initialize this symbol
-            // (We may want to fix this somehow)
-            symbol_entity_specs_set_is_static(task_info.get_internal_symbol(),
-                                              0);
-            //
-            scope_entry_t *task_info_shim = NEW0(scope_entry_t);
-            task_info_shim->symbol_name
-                = task_info.get_internal_symbol()->symbol_name;
-            task_info_shim->kind = task_info.get_internal_symbol()->kind;
-            task_info_shim->decl_context
-                = task_info.get_internal_symbol()->decl_context;
-            symbol_entity_specs_set_is_user_declared(task_info_shim, 1);
-            // Fake the structure size
-            const int size_of_ptr
-                = TL::Type::get_void_type().get_pointer_to().get_size();
-            ERROR_CONDITION(task_info.get_type().get_size() % size_of_ptr != 0,
-                            "Struct size does not divide the size of a pointer",
-                            0);
-            int num_elements = task_info.get_type().get_size() / size_of_ptr;
-            task_info_shim->type_information
-                = TL::Type(fortran_choose_int_type_from_kind(size_of_ptr))
-                      .get_array_to(
-                           const_value_to_nodecl(
-                               const_value_get_signed_int(num_elements)),
-                           TL::Scope::get_global_scope())
-                      .get_internal_type();
-
-            task_info = task_info_shim;
-
-            // Ditto for task_invocation_info
-            symbol_entity_specs_set_is_static(
-                task_invocation_info.get_internal_symbol(), 0);
-            //
-            scope_entry_t *task_invocation_info_shim = NEW0(scope_entry_t);
-            task_invocation_info_shim->symbol_name
-                = task_invocation_info.get_internal_symbol()->symbol_name;
-            task_invocation_info_shim->kind
-                = task_invocation_info.get_internal_symbol()->kind;
-            task_invocation_info_shim->decl_context
-                = task_invocation_info.get_internal_symbol()->decl_context;
-            symbol_entity_specs_set_is_user_declared(task_invocation_info_shim,
-                                                     1);
-            ERROR_CONDITION(
-                task_invocation_info.get_type().get_size() % size_of_ptr != 0,
-                "Struct size does not divide the size of a pointer",
-                0);
-            num_elements = task_invocation_info.get_type().get_size()
-                           / size_of_ptr;
-            task_invocation_info_shim->type_information
-                = TL::Type(fortran_choose_int_type_from_kind(size_of_ptr))
-                      .get_array_to(
-                           const_value_to_nodecl(
-                               const_value_get_signed_int(num_elements)),
-                           TL::Scope::get_global_scope())
-                      .get_internal_type();
-
-            task_invocation_info = task_invocation_info_shim;
+            task_info = fortran_create_detached_symbol_from_static_symbol(task_info);
         }
     }
 

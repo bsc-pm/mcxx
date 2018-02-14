@@ -138,12 +138,16 @@ namespace TL { namespace Nanos6 {
                 args_size,
                 requires_initialization);
 
-        TL::Symbol task_info, task_invocation_info;
+        TL::Symbol task_invocation_info;
+        task_properties.create_task_invocation_info(
+                /* out */
+                task_invocation_info);
+
+        TL::Symbol task_info;
         Nodecl::NodeclBase local_init_task_info;
         task_properties.create_task_info(
                 /* out */
                 task_info,
-                task_invocation_info,
                 local_init_task_info);
 
         TL::Scope sc = node.retrieve_context();

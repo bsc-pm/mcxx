@@ -179,29 +179,26 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List &register_statements);
 
-            void create_task_invocation_info(
-                TL::Symbol task_info,
-                /* out */ TL::Symbol &task_invocation_info);
+
             void create_task_info_regular_function(
                 TL::Symbol task_info_struct,
                 const std::string &task_info_name,
                 /* out */
                 TL::Symbol &task_info,
-                TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
+
             void create_task_info_nondependent_function(
                 TL::Symbol task_info_struct,
                 const std::string &task_info_name,
                 /* out */
                 TL::Symbol &task_info,
-                TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
+
             void create_task_info_dependent_function(
                 TL::Symbol task_info_struct,
                 const std::string &task_info_name,
                 /* out */
                 TL::Symbol &task_info,
-                TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
 
             void create_task_info_nondependent_member_function(
@@ -209,21 +206,20 @@ namespace TL { namespace Nanos6 {
                 const std::string &task_info_name,
                 /* out */
                 TL::Symbol &task_info,
-                TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
+
             void create_task_info_dependent_nonmember_function(
                 TL::Symbol task_info_struct,
                 const std::string &task_info_name,
                 /* out */
                 TL::Symbol &task_info,
-                TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
+
             void create_task_info_dependent_member_function(
                 TL::Symbol task_info_struct,
                 const std::string &task_info_name,
                 /* out */
                 TL::Symbol &task_info,
-                TL::Symbol &task_invocation_info,
                 Nodecl::NodeclBase &local_init);
 
 
@@ -251,10 +247,13 @@ namespace TL { namespace Nanos6 {
             // FIXME
             std::string get_new_name(const std::string& prefix) const;
 
+            //! This function creates a new static variable that contains the task invocation information
+            void create_task_invocation_info(
+                /* out */ TL::Symbol &task_invocation_info);
+
             void create_task_info(
                     /* out */
                     TL::Symbol &task_info,
-                    TL::Symbol &task_invocation_info,
                     Nodecl::NodeclBase& local_init);
 
             //! This function creates a new class type that represents the arguments structure.
