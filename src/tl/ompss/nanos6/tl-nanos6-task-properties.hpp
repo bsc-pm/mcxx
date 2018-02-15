@@ -179,7 +179,6 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List &register_statements);
 
-
             void create_task_info_regular_function(
                 TL::Symbol task_info_struct,
                 const std::string &task_info_name,
@@ -200,28 +199,6 @@ namespace TL { namespace Nanos6 {
                 /* out */
                 TL::Symbol &task_info,
                 Nodecl::NodeclBase &local_init);
-
-            void create_task_info_nondependent_member_function(
-                TL::Symbol task_info_struct,
-                const std::string &task_info_name,
-                /* out */
-                TL::Symbol &task_info,
-                Nodecl::NodeclBase &local_init);
-
-            void create_task_info_dependent_nonmember_function(
-                TL::Symbol task_info_struct,
-                const std::string &task_info_name,
-                /* out */
-                TL::Symbol &task_info,
-                Nodecl::NodeclBase &local_init);
-
-            void create_task_info_dependent_member_function(
-                TL::Symbol task_info_struct,
-                const std::string &task_info_name,
-                /* out */
-                TL::Symbol &task_info,
-                Nodecl::NodeclBase &local_init);
-
 
             void compute_captured_saved_expressions();
 
