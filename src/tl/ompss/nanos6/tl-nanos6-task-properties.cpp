@@ -2546,7 +2546,7 @@ namespace TL { namespace Nanos6 {
             upper_bound =
                 Nodecl::Add::make(
                         upper_bound.shallow_copy(),
-                        const_value_to_nodecl(const_value_get_one(8, 0)),
+                        const_value_to_nodecl(const_value_get_one(4, 1)),
                         upper_bound.get_type().no_ref());
 
             // Continuous dimension should be expressed in bytes
@@ -2577,7 +2577,7 @@ namespace TL { namespace Nanos6 {
                     Nodecl::NodeclBase::null(),
                     get_size_t_type());
 
-            lower_bound = const_value_to_nodecl(const_value_get_zero(8, 0));
+            lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
             upper_bound = size.shallow_copy();
         }
 
@@ -2639,7 +2639,7 @@ namespace TL { namespace Nanos6 {
                         region_ub,
                         array_lb,
                         region_lb.get_type().no_ref()),
-                    const_value_to_nodecl(const_value_get_one(8, 0)),
+                    const_value_to_nodecl(const_value_get_one(8, 1)),
                     region_lb.get_type().no_ref());
 
             // Continuous dimension should be expressed in bytes
