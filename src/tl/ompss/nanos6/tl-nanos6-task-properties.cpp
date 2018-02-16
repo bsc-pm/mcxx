@@ -528,7 +528,7 @@ namespace TL { namespace Nanos6 {
         }
 
         // This function negates the condition if it's not null
-        Nodecl::NodeclBase negate_condition_if_possible(Nodecl::NodeclBase cond)
+        Nodecl::NodeclBase negate_condition_if_valid(Nodecl::NodeclBase cond)
         {
             if (cond.is_null())
                 return cond;
@@ -565,7 +565,7 @@ namespace TL { namespace Nanos6 {
             compute_generic_flag_c(_env.final_clause,
                     /* default value */ 0, /* bit */ 0, /* out */ task_flags_expr);
 
-            compute_generic_flag_c(negate_condition_if_possible(_env.if_clause),
+            compute_generic_flag_c(negate_condition_if_valid(_env.if_clause),
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
@@ -598,7 +598,7 @@ namespace TL { namespace Nanos6 {
                     compute_generic_flag_fortran(task_flags, _env.final_clause, /* default value */ 0, /* bit */ 0));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, negate_condition_if_possible(_env.if_clause), /* default value */ 0, /* bit */ 1));
+                    compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
 
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), /* default value */ _env.is_taskloop, /* bit */ 2));
