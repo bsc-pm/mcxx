@@ -4,8 +4,6 @@
 ! test_FFLAGS_mod="-DWRITE_MOD"
 ! test_FFLAGS_use="-DUSE_MOD"
 ! test_FFLAGS_all="-DWRITE_MOD -DUSE_MOD"
-! test_compile_fail_use=yes
-! test_compile_fail_all=yes
 ! </testinfo>
 
 #ifdef WRITE_MOD
