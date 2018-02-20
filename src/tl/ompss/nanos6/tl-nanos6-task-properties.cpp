@@ -2234,101 +2234,254 @@ namespace TL { namespace Nanos6 {
         }
     };
 
+    namespace
+    {
+        void compute_dimensionality_information_c(
+                TL::Type type,
+                // Out
+                TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
+        {
+            Nodecl::NodeclBase size, lower_bound, upper_bound;
+            if (type.is_array())
+            {
+                TL::Type element_type = type.array_element();
+                if (element_type.is_array())
+                    compute_dimensionality_information_c(element_type, arguments_list);
+
+                size = type.array_get_size().shallow_copy();
+
+                if (type.array_is_region())
+                    type.array_get_region_bounds(lower_bound, upper_bound);
+                else
+                    type.array_get_bounds(lower_bound, upper_bound);
+
+                lower_bound = lower_bound.shallow_copy();
+                upper_bound =
+                    Nodecl::Add::make(
+                            upper_bound.shallow_copy(),
+                            const_value_to_nodecl(const_value_get_one(4, 1)),
+                            upper_bound.get_type().no_ref());
+
+                // Continuous dimension should be expressed in bytes
+                if (!element_type.is_array())
+                {
+                    Nodecl::NodeclBase element_type_size = Nodecl::Sizeof::make(
+                            Nodecl::Type::make(element_type),
+                            Nodecl::NodeclBase::null(),
+                            get_size_t_type());
+
+                    size = Nodecl::Mul::make(size, element_type_size, size.get_type().no_ref());
+                    lower_bound = Nodecl::Mul::make(
+                            lower_bound,
+                            element_type_size.shallow_copy(),
+                            lower_bound.get_type().no_ref());
+
+                    upper_bound = Nodecl::Mul::make(
+                            upper_bound,
+                            element_type_size.shallow_copy(),
+                            upper_bound.get_type().no_ref());
+                }
+            }
+            else
+            {
+                // Continuous dimension should be expressed in bytes
+                size = Nodecl::Sizeof::make(
+                        Nodecl::Type::make(type),
+                        Nodecl::NodeclBase::null(),
+                        get_size_t_type());
+
+                lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
+                upper_bound = size.shallow_copy();
+            }
+
+            arguments_list.append(size);
+            arguments_list.append(lower_bound);
+            arguments_list.append(upper_bound);
+        }
+
+        void compute_dimensionality_information_fortran(
+                const TL::DataReference& data_ref,
+                TL::Type type,
+                // Out
+                TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
+        {
+            Nodecl::NodeclBase size, lower_bound, upper_bound;
+            if (type.is_array())
+            {
+                TL::Type element_type = type.array_element();
+                if (element_type.is_array())
+                    compute_dimensionality_information_fortran(data_ref, element_type, arguments_list);
+
+                Nodecl::NodeclBase array_lb, array_ub;
+                {
+                    type.array_get_bounds(array_lb, array_ub);
+                    if (array_lb.is_null())
+                        array_lb = TL::Lowering::Utils::Fortran::get_lower_bound(data_ref, type.fortran_rank());
+                    else
+                        array_lb = array_lb.shallow_copy();
+
+                    if (array_ub.is_null())
+                        array_ub = TL::Lowering::Utils::Fortran::get_upper_bound(data_ref, type.fortran_rank());
+                    else
+                        array_ub = array_ub.shallow_copy();
+                }
+
+                Nodecl::NodeclBase region_lb, region_ub;
+                {
+                    if (type.array_is_region())
+                    {
+                        type.array_get_region_bounds(region_lb, region_ub);
+                    }
+                    else
+                    {
+                        region_lb = array_lb.shallow_copy();
+                        region_ub = array_ub.shallow_copy();
+                    }
+                }
+
+                size = TL::Lowering::Utils::Fortran::get_size_for_dimension(data_ref, type, type.fortran_rank());
+
+                lower_bound = Nodecl::Minus::make(
+                        region_lb,
+                        array_lb,
+                        region_lb.get_type().no_ref());
+
+                //XXX: ADD one?
+                upper_bound = Nodecl::Add::make(
+                        Nodecl::Minus::make(
+                            region_ub,
+                            array_lb,
+                            region_lb.get_type().no_ref()),
+                        const_value_to_nodecl(const_value_get_one(8, 1)),
+                        region_lb.get_type().no_ref());
+
+                // Continuous dimension should be expressed in bytes
+                if (!element_type.is_array())
+                {
+                    Nodecl::NodeclBase element_type_size = Nodecl::Sizeof::make(
+                            Nodecl::Type::make(element_type),
+                            Nodecl::NodeclBase::null(),
+                            get_size_t_type());
+
+                    size = Nodecl::Mul::make(
+                            Nodecl::ParenthesizedExpression::make(size, size.get_type().no_ref()),
+                            element_type_size,
+                            size.get_type().no_ref());
+
+                    lower_bound = Nodecl::Mul::make(
+                            Nodecl::ParenthesizedExpression::make(lower_bound, lower_bound.get_type().no_ref()),
+                            element_type_size.shallow_copy(),
+                            lower_bound.get_type().no_ref());
+
+                    upper_bound = Nodecl::Mul::make(
+                            Nodecl::ParenthesizedExpression::make(upper_bound, upper_bound.get_type().no_ref()),
+                            element_type_size.shallow_copy(),
+                            upper_bound.get_type().no_ref());
+                }
+            }
+            else
+            {
+                size = data_ref.get_sizeof().shallow_copy();
+                lower_bound = const_value_to_nodecl(const_value_get_zero(8, 0));
+                upper_bound = size.shallow_copy();
+            }
+
+            // Fortran is a bit repellent checking the actual arguments types, for
+            // this reason we may need to add some conversions
+            TL::Type param_type = fortran_choose_int_type_from_kind(8);
+            arguments_list.append(Nodecl::Conversion::make(size, param_type));
+            arguments_list.append(Nodecl::Conversion::make(lower_bound, param_type));
+            arguments_list.append(Nodecl::Conversion::make(upper_bound, param_type));
+        }
+
+        void compute_base_address_and_dimensionality_information(
+                TL::DataReference& data_ref,
+                // Out
+                TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
+        {
+            Nodecl::NodeclBase base_address =
+                Nodecl::Conversion::make(
+                    data_ref.get_base_address().shallow_copy(),
+                    TL::Type::get_void_type().get_pointer_to());
+
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                base_address.set_text("C");
+
+            arguments_list.append(base_address);
+
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                compute_dimensionality_information_c(data_ref.get_data_type(), arguments_list);
+            else
+                compute_dimensionality_information_fortran(data_ref, data_ref.get_data_type(), arguments_list);
+        }
+    }
+
     void TaskProperties::handle_task_reductions(
             TL::Scope& unpacked_inside_scope,
             Nodecl::NodeclBase unpacked_empty_stmt,
             Nodecl::Utils::SimpleSymbolMap &symbol_map)
     {
-        for (TL::ObjectList<ReductionItem>::const_iterator it = _env.reduction.begin();
-                it != _env.reduction.end();
+        // FIXME handle finalstmtsgen for weakred
+        for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = _env.dep_reduction.begin();
+                it != _env.dep_reduction.end();
                 it++)
         {
-            const ReductionItem& red_item(*it);
+            TL::DataReference data_ref = *it;
 
-            // FIXME handle finalstmtsgen for weakred
-            if (!red_item.isWeak)
+            TL::Symbol base_symbol = data_ref.get_base_symbol();
+            TL::Type reduction_type = data_ref.get_type().no_ref();
+
+            TL::Symbol red_storage_sym = unpacked_inside_scope.new_symbol(
+                    base_symbol.get_name() + "_storage");
+            symbol_entity_specs_set_is_user_declared(
+                    red_storage_sym.get_internal_symbol(), 1);
+            red_storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            red_storage_sym.set_type(reduction_type.get_lvalue_reference_to());
+
+            // Map original symbol to new local symbol so that the
+            // posterior deep copy over the task body replaces all its
+            // references
+            symbol_map.add_map(base_symbol, red_storage_sym);
+
+            std::string get_red_storage_fun_name = "nanos_get_reduction_storage1";
+            TL::Scope global_context = TL::Scope::get_global_scope();
+            TL::Symbol get_red_storage_fun =
+                global_context.get_symbol_from_name(get_red_storage_fun_name);
+            if (!get_red_storage_fun.is_valid())
             {
-                TL::Symbol red_sym =
-                    unpacked_inside_scope.get_symbol_from_name(red_item.symbol.get_name());
-
-                TL::Symbol red_storage_sym = unpacked_inside_scope.new_symbol(
-                        red_sym.get_name() + "_storage");
-                symbol_entity_specs_set_is_user_declared(
-                        red_storage_sym.get_internal_symbol(), 1);
-                red_storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                red_storage_sym.set_type(red_item.reduction_type.no_ref().get_lvalue_reference_to());
-
-                // Map original symbol to new local symbol so that the
-                // posterior deep copy over the task body replaces all its
-                // references
-                symbol_map.add_map(red_item.symbol, red_storage_sym);
-
-                std::string get_red_storage_fun_name = "nanos_get_reduction_storage";
-                TL::Scope global_context = TL::Scope::get_global_scope();
-                TL::Symbol get_red_storage_fun =
-                    global_context.get_symbol_from_name(get_red_storage_fun_name);
-                if (!get_red_storage_fun.is_valid())
-                {
-                    fatal_error(
-                            "'%s' function not found while trying to register dependences\n",
-                            get_red_storage_fun_name.c_str());
-                }
-
-                TL::Type cast_type;
-                if (red_item.reduction_type.no_ref().is_array())
-                {
-                    cast_type =
-                        rewrite_type(red_item.reduction_type.no_ref().get_pointer_to(),
-                                unpacked_inside_scope, symbol_map);
-                }
-                else
-                {
-                    cast_type =
-                        red_item.reduction_type.no_ref().get_pointer_to();
-                }
-
-                Nodecl::NodeclBase arg;
-                if (_env.shared.contains(red_item.symbol))
-                {
-                    arg = Nodecl::Reference::make(
-                            red_sym.make_nodecl(/* set_ref_type */ true),
-                            red_sym.get_type().no_ref().get_lvalue_reference_to());
-                }
-                else
-                {
-                    ERROR_CONDITION(!_env.captured_value.contains(red_item.symbol),
-                            "Unexpected data-sharing for symbol '%s'",
-                            red_sym.get_name().c_str());
-
-                    // For cases like:
-                    //
-                    //      int *ptr;
-                    //      #pragma oss task reduction(+: [1]ptr)
-                    //      { ... }
-                    //
-                    // to avoid getting the address of a pointer
-
-                    arg = red_sym.make_nodecl(/* set_ref_type */ true);
-                }
-
-                // FIXME Works, but is it correct? -> incomplete, should complete for VLA, shared and firstprivate (pointer)
-                Nodecl::NodeclBase cast;
-                Nodecl::NodeclBase function_call = Nodecl::Dereference::make(
-                        cast = Nodecl::Conversion::make(
-                            Nodecl::FunctionCall::make(
-                                get_red_storage_fun.make_nodecl(/* set_ref_type */ true),
-                                Nodecl::List::make(arg),
-                                /* alternate_name */ Nodecl::NodeclBase::null(),
-                                /* function_form */ Nodecl::NodeclBase::null(),
-                                TL::Type::get_void_type().get_pointer_to()),
-                            cast_type),
-                        red_item.reduction_type.no_ref());
-                cast.set_text("C");
-
-                red_storage_sym.set_value(function_call);
-
-                unpacked_empty_stmt.prepend_sibling(Nodecl::ObjectInit::make(red_storage_sym));
+                fatal_error(
+                        "'%s' function not found while trying to register dependences\n",
+                        get_red_storage_fun_name.c_str());
             }
+
+            TL::Type cast_type;
+            if (reduction_type.is_array())
+            {
+                cast_type =
+                    rewrite_type(reduction_type, unpacked_inside_scope, symbol_map);
+            }
+            cast_type = cast_type.get_pointer_to();
+
+            TL::ObjectList<Nodecl::NodeclBase> arguments_list;
+            compute_base_address_and_dimensionality_information(data_ref, arguments_list);
+
+            // FIXME Works, but is it correct? -> incomplete, should complete for VLA, shared and firstprivate (pointer)
+            Nodecl::NodeclBase cast;
+            Nodecl::NodeclBase function_call = Nodecl::Dereference::make(
+                    cast = Nodecl::Conversion::make(
+                        Nodecl::FunctionCall::make(
+                            get_red_storage_fun.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(arguments_list),
+                            /* alternate_name */ Nodecl::NodeclBase::null(),
+                            /* function_form */ Nodecl::NodeclBase::null(),
+                            TL::Type::get_void_type().get_pointer_to()),
+                        cast_type),
+                    reduction_type);
+            cast.set_text("C");
+
+            red_storage_sym.set_value(function_call);
+
+            unpacked_empty_stmt.prepend_sibling(Nodecl::ObjectInit::make(red_storage_sym));
         }
     }
 
@@ -2489,185 +2642,6 @@ namespace TL { namespace Nanos6 {
 
 
     namespace {
-
-    void compute_dimensionality_information_c(
-            TL::Type type,
-            // Out
-            TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
-    {
-        Nodecl::NodeclBase size, lower_bound, upper_bound;
-        if (type.is_array())
-        {
-            TL::Type element_type = type.array_element();
-            if (element_type.is_array())
-                compute_dimensionality_information_c(element_type, arguments_list);
-
-            size = type.array_get_size().shallow_copy();
-
-            if (type.array_is_region())
-                type.array_get_region_bounds(lower_bound, upper_bound);
-            else
-                type.array_get_bounds(lower_bound, upper_bound);
-
-            lower_bound = lower_bound.shallow_copy();
-            upper_bound =
-                Nodecl::Add::make(
-                        upper_bound.shallow_copy(),
-                        const_value_to_nodecl(const_value_get_one(4, 1)),
-                        upper_bound.get_type().no_ref());
-
-            // Continuous dimension should be expressed in bytes
-            if (!element_type.is_array())
-            {
-                Nodecl::NodeclBase element_type_size = Nodecl::Sizeof::make(
-                        Nodecl::Type::make(element_type),
-                        Nodecl::NodeclBase::null(),
-                        get_size_t_type());
-
-                size = Nodecl::Mul::make(size, element_type_size, size.get_type().no_ref());
-                lower_bound = Nodecl::Mul::make(
-                        lower_bound,
-                        element_type_size.shallow_copy(),
-                        lower_bound.get_type().no_ref());
-
-                upper_bound = Nodecl::Mul::make(
-                        upper_bound,
-                        element_type_size.shallow_copy(),
-                        upper_bound.get_type().no_ref());
-            }
-        }
-        else
-        {
-            // Continuous dimension should be expressed in bytes
-            size = Nodecl::Sizeof::make(
-                    Nodecl::Type::make(type),
-                    Nodecl::NodeclBase::null(),
-                    get_size_t_type());
-
-            lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
-            upper_bound = size.shallow_copy();
-        }
-
-        arguments_list.append(size);
-        arguments_list.append(lower_bound);
-        arguments_list.append(upper_bound);
-    }
-
-    void compute_dimensionality_information_fortran(
-            const TL::DataReference& data_ref,
-            TL::Type type,
-            // Out
-            TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
-    {
-        Nodecl::NodeclBase size, lower_bound, upper_bound;
-        if (type.is_array())
-        {
-            TL::Type element_type = type.array_element();
-            if (element_type.is_array())
-                compute_dimensionality_information_fortran(data_ref, element_type, arguments_list);
-
-            Nodecl::NodeclBase array_lb, array_ub;
-            {
-                type.array_get_bounds(array_lb, array_ub);
-                if (array_lb.is_null())
-                    array_lb = TL::Lowering::Utils::Fortran::get_lower_bound(data_ref, type.fortran_rank());
-                else
-                    array_lb = array_lb.shallow_copy();
-
-                if (array_ub.is_null())
-                    array_ub = TL::Lowering::Utils::Fortran::get_upper_bound(data_ref, type.fortran_rank());
-                else
-                    array_ub = array_ub.shallow_copy();
-            }
-
-            Nodecl::NodeclBase region_lb, region_ub;
-            {
-                if (type.array_is_region())
-                {
-                    type.array_get_region_bounds(region_lb, region_ub);
-                }
-                else
-                {
-                    region_lb = array_lb.shallow_copy();
-                    region_ub = array_ub.shallow_copy();
-                }
-            }
-
-            size = TL::Lowering::Utils::Fortran::get_size_for_dimension(data_ref, type, type.fortran_rank());
-
-            lower_bound = Nodecl::Minus::make(
-                    region_lb,
-                    array_lb,
-                    region_lb.get_type().no_ref());
-
-            //XXX: ADD one?
-            upper_bound = Nodecl::Add::make(
-                    Nodecl::Minus::make(
-                        region_ub,
-                        array_lb,
-                        region_lb.get_type().no_ref()),
-                    const_value_to_nodecl(const_value_get_one(8, 1)),
-                    region_lb.get_type().no_ref());
-
-            // Continuous dimension should be expressed in bytes
-            if (!element_type.is_array())
-            {
-                Nodecl::NodeclBase element_type_size = Nodecl::Sizeof::make(
-                        Nodecl::Type::make(element_type),
-                        Nodecl::NodeclBase::null(),
-                        get_size_t_type());
-
-                size = Nodecl::Mul::make(
-                        Nodecl::ParenthesizedExpression::make(size, size.get_type().no_ref()),
-                        element_type_size,
-                        size.get_type().no_ref());
-
-                lower_bound = Nodecl::Mul::make(
-                        Nodecl::ParenthesizedExpression::make(lower_bound, lower_bound.get_type().no_ref()),
-                        element_type_size.shallow_copy(),
-                        lower_bound.get_type().no_ref());
-
-                upper_bound = Nodecl::Mul::make(
-                        Nodecl::ParenthesizedExpression::make(upper_bound, upper_bound.get_type().no_ref()),
-                        element_type_size.shallow_copy(),
-                        upper_bound.get_type().no_ref());
-            }
-        }
-        else
-        {
-            size = data_ref.get_sizeof().shallow_copy();
-            lower_bound = const_value_to_nodecl(const_value_get_zero(8, 0));
-            upper_bound = size.shallow_copy();
-        }
-
-        // Fortran is a bit repellent checking the actual arguments types, for
-        // this reason we may need to add some conversions
-        TL::Type param_type = fortran_choose_int_type_from_kind(8);
-        arguments_list.append(Nodecl::Conversion::make(size, param_type));
-        arguments_list.append(Nodecl::Conversion::make(lower_bound, param_type));
-        arguments_list.append(Nodecl::Conversion::make(upper_bound, param_type));
-    }
-
-    void compute_base_address_and_dimensionality_information(
-            TL::DataReference& data_ref,
-            // Out
-            TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
-    {
-        Nodecl::NodeclBase base_address =
-            Nodecl::Conversion::make(
-                data_ref.get_base_address().shallow_copy(),
-                TL::Type::get_void_type().get_pointer_to());
-
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            base_address.set_text("C");
-
-        arguments_list.append(base_address);
-
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            compute_dimensionality_information_c(data_ref.get_data_type(), arguments_list);
-        else
-            compute_dimensionality_information_fortran(data_ref, data_ref.get_data_type(), arguments_list);
-    }
 
     void compute_arguments_register_dependence(
             TL::DataReference& data_ref,
