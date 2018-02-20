@@ -33,11 +33,11 @@
 
 namespace TL { namespace Intel {
 
-void create_task_function(const Nodecl::OpenMP::Task& construct,
-                          const TL::Scope& scope,
-                          TL::Symbol& outline_task,
-                          Nodecl::NodeclBase& outline_task_code,
-                          Nodecl::NodeclBase& outline_task_stmt) {
+static void create_task_function(const Nodecl::OpenMP::Task& construct,
+                                 const TL::Scope& scope,
+                                 TL::Symbol& outline_task,
+                                 Nodecl::NodeclBase& outline_task_code,
+                                 Nodecl::NodeclBase& outline_task_stmt) {
 
     TL::Type kmp_int32_type = scope
         .get_symbol_from_name("kmp_int32")
@@ -73,14 +73,16 @@ void create_task_function(const Nodecl::OpenMP::Task& construct,
             outline_task_stmt);
 }
 
-void create_task_args(const Nodecl::OpenMP::Task& construct,
-                      const TL::Scope& scope,
-                      const TL::Symbol& outline_task,
-                      const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
-                      const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
-                      const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
-                      const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
-                      TL::Type& task_args_type) {
+static void create_task_args(const Nodecl::OpenMP::Task& construct,
+                             const TL::Scope& scope,
+                             const TL::Symbol& outline_task,
+                             const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
+                             const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
+                             const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
+                             const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
+                             const TL::Symbol& taskgroup_desc,
+                             const TL::ObjectList<TL::Symbol>& reduction_symbols,
+                             TL::Type& task_args_type) {
 
     std::stringstream task_args_struct_name;
     task_args_struct_name << "_args" << outline_task.get_name();
@@ -131,6 +133,26 @@ void create_task_args(const Nodecl::OpenMP::Task& construct,
             << ";";
     }
 
+    if (taskgroup_desc.is_valid()) {
+        src_task_args_struct
+            << as_type(taskgroup_desc.get_type().no_ref().get_pointer_to())
+            << " "
+            << taskgroup_desc.get_name()
+            << ";";
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = reduction_symbols.begin();
+            it != reduction_symbols.end();
+            it++)
+    {
+        src_task_args_struct
+            << as_type(it->get_type().no_ref().get_pointer_to())
+            << " "
+            << it->get_name()
+            << ";";
+    }
+
+
     src_task_args_struct << "};";
     Nodecl::NodeclBase tree_task_args_struct = src_task_args_struct.parse_declaration(scope);
 
@@ -143,15 +165,15 @@ void create_task_args(const Nodecl::OpenMP::Task& construct,
     if (IS_C_LANGUAGE)
         task_args_struct_lang_name  = "struct " + task_args_struct_lang_name;
 
-    
+
     task_args_type = scope
         .get_symbol_from_name(task_args_struct_lang_name)
         .get_user_defined_type();
 
 }
 
-void create_src_task_final(const TaskEnvironmentVisitor& task_environment,
-                           TL::Source& src_task_final) {
+static void create_src_task_final(const TaskEnvironmentVisitor& task_environment,
+                                  TL::Source& src_task_final) {
 
     if (!task_environment.final_condition.is_null()) {
         src_task_final << "(" << as_expression(task_environment.final_condition) << "? 2 : 0" << ")";
@@ -162,14 +184,13 @@ void create_src_task_final(const TaskEnvironmentVisitor& task_environment,
 
 }
 
-void create_src_task_untied(const TaskEnvironmentVisitor& task_environment,
-                            TL::Source& src_task_untied) {
-
+static void create_src_task_untied(const TaskEnvironmentVisitor& task_environment,
+                                   TL::Source& src_task_untied) {
     src_task_untied
     << !task_environment.is_untied;
 }
 
-bool is_vla(const Type& t) {
+static bool is_vla(const Type& t) {
     if (t.no_ref().is_pointer()) {
         return is_vla(t.no_ref().points_to());
     }
@@ -181,9 +202,9 @@ bool is_vla(const Type& t) {
     }
 }
 
-void split_symbol_list_in_vla_notvla(const TL::ObjectList<TL::Symbol>& symbols,
-                                 TL::ObjectList<TL::Symbol>& no_vla_symbols,
-                                 TL::ObjectList<TL::Symbol>& vla_symbols) {
+static void split_symbol_list_in_vla_notvla(const TL::ObjectList<TL::Symbol>& symbols,
+                                            TL::ObjectList<TL::Symbol>& no_vla_symbols,
+                                            TL::ObjectList<TL::Symbol>& vla_symbols) {
     for (auto it = symbols.begin(); it != symbols.end(); it++) {
        if (is_vla(it->get_type())) {
            vla_symbols.insert(*it);
@@ -194,12 +215,14 @@ void split_symbol_list_in_vla_notvla(const TL::ObjectList<TL::Symbol>& symbols,
     }
 }
 
-void capture_vars(const TL::Type& task_args_type,
-                  const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
-                  const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
-                  const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
-                  const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
-                  Nodecl::NodeclBase& stmt_task_fill) {
+static void capture_vars(const TL::Type& task_args_type,
+                         const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
+                         const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
+                         const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
+                         const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
+                         const TL::Symbol& taskgroup_desc,
+                         const TL::ObjectList<TL::Symbol>& reduction_symbols,
+                         Nodecl::NodeclBase& stmt_task_fill) {
 
     Source src_task_fill;
     src_task_fill
@@ -357,16 +380,38 @@ void capture_vars(const TL::Type& task_args_type,
         Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
         stmt_task_fill.prepend_sibling(tree_task_args_capture);
     }
+
+    if (taskgroup_desc.is_valid()) {
+        Source src_task_args_capture;
+        src_task_args_capture
+        << "_args" << "->" << it_fields->get_name() << " = &" << taskgroup_desc.get_name() << ";";
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
+        it_fields++;
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = reduction_symbols.begin();
+		    it != reduction_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_args_capture;
+        src_task_args_capture
+        << "_args" << "->" << it_fields->get_name() << " = &" << it->get_name() << ";";
+        Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
+        stmt_task_fill.prepend_sibling(tree_task_args_capture);
+    }
 }
 
-void task_vars_definition(const TL::Type& task_args_type,
-                          const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
-                          const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
-                          const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
-                          const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
-                          const TL::ObjectList<TL::Symbol>& private_no_vla_symbols,
-                          const TL::ObjectList<TL::Symbol>& private_vla_symbols,
-                          Nodecl::NodeclBase& outline_task_stmt) {
+static void task_vars_definition(const TL::Type& task_args_type,
+                                 const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
+                                 const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
+                                 const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
+                                 const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
+                                 const TL::ObjectList<TL::Symbol>& private_no_vla_symbols,
+                                 const TL::ObjectList<TL::Symbol>& private_vla_symbols,
+                                 const TL::Symbol& taskgroup_desc,
+                                 const TL::ObjectList<TL::Symbol>& reduction_symbols,
+                                 Nodecl::NodeclBase& outline_task_stmt) {
 
     Source src_task_prev;
     src_task_prev
@@ -516,16 +561,76 @@ void task_vars_definition(const TL::Type& task_args_type,
         Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
         outline_task_stmt.prepend_sibling(tree_task_var_definition);
     }
+
+    if (taskgroup_desc.is_valid()) {
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(taskgroup_desc.get_type())
+        << " _task_"
+        << taskgroup_desc.get_name()
+        << " = "
+        << "*(*_args)."
+        << it_fields->get_name()
+        << ";";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+        it_fields++;
+    }
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = reduction_symbols.begin();
+		    it != reduction_symbols.end();
+		    it++, it_fields++)
+    {
+        Source src_task_var_definition;
+        src_task_var_definition
+        << as_type(it->get_type().no_ref().get_lvalue_reference_to())
+        << " _tmp_"
+        << it->get_name()
+        << " = "
+        << "*(*_args)."
+        << it_fields->get_name()
+        << ";";
+        Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_task_var_definition);
+    }
 }
 
-void fill_symbol_map(Nodecl::Utils::SimpleSymbolMap& symbol_map,
-                     const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
-                     const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
-                     const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
-                     const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
-                     const TL::ObjectList<TL::Symbol>& private_no_vla_symbols,
-                     const TL::ObjectList<TL::Symbol>& private_vla_symbols,
-                     const Nodecl::NodeclBase& outline_task_stmt) {
+static void get_reduction_data(const TL::Symbol& ident_symbol,
+                               const TL::Symbol& taskgroup_desc,
+                               const TL::ObjectList<TL::Symbol>& reduction_symbols,
+                               Nodecl::NodeclBase& outline_task_stmt) {
+
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = reduction_symbols.begin();
+		    it != reduction_symbols.end();
+		    it++)
+    {
+        Source src_get_reduction_data;
+        src_get_reduction_data
+
+        << as_type(it->get_type().no_ref().get_lvalue_reference_to())
+        << " _task_"
+        << it->get_name()
+        << " = "
+        << "*(" << as_type(it->get_type().no_ref().get_pointer_to()) << ")__kmpc_task_reduction_get_th_data(__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+        << "_task_" << taskgroup_desc.get_name() << ","
+        << "&_tmp_"
+        << it->get_name()
+        << ");";
+        Nodecl::NodeclBase tree_get_reduction_data = src_get_reduction_data.parse_statement(outline_task_stmt);
+        outline_task_stmt.prepend_sibling(tree_get_reduction_data);
+    }
+}
+
+
+static void fill_symbol_map(Nodecl::Utils::SimpleSymbolMap& symbol_map,
+                            const TL::ObjectList<TL::Symbol>& firstprivate_no_vla_symbols,
+                            const TL::ObjectList<TL::Symbol>& firstprivate_vla_symbols,
+                            const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
+                            const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
+                            const TL::ObjectList<TL::Symbol>& private_no_vla_symbols,
+                            const TL::ObjectList<TL::Symbol>& private_vla_symbols,
+                            const TL::ObjectList<TL::Symbol>& reduction_symbols,
+                            const Nodecl::NodeclBase& outline_task_stmt) {
 
     TL::ObjectList<TL::Symbol> all_symbols;
 
@@ -535,6 +640,7 @@ void fill_symbol_map(Nodecl::Utils::SimpleSymbolMap& symbol_map,
     all_symbols.insert(private_vla_symbols);
     all_symbols.insert(firstprivate_no_vla_symbols);
     all_symbols.insert(firstprivate_vla_symbols);
+    all_symbols.insert(reduction_symbols);
 
     for (TL::ObjectList<TL::Symbol>::const_iterator it = all_symbols.begin();
             it != all_symbols.end();
@@ -564,7 +670,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TL::ObjectList<Nodecl::OpenMP::DepIn> depin_list = environment.find_all<Nodecl::OpenMP::DepIn>();
     TL::ObjectList<Nodecl::OpenMP::DepOut> depout_list = environment.find_all<Nodecl::OpenMP::DepOut>();
     TL::ObjectList<Nodecl::OpenMP::DepInout> depinout_list = environment.find_all<Nodecl::OpenMP::DepInout>();
-    TL::ObjectList<Nodecl::OpenMP::Reduction> reduction_list = environment.find_all<Nodecl::OpenMP::Reduction>();
+    TL::ObjectList<Nodecl::OpenMP::InReduction> reduction_list = environment.find_all<Nodecl::OpenMP::InReduction>();
 
     TL::ObjectList<TL::Symbol> private_symbols;
     TL::ObjectList<TL::Symbol> private_no_vla_symbols;
@@ -581,6 +687,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TL::ObjectList<Nodecl::NodeclBase> depin_nodecl;
     TL::ObjectList<Nodecl::NodeclBase> depout_nodecl;
     TL::ObjectList<Nodecl::NodeclBase> depinout_nodecl;
+
+    TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items;
 
     if (!shared_list.empty())
     {
@@ -665,6 +773,18 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         depinout_nodecl.insert(tmp);
     }
 
+    if (!reduction_list.empty()) {
+        TL::ObjectList<Nodecl::OpenMP::ReductionItem> tmp
+            = reduction_list
+            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::InReduction::get_reductions)
+            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
+            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list)
+            .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
+            .map<Nodecl::OpenMP::ReductionItem>(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
+
+        reduction_items.insert(tmp);
+    }
+
     // END VARS
 
     TL::Scope global_scope = CURRENT_COMPILED_FILE->global_decl_context;
@@ -691,15 +811,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
                          outline_task_code,
                          outline_task_stmt);
 
-    TL::Type task_args_type;
-    create_task_args(construct,
-                     global_scope,
-                     outline_task,
-                     shared_no_vla_symbols,
-                     shared_vla_symbols,
-                     firstprivate_no_vla_symbols,
-                     firstprivate_vla_symbols,
-                     task_args_type);
 
 
     // Poner el codigo de crear task, estructuras...
@@ -715,6 +826,27 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     << statement_placeholder(stmt_task)
     << "}";
     Nodecl::NodeclBase tree_task_call_body = src_task_call_body.parse_statement(construct);
+
+    TL::Symbol taskgroup_desc;
+    TL::ObjectList<TL::Symbol> reduction_symbols;
+
+    // get taskgroup descritor symbol (tg) created in taskgroup
+    taskgroup_desc = construct.retrieve_context().get_symbol_from_name("tg");
+    reduction_symbols = reduction_items
+        .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+
+    TL::Type task_args_type;
+    create_task_args(construct,
+                     global_scope,
+                     outline_task,
+                     shared_no_vla_symbols,
+                     shared_vla_symbols,
+                     firstprivate_no_vla_symbols,
+                     firstprivate_vla_symbols,
+                     taskgroup_desc,
+                     reduction_symbols,
+                     task_args_type);
 
     Source src_definitions;
     src_definitions
@@ -777,6 +909,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
                  firstprivate_vla_symbols,
                  shared_no_vla_symbols,
                  shared_vla_symbols,
+                 taskgroup_desc,
+                 reduction_symbols,
                  stmt_task_fill);
 
     task_vars_definition(task_args_type,
@@ -786,7 +920,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
                          shared_vla_symbols,
                          private_no_vla_symbols,
                          private_vla_symbols,
+                         taskgroup_desc,
+                         reduction_symbols,
                          outline_task_stmt);
+
+    get_reduction_data(ident_symbol,
+                       taskgroup_desc,
+                       reduction_symbols,
+                       outline_task_stmt);
 
     Nodecl::Utils::SimpleSymbolMap symbol_map;
     fill_symbol_map(symbol_map,
@@ -796,6 +937,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
                     shared_vla_symbols,
                     private_no_vla_symbols,
                     private_vla_symbols,
+                    reduction_symbols,
                     outline_task_stmt);
 
     Nodecl::NodeclBase task_func_body = Nodecl::Utils::deep_copy(statements,

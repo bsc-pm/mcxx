@@ -252,6 +252,21 @@ typedef struct kmp_depend_info {
      } flags;
 } kmp_depend_info_t;
 
+typedef struct kmp_task_red_flags {
+    unsigned lazy_priv : 1;     // hint: (1) use lazy allocation (big objects)
+    unsigned reserved31 : 31;
+} kmp_task_red_flags_t;
+
+// structure sent us by compiler - one per reduction item
+typedef struct kmp_task_red_input {
+    void *reduce_shar;          // shared reduction item
+    size_t reduce_size;         // size of data item
+    void *reduce_init;          // data initialization routine
+    void *reduce_fini;          // data finalization routine
+    void *reduce_comb;          // data combiner routine
+    kmp_task_red_flags_t flags; // flags for additional info from compiler
+} kmp_task_red_input_t;
+
 kmp_int32 __kmpc_omp_task(ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *new_task);
 kmp_task_t* __kmpc_omp_task_alloc(ident_t *loc_ref,
                                   kmp_int32 gtid,
@@ -282,6 +297,8 @@ kmp_int32 __kmpc_omp_taskwait(ident_t *loc_ref, kmp_int32 gtid);
 void __kmpc_taskgroup(ident_t *loc, int gtid);
 void __kmpc_end_taskgroup(ident_t *loc, int gtid);
 
+void *__kmpc_task_reduction_init(int gtid, int num_data, void *data);
+void *__kmpc_task_reduction_get_th_data(int gtid, void *tg, void *d);
 
 kmp_int32 __kmpc_omp_task_with_deps(ident_t *loc_ref,
                                     kmp_int32 gtid,
