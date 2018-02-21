@@ -260,9 +260,15 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     }
 
     Source type_kind; // 4, 4u, 8, 8u
+    Source type_unsigned;
+    Source type_bit_size; // 32, 64
+
     type_kind << induction_var_type.get_size();
+    type_bit_size << (induction_var_type.get_size() == 4 ? "32" : "64");
     if (is_unsigned_integral_type(induction_var_type.get_internal_type()))
-        type_kind << "u";
+        type_unsigned << "u";
+
+    type_kind << type_unsigned;
 
     Source static_init, lower, upper, step, lastiter, chunk_size, stride;
     lower << "lower_" << (int)private_num;
@@ -275,15 +281,15 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
 
     Source common_initialization;
     common_initialization
-            << as_type(induction_var_type) << " " << lower << " = "
+            << "kmp_" << type_unsigned << "int" << type_bit_size << " " << lower << " = "
             <<                      as_expression(for_statement.get_lower_bound().shallow_copy()) << ";"
-            << as_type(induction_var_type) << " " << upper << " = "
+            << "kmp_" << type_unsigned << "int" << type_bit_size << " " << upper << " = "
             <<                      as_expression(for_statement.get_upper_bound().shallow_copy()) << ";"
-            << as_type(induction_var_type) << " " << step << " = "
+            << "kmp_int" << type_bit_size << " " << step << " = "
             <<                      as_expression(for_statement.get_step().shallow_copy()) << ";"
-            << as_type(induction_var_type) << " " << chunk_size << " = "
-            <<                                       as_expression(schedule.get_chunk().shallow_copy()) << ";"
-            << as_type(induction_var_type) << " " << stride << ";"
+            << "kmp_int" << type_bit_size << " " << chunk_size << " = "
+            <<                      as_expression(schedule.get_chunk().shallow_copy()) << ";"
+            << "kmp_int" << type_bit_size << " " << stride << ";"
             << "kmp_int32 " << lastiter << " = 0;"
             ;
 
