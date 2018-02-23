@@ -718,8 +718,8 @@ src_frontend_fortran_libmf03_la_SOURCES = \
                      src/frontend/fortran/fortran03-parser.h \
                      src/frontend/fortran/fortran03-lexer.h \
                      src/frontend/fortran/fortran03-keywords.c \
-                     src/frontend/fortran/fortran03-new-scanner.h \
-                     src/frontend/fortran/fortran03-new-scanner.c \
+                     src/frontend/fortran/fortran03-scanner.h \
+                     src/frontend/fortran/fortran03-scanner.c \
                      src/frontend/fortran/fortran03-parser-internal.h \
                      src/frontend/fortran/fortran03-cexpr.h \
                      src/frontend/fortran/fortran03-cexpr.c \
@@ -753,12 +753,6 @@ src_frontend_fortran_libmf03_la_SOURCES = \
                      src/frontend/fortran/fortran03-mangling.c \
                      src/frontend/fortran/libmf03-common.h \
                      $(END)
-
-if !FORTRAN_NEW_SCANNER
-src_frontend_fortran_libmf03_la_SOURCES += \
-                     src/frontend/fortran/fortran03-flex-scanner.c \
-                     $(END)
-endif
 
 src_frontend_fortran_libmf03_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
@@ -885,18 +879,11 @@ src/frontend/fortran/fortran03-parser.c : src/frontend/fortran/fortran03.y
 	$(BISON_verbose)$(BISON) -pmf03 --debug --defines=src/frontend/fortran/fortran03-parser-internal.h --report=all --output=src/frontend/fortran/fortran03-parser.c src/frontend/fortran/fortran03.y
 endif
 
-EXTRA_DIST += src/frontend/fortran/fortran03.l
-
 if FLEX_BUILDING
 CLEANFILES += src/frontend/fortran/fortran03-flex-scanner.c
 endif
 
 EXTRA_DIST += src/frontend/fortran/fortran03-flex-scanner.c
-
-if FLEX_BUILDING
-src/frontend/fortran/fortran03-flex-scanner.c : src/frontend/fortran/fortran03.l src/frontend/fortran/fortran03-parser-internal.h
-	$(FLEX_verbose)$(FLEX) -Pmf03 -d -i -o src/frontend/fortran/fortran03-flex-scanner.c -8 $(top_srcdir)/src/frontend/fortran/fortran03.l
-endif
 
 if FLEX_BUILDING
 CLEANFILES += src/frontend/fortran/prescanner-scanner.h

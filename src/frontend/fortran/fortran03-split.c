@@ -55,13 +55,7 @@ static void trim_right_line(char* c);
    */
 typedef void* YY_BUFFER_STATE;
 
-#ifdef FORTRAN_NEW_SCANNER
 extern int mf03_prepare_string_for_scanning(const char* str);
-#else
-extern YY_BUFFER_STATE mf03_scan_string (const char *yy_str);
-extern void mf03_switch_to_buffer (YY_BUFFER_STATE new_buffer);
-extern void mf03_delete_buffer(YY_BUFFER_STATE b);
-#endif
 extern int mf03lex(void);
 
 /* End of flex hacky section */
@@ -110,12 +104,7 @@ void fortran_split_lines(FILE* input, FILE* output, int width)
 			char* position;
 			char* next_position;
 
-#ifdef FORTRAN_NEW_SCANNER
             mf03_prepare_string_for_scanning(line);
-#else
-			YY_BUFFER_STATE scan_line = mf03_scan_string(line);
-			mf03_switch_to_buffer(scan_line);
-#endif
 
 			// Initialize stuff
 			column = 1;
@@ -180,12 +169,6 @@ void fortran_split_lines(FILE* input, FILE* output, int width)
 
 			// The EOS
 			fprintf(output, "\n");
-
-#ifdef FORTRAN_NEW_SCANNER
-            // Do nothing
-#else
-			mf03_delete_buffer(scan_line);
-#endif
 		}
 		
 		DELETE(line);

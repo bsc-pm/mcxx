@@ -29,7 +29,7 @@
 #include <config.h>
 #endif
 
-#include "fortran03-new-scanner.h"
+#include "fortran03-scanner.h"
 
 #include "cxx-process.h"
 #include "cxx-utils.h"
@@ -49,13 +49,6 @@
 #include <sys/mman.h>
 
 #include <ctype.h>
-
-
-#ifdef FORTRAN_NEW_SCANNER
-#define new_mf03lex mf03lex
-#define new_mf03_open_file_for_scanning mf03_open_file_for_scanning
-#define new_mf03_prepare_string_for_scanning mf03_prepare_string_for_scanning
-#endif // FORTRAN_NEW_SCANNER
 
 /*
    Include stack.
@@ -187,13 +180,11 @@ static token_location_t get_current_location(void)
     return lexer_state.current_file->current_location;
 }
 
-#ifdef FORTRAN_NEW_SCANNER
 int mf03_flex_debug = 1;
-#endif
 
 static void init_lexer_state(void);
 
-extern int new_mf03_open_file_for_scanning(const char* scanned_filename,
+extern int mf03_open_file_for_scanning(const char* scanned_filename,
         const char* input_filename,
         char is_fixed_form)
 {
@@ -301,7 +292,7 @@ static void init_lexer_state(void)
 
 static const char * const TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
 
-extern int new_mf03_prepare_string_for_scanning(const char* str)
+extern int mf03_prepare_string_for_scanning(const char* str)
 {
     static int num_string = 0;
 
@@ -3582,7 +3573,7 @@ static const char* return_pragma_prefix_longest_match(
 // This is the lexer <-> parser interface from yacc/bison
 // this function just returns the next token from the current
 // input stream
-extern int new_mf03lex(void)
+extern int mf03lex(void)
 {
     for (;;)
     {
