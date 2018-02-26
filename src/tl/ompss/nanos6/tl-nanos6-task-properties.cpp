@@ -2426,22 +2426,39 @@ namespace TL { namespace Nanos6 {
                 it != _env.dep_reduction.end();
                 it++)
         {
-            TL::DataReference data_ref = *it;
+            Nodecl::NodeclBase red_expr = it->shallow_copy();
 
-            TL::Symbol base_symbol = data_ref.get_base_symbol();
-            TL::Type reduction_type = data_ref.get_type().no_ref();
+            // Get original symbol, keep it, and rewrite registered expression in terms of unpacked function parameter
+            TL::DataReference orig_data_ref = red_expr;
+            TL::Symbol orig_sym = orig_data_ref.get_base_symbol();
+            red_expr = Nodecl::Utils::deep_copy(red_expr, unpacked_inside_scope, symbol_map);
+
+            TL::Type reduction_type = red_expr.get_type().no_ref();
+
+            if (reduction_type.is_array())
+            {
+                reduction_type =
+                    rewrite_type(reduction_type, unpacked_inside_scope, symbol_map);
+
+                red_expr.set_type(reduction_type);
+            }
+
+            TL::DataReference data_ref = red_expr;
 
             TL::Symbol red_storage_sym = unpacked_inside_scope.new_symbol(
-                    base_symbol.get_name() + "_storage");
+                    orig_sym.get_name() + "_storage");
             symbol_entity_specs_set_is_user_declared(
                     red_storage_sym.get_internal_symbol(), 1);
             red_storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
             red_storage_sym.set_type(reduction_type.get_lvalue_reference_to());
 
-            // Map original symbol to new local symbol so that the
+            // (Re)map original symbol to new local symbol so that the
             // posterior deep copy over the task body replaces all its
             // references
-            symbol_map.add_map(base_symbol, red_storage_sym);
+            ERROR_CONDITION(symbol_map.get_simple_symbol_map()->find(orig_sym) ==
+                    symbol_map.get_simple_symbol_map()->end(),
+                    "Symbol '%s' not found in map", orig_sym.get_name().c_str());
+            symbol_map.add_map(orig_sym, red_storage_sym);
 
             std::string get_red_storage_fun_name = "nanos_get_reduction_storage1";
             TL::Scope global_context = TL::Scope::get_global_scope();
@@ -2453,14 +2470,6 @@ namespace TL { namespace Nanos6 {
                         "'%s' function not found while trying to register dependences\n",
                         get_red_storage_fun_name.c_str());
             }
-
-            TL::Type cast_type;
-            if (reduction_type.is_array())
-            {
-                cast_type =
-                    rewrite_type(reduction_type, unpacked_inside_scope, symbol_map);
-            }
-            cast_type = cast_type.get_pointer_to();
 
             TL::ObjectList<Nodecl::NodeclBase> arguments_list;
             compute_base_address_and_dimensionality_information(data_ref, arguments_list);
@@ -2475,7 +2484,7 @@ namespace TL { namespace Nanos6 {
                             /* alternate_name */ Nodecl::NodeclBase::null(),
                             /* function_form */ Nodecl::NodeclBase::null(),
                             TL::Type::get_void_type().get_pointer_to()),
-                        cast_type),
+                        reduction_type.get_pointer_to()),
                     reduction_type);
             cast.set_text("C");
 
