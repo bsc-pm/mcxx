@@ -623,7 +623,7 @@ int main(int argc, char* argv[])
     // Default values
     initialize_default_values();
 
-    // Load configuration files and the profiles defined there Here we get all
+    // Load configuration files and the profiles defined there. Here we get all
     // the implicit parameters defined in configuration files and we switch to
     // the main profile of the compiler. Profiles are not yet fully populated.
     load_configuration();

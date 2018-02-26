@@ -477,63 +477,19 @@ static p_compilation_configuration_line process_option_line(
         }
     }
 
-
-    strbuilder_t* str_builder = strbuilder_new();
-    {
-        char *next_chunk = option_value_tmp;
-        char *next_environment_variable;
-
-        // ${ENVIRONMENT_VARIABLE} ...
-        while((next_environment_variable = strchr(next_chunk,'$')) != 0)
-        {
-            *next_environment_variable = '\0';
-
-            strbuilder_append(str_builder, next_chunk);
-
-            // {
-            char* opening = next_environment_variable + 1;
-            if (opening == 0 || *opening != '{')
-                fprintf(stderr, "Error reading an environment variable, expecting '{'\n");
-
-            // ENVIRONMENT_VARIABLE
-            next_chunk = opening + 1;
-
-            // }
-            char *closing = strchr(next_chunk, '}');
-            if (closing == 0 || *closing != '}')
-                fprintf(stderr, "Error reading an environment variable, expecting '}'\n");
-
-            *closing = '\0';
-
-            char *env_variable = getenv(next_chunk);
-            if(env_variable == 0)
-                fprintf(stderr, "warning: undefined environment variable '%s'\n", next_chunk);
-            else
-                strbuilder_append(str_builder, env_variable);
-
-            next_chunk = closing + 1;
-        }
-
-        if (next_chunk != 0)
-            strbuilder_append(str_builder, next_chunk);
-    }
-    DELETE(option_value_tmp);
-
-
     result = NEW0(compilation_configuration_line_t);
 
     result->name = uniquestr(name->option_name);
     result->index = uniquestr(name->option_index);
-    result->value = uniquestr(strbuilder_str(str_builder));
-
-    strbuilder_free(str_builder);
+    result->value = uniquestr(option_value_tmp);
+    DELETE(option_value_tmp);
 
     result->flag_expr = flag_expr;
     result->filename = filename;
     result->line = line;
 
 #if 0
-    fprintf(stderr, "LINE: |%s| at %s:%d\n", result->name, result->filename, result->line);
+    fprintf(stderr, "LINE: |%s = %s| at %s:%d\n", result->name, result->value, result->filename, result->line);
 #endif
 
     register_implicit_names(flag_expr);
