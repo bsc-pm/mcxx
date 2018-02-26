@@ -274,7 +274,7 @@ namespace TL
                     Scope scope);
 
             //! Gets a lvalue reference (C++) to the current type
-            Type get_lvalue_reference_to();
+            Type get_lvalue_reference_to() const;
 
             //! Gets a rvalue reference (C++2011) to the current type
             Type get_rvalue_reference_to();
