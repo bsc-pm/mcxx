@@ -44,7 +44,7 @@ OFFL_CXX can also be set if a different C++ MPI compiler is desired."
 fi
 
 # If a word starts with " g" it's GNU
-if [[ $($MPICXX -show) == *@GFORTRAN@* ]] 
+if [[ $($MPICXX -show) == *@GXX@* ]]
 then
     MCC="${MCC}_mcc"
 else
