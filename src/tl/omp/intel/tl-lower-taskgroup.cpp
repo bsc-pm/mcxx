@@ -28,15 +28,16 @@
 #include "tl-lowering-visitor.hpp"
 #include "tl-lowering-utils.hpp"
 #include "tl-symbol-utils.hpp"
+#include "tl-lower-task-common.hpp"
 
 namespace TL { namespace Intel {
 
 static void create_red_init_func(const Nodecl::OpenMP::Taskgroup& construct,
                                  const TL::Scope& scope,
                                  Nodecl::OpenMP::ReductionItem& red_item,
-                                 TL::Symbol& outline_task,
-                                 Nodecl::NodeclBase& outline_task_code,
-                                 Nodecl::NodeclBase& outline_task_stmt) {
+                                 TL::Symbol& red_init,
+                                 Nodecl::NodeclBase& red_init_code,
+                                 Nodecl::NodeclBase& red_init_stmt) {
 
     TL::Symbol reduced_symbol = red_item.get_reduced_symbol().get_symbol();
     TL::Symbol reductor = red_item.get_reductor().get_symbol();
@@ -46,49 +47,114 @@ static void create_red_init_func(const Nodecl::OpenMP::Taskgroup& construct,
     TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
     TL::Counter &red_num = TL::CounterManager::get_counter("intel-omp-task-red-init");
-    std::stringstream outline_task_name;
-    outline_task_name << "_red_" << reduced_symbol.get_name() << "_init" << "_" << (int)red_num;
+    std::stringstream red_init_name;
+    red_init_name << "_red_" << reduced_symbol.get_name() << "_init" << "_" << (int)red_num;
     red_num++;
 
     TL::ObjectList<std::string> parameter_names;
     TL::ObjectList<TL::Type> parameter_types;
 
     parameter_names.append("_reduce_init");
-    if (reduced_symbol.get_type().is_array()) {
-        parameter_types.append(reduced_symbol.get_type().array_element().get_unqualified_type().get_pointer_to());
-    }
-    else {
-        parameter_types.append(reduced_symbol.get_type().get_lvalue_reference_to());
-    }
+    parameter_types.append(reduced_symbol.get_type().get_lvalue_reference_to());
 
-    outline_task = SymbolUtils::new_function_symbol(
+    red_init = SymbolUtils::new_function_symbol(
             enclosing_function,
-            outline_task_name.str(),
+            red_init_name.str(),
             TL::Type::get_void_type(),
             parameter_names,
             parameter_types);
 
-    SymbolUtils::build_empty_body_for_function(outline_task,
-            outline_task_code,
-            outline_task_stmt);
+    SymbolUtils::build_empty_body_for_function(red_init,
+            red_init_code,
+            red_init_stmt);
 
     Source src_red_init_body;
-    src_red_init_body
-    << "_reduce_init = " << as_expression(init_expr) << ";";
-    Nodecl::NodeclBase tree_red_init_body = src_red_init_body.parse_statement(outline_task_stmt);
-    outline_task_stmt.prepend_sibling(tree_red_init_body);
+    if (!reduced_symbol.get_type().no_ref().is_array()) {
+        src_red_init_body
+        << "_reduce_init = " << as_expression(init_expr) << ";";
+    }
+    else {
+        src_red_init_body
+        << "for (int i = 0; i < " << as_expression(reduced_symbol.get_type().no_ref().array_get_size()) << "; ++i) {"
+        <<      "_reduce_init[i] = " << as_expression(init_expr) << ";"
+        << "}";
+    }
+    Nodecl::NodeclBase tree_red_init_body = src_red_init_body.parse_statement(red_init_stmt);
+    red_init_stmt.replace(tree_red_init_body);
 
     // As the reduction function is needed during the instantiation of
     // the task, this function should be inserted before the construct
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, red_init_code);
+}
+
+// The function is created only if the struct/class provides a destructor
+// Arrays of struct/class are considered
+static void create_red_fin_func(const Nodecl::OpenMP::Taskgroup& construct,
+                                 const TL::Scope& scope,
+                                 Nodecl::OpenMP::ReductionItem& red_item,
+                                 TL::Symbol& red_fin,
+                                 Nodecl::NodeclBase& red_fin_code,
+                                 Nodecl::NodeclBase& red_fin_stmt) {
+
+    TL::Symbol reduced_symbol = red_item.get_reduced_symbol().get_symbol();
+    TL::Type reduced_type = reduced_symbol.get_type().no_ref();
+
+    if (reduced_type.is_array()) reduced_type = reduced_type.array_element().no_ref();
+
+    if (!reduced_type.is_class()) return;
+
+    TL::Symbol destructor = class_type_get_destructor(reduced_type.get_internal_type());
+    if (!destructor.is_valid()) return;
+
+    TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+
+    TL::Counter &red_num = TL::CounterManager::get_counter("intel-omp-task-red-fin");
+    std::stringstream red_fin_name;
+    red_fin_name << "_red_" << reduced_symbol.get_name() << "_fin" << "_" << (int)red_num;
+    red_num++;
+
+    TL::ObjectList<std::string> parameter_names;
+    TL::ObjectList<TL::Type> parameter_types;
+
+    parameter_names.append("_reduce_fin");
+    parameter_types.append(reduced_symbol.get_type().get_lvalue_reference_to());
+
+    red_fin = SymbolUtils::new_function_symbol(
+            enclosing_function,
+            red_fin_name.str(),
+            TL::Type::get_void_type(),
+            parameter_names,
+            parameter_types);
+
+    SymbolUtils::build_empty_body_for_function(red_fin,
+            red_fin_code,
+            red_fin_stmt);
+
+    Source src_red_fin_body;
+    if (reduced_symbol.get_type().no_ref().is_array()) {
+        src_red_fin_body
+        << "for (int i = 0; i < " << as_expression(reduced_symbol.get_type().no_ref().array_get_size()) << "; ++i) {"
+        <<      "_reduce_fin[i]." << destructor.get_name() << "();"
+        << "}";
+    }
+    else {
+        src_red_fin_body
+        << "(_reduce_fin)." << destructor.get_name() << "();";
+    }
+    Nodecl::NodeclBase tree_red_fin_body = src_red_fin_body.parse_statement(red_fin_stmt);
+    red_fin_stmt.replace(tree_red_fin_body);
+
+    // As the reduction function is needed during the instantiation of
+    // the task, this function should be inserted before the construct
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, red_fin_code);
 }
 
 static void create_red_comb_func(const Nodecl::OpenMP::Taskgroup& construct,
                                  const TL::Scope& scope,
                                  Nodecl::OpenMP::ReductionItem& red_item,
-                                 TL::Symbol& outline_task,
-                                 Nodecl::NodeclBase& outline_task_code,
-                                 Nodecl::NodeclBase& outline_task_stmt) {
+                                 TL::Symbol& red_comb,
+                                 Nodecl::NodeclBase& red_comb_code,
+                                 Nodecl::NodeclBase& red_comb_stmt) {
 
     TL::Symbol reduced_symbol = red_item.get_reduced_symbol().get_symbol();
     TL::Symbol reductor = red_item.get_reductor().get_symbol();
@@ -97,52 +163,76 @@ static void create_red_comb_func(const Nodecl::OpenMP::Taskgroup& construct,
     TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
     TL::Counter &red_num = TL::CounterManager::get_counter("intel-omp-task-red-comb");
-    std::stringstream outline_task_name;
-    outline_task_name << "_red_" << reduced_symbol.get_name() << "_comb" << "_" << (int)red_num;
+    std::stringstream red_comb_name;
+    red_comb_name << "_red_" << reduced_symbol.get_name() << "_comb" << "_" << (int)red_num;
     red_num++;
 
     TL::ObjectList<std::string> parameter_names;
     TL::ObjectList<TL::Type> parameter_types;
 
-    if (reduced_symbol.get_type().is_array()) {
-        parameter_names.append("_shared_data"); parameter_types.append(reduced_symbol.get_type().array_element().get_unqualified_type().get_lvalue_reference_to());
-        parameter_names.append("_priv_data"); parameter_types.append(reduced_symbol.get_type().array_element().get_unqualified_type().get_lvalue_reference_to());
-    }
-    else {
-        parameter_names.append("_shared_data"); parameter_types.append(reduced_symbol.get_type().get_lvalue_reference_to());
-        parameter_names.append("_priv_data"); parameter_types.append(reduced_symbol.get_type().get_lvalue_reference_to());
-    }
+    parameter_names.append("_shared_data"); parameter_types.append(reduced_symbol.get_type().get_lvalue_reference_to());
+    parameter_names.append("_priv_data"); parameter_types.append(reduced_symbol.get_type().get_lvalue_reference_to());
 
-    outline_task = SymbolUtils::new_function_symbol(
+    red_comb = SymbolUtils::new_function_symbol(
             enclosing_function,
-            outline_task_name.str(),
+            red_comb_name.str(),
             TL::Type::get_void_type(),
             parameter_names,
             parameter_types);
 
-    SymbolUtils::build_empty_body_for_function(outline_task,
-            outline_task_code,
-            outline_task_stmt);
+    SymbolUtils::build_empty_body_for_function(red_comb,
+            red_comb_code,
+            red_comb_stmt);
 
-    TL::Symbol param_priv = outline_task_stmt.retrieve_context().get_symbol_from_name("_priv_data");
+    TL::Symbol param_priv = red_comb_stmt.retrieve_context().get_symbol_from_name("_priv_data");
     ERROR_CONDITION(!param_priv.is_valid(), "Symbol omp_in not found", 0);
-    TL::Symbol param_shared = outline_task_stmt.retrieve_context().get_symbol_from_name("_shared_data");
+    TL::Symbol param_shared = red_comb_stmt.retrieve_context().get_symbol_from_name("_shared_data");
     ERROR_CONDITION(!param_shared.is_valid(), "Symbol omp_out not found", 0);
 
-    Nodecl::Utils::SimpleSymbolMap symbol_map;
-    symbol_map.add_map(reduction->get_omp_in(), param_priv);
-    symbol_map.add_map(reduction->get_omp_out(), param_shared);
+    if (reduced_symbol.get_type().no_ref().is_array()) {
+        Source src_red_comb_body;
+        Nodecl::NodeclBase stmt_comb;
+        src_red_comb_body
+        << "for (int i = 0; i < " << as_expression(param_shared.get_type().no_ref().array_get_size()) << "; ++i) {"
+        <<      statement_placeholder(stmt_comb)
+        << "}";
+        Nodecl::NodeclBase tree_red_comb_body = src_red_comb_body.parse_statement(red_comb_stmt);
+        red_comb_stmt.replace(tree_red_comb_body);
 
-    outline_task_stmt.replace(
-            Nodecl::ExpressionStatement::make(
-                Nodecl::Utils::deep_copy(
-                    reduction->get_combiner(),
-                    outline_task_stmt.retrieve_context(),
-                    symbol_map)));
+        TL::Symbol ind_var = red_comb_stmt.retrieve_context().get_symbol_from_name("i");
+        ERROR_CONDITION(!ind_var.is_valid(), "Symbol i not found", 0);
+
+        ReplaceInOutVect riov(reduction->get_omp_in(),
+                             reduction->get_omp_out(),
+                             param_priv,
+                             param_shared,
+                             ind_var,
+                             stmt_comb.retrieve_context());
+        Nodecl::NodeclBase combiner = reduction->get_combiner().shallow_copy();
+        riov.walk(combiner);
+
+        Source src_new_combiner;
+        src_new_combiner
+        << as_expression(combiner) << ";";
+        Nodecl::NodeclBase tree_new_combiner = src_new_combiner.parse_statement(stmt_comb);
+        stmt_comb.replace(tree_new_combiner);
+    }
+    else {
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
+        symbol_map.add_map(reduction->get_omp_in(), param_priv);
+        symbol_map.add_map(reduction->get_omp_out(), param_shared);
+
+        red_comb_stmt.replace(
+                Nodecl::ExpressionStatement::make(
+                    Nodecl::Utils::deep_copy(
+                        reduction->get_combiner(),
+                        red_comb_stmt.retrieve_context(),
+                        symbol_map)));
+    }
 
     // As the reduction function is needed during the instantiation of
     // the task, this function should be inserted before the construct
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_task_code);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, red_comb_code);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
@@ -175,7 +265,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
         << "void *tg;";
 
         Nodecl::NodeclBase tree_tg_decl = src_tg_decl.parse_statement(construct);
-        construct.append_sibling(tree_tg_decl);
+        construct.prepend_sibling(tree_tg_decl);
     }
 
     walk(statements);
@@ -205,32 +295,48 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
         for (auto it = reduction_items.begin(); it != reduction_items.end(); it++, array_pos++) {
             TL::Symbol reduced_symbol = it->get_reduced_symbol().get_symbol();
 
-            TL::Symbol outline_task_red_init;
-            Nodecl::NodeclBase outline_task_red_init_code, outline_task_red_init_stmt;
+            TL::Symbol red_init;
+            Nodecl::NodeclBase red_init_code, red_init_stmt;
             create_red_init_func(construct,
                                  global_scope,
                                  *it,
-                                 outline_task_red_init,
-                                 outline_task_red_init_code,
-                                 outline_task_red_init_stmt);
+                                 red_init,
+                                 red_init_code,
+                                 red_init_stmt);
 
-            TL::Symbol outline_task_red_comb;
-            Nodecl::NodeclBase outline_task_red_comb_code, outline_task_red_comb_stmt;
+            TL::Symbol red_comb;
+            Nodecl::NodeclBase red_comb_code, red_comb_stmt;
             create_red_comb_func(construct,
                                  global_scope,
                                  *it,
-                                 outline_task_red_comb,
-                                 outline_task_red_comb_code,
-                                 outline_task_red_comb_stmt);
+                                 red_comb,
+                                 red_comb_code,
+                                 red_comb_stmt);
+
+            TL::Symbol red_fin;
+            Nodecl::NodeclBase red_fin_code, red_fin_stmt;
+            create_red_fin_func(construct,
+                                 global_scope,
+                                 *it,
+                                 red_fin,
+                                 red_fin_code,
+                                 red_fin_stmt);
 
             src_reduction_init
             << "_red_info[" << array_pos << "].reduce_shar = &" << as_symbol(reduced_symbol) << ";"
             << "_red_info[" << array_pos << "].reduce_size = sizeof(" << as_symbol(reduced_symbol) << ");"
-            << "_red_info[" << array_pos << "].reduce_init = &" << as_symbol(outline_task_red_init) << ";"
-            << "_red_info[" << array_pos << "].reduce_fini = 0;"
-            << "_red_info[" << array_pos << "].reduce_comb = &" << as_symbol(outline_task_red_comb) << ";"
+            << "_red_info[" << array_pos << "].reduce_init = (void *)&" << as_symbol(red_init) << ";"
+            << "_red_info[" << array_pos << "].reduce_comb = (void *)&" << as_symbol(red_comb) << ";"
             << "_red_info[" << array_pos << "].flags.lazy_priv = 0;"
             << "_red_info[" << array_pos << "].flags.reserved31 = 0;";
+            if (!red_fin.is_valid()) {
+                src_reduction_init
+                << "_red_info[" << array_pos << "].reduce_fini = 0;";
+            }
+            else{
+                src_reduction_init
+                << "_red_info[" << array_pos << "].reduce_fini = (void *)&" << as_symbol(red_fin) << ";";
+            }
         }
 
         src_reduction_init

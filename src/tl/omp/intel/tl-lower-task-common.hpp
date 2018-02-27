@@ -29,6 +29,42 @@
 
 namespace TL { namespace Intel {
 
+// This is used in task reduction functions to replace omp_in/omp_out by
+// vector accesses
+struct ReplaceInOutVect : Nodecl::ExhaustiveVisitor<void>
+{
+    TL::Symbol _orig_omp_in;
+    TL::Symbol _orig_omp_out;
+    TL::Symbol _new_omp_in;
+    TL::Symbol _new_omp_out;
+    TL::Symbol _ind_var;
+    TL::Scope _scope;
+
+    ReplaceInOutVect(
+            TL::Symbol orig_omp_in,
+            TL::Symbol orig_omp_out,
+            TL::Symbol new_omp_in,
+            TL::Symbol new_omp_out,
+            TL::Symbol ind_var,
+            TL::Scope scope)
+        : _orig_omp_in(orig_omp_in), _orig_omp_out(orig_omp_out),
+        _new_omp_in(new_omp_in), _new_omp_out(new_omp_out),
+        _ind_var(ind_var), _scope(scope)
+    { }
+
+    virtual void visit(const Nodecl::Symbol& node)
+    {
+        TL::Symbol sym = node.get_symbol();
+
+        if (sym == _orig_omp_in) {
+            node.replace(Source(as_symbol(_new_omp_in) + "[" + as_symbol(_ind_var) + "]").parse_expression(_scope));
+        }
+        else if (sym == _orig_omp_out) {
+            node.replace(Source(as_symbol(_new_omp_out) + "[" + as_symbol(_ind_var) + "]").parse_expression(_scope));
+        }
+    }
+};
+
 struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
