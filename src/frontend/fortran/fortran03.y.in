@@ -3991,12 +3991,8 @@ invalid_comma_io_opt : /* empty */
     warn_printf_at(
         make_locus(
             @1.first_filename,
-            @1.first_line
-#ifdef FORTRAN_NEW_SCANNER
-            , @1.first_column
-#else
-            , 0
-#endif
+            @1.first_line,
+            @1.first_column
         ),
         "extra comma between control-spec-list and item-list\n"
         );
@@ -6343,7 +6339,6 @@ extern char* yytext;
 extern char* actual_line;
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
-#ifdef FORTRAN_NEW_SCANNER
     error_printf_at(
         make_locus(
                     mf03lloc.first_filename,
@@ -6351,13 +6346,4 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
                     mf03lloc.first_column),
         "%s\n",
         c);
-#else
-    error_printf_at(
-        make_locus(
-                    mf03lloc.first_filename,
-                    mf03lloc.first_line,
-                    0),
-        "%s\n",
-        c);
-#endif
 }

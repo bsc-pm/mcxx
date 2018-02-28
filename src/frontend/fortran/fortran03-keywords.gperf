@@ -27,7 +27,7 @@
 
 %{
 #include <string.h>
-#include "fortran03-new-scanner.h"
+#include "fortran03-scanner.h"
 #include "fortran03-lexer.h"
 #include "fortran03-utils.h"
 #include "fortran03-parser-internal.h"
