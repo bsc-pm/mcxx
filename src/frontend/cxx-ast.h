@@ -241,9 +241,14 @@ static inline int ast_node_size(void);
 #define node_information ast_location
 
 // Eases iterating forward in AST_NODE_LISTs
+// Iterates forward from the first element of the list.
 #define for_each_element(list, iter) \
     iter = (list); while (ASTSon0(iter) != NULL) iter = ASTSon0(iter); \
     for(; iter != NULL; iter = (iter != (list)) ? ASTParent(iter) : NULL)
+
+// Like for_each_element but iterates forward from start to list.
+#define for_each_element_in_range(start, list, iter) \
+    for(iter = (start); iter != NULL; iter = (iter != (list)) ? ASTParent(iter) : NULL)
 
 // Name of operators
 #define STR_OPERATOR_ADD "operator +"

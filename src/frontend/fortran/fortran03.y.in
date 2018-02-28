@@ -2317,7 +2317,7 @@ implicit_stmt : labeldef TOKEN_IMPLICIT implicit_spec_list eos
 }
 | labeldef TOKEN_IMPLICIT TOKEN_NONE eos
 {
-    $$ = ASTMake2Label(AST_IMPLICIT_STATEMENT, $1, NULL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
+    $$ = ASTMake2Label(AST_IMPLICIT_NONE_STATEMENT, $1, NULL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 }
 ;
 implicit_spec : declaration_type_spec '(' letter_spec_list ')'

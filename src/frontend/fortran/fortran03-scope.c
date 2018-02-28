@@ -253,10 +253,9 @@ scope_entry_t* fortran_get_variable_with_locus(const decl_context_t* decl_contex
                 fprintf(stderr, "SCOPE: Getting implicit entity for name '%s'\n", name);
             }
             result = new_implicit_symbol(decl_context, location, name);
-            if(result != NULL)
+            if (result != NULL)
             {
                 result->kind = SK_VARIABLE;
-                remove_unknown_kind_symbol(decl_context, result);
             }
         }
         DEBUG_CODE()
@@ -280,7 +279,7 @@ const decl_context_t* fortran_new_block_context(const decl_context_t* decl_conte
 scope_entry_t* new_fortran_implicit_symbol(const decl_context_t* decl_context, AST location, const char* name)
 {
     scope_entry_t* new_entry = new_implicit_symbol(decl_context, location, name);
-    add_unknown_kind_symbol(decl_context, new_entry);
+    add_delay_check_kind_of_symbol(decl_context, new_entry);
     return new_entry;
 }
 
@@ -301,7 +300,7 @@ scope_entry_t* new_fortran_symbol(const decl_context_t* decl_context, const char
 {
     scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, name);
 
-    add_unknown_kind_symbol(decl_context, new_entry);
+    add_delay_check_kind_of_symbol(decl_context, new_entry);
     return new_entry;
 }
 
