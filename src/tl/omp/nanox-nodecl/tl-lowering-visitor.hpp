@@ -287,6 +287,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase construct);
 
         void allocate_immediate_structure(
+                TL::Type structure_type,
                 OutlineInfo& outline_info,
                 Source &struct_arg_type_name,
                 Source &struct_size,

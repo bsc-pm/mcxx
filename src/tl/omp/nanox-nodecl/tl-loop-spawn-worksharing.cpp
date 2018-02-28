@@ -63,6 +63,7 @@ namespace TL { namespace Nanox {
 
         Source immediate_decl;
         allocate_immediate_structure(
+                structure_symbol.get_user_defined_type(),
                 outline_info,
                 struct_arg_type_name,
                 struct_size,

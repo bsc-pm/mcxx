@@ -412,6 +412,7 @@ Source LoweringVisitor::fill_const_wd_info(
 }
 
 void LoweringVisitor::allocate_immediate_structure(
+        TL::Type structure_type,
         OutlineInfo& outline_info,
         Source &struct_arg_type_name,
         Source &struct_size,
@@ -444,7 +445,11 @@ void LoweringVisitor::allocate_immediate_structure(
         }
     }
 
-    if (there_are_overallocated)
+    if (there_are_overallocated ||
+            (IS_CXX_LANGUAGE &&
+             !structure_type.is_dependent() &&
+             structure_type.is_class() &&
+             !structure_type.is_pod()))
     {
         immediate_is_alloca = true;
     }
@@ -520,6 +525,7 @@ void LoweringVisitor::emit_async_common(
     // Declare argument structure
     TL::Scope function_scope = context.retrieve_context();
     TL::Symbol structure_symbol = declare_argument_structure(outline_info, construct);
+
     struct_arg_type_name
          << ((structure_symbol.get_type().is_template_specialized_type()
                      &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
@@ -595,6 +601,7 @@ void LoweringVisitor::emit_async_common(
     struct_size << "sizeof(imm_args)" << dynamic_size;
 
     allocate_immediate_structure(
+            structure_symbol.get_user_defined_type(),
             outline_info,
             struct_arg_type_name,
             struct_size,
