@@ -51,7 +51,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase &placeholder_prependix,
             Nodecl::NodeclBase &placeholder_appendix)
     {
-        Source for_code, barrier_code;
+        Source for_code;
         Source instrument_before_opt, instrument_loop_opt, instrument_after_opt;
 
         TL::Symbol ind_var = range.get_induction_variable().get_symbol();
@@ -235,19 +235,12 @@ namespace TL { namespace Nanox {
             << instrument_after_opt
             << reduction_code_src
             << "}"
-            << barrier_code
             ;
 
         if (there_are_reductions(outline_info))
         {
             reduction_initialization_src << statement_placeholder(reduction_initialization);
             reduction_code_src << statement_placeholder(reduction_code);
-        }
-
-        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
-        {
-            barrier_code
-                << full_barrier_source();
         }
 
         return distribute_loop_source;
