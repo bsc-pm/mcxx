@@ -119,6 +119,20 @@ void LoweringVisitor::fill_dependences_taskwait(
             result_src);
 }
 
+TL::Source LoweringVisitor::full_taskwait_source(bool is_noflush)
+{
+    TL::Source src;
+    src << "{"
+        <<     "nanos_wd_t nanos_wd_ = nanos_current_wd();"
+        <<     "nanos_err_t nanos_err;"
+        <<     "nanos_err = nanos_wg_wait_completion(nanos_wd_, " << (is_noflush ? "1" : "0") << ");"
+        <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+        << "}"
+        ;
+    return src;
+}
+
+
 void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
         bool has_dependences,
         OutlineInfo& outline_info,
@@ -128,13 +142,7 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
 
     if (!has_dependences)
     {
-        src << "{"
-            <<     "nanos_wd_t nanos_wd_ = nanos_current_wd();"
-            <<     "nanos_err_t nanos_err;"
-            <<     "nanos_err = nanos_wg_wait_completion(nanos_wd_, " << (is_noflush ? "1" : "0") << ");"
-            <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
-            << "}"
-            ;
+        src << full_taskwait_source(is_noflush);
     }
     else
     {

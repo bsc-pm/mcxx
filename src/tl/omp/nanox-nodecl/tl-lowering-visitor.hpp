@@ -413,6 +413,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Source full_barrier_source();
 
+        Source full_taskwait_source(bool is_noflush);
+
         void reduction_initialization_code(
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase ref_tree,
