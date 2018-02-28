@@ -704,7 +704,6 @@ src/frontend/cxx-asttype-nodecl.def : $(NODECL_DEPS)
 
 lib_LTLIBRARIES += src/frontend/fortran/libmf03.la src/frontend/fortran/libmf03-prescanner.la
 
-BUILT_SOURCES += src/frontend/fortran/fortran03-flex-scanner.c
 BUILT_SOURCES += src/frontend/fortran/fortran03-parser.c
 BUILT_SOURCES += src/frontend/fortran/fortran03-parser-internal.h
 BUILT_SOURCES += src/frontend/fortran/fortran03.y
@@ -878,12 +877,6 @@ if BISON_BUILDING
 src/frontend/fortran/fortran03-parser.c : src/frontend/fortran/fortran03.y
 	$(BISON_verbose)$(BISON) -pmf03 --debug --defines=src/frontend/fortran/fortran03-parser-internal.h --report=all --output=src/frontend/fortran/fortran03-parser.c src/frontend/fortran/fortran03.y
 endif
-
-if FLEX_BUILDING
-CLEANFILES += src/frontend/fortran/fortran03-flex-scanner.c
-endif
-
-EXTRA_DIST += src/frontend/fortran/fortran03-flex-scanner.c
 
 if FLEX_BUILDING
 CLEANFILES += src/frontend/fortran/prescanner-scanner.h
