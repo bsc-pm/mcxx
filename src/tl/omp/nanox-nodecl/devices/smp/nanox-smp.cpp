@@ -100,6 +100,8 @@ namespace TL { namespace Nanox {
                     symbol_map,
                     initial_statements,
                     final_statements);
+
+            extra_declarations << "IMPLICIT NONE\n";
         }
         else
         {
@@ -124,18 +126,18 @@ namespace TL { namespace Nanox {
         if (!IS_FORTRAN_LANGUAGE)
         {
             unpacked_source
-                << "{";
+            << "{";
         }
         unpacked_source
-            << extra_declarations
-            << initial_statements
-            << statement_placeholder(outline_placeholder)
-            << final_statements
+            <<      extra_declarations
+            <<      initial_statements
+            <<      statement_placeholder(outline_placeholder)
+            <<      final_statements
             ;
         if (!IS_FORTRAN_LANGUAGE)
         {
             unpacked_source
-                << "}";
+            << "}";
         }
 
         // Aftere this we can use outline_placeholder
@@ -198,9 +200,6 @@ namespace TL { namespace Nanox {
                     unpacked_function_scope,
                     symbol_map,
                     output_statements);
-
-            extra_declarations
-                << "IMPLICIT NONE\n";
         }
         else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
