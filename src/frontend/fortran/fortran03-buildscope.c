@@ -2745,6 +2745,8 @@ static scope_entry_t* new_entry_symbol(const decl_context_t* decl_context,
 
 static void build_scope_ambiguity_statement(AST ambig_stmt, const decl_context_t* decl_context, char is_declaration);
 
+static void fortran_build_scope_statement(AST statement, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+
 static void build_scope_program_unit_body_declarations(
         statement_constraint_checker_t *constraint_checker,
         AST program_unit_stmts,
@@ -3512,7 +3514,7 @@ static char statement_constraint_checker_update_order(
     return 0;
 }
 
-void fortran_build_scope_statement(AST statement, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+static void fortran_build_scope_statement(AST statement, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     DEBUG_CODE()
     {
@@ -3531,6 +3533,25 @@ void fortran_build_scope_statement(AST statement, const decl_context_t* decl_con
     {
         (handler->handler)(statement, decl_context, nodecl_output);
     }
+}
+
+static void build_scope_compound_statement_relaxed(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+
+//! This function is only used by TL::Source
+void fortran_build_scope_statement_from_source(AST statement, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+{
+    // We are a bit restrictive when dealing with AST_COMPOUND_STATEMENT: we do
+    // not allow any declaration neither an IMPLICIT NONE. This is more or less
+    // fine for the Fortran FE (in fact we DO have AST_COMPOUND_STATEMENT with
+    // declarations inside but they are not handled by 'build_scope_compound_statement'
+    // function), but it's a bit anoying when the AST_COMPOUND_STATEMENT comes
+    // from a TL::Source that was filled by another phase
+    build_scope_statement_handler_t* compound_stmt_handler = statement_get_statement_handler(AST_COMPOUND_STATEMENT);
+    compound_stmt_handler->handler = build_scope_compound_statement_relaxed;
+
+    fortran_build_scope_statement(statement, decl_context, nodecl_output);
+
+    compound_stmt_handler->handler = build_scope_compound_statement;
 }
 
 static void fortran_build_scope_statement_inside_block_context(
@@ -5343,6 +5364,15 @@ static void build_scope_default_statement(AST a, const decl_context_t* decl_cont
     *nodecl_output = 
         nodecl_make_list_1(
                 nodecl_make_default_statement(nodecl_statement, ast_get_locus(a)));
+}
+
+static void build_scope_compound_statement_relaxed(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+{
+    statement_constraint_checker_t constraint_checker
+        = statement_constraint_checker_init(allow_all_statements);
+
+    build_scope_construct_statements(
+        a, decl_context, nodecl_output, &constraint_checker);
 }
 
 static void build_scope_compound_statement(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)

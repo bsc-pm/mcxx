@@ -41,7 +41,9 @@ LIBMF03_EXTERN void fortran_initialize_translation_unit_scope(translation_unit_t
 
 LIBMF03_EXTERN nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit);
 
-LIBMF03_EXTERN void fortran_build_scope_statement(AST statement, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+//! This function is only used by TL::Source
+LIBMF03_EXTERN void fortran_build_scope_statement_from_source(
+        AST statement, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 LIBMF03_EXTERN type_t* choose_int_type_from_kind(nodecl_t expr, int kind_size);
 LIBMF03_EXTERN type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size);

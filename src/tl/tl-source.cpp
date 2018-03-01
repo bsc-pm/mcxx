@@ -664,7 +664,7 @@ namespace TL
                 return parse_common(ref_scope, parse_flags, "@STATEMENT@", 
                         mf03_prepare_string_for_scanning,
                         mf03parse,
-                        fortran_build_scope_statement,
+                        fortran_build_scope_statement_from_source,
                         decl_context_identity);
                 break;
             }
