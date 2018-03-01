@@ -3432,12 +3432,11 @@ static void init_statement_array(void)
     }
 }
 
-static build_scope_statement_handler_t *statement_get_statement_handler(
-    AST statement)
+static build_scope_statement_handler_t *statement_get_statement_handler(node_t ast_kind)
 {
     init_statement_array();
 
-    build_scope_statement_handler_t key = {.ast_kind = ASTKind(statement) };
+    build_scope_statement_handler_t key = {.ast_kind = ast_kind };
     build_scope_statement_handler_t *handler = NULL;
 
     handler = (build_scope_statement_handler_t *)bsearch(
@@ -3454,7 +3453,7 @@ static build_scope_statement_handler_t *statement_get_statement_handler(
 static statement_order_class_t statement_get_order_class(AST statement)
 {
     build_scope_statement_handler_t *handler
-        = statement_get_statement_handler(statement);
+        = statement_get_statement_handler(ASTKind(statement));
 
     ERROR_CONDITION(handler == NULL || handler->get_order_class == NULL,
                     "Invalid statement order class %s",
@@ -3520,7 +3519,7 @@ void fortran_build_scope_statement(AST statement, const decl_context_t* decl_con
         fprintf(stderr, "=== [%s] Statement ===\n", ast_location(statement));
     }
 
-    build_scope_statement_handler_t *handler = statement_get_statement_handler(statement);
+    build_scope_statement_handler_t *handler = statement_get_statement_handler(ASTKind(statement));
 
     if (handler == NULL
             || handler->handler == NULL)
