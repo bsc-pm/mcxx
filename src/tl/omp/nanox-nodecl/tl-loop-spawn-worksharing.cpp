@@ -71,11 +71,6 @@ namespace TL { namespace Nanox {
                 immediate_decl,
                 dynamic_size);
 
-        Nodecl::NodeclBase fill_outline_arguments_tree;
-        Source fill_outline_arguments;
-
-        Nodecl::NodeclBase fill_immediate_arguments_tree;
-        Source fill_immediate_arguments;
 
         Source call_outline_function;
 
@@ -117,7 +112,6 @@ namespace TL { namespace Nanox {
 
 
         Source worksharing_creation;
-
         if (IS_CXX_LANGUAGE)
         {
             worksharing_creation
@@ -133,6 +127,7 @@ namespace TL { namespace Nanox {
             <<         "nanos_handle_error(nanos_err);"
             ;
 
+        Nodecl::NodeclBase fill_outline_arguments_tree, fill_immediate_arguments_tree;
 
         TL::Source barrier_or_tw_if_needed;
         bool barrier_at_the_end = !distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null();
@@ -220,6 +215,7 @@ namespace TL { namespace Nanox {
             << "}"
             ;
 
+        Source fill_outline_arguments, fill_immediate_arguments;
         fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
 
         if (IS_FORTRAN_LANGUAGE)
@@ -230,28 +226,31 @@ namespace TL { namespace Nanox {
         if (IS_FORTRAN_LANGUAGE)
             Source::source_language = SourceLanguage::Current;
 
+        Nodecl::NodeclBase arguments_tree;
+        TL::Source *fill_arguments;
         if (!_lowering->in_ompss_mode())
         {
-            //OpenMP
-            //
-            // Now attach the slicer symbol to its final scope
-            // See tl-lower-for.cpp
-            slicer_descriptor.get_internal_symbol()->decl_context =
-                fill_immediate_arguments_tree.retrieve_context().get_decl_context();
-            ::insert_entry(fill_immediate_arguments_tree.
-                    retrieve_context().get_decl_context()->current_scope,
-                    slicer_descriptor.get_internal_symbol());
-
-            Nodecl::NodeclBase new_tree = fill_immediate_arguments.parse_statement(
-                    fill_immediate_arguments_tree);
-            fill_immediate_arguments_tree.replace(new_tree);
+            // OpenMP
+            arguments_tree = fill_immediate_arguments_tree;
+            fill_arguments = &fill_immediate_arguments;
         }
         else
         {
-            Nodecl::NodeclBase new_tree = fill_outline_arguments.parse_statement(fill_outline_arguments_tree);
-            fill_outline_arguments_tree.replace(new_tree);
+            // OmpSs
+            arguments_tree = fill_outline_arguments_tree;
+            fill_arguments = &fill_outline_arguments;
         }
 
+        // Now attach the slicer symbol to its final scope (see tl-lower-for-worksharing.cpp)
+        const decl_context_t* spawn_inner_context = arguments_tree.retrieve_context().get_decl_context();
+        slicer_descriptor.get_internal_symbol()->decl_context = spawn_inner_context;
+        ::insert_entry(spawn_inner_context->current_scope, slicer_descriptor.get_internal_symbol());
+
+        // Parse the arguments
+        Nodecl::NodeclBase new_tree = fill_arguments->parse_statement(arguments_tree);
+        arguments_tree.replace(new_tree);
+
+        // Finally, replace the construct by the tree that represents the spawn code
         construct.replace(spawn_code_tree);
     }
 
