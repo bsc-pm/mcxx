@@ -135,7 +135,7 @@ static void create_task_args(const Nodecl::OpenMP::Task& construct,
 
     if (taskgroup_desc.is_valid()) {
         src_task_args_struct
-            << as_type(taskgroup_desc.get_type().no_ref().get_pointer_to())
+            << as_type(taskgroup_desc.get_type().no_ref().get_unqualified_type())
             << " "
             << taskgroup_desc.get_name()
             << ";";
@@ -384,7 +384,7 @@ static void capture_vars(const TL::Type& task_args_type,
     if (taskgroup_desc.is_valid()) {
         Source src_task_args_capture;
         src_task_args_capture
-        << "_args" << "->" << it_fields->get_name() << " = &" << taskgroup_desc.get_name() << ";";
+        << "_args" << "->" << it_fields->get_name() << " = " << taskgroup_desc.get_name() << ";";
         Nodecl::NodeclBase tree_task_args_capture = src_task_args_capture.parse_statement(stmt_task_fill);
         stmt_task_fill.prepend_sibling(tree_task_args_capture);
         it_fields++;
@@ -565,11 +565,11 @@ static void task_vars_definition(const TL::Type& task_args_type,
     if (taskgroup_desc.is_valid()) {
         Source src_task_var_definition;
         src_task_var_definition
-        << as_type(taskgroup_desc.get_type())
+        << as_type(taskgroup_desc.get_type().no_ref().get_lvalue_reference_to())
         << " _task_"
         << taskgroup_desc.get_name()
         << " = "
-        << "*(*_args)."
+        << "(*_args)."
         << it_fields->get_name()
         << ";";
         Nodecl::NodeclBase tree_task_var_definition = src_task_var_definition.parse_statement(outline_task_stmt);
