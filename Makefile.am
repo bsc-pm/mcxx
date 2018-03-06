@@ -3421,7 +3421,7 @@ scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/simd/x86/builtins_ia32.cp
 	$(LATEST_GXX_X86) $(LATEST_GXX_X86_FLAGS) -I$(srcdir)/scripts/simd \
 		-o scripts/generate_builtins_ia32.bin \
 		$(srcdir)/scripts/simd/x86/builtins_ia32.cpp \
-		-Wl,-rpath,$$(dirname $$($(LATEST_GXX) -print-file-name=libstdc++.so))
+		-Wl,-rpath,$$(dirname $$($(LATEST_GXX_X86) -print-file-name=libstdc++.so))
 
 # These files are only regenerated manually
 .PHONY: generate_builtins_ia32
