@@ -97,6 +97,9 @@ namespace TL { namespace Nanos6 {
         std::string task_label;
         const locus_t* locus_of_task_declaration;
 
+        /* --------  Device Information  ------ */
+        TL::ObjectList<std::string> device_names;
+
         DirectiveEnvironment(Nodecl::NodeclBase environment);
 
         private:

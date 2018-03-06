@@ -30,13 +30,15 @@
 
 #include "tl-nanos6.hpp"
 #include "tl-nanos6-directive-environment.hpp"
+#include "tl-nanos6-device.hpp"
 
+#include "tl-datareference.hpp"
 
+#include "tl-object.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-type.hpp"
 #include "tl-symbol.hpp"
-#include "tl-datareference.hpp"
 
 
 namespace TL { namespace Nanos6 {
@@ -47,13 +49,12 @@ namespace TL { namespace Nanos6 {
     struct TaskProperties
     {
         private:
-
             typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
             typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
 
-
             //! This member represents the directive environment
             DirectiveEnvironment _env;
+            TL::ObjectList<std::shared_ptr<Device>> _implementations;
 
             LoweringPhase* _phase;
 
@@ -74,14 +75,9 @@ namespace TL { namespace Nanos6 {
 
             TL::Type _info_structure;
 
-            TL::Symbol _outline_function;
-            TL::Symbol _outline_function_mangled;
-
             TL::Symbol _dependences_function;
             TL::Symbol _dependences_function_mangled;
 
-            TL::Symbol _cost_function;
-            TL::Symbol _cost_function_mangled;
             TL::Symbol _priority_function;
             TL::Symbol _priority_function_mangled;
 
@@ -96,7 +92,8 @@ namespace TL { namespace Nanos6 {
 
         private:
 
-            void create_outline_function();
+            TL::Symbol create_outline_function(std::shared_ptr<Device> device);
+
             void create_dependences_function();
             void create_dependences_function_c();
 
@@ -105,6 +102,8 @@ namespace TL { namespace Nanos6 {
             void create_dependences_function_fortran_forward();
             void create_dependences_function_fortran_mangled();
 
+
+            TL::Symbol create_constraints_function() const;
             void create_cost_function();
             void create_priority_function();
 
@@ -169,26 +168,29 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List &register_statements);
 
-            void create_task_info_regular_function(
-                TL::Symbol task_info_struct,
-                const std::string &task_info_name,
-                /* out */
-                TL::Symbol &task_info,
-                Nodecl::NodeclBase &local_init);
+            void create_static_variable_depending_on_function_context(
+                    const std::string &var_name,
+                    TL::Type var_type,
+                    // Out
+                    TL::Symbol &new_var) const;
 
-            void create_task_info_nondependent_function(
-                TL::Symbol task_info_struct,
-                const std::string &task_info_name,
-                /* out */
-                TL::Symbol &task_info,
-                Nodecl::NodeclBase &local_init);
+            void create_static_variable_regular_function(
+                    const std::string &var_name,
+                    TL::Type var_type,
+                    // Out
+                    TL::Symbol &new_var) const;
 
-            void create_task_info_dependent_function(
-                TL::Symbol task_info_struct,
-                const std::string &task_info_name,
-                /* out */
-                TL::Symbol &task_info,
-                Nodecl::NodeclBase &local_init);
+            void create_static_variable_nondependent_function(
+                    const std::string &var_name,
+                    TL::Type var_type,
+                    // Out
+                    TL::Symbol &new_var) const;
+
+            void create_static_variable_dependent_function(
+                    const std::string &var_name,
+                    TL::Type var_type,
+                    // Out
+                    TL::Symbol &new_var) const;
 
             void compute_captured_saved_expressions();
 
@@ -198,9 +200,6 @@ namespace TL { namespace Nanos6 {
              * It may add symbols that represent saved_expressions to the captured_values list.
              */
             void firstprivatize_symbols_without_data_sharing();
-
-
-
 
         public:
             TaskProperties(
@@ -218,10 +217,18 @@ namespace TL { namespace Nanos6 {
             void create_task_invocation_info(
                 /* out */ TL::Symbol &task_invocation_info);
 
-            void create_task_info(
+            //! This function creates a new global static array variable that contains all
+            //! the information related to each possible implementation of the current task
+            void create_task_implementations_info(
                     /* out */
-                    TL::Symbol &task_info,
-                    Nodecl::NodeclBase& local_init);
+                    TL::Symbol &implementations);
+
+            //! This function creates a new global static variable that contains all
+            //! the information associated with a task
+            void create_task_info(
+                    TL::Symbol implementations,
+                    /* out */
+                    TL::Symbol &task_info);
 
             //! This function creates a new class type that represents the arguments structure.
             /*!
@@ -240,7 +247,6 @@ namespace TL { namespace Nanos6 {
                     TL::Scope task_enclosing_scope,
                     /* out */
                     Nodecl::NodeclBase& capture_env);
-
 
             void compute_task_flags(
                     TL::Symbol task_flags,

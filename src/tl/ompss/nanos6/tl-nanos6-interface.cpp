@@ -87,7 +87,7 @@ namespace TL { namespace Nanos6 {
         family_must_be_at_least("nanos6_final_api", 1, any_feature);
         family_must_be_at_least("nanos6_multidimensional_dependencies_api", 2, any_feature);
         family_must_be_at_least("nanos6_task_info_registration_api", 1, any_feature);
-        family_must_be_at_least("nanos6_task_info_contents", 1, any_feature);
+        family_must_be_at_least("nanos6_task_info_contents", 4, any_feature);
         family_must_be_at_least("nanos6_instantiation_api", 3, any_feature);
         family_must_be_at_least("nanos6_taskwait_api", 1, any_feature);
         family_must_be_at_least("nanos6_locking_api", 1, any_feature);

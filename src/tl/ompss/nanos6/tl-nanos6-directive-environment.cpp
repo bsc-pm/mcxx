@@ -214,10 +214,7 @@ namespace TL { namespace Nanos6 {
                         it != devices.end();
                         it++)
                 {
-                    if (std::string(strtolower(it->get_text().c_str())) != "smp")
-                    {
-                        not_supported("devices other than smp", *it);
-                    }
+                    _env.device_names.append(it->get_text().c_str());
                 }
             }
 

@@ -143,12 +143,16 @@ namespace TL { namespace Nanos6 {
                 /* out */
                 task_invocation_info);
 
-        TL::Symbol task_info;
-        Nodecl::NodeclBase local_init_task_info;
-        task_properties.create_task_info(
+        TL::Symbol implementations;
+        task_properties.create_task_implementations_info(
                 /* out */
-                task_info,
-                local_init_task_info);
+                implementations);
+
+        TL::Symbol task_info;
+        task_properties.create_task_info(
+                implementations,
+                /* out */
+                task_info);
 
         TL::Scope sc = node.retrieve_context();
 
@@ -181,13 +185,6 @@ namespace TL { namespace Nanos6 {
         }
 
         Nodecl::List new_stmts;
-
-
-        if (!local_init_task_info.is_null())
-        {
-            // Init task info if it happens to be local
-            new_stmts.append(local_init_task_info);
-        }
 
         // Create task
         {
