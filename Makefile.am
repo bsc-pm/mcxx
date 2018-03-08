@@ -378,6 +378,7 @@ src_frontend_libgccbuiltins_la_CFLAGS=@NO_VAR_TRACKING_ASSIGNMENTS@ \
 src_frontend_libgccbuiltins_la_SOURCES = \
   src/frontend/cxx-gccbuiltins.h \
   src/frontend/cxx-gccbuiltins-ia32.h \
+  src/frontend/cxx-gccbuiltins-ia32-deprecated.h \
   src/frontend/cxx-gccbuiltins-arm-neon.h \
   src/frontend/cxx-gccbuiltins-arm64-neon.h \
   src/frontend/cxx-gccbuiltins.c \
@@ -3361,73 +3362,95 @@ DEBIAN_EXTRA=\
 # x86 builtins generator for GCC
 #####################################
 
-LATEST_GXX_X86=g++-5.1
+GXX_X86_BUILTINS = g++-7
+GXX_X86_DEPRECATED_BUILTINS = g++-5
 
-LATEST_GXX_X86_FLAGS =
-LATEST_GXX_X86_FLAGS += -fabi-version=6
-LATEST_GXX_X86_FLAGS += -m3dnow
-LATEST_GXX_X86_FLAGS += -mabm
-LATEST_GXX_X86_FLAGS += -maes
-LATEST_GXX_X86_FLAGS += -mavx
-LATEST_GXX_X86_FLAGS += -mavx2
-LATEST_GXX_X86_FLAGS += -mavx512bw
-LATEST_GXX_X86_FLAGS += -mavx512cd
-LATEST_GXX_X86_FLAGS += -mavx512dq
-LATEST_GXX_X86_FLAGS += -mavx512er
-LATEST_GXX_X86_FLAGS += -mavx512f
-LATEST_GXX_X86_FLAGS += -mavx512ifma
-LATEST_GXX_X86_FLAGS += -mavx512pf
-LATEST_GXX_X86_FLAGS += -mavx512vbmi
-LATEST_GXX_X86_FLAGS += -mavx512vl
-LATEST_GXX_X86_FLAGS += -mbmi
-LATEST_GXX_X86_FLAGS += -mbmi2
-LATEST_GXX_X86_FLAGS += -mclflushopt
-LATEST_GXX_X86_FLAGS += -mclwb
-LATEST_GXX_X86_FLAGS += -mf16c
-LATEST_GXX_X86_FLAGS += -mfma
-LATEST_GXX_X86_FLAGS += -mfma4
-LATEST_GXX_X86_FLAGS += -mfsgsbase
-LATEST_GXX_X86_FLAGS += -mfxsr
-LATEST_GXX_X86_FLAGS += -mlwp
-LATEST_GXX_X86_FLAGS += -mlzcnt
-LATEST_GXX_X86_FLAGS += -mmmx
-LATEST_GXX_X86_FLAGS += -mmpx
-LATEST_GXX_X86_FLAGS += -mmwaitx
-LATEST_GXX_X86_FLAGS += -mno-fma4
-LATEST_GXX_X86_FLAGS += -mpclmul
-LATEST_GXX_X86_FLAGS += -mpcommit
-LATEST_GXX_X86_FLAGS += -mpopcnt
-LATEST_GXX_X86_FLAGS += -mprefetchwt1
-LATEST_GXX_X86_FLAGS += -mrdrnd
-LATEST_GXX_X86_FLAGS += -mrdseed
-LATEST_GXX_X86_FLAGS += -mrtm
-LATEST_GXX_X86_FLAGS += -msha
-LATEST_GXX_X86_FLAGS += -msse
-LATEST_GXX_X86_FLAGS += -msse2
-LATEST_GXX_X86_FLAGS += -msse3
-LATEST_GXX_X86_FLAGS += -msse4
-LATEST_GXX_X86_FLAGS += -msse4.1
-LATEST_GXX_X86_FLAGS += -msse4.2
-LATEST_GXX_X86_FLAGS += -msse4a
-LATEST_GXX_X86_FLAGS += -mssse3
-LATEST_GXX_X86_FLAGS += -mtbm
-LATEST_GXX_X86_FLAGS += -mxop
-LATEST_GXX_X86_FLAGS += -mxsave
-LATEST_GXX_X86_FLAGS += -mxsavec
-LATEST_GXX_X86_FLAGS += -mxsaveopt
-LATEST_GXX_X86_FLAGS += -mxsaves
+# Common flags between GXX_X86_BUILTINS and GXX_X86_DEPRECATED_BUILTINS
+GXX_X86_COMMON_FLAGS =
+GXX_X86_COMMON_FLAGS += -fabi-version=6
+GXX_X86_COMMON_FLAGS += -m3dnow
+GXX_X86_COMMON_FLAGS += -mabm
+GXX_X86_COMMON_FLAGS += -maes
+GXX_X86_COMMON_FLAGS += -mavx
+GXX_X86_COMMON_FLAGS += -mavx2
+GXX_X86_COMMON_FLAGS += -mavx512bw
+GXX_X86_COMMON_FLAGS += -mavx512cd
+GXX_X86_COMMON_FLAGS += -mavx512dq
+GXX_X86_COMMON_FLAGS += -mavx512er
+GXX_X86_COMMON_FLAGS += -mavx512f
+GXX_X86_COMMON_FLAGS += -mavx512ifma
+GXX_X86_COMMON_FLAGS += -mavx512pf
+GXX_X86_COMMON_FLAGS += -mavx512vbmi
+GXX_X86_COMMON_FLAGS += -mavx512vl
+GXX_X86_COMMON_FLAGS += -mbmi
+GXX_X86_COMMON_FLAGS += -mbmi2
+GXX_X86_COMMON_FLAGS += -mclflushopt
+GXX_X86_COMMON_FLAGS += -mclwb
+GXX_X86_COMMON_FLAGS += -mf16c
+GXX_X86_COMMON_FLAGS += -mfma
+GXX_X86_COMMON_FLAGS += -mfma4
+GXX_X86_COMMON_FLAGS += -mfsgsbase
+GXX_X86_COMMON_FLAGS += -mfxsr
+GXX_X86_COMMON_FLAGS += -mlwp
+GXX_X86_COMMON_FLAGS += -mlzcnt
+GXX_X86_COMMON_FLAGS += -mmmx
+GXX_X86_COMMON_FLAGS += -mmpx
+GXX_X86_COMMON_FLAGS += -mmwaitx
+GXX_X86_COMMON_FLAGS += -mno-fma4
+GXX_X86_COMMON_FLAGS += -mpclmul
+GXX_X86_COMMON_FLAGS += -mpopcnt
+GXX_X86_COMMON_FLAGS += -mprefetchwt1
+GXX_X86_COMMON_FLAGS += -mrdrnd
+GXX_X86_COMMON_FLAGS += -mrdseed
+GXX_X86_COMMON_FLAGS += -mrtm
+GXX_X86_COMMON_FLAGS += -msha
+GXX_X86_COMMON_FLAGS += -msse
+GXX_X86_COMMON_FLAGS += -msse2
+GXX_X86_COMMON_FLAGS += -msse3
+GXX_X86_COMMON_FLAGS += -msse4
+GXX_X86_COMMON_FLAGS += -msse4.1
+GXX_X86_COMMON_FLAGS += -msse4.2
+GXX_X86_COMMON_FLAGS += -msse4a
+GXX_X86_COMMON_FLAGS += -mssse3
+GXX_X86_COMMON_FLAGS += -mtbm
+GXX_X86_COMMON_FLAGS += -mxop
+GXX_X86_COMMON_FLAGS += -mxsave
+GXX_X86_COMMON_FLAGS += -mxsavec
+GXX_X86_COMMON_FLAGS += -mxsaveopt
+GXX_X86_COMMON_FLAGS += -mxsaves
+
+GXX_X86_BUILTINS_FLAGS = $(GXX_X86_COMMON_FLAGS)
+GXX_X86_BUILTINS_FLAGS += -mavx5124fmaps     # introduced in GCC-7
+GXX_X86_BUILTINS_FLAGS += -mavx5124vnniw     # introduced in GCC-7
+GXX_X86_BUILTINS_FLAGS += -mavx512vpopcntdq  # introduced in GCC-7
+GXX_X86_BUILTINS_FLAGS += -mrdpid            # introduced in GCC-7
+
+GXX_X86_DEPRECATED_BUILTINS_FLAGS = $(GXX_X86_COMMON_FLAGS)
+GXX_X86_DEPRECATED_BUILTINS_FLAGS += -mpcommit # deprecated in GCC-6
 
 scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/simd/x86/builtins_ia32.cpp Makefile
-	$(LATEST_GXX_X86) $(LATEST_GXX_X86_FLAGS) -I$(srcdir)/scripts/simd \
+	$(GXX_X86_BUILTINS) $(GXX_X86_BUILTINS_FLAGS) -I$(srcdir)/scripts/simd \
 		-o scripts/generate_builtins_ia32.bin \
 		$(srcdir)/scripts/simd/x86/builtins_ia32.cpp \
-		-Wl,-rpath,$$(dirname $$($(LATEST_GXX_X86) -print-file-name=libstdc++.so))
+		-Wl,-rpath,$$(dirname $$($(GXX_X86_BUILTINS) -print-file-name=libstdc++.so))
 
 # These files are only regenerated manually
 .PHONY: generate_builtins_ia32
 CLEANFILES += scripts/generate_builtins_ia32.bin
 generate_builtins_ia32: scripts/generate_builtins_ia32.bin
 	./scripts/generate_builtins_ia32.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32.h
+
+scripts/generate_builtins_ia32_deprecated.bin : $(srcdir)/scripts/simd/x86/builtins_ia32_deprecated.cpp Makefile
+	$(GXX_X86_DEPRECATED_BUILTINS) $(GXX_X86_DEPRECATED_BUILTINS_FLAGS) -I$(srcdir)/scripts/simd \
+		-o scripts/generate_builtins_ia32_deprecated.bin \
+		$(srcdir)/scripts/simd/x86/builtins_ia32_deprecated.cpp \
+		-Wl,-rpath,$$(dirname $$($(GXX_X86_DEPRECATED_BUILTINS) -print-file-name=libstdc++.so))
+
+# These files are only regenerated manually
+.PHONY: generate_builtins_ia32_deprecated
+CLEANFILES += scripts/generate_builtins_ia32.bin
+generate_builtins_ia32_deprecated: scripts/generate_builtins_ia32_deprecated.bin
+	./scripts/generate_builtins_ia32_deprecated.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32-deprecated.h
 
 #####################################
 # x86 builtins generator for ICC

@@ -3543,6 +3543,7 @@ static void sign_in_gcc_simd_builtins(const decl_context_t* decl_context)
     // Intel architecture gcc builtins
     const locus_t* builtins_locus = make_locus("(gcc-builtin-ia32)", 0, 0);
 #include "cxx-gccbuiltins-ia32.h"
+#include "cxx-gccbuiltins-ia32-deprecated.h"
 }
 
 static void sign_in_simd_builtins(const decl_context_t* decl_context)
