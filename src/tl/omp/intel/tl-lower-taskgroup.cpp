@@ -33,7 +33,6 @@
 namespace TL { namespace Intel {
 
 static void create_red_init_func(const Nodecl::OpenMP::Taskgroup& construct,
-                                 const TL::Scope& scope,
                                  Nodecl::OpenMP::ReductionItem& red_item,
                                  TL::Symbol& red_init,
                                  Nodecl::NodeclBase& red_init_code,
@@ -42,7 +41,7 @@ static void create_red_init_func(const Nodecl::OpenMP::Taskgroup& construct,
     TL::Symbol reduced_symbol = red_item.get_reduced_symbol().get_symbol();
     TL::Symbol reductor = red_item.get_reductor().get_symbol();
     OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
-    Nodecl::NodeclBase init_expr = reduction->get_initializer().shallow_copy();
+    Nodecl::NodeclBase init_expr = reduction->get_initializer();
 
     TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -90,7 +89,6 @@ static void create_red_init_func(const Nodecl::OpenMP::Taskgroup& construct,
 // The function is created only if the struct/class provides a destructor
 // Arrays of struct/class are considered
 static void create_red_fin_func(const Nodecl::OpenMP::Taskgroup& construct,
-                                 const TL::Scope& scope,
                                  Nodecl::OpenMP::ReductionItem& red_item,
                                  TL::Symbol& red_fin,
                                  Nodecl::NodeclBase& red_fin_code,
@@ -150,7 +148,6 @@ static void create_red_fin_func(const Nodecl::OpenMP::Taskgroup& construct,
 }
 
 static void create_red_comb_func(const Nodecl::OpenMP::Taskgroup& construct,
-                                 const TL::Scope& scope,
                                  Nodecl::OpenMP::ReductionItem& red_item,
                                  TL::Symbol& red_comb,
                                  Nodecl::NodeclBase& red_comb_code,
@@ -266,6 +263,33 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
 
         Nodecl::NodeclBase tree_tg_decl = src_tg_decl.parse_statement(construct);
         construct.prepend_sibling(tree_tg_decl);
+
+        for (auto it = reduction_items.begin(); it != reduction_items.end(); it++) {
+            TL::Symbol reduced_symbol = it->get_reduced_symbol().get_symbol();
+            TL::Symbol reductor = it->get_reductor().get_symbol();
+            OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
+            Nodecl::NodeclBase init_expr = reduction->get_initializer();
+
+            TL::Symbol omp_orig = reduction->get_omp_orig();
+
+            SymbolExistenceCheck sec(omp_orig);
+            sec.walk(init_expr);
+
+            if (sec.exist_symbol()) {
+                Nodecl::NodeclBase decl_new_orig = Source(as_type(omp_orig
+                                                .get_type()
+                                                .no_ref()
+                                                .get_pointer_to()) + reduced_symbol.get_name() + "_orig;").parse_declaration(construct);
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, decl_new_orig);
+
+                TL::Symbol new_orig = construct
+                                        .retrieve_context()
+                                        .get_symbol_from_name(reduced_symbol.get_name() + "_orig");
+                ReplaceOrig ro(omp_orig, new_orig, construct.retrieve_context());
+                ro.walk(init_expr);
+            }
+        }
+
     }
 
     walk(statements);
@@ -298,7 +322,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
             TL::Symbol red_init;
             Nodecl::NodeclBase red_init_code, red_init_stmt;
             create_red_init_func(construct,
-                                 global_scope,
                                  *it,
                                  red_init,
                                  red_init_code,
@@ -307,7 +330,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
             TL::Symbol red_comb;
             Nodecl::NodeclBase red_comb_code, red_comb_stmt;
             create_red_comb_func(construct,
-                                 global_scope,
                                  *it,
                                  red_comb,
                                  red_comb_code,
@@ -316,7 +338,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
             TL::Symbol red_fin;
             Nodecl::NodeclBase red_fin_code, red_fin_stmt;
             create_red_fin_func(construct,
-                                 global_scope,
                                  *it,
                                  red_fin,
                                  red_fin_code,
@@ -327,7 +348,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
             << "_red_info[" << array_pos << "].reduce_size = sizeof(" << as_symbol(reduced_symbol) << ");"
             << "_red_info[" << array_pos << "].reduce_init = (void *)&" << as_symbol(red_init) << ";"
             << "_red_info[" << array_pos << "].reduce_comb = (void *)&" << as_symbol(red_comb) << ";"
-            << "_red_info[" << array_pos << "].flags.lazy_priv = 0;"
+            << "_red_info[" << array_pos << "].flags.lazy_priv = 1;"
             << "_red_info[" << array_pos << "].flags.reserved31 = 0;";
             if (!red_fin.is_valid()) {
                 src_reduction_init

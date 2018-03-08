@@ -65,6 +65,47 @@ struct ReplaceInOutVect : Nodecl::ExhaustiveVisitor<void>
     }
 };
 
+struct ReplaceOrig : Nodecl::ExhaustiveVisitor<void>
+{
+    TL::Symbol _orig_omp_orig;
+    TL::Symbol _new_omp_orig;
+    TL::Scope _scope;
+
+    ReplaceOrig(
+            TL::Symbol orig_omp_orig,
+            TL::Symbol new_omp_orig,
+            TL::Scope scope)
+        : _orig_omp_orig(orig_omp_orig), _new_omp_orig(new_omp_orig), _scope(scope)
+    { }
+
+    virtual void visit(const Nodecl::Symbol& node)
+    {
+        TL::Symbol sym = node.get_symbol();
+
+        if (sym == _orig_omp_orig) {
+            node.replace(Source("*" + as_symbol(_new_omp_orig)).parse_expression(_scope));
+        }
+    }
+};
+
+struct SymbolExistenceCheck : Nodecl::ExhaustiveVisitor<void>
+{
+    TL::Symbol _sym;
+    bool exist = false;
+
+    SymbolExistenceCheck(TL::Symbol sym)
+        : _sym(sym)
+    { }
+
+    bool exist_symbol() const { return exist; }
+
+    virtual void visit(const Nodecl::Symbol& node)
+    {
+        TL::Symbol sym = node.get_symbol();
+        if (_sym == sym) exist = true;
+    }
+};
+
 struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:

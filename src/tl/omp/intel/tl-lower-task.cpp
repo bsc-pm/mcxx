@@ -600,6 +600,25 @@ static void get_reduction_data(const TL::Symbol& ident_symbol,
                                const TL::ObjectList<TL::Symbol>& reduction_symbols,
                                Nodecl::NodeclBase& outline_task_stmt) {
 
+    // TODO acabar esto... guardar la direccion del orig
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = reduction_symbols.begin();
+		    it != reduction_symbols.end();
+		    it++) {
+        TL::Symbol omp_orig = outline_task_stmt.retrieve_context()
+                                .get_symbol_from_name(it->get_name() + "_orig");
+        TL::Symbol task_sym = outline_task_stmt.retrieve_context()
+                                .get_symbol_from_name("_tmp_" + it->get_name());
+        ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
+        if (omp_orig.is_valid()) {
+            Source src_save_omp_orig;
+            src_save_omp_orig
+            << as_symbol(omp_orig) << " = &" << as_symbol(task_sym) << ";";
+            Nodecl::NodeclBase tree_save_omp_orig = src_save_omp_orig.parse_statement(outline_task_stmt);
+            outline_task_stmt.prepend_sibling(tree_save_omp_orig);
+
+        }
+    }
+
     for (TL::ObjectList<TL::Symbol>::const_iterator it = reduction_symbols.begin();
 		    it != reduction_symbols.end();
 		    it++)
