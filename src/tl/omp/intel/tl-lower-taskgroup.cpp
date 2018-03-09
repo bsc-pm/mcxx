@@ -41,7 +41,7 @@ static void create_red_init_func(const Nodecl::OpenMP::Taskgroup& construct,
     TL::Symbol reduced_symbol = red_item.get_reduced_symbol().get_symbol();
     TL::Symbol reductor = red_item.get_reductor().get_symbol();
     OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
-    Nodecl::NodeclBase init_expr = reduction->get_initializer();
+    Nodecl::NodeclBase init_expr = reduction->get_initializer().shallow_copy();
 
     TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -67,19 +67,45 @@ static void create_red_init_func(const Nodecl::OpenMP::Taskgroup& construct,
             red_init_code,
             red_init_stmt);
 
-    Source src_red_init_body;
+    TL::Symbol omp_orig = reduction->get_omp_orig();
+    TL::Symbol new_orig = construct
+                            .retrieve_context()
+                            .get_symbol_from_name(reduced_symbol.get_name() + "_orig");
+
     if (!reduced_symbol.get_type().no_ref().is_array()) {
+        Source src_red_init_body;
+        ReplaceOrig ro(omp_orig, new_orig, construct.retrieve_context());
+        ro.walk(init_expr);
+
         src_red_init_body
         << "_reduce_init = " << as_expression(init_expr) << ";";
+
+        Nodecl::NodeclBase tree_red_init_body = src_red_init_body.parse_statement(red_init_stmt);
+        red_init_stmt.replace(tree_red_init_body);
     }
     else {
+        Source src_red_init_body;
+        Nodecl::NodeclBase stmt_init;
         src_red_init_body
         << "for (int i = 0; i < " << as_expression(reduced_symbol.get_type().no_ref().array_get_size()) << "; ++i) {"
-        <<      "_reduce_init[i] = " << as_expression(init_expr) << ";"
+        <<      statement_placeholder(stmt_init)
         << "}";
+        Nodecl::NodeclBase tree_red_init_body = src_red_init_body.parse_statement(red_init_stmt);
+        red_init_stmt.replace(tree_red_init_body);
+
+
+        TL::Symbol ind_var = red_init_stmt.retrieve_context().get_symbol_from_name("i");
+        ERROR_CONDITION(!ind_var.is_valid(), "Symbol i not found", 0);
+
+        ReplaceOrigVect rov(omp_orig, new_orig, ind_var, construct.retrieve_context());
+        rov.walk(init_expr);
+
+        Source src_new_init;
+        src_new_init
+        << "_reduce_init[i] = " << as_expression(init_expr) << ";";
+        Nodecl::NodeclBase tree_new_init = src_new_init.parse_statement(stmt_init);
+        stmt_init.replace(tree_new_init);
     }
-    Nodecl::NodeclBase tree_red_init_body = src_red_init_body.parse_statement(red_init_stmt);
-    red_init_stmt.replace(tree_red_init_body);
 
     // As the reduction function is needed during the instantiation of
     // the task, this function should be inserted before the construct
@@ -276,17 +302,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
             sec.walk(init_expr);
 
             if (sec.exist_symbol()) {
-                Nodecl::NodeclBase decl_new_orig = Source(as_type(omp_orig
+                Nodecl::NodeclBase decl_new_orig = Source(as_type(reduced_symbol
                                                 .get_type()
                                                 .no_ref()
                                                 .get_pointer_to()) + reduced_symbol.get_name() + "_orig;").parse_declaration(construct);
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, decl_new_orig);
 
-                TL::Symbol new_orig = construct
-                                        .retrieve_context()
-                                        .get_symbol_from_name(reduced_symbol.get_name() + "_orig");
-                ReplaceOrig ro(omp_orig, new_orig, construct.retrieve_context());
-                ro.walk(init_expr);
             }
         }
 

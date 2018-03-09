@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -84,6 +84,32 @@ struct ReplaceOrig : Nodecl::ExhaustiveVisitor<void>
 
         if (sym == _orig_omp_orig) {
             node.replace(Source("*" + as_symbol(_new_omp_orig)).parse_expression(_scope));
+        }
+    }
+};
+
+struct ReplaceOrigVect : Nodecl::ExhaustiveVisitor<void>
+{
+    TL::Symbol _orig_omp_orig;
+    TL::Symbol _new_omp_orig;
+    TL::Symbol _ind_var;
+    TL::Scope _scope;
+
+    ReplaceOrigVect(
+            TL::Symbol orig_omp_orig,
+            TL::Symbol new_omp_orig,
+            TL::Symbol ind_var,
+            TL::Scope scope)
+        : _orig_omp_orig(orig_omp_orig), _new_omp_orig(new_omp_orig),
+        _ind_var(ind_var), _scope(scope)
+    { }
+
+    virtual void visit(const Nodecl::Symbol& node)
+    {
+        TL::Symbol sym = node.get_symbol();
+
+        if (sym == _orig_omp_orig) {
+            node.replace(Source("(*" + as_symbol(_new_omp_orig) + ")[" + as_symbol(_ind_var) + "]").parse_expression(_scope));
         }
     }
 };

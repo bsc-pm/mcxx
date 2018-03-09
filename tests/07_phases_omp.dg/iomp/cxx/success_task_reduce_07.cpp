@@ -8,23 +8,23 @@ test_generator=config/mercurium-iomp
 #include <unistd.h>
 #include <omp.h>
 
-/* Same as success_task_reduce_01.cpp but with nonzero init */
-
 struct A {
     int x;
 
-    A(int x_= 77) : x(x_) {}
-    ~A() { }
+    A(int x_=77) : x(x_) {}
+    A(A& p) : x(p.x) {}
+    ~A() {}
     A(const A& b) : x(b.x) {}
     A& operator=(const A& b) { x = b.x; return *this; }
     A& operator+(int val) { x += val; return *this; }
 
 };
 
-#pragma omp declare reduction(my_add: A : omp_out = omp_in + omp_out.x) initializer(omp_priv = A(2))
+#pragma omp declare reduction(my_add: A : omp_out = omp_in + omp_out.x) initializer(omp_priv = A(omp_orig))
 int main(int argc, char *argv[]) {
-    A a;
-    #pragma omp parallel
+    A a[10];
+    for (int i = 0; i < 10; ++i) a[i].x = 1;
+    #pragma omp parallel num_threads(1)
     #pragma omp single
     {
         #pragma omp taskgroup task_reduction(my_add:a)
@@ -32,11 +32,13 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < 10; ++i)
             #pragma omp task in_reduction(my_add:a) firstprivate(i)
             {
-                a = a + i;
+                a[i] = a[i] + i;
             }
         }
-        // init + loop calc (+ init omp_reduce copies)
-        assert(a.x >= 77 + 10/2*9);
+        for (int i = 0; i < 10; ++i)
+        {
+            assert(a[i].x >= 1 + i);
+        }
     }
 }
 
