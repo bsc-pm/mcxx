@@ -60,10 +60,12 @@ namespace TL { namespace Nanos6 {
 
     TaskProperties::TaskProperties(
             const Nodecl::OpenMP::Task& node,
+            Nodecl::NodeclBase &serial_context,
             LoweringPhase* lowering_phase,
             Lower* lower)
-        : _env(node.get_environment()), _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
-     {
+        : _env(node.get_environment()), _serial_context(serial_context),
+        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
+    {
         TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
         _nanos6_task_counter = (int) counter;
         counter++;
@@ -106,8 +108,8 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    TaskProperties::TaskProperties(const Nodecl::OmpSs::Release& node, LoweringPhase* lowering_phase, Lower* lower) :
-        _env(node.get_environment()), _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0), _nanos6_task_counter(-1)
+    TaskProperties::TaskProperties(const Nodecl::OmpSs::Release& node, Nodecl::NodeclBase &serial_context, LoweringPhase* lowering_phase, Lower* lower) :
+        _env(node.get_environment()), _serial_context(serial_context), _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0), _nanos6_task_counter(-1)
     {
         _related_function = Nodecl::Utils::get_enclosing_function(node);
     }
@@ -1940,7 +1942,6 @@ namespace TL { namespace Nanos6 {
             }
 
             // 3. Extra device arguments
-||||||| parent of 0c778a1ae... Add support for task array reductions in Nanos6 lowering
             {
                 Nodecl::NodeclBase device_env_or_loop_bounds =
                     outline_inside_scope.get_symbol_from_name(device_env_name).make_nodecl(/*ref_type*/ true);
@@ -2395,7 +2396,7 @@ namespace TL { namespace Nanos6 {
         }
 
         void compute_base_address_and_dimensionality_information(
-                TL::DataReference& data_ref,
+                const TL::DataReference& data_ref,
                 // Out
                 TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
         {
@@ -2414,52 +2415,13 @@ namespace TL { namespace Nanos6 {
             else
                 compute_dimensionality_information_fortran(data_ref, data_ref.get_data_type(), arguments_list);
         }
-    }
 
-    void TaskProperties::handle_task_reductions(
-            TL::Scope& unpacked_inside_scope,
-            Nodecl::NodeclBase unpacked_empty_stmt,
-            Nodecl::Utils::SimpleSymbolMap &symbol_map)
-    {
-        // FIXME handle finalstmtsgen for weakred
-        for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = _env.dep_reduction.begin();
-                it != _env.dep_reduction.end();
-                it++)
+        TL::Symbol generate_reduction_storage_symbol(
+            const TL::DataReference &reduction_expr,
+            TL::Scope &scope,
+            Nodecl::List &extra_stmts)
         {
-            Nodecl::NodeclBase red_expr = it->shallow_copy();
-
-            // Get original symbol, keep it, and rewrite registered expression in terms of unpacked function parameter
-            TL::DataReference orig_data_ref = red_expr;
-            TL::Symbol orig_sym = orig_data_ref.get_base_symbol();
-            red_expr = Nodecl::Utils::deep_copy(red_expr, unpacked_inside_scope, symbol_map);
-
-            TL::Type reduction_type = red_expr.get_type().no_ref();
-
-            if (reduction_type.is_array())
-            {
-                reduction_type =
-                    rewrite_type(reduction_type, unpacked_inside_scope, symbol_map);
-
-                red_expr.set_type(reduction_type);
-            }
-
-            TL::DataReference data_ref = red_expr;
-
-            TL::Symbol red_storage_sym = unpacked_inside_scope.new_symbol(
-                    orig_sym.get_name() + "_storage");
-            symbol_entity_specs_set_is_user_declared(
-                    red_storage_sym.get_internal_symbol(), 1);
-            red_storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            red_storage_sym.set_type(reduction_type.get_lvalue_reference_to());
-
-            // (Re)map original symbol to new local symbol so that the
-            // posterior deep copy over the task body replaces all its
-            // references
-            ERROR_CONDITION(symbol_map.get_simple_symbol_map()->find(orig_sym) ==
-                    symbol_map.get_simple_symbol_map()->end(),
-                    "Symbol '%s' not found in map", orig_sym.get_name().c_str());
-            symbol_map.add_map(orig_sym, red_storage_sym);
-
+            // Obtain function symbol
             std::string get_red_storage_fun_name = "nanos_get_reduction_storage1";
             TL::Scope global_context = TL::Scope::get_global_scope();
             TL::Symbol get_red_storage_fun =
@@ -2471,10 +2433,18 @@ namespace TL { namespace Nanos6 {
                         get_red_storage_fun_name.c_str());
             }
 
-            TL::ObjectList<Nodecl::NodeclBase> arguments_list;
-            compute_base_address_and_dimensionality_information(data_ref, arguments_list);
+            TL::Symbol reduction_sym = reduction_expr.get_base_symbol();
+            TL::Type reduction_type = reduction_expr.get_type().no_ref();
 
-            // FIXME Works, but is it correct? -> incomplete, should complete for VLA, shared and firstprivate (pointer)
+            TL::Symbol storage_sym = scope.new_symbol(reduction_sym.get_name() + "_storage");
+            symbol_entity_specs_set_is_user_declared(
+                    storage_sym.get_internal_symbol(), 1);
+            storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            storage_sym.set_type(reduction_type.get_lvalue_reference_to());
+
+            TL::ObjectList<Nodecl::NodeclBase> arguments_list;
+            compute_base_address_and_dimensionality_information(reduction_expr, arguments_list);
+
             Nodecl::NodeclBase cast;
             Nodecl::NodeclBase function_call = Nodecl::Dereference::make(
                     cast = Nodecl::Conversion::make(
@@ -2485,12 +2455,126 @@ namespace TL { namespace Nanos6 {
                             /* function_form */ Nodecl::NodeclBase::null(),
                             TL::Type::get_void_type().get_pointer_to()),
                         reduction_type.get_pointer_to()),
-                    reduction_type);
+                    reduction_type.get_lvalue_reference_to());
             cast.set_text("C");
 
-            red_storage_sym.set_value(function_call);
+            storage_sym.set_value(function_call);
 
-            unpacked_empty_stmt.prepend_sibling(Nodecl::ObjectInit::make(red_storage_sym));
+            extra_stmts.prepend(
+                    Nodecl::ObjectInit::make(storage_sym));
+            if (IS_CXX_LANGUAGE)
+            {
+                extra_stmts.prepend(
+                        Nodecl::CxxDef::make(
+                            /* context */ Nodecl::NodeclBase::null(),
+                            storage_sym));
+            }
+
+            return storage_sym;
+        }
+    }
+
+    void TaskProperties::handle_task_reductions(
+            TL::Scope& unpacked_inside_scope,
+            Nodecl::NodeclBase unpacked_empty_stmt,
+            Nodecl::Utils::SimpleSymbolMap &symbol_map)
+    {
+        bool has_final_stmts = !_serial_context.is_null();
+
+        // Check serial statements structure and obtain statement list
+
+        Nodecl::List serial_stmts_list;
+        Nodecl::NodeclBase original_final_stmts;
+
+        if (has_final_stmts)
+        {
+            ERROR_CONDITION(!_serial_context.is<Nodecl::Context>(),
+                    "Unexpected node '%s'", ast_print_node_type(_serial_context.get_kind()));
+
+            Nodecl::NodeclBase serial_compound_stmt =
+                _serial_context.as<Nodecl::Context>()
+                .get_in_context().as<Nodecl::List>().front();
+
+            ERROR_CONDITION(!serial_compound_stmt.is<Nodecl::CompoundStatement>(),
+                    "Unexpected node '%s'",
+                    ast_print_node_type(serial_compound_stmt.get_kind()));
+
+            serial_stmts_list =
+                serial_compound_stmt.as<Nodecl::CompoundStatement>()
+                .get_statements().as<Nodecl::List>();
+
+            ERROR_CONDITION(serial_stmts_list.size() != 1,
+                    "Unexpected list size '%d'", serial_stmts_list.size());
+
+            original_final_stmts = serial_stmts_list.front();
+
+            ERROR_CONDITION(!(original_final_stmts.is<Nodecl::Context>() ||
+                        original_final_stmts.is<Nodecl::ExpressionStatement>()),
+                    "Unexpected node '%s'",
+                    ast_print_node_type(original_final_stmts.get_kind()));
+        }
+
+        // Symbol map to replace original symbols for storage symbols
+        Nodecl::Utils::SimpleSymbolMap final_symbol_map;
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = _env.dep_reduction.begin();
+                it != _env.dep_reduction.end();
+                it++)
+        {
+            Nodecl::NodeclBase red_expr = it->shallow_copy();
+
+            // Get original symbol, keep it, and rewrite registered expression in terms of unpacked function parameter
+
+            TL::DataReference orig_data_ref = red_expr;
+            TL::Symbol orig_sym = orig_data_ref.get_base_symbol();
+
+            Nodecl::NodeclBase unpacked_red_expr = Nodecl::Utils::deep_copy(red_expr, unpacked_inside_scope, symbol_map);
+
+            // 1. Build function call that computes the value of the reduction storage
+
+            Nodecl::List unpacked_extra_stmts;
+            TL::Symbol storage_sym = generate_reduction_storage_symbol(
+                    unpacked_red_expr,
+                    unpacked_inside_scope,
+                    unpacked_extra_stmts);
+
+            unpacked_empty_stmt.prepend_sibling(
+                    unpacked_extra_stmts);
+
+            // (Re)map original symbol to new local symbol so that the
+            // posterior deep copy over the task body replaces all its references
+            ERROR_CONDITION(symbol_map.get_simple_symbol_map()->find(orig_sym) ==
+                    symbol_map.get_simple_symbol_map()->end(),
+                    "Symbol '%s' not found in map", orig_sym.get_name().c_str());
+            symbol_map.add_map(orig_sym, storage_sym);
+
+            // 2. Fix serial statements for 'final' construct
+
+            if (has_final_stmts)
+            {
+                TL::Scope final_scope = _serial_context.retrieve_context().get_decl_context();
+
+                Nodecl::List final_extra_stmts;
+                TL::Symbol final_storage_sym = generate_reduction_storage_symbol(
+                        orig_data_ref,
+                        final_scope,
+                        final_extra_stmts);
+
+                serial_stmts_list.prepend(final_extra_stmts);
+
+                final_symbol_map.add_map(orig_sym, final_storage_sym);
+            }
+        }
+
+        // Deep copy serial statements to replace original symbol references for new final symbols
+
+        if (has_final_stmts)
+        {
+            original_final_stmts.replace(
+                    deep_copy(
+                        original_final_stmts,
+                        original_final_stmts.retrieve_context(),
+                        final_symbol_map));
         }
     }
 

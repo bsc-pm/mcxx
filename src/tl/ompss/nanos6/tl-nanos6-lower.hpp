@@ -97,7 +97,7 @@ namespace TL { namespace Nanos6 {
             void lower_taskwait_with_dependences(const Nodecl::OpenMP::Taskwait& n);
 
             void lower_task(const Nodecl::OpenMP::Task& n);
-            void lower_task(const Nodecl::OpenMP::Task& n, Nodecl::NodeclBase& serial_stmts);
+            void lower_task(const Nodecl::OpenMP::Task& n, const Nodecl::NodeclBase& serial_stmts);
 
             void visit_task_call(const Nodecl::OmpSs::TaskCall& construct);
             void visit_task_call_c(const Nodecl::OmpSs::TaskCall& construct);

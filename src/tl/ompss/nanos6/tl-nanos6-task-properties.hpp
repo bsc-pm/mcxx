@@ -63,6 +63,10 @@ namespace TL { namespace Nanos6 {
             DirectiveEnvironment _env;
             TL::ObjectList<std::shared_ptr<Device> > _implementations;
 
+            //! This member represents the serial statements of the task, can
+            //! be null if 'final' clause transformation has been disabled
+            Nodecl::NodeclBase &_serial_context;
+
             LoweringPhase* _phase;
 
             //! Used to store some shared information between tasks
@@ -217,11 +221,12 @@ namespace TL { namespace Nanos6 {
         public:
             TaskProperties(
                     const Nodecl::OpenMP::Task& node,
+                    Nodecl::NodeclBase &serial_stmts,
                     LoweringPhase* lowering_phase,
                     Lower* lower);
 
             // FIXME: This constructor shouldn't exist
-            TaskProperties(const Nodecl::OmpSs::Release& node, LoweringPhase* lowering_phase, Lower* lower);
+            TaskProperties(const Nodecl::OmpSs::Release& node, Nodecl::NodeclBase &serial_stmts, LoweringPhase* lowering_phase, Lower* lower);
 
             // FIXME
             std::string get_new_name(const std::string& prefix) const;

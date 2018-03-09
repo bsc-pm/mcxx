@@ -36,8 +36,9 @@ namespace TL { namespace Nanos6 {
     {
         Interface::family_must_be_at_least("nanos6_multidimensional_release_api", 1, "Release construct");
 
+        Nodecl::NodeclBase dummy_serial_stmts;
         Nodecl::List release_stmts;
-        TaskProperties task_properties(node, _phase, this);
+        TaskProperties task_properties(node, dummy_serial_stmts, _phase, this);
         task_properties.compute_release_statements(/* out */ release_stmts);
         node.replace(release_stmts);
     }
