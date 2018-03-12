@@ -510,7 +510,12 @@ namespace TL { namespace Nanox {
             TL::Symbol reduction_item = (*it)->get_symbol();
             TL::Type reduction_item_type = reduction_item.get_type().no_ref();
 
-            std::string storage_var_name = (*it)->get_field_name() + "_storage";
+            TL::Counter &counter = TL::CounterManager::get_counter((*it)->get_field_name());
+            std::stringstream ss;
+            ss << "_storage_" << (int)counter;
+            counter++;
+
+            std::string storage_var_name = (*it)->get_field_name() + ss.str();
             TL::Type storage_var_type = reduction_type.get_pointer_to();
 
 
