@@ -3039,7 +3039,7 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<Nodecl::NodeclBase> arguments_list;
         if (is_reduction)
         {
-            ERROR_CONDITION(data_ref.get_data_type().is_array(), "Array reductions not supported", 0);
+            error_printf_at(data_ref.get_locus(), "Task reductions are not yet supported in Fortran\n");
             compute_reduction_arguments_register_dependence(data_ref, arguments_list);
         }
         compute_arguments_register_dependence(data_ref, handler, arguments_list);
