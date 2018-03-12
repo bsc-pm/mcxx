@@ -546,7 +546,7 @@ namespace TL { namespace Nanos6 {
                 _related_function.get_class_type().get_internal_type());
         }
 
-        std::string task_info_tpl_name = get_new_name("task_info_tpl");
+        std::string task_info_tpl_name = std::string("task_info") + var_name;
 
         template_parameter_list_t *tpl
             = template_specialized_type_get_template_parameters(
