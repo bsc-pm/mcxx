@@ -1,13 +1,13 @@
 /*
 <testinfo>
-test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
+test_generator=(config/mercurium-ompss)
 </testinfo>
 */
 #include <assert.h>
 
 int main()
 {
-    int x;
+    int x = 0;
 
     #pragma omp task reduction(+: x) final(1)
     {
