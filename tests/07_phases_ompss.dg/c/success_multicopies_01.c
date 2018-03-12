@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
+test_generator=config/mercurium-ompss
 test_ENV="NX_THROTTLE=dummy"
 test_CFLAGS=""
 </testinfo>
