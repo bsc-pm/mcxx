@@ -51,13 +51,6 @@ namespace TL { namespace Nanos6 {
             typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
             typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
 
-            struct TaskloopInfo
-            {
-                Nodecl::NodeclBase lower_bound;
-                Nodecl::NodeclBase upper_bound;
-                Nodecl::NodeclBase step;
-                Nodecl::NodeclBase chunksize;
-            };
 
             //! This member represents the directive environment
             DirectiveEnvironment _env;
@@ -91,9 +84,6 @@ namespace TL { namespace Nanos6 {
             TL::Symbol _cost_function_mangled;
             TL::Symbol _priority_function;
             TL::Symbol _priority_function_mangled;
-
-
-            TaskloopInfo _taskloop_info;
 
             Nodecl::NodeclBase _task_body;
 
@@ -251,15 +241,6 @@ namespace TL { namespace Nanos6 {
                     /* out */
                     Nodecl::NodeclBase& capture_env);
 
-            //! This function captures the lower bound, upper bound, step and the chunksize of a taskloop construct
-            /*!
-             * @param taskloop_bounds This symbol represents the bariable that we should initialize with the taskloop bounds
-             * @param stmts Node Output parameter that should contain the initialization of the taskloop bounds
-             */
-            void capture_taskloop_information(
-                    TL::Symbol taskloop_bounds_ptr,
-                    /* out */
-                    Nodecl::NodeclBase& stmts) const;
 
             void compute_task_flags(
                     TL::Symbol task_flags,
@@ -277,8 +258,6 @@ namespace TL { namespace Nanos6 {
             bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
 
             static bool is_saved_expression(Nodecl::NodeclBase n);
-
-            bool is_taskloop() const;
     };
 
 } }
