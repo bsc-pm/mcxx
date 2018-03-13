@@ -90,6 +90,7 @@ namespace TL { namespace Nanos6 {
         bool is_tied;
         bool is_taskloop;
         bool task_is_taskwait_with_deps;
+        bool task_is_taskcall;
         bool wait_clause;
         bool any_task_dependence;
 
@@ -99,6 +100,7 @@ namespace TL { namespace Nanos6 {
 
         /* --------  Device Information  ------ */
         TL::ObjectList<std::string> device_names;
+        TL::ObjectList<Nodecl::NodeclBase> ndrange;
 
         DirectiveEnvironment(Nodecl::NodeclBase environment);
 

@@ -26,11 +26,19 @@
 
 #include "tl-nanos6-device.hpp"
 
+#include "tl-nodecl-utils.hpp"
+
 namespace TL { namespace Nanos6 {
 
-Nodecl::NodeclBase Device::compute_specific_task_body(Nodecl::NodeclBase task_body) const
+Nodecl::NodeclBase Device::compute_specific_task_body(
+        Nodecl::NodeclBase task_body, const DirectiveEnvironment &env) const
 {
     return task_body.shallow_copy();
+}
+
+void Device::root_unpacked_function(TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code)
+{
+    Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 }
 
 } }

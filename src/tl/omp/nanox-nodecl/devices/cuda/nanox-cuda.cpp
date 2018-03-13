@@ -104,8 +104,8 @@ void DeviceCUDA::generate_ndrange_additional_code(
                 << " < " << as_expression(new_ndrange_args[num_dim + i])
                 << ") ? 1 : (("
                 << as_expression(new_ndrange_args[i]) << "/" << as_expression(new_ndrange_args[num_dim + i])
-                << ") + ((" << as_expression(new_ndrange_args[i]) << " %  " << as_expression(new_ndrange_args[num_dim + i])
-                << " == 0) ? 0 : 1)));";
+                << ") + (" << as_expression(new_ndrange_args[i]) << " %  " << as_expression(new_ndrange_args[num_dim + i])
+                << " != 0)));";
         }
         else
         {

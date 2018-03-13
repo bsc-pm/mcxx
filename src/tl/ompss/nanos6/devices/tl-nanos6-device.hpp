@@ -27,6 +27,8 @@
 #ifndef TL_NANOS6_DEVICE_HPP
 #define TL_NANOS6_DEVICE_HPP
 
+#include "tl-nanos6-directive-environment.hpp"
+
 #include "tl-symbol.hpp"
 #include "tl-nodecl.hpp"
 
@@ -39,7 +41,12 @@ namespace TL { namespace Nanos6 {
             virtual TL::Symbol get_device_type_id() const = 0;
 
             //! Generic implementation: it returns a shallow copy of the task body
-            virtual Nodecl::NodeclBase compute_specific_task_body(Nodecl::NodeclBase task_body) const;
+            virtual Nodecl::NodeclBase compute_specific_task_body(
+                    Nodecl::NodeclBase task_body, const DirectiveEnvironment &env) const;
+
+            //! Generic implementation: it appends the function code to the top level
+            virtual void root_unpacked_function(
+                    TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code);
     };
 
 } }

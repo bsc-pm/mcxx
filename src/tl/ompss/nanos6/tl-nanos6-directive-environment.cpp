@@ -45,7 +45,7 @@ namespace TL { namespace Nanos6 {
             void not_supported(const std::string &feature, Nodecl::NodeclBase n)
             {
                 error_printf_at(n.get_locus(),
-                        "%s is not supported in Nanos 6\n",
+                        "%s is not supported in Nanos6\n",
                         feature.c_str());
             }
 
@@ -59,8 +59,8 @@ namespace TL { namespace Nanos6 {
 
             void ignored(const std::string &feature, Nodecl::NodeclBase n)
             {
-                error_printf_at(
-                        n.get_locus(), "%s is ignored in Nanos 6\n", feature.c_str());
+                warn_printf_at(
+                        n.get_locus(), "%s is ignored in Nanos6\n", feature.c_str());
             }
 
             void ignored_seq(const std::string &feature, Nodecl::List l)
@@ -216,6 +216,7 @@ namespace TL { namespace Nanos6 {
                 {
                     _env.device_names.append(it->get_text().c_str());
                 }
+                walk(n.get_items());
             }
 
             virtual void visit(const Nodecl::OmpSs::CopyIn &n)
@@ -251,6 +252,11 @@ namespace TL { namespace Nanos6 {
                 _env.is_taskloop = true;
             }
 
+            virtual void visit(const Nodecl::OmpSs::TaskIsTaskCall &n)
+            {
+                _env.task_is_taskcall = true;
+            }
+
             virtual void visit(const Nodecl::OmpSs::Alloca &n)
             {
                 not_supported_seq("alloca captures",
@@ -265,7 +271,7 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OmpSs::NDRange &n)
             {
-                not_supported("ndrange clause", n);
+                _env.ndrange = n.get_ndrange_expressions().as<Nodecl::List>().to_object_list();
             }
 
             virtual void visit(const Nodecl::OmpSs::ShMem &n)
@@ -306,9 +312,9 @@ namespace TL { namespace Nanos6 {
     };
 
     DirectiveEnvironment::DirectiveEnvironment(Nodecl::NodeclBase environment) :
-        is_tied(true), is_taskloop(false),
-        task_is_taskwait_with_deps(false),
-        wait_clause(false), any_task_dependence(false), locus_of_task_declaration(NULL)
+        is_tied(true), is_taskloop(false), task_is_taskwait_with_deps(false),
+        task_is_taskcall(false), wait_clause(false),
+        any_task_dependence(false), locus_of_task_declaration(NULL)
     {
         // Traversing & filling the directive environment
         DirectiveEnvironmentVisitor visitor(*this, _firstprivate);

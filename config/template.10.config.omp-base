@@ -108,8 +108,11 @@ linker_name = @GCC@
 # Nanos++ & CUDA
 {@NANOX_GATE@,@ENABLE_CUDA@,ompss} options = --cuda
 {@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} compiler_phase = libtlnanox-cuda.so
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} preprocessor_options = -D__CUDABE__ -I${CUDA_HOME}/include
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} linker_options = -D__CUDABE__ -L${CUDA_HOME}/lib64 -lcudart
+
+
+# Generic CUDA stuff
+{cuda} preprocessor_options = -D__CUDABE__ -I${CUDA_HOME}/include
+{cuda} linker_options = -D__CUDABE__ -L${CUDA_HOME}/lib64 -lcudart
 
 
 # Nanos++ & OpenCL
@@ -169,6 +172,11 @@ linker_options = -Xlinker --enable-new-dtags
 {@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -L@NANOS6_LIB@ -lnanos6 -ldl
 {@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
+# Nanos6 + CUDA
+{@NANOS6_GATE@,ompss-2,cuda} preprocessor_options = -DNANOS6_CUDA
+
+# Nanos6 + OpenCL
+{@NANOS6_GATE@,ompss-2,opencl} preprocessor_options = -DNANOS6_OPENCL
 
 # dlb
 {@DLB_GATE@} fortran_preprocessor_options = -I@DLB_INCLUDE@

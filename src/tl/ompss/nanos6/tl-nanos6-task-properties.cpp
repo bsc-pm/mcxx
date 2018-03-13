@@ -1649,7 +1649,8 @@ namespace TL { namespace Nanos6 {
                 unpacked_function,
                 unpacked_function_code,
                 unpacked_empty_stmt);
-        Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
+
+        device->root_unpacked_function(unpacked_function, unpacked_function_code);
 
         TL::Scope unpacked_inside_scope = unpacked_function.get_related_scope();
         // Prepare deep copy and remember those parameters that need fixup
@@ -1749,12 +1750,11 @@ namespace TL { namespace Nanos6 {
         handle_task_reductions(unpacked_inside_scope, unpacked_empty_stmt);
 
         // Deep copy device-specific task body
-        Nodecl::NodeclBase body = Nodecl::Utils::deep_copy(
-                device->compute_specific_task_body(_task_body),
-                unpacked_inside_scope,
-                symbol_map);
-
-        unpacked_empty_stmt.replace(body);
+        unpacked_empty_stmt.replace(
+                Nodecl::Utils::deep_copy(
+                    device->compute_specific_task_body(_task_body, _env),
+                    unpacked_inside_scope,
+                    symbol_map));
 
         if (IS_CXX_LANGUAGE
                 && !_related_function.is_member())
@@ -2760,10 +2760,8 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol local_sym = scope.new_symbol(ind_var_name);
             local_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            local_sym.get_internal_symbol()->type_information =
-                ::get_signed_int_type();
-            symbol_entity_specs_set_is_user_declared(local_sym.get_internal_symbol(),
-                    1);
+            local_sym.get_internal_symbol()->type_information = ::get_signed_int_type();
+            symbol_entity_specs_set_is_user_declared(local_sym.get_internal_symbol(), 1);
 
             symbol_map.add_map(it2->first, local_sym);
             local_symbols.append(local_sym);

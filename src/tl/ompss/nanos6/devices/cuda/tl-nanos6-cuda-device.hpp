@@ -33,9 +33,29 @@ namespace TL { namespace Nanos6 {
 
     class CUDADevice : public Device
     {
+        private:
+            Nodecl::List _cuda_code;
+
         public:
+            CUDADevice();
+
+            ~CUDADevice();
+
             //! This function returns a symbol that represents the device type id
-            virtual TL::Symbol get_device_type_id() const;
+            TL::Symbol get_device_type_id() const;
+
+            //! It generates a CUDA kernel call if the ndrange clause was present.
+            //! Otherwise it returns a copy of the task_body
+            Nodecl::NodeclBase compute_specific_task_body(
+                    Nodecl::NodeclBase task_body, const DirectiveEnvironment &env) const;
+
+            void root_unpacked_function(TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code);
+
+
+
+        private:
+
+            void compile_cuda_code() const;
     };
 
 } }

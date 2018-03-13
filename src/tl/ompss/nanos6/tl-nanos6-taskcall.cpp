@@ -550,6 +550,8 @@ namespace TL { namespace Nanos6 {
             = rewrite_task_call_environment(
                 called_sym, parameters_environment, argument_captures_syms);
 
+        new_omp_exec_environment.as<Nodecl::List>().append(Nodecl::OmpSs::TaskIsTaskCall::make());
+
         Nodecl::OpenMP::Task new_task_construct =
             Nodecl::OpenMP::Task::make(
                     new_omp_exec_environment,
@@ -785,11 +787,12 @@ namespace TL { namespace Nanos6 {
                         construct.get_locus())
                     );
 
-        Nodecl::NodeclBase new_omp_exec_environment;
-        new_omp_exec_environment = Nodecl::Utils::deep_copy(
+        Nodecl::NodeclBase new_omp_exec_environment = Nodecl::Utils::deep_copy(
                 parameters_environment,
                 scope_inside_new_function,
                 parameter_symbol_map);
+
+        new_omp_exec_environment.as<Nodecl::List>().append(Nodecl::OmpSs::TaskIsTaskCall::make());
 
         for (TL::ObjectList<TL::Symbol>::iterator it = new_vlas.begin();
              it != new_vlas.end();
