@@ -243,7 +243,7 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OpenMP::TaskIsTaskwait &n)
             {
-                _env.is_taskwait_dep = true;
+                _env.task_is_taskwait_with_deps = true;
             }
 
             virtual void visit(const Nodecl::OpenMP::TaskIsTaskloop &n)
@@ -306,7 +306,8 @@ namespace TL { namespace Nanos6 {
     };
 
     DirectiveEnvironment::DirectiveEnvironment(Nodecl::NodeclBase environment) :
-        is_tied(true), is_taskwait_dep(false), is_taskloop(false),
+        is_tied(true), is_taskloop(false),
+        task_is_taskwait_with_deps(false),
         wait_clause(false), any_task_dependence(false), locus_of_task_declaration(NULL)
     {
         // Traversing & filling the directive environment

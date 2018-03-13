@@ -1605,7 +1605,7 @@ namespace TL { namespace Nanos6 {
     TL::Symbol TaskProperties::create_outline_function(std::shared_ptr<Device> device)
     {
         // Skip this function if the current task comes from a taskwait depend
-        if (_env.is_taskwait_dep)
+        if (_env.task_is_taskwait_with_deps)
             return TL::Symbol::invalid();
 
         // Unpacked function

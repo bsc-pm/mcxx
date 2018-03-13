@@ -88,8 +88,8 @@ namespace TL { namespace Nanos6 {
 
         /* --------  Task flags & other stuff  ------ */
         bool is_tied;
-        bool is_taskwait_dep;
         bool is_taskloop;
+        bool task_is_taskwait_with_deps;
         bool wait_clause;
         bool any_task_dependence;
 
