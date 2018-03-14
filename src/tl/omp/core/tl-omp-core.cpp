@@ -2178,30 +2178,21 @@ namespace TL { namespace OpenMP {
     // Inline tasks
     void Core::task_handler_pre(TL::PragmaCustomStatement construct)
     {
-        // In OmpSs-2 the taskloop construct is supported as '#pragma oss task loop'
+        // FIXME: At some point we should remove this error message...
         if (PragmaUtils::is_pragma_construct("oss", construct)
                 && construct.get_pragma_line().get_clause("loop").is_defined())
         {
-            taskloop_handler_pre(construct);
+            error_printf_at(construct.get_locus(),
+                    "The 'loop' clause was an experimental feature and it does not exist anymore."
+                    " Use a 'loop' construct instead.\n");
         }
-        else
-        {
-            task_inline_handler_pre(construct);
-        }
+        task_inline_handler_pre(construct);
     }
+
     void Core::task_handler_post(TL::PragmaCustomStatement construct)
     {
-        // In OmpSs-2 the taskloop construct is supported as '#pragma oss task loop'
-        if (PragmaUtils::is_pragma_construct("oss", construct)
-                && construct.get_pragma_line().get_clause("loop").is_defined())
-        {
-            taskloop_handler_post(construct);
-        }
-        else
-        {
-            ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
-            _openmp_info->pop_current_data_environment();
-        }
+        ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
+        _openmp_info->pop_current_data_environment();
     }
 
     // Function tasks
@@ -2620,7 +2611,7 @@ namespace TL { namespace OpenMP {
         sanity_check.walk(l);
     }
 
-#define INVALID_STATEMENT_HANDLER(_name) \
+#define OMP_INVALID_STATEMENT_HANDLER(_name) \
     void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
         error_printf_at(ctr.get_locus(), "invalid '#pragma %s %s'\n",  \
                 ctr.get_text().c_str(), \
@@ -2628,114 +2619,133 @@ namespace TL { namespace OpenMP {
     } \
     void Core::_name##_handler_post(TL::PragmaCustomStatement) { }
 
-#define INVALID_DECLARATION_HANDLER(_name) \
-    void Core::_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
+#define INVALID_DECLARATION_HANDLER_IMPL(_func_prefix, _name) \
+    void Core::_func_prefix##_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
         error_printf_at(ctr.get_locus(), "invalid '#pragma %s %s'\n",  \
                 ctr.get_text().c_str(), \
                 ctr.get_pragma_line().get_text().c_str()); \
     } \
+    void Core::_func_prefix##_name##_handler_post(TL::PragmaCustomDeclaration) { }
+
+#define  OMP_INVALID_DECLARATION_HANDLER(_name) INVALID_DECLARATION_HANDLER_IMPL( /*empty_prefix*/ , _name)
+#define  OSS_INVALID_DECLARATION_HANDLER(_name) INVALID_DECLARATION_HANDLER_IMPL(oss_ , _name)
+
+    OMP_INVALID_DECLARATION_HANDLER(parallel)
+    OMP_INVALID_DECLARATION_HANDLER(parallel_for)
+    OMP_INVALID_DECLARATION_HANDLER(parallel_simd_for)
+    OMP_INVALID_DECLARATION_HANDLER(for)
+    OMP_INVALID_DECLARATION_HANDLER(simd_for)
+    OMP_INVALID_DECLARATION_HANDLER(parallel_do)
+    OMP_INVALID_DECLARATION_HANDLER(do)
+    OMP_INVALID_DECLARATION_HANDLER(parallel_sections)
+    OMP_INVALID_DECLARATION_HANDLER(sections)
+    OMP_INVALID_DECLARATION_HANDLER(section)
+    OMP_INVALID_DECLARATION_HANDLER(single)
+    OMP_INVALID_DECLARATION_HANDLER(workshare)
+    OMP_INVALID_DECLARATION_HANDLER(ordered)
+    OMP_INVALID_DECLARATION_HANDLER(master)
+    OMP_INVALID_DECLARATION_HANDLER(target_data)
+    OMP_INVALID_DECLARATION_HANDLER(teams)
+    OMP_INVALID_DECLARATION_HANDLER(distribute)
+    OMP_INVALID_DECLARATION_HANDLER(distribute_parallel_for)
+    OMP_INVALID_DECLARATION_HANDLER(distribute_parallel_do)
+    OMP_INVALID_DECLARATION_HANDLER(target_teams)
+    OMP_INVALID_DECLARATION_HANDLER(teams_distribute)
+    OMP_INVALID_DECLARATION_HANDLER(target_teams_distribute)
+    OMP_INVALID_DECLARATION_HANDLER(teams_distribute_parallel_for)
+    OMP_INVALID_DECLARATION_HANDLER(teams_distribute_parallel_do)
+    OMP_INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_for)
+    OMP_INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
+    OMP_INVALID_DECLARATION_HANDLER(taskloop)
+    OMP_INVALID_DECLARATION_HANDLER(taskgroup)
+    OMP_INVALID_DECLARATION_HANDLER(atomic)
+    OMP_INVALID_DECLARATION_HANDLER(critical)
+    OMP_INVALID_DECLARATION_HANDLER(simd_fortran)
+
+    OMP_INVALID_STATEMENT_HANDLER(declare_simd)
+
+#define OMP_EMPTY_HANDLERS_STATEMENT(_name) \
+    void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \
+    void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
+
+#define OMP_EMPTY_HANDLERS_DECLARATION(_name) \
+    void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
     void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { }
 
-    INVALID_DECLARATION_HANDLER(parallel)
-        INVALID_DECLARATION_HANDLER(parallel_for)
-        INVALID_DECLARATION_HANDLER(parallel_simd_for)
-        INVALID_DECLARATION_HANDLER(for)
-        INVALID_DECLARATION_HANDLER(simd_for)
-        INVALID_DECLARATION_HANDLER(parallel_do)
-        INVALID_DECLARATION_HANDLER(do)
-        INVALID_DECLARATION_HANDLER(parallel_sections)
-        INVALID_DECLARATION_HANDLER(sections)
-        INVALID_DECLARATION_HANDLER(section)
-        INVALID_DECLARATION_HANDLER(single)
-        INVALID_DECLARATION_HANDLER(workshare)
-        INVALID_DECLARATION_HANDLER(ordered)
-        INVALID_DECLARATION_HANDLER(master)
-        INVALID_DECLARATION_HANDLER(target_data)
-        INVALID_DECLARATION_HANDLER(teams)
-        INVALID_DECLARATION_HANDLER(distribute)
-        INVALID_DECLARATION_HANDLER(distribute_parallel_for)
-        INVALID_DECLARATION_HANDLER(distribute_parallel_do)
-        INVALID_DECLARATION_HANDLER(target_teams)
-        INVALID_DECLARATION_HANDLER(teams_distribute)
-        INVALID_DECLARATION_HANDLER(target_teams_distribute)
-        INVALID_DECLARATION_HANDLER(teams_distribute_parallel_for)
-        INVALID_DECLARATION_HANDLER(teams_distribute_parallel_do)
-        INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_for)
-        INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
-        INVALID_DECLARATION_HANDLER(taskloop)
-        INVALID_DECLARATION_HANDLER(taskgroup)
-        INVALID_DECLARATION_HANDLER(atomic)
-        INVALID_DECLARATION_HANDLER(critical)
-        INVALID_DECLARATION_HANDLER(simd_fortran)
+#define OMP_EMPTY_HANDLERS_DIRECTIVE(_name) \
+    void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
+    void Core::_name##_handler_post(TL::PragmaCustomDirective) { }
 
-        INVALID_STATEMENT_HANDLER(declare_simd)
+#define OMP_UNIMPLEMENTED_HANDLER_STATEMENT(_name) \
+    void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
+        error_printf_at(ctr.get_locus(), "OpenMP construct not implemented\n");\
+    } \
+    void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
 
-#define EMPTY_HANDLERS_STATEMENT(_name) \
-        void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \
-        void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
+    OMP_EMPTY_HANDLERS_STATEMENT(atomic)
+    OMP_EMPTY_HANDLERS_STATEMENT(critical)
+    OMP_EMPTY_HANDLERS_STATEMENT(master)
+    OMP_EMPTY_HANDLERS_STATEMENT(simd_fortran)
 
-#define EMPTY_HANDLERS_DECLARATION(_name) \
-        void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
-        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { }
+    OMP_EMPTY_HANDLERS_DECLARATION(simd)
+    OMP_EMPTY_HANDLERS_DECLARATION(declare_simd)
 
-#define EMPTY_HANDLERS_DIRECTIVE(_name) \
-        void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
-        void Core::_name##_handler_post(TL::PragmaCustomDirective) { }
+    OMP_EMPTY_HANDLERS_DIRECTIVE(barrier)
+    OMP_EMPTY_HANDLERS_DIRECTIVE(flush)
+    OMP_EMPTY_HANDLERS_DIRECTIVE(register)
+    OMP_EMPTY_HANDLERS_DIRECTIVE(unregister)
+    OMP_EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
-#define UNIMPLEMENTED_HANDLER_STATEMENT(_name) \
-        void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
-            error_printf_at(ctr.get_locus(), "OpenMP construct not implemented\n");\
-        } \
-        void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
-
-        EMPTY_HANDLERS_STATEMENT(atomic)
-        EMPTY_HANDLERS_STATEMENT(critical)
-        EMPTY_HANDLERS_STATEMENT(master)
-        EMPTY_HANDLERS_STATEMENT(simd_fortran)
-
-        EMPTY_HANDLERS_DECLARATION(simd)
-        EMPTY_HANDLERS_DECLARATION(declare_simd)
-
-        EMPTY_HANDLERS_DIRECTIVE(barrier)
-        EMPTY_HANDLERS_DIRECTIVE(flush)
-        EMPTY_HANDLERS_DIRECTIVE(register)
-        EMPTY_HANDLERS_DIRECTIVE(unregister)
-        EMPTY_HANDLERS_DIRECTIVE(taskyield)
-
-        UNIMPLEMENTED_HANDLER_STATEMENT(ordered)
+    OMP_UNIMPLEMENTED_HANDLER_STATEMENT(ordered)
 
 #define OSS_WRAPPER_TO_OMP_DECLARATION(_name) \
-        void Core::oss_##_name##_handler_pre(TL::PragmaCustomDeclaration construct) {\
-            _name##_handler_pre(construct); \
-        } \
-        void Core::oss_##_name##_handler_post(TL::PragmaCustomDeclaration construct) {\
-            _name##_handler_post(construct); \
-        }
+    void Core::oss_##_name##_handler_pre(TL::PragmaCustomDeclaration construct) {\
+        _name##_handler_pre(construct); \
+    } \
+    void Core::oss_##_name##_handler_post(TL::PragmaCustomDeclaration construct) {\
+        _name##_handler_post(construct); \
+    }
 #define OSS_WRAPPER_TO_OMP_DIRECTIVE(_name) \
-        void Core::oss_##_name##_handler_pre(TL::PragmaCustomDirective construct) {\
-            _name##_handler_pre(construct); \
-        } \
-        void Core::oss_##_name##_handler_post(TL::PragmaCustomDirective construct) {\
-            _name##_handler_post(construct); \
-        }
+    void Core::oss_##_name##_handler_pre(TL::PragmaCustomDirective construct) {\
+        _name##_handler_pre(construct); \
+    } \
+    void Core::oss_##_name##_handler_post(TL::PragmaCustomDirective construct) {\
+        _name##_handler_post(construct); \
+    }
 #define OSS_WRAPPER_TO_OMP_STATEMENT(_name) \
-        void Core::oss_##_name##_handler_pre(TL::PragmaCustomStatement construct) {\
-            _name##_handler_pre(construct); \
-        } \
-        void Core::oss_##_name##_handler_post(TL::PragmaCustomStatement construct) {\
-            _name##_handler_post(construct); \
-        }
-        OSS_WRAPPER_TO_OMP_DIRECTIVE(taskwait)
-        OSS_WRAPPER_TO_OMP_DECLARATION(task)
-        OSS_WRAPPER_TO_OMP_STATEMENT(task)
-        OSS_WRAPPER_TO_OMP_DECLARATION(critical)
-        OSS_WRAPPER_TO_OMP_STATEMENT(critical)
-        OSS_WRAPPER_TO_OMP_DECLARATION(atomic)
-        OSS_WRAPPER_TO_OMP_STATEMENT(atomic)
+    void Core::oss_##_name##_handler_pre(TL::PragmaCustomStatement construct) {\
+        _name##_handler_pre(construct); \
+    } \
+    void Core::oss_##_name##_handler_post(TL::PragmaCustomStatement construct) {\
+        _name##_handler_post(construct); \
+    }
+
+    OSS_WRAPPER_TO_OMP_DIRECTIVE(taskwait)
+    OSS_WRAPPER_TO_OMP_DECLARATION(task)
+    OSS_WRAPPER_TO_OMP_STATEMENT(task)
+    OSS_WRAPPER_TO_OMP_DECLARATION(critical)
+    OSS_WRAPPER_TO_OMP_STATEMENT(critical)
+    OSS_WRAPPER_TO_OMP_DECLARATION(atomic)
+    OSS_WRAPPER_TO_OMP_STATEMENT(atomic)
+
+    OSS_INVALID_DECLARATION_HANDLER(loop)
 
 #undef OSS_WRAPPER_TO_OMP_DECLARATION
 #undef OSS_WRAPPER_TO_OMP_DIRECTIVE
 #undef OSS_WRAPPER_TO_OMP_STATEMENT
+
+#undef OMP_EMPTY_HANDLERS_STATEMENT
+
+#undef OMP_EMPTY_HANDLERS_DECLARATION
+#undef OMP_EMPTY_HANDLERS_DIRECTIVE
+#undef OMP_UNIMPLEMENTED_HANDLER_STATEMENT
+
+#undef OMP_INVALID_STATEMENT_HANDLER
+
+#undef OMP_INVALID_DECLARATION_HANDLER
+#undef OSS_INVALID_DECLARATION_HANDLER
+#undef INVALID_DECLARATION_HANDLER_IMPL
+
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct)

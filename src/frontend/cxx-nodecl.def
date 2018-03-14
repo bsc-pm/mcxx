@@ -711,8 +711,12 @@ top-level: target-declaration
 target-declaration : NODECL_OMP_SS*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 
 # Some OmpSs/OmpSs-2 additional constructs
-parallel-statements: data-coordination-constructs
+parallel-statements: oss-specific-constructs
+                    | data-coordination-constructs
                     | release-deps-construct
+
+# OmpSs-2 specific constructs
+oss-specific-constructs: NODECL_OMP_SS*LOOP([environment]omp-exec-environment-seq-opt, [loop]statement)
 
 # register
 data-coordination-constructs : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)

@@ -113,8 +113,6 @@ namespace TL
 
 #undef DECL_DIRECTIVE
 #undef DECL_CONSTRUCT
-                void taskloop_runtime_based_handler_pre(TL::PragmaCustomStatement directive);
-                void taskloop_runtime_based_handler_post(TL::PragmaCustomStatement directive);
 
                 void ompss_target_handler_pre(TL::PragmaCustomStatement stmt);
                 void ompss_target_handler_post(TL::PragmaCustomStatement stmt);
