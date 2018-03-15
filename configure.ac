@@ -175,9 +175,6 @@ AC_SUBST([sqlite3_LIBS])
 dnl ----- End Sqlite ---------------------------
 
 
-AX_CHECK_CUDA
-
-
 dnl --- Suport for Extrae --------------
 extrae_support="no"
 AC_MSG_CHECKING([if Extrae support has been enabled])
@@ -866,26 +863,13 @@ AC_MSG_RESULT([$enable_nanox_cuda_device])
 nanox_supports_cuda=no
 if test x"$is_enabled_tl_omp_nanox" = x"yes";
 then
-    #backup vars before we do the test
-    CFLAGSBACKUP="$CFLAGS"
-    CPPFLAGSBACKUP="$CPPFLAGS"
-    CXXFLAGSBACKUP="$CXXFLAGS"
-
-    CFLAGS="$CFLAGS -I$nanox_include -I$CUDA_HOME/include"
-    CPPFLAGS="$CPPFLAGS -I$nanox_include -I$CUDA_HOME/include"
-    CXXFLAGS="$CXXFLAGS -I$nanox_include -I$CUDA_HOME/include"
-
-    AC_CHECK_HEADER([nanos-gpu.h], [nanox_supports_cuda=yes])
-
-    CFLAGS="$CFLAGSBACKUP"
-    CPPFLAGS="$CPPFLAGSBACKUP"
-    CXXFLAGS="$CXXFLAGSBACKUP"
+    AC_CHECK_FILE([$nanox_include/nanos-gpu.h],[nanox_supports_cuda=yes])
     AC_MSG_CHECKING([whether Nanos++ was configured with CUDA support])
     AC_MSG_RESULT([$nanox_supports_cuda])
 fi
 
 ompss_supports_cuda="no"
-if test x"$ax_cv_enable_cuda" = x"yes" -a x"$enable_nanox_cuda_device" = x"yes" -a x"$nanox_supports_cuda" = x"yes";
+if test x"$enable_nanox_cuda_device" = x"yes" -a x"$nanox_supports_cuda" = x"yes";
 then
     ompss_supports_cuda="yes"
 fi
@@ -1705,6 +1689,8 @@ AM_CONDITIONAL([RUNNING_DISTCHECK], test x$distcheck_processing = xyes)
 
 GCC=$GCC_BE
 GXX=$GXX_BE
+
+AC_CHECK_PROG([NVCC], [nvcc], [nvcc])
 
 # Make these variables precious
 AC_ARG_VAR([FLEX], [Flex])
