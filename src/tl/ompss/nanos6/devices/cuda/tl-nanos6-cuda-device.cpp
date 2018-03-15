@@ -37,6 +37,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-driver-utils.h"
 
+#include <errno.h>
 namespace TL { namespace Nanos6 {
 
 CUDADevice::CUDADevice()
