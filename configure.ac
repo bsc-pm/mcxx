@@ -2379,6 +2379,9 @@ then
   echo ""
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
+  echo "   CUDA support:" $ompss_supports_cuda
+  echo "   OpenCL support:" $opencl_valid
+  echo "   MPI Offload support:" $mpi_valid
 
   if test ! -e "$nanox_include" -o ! -d "$nanox_include";
   then
@@ -2434,12 +2437,6 @@ then
   echo "   ********************************************************"
 fi
 
-echo ""
-echo " * Devices testing:"
-echo ""
-echo "   MPI testing enabled:" $mpi_valid
-echo "   CUDA testing enabled:" $ompss_supports_cuda
-echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
