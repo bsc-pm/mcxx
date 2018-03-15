@@ -54,7 +54,7 @@ namespace TL { namespace Nanos6 {
 
             //! This member represents the directive environment
             DirectiveEnvironment _env;
-            TL::ObjectList<std::shared_ptr<Device>> _implementations;
+            TL::ObjectList<std::shared_ptr<Device> > _implementations;
 
             LoweringPhase* _phase;
 

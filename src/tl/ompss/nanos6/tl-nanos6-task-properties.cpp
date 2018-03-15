@@ -636,7 +636,7 @@ namespace TL { namespace Nanos6 {
         TL::Symbol constraints_function = create_constraints_function();
 
         TL::ObjectList<Nodecl::NodeclBase> implementations_init;
-        for (TL::ObjectList<std::shared_ptr<Device>>::const_iterator it = _implementations.begin();
+        for (TL::ObjectList< std::shared_ptr<Device> >::const_iterator it = _implementations.begin();
                 it != _implementations.end();
                 it++)
         {
