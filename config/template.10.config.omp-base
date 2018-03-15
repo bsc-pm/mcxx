@@ -8,6 +8,9 @@ compiler_name = @GCC@
 compiler_options =
 linker_name = @GCC@
 
+# Generic CUDA stuff
+{cuda} preprocessor_options = -D__CUDABE__ -I${CUDA_HOME}/include
+{cuda} linker_options = -D__CUDABE__ -L${CUDA_HOME}/lib64 -lcudart
 
 # OpenMP & OmpSs (runtime independent)
 {openmp,omp-dry-run} options = --variable=omp_dry_run:1
@@ -106,13 +109,7 @@ linker_name = @GCC@
 
 
 # Nanos++ & CUDA
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss} options = --cuda
 {@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} compiler_phase = libtlnanox-cuda.so
-
-
-# Generic CUDA stuff
-{cuda} preprocessor_options = -D__CUDABE__ -I${CUDA_HOME}/include
-{cuda} linker_options = -D__CUDABE__ -L${CUDA_HOME}/lib64 -lcudart
 
 
 # Nanos++ & OpenCL
