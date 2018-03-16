@@ -957,7 +957,7 @@ namespace TL
         return ::complex_type_get_base_type(_type_info);
     }
 
-    Type Type::get_lvalue_reference_to()
+    Type Type::get_lvalue_reference_to() const
     {
         return get_lvalue_reference_type(this->_type_info);
     }

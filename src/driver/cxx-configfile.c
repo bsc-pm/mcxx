@@ -28,6 +28,8 @@
 
 
 #include "uniquestr.h"
+#include "string_utils.h"
+
 #include "cxx-configfile.h"
 #include "cxx-driver.h"
 #include "cxx-utils.h"
@@ -99,6 +101,67 @@ int config_set_language(struct compilation_configuration_tag* config, const char
     return 0;
 }
 
+
+//! This function expands the profile environment variables '${VAR_NAME}'
+const char* expand_profile_environment_variables(const char* value)
+{
+    const char *expanded_value = value;
+    if (value)
+    {
+        strbuilder_t* str_builder = strbuilder_new();
+
+        const char *next_chunk = value;
+        char *next_environment_variable;
+
+        char found = 0;
+
+        // ${VAR_NAME} ...
+        while((next_environment_variable = strchr(next_chunk,'$')) != 0)
+        {
+            found = 1;
+
+            *next_environment_variable = '\0';
+
+            strbuilder_append(str_builder, next_chunk);
+
+            // {
+            char* opening = next_environment_variable + 1;
+            if (opening == 0 || *opening != '{')
+                fprintf(stderr, "Error reading an environment variable, expecting '{'\n");
+
+            // VAR_NAME
+            next_chunk = opening + 1;
+
+            // }
+            char *closing = strchr(next_chunk, '}');
+            if (closing == 0 || *closing != '}')
+                fprintf(stderr, "Error reading an environment variable, expecting '}'\n");
+
+            *closing = '\0';
+
+            char *env_variable = getenv(next_chunk);
+            if(env_variable == 0)
+                fprintf(stderr, "warning: undefined environment variable '%s'\n", next_chunk);
+            else
+                strbuilder_append(str_builder, env_variable);
+
+            next_chunk = closing + 1;
+        }
+
+        // If there are no environment variables we should return the original value
+        if (found)
+        {
+            if (next_chunk != 0)
+                strbuilder_append(str_builder, next_chunk);
+
+            expanded_value = uniquestr(strbuilder_str(str_builder));
+        }
+
+        strbuilder_free(str_builder);
+    }
+    return expanded_value;
+}
+
 // Set additional mcxx options
 int config_set_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
@@ -140,7 +203,8 @@ int config_set_preprocessor_name(struct compilation_configuration_tag* config, c
 int config_set_preprocessor_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
-    const char** blank_separated_options = blank_separate_values(value, &num);
+    const char *expanded_value = expand_profile_environment_variables(value);
+    const char **blank_separated_options = blank_separate_values(expanded_value, &num);
 
     add_to_parameter_list(&config->preprocessor_options, blank_separated_options, num);
     DELETE(blank_separated_options);
@@ -157,7 +221,8 @@ int config_set_fortran_preprocessor_name(struct compilation_configuration_tag* c
 int config_set_fortran_preprocessor_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
-    const char** blank_separated_options = blank_separate_values(value, &num);
+    const char *expanded_value = expand_profile_environment_variables(value);
+    const char **blank_separated_options = blank_separate_values(expanded_value, &num);
 
     add_to_parameter_list(&config->fortran_preprocessor_options, blank_separated_options, num);
     DELETE(blank_separated_options);
@@ -205,7 +270,8 @@ int config_set_compiler_name(struct compilation_configuration_tag* config, const
 int config_set_compiler_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
-    const char **blank_separated_options = blank_separate_values(value, &num);
+    const char *expanded_value = expand_profile_environment_variables(value);
+    const char **blank_separated_options = blank_separate_values(expanded_value, &num);
 
     add_to_parameter_list(&config->native_compiler_options, blank_separated_options, num);
     DELETE(blank_separated_options);
@@ -224,7 +290,8 @@ int config_set_linker_name(struct compilation_configuration_tag* config, const c
 int config_set_linker_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
-    const char **blank_separated_options = blank_separate_values(value, &num);
+    const char *expanded_value = expand_profile_environment_variables(value);
+    const char **blank_separated_options = blank_separate_values(expanded_value, &num);
 
     add_to_parameter_list(&config->linker_options, blank_separated_options, num);
     DELETE(blank_separated_options);
@@ -236,7 +303,8 @@ int config_set_linker_options(struct compilation_configuration_tag* config, cons
 int config_set_linker_options_pre(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
-    const char **blank_separated_options = blank_separate_values(value, &num);
+    const char *expanded_value = expand_profile_environment_variables(value);
+    const char **blank_separated_options = blank_separate_values(expanded_value, &num);
 
     add_to_parameter_list(&config->linker_options_pre, blank_separated_options, num);
     DELETE(blank_separated_options);
@@ -248,7 +316,8 @@ int config_set_linker_options_pre(struct compilation_configuration_tag* config, 
 int config_set_linker_options_post(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
-    const char **blank_separated_options = blank_separate_values(value, &num);
+    const char *expanded_value = expand_profile_environment_variables(value);
+    const char **blank_separated_options = blank_separate_values(expanded_value, &num);
 
     add_to_parameter_list(&config->linker_options_post, blank_separated_options, num);
     DELETE(blank_separated_options);

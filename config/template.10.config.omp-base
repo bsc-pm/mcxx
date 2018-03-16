@@ -8,6 +8,9 @@ compiler_name = @GCC@
 compiler_options =
 linker_name = @GCC@
 
+# Generic CUDA stuff
+{cuda} preprocessor_options = -D__CUDABE__ -I${CUDA_HOME}/include
+{cuda} linker_options = -D__CUDABE__ -L${CUDA_HOME}/lib64 -lcudart
 
 # OpenMP & OmpSs (runtime independent)
 {openmp,omp-dry-run} options = --variable=omp_dry_run:1
@@ -106,7 +109,6 @@ linker_name = @GCC@
 
 
 # Nanos++ & CUDA
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss} options = --cuda
 {@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} compiler_phase = libtlnanox-cuda.so
 
 
@@ -140,11 +142,11 @@ linker_options = -Xlinker --enable-new-dtags
 {@NANOX_GATE@,openmp,!omp-dry-run,!debug,(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/instrumentation
 {@NANOX_GATE@,openmp,!omp-dry-run,debug,(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/instrumentation-debug
 # Old linking mechanism (libnanox-omp.so | libnanox-ss.so + libnanox-omp.so)
-{@NANOX_GATE@,@NANOX_OLD_LINK@,openmp,!omp-dry-run,!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-{@NANOX_GATE@,@NANOX_OLD_LINK@,openmp,!omp-dry-run,ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+{@NANOX_GATE@,@NANOX_OLD_LINK@,openmp,!omp-dry-run,!ompss} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+{@NANOX_GATE@,@NANOX_OLD_LINK@,openmp,!omp-dry-run,ompss} linker_options = -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 # New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
-{@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-{@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
+{@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,!ompss} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+{@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,ompss} linker_options = -Xlinker --no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
 # used by XL
 {@NANOX_GATE@,openmp,!omp-dry-run} linker_options = @NANOX_GNU_LDFLAGS@
 # needed for the new link mechanism
@@ -152,8 +154,8 @@ linker_options = -Xlinker --enable-new-dtags
 
 
 # Nanos++ & CUDA
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss} linker_options = -lnanox-gpu-api
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} preprocessor_options = -include nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} linker_options = -lnanox-gpu-api
 
 
 # Nanos++ & OpenCL
@@ -167,6 +169,11 @@ linker_options = -Xlinker --enable-new-dtags
 {@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -L@NANOS6_LIB@ -lnanos6 -ldl
 {@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
+# Nanos6 + CUDA
+{@NANOS6_GATE@,ompss-2,cuda} preprocessor_options = -DNANOS6_CUDA
+
+# Nanos6 + OpenCL
+{@NANOS6_GATE@,ompss-2,opencl} preprocessor_options = -DNANOS6_OPENCL
 
 # dlb
 {@DLB_GATE@} fortran_preprocessor_options = -I@DLB_INCLUDE@
@@ -186,11 +193,11 @@ linker_options = -Wl,--enable-new-dtags
 {@NANOX_GATE@,openmp,!omp-dry-run,!debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
 {@NANOX_GATE@,openmp,!omp-dry-run,debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation-debug
 # Old linking mechanism (libnanox-omp.so | libnanox-ss.so + libnanox-omp.so)
-{@NANOX_GATE@,@NANOX_OLD_LINK@,openmp,!omp-dry-run,!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-{@NANOX_GATE@,@NANOX_OLD_LINK@,openmp,!omp-dry-run,ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+{@NANOX_GATE@,@NANOX_OLD_LINK@,openmp,!omp-dry-run,!ompss} linker_options = -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+{@NANOX_GATE@,@NANOX_OLD_LINK@,openmp,!omp-dry-run,ompss} linker_options = -Wl,--no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 # New linking mechanism (libnanox-omp.s | libnanox
-{@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
-{@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
+{@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,!ompss} linker_options = -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+{@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,ompss} linker_options = -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
 # used by XL
 {@NANOX_GATE@,openmp,!omp-dry-run} linker_options = @NANOX_IBM_LDFLAGS@
 # needed for the new link mechanism
@@ -198,8 +205,8 @@ linker_options = -Wl,--enable-new-dtags
 
 
 # Nanos++ & CUDA
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -qinclude nanos-gpu.h
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss} linker_options = -lnanox-gpu-api
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} preprocessor_options = -qinclude nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} linker_options = -lnanox-gpu-api
 
 
 # Nanos++ & OpenCL

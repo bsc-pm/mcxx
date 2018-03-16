@@ -24,19 +24,38 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_NANOS6_DEVICE_FACTORY_HPP
+#define TL_NANOS6_DEVICE_FACTORY_HPP
 
-#ifndef TL_NANOS6_TASKLOOP_HPP
-#define TL_NANOS6_TASKLOOP_HPP
+#include "tl-object.hpp"
 
-#include "tl-nanos6-lower.hpp"
+#include "tl-nanos6-device.hpp"
+#include "smp/tl-nanos6-smp-device.hpp"
+#include "cuda/tl-nanos6-cuda-device.hpp"
+
+#include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanos6 {
 
-    void Lower::visit(const Nodecl::OpenMP::Taskloop& construct)
+    class DeviceFactory
     {
-        internal_error("The 'taskloop' construct is not currently implemented\n", 0);
-    }
-
+        public:
+            static std::shared_ptr<Device> get_device(const std::string &device_name) {
+                if (device_name == "smp")
+                {
+                    return std::shared_ptr<SMPDevice>(new SMPDevice());
+                }
+                else if (device_name == "cuda")
+                {
+                    //FIXME: CHECK AT THIS POINT WHETHER CUDA WAS ENABLED!
+                    return std::shared_ptr<CUDADevice>(new CUDADevice());
+                }
+                else
+                {
+                    fatal_error("unrecognized '%s' device name\n", device_name.c_str());
+                }
+            }
+    };
 }}
 
-#endif // TL_NANOS6_TASKLOOP_HPP
+#endif // TL_NANOS6_DEVICE_FACTORY_HPP

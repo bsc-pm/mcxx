@@ -175,9 +175,6 @@ AC_SUBST([sqlite3_LIBS])
 dnl ----- End Sqlite ---------------------------
 
 
-AX_CHECK_CUDA
-
-
 dnl --- Suport for Extrae --------------
 extrae_support="no"
 AC_MSG_CHECKING([if Extrae support has been enabled])
@@ -866,26 +863,13 @@ AC_MSG_RESULT([$enable_nanox_cuda_device])
 nanox_supports_cuda=no
 if test x"$is_enabled_tl_omp_nanox" = x"yes";
 then
-    #backup vars before we do the test
-    CFLAGSBACKUP="$CFLAGS"
-    CPPFLAGSBACKUP="$CPPFLAGS"
-    CXXFLAGSBACKUP="$CXXFLAGS"
-
-    CFLAGS="$CFLAGS -I$nanox_include -I$CUDA_INCLUDES"
-    CPPFLAGS="$CPPFLAGS -I$nanox_include -I$CUDA_INCLUDES"
-    CXXFLAGS="$CXXFLAGS -I$nanox_include -I$CUDA_INCLUDES"
-
-    AC_CHECK_HEADER([nanos-gpu.h], [nanox_supports_cuda=yes])
-
-    CFLAGS="$CFLAGSBACKUP"
-    CPPFLAGS="$CPPFLAGSBACKUP"
-    CXXFLAGS="$CXXFLAGSBACKUP"
+    AC_CHECK_FILE([$nanox_include/nanos-gpu.h],[nanox_supports_cuda=yes])
     AC_MSG_CHECKING([whether Nanos++ was configured with CUDA support])
     AC_MSG_RESULT([$nanox_supports_cuda])
 fi
 
 ompss_supports_cuda="no"
-if test x"$ax_cv_check_cuda" = x"yes" -a x"$enable_nanox_cuda_device" = x"yes" -a x"$nanox_supports_cuda" = x"yes";
+if test x"$enable_nanox_cuda_device" = x"yes" -a x"$nanox_supports_cuda" = x"yes";
 then
     ompss_supports_cuda="yes"
 fi
@@ -1706,6 +1690,8 @@ AM_CONDITIONAL([RUNNING_DISTCHECK], test x$distcheck_processing = xyes)
 GCC=$GCC_BE
 GXX=$GXX_BE
 
+AC_CHECK_PROG([NVCC], [nvcc], [nvcc])
+
 # Make these variables precious
 AC_ARG_VAR([FLEX], [Flex])
 AC_ARG_VAR([BISON], [GNU Bison])
@@ -2379,6 +2365,9 @@ then
   echo ""
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
+  echo "   CUDA support:" $ompss_supports_cuda
+  echo "   OpenCL support:" $opencl_valid
+  echo "   MPI Offload support:" $mpi_valid
 
   if test ! -e "$nanox_include" -o ! -d "$nanox_include";
   then
@@ -2434,12 +2423,6 @@ then
   echo "   ********************************************************"
 fi
 
-echo ""
-echo " * Devices testing:"
-echo ""
-echo "   MPI testing enabled:" $mpi_valid
-echo "   CUDA testing enabled:" $ompss_supports_cuda
-echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""

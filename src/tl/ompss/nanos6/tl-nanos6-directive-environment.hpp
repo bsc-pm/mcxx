@@ -88,14 +88,19 @@ namespace TL { namespace Nanos6 {
 
         /* --------  Task flags & other stuff  ------ */
         bool is_tied;
-        bool is_taskwait_dep;
         bool is_taskloop;
+        bool task_is_taskwait_with_deps;
+        bool task_is_taskcall;
         bool wait_clause;
         bool any_task_dependence;
 
         /* --------  Debug & profiling information  ------ */
         std::string task_label;
         const locus_t* locus_of_task_declaration;
+
+        /* --------  Device Information  ------ */
+        TL::ObjectList<std::string> device_names;
+        TL::ObjectList<Nodecl::NodeclBase> ndrange;
 
         DirectiveEnvironment(Nodecl::NodeclBase environment);
 

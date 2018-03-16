@@ -190,7 +190,7 @@
 "  --upc[=THREADS]          Enables UPC 1.2 syntactic support.\n" \
 "                           Optionally you can define a static \n" \
 "                           number of THREADS.\n" \
-"  --cuda                   Enables experimental support for CUDA\n" \
+"  --cuda                   Enables CUDA support in OmpSs/OmpSs-2\n" \
 "  --opencl                 Enables experimental support for OpenCL\n" \
 "  --opencl-build-opts=<options>\n" \
 "                           Options passed to OpenCL compiler\n" \
@@ -623,7 +623,7 @@ int main(int argc, char* argv[])
     // Default values
     initialize_default_values();
 
-    // Load configuration files and the profiles defined there Here we get all
+    // Load configuration files and the profiles defined there. Here we get all
     // the implicit parameters defined in configuration files and we switch to
     // the main profile of the compiler. Profiles are not yet fully populated.
     load_configuration();

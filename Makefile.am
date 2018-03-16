@@ -2319,43 +2319,57 @@ if BUILD_NANOS6
 
 phases_LTLIBRARIES += src/tl/ompss/nanos6/libtlnanos6-lowering.la
 
-src_tl_ompss_nanos6_libtlnanos6_lowering_la_CFLAGS = $(phases_cflags) \
-                                                        -I $(top_srcdir)/src/tl/omp/core \
-                                                        -I $(top_srcdir)/src/tl/omp/common \
-							$(END)
-src_tl_ompss_nanos6_libtlnanos6_lowering_la_CXXFLAGS = $(phases_cxxflags) \
-                                                        -I $(top_srcdir)/src/tl/omp/core \
-                                                        -I $(top_srcdir)/src/tl/omp/common \
-							$(END)
+src_tl_ompss_nanos6_libtlnanos6_lowering_la_CFLAGS = \
+    $(phases_cflags) \
+    -I$(top_srcdir)/src/tl/omp/core \
+    -I$(top_srcdir)/src/tl/omp/common \
+    -I$(top_srcdir)/src/tl/ompss/nanos6 \
+    -I$(top_srcdir)/src/tl/ompss/nanos6/devices \
+    $(END)
+
+src_tl_ompss_nanos6_libtlnanos6_lowering_la_CXXFLAGS = \
+    $(phases_cxxflags) \
+    -I$(top_srcdir)/src/tl/omp/core \
+    -I$(top_srcdir)/src/tl/omp/common \
+    -I$(top_srcdir)/src/tl/ompss/nanos6 \
+    -I$(top_srcdir)/src/tl/ompss/nanos6/devices \
+    $(END)
 
 src_tl_ompss_nanos6_libtlnanos6_lowering_la_LIBADD = $(phases_libadd)
 
 src_tl_ompss_nanos6_libtlnanos6_lowering_la_LDFLAGS = $(phases_ldflags)
 
 src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
-								 src/tl/ompss/nanos6/tl-nanos6.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6.hpp \
-								 src/tl/ompss/nanos6/tl-nanos6-lower.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-lower.hpp \
-								 src/tl/ompss/nanos6/tl-nanos6-task.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-taskcall.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-taskloop.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-directive-environment.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-directive-environment.hpp \
-								 src/tl/ompss/nanos6/tl-nanos6-task-properties.hpp \
-								 src/tl/ompss/nanos6/tl-nanos6-task-properties.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-support.hpp \
-								 src/tl/ompss/nanos6/tl-nanos6-support.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-fortran-load-api.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.hpp \
-								 src/tl/ompss/nanos6/tl-nanos6-fortran-support.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-critical.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-atomic.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-interface.hpp \
-								 src/tl/ompss/nanos6/tl-nanos6-interface.cpp \
-								 src/tl/ompss/nanos6/tl-nanos6-release.cpp
-								 $(END)
+    src/tl/ompss/nanos6/tl-nanos6.cpp \
+    src/tl/ompss/nanos6/tl-nanos6.hpp \
+    src/tl/ompss/nanos6/tl-nanos6-lower.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-lower.hpp \
+    src/tl/ompss/nanos6/tl-nanos6-task.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-taskcall.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-taskloop.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-directive-environment.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-directive-environment.hpp \
+    src/tl/ompss/nanos6/tl-nanos6-task-properties.hpp \
+    src/tl/ompss/nanos6/tl-nanos6-task-properties.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-support.hpp \
+    src/tl/ompss/nanos6/tl-nanos6-support.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-fortran-load-api.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-fortran-support.hpp \
+    src/tl/ompss/nanos6/tl-nanos6-fortran-support.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-taskwait.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-critical.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-atomic.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-interface.hpp \
+    src/tl/ompss/nanos6/tl-nanos6-interface.cpp \
+    src/tl/ompss/nanos6/tl-nanos6-release.cpp \
+    src/tl/ompss/nanos6/devices/tl-nanos6-device-factory.hpp \
+    src/tl/ompss/nanos6/devices/tl-nanos6-device.hpp \
+    src/tl/ompss/nanos6/devices/tl-nanos6-device.cpp \
+    src/tl/ompss/nanos6/devices/smp/tl-nanos6-smp-device.hpp \
+    src/tl/ompss/nanos6/devices/smp/tl-nanos6-smp-device.cpp \
+    src/tl/ompss/nanos6/devices/cuda/tl-nanos6-cuda-device.hpp \
+    src/tl/ompss/nanos6/devices/cuda/tl-nanos6-cuda-device.cpp \
+    $(END)
 
 endif
 
@@ -3236,9 +3250,6 @@ config_edit = \
      -e 's|@NANOX_MIC_INCLUDES[@]|$(NANOX_MIC_INCLUDES)|g' \
      -e 's|@NANOX_MIC_LIBS[@]|$(NANOX_MIC_LIBS)|g' \
      -e 's|@NANOX_MIC[@]|$(NANOX_MIC)|g' \
-     -e "s|@CUDA_INCLUDES[@]|$(CUDA_INCLUDES)|g" \
-     -e "s|@CUDA_LIBS[@]|$(CUDA_LIBS)|g" \
-     -e "s|@CUDA_RPATH[@]|$(CUDA_RPATH)|g" \
      -e 's|@ENABLE_CUDA[@]|$(ENABLE_CUDA)|g' \
      -e 's|@ENABLE_OPENCL[@]|$(ENABLE_OPENCL)|g' \
      -e 's|@MPIFORT[@]|$(MPIFORT)|g' \

@@ -482,7 +482,6 @@ static p_compilation_configuration_line process_option_line(
     result->name = uniquestr(name->option_name);
     result->index = uniquestr(name->option_index);
     result->value = uniquestr(option_value_tmp);
-
     DELETE(option_value_tmp);
 
     result->flag_expr = flag_expr;
@@ -490,7 +489,7 @@ static p_compilation_configuration_line process_option_line(
     result->line = line;
 
 #if 0
-    fprintf(stderr, "LINE: |%s| at %s:%d\n", result->name, result->filename, result->line);
+    fprintf(stderr, "LINE: |%s = %s| at %s:%d\n", result->name, result->value, result->filename, result->line);
 #endif
 
     register_implicit_names(flag_expr);

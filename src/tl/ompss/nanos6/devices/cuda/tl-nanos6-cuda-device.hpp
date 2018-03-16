@@ -24,19 +24,40 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_NANOS6_CUDA_DEVICE_HPP
+#define TL_NANOS6_CUDA_DEVICE_HPP
 
-#ifndef TL_NANOS6_TASKLOOP_HPP
-#define TL_NANOS6_TASKLOOP_HPP
-
-#include "tl-nanos6-lower.hpp"
+#include "tl-nanos6-device.hpp"
 
 namespace TL { namespace Nanos6 {
 
-    void Lower::visit(const Nodecl::OpenMP::Taskloop& construct)
+    class CUDADevice : public Device
     {
-        internal_error("The 'taskloop' construct is not currently implemented\n", 0);
-    }
+        private:
+            Nodecl::List _cuda_code;
 
-}}
+        public:
+            CUDADevice();
 
-#endif // TL_NANOS6_TASKLOOP_HPP
+            ~CUDADevice();
+
+            //! This function returns a symbol that represents the device type id
+            TL::Symbol get_device_type_id() const;
+
+            //! It generates a CUDA kernel call if the ndrange clause was present.
+            //! Otherwise it returns a copy of the task_body
+            Nodecl::NodeclBase compute_specific_task_body(
+                    Nodecl::NodeclBase task_body, const DirectiveEnvironment &env) const;
+
+            void root_unpacked_function(TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code);
+
+
+
+        private:
+
+            void compile_cuda_code() const;
+    };
+
+} }
+
+#endif // TL_NANOS6_CUDA_DEVICE_HPP

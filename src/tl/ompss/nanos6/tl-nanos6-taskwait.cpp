@@ -76,6 +76,7 @@ namespace TL { namespace Nanos6 {
 
     void Lower::lower_taskwait_with_dependences(const Nodecl::OpenMP::Taskwait& node)
     {
+        // Transforming a taskwait with dependences into an undeferred smp task
         Nodecl::List environment = node.get_environment().as<Nodecl::List>();
 
         // Prepare if(0) task reusing environment and set TaskIsTaskwait flag
@@ -92,6 +93,9 @@ namespace TL { namespace Nanos6 {
         }
         environment.append(Nodecl::OpenMP::If::make(zero_expr));
         environment.append(Nodecl::OpenMP::TaskIsTaskwait::make());
+        environment.append(Nodecl::OmpSs::Target::make(
+                    Nodecl::List::make(Nodecl::Text::make("smp")),
+                    Nodecl::NodeclBase::null()));
 
         Nodecl::OpenMP::Task taskwait_task = Nodecl::OpenMP::Task::make(
                 environment,

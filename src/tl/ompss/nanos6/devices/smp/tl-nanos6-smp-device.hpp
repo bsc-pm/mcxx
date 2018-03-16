@@ -24,19 +24,20 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_NANOS6_SMP_DEVICE_HPP
+#define TL_NANOS6_SMP_DEVICE_HPP
 
-#ifndef TL_NANOS6_TASKLOOP_HPP
-#define TL_NANOS6_TASKLOOP_HPP
-
-#include "tl-nanos6-lower.hpp"
+#include "tl-nanos6-device.hpp"
 
 namespace TL { namespace Nanos6 {
 
-    void Lower::visit(const Nodecl::OpenMP::Taskloop& construct)
+    class SMPDevice : public Device
     {
-        internal_error("The 'taskloop' construct is not currently implemented\n", 0);
-    }
+        public:
+            //! This function returns a symbol that represents the device type id
+            virtual TL::Symbol get_device_type_id() const;
+    };
 
-}}
+} }
 
-#endif // TL_NANOS6_TASKLOOP_HPP
+#endif // TL_NANOS6_SMP_DEVICE_HPP
