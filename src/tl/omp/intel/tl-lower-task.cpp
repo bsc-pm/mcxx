@@ -33,6 +33,9 @@
 
 namespace TL { namespace Intel {
 
+// This is used in task lowering to save the vla_size into a global value declared here
+extern std::map<TL::Symbol, TL::Symbol> vla_sym_size_map;
+
 static void create_task_function(const Nodecl::OpenMP::Task& construct,
                                  const TL::Scope& scope,
                                  TL::Symbol& outline_task,
@@ -655,7 +658,6 @@ static void get_reduction_data(const TL::Symbol& ident_symbol,
                                const TL::ObjectList<TL::Symbol>& reduction_vla_symbols,
                                Nodecl::NodeclBase& outline_task_stmt) {
 
-    // TODO acabar esto... guardar la direccion del orig
     for (TL::ObjectList<TL::Symbol>::const_iterator it = reduction_no_vla_symbols.begin();
 		    it != reduction_no_vla_symbols.end();
 		    it++) {
@@ -689,6 +691,7 @@ static void get_reduction_data(const TL::Symbol& ident_symbol,
             outline_task_stmt.prepend_sibling(tree_save_omp_orig);
 
         }
+
     }
 
     for (TL::ObjectList<TL::Symbol>::const_iterator it = reduction_no_vla_symbols.begin();
@@ -723,6 +726,13 @@ static void get_reduction_data(const TL::Symbol& ident_symbol,
                                     .retrieve_context()
                                     .get_symbol_from_name("_task_" + vla_it->get_name());
             vla_symbol_map.add_map(*vla_it, new_symbol);
+
+            TL::Symbol glob_vla_size_sym = vla_sym_size_map[*vla_it];
+            Source src_save_vla_size;
+            src_save_vla_size
+            << as_symbol(glob_vla_size_sym) << " = " << as_symbol(new_symbol) << ";";
+            Nodecl::NodeclBase tree_save_vla_size = src_save_vla_size.parse_statement(outline_task_stmt);
+            outline_task_stmt.prepend_sibling(tree_save_vla_size);
         }
 
         TL::Type new_type = ::type_deep_copy(it->get_type().get_internal_type(),

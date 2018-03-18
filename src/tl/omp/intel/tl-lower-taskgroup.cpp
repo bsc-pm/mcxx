@@ -41,17 +41,8 @@ struct ReductionInfo {
     OpenMP::Reduction* reduction;
 };
 
-static bool is_vla(const Type& t) {
-    if (t.no_ref().is_pointer()) {
-        return is_vla(t.no_ref().points_to());
-    }
-    else if (t.no_ref().is_array() && t.no_ref().array_is_vla()) {
-        return true;
-    }
-    else {
-        return false;
-    }
-}
+// This is used in task lowering to save the vla_size into a global value declared here
+std::map<TL::Symbol, TL::Symbol> vla_sym_size_map;
 
 static void create_red_init_func(const Nodecl::OpenMP::Taskgroup& construct,
                                  ReductionInfo& red_info,
@@ -343,16 +334,18 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskgroup& construct)
                 if (size.is<Nodecl::Symbol>()
                         && size.get_symbol().is_saved_expression())
                 {
-                    Nodecl::NodeclBase decl_new_orig = Source(as_type(size.get_symbol()
+                    TL::Symbol vla_size_sym = size.get_symbol();
+                    Nodecl::NodeclBase decl_new_orig = Source(as_type(vla_size_sym
                                                     .get_type()
                                                     .no_ref()
-                                                    .get_unqualified_type()
-                                                    .get_pointer_to()) + size.get_symbol().get_name() + "_red;").parse_declaration(construct);
+                                                    .get_unqualified_type()) + vla_size_sym.get_name() + "_red;").parse_declaration(construct);
                     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, decl_new_orig);
                     TL::Symbol new_vla_size_sym = construct
                                             .retrieve_context()
-                                            .get_symbol_from_name(size.get_symbol().get_name() + "_red");
-                    array_size << " * *" << as_symbol(new_vla_size_sym);
+                                            .get_symbol_from_name(vla_size_sym.get_name() + "_red");
+                    array_size << " * " << as_symbol(new_vla_size_sym);
+
+                    vla_sym_size_map[vla_size_sym] = new_vla_size_sym;
                 }
                 else {
                     array_size << " * " << as_expression(size);
