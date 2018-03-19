@@ -2472,6 +2472,72 @@ namespace TL { namespace Nanos6 {
 
             return storage_sym;
         }
+
+        void generate_extra_reduction_statements(
+                const TL::ObjectList<Nodecl::NodeclBase> &expr_list,
+
+                TL::Scope& unpacked_inside_scope,
+                const Nodecl::NodeclBase& unpacked_empty_stmt,
+                Nodecl::Utils::SimpleSymbolMap& symbol_map,
+
+                TL::Scope& final_scope,
+                Nodecl::List& final_stmts,
+                Nodecl::Utils::SimpleSymbolMap& final_symbol_map,
+
+                bool has_final_stmts,
+                bool is_weakreduction)
+        {
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = expr_list.begin();
+                    it != expr_list.end();
+                    it++)
+            {
+                Nodecl::NodeclBase red_expr = it->shallow_copy();
+
+                // Get original symbol, keep it, and rewrite registered expression in terms of unpacked function parameter
+
+                TL::DataReference orig_data_ref = red_expr;
+                TL::Symbol orig_sym = orig_data_ref.get_base_symbol();
+
+                Nodecl::NodeclBase unpacked_red_expr =
+                    Nodecl::Utils::deep_copy(red_expr, unpacked_inside_scope, symbol_map);
+
+                // 1. Build function call that computes the value of the reduction storage
+
+                if (!is_weakreduction)
+                {
+                    Nodecl::List unpacked_extra_stmts;
+                    TL::Symbol storage_sym = generate_reduction_storage_symbol(
+                            unpacked_red_expr,
+                            unpacked_inside_scope,
+                            unpacked_extra_stmts);
+
+                    unpacked_empty_stmt.prepend_sibling(
+                            unpacked_extra_stmts);
+
+                    // (Re)map original symbol to new local symbol so that the
+                    // posterior deep copy over the task body replaces all its references
+                    ERROR_CONDITION(symbol_map.get_simple_symbol_map()->find(orig_sym) ==
+                            symbol_map.get_simple_symbol_map()->end(),
+                            "Symbol '%s' not found in map", orig_sym.get_name().c_str());
+                    symbol_map.add_map(orig_sym, storage_sym);
+                }
+
+                // 2. Fix serial statements for 'final' construct
+
+                if (has_final_stmts)
+                {
+                    Nodecl::List final_extra_stmts;
+                    TL::Symbol final_storage_sym = generate_reduction_storage_symbol(
+                            orig_data_ref,
+                            final_scope,
+                            final_extra_stmts);
+
+                    final_stmts.prepend(final_extra_stmts);
+
+                    final_symbol_map.add_map(orig_sym, final_storage_sym);
+                }
+            }
+        }
     }
 
     void TaskProperties::handle_task_reductions(
@@ -2480,6 +2546,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::Utils::SimpleSymbolMap &symbol_map)
     {
         bool has_final_stmts = !_serial_context.is_null();
+        TL::Scope final_scope;
 
         // Check serial statements structure and obtain statement list
 
@@ -2494,6 +2561,9 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase serial_compound_stmt =
                 _serial_context.as<Nodecl::Context>()
                 .get_in_context().as<Nodecl::List>().front();
+
+            final_scope =
+                _serial_context.retrieve_context().get_decl_context();
 
             ERROR_CONDITION(!serial_compound_stmt.is<Nodecl::CompoundStatement>(),
                     "Unexpected node '%s'",
@@ -2517,58 +2587,36 @@ namespace TL { namespace Nanos6 {
         // Symbol map to replace original symbols for storage symbols
         Nodecl::Utils::SimpleSymbolMap final_symbol_map;
 
-        for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = _env.dep_reduction.begin();
-                it != _env.dep_reduction.end();
-                it++)
-        {
-            Nodecl::NodeclBase red_expr = it->shallow_copy();
+        // Generate extra reduction statements for 'reduction' expressions
 
-            // Get original symbol, keep it, and rewrite registered expression in terms of unpacked function parameter
+        generate_extra_reduction_statements(
+                _env.dep_reduction,
+                unpacked_inside_scope,
+                unpacked_empty_stmt,
+                symbol_map,
+                final_scope,
+                serial_stmts_list,
+                final_symbol_map,
+                has_final_stmts,
+                /* is_weakreduction */ false);
 
-            TL::DataReference orig_data_ref = red_expr;
-            TL::Symbol orig_sym = orig_data_ref.get_base_symbol();
+        // Generate extra reduction statements for 'weakreduction' expressions
 
-            Nodecl::NodeclBase unpacked_red_expr = Nodecl::Utils::deep_copy(red_expr, unpacked_inside_scope, symbol_map);
-
-            // 1. Build function call that computes the value of the reduction storage
-
-            Nodecl::List unpacked_extra_stmts;
-            TL::Symbol storage_sym = generate_reduction_storage_symbol(
-                    unpacked_red_expr,
-                    unpacked_inside_scope,
-                    unpacked_extra_stmts);
-
-            unpacked_empty_stmt.prepend_sibling(
-                    unpacked_extra_stmts);
-
-            // (Re)map original symbol to new local symbol so that the
-            // posterior deep copy over the task body replaces all its references
-            ERROR_CONDITION(symbol_map.get_simple_symbol_map()->find(orig_sym) ==
-                    symbol_map.get_simple_symbol_map()->end(),
-                    "Symbol '%s' not found in map", orig_sym.get_name().c_str());
-            symbol_map.add_map(orig_sym, storage_sym);
-
-            // 2. Fix serial statements for 'final' construct
-
-            if (has_final_stmts)
-            {
-                TL::Scope final_scope = _serial_context.retrieve_context().get_decl_context();
-
-                Nodecl::List final_extra_stmts;
-                TL::Symbol final_storage_sym = generate_reduction_storage_symbol(
-                        orig_data_ref,
-                        final_scope,
-                        final_extra_stmts);
-
-                serial_stmts_list.prepend(final_extra_stmts);
-
-                final_symbol_map.add_map(orig_sym, final_storage_sym);
-            }
-        }
+        generate_extra_reduction_statements(
+                _env.dep_weakreduction,
+                unpacked_inside_scope,
+                unpacked_empty_stmt,
+                symbol_map,
+                final_scope,
+                serial_stmts_list,
+                final_symbol_map,
+                has_final_stmts,
+                /* is_weakreduction */ true);
 
         // Deep copy serial statements to replace original symbol references for new final symbols
 
-        if (has_final_stmts)
+        if (!(_env.dep_reduction.empty() && _env.dep_weakreduction.empty()) &&
+                has_final_stmts)
         {
             original_final_stmts.replace(
                     deep_copy(
