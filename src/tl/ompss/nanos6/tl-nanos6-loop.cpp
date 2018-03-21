@@ -25,18 +25,37 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef TL_NANOS6_TASKLOOP_HPP
-#define TL_NANOS6_TASKLOOP_HPP
+#ifndef TL_NANOS6_LOOP_HPP
+#define TL_NANOS6_LOOP_HPP
 
 #include "tl-nanos6-lower.hpp"
 
 namespace TL { namespace Nanos6 {
 
-    void Lower::visit(const Nodecl::OpenMP::Taskloop& construct)
+    void Lower::visit(const Nodecl::OmpSs::Loop& construct)
     {
-        internal_error("The 'taskloop' construct is not currently implemented\n", 0);
+        Nodecl::NodeclBase loop = construct.get_loop();
+
+        walk(loop);
+
+        Nodecl::List exec_env = construct.get_environment().as<Nodecl::List>();
+        exec_env.append(Nodecl::OmpSs::TaskIsLoop::make());
+
+        construct.replace(
+                Nodecl::OpenMP::Task::make(exec_env, Nodecl::List::make(loop)));
+
+        Nodecl::NodeclBase serial_stmts;
+        // If disabled, act normally
+        if (!_phase->_final_clause_transformation_disabled)
+        {
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+            ERROR_CONDITION(it == _final_stmts_map.end(), "Invalid serial statemtents", 0);
+            serial_stmts = Nodecl::List::make(it->second);
+        }
+
+        lower_task(construct.as<Nodecl::OpenMP::Task>(), serial_stmts);
     }
 
 }}
 
-#endif // TL_NANOS6_TASKLOOP_HPP
+#endif // TL_NANOS6_LOOP_HPP

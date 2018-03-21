@@ -44,11 +44,12 @@ namespace TL {
         public:
             FinalStmtsGenerator(bool ompss_mode);
 
-            void visit(const Nodecl::OpenMP::Task& task);
-            void visit(const Nodecl::OmpSs::TaskCall& task_call);
-            void visit(const Nodecl::OpenMP::Taskloop& taskloop);
-            void visit(const Nodecl::OmpSs::TaskExpression& task_expr);
-            void visit(const Nodecl::OpenMP::For& for_construct);
+            void visit(const Nodecl::OmpSs::Loop &loop);
+            void visit(const Nodecl::OmpSs::TaskCall &task_call);
+            void visit(const Nodecl::OmpSs::TaskExpression &task_expr);
+            void visit(const Nodecl::OpenMP::For &for_construct);
+            void visit(const Nodecl::OpenMP::Task &task);
+            void visit(const Nodecl::OpenMP::Taskloop &taskloop);
 
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_final_stmts();
 

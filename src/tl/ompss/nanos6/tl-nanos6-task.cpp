@@ -205,7 +205,6 @@ namespace TL { namespace Nanos6 {
             //         nanos_task_invocation_info *task_invocation_info,
             //         size_t args_block_size,
             //         /* OUT */ void **args_block_pointer,
-            //         /* OUT */ void **taskloop_bounds_pointer,
             //         /* OUT */ void **task_pointer,
             //         size_t flags);
 
@@ -353,6 +352,58 @@ namespace TL { namespace Nanos6 {
                     /* out */ capture_env);
 
             new_stmts.append(capture_env);
+        }
+
+        if (task_properties.task_is_loop())
+        {
+            Interface::family_must_be_at_least("nanos6_taskloop_api", 1, "the 'loop' construct");
+
+            TL::Symbol nanos_register_loop_sym =
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos_register_taskloop_bounds");
+            ERROR_CONDITION(!nanos_register_loop_sym.is_valid()
+                    || !nanos_register_loop_sym.is_function(), "Invalid symbol", 0);
+
+            ERROR_CONDITION(!node.get_statements().is<Nodecl::List>(), "Unexpected node\n", 0);
+            Nodecl::NodeclBase stmt = node.get_statements().as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ObjectList<TL::Symbol> params = nanos_register_loop_sym.get_related_symbols();
+            Nodecl::List reg_loop_args;
+
+            reg_loop_args.append(task_ptr.make_nodecl(/*ref_type*/true));
+
+            Nodecl::NodeclBase lower_bound = task_properties.get_lower_bound().shallow_copy();
+            if (IS_FORTRAN_LANGUAGE)
+                lower_bound = Nodecl::Conversion::make(lower_bound, params[1].get_type());
+            reg_loop_args.append(lower_bound);
+
+            Nodecl::NodeclBase upper_bound = task_properties.get_upper_bound().shallow_copy();
+            if (IS_FORTRAN_LANGUAGE)
+                upper_bound = Nodecl::Conversion::make(upper_bound, params[2].get_type());
+            reg_loop_args.append(upper_bound);
+
+            Nodecl::NodeclBase step = task_properties.get_step().shallow_copy();
+            if (IS_FORTRAN_LANGUAGE)
+                step = Nodecl::Conversion::make(step, params[3].get_type());
+            reg_loop_args.append(step);
+
+            Nodecl::NodeclBase chunksize = task_properties.get_chunksize().shallow_copy();
+            if (IS_FORTRAN_LANGUAGE)
+                chunksize = Nodecl::Conversion::make(chunksize, params[4].get_type());
+            reg_loop_args.append(chunksize);
+
+            new_stmts.append(
+                Nodecl::ExpressionStatement::make(
+                    Nodecl::FunctionCall::make(
+                        nanos_register_loop_sym.make_nodecl(/*ref_type*/true),
+                        reg_loop_args,
+                        /* alternate symbol */ Nodecl::NodeclBase::null(),
+                        /* function form */ Nodecl::NodeclBase::null(),
+                        TL::Type::get_void_type(),
+                        node.get_locus()),
+                    node.get_locus()));
         }
 
         // Submit the created task

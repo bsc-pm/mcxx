@@ -805,4 +805,13 @@ namespace TL { namespace OpenMP {
         _openmp_info->pop_current_data_environment();
     }
 
+    void Core::oss_loop_handler_pre(TL::PragmaCustomStatement construct)
+    {
+        taskloop_handler_pre(construct);
+    }
+
+    void Core::oss_loop_handler_post(TL::PragmaCustomStatement construct)
+    {
+        taskloop_handler_post(construct);
+    }
 } }

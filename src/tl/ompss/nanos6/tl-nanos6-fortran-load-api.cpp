@@ -51,6 +51,7 @@ const char *entry_points[] = {
     "nanos_user_lock",
     "nanos_user_unlock",
     "nanos_get_original_reduction_address",
+    "nanos_register_taskloop_bounds",
 };
 
 // We have '__nanos6_max_dimensions' different versions for each symbol, for

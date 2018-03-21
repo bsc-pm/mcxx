@@ -52,6 +52,13 @@ namespace TL { namespace Nanos6 {
             typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
             typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
 
+            struct TaskloopBounds
+            {
+                Nodecl::NodeclBase lower_bound;
+                Nodecl::NodeclBase upper_bound;
+                Nodecl::NodeclBase step;
+            };
+
             //! This member represents the directive environment
             DirectiveEnvironment _env;
             TL::ObjectList<std::shared_ptr<Device> > _implementations;
@@ -80,6 +87,8 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol _priority_function;
             TL::Symbol _priority_function_mangled;
+
+            TaskloopBounds _taskloop_bounds;
 
             Nodecl::NodeclBase _task_body;
 
@@ -264,6 +273,13 @@ namespace TL { namespace Nanos6 {
             bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
 
             static bool is_saved_expression(Nodecl::NodeclBase n);
+
+            bool task_is_loop() const;
+
+            Nodecl::NodeclBase get_lower_bound() const;
+            Nodecl::NodeclBase get_upper_bound() const;
+            Nodecl::NodeclBase get_step() const;
+            Nodecl::NodeclBase get_chunksize() const;
     };
 
 } }
