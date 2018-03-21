@@ -86,6 +86,24 @@ namespace TL { namespace Nanos6 {
         {
             _implementations.insert(DeviceFactory::get_device(*it));
         }
+
+        if (_env.task_is_loop)
+        {
+            ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
+            Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
+            _taskloop_bounds.lower_bound = for_stmt.get_lower_bound();
+            _taskloop_bounds.upper_bound =
+                Nodecl::Add::make(
+                        for_stmt.get_upper_bound(),
+                        const_value_to_nodecl(const_value_get_signed_int(1)),
+                        for_stmt.get_upper_bound().get_type());
+            _taskloop_bounds.step = for_stmt.get_step();
+        }
     }
 
     TaskProperties::TaskProperties(const Nodecl::OmpSs::Release& node, LoweringPhase* lowering_phase, Lower* lower) :
@@ -1599,7 +1617,76 @@ namespace TL { namespace Nanos6 {
 
             return mangled_symbol;
         }
+
+        // This function computes the loop control that we should emit for a loop construct. It should be
+        //
+        //      for (induction_variable = taskloop_bounds.lower_bound;
+        //              induction_variable < taskloop_bounds.upper_bound;
+        //              induction_variable++)
+        //      {}
+        Nodecl::NodeclBase compute_taskloop_loop_control(
+                const TL::Symbol& taskloop_bounds,
+                const TL::Symbol& induction_variable)
+        {
+            Nodecl::NodeclBase loop_control;
+
+            TL::ObjectList<TL::Symbol> nonstatic_data_members = taskloop_bounds.get_type().no_ref().get_nonstatic_data_members();
+            GetField get_field(nonstatic_data_members);
+
+            Nodecl::NodeclBase field = get_field("lower_bound");
+            Nodecl::NodeclBase taskloop_lower_bound =
+                Nodecl::ClassMemberAccess::make(
+                        taskloop_bounds.make_nodecl(/*set_ref_type*/ true),
+                        field,
+                        /*member literal*/ Nodecl::NodeclBase::null(),
+                        field.get_type());
+
+            field = get_field("upper_bound");
+            Nodecl::NodeclBase taskloop_upper_bound =
+                Nodecl::ClassMemberAccess::make(
+                        taskloop_bounds.make_nodecl(/*set_ref_type*/ true),
+                        field,
+                        /*member literal*/ Nodecl::NodeclBase::null(),
+                        field.get_type());
+
+            if (IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+            {
+                Nodecl::NodeclBase init =
+                    Nodecl::Assignment::make(
+                            induction_variable.make_nodecl(/* set_ref_type */ true),
+                            taskloop_lower_bound,
+                            taskloop_lower_bound.get_type());
+
+                Nodecl::NodeclBase cond =
+                    Nodecl::LowerThan::make(
+                            induction_variable.make_nodecl(/* set_ref_type */ true),
+                            taskloop_upper_bound,
+                            taskloop_upper_bound.get_type());
+
+                Nodecl::NodeclBase step =
+                    Nodecl::Preincrement::make(
+                            induction_variable.make_nodecl(/*set_ref_type*/ true),
+                            induction_variable.get_type());
+
+                loop_control = Nodecl::LoopControl::make(Nodecl::List::make(init), cond, step);
+            }
+            else // IS_FORTRAN_LANGUAGE
+            {
+                loop_control = Nodecl::RangeLoopControl::make(
+                        induction_variable.make_nodecl(/*set_ref_type*/ true),
+                        taskloop_lower_bound,
+                        Nodecl::Minus::make(
+                            taskloop_upper_bound,
+                            const_value_to_nodecl(const_value_get_signed_int(1)),
+                            taskloop_upper_bound.get_type().no_ref()),
+                        /* step */ Nodecl::NodeclBase::null());
+            }
+            return loop_control;
+        }
     }
+
+
 
 
     TL::Symbol TaskProperties::create_outline_function(std::shared_ptr<Device> device)
@@ -1627,8 +1714,15 @@ namespace TL { namespace Nanos6 {
 
         // Extra arguments: device_env and address_translation_table
         const char *device_env_name = "device_env";
+        TL::Type type_arg = TL::Type::get_void_type().get_pointer_to();
+        if (_env.task_is_loop)
+        {
+            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
+        }
+
         unpack_parameter_names.append(device_env_name);
-        unpack_parameter_types.append(TL::Type::get_void_type().get_pointer_to());
+        unpack_parameter_types.append(type_arg);
 
         TL::Type address_translation_type =
             get_nanos6_class_symbol("nanos6_address_translation_entry_t").get_user_defined_type();
@@ -1748,6 +1842,22 @@ namespace TL { namespace Nanos6 {
         unpacked_empty_stmt.append_sibling(nested_functions);
 
         handle_task_reductions(unpacked_inside_scope, unpacked_empty_stmt);
+
+        if (_env.task_is_loop)
+        {
+            ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
+            Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
+
+            TL::Symbol ind_var = for_stmt.get_induction_variable();
+            TL::Symbol taskloop_bounds = unpacked_inside_scope.get_symbol_from_name(device_env_name);
+
+            for_stmt.set_loop_header(compute_taskloop_loop_control(taskloop_bounds, ind_var));
+        }
 
         // Deep copy device-specific task body
         unpacked_empty_stmt.replace(
@@ -1943,10 +2053,28 @@ namespace TL { namespace Nanos6 {
             }
 
             // 4. Extra device arguments
-            args.append(
-                    Nodecl::List::make(
-                        outline_inside_scope.get_symbol_from_name(device_env_name).make_nodecl(/*ref_type*/ true),
-                        outline_inside_scope.get_symbol_from_name(address_translation_table_name).make_nodecl(/*ref_type*/ true)));
+            {
+                Nodecl::NodeclBase device_env_or_loop_bounds =
+                    outline_inside_scope.get_symbol_from_name(device_env_name).make_nodecl(/*ref_type*/ true);
+
+                if (_env.task_is_loop)
+                {
+                    TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+                    TL::Type  taskloop_bounds_type = class_sym.get_user_defined_type();
+                    device_env_or_loop_bounds =
+                        Nodecl::Conversion::make(device_env_or_loop_bounds, taskloop_bounds_type.get_pointer_to());
+                    device_env_or_loop_bounds.set_text("C");
+                    device_env_or_loop_bounds =
+                        Nodecl::Dereference::make(
+                                device_env_or_loop_bounds,
+                                device_env_or_loop_bounds.get_type().points_to());
+                }
+
+                args.append(device_env_or_loop_bounds);
+
+                args.append(
+                        outline_inside_scope.get_symbol_from_name(address_translation_table_name).make_nodecl(/*ref_type*/ true));
+            }
 
             // Make sure we explicitly pass template arguments to the
             // unpacked function
@@ -4406,4 +4534,28 @@ namespace TL { namespace Nanos6 {
                 && n.get_symbol().is_saved_expression());
     }
 
+    bool TaskProperties::task_is_loop() const
+    {
+        return _env.task_is_loop;
+    }
+
+    Nodecl::NodeclBase TaskProperties::get_lower_bound() const
+    {
+        return _taskloop_bounds.lower_bound;
+    }
+
+    Nodecl::NodeclBase TaskProperties::get_upper_bound() const
+    {
+        return _taskloop_bounds.upper_bound;
+    }
+
+    Nodecl::NodeclBase TaskProperties::get_step() const
+    {
+        return _taskloop_bounds.step;
+    }
+
+    Nodecl::NodeclBase TaskProperties::get_chunksize() const
+    {
+        return _env.chunksize;
+    }
 } }

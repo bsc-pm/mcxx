@@ -93,6 +93,12 @@ namespace TL {
                 walk(for_construct.get_loop());
              }
 
+             void visit(const Nodecl::OmpSs::Loop &loop)
+             {
+                ++_num_task_related_pragmas;
+                walk(loop.get_loop());
+             }
+
              void visit(const Nodecl::ObjectInit& object_init)
              {
                 TL::Symbol sym = object_init.get_symbol();
@@ -191,6 +197,12 @@ namespace TL {
              {
                 taskloop.replace(taskloop.get_loop());
                 walk(taskloop);
+             }
+
+             void visit(const Nodecl::OmpSs::Loop &loop)
+             {
+                loop.replace(loop.get_loop());
+                walk(loop);
              }
 
              void visit(const Nodecl::OmpSs::TaskExpression& task_expr)
@@ -370,6 +382,15 @@ namespace TL {
         walk(node.get_loop());
 
         //std::cerr << "taskloop: " << node.get_locus_str() << std::endl;
+        Nodecl::NodeclBase final_stmts = generate_final_stmts(node.get_loop());
+        _final_stmts_map.insert(std::make_pair(node, final_stmts));
+    }
+
+    void FinalStmtsGenerator::visit(const Nodecl::OmpSs::Loop &node)
+    {
+        walk(node.get_loop());
+
+        //std::cerr << "loop: " << node.get_locus_str() << std::endl;
         Nodecl::NodeclBase final_stmts = generate_final_stmts(node.get_loop());
         _final_stmts_map.insert(std::make_pair(node, final_stmts));
     }
