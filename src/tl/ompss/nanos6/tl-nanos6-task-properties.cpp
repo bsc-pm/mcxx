@@ -357,7 +357,7 @@ namespace TL { namespace Nanos6 {
         //
         //              taskflags = ((final_expr != 0) << 0)  |
         //                          ((!if_expr != 0) << 1)    |
-        //                          ((is_taskloop != 0) << 2) |
+        //                          ((is_loop != 0) << 2) |
         //                          ((wait_clause != 0) << 3)
         //
         //      * Fortran: since Fortran doesn't have a simple way to work with
@@ -366,7 +366,7 @@ namespace TL { namespace Nanos6 {
         //              taskflags = 0;
         //              if (final_expr)  call ibset(taskflags, 0);
         //              if (!if_expr)    call ibset(taskflags, 1);
-        //              if (is_taskloop) call ibset(taskflags, 2);
+        //              if (is_loop) call ibset(taskflags, 2);
         //              if (wait_clause) call ibset(taskflags, 3);
         //
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -380,10 +380,10 @@ namespace TL { namespace Nanos6 {
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    /* is_taskloop */ 0, /* bit */ 2, /* out */ task_flags_expr);
+                    _env.task_is_loop, /* bit */ 2, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    /* default value */ _env.wait_clause, /* bit */ 3, /* out */ task_flags_expr);
+                    _env.wait_clause, /* bit */ 3, /* out */ task_flags_expr);
 
             new_stmts.append(
                     Nodecl::ExpressionStatement::make(
@@ -412,10 +412,10 @@ namespace TL { namespace Nanos6 {
                     compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), /* default value  is_taskloop*/ 0, /* bit */ 2));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_loop, /* bit */ 2));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), /* default value */ _env.wait_clause, /* bit */ 3));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 3));
         }
         out_stmts = new_stmts;
     }
