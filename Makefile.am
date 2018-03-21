@@ -1756,6 +1756,7 @@ EXTRA_DIST += src/tl/omp/core/tl-omp-constructs.def \
 src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-omp-core.hpp \
    src/tl/omp/core/tl-omp-core.cpp \
+   src/tl/omp/core/tl-omp-def-undef-macros.hpp \
    src/tl/omp/core/tl-omp.hpp \
    src/tl/omp/core/tl-omp.cpp \
    src/tl/omp/core/tl-omp-deps.hpp \
