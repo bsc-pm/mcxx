@@ -113,8 +113,7 @@ linker_name = @GCC@
 
 
 # Nanos++ & OpenCL
-{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} options = --opencl
-{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} compiler_phase = libtlnanox-opencl.so
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl} compiler_phase = libtlnanox-opencl.so
 
 
 # Force ompss for Nanos 6 (unless explicitly disabled)
@@ -159,8 +158,8 @@ linker_options = -Xlinker --enable-new-dtags
 
 
 # Nanos++ & OpenCL
-{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
-{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} linker_options = -lnanox-opencl-api
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl} linker_options = -lnanox-opencl-api
 
 
 #Nanos 6
@@ -210,8 +209,8 @@ linker_options = -Wl,--enable-new-dtags
 
 
 # Nanos++ & OpenCL
-{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} preprocessor_options = -qinclude nanos-opencl.h -D_MERCURIUM_OPENCL_
-{@NANOX_GATE@,@ENABLE_OPENCL@,ompss} linker_options = -lnanox-opencl-api
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl} preprocessor_options = -qinclude nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl} linker_options = -lnanox-opencl-api
 
 
 # dlb

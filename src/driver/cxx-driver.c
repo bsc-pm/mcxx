@@ -388,7 +388,6 @@ typedef enum
     OPTION_ENABLE_INTEL_INTRINSICS,
     OPTION_ENABLE_INTEL_VECTOR_TYPES,
     OPTION_ENABLE_MS_BUILTIN,
-    OPTION_ENABLE_OPENCL,
     OPTION_ENABLE_UPC,
     OPTION_EXTERNAL_VAR,
     OPTION_FORTRAN_ARRAY_DESCRIPTOR,
@@ -417,7 +416,9 @@ typedef enum
     OPTION_MODULE_OUT_PATTERN,
     OPTION_NATIVE_COMPILER_NAME,
     OPTION_NO_CUDA,
+    OPTION_NO_OPENCL,
     OPTION_NO_WHOLE_FILE,
+    OPTION_OPENCL,
     OPTION_OPENCL_OPTIONS,
     OPTION_OUTPUT_DIRECTORY,
     OPTION_PARALLEL,
@@ -479,7 +480,8 @@ struct command_line_long_options command_line_long_options[] =
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"cuda", CLP_NO_ARGUMENT, OPTION_CUDA},
     {"no-cuda", CLP_NO_ARGUMENT, OPTION_NO_CUDA},
-    {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},
+    {"opencl", CLP_NO_ARGUMENT, OPTION_OPENCL},
+    {"no-opencl", CLP_NO_ARGUMENT, OPTION_NO_OPENCL},
     {"opencl-build-opts",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_OPTIONS},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
@@ -843,7 +845,7 @@ static void options_error(char* message)
     exit(EXIT_FAILURE);
 }
 
-//! This function is used for long options that are user flags and also implicit flags (i.e. profile flafgs)
+//! This function is used for long options that are user flags and also implicit flags (i.e. profile flags)
 static void handle_special_long_options(const char *flag_name, char from_command_line, char is_enabled)
 {
     int i;
@@ -1026,7 +1028,7 @@ int parse_arguments(int argc, const char* argv[],
         {
             // Put here those flags that for some reason have special meanings
             // and at the same time they modify an implicit flag.
-            // Currently only --cuda/--no-cuda behaves this way
+            // Currently only device specific flags such as --cuda or --opencl behaves this way
             char already_handled = 1;
             switch (parameter_info.value)
             {
@@ -1036,6 +1038,14 @@ int parse_arguments(int argc, const char* argv[],
                         char is_enabled = (parameter_info.value == OPTION_CUDA);
                         handle_special_long_options("cuda", from_command_line, is_enabled);
                         CURRENT_CONFIGURATION->enable_cuda = is_enabled;
+                        break;
+                    }
+                case OPTION_OPENCL:
+                case OPTION_NO_OPENCL:
+                    {
+                        char is_enabled = (parameter_info.value == OPTION_OPENCL);
+                        handle_special_long_options("opencl", from_command_line, is_enabled);
+                        CURRENT_CONFIGURATION->enable_opencl = is_enabled;
                         break;
                     }
                 default:
@@ -1469,15 +1479,13 @@ int parse_arguments(int argc, const char* argv[],
                         }
                         break;
                     }
-                case OPTION_ENABLE_OPENCL:
-                    {
-                        CURRENT_CONFIGURATION->enable_opencl = 1;
-                        break;
-                    }
                 case OPTION_OPENCL_OPTIONS:
                     {
-                        //If we have build options, we also enable opencl
-                        CURRENT_CONFIGURATION->enable_opencl = 1;
+                        if (!CURRENT_CONFIGURATION->enable_opencl)
+                        {
+                            fprintf(stderr, "warning: '--opencl-build-opts' flag was detected but OpenCL support was not enabled. "
+                                "Did you forget to use the '--opencl' flag?\n");
+                        }
                         if (parameter_info.argument != NULL)
                         {
                             CURRENT_CONFIGURATION->opencl_build_options = parameter_info.argument;
