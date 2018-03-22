@@ -28,8 +28,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-opencl
-compile_versions=ompss
+test_generator=config/mercurium-ompss-opencl
 </testinfo>
 */
 void g()
