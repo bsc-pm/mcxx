@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
+if [ "@NANOX_ENABLED@" = "no" -o "@ompss_supports_cuda@" = no ];
+then
+
+    gen_ignore_test "Nanos++ or CUDA are disabled"
+    exit
+fi
+
+source @abs_builddir@/mercurium-libraries
+
+cat <<EOF
+MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
+
+GENERIC_CUDA_FLAGS="--ompss --cuda"
+
+test_CC="\${MCC}"
+test_CXX="\${MCXX}"
+
+test_CFLAGS="\${GENERIC_CUDA_FLAGS}"
+test_CXXFLAGS="\${GENERIC_CUDA_FLAGS}"
+
+test_nolink=yes
+EOF

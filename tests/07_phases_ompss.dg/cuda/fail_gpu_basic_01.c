@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
+test_generator=config/mercurium-ompss-cuda
 test_compile_fail=yes
 </testinfo>
 */

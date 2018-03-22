@@ -28,8 +28,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-cuda
-compile_versions=cuda_omp
+test_generator=config/mercurium-ompss-cuda
 </testinfo>
 */
 
