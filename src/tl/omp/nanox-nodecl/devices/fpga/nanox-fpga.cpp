@@ -496,7 +496,7 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
         }
 
 
-        ObjectList<IncludeLine> includes = CurrentFile::get_top_level_included_files();
+        ObjectList<IncludeLine> includes = CurrentFile::get_included_files();
 
         for (ObjectList<IncludeLine>::iterator it = includes.begin(); it != includes.end(); it++)
         {

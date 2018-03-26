@@ -54,7 +54,6 @@ namespace TL
                 return _file;
             }
 
-            //! Gets a string representing the whole include line
             std::string get_preprocessor_line();
 
             IncludeLine(const std::string& file, bool is_system_)
@@ -73,14 +72,8 @@ namespace TL
     class LIBTL_CLASS CurrentFile
     {
         public:
-            //! Returns the top level include lines
-            /*!
-             * Top level include lines are those that appeared in the input file.
-             * Any indirectly included file because of these include lines is not
-             * considered
-             */
-            static ObjectList<IncludeLine> get_top_level_included_files();
-
+            //! Returns all the included lines
+            static ObjectList<IncludeLine> get_included_files();
     };
 }
 

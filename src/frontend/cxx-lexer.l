@@ -201,8 +201,6 @@ static int pragma_custom_var_list_parentheses = 0;
 
 static const char *current_pragma_prefix = NULL;
 
-static int include_counter = 0;
-
 // static int verbatim_buffer_size = 0;
 // static const char *verbatim_buffer = NULL;
 
@@ -1066,6 +1064,8 @@ type {
             directive++;
         }
 
+        // More info about linemarkers here:
+        //      https://gcc.gnu.org/onlinedocs/cpp/Preprocessor-Output.html
         switch (current_flag)
         {
             case 1:
@@ -1126,37 +1126,19 @@ type {
     }
 #endif
 
-    if (start_of_new_file 
-            || system_header_file)
-    {
-        if (include_counter == 0)
-        {
-            top_level_include_t *new_top_level_include = NEW0(top_level_include_t);
-
-            new_top_level_include->included_file = uniquestr(filename);
-
-            if (system_header_file)
-            {
-                new_top_level_include->system_include = 1;
-            }
-
-            P_LIST_ADD(CURRENT_COMPILED_FILE->top_level_include_list,
-                    CURRENT_COMPILED_FILE->num_top_level_includes,
-                    new_top_level_include);
-        }
-    }
-
     if (start_of_new_file)
     {
-        include_counter++;
+        include_t *new_include = NEW0(include_t);
+
+        new_include->included_file = uniquestr(filename);
+        new_include->system_include = system_header_file;
+
+        P_LIST_ADD(CURRENT_COMPILED_FILE->include_list,
+                CURRENT_COMPILED_FILE->num_includes,
+                new_include);
     }
 
-    if (return_of_a_file)
-    {
-        include_counter = (include_counter > 0) ? (include_counter - 1) : 0;
-    }
-
-    // Update the line number, note that it is line_num - 1 
+    // Update the line number, note that it is line_num - 1
     // because \n is not handled here, but in another rule
 	scanning_now.line_number = (line_num - 1);
 	scanning_now.column_number = 1;

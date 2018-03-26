@@ -778,7 +778,7 @@ bool DeviceCUDA::remove_function_task_from_original_source() const
 
 void DeviceCUDA::add_included_cuda_files(FILE* file)
 {
-    ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+    ObjectList<IncludeLine> lines = CurrentFile::get_included_files();
     std::string cuda_file_ext(".cu\"");
     std::string cuda_header_ext(".cuh\"");
 
