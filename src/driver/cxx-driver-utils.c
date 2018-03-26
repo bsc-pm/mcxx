@@ -851,7 +851,7 @@ char move_file(const char* source, const char* dest)
     {
         if (CURRENT_CONFIGURATION->verbose)
         {
-            fprintf(stderr, "Moving file through rename '%s' -> '%s'\n", source, dest);
+            fprintf(stderr, "mv %s %s \t # Moving through rename\n", source, dest);
         }
         return rename(source, dest);
     }
@@ -859,12 +859,16 @@ char move_file(const char* source, const char* dest)
     {
         if (CURRENT_CONFIGURATION->verbose)
         {
-            fprintf(stderr, "Moving file through copy '%s' -> '%s'\n", source, dest);
+            fprintf(stderr, "cp %s %s \t # Moving through copy\n", source, dest);
         }
 
         if (copy_file(source, dest) != 0)
             return -1;
 
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "rm %s \t # Removing because Moving through copy\n", source);
+        }
         return remove(source);
     }
     // Everything ok
