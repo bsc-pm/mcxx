@@ -81,8 +81,6 @@ namespace TL
              */
             static ObjectList<IncludeLine> get_top_level_included_files();
 
-            //! Returns a string with all top level include lines in a row
-            static std::string get_top_level_included_files_str();
     };
 }
 
