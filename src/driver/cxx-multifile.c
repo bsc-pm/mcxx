@@ -563,6 +563,8 @@ void multifile_embed_partial_linking_single(void** data, compilation_file_proces
         fatal_error("When partial linking with '%s', relocation failed\n",
                 CURRENT_CONFIGURATION->target_ld);
     }
+
+    mark_file_for_cleanup(secondary_compilation_file->translation_unit->output_filename);
 }
 
 void multifile_embed_bfd_collective(void **data, const char* output_filename)
