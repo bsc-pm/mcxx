@@ -34,7 +34,7 @@
 
 /*
 
-Gfortran array descriptor up to 4.7
+Gfortran array descriptor up to 7.3
 ===================================
 
 typedef struct descriptor_dimension
@@ -56,7 +56,7 @@ struct {\
 
 */
 
-static void gfortran_array_descriptor_info(_size_t *size, _size_t *align, int rank)
+static void gfortran_7_or_less_array_descriptor_info(_size_t *size, _size_t *align, int rank)
 {
     _size_t base_addr_size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
     _size_t base_addr_align = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
@@ -67,7 +67,6 @@ static void gfortran_array_descriptor_info(_size_t *size, _size_t *align, int ra
     _size_t dtype_size = type_get_size(CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t());
     _size_t dtype_align = type_get_alignment(CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t());
 
-    // Auxiliar
     _size_t descriptor_dimension_size = 3 * type_get_size(CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t());
     _size_t descriptor_dimension_align = type_get_alignment(CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t());
 
@@ -78,28 +77,117 @@ static void gfortran_array_descriptor_info(_size_t *size, _size_t *align, int ra
     *align = MAX(base_addr_align, MAX(offset_align, MAX(dtype_align, MAX(dim_align, 0))));
 }
 
-static _size_t gfortran_array_descriptor_get_size(type_t* t UNUSED_PARAMETER, int rank)
+static _size_t gfortran_7_or_less_array_descriptor_get_size(type_t* t UNUSED_PARAMETER, int rank)
 {
     _size_t size, align;
-    gfortran_array_descriptor_info(&size, &align, rank);
+    gfortran_7_or_less_array_descriptor_info(&size, &align, rank);
 
     return size;
 }
 
-static _size_t gfortran_array_descriptor_get_alignment(type_t* t UNUSED_PARAMETER, int rank)
+static _size_t gfortran_7_or_less_array_descriptor_get_alignment(type_t* t UNUSED_PARAMETER, int rank)
 {
     _size_t size, align;
-    gfortran_array_descriptor_info(&size, &align, rank);
+    gfortran_7_or_less_array_descriptor_info(&size, &align, rank);
 
     return align;
 }
 
-static fortran_array_descriptor_t gfortran_array_descriptor =
+static fortran_array_descriptor_t gfortran_7_or_less_array_descriptor =
 {
-    "gfortran", "GNU Fortran compiler",
-    gfortran_array_descriptor_get_size,
-    gfortran_array_descriptor_get_alignment,
+    "gfortran", "GNU Fortran Compiler (version 7 or before)",
+    gfortran_7_or_less_array_descriptor_get_size,
+    gfortran_7_or_less_array_descriptor_get_alignment,
 };
+
+
+/*
+Gfortran array descriptor from 8.0
+===================================
+
+typedef struct descriptor_dimension
+{
+  index_type _stride;
+  index_type lower_bound;
+  index_type _ubound;
+}
+descriptor_dimension;
+
+typedef struct dtype_type
+{
+  size_t elem_len;
+  int version;
+  signed char rank;
+  signed char type;
+  signed short attribute;
+}
+dtype_type;
+
+#define GFC_ARRAY_DESCRIPTOR(type) \
+struct {\
+  type *base_addr;\
+  size_t offset;\
+  dtype_type dtype;\
+  index_type span;\
+  descriptor_dimension dim[];\
+}
+*/
+
+static void gfortran_from_8_array_descriptor_info(_size_t *size, _size_t *align, int rank)
+{
+    _size_t base_addr_size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
+    _size_t base_addr_align = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
+
+    _size_t offset_size = type_get_size(CURRENT_CONFIGURATION->type_environment->type_of_sizeof());
+    _size_t offset_align = type_get_alignment(CURRENT_CONFIGURATION->type_environment->type_of_sizeof());
+
+    _size_t dtype_align =
+        MAX(type_get_alignment(CURRENT_CONFIGURATION->type_environment->type_of_sizeof()),
+                MAX(type_get_alignment(get_signed_int_type()),
+                    MAX(type_get_alignment(get_signed_char_type()),
+                        MAX(type_get_alignment(get_signed_short_int_type()), 0))));
+    _size_t dtype_size =
+        type_get_size(CURRENT_CONFIGURATION->type_environment->type_of_sizeof()) +
+        type_get_size(get_signed_int_type()) +
+        2 * type_get_size(get_signed_char_type()) +
+        type_get_size(get_signed_short_int_type());
+
+    _size_t span_size  = type_get_size(CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t());
+    _size_t span_align = type_get_alignment(CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t());
+
+    _size_t descriptor_dimension_size = 3 * type_get_size(CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t());
+    _size_t descriptor_dimension_align = type_get_alignment(CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t());
+
+    _size_t dim_size = rank * descriptor_dimension_size;
+    _size_t dim_align = descriptor_dimension_align;
+
+    *size = base_addr_size + offset_size + dtype_size + span_size + dim_size;
+    *align = MAX(base_addr_align, MAX(offset_align, MAX(dtype_align, MAX(span_align, MAX(dim_align, 0)))));
+}
+
+static _size_t gfortran_from_8_array_descriptor_get_size(type_t* t UNUSED_PARAMETER, int rank)
+{
+    _size_t size, align;
+    gfortran_from_8_array_descriptor_info(&size, &align, rank);
+
+    return size;
+}
+
+static _size_t gfortran_from_8_array_descriptor_get_alignment(type_t* t UNUSED_PARAMETER, int rank)
+{
+    _size_t size, align;
+    gfortran_from_8_array_descriptor_info(&size, &align, rank);
+
+    return align;
+}
+
+static fortran_array_descriptor_t gfortran_8_or_greater_array_descriptor =
+{
+    "gfortran-8-or-greater", "GNU Fortran Compiler (version 8 or later)",
+    gfortran_from_8_array_descriptor_get_size,
+    gfortran_from_8_array_descriptor_get_alignment,
+};
+
 
 /*
  * Intel Fortran array descriptor
@@ -262,11 +350,12 @@ _size_t fortran_alignment_of_array_descriptor(type_t* t, int rank)
     return (CURRENT_CONFIGURATION->fortran_array_descriptor->get_alignment)(t, rank);
 }
 
-fortran_array_descriptor_t* default_fortran_array_descriptor = &gfortran_array_descriptor;
+fortran_array_descriptor_t* default_fortran_array_descriptor = &gfortran_7_or_less_array_descriptor;
 
 fortran_array_descriptor_t* fortran_array_descriptor_list[] =
 {
-    &gfortran_array_descriptor,
+    &gfortran_7_or_less_array_descriptor,
+    &gfortran_8_or_greater_array_descriptor,
     &ifort_array_descriptor,
     &xlf_array_descriptor,
     NULL
