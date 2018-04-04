@@ -471,29 +471,52 @@ namespace TL { namespace OpenMP {
     {
         TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
 
-        if (emit_omp_report())
-        {
-            *_omp_report_file
-                << "\n"
-                << directive.get_locus_str() << ": " << "BARRIER construct\n"
-                << directive.get_locus_str() << ": " << "-----------------\n"
-                << OpenMP::Report::indent << "(There is no more information for BARRIER)\n"
-                ;
+        if (_core.in_ompss_mode())
+        {   // OmpSs mode
+            warn_printf_at(directive.get_locus(), "The barrier construct is not supported in OmpSs, "
+                    "replacing it by a taskwait construct (best effort).\n");
+
+            directive.replace(
+                    Nodecl::OpenMP::Taskwait::make(
+                        /* environment */ nodecl_null(),
+                        directive.get_locus()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << "\n"
+                    << directive.get_locus_str() << ": " << "TASKWAIT construct\n"
+                    << directive.get_locus_str() << ": " << "-----------------\n"
+                    << OpenMP::Report::indent << "(It was generated because a barrier construct was found)\n"
+                    ;
+            }
         }
+        else
+        {   // OpenMP mode
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << "\n"
+                    << directive.get_locus_str() << ": " << "BARRIER construct\n"
+                    << directive.get_locus_str() << ": " << "-----------------\n"
+                    << OpenMP::Report::indent << "(There is no more information for BARRIER)\n"
+                    ;
+            }
 
-        Nodecl::List execution_environment = Nodecl::List::make(
-                Nodecl::OpenMP::FlushAtEntry::make(
-                    directive.get_locus()),
-                Nodecl::OpenMP::FlushAtExit::make(
-                    directive.get_locus())
-                );
+            Nodecl::List execution_environment = Nodecl::List::make(
+                    Nodecl::OpenMP::FlushAtEntry::make(
+                        directive.get_locus()),
+                    Nodecl::OpenMP::FlushAtExit::make(
+                        directive.get_locus())
+                    );
 
-        pragma_line.diagnostic_unused_clauses();
-        directive.replace(
-                Nodecl::OpenMP::BarrierFull::make(
-                    execution_environment,
-                    directive.get_locus())
-                );
+            pragma_line.diagnostic_unused_clauses();
+            directive.replace(
+                    Nodecl::OpenMP::BarrierFull::make(
+                        execution_environment,
+                        directive.get_locus())
+                    );
+        }
     }
 
     void Base::flush_handler_pre(TL::PragmaCustomDirective) { }

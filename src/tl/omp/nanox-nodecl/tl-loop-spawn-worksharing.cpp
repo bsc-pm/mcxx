@@ -129,9 +129,6 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase fill_outline_arguments_tree, fill_immediate_arguments_tree;
 
-        TL::Source barrier_or_tw_if_needed;
-        bool barrier_at_the_end = !distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null();
-
         TL::Source pm_specific_code;
         if (!_lowering->in_ompss_mode())
         {
@@ -141,9 +138,6 @@ namespace TL { namespace Nanox {
                 << statement_placeholder(fill_immediate_arguments_tree)
                 << "smp_" << outline_name << "(imm_args);"
                 ;
-
-            if (barrier_at_the_end)
-                barrier_or_tw_if_needed << full_barrier_source();
         }
         else
         {
@@ -194,8 +188,12 @@ namespace TL { namespace Nanox {
                 <<      "nanos_handle_error(nanos_err);"
                 ;
 
-            if (barrier_at_the_end)
-                barrier_or_tw_if_needed << full_taskwait_source(/* is_noflush */false);
+        }
+
+        TL::Source implicit_barrier_or_tw;
+        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
+        {
+            implicit_barrier_or_tw << get_implicit_sync_end_construct_source();
         }
 
         Source spawn_code;
@@ -211,7 +209,7 @@ namespace TL { namespace Nanox {
             <<      "nanos_setup_info_loop.chunk_size = nanos_chunk;"
             <<      worksharing_creation
             <<      pm_specific_code
-            <<      barrier_or_tw_if_needed
+            <<      implicit_barrier_or_tw
             << "}"
             ;
 

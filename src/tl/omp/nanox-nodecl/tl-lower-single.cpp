@@ -44,7 +44,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::Utils::SimpleSymbolMap symbol_map;
 
-        TL::Source transform_code, final_barrier;
+        TL::Source transform_code, implicit_barrier_or_tw;
         transform_code
             << "{"
             << as_type(::get_bool_type()) << " single_guard;"
@@ -56,12 +56,12 @@ namespace TL { namespace Nanox {
             << statement_placeholder(placeholder)
             << "}"
             << "}"
-            << final_barrier
+            << implicit_barrier_or_tw
             ;
 
         if (!environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
-            final_barrier << full_barrier_source();
+            implicit_barrier_or_tw << get_implicit_sync_end_construct_source();
         }
 
         FORTRAN_LANGUAGE()

@@ -119,7 +119,7 @@ void LoweringVisitor::fill_dependences_taskwait(
             result_src);
 }
 
-TL::Source LoweringVisitor::full_taskwait_source(bool is_noflush)
+TL::Source LoweringVisitor::full_taskwait_source(bool is_noflush) const
 {
     TL::Source src;
     src << "{"

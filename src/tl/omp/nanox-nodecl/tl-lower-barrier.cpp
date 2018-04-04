@@ -29,10 +29,21 @@
 #include "tl-lowering-visitor.hpp"
 
 namespace TL { namespace Nanox {
-    Source LoweringVisitor::full_barrier_source()
-    {
-        Source barrier_src;
 
+    Source LoweringVisitor::get_implicit_sync_end_construct_source() const
+    {
+        if (!_lowering->in_ompss_mode())
+            return full_barrier_source();
+        else
+            return full_taskwait_source( /* is_noflush */ false);
+    }
+
+    Source LoweringVisitor::full_barrier_source() const
+    {
+        ERROR_CONDITION (_lowering->in_ompss_mode(),
+                "A barrier reached Nanos++ lowering but we are in OmpSs mode", 0);
+
+        Source barrier_src;
         barrier_src
             << "{"
             << "nanos_err_t nanos_err;"
@@ -47,6 +58,9 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::BarrierFull& construct)
     {
+        ERROR_CONDITION (_lowering->in_ompss_mode(),
+                "A barrier reached Nanos++ lowering but we are in OmpSs mode", 0);
+
         Source barrier_src = full_barrier_source();
 
         FORTRAN_LANGUAGE()
