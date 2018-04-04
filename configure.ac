@@ -140,6 +140,9 @@ INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 02.config.utilities"
 # Note that these profiles are just for testing, no soft link is created for them
 INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.hlt"
 
+# CUDA auxiliary profile should be always installed
+INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 40.config.cuda"
+
 # plaincxx is always installed as a binary
 COMPILER_NAMES="plaincc plainfc plainf95"
 SCRIPT_COMPILER_NAMES=""
@@ -801,7 +804,6 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
    COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
 
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 40.config.cuda"
 fi
 
 AC_SUBST([NANOX_ENABLED])
