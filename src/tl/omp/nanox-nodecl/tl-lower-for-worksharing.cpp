@@ -314,21 +314,11 @@ namespace TL { namespace Nanox {
             Nodecl::Utils::SimpleSymbolMap *symbol_map = NULL;
             device->create_outline(info, outline_placeholder, output_statements, symbol_map);
 
-            Source extended_outline_distribute_loop_source;
-            extended_outline_distribute_loop_source
-                << "{"
-                << "nanos_err_t nanos_err;"
-                << "nanos_err = nanos_omp_set_implicit(nanos_current_wd());"
-                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
-                << "}"
-                << outline_distribute_loop_source
-                ;
-
             if (IS_FORTRAN_LANGUAGE)
             {
                 Source::source_language = SourceLanguage::C;
             }
-            Nodecl::NodeclBase outline_code = extended_outline_distribute_loop_source.parse_statement(outline_placeholder);
+            Nodecl::NodeclBase outline_code = outline_distribute_loop_source.parse_statement(outline_placeholder);
 
             if (IS_FORTRAN_LANGUAGE)
             {
