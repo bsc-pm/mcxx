@@ -857,7 +857,7 @@ dnl --------------------- Support for CUDA devices in Nanox --------------------
 AC_MSG_CHECKING([whether the CUDA Nanos++ Lowering is enabled])
 AC_ARG_ENABLE([nanox-cuda-device],
   AS_HELP_STRING([--disable-nanox-cuda-device], [Disables the CUDA Nanos++ Lowering phase in Mercurium (enabled by default)]),
-  [ ], # enable_nanox_cuda_device=$enable_val
+  [ ], # enable_nanox_cuda_device=$enableval
   [ enable_nanox_cuda_device="yes" ])
 AC_MSG_RESULT([$enable_nanox_cuda_device])
 
@@ -2003,120 +2003,74 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)
 AC_CHECK_HEADERS(string.h)
 
-disable_int128=no
-disable_float128=no
 
-AC_MSG_CHECKING([if __int128 has been disabled])
+dnl --------------------- __int128 support ----------------------
+AC_MSG_CHECKING([if __int128 is enabled])
 AC_ARG_ENABLE([int128],
-    AS_HELP_STRING([--disable-int128], [Disables support for __int128. It also disables INTEGER(KIND=16) in Fortran]),
-    [
-      if test x$enableval = xyes -o x$enableval = x;
-      then
-         disable_int128="no"
-         dnl no, it has NOT been disabled
-         AC_MSG_RESULT([no])
-      else if test x$enableval = xno;
-           then
-              disable_int128="yes"
-              dnl yes, it DOES have been disabled
-              AC_MSG_RESULT([yes])
-           else
-              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-           fi
-      fi
-    ],
-    [
-       AC_MSG_RESULT([no])
-    ]
-)
+    AS_HELP_STRING([--disable-int128], [Disables support for __int128. It also disables INTEGER(KIND=16) in Fortran (enabled by default)]),
+    [ ], # enable_int128 =$enableval
+    [ enable_int128=yes ])
+AC_MSG_RESULT($enable_int128)
 
-AC_MSG_CHECKING([if __float128 has been disabled])
-AC_ARG_ENABLE([float128],
-    AS_HELP_STRING([--disable-float128], [Disables support for __float128. It also disables REAL(KIND=16) in Fortran]),
-    [
-      if test x$enableval = xyes -o x$enableval = x;
-      then
-         disable_float128="no"
-         dnl no, it has NOT been disabled
-         AC_MSG_RESULT([no])
-      else if test x$enableval = xno;
-           then
-               disable_float128="yes"
-               dnl yes, it DOES have been disabled
-               AC_MSG_RESULT([yes])
-           else
-               AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-           fi
-      fi
-    ],
-    [
-       AC_MSG_RESULT([no])
-    ]
-)
-
-dnl -- Check if our GCC supports __int128
-have_int128=no
-
-AC_CHECK_TYPE([__int128], [have_int128=yes])
-
-if test x$disable_int128 = xyes;
+AC_CHECK_TYPE([__int128], [have_int128=yes], [have_int128=no])
+if test x"$enable_int128" = x"no";
 then
     have_int128=no
 fi
 
-if test x$have_int128 = xyes;
+if test x"$have_int128" = x"yes";
 then
- AC_DEFINE([HAVE_INT128], 1, [Define to 1 if __int128 is available])
+    AC_DEFINE([HAVE_INT128], 1, [Define to 1 if __int128 is available])
+    AC_DEFINE([HAVE_FORTRAN_KIND16], 1, [Define to 1 if Fortran KIND=16 is supported])
 fi
+dnl --------------------- End of __int128 support ----------------------
 
 
-dnl The idea is that we may have a software implementation of kind=16 not
-dnl relying on __int128
-if test x$have_int128 = xyes;
+dnl --------------------- __float128 & quadmath.h support ----------------------
+AC_MSG_CHECKING([if __float128 is enabled])
+AC_ARG_ENABLE([float128],
+    AS_HELP_STRING([--disable-float128], [Disables support for __float128. It also disables REAL(KIND=16) in Fortran (enabled by default]),
+    [ ], #enable_float128=$enableval
+    [ enable_float128=yes ])
+AC_MSG_RESULT($enable_float128)
+
+AC_CHECK_TYPE([__float128], [have_float128=yes], [have_float128=no])
+if test x"$enable_float128" = x"no";
 then
- AC_DEFINE([HAVE_FORTRAN_KIND16], 1, [Define to 1 if Fortran KIND=16 is supported])
+    have_float128=no
 fi
-
-dnl -- Check if our GCC supports __float128 quadmath.h and HUGE_VALQ
-have_float_128="no"
+have_float128_and_valid_quadmath_h=no
 quadmath_LIBS=""
-AC_CHECK_TYPE([__float128], [have_float_128="yes"])
-
-if test x$disable_float128 = xyes;
+if test x"$have_float128" = x"yes";
 then
-    have_float_128=no
+    AC_CHECK_HEADER([quadmath.h], [have_float128_and_valid_quadmath_h=yes], have_float128_and_valid_quadmath_h=no)
+    if test x"$have_float128_and_valid_quadmath_h" = x"yes";
+    then
+        AC_MSG_CHECKING([for __builtin_huge_valq])
+        keep_LIBS="$LIBS"
+        LIBS="-lquadmath"
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([], [return __builtin_huge_valq ();])],
+            [
+                AC_DEFINE([HAVE__BUILTIN_HUGE_VALQ], 1, [Define to 1 if __builtin_huge_valq is available])
+                AC_MSG_RESULT([yes])
+            ],
+            [
+                have_float128_and_valid_quadmath_h=no
+                AC_MSG_RESULT([no])
+            ]
+        )
+        LIBS="$keep_LIBS"
+    fi
 fi
 
-
-have_quadmath_h="no"
-if test x$have_float_128 = xyes;
+if test x"$have_float128_and_valid_quadmath_h" = x"yes";
 then
-  AC_CHECK_HEADER([quadmath.h], [have_quadmath_h="yes"])
-  if test x$have_quadmath_h = xyes;
-  then
-    huge_valq="no"
-    AC_MSG_CHECKING([for __builtin_huge_valq])
-    keep_LIBS="$LIBS"
-    LIBS="-lquadmath"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [return __builtin_huge_valq ();])],
-            [AC_DEFINE([HAVE__BUILTIN_HUGE_VALQ], 1, [Define to 1 if __builtin_huge_valq is available])] 
-            [huge_valq="yes"]
-            [AC_MSG_RESULT([yes])],
-            [AC_MSG_RESULT([no])])
-    LIBS="$keep_LIBS"
-    if test x$huge_valq = xyes;
-    then
-        AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is fully useable])
-        quadmath_LIBS="-lquadmath"
-    else
-        have_float_128=no
-    fi
-  else
-    have_float_128=no
-  fi
+    AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is fully useable])
+    quadmath_LIBS="-lquadmath"
 fi
 
 AC_SUBST([quadmath_LIBS])
+dnl --------------------- End of __float128 & quadmath.h support ----------------------
 
 dnl Check for compliant const
 AC_C_CONST
@@ -2351,7 +2305,7 @@ echo ""
 
 echo " * Default type environment : " $default_type_environ
 echo ""
-echo "   Host supports __float128 and quadmath.h : " $have_float_128
+echo "   Host supports __float128 and quadmath.h : " $have_float128_and_valid_quadmath_h
 echo "   Host supports __int128 : " $have_int128
 echo "   SIMD Support: " $simd_version $simd_math_version
 echo "   Intel Xeon Phi compilation support: " $mic_compilation
