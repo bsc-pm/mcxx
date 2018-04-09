@@ -187,6 +187,7 @@
 "                           only if the compiler has problems when\n" \
 "                           computing size of types. Please report\n" \
 "                           a bug, you should not need this option.\n" \
+"  --iso-c-FloatN           Enables support of ISO C _FloatN types.\n" \
 "  --upc[=THREADS]          Enables UPC 1.2 syntactic support.\n" \
 "                           Optionally you can define a static \n" \
 "                           number of THREADS.\n" \
@@ -407,6 +408,7 @@ typedef enum
     OPTION_HELP_TARGET_OPTIONS,
     OPTION_IFORT_COMPATIBILITY,
     OPTION_INSTANTIATE_TEMPLATES,
+    OPTION_ISO_C_FLOATN,
     OPTION_LINE_MARKERS,
     OPTION_LINKER_NAME,
     OPTION_LIST_ENVIRONMENTS,
@@ -524,6 +526,7 @@ struct command_line_long_options command_line_long_options[] =
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
     {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
+    {"iso-c-FloatN", CLP_NO_ARGUMENT, OPTION_ISO_C_FLOATN },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1668,6 +1671,11 @@ int parse_arguments(int argc, const char* argv[],
                                 &CURRENT_CONFIGURATION->native_compiler_options,
                                 parameter,
                                 1);
+                        break;
+                    }
+                case OPTION_ISO_C_FLOATN:
+                    {
+                        CURRENT_CONFIGURATION->supports_ISO_C_FloatN = 1;
                         break;
                     }
                 default:
