@@ -1861,8 +1861,10 @@ namespace TL { namespace Nanos6 {
 
         // Deep copy device-specific task body
         unpacked_empty_stmt.replace(
-                Nodecl::Utils::deep_copy(
-                    device->compute_specific_task_body(_task_body, _env),
+                device->compute_specific_task_body(
+                    _task_body,
+                    _env,
+                    unpacked_function_code,
                     unpacked_inside_scope,
                     symbol_map));
 

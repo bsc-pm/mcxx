@@ -30,11 +30,15 @@
 
 namespace TL { namespace Nanos6 {
 
-Nodecl::NodeclBase Device::compute_specific_task_body(
-        Nodecl::NodeclBase task_body, const DirectiveEnvironment &env) const
-{
-    return task_body.shallow_copy();
-}
+    Nodecl::NodeclBase Device::compute_specific_task_body(
+            Nodecl::NodeclBase task_body,
+            const DirectiveEnvironment &env,
+            Nodecl::NodeclBase unpacked_function_code,
+            const TL::Scope &unpacked_inside_scope,
+            Nodecl::Utils::SimpleSymbolMap &symbol_map) const
+    {
+        return Nodecl::Utils::deep_copy(task_body, unpacked_inside_scope, symbol_map);
+    }
 
 void Device::root_unpacked_function(TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code)
 {

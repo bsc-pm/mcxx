@@ -44,10 +44,12 @@ namespace TL { namespace Nanos6 {
             //! This function returns a symbol that represents the device type id
             TL::Symbol get_device_type_id() const;
 
-            //! It generates a CUDA kernel call if the ndrange clause was present.
-            //! Otherwise it returns a copy of the task_body
-            Nodecl::NodeclBase compute_specific_task_body(
-                    Nodecl::NodeclBase task_body, const DirectiveEnvironment &env) const;
+           Nodecl::NodeclBase compute_specific_task_body(
+                    Nodecl::NodeclBase task_body,
+                    const DirectiveEnvironment &env,
+                    Nodecl::NodeclBase unpacked_function_code,
+                    const TL::Scope &unpacked_inside_scope,
+                    Nodecl::Utils::SimpleSymbolMap &symbol_map) const;
 
             void root_unpacked_function(TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code);
 

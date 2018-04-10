@@ -137,16 +137,20 @@ Nodecl::NodeclBase get_grid_member_initialization(
 
 
 Nodecl::NodeclBase CUDADevice::compute_specific_task_body(
-        Nodecl::NodeclBase task_body, const DirectiveEnvironment &env) const
+        Nodecl::NodeclBase task_body,
+        const DirectiveEnvironment &env,
+        Nodecl::NodeclBase unpacked_function_code,
+        const TL::Scope &unpacked_inside_scope,
+        Nodecl::Utils::SimpleSymbolMap &symbol_map) const
 {
-    if (!env.task_is_taskcall)
+    if (!env.task_is_taskcall // If it's an inline task
+            || env.ndrange.empty()) // or it's an outline task without the 'ndrange' clause
     {
-        return task_body.shallow_copy();
+        return Device::compute_specific_task_body(task_body, env, unpacked_function_code, unpacked_inside_scope, symbol_map);
     }
     else
     {
-        Nodecl::NodeclBase new_task_body = Nodecl::Utils::deep_copy(task_body, task_body);
-
+        Nodecl::NodeclBase new_task_body = task_body.shallow_copy();
         Nodecl::NodeclBase context = new_task_body.as<Nodecl::List>().front();
         ERROR_CONDITION(!context.is<Nodecl::Context>(), "Unexpected node\n", 0);
         Nodecl::NodeclBase compound_statement = context.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
@@ -155,6 +159,14 @@ Nodecl::NodeclBase CUDADevice::compute_specific_task_body(
         ERROR_CONDITION(!expr_stmt.is<Nodecl::ExpressionStatement>(), "Unexpected node\n", 0);
         Nodecl::NodeclBase function_call = expr_stmt.as<Nodecl::ExpressionStatement>().get_nest();
         ERROR_CONDITION(!function_call.is<Nodecl::FunctionCall>(), "Unexpected node\n", 0);
+
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase called = function_call.as<Nodecl::FunctionCall>().get_called();
+            ERROR_CONDITION(function_call.is<Nodecl::Symbol>(), "Unexpected node\n", 0);
+            unpacked_function_code.prepend_sibling(
+                    Nodecl::CxxDecl::make(/* context */ Nodecl::NodeclBase::null(), called.as<Nodecl::Symbol>().get_symbol()));
+        }
 
         TL::Symbol dim3_struct = TL::Scope::get_global_scope().get_symbol_from_name("dim3");
         TL::Type dim3_type = dim3_struct.get_user_defined_type();
@@ -242,7 +254,7 @@ Nodecl::NodeclBase CUDADevice::compute_specific_task_body(
 
         empty_stmt.replace(expr_stmt);
 
-        return new_task_body;
+        return Nodecl::Utils::deep_copy(new_task_body, unpacked_inside_scope, symbol_map);
     }
 }
 
