@@ -414,7 +414,7 @@ function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
 type-or-expr : type
              | expression
 
-fortran-only-statements : NODECL_FORTRAN_ALLOCATE_STATEMENT([items]expression-seq, [options]fortran-io-spec-seq-opt)
+fortran-only-statements : NODECL_FORTRAN_ALLOCATE_STATEMENT([items]expression-seq, [options]fortran-io-spec-seq-opt, [allocate_type]type-opt)
                         | NODECL_FORTRAN_ARITHMETIC_IF_STATEMENT([expr]expression, [lower]name, [equal]name, [upper]name)
                         | NODECL_FORTRAN_ASSIGNED_GOTO_STATEMENT([index]name, [label_seq]name-seq-opt)
                         | NODECL_FORTRAN_OPEN_STATEMENT([io_items] fortran-io-spec-seq-opt)
