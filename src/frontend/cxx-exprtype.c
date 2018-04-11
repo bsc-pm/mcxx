@@ -10998,7 +10998,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
     // FIXME - We are not calling the deallocation function
     type_t* deleted_type = no_ref(nodecl_get_type(nodecl_deleted_expr));
 
-    if (!is_dependent_type(deleted_type))
+    if (!nodecl_expr_is_type_dependent(nodecl_deleted_expr) && !is_dependent_type(deleted_type))
     {
         if (!is_pointer_type(deleted_type)
                 || is_pointer_to_function_type(deleted_type)
@@ -11138,14 +11138,15 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
 
     if (is_array_delete)
     {
-        *nodecl_output = nodecl_make_delete_array(nodecl_deleted_expr, get_void_type(),
-                locus);
+        *nodecl_output = nodecl_make_delete_array(nodecl_deleted_expr, get_void_type(), locus);
     }
     else
     {
-        *nodecl_output = nodecl_make_delete(nodecl_deleted_expr, get_void_type(),
-                locus);
+        *nodecl_output = nodecl_make_delete(nodecl_deleted_expr, get_void_type(), locus);
     }
+
+    nodecl_expr_set_is_type_dependent(*nodecl_output, nodecl_expr_is_type_dependent(nodecl_deleted_expr));
+    nodecl_expr_set_is_value_dependent(*nodecl_output, nodecl_expr_is_value_dependent(nodecl_deleted_expr));
 }
 
 
