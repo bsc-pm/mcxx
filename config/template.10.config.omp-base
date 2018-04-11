@@ -9,8 +9,8 @@ compiler_options =
 linker_name = @GCC@
 
 # Generic CUDA stuff
-{cuda} preprocessor_options = -D__CUDABE__ -I${CUDA_HOME}/include
-{cuda} linker_options = -D__CUDABE__ -L${CUDA_HOME}/lib64 -lcudart
+{cuda} preprocessor_options = -D__CUDABE__ -D__CUDA_LIBDEVICE__ -I${CUDA_HOME}/include
+{cuda} linker_options = -D__CUDABE__ -D__CUDA_LIBDEVICE__ -L${CUDA_HOME}/lib64 -lcudart
 
 # OpenMP & OmpSs (runtime independent)
 {openmp,omp-dry-run} options = --variable=omp_dry_run:1
