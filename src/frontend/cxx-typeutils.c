@@ -1616,10 +1616,12 @@ static int compare_dependent_parts(const void *v1, const void *v2)
                     }
                 case NODECL_CXX_DEP_NAME_CONVERSION:
                     {
-                        type_t* conversion1 = (!nodecl_is_null(nodecl_get_child(list1[i], 0))) ? nodecl_get_type(nodecl_get_child(list1[i], 0)) : NULL;
-                        type_t* conversion2 = (!nodecl_is_null(nodecl_get_child(list2[i], 0))) ? nodecl_get_type(nodecl_get_child(list2[i], 0)) : NULL;
-                        
-                        if (!equivalent_types(conversion1, conversion2))
+                        type_t* conversion1 = (!nodecl_is_null(nodecl_get_child(list1[i], 1))) ? nodecl_get_type(nodecl_get_child(list1[i], 1)) : NULL;
+                        type_t* conversion2 = (!nodecl_is_null(nodecl_get_child(list2[i], 1))) ? nodecl_get_type(nodecl_get_child(list2[i], 1)) : NULL;
+
+                        if (conversion1 == NULL
+                                || conversion2 == NULL
+                                || !equivalent_types(conversion1, conversion2))
                         {
                             if (conversion1 < conversion2)
                             {
