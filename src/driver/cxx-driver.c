@@ -126,7 +126,7 @@
 "  -x lang                  Override language detection to <lang>\n" \
 "  -k, --keep-files         Do not remove intermediate files\n" \
 "  -K, --keep-all-files     Do not remove any generated file, including\n" \
-"                           temporal files\n" \
+"                           temporary files\n" \
 "  -J <dir>                 Sets <dir> as the output module directory\n" \
 "                           This flag is only meaningful for Fortran\n" \
 "                           See flag --module-out-pattern flag\n" \
@@ -3730,7 +3730,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
             if (raw_prettyprint_file == NULL)
             {
-                fatal_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+                fatal_error("Cannot create temporary file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             run_codegen_phase(raw_prettyprint_file, translation_unit, output_filename);
             fclose(raw_prettyprint_file);
@@ -3738,7 +3738,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
             if (raw_prettyprint_file == NULL)
             {
-                fatal_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+                fatal_error("Cannot reopen temporary file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->output_column_width);
             fclose(raw_prettyprint_file);
@@ -4654,7 +4654,7 @@ static void do_combining(target_options_map_t* target_map,
 
                 if (temp_file_fd == NULL)
                 {
-                    fatal_error("Cannot create temporal assembler file '%s': %s\n",
+                    fatal_error("Cannot create temporary assembler file '%s': %s\n",
                             temp_file_as->name,
                             strerror(errno));
                 }
