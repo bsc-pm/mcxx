@@ -150,7 +150,7 @@ namespace TL { namespace OpenMP {
             parse_builtin_reduction(sc,
                     "&&",
                     arithmetic_types,
-                    "omp_priv = 0",
+                    "omp_priv = 1",
                     "omp_out = omp_in && omp_out");
             parse_builtin_reduction(sc,
                     "||",
