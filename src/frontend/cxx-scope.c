@@ -3344,9 +3344,17 @@ static type_t* update_type_aux_(type_t* orig_type,
                 return orig_type;
             }
 
-            // Note that for template-types (not specializations) do not have cv-qualifiers
+            // Note that template-types (not specializations) do not have
+            // cv-qualifiers.
             cv_qualifier_t cv_qualif_orig = CV_NONE;
-            advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif_orig);
+            // If the type we are updating is "cv T" but T is a function type
+            // we cannot use "cv" (we currently use the cv-qualifier of function
+            // types for nonstatic member functions that are const).
+            if (!is_function_type(new_sym->type_information))
+            {
+                advance_over_typedefs_with_cv_qualif(orig_type,
+                                                     &cv_qualif_orig);
+            }
 
             cv_qualifier_t cv_qualif_new = CV_NONE;
             advance_over_typedefs_with_cv_qualif(new_sym->type_information, &cv_qualif_new);
