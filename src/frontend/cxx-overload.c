@@ -238,11 +238,14 @@ static implicit_conversion_sequence_t ics_make_user_defined_using_conversor(type
                 locus);
 
         standard_conversion_t second_sc;
-        standard_conversion_between_types_for_overload(
+        char ok = standard_conversion_between_types_for_overload(
                 &second_sc,
                 converted_type,
                 dest,
                 locus);
+
+        if (!ok)
+            return invalid_ics;
 
         return ics_make_user_defined(first_sc, conversor, second_sc);
     }
