@@ -22775,7 +22775,7 @@ char check_initialization(AST initializer,
     nodecl_t nodecl_init = nodecl_null();
 
     compute_nodecl_initialization(initializer, decl_context, 
-            /* preserve_top_level_parentheses */ is_decltype_auto,
+            /* preserve_top_level_parentheses */ is_decltype_auto || (initialized_entry != NULL && is_dependent_type(initialized_entry->type_information)),
             &nodecl_init);
     check_nodecl_initialization(nodecl_init,
             decl_context,
