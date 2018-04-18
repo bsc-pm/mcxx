@@ -237,6 +237,69 @@ static void instantiate_nontemplate_member_class_of_template_class(
         const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus);
 
+struct delayed_instantiation_tag
+{
+    scope_entry_t* orig_member;
+    scope_entry_t* dest_member;
+};
+
+static int _next_delayed_instantiation_of_member_values = 0;
+static struct delayed_instantiation_tag _delayed_instantiation_of_member_values[MCXX_MAX_DELAYED_MEMBERS_PER_CLASS];
+
+static void delayed_instantiation_of_members_values(type_t* selected_template UNUSED_PARAMETER,
+        type_t* being_instantiated,
+        const decl_context_t* context_of_being_instantiated,
+        const locus_t* locus,
+        instantiation_symbol_map_t* instantiation_symbol_map)
+{
+    int i;
+    for (i = 0; i < _next_delayed_instantiation_of_member_values; ++i)
+    {
+        scope_entry_t* member_of_template = _delayed_instantiation_of_member_values[i].orig_member;
+        scope_entry_t* new_member = _delayed_instantiation_of_member_values[i].dest_member;
+
+        ERROR_CONDITION(member_of_template->kind != SK_VARIABLE,
+                "Unexpected member kind=%s\n", symbol_kind_name(member_of_template));
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INSTANTIATION: delayed instantiation of the value of the member '%s' at '%s'\n",
+                    member_of_template->symbol_name,
+                    print_declarator(member_of_template->type_information),
+                    locus_to_str(member_of_template->locus));
+        }
+
+        nodecl_t new_expr = instantiate_expression(member_of_template->value,
+                context_of_being_instantiated,
+                instantiation_symbol_map, /* pack_index */ -1);
+
+        // Update the value of the new instantiated member
+        new_member->value = new_expr;
+
+        if (nodecl_get_kind(new_expr) == NODECL_CXX_INITIALIZER
+                || nodecl_get_kind(new_expr) == NODECL_CXX_EQUAL_INITIALIZER
+                || nodecl_get_kind(new_expr) == NODECL_CXX_PARENTHESIZED_INITIALIZER
+                || nodecl_get_kind(new_expr) == NODECL_CXX_BRACED_INITIALIZER)
+        {
+            check_nodecl_initialization(
+                    new_expr,
+                    context_of_being_instantiated,
+                    new_member,
+                    get_unqualified_type(new_member->type_information),
+                    &new_member->value,
+                    /* is_auto */ 0,
+                    /* is_decltype_auto */ 0);
+        }
+        else
+        {
+            // No need to check anything
+        }
+    }
+
+    // Reset the number of delayed instantatiations of member values
+    _next_delayed_instantiation_of_member_values = 0;
+}
+
 static void instantiate_member(type_t* selected_template UNUSED_PARAMETER, 
         type_t* being_instantiated, 
         scope_entry_t* member_of_template, 
@@ -348,30 +411,43 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 if (!nodecl_is_null(member_of_template->value)
                         && symbol_entity_specs_get_is_defined_inside_class_specifier(member_of_template))
                 {
-                    nodecl_t new_expr = instantiate_expression(member_of_template->value,
-                            context_of_being_instantiated,
-                            instantiation_symbol_map, /* pack_index */ -1);
-
-                    // Update the value of the new instantiated member
-                    new_member->value = new_expr;
-
-                    if (nodecl_get_kind(new_expr) == NODECL_CXX_INITIALIZER
-                            || nodecl_get_kind(new_expr) == NODECL_CXX_EQUAL_INITIALIZER
-                            || nodecl_get_kind(new_expr) == NODECL_CXX_PARENTHESIZED_INITIALIZER
-                            || nodecl_get_kind(new_expr) == NODECL_CXX_BRACED_INITIALIZER)
+                    if (symbol_entity_specs_get_is_static(member_of_template))
                     {
-                        check_nodecl_initialization(
-                                new_expr,
+                        nodecl_t new_expr = instantiate_expression(member_of_template->value,
                                 context_of_being_instantiated,
-                                new_member,
-                                get_unqualified_type(new_member->type_information),
-                                &new_member->value,
-                                /* is_auto */ 0,
-                                /* is_decltype_auto */ 0);
+                                instantiation_symbol_map, /* pack_index */ -1);
+
+                        // Update the value of the new instantiated member
+                        new_member->value = new_expr;
+
+                        if (nodecl_get_kind(new_expr) == NODECL_CXX_INITIALIZER
+                                || nodecl_get_kind(new_expr) == NODECL_CXX_EQUAL_INITIALIZER
+                                || nodecl_get_kind(new_expr) == NODECL_CXX_PARENTHESIZED_INITIALIZER
+                                || nodecl_get_kind(new_expr) == NODECL_CXX_BRACED_INITIALIZER)
+                        {
+                            check_nodecl_initialization(
+                                    new_expr,
+                                    context_of_being_instantiated,
+                                    new_member,
+                                    get_unqualified_type(new_member->type_information),
+                                    &new_member->value,
+                                    /* is_auto */ 0,
+                                    /* is_decltype_auto */ 0);
+                        }
+                        else
+                        {
+                            // No need to check anything
+                        }
                     }
                     else
                     {
-                        // No need to check anything
+                        _delayed_instantiation_of_member_values[_next_delayed_instantiation_of_member_values++] =
+                            (struct delayed_instantiation_tag)
+                            {
+                                member_of_template,
+                                new_member
+                            };
+
                     }
                 }
 
@@ -1616,6 +1692,12 @@ static void instantiate_class_common(
     }
     entry_list_iterator_free(it);
     entry_list_free(members);
+
+    delayed_instantiation_of_members_values(selected_template,
+            being_instantiated,
+            inner_decl_context,
+            locus,
+            instantiation_symbol_map);
 
     // Friends
     for (it = entry_list_iterator_begin(friends);
