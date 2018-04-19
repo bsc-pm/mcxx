@@ -247,9 +247,9 @@ static int _next_delayed_instantiation_of_member_values = 0;
 static struct delayed_instantiation_tag _delayed_instantiation_of_member_values[MCXX_MAX_DELAYED_MEMBERS_PER_CLASS];
 
 static void delayed_instantiation_of_members_values(type_t* selected_template UNUSED_PARAMETER,
-        type_t* being_instantiated,
+        type_t* being_instantiated UNUSED_PARAMETER,
         const decl_context_t* context_of_being_instantiated,
-        const locus_t* locus,
+        const locus_t* locus UNUSED_PARAMETER,
         instantiation_symbol_map_t* instantiation_symbol_map)
 {
     int i;
