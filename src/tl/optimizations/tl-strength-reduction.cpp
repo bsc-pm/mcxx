@@ -150,8 +150,11 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
         int exp;
         double mantissa = frexp(const_float, &exp);
 
-        if (mantissa == 0x1p-1 ||   // If mantissa is power of 2, the transformation is exact
-                _fast_math)          // 0x1p-1 == 1 * 2^-1
+        // We used to have 0x1p-1, which is a hexadecimal float constant. This
+        // kind of constants are not part of the C++11 standard, so we decided
+        // to change that expression by the current expression.
+        // Note that 0x1p-1 == 1 * 2^-1 == (1.0 / 2.0)
+        if (mantissa == (1.0 /2.0) || _fast_math)
         {
             // a / c --> a * 1/c
             Nodecl::Mul mul =
