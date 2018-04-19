@@ -265,7 +265,6 @@ static void delayed_instantiation_of_members_values(type_t* selected_template UN
         {
             fprintf(stderr, "INSTANTIATION: delayed instantiation of the value of the member '%s' at '%s'\n",
                     member_of_template->symbol_name,
-                    print_declarator(member_of_template->type_information),
                     locus_to_str(member_of_template->locus));
         }
 
