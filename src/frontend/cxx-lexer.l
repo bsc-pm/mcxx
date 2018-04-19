@@ -1051,9 +1051,7 @@ type {
 
     // Get the flags
     char start_of_new_file = 0;
-    char return_of_a_file = 0;
     char system_header_file = 0;
-    char extern_c_block UNUSED_PARAMETER = 1;
     while (*directive == ' '
             || isdigit(*directive))
     {
@@ -1075,7 +1073,7 @@ type {
                 }
             case 2:
                 {
-                    return_of_a_file = 1;
+                    /* return_of_a_file */
                     break;
                 }
             case 3:
@@ -1085,7 +1083,7 @@ type {
                 }
             case 4:
                 {
-                    extern_c_block = 1;
+                    /* extern_c_block */
                     break;
                 }
             default:
