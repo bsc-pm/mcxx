@@ -10931,7 +10931,8 @@ static const char* get_simple_type_name_string_internal(const decl_context_t* de
     }
     else if (is_auto_type(type_info))
     {
-        result = UNIQUESTR_LITERAL("auto");
+        result = get_cv_qualifier_string(type_info);
+        result = strappend(result, UNIQUESTR_LITERAL("auto"));
     }
     else if (is_decltype_auto_type(type_info))
     {
