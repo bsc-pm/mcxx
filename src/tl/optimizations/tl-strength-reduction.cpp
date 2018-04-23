@@ -154,7 +154,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
         // kind of constants are not part of the C++11 standard, so we decided
         // to change that expression by the current expression.
         // Note that 0x1p-1 == 1 * 2^-1 == (1.0 / 2.0)
-        if (mantissa == (1.0 /2.0) || _fast_math)
+        if (mantissa == 0.5 || _fast_math)
         {
             // a / c --> a * 1/c
             Nodecl::Mul mul =
