@@ -20496,22 +20496,16 @@ void check_nodecl_braced_initializer(
 
         if (ok)
         {
-            nodecl_t nodecl_arguments_output = nodecl_make_list_2(
-                    // Codegen should do the right thing: this call is implicit
-                    // and only the first argument for these calls is emitted
-                    nodecl_shallow_copy(braced_initializer),
-                    /* num items */
-                    const_value_to_nodecl(const_value_get_integer(
-                            braced_list_type_get_num_types(
-                                nodecl_get_type(braced_initializer)),
-                            type_get_size(get_size_t_type()),
-                            /* signed */ 0)));
+            // Despite the fact that we are calling the private std::initializer_list<T>(T*, size_t_type)
+            // constructor, the generated code should not try to call to this constructor.
+            // Instead of trying to fix this incosistency in the Codegen phase, we do it here.
+
             // Note: we cannot call cxx_nodecl_make_function_call because it
             // would attempt to convert the braced initializer into a pointer
             // (which is not allowed by the typesystem)
             *nodecl_output = nodecl_make_function_call(
                     nodecl_make_symbol(constructor, locus),
-                    nodecl_arguments_output,
+                    nodecl_make_list_1(nodecl_shallow_copy(braced_initializer)),
                     /* called name */ nodecl_null(),
                     nodecl_make_cxx_function_form_implicit(locus),
                     declared_type,
