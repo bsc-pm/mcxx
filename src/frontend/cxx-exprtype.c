@@ -19746,6 +19746,7 @@ static void check_nodecl_std_initializer_list_initializer(
         nodecl_t initializer,
         const decl_context_t* decl_context,
         type_t* declared_type,
+        char is_explicit,
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = nodecl_get_locus(initializer);
@@ -19789,7 +19790,7 @@ static void check_nodecl_std_initializer_list_initializer(
                 nodecl_make_symbol(constructor, locus),
                 nodecl_make_list_1(nodecl_shallow_copy(initializer)),
                 /* called name */ nodecl_null(),
-                nodecl_make_cxx_function_form_implicit(locus),
+                is_explicit ? nodecl_null() : nodecl_make_cxx_function_form_implicit(locus),
                 declared_type,
                 locus);
     }
@@ -20529,7 +20530,7 @@ void check_nodecl_braced_initializer(
                     get_actual_class_type(declared_type)),
                     std_initializer_list_template->type_information))
     {
-        check_nodecl_std_initializer_list_initializer(braced_initializer, decl_context, declared_type, nodecl_output);
+        check_nodecl_std_initializer_list_initializer(braced_initializer, decl_context, declared_type, 0, nodecl_output);
         return;
     }
     // Not an aggregate class
@@ -20987,7 +20988,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                     std_initializer_list_template->type_information)
                 && num_items == 1)
         {
-            check_nodecl_std_initializer_list_initializer(list[0], decl_context, declared_type, nodecl_output);
+            check_nodecl_std_initializer_list_initializer(list[0], decl_context, declared_type, is_explicit, nodecl_output);
             DELETE(list);
         }
         else
