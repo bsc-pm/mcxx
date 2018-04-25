@@ -138,9 +138,12 @@
 "                           with --help-debug-flags\n" \
 "  --cpp=<name>             Preprocessor <name> will be used for\n" \
 "                           preprocessing\n" \
-"  --cxx=<name>             Compiler <name> will be used for native\n" \
+"  --cxx=<name>             C++ Compiler <name> will be used for native\n" \
 "                           compilation\n" \
-"  --cc=<name>              Another name for --cxx=<name>\n" \
+"  --cc=<name>              C Compiler <name> will be used for native\n" \
+"                           compilation\n" \
+"  --fc=<name>              Fortran Compiler <name> will be used for native\n" \
+"                           compilation\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
 "  --fpc=<name>             Fortran prescanner <name> will be used\n" \
 "                           for fixed form prescanning\n" \
@@ -464,6 +467,7 @@ struct command_line_long_options command_line_long_options[] =
     {"output-dir",  CLP_REQUIRED_ARGUMENT, OPTION_OUTPUT_DIRECTORY},
     {"cc", CLP_REQUIRED_ARGUMENT, OPTION_NATIVE_COMPILER_NAME},
     {"cxx", CLP_REQUIRED_ARGUMENT, OPTION_NATIVE_COMPILER_NAME},
+    {"fc", CLP_REQUIRED_ARGUMENT, OPTION_NATIVE_COMPILER_NAME},
     {"cpp", CLP_REQUIRED_ARGUMENT, OPTION_PREPROCESSOR_NAME},
     {"ld", CLP_REQUIRED_ARGUMENT, OPTION_LINKER_NAME},
     {"debug-flags",  CLP_REQUIRED_ARGUMENT, OPTION_DEBUG_FLAG},
