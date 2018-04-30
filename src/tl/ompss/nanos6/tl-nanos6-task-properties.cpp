@@ -1137,10 +1137,12 @@ namespace TL { namespace Nanos6 {
 
         // It maps each captured symbol with its respective symbol in the arguments structure
 
-        // 1. Create fields for captured symbols
         Nodecl::Utils::SimpleSymbolMap captured_symbols_map;
-        for (TL::ObjectList<TL::Symbol>::iterator it = _env.captured_value.begin();
-                it != _env.captured_value.end();
+
+        // 1. Create fields for captured & private symbols
+        TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
+        for (TL::ObjectList<TL::Symbol>::iterator it = captured_and_private_symbols.begin();
+                it != captured_and_private_symbols.end();
                 it++)
         {
             TL::Type type_of_field = it->get_type().no_ref();
@@ -1287,35 +1289,6 @@ namespace TL { namespace Nanos6 {
             }
         }
 
-        // 4. Create fields for private allocatables symbols
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            for (TL::ObjectList<TL::Symbol>::iterator it = _env.private_.begin();
-                    it != _env.private_.end();
-                    it++)
-            {
-                if (!symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()))
-                    continue;
-
-
-                // When we are privatizing an allocatable array we add an
-                // allocatable component to the arguments structure. For this
-                // reason we must initialize the storage for the arguments!
-                requires_initialization = true;
-
-                TL::Symbol field = add_field_to_class(
-                    new_class_symbol,
-                    class_scope,
-                    it->get_name(),
-                    it->get_locus(),
-                    /* is_allocatble */ 1,
-                    it->get_type().no_ref().get_unqualified_type());
-
-                _field_map[*it] = field;
-            }
-        }
-
-
         nodecl_t nodecl_output = nodecl_null();
         finish_class_type(new_class_type,
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
@@ -1356,8 +1329,8 @@ namespace TL { namespace Nanos6 {
             // This nodecl represents the extra storage that the runtime has to
             // allocate contiguosly to the arguments structure to support VLAs
             Nodecl::NodeclBase extra_storage = const_value_to_nodecl(const_value_get_signed_int(0));
-            for (TL::ObjectList<TL::Symbol>::iterator it = _env.captured_value.begin();
-                    it != _env.captured_value.end();
+            for (TL::ObjectList<TL::Symbol>::iterator it = captured_and_private_symbols.begin();
+                    it != captured_and_private_symbols.end();
                     it++)
             {
                 if (it->get_type().depends_on_nonconstant_values())
@@ -1708,9 +1681,9 @@ namespace TL { namespace Nanos6 {
                 /* out */ symbols_to_param_names);
 
         _env.captured_value.map(add_params_functor);
+        _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
         _env.reduction.map(add_params_functor);
-        _env.private_.filter(&TL::Symbol::is_allocatable).map(add_params_functor);
 
         // Extra arguments: device_env and address_translation_table
         const char *device_env_name = "device_env";
@@ -1758,41 +1731,12 @@ namespace TL { namespace Nanos6 {
                 /* out */ parameters_to_update_type);
 
         _env.captured_value.map(map_symbols_functor);
+        _env.private_.map(map_symbols_functor);
         _env.shared.map(map_symbols_functor);
         _env.reduction.map(map_symbols_functor);
-        _env.private_.filter(&TL::Symbol::is_allocatable).map(map_symbols_functor);
 
         update_function_type_if_needed(
                 unpacked_function, parameters_to_update_type, symbol_map);
-
-        Nodecl::List extra_decls;
-        for (TL::ObjectList<TL::Symbol>::iterator it = _env.private_.begin();
-                it != _env.private_.end();
-                it++)
-        {
-            // Allocatable symbols are treated specially
-            if (symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()))
-                continue;
-
-            TL::Symbol priv = unpacked_inside_scope.new_symbol(it->get_name());
-            priv.get_internal_symbol()->kind = SK_VARIABLE;
-            symbol_entity_specs_set_is_user_declared(priv.get_internal_symbol(), 1);
-            priv.set_type(rewrite_type(it->get_type().no_ref(), unpacked_inside_scope, symbol_map));
-
-            symbol_map.add_map(*it, priv);
-
-            if (IS_CXX_LANGUAGE)
-            {
-                extra_decls.append(
-                        Nodecl::CxxDef::make(
-                            Nodecl::NodeclBase::null(),
-                            priv,
-                            it->get_locus()));
-            }
-        }
-
-        if (!extra_decls.is_null())
-            unpacked_empty_stmt.prepend_sibling(extra_decls);
 
         Nodecl::List nested_functions;
         if (IS_FORTRAN_LANGUAGE)
@@ -1936,9 +1880,10 @@ namespace TL { namespace Nanos6 {
         {
             Nodecl::List args;
 
-            // 1. Visiting captured symbols
-            for (TL::ObjectList<TL::Symbol>::iterator it = _env.captured_value.begin();
-                    it != _env.captured_value.end();
+            // 1. Visiting captured & private symbols
+            TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
+            for (TL::ObjectList<TL::Symbol>::iterator it = captured_and_private_symbols.begin();
+                    it != captured_and_private_symbols.end();
                     it++)
             {
                 ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
@@ -2121,9 +2066,10 @@ namespace TL { namespace Nanos6 {
             Nodecl::List deallocate_exprs;
             std::map<std::string, TL::Symbol> names_to_fields;
 
-            // 1. Visiting captured symbols
-            for (TL::ObjectList<TL::Symbol>::iterator it = _env.captured_value.begin();
-                    it != _env.captured_value.end();
+            // 1. Visiting captured & private symbols
+            TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
+            for (TL::ObjectList<TL::Symbol>::iterator it = captured_and_private_symbols.begin();
+                    it != captured_and_private_symbols.end();
                     it++)
             {
                 ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
@@ -2147,7 +2093,6 @@ namespace TL { namespace Nanos6 {
                 {
                     deallocate_exprs.append(class_member_access.shallow_copy());
                 }
-
             }
 
             // 2. Visiting shared symbols
@@ -2212,36 +2157,6 @@ namespace TL { namespace Nanos6 {
                                 local_symbol.make_nodecl(),
                                 /* member_literal */ Nodecl::NodeclBase::null(),
                                 expr_type));
-                }
-            }
-            // 4. Visiting fortran allocatable symbols
-            for (TL::ObjectList<TL::Symbol>::iterator it = _env.private_.begin();
-                    it != _env.private_.end();
-                    it++)
-            {
-                if (!it->is_allocatable())
-                    continue;
-
-                ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
-                TL::Symbol field = _field_map[*it];
-
-                names_to_fields[field.get_name()] = field;
-
-                forwarded_parameter_names.append(field.get_name());
-                forwarded_parameter_types.append(field.get_type().get_lvalue_reference_to());
-
-                Nodecl::NodeclBase class_member_access =  Nodecl::ClassMemberAccess::make(
-                        arg.make_nodecl(/* set_ref_type */ true),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        _field_map[*it].get_type().get_lvalue_reference_to());
-                args.append(class_member_access);
-
-                // Finally, if the field symbol is an allocatable, we have to deallocate it.
-                // Note that this copy was created when we captured its value.
-                if (field.is_allocatable())
-                {
-                    deallocate_exprs.append(class_member_access.shallow_copy());
                 }
             }
 
@@ -3963,6 +3878,7 @@ namespace TL { namespace Nanos6 {
         Nodecl::List captured_list;
 
         Nodecl::NodeclBase vla_offset;
+
         // 1. Traversing captured variables (firstprivate + other captures)
         for (TL::ObjectList<TL::Symbol>::iterator it = _env.captured_value.begin();
                 it != _env.captured_value.end();
@@ -4096,11 +4012,6 @@ namespace TL { namespace Nanos6 {
                         vla_offset.set_text("C");
                     }
 
-                    TL::Symbol builtin_memcpy =
-                        TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
-
-                    ERROR_CONDITION(!builtin_memcpy.is_valid()
-                            || !builtin_memcpy.is_function(), "Invalid symbol", 0);
 
                     Nodecl::NodeclBase ref_lhs =
                         Nodecl::Reference::make(lhs, lhs_type.no_ref().get_pointer_to());
@@ -4126,6 +4037,12 @@ namespace TL { namespace Nanos6 {
                                         it->get_type().no_ref().get_size()),
                                     get_size_t_type());
                     }
+
+                    TL::Symbol builtin_memcpy =
+                        TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
+
+                    ERROR_CONDITION(!builtin_memcpy.is_valid()
+                            || !builtin_memcpy.is_function(), "Invalid symbol", 0);
 
                     Nodecl::NodeclBase function_call_stmt = Nodecl::ExpressionStatement::make(
                             Nodecl::FunctionCall::make(
@@ -4192,6 +4109,146 @@ namespace TL { namespace Nanos6 {
                     conditional_capture_src.parse_statement(task_enclosing_scope);
 
                current_captured_stmts = Nodecl::List::make(if_else_stmt);
+            }
+
+            captured_list.append(current_captured_stmts);
+        }
+
+        // 2. Traversing private symbols
+        for (TL::ObjectList<TL::Symbol>::iterator it = _env.private_.begin();
+                it != _env.private_.end();
+                it++)
+        {
+            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
+
+            if (!((IS_C_LANGUAGE || IS_CXX_LANGUAGE) && it->get_type().depends_on_nonconstant_values())
+                    && !(IS_FORTRAN_LANGUAGE && it->is_allocatable()))
+                continue;
+
+            TL::Type lhs_type =
+                _field_map[*it].get_type().no_ref().get_lvalue_reference_to();
+
+            Nodecl::NodeclBase lhs =
+                Nodecl::ClassMemberAccess::make(
+                        Nodecl::Dereference::make(
+                            args.make_nodecl(/* set_ref_type */ true),
+                            args.get_type().points_to().get_lvalue_reference_to()),
+                        _field_map[*it].make_nodecl(),
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        lhs_type);
+
+            Nodecl::List current_captured_stmts;
+            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    && (it->get_type().depends_on_nonconstant_values()))
+            {
+                if (vla_offset.is_null())
+                {
+                    // Skipping the arguments structure
+                    Nodecl::NodeclBase cast = Nodecl::Conversion::make(
+                            Nodecl::Add::make(
+                                args.make_nodecl(/* ser_ref_type */ true),
+                                /* 1, */ const_value_to_nodecl(const_value_get_signed_int(1)),
+                                args.get_type().no_ref()),
+                            TL::Type::get_char_type().get_pointer_to());
+
+                    cast.set_text("C");
+                    vla_offset = cast;
+                }
+
+                // Skipping the extra space allocated for each vla
+                Nodecl::NodeclBase mask_align =
+                    const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN - 1));
+
+                // expr = (size_t)(vla_offset + mask_align)
+                Nodecl::NodeclBase cast_expr;
+                cast_expr = Nodecl::Conversion::make(
+                        Nodecl::Add::make(
+                            vla_offset,
+                            mask_align,
+                            vla_offset.get_type()),
+                        get_size_t_type());
+                cast_expr.set_text("C");
+
+                // expr = (void *)((size_t)(vla_offset + mask_align) & ~mask_align)
+                cast_expr = Nodecl::Conversion::make(
+                        Nodecl::BitwiseAnd::make(
+                            cast_expr,
+                            Nodecl::BitwiseNot::make(
+                                mask_align.shallow_copy(),
+                                mask_align.get_type()),
+                            get_size_t_type()),
+                        TL::Type::get_void_type().get_pointer_to());
+                cast_expr.set_text("C");
+
+                Nodecl::NodeclBase rhs = cast_expr;
+                Nodecl::NodeclBase assignment_stmt = Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            lhs,
+                            rhs,
+                            lhs_type));
+
+                current_captured_stmts.append(assignment_stmt);
+
+                // Compute the offset for the next vla symbol (current member + its size)
+                vla_offset = Nodecl::Conversion::make(
+                        Nodecl::Add::make(
+                            lhs.shallow_copy(),
+                            Nodecl::Sizeof::make(
+                                Nodecl::Type::make(it->get_type()),
+                                Nodecl::NodeclBase::null(),
+                                get_size_t_type()),
+                            get_size_t_type()),
+                        TL::Type::get_char_type().get_pointer_to());
+                vla_offset.set_text("C");
+            }
+            else if (IS_FORTRAN_LANGUAGE && it->is_allocatable())
+            {
+                Nodecl::NodeclBase allocate_stmt;
+                {
+                    std::stringstream shape_list;
+                    if (it->get_type().no_ref().is_array())
+                    {
+                        TL::Type array_type = it->get_type().no_ref();
+                        int dim = 1;
+                        shape_list << "(";
+                        while (array_type.is_array())
+                        {
+                            shape_list
+                                << (dim > 1 ? ", " : "")
+                                << "LBOUND(" << it->get_name() << ", " << dim << ")"
+                                << " : "
+                                << "UBOUND(" << it->get_name() << ", " << dim << ")"
+                                ;
+
+                            array_type = array_type.array_element();
+                            dim++;
+                        }
+                        shape_list << ")";
+                    }
+
+                    TL::Source allocate_src;
+                    allocate_src << "ALLOCATE(" << as_symbol(args) << " % " << it->get_name() << shape_list.str() << ")\n";
+                    allocate_stmt = allocate_src.parse_statement(task_enclosing_scope);
+                }
+
+                Nodecl::List actual_arguments = Nodecl::List::make(Nodecl::FortranActualArgument::make(it->make_nodecl(true)));
+                TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
+
+                Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
+                        allocated.make_nodecl(),
+                        actual_arguments,
+                        /* alternate_name */ Nodecl::NodeclBase::null(),
+                        /* function_form */ Nodecl::NodeclBase::null(),
+                        TL::Type::get_bool_type());
+
+                Nodecl::NodeclBase if_stmt =
+                    Nodecl::IfElseStatement::make(cond, allocate_stmt, Nodecl::NodeclBase::null());
+
+                current_captured_stmts.append(if_stmt);
+            }
+            else
+            {
+                internal_error("Unexpected code\n", 0);
             }
 
             captured_list.append(current_captured_stmts);
@@ -4384,61 +4441,6 @@ namespace TL { namespace Nanos6 {
                         lhs_type));
 
             captured_list.append(current_captured_stmt);
-        }
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-
-            for (TL::ObjectList<TL::Symbol>::iterator it = _env.private_.begin();
-                    it != _env.private_.end();
-                    it++)
-            {
-                if (!symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()))
-                        continue;
-
-                Nodecl::NodeclBase allocate_stmt;
-                {
-                    std::stringstream shape_list;
-                    if (it->get_type().no_ref().is_array())
-                    {
-                        TL::Type array_type = it->get_type().no_ref();
-                        int dim = 1;
-                        shape_list << "(";
-                        while (array_type.is_array())
-                        {
-                            shape_list
-                                << (dim > 1 ? ", " : "")
-                                << "LBOUND(" << it->get_name() << ", " << dim << ")"
-                                << " : "
-                                << "UBOUND(" << it->get_name() << ", " << dim << ")"
-                                ;
-
-                            array_type = array_type.array_element();
-                            dim++;
-                        }
-                        shape_list << ")";
-                    }
-
-                    TL::Source allocate_src;
-                    allocate_src << "ALLOCATE(" << as_symbol(args) << " % " << it->get_name() << shape_list.str() << ")\n";
-                    allocate_stmt = allocate_src.parse_statement(task_enclosing_scope);
-                }
-
-                Nodecl::List actual_arguments = Nodecl::List::make(Nodecl::FortranActualArgument::make(it->make_nodecl(true)));
-                TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
-
-                Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
-                        allocated.make_nodecl(),
-                        actual_arguments,
-                        /* alternate_name */ Nodecl::NodeclBase::null(),
-                        /* function_form */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_bool_type());
-
-                Nodecl::NodeclBase if_stmt =
-                    Nodecl::IfElseStatement::make(cond, allocate_stmt, Nodecl::NodeclBase::null());
-
-                captured_list.append(if_stmt);
-            }
         }
 
         captured_env = captured_list;
