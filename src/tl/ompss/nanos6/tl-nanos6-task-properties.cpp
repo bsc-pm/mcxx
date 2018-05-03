@@ -1599,7 +1599,8 @@ namespace TL { namespace Nanos6 {
         //      {}
         Nodecl::NodeclBase compute_taskloop_loop_control(
                 const TL::Symbol& taskloop_bounds,
-                const TL::Symbol& induction_variable)
+                TL::Symbol induction_variable,
+                bool define_induction_variable)
         {
             Nodecl::NodeclBase loop_control;
 
@@ -1625,11 +1626,20 @@ namespace TL { namespace Nanos6 {
             if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
             {
-                Nodecl::NodeclBase init =
-                    Nodecl::Assignment::make(
-                            induction_variable.make_nodecl(/* set_ref_type */ true),
-                            taskloop_lower_bound,
-                            taskloop_lower_bound.get_type());
+                Nodecl::NodeclBase init;
+                if (define_induction_variable)
+                {
+                    induction_variable.set_value(taskloop_lower_bound);
+                    init = Nodecl::ObjectInit::make(induction_variable);
+                }
+                else
+                {
+                    init =
+                        Nodecl::Assignment::make(
+                                induction_variable.make_nodecl(/* set_ref_type */ true),
+                                taskloop_lower_bound,
+                                taskloop_lower_bound.get_type());
+                }
 
                 Nodecl::NodeclBase cond =
                     Nodecl::LowerThan::make(
@@ -1798,9 +1808,10 @@ namespace TL { namespace Nanos6 {
             TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
 
             TL::Symbol ind_var = for_stmt.get_induction_variable();
+            // The taskloop bounds are passed as if they were the device environment...
             TL::Symbol taskloop_bounds = unpacked_inside_scope.get_symbol_from_name(device_env_name);
 
-            for_stmt.set_loop_header(compute_taskloop_loop_control(taskloop_bounds, ind_var));
+            for_stmt.set_loop_header(compute_taskloop_loop_control(taskloop_bounds, ind_var, for_stmt.induction_variable_in_separate_scope()));
         }
 
         // Deep copy device-specific task body
