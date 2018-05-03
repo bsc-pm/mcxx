@@ -1530,13 +1530,6 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase normalized_loop = loop_normalize.get_whole_transformation();
             ERROR_CONDITION(!normalized_loop.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
 
-            TL::ForStatement new_for_statement(normalized_loop.as<Nodecl::ForStatement>());
-            TL::Symbol induction_variable = new_for_statement.get_induction_variable();
-
-            execution_environment.append(
-                    Nodecl::OpenMP::Private::make(
-                        Nodecl::List::make(induction_variable.make_nodecl(/* set_ref_type */ true))));
-
             if (!grainsize_expr.is_null())
                 execution_environment.append(Nodecl::OpenMP::Grainsize::make(grainsize_expr));
 
@@ -1633,12 +1626,6 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase normalized_loop = loop_normalize.get_whole_transformation();
         ERROR_CONDITION(!normalized_loop.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
-
-        TL::ForStatement new_for_statement(normalized_loop.as<Nodecl::ForStatement>());
-        TL::Symbol induction_variable = new_for_statement.get_induction_variable();
-        execution_environment.append(
-                Nodecl::OpenMP::Private::make(
-                    Nodecl::List::make(induction_variable.make_nodecl(/* set_ref_type */ true))));
 
         execution_environment.append(Nodecl::OmpSs::Chunksize::make(chunksize));
 
