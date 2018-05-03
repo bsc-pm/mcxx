@@ -1418,6 +1418,8 @@ namespace TL { namespace OpenMP {
         statement = statement.as<Nodecl::List>().front();
         ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
 
+        Nodecl::Context context = statement.as<Nodecl::Context>();
+
         if (emit_omp_report())
         {
             *_omp_report_file
@@ -1494,18 +1496,18 @@ namespace TL { namespace OpenMP {
 
         handle_label_clause(directive, execution_environment);
 
-        handle_task_if_clause(directive, /* parsing_context */ statement, execution_environment);
-        handle_task_final_clause(directive, /* parsing_context */ statement, execution_environment);
-        handle_task_priority_clause(directive, /* parsing_context */ statement, execution_environment);
+        handle_task_if_clause(directive, /* parsing_context */ context, execution_environment);
+        handle_task_final_clause(directive, /* parsing_context */ context, execution_environment);
+        handle_task_priority_clause(directive, /* parsing_context */ context, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
         if (_taskloop_as_loop_of_tasks)
         {
-            taskloop_block_loop(directive, statement, execution_environment, grainsize_expr, num_tasks_expr);
+            taskloop_block_loop(directive, context, execution_environment, grainsize_expr, num_tasks_expr);
 
             Nodecl::List stmts;
-            stmts.append(statement);
+            stmts.append(context);
 
             // We transform the taskgroup into a taskwait, despite the fact they are not exaclty the same...
             if (!nogroup.is_defined())
@@ -1516,11 +1518,10 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            TL::ForStatement for_statement(
-                    statement.as<Nodecl::Context>()
-                    .get_in_context()
-                    .as<Nodecl::List>().front()
-                    .as<Nodecl::ForStatement>());
+            Nodecl::NodeclBase original_for_stmt = context.get_in_context().as<Nodecl::List>().front();
+            ERROR_CONDITION(!original_for_stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ForStatement for_statement(original_for_stmt.as<Nodecl::ForStatement>());
 
             TL::HLT::LoopNormalize loop_normalize;
             loop_normalize.set_loop(for_statement);
@@ -1530,6 +1531,8 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase normalized_loop = loop_normalize.get_whole_transformation();
             ERROR_CONDITION(!normalized_loop.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
 
+            original_for_stmt.replace(normalized_loop);
+
             if (!grainsize_expr.is_null())
                 execution_environment.append(Nodecl::OpenMP::Grainsize::make(grainsize_expr));
 
@@ -1538,9 +1541,7 @@ namespace TL { namespace OpenMP {
 
             Nodecl::NodeclBase stmt = Nodecl::OpenMP::Taskloop::make(
                     execution_environment,
-                    Nodecl::Context::make(
-                        Nodecl::List::make(normalized_loop),
-                        statement.as<Nodecl::Context>().retrieve_context()));
+                    context);
 
             if (!nogroup.is_defined())
             {
@@ -1558,6 +1559,8 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
         statement = statement.as<Nodecl::List>().front();
         ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+
+        Nodecl::Context context = statement.as<Nodecl::Context>();
 
         if (emit_omp_report())
         {
@@ -1607,17 +1610,18 @@ namespace TL { namespace OpenMP {
 
         handle_label_clause(directive, execution_environment);
 
-        handle_task_if_clause(directive, /* parsing_context */ statement, execution_environment);
-        handle_task_final_clause(directive, /* parsing_context */ statement, execution_environment);
-        handle_task_priority_clause(directive, /* parsing_context */ statement, execution_environment);
+        handle_task_if_clause(directive, /* parsing_context */ context, execution_environment);
+        handle_task_final_clause(directive, /* parsing_context */ context, execution_environment);
+        handle_task_priority_clause(directive, /* parsing_context */ context, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
-        TL::ForStatement for_statement(
-                statement.as<Nodecl::Context>()
-                .get_in_context()
-                .as<Nodecl::List>().front()
-                .as<Nodecl::ForStatement>());
+        Nodecl::NodeclBase original_for_stmt =
+            context.get_in_context().as<Nodecl::List>().front();
+
+        ERROR_CONDITION(!original_for_stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+        TL::ForStatement for_statement(original_for_stmt.as<Nodecl::ForStatement>());
 
         TL::HLT::LoopNormalize loop_normalize;
         loop_normalize.set_loop(for_statement);
@@ -1627,13 +1631,13 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase normalized_loop = loop_normalize.get_whole_transformation();
         ERROR_CONDITION(!normalized_loop.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
 
+        original_for_stmt.replace(normalized_loop);
+
         execution_environment.append(Nodecl::OmpSs::Chunksize::make(chunksize));
 
         Nodecl::NodeclBase stmt = Nodecl::OmpSs::Loop::make(
                 execution_environment,
-                Nodecl::Context::make(
-                    Nodecl::List::make(normalized_loop),
-                    statement.as<Nodecl::Context>().retrieve_context()));
+                context);
 
         directive.replace(Nodecl::List::make(stmt));
     }
