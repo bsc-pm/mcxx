@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     int c = -1;
     int v[4] = { -1, -1, -1, -1 };
 
-    int N = 1000;
+    int N = 5;
     int vla[N];
     for (i = 0; i < N; ++i)
         vla[i] = -1;
