@@ -6962,18 +6962,20 @@ static void build_scope_enum_def(AST a,
             const char *enumerator_name = strtolower(ASTText(name));
             AST expr = ASTSon1(enumerator);
 
-            scope_entry_t *existing_name = fortran_query_name_str(
-                decl_context, enumerator_name, ast_get_locus(name));
-            if (existing_name != NULL)
+            scope_entry_t *existing_name = fortran_query_name_str(decl_context, enumerator_name, ast_get_locus(name));
+            if (existing_name != NULL
+                    && existing_name->kind != SK_UNDEFINED)
             {
-                error_printf_at(ast_get_locus(name),
-                                "name '%s' has already been defined\n",
-                                ASTText(name));
+                error_printf_at(ast_get_locus(name), "name '%s' has already been defined\n", ASTText(name));
                 continue;
             }
 
-            scope_entry_t *new_enumerator = new_symbol(
-                decl_context, decl_context->current_scope, enumerator_name);
+            scope_entry_t* new_enumerator = existing_name;
+            if (existing_name == NULL)
+            {
+                new_enumerator = new_symbol(decl_context, decl_context->current_scope, enumerator_name);
+            }
+
             new_enumerator->kind = SK_ENUMERATOR;
             new_enumerator->locus = ast_get_locus(name);
             new_enumerator->type_information = enum_type;
