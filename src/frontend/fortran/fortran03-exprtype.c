@@ -4294,9 +4294,7 @@ static void check_symbol_name_as_a_variable(
         const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
-    ERROR_CONDITION(entry->kind != SK_VARIABLE, 
-            "Symbol must be a SK_VARIABLE but it is a %s", 
-            symbol_kind_name(entry));
+    ERROR_CONDITION(entry->kind != SK_VARIABLE, "Symbol must be a SK_VARIABLE but it is a %s", symbol_kind_name(entry));
 
     // It might happen that dummy arguments/result do not have any implicit
     // type here (because the input code is wrong)
@@ -4441,6 +4439,11 @@ static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context
     {
         check_symbol_name_as_a_variable(sym, entry, decl_context, nodecl_output);
     }
+    else if (entry->kind == SK_FUNCTION)
+    {
+        *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(sym));
+        nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
+    }
     else if (entry->kind == SK_UNDEFINED)
     {
         if (is_pointer_type(no_ref(entry->type_information)))
@@ -4457,7 +4460,7 @@ static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context
             // END PROGRAM P
             //
             // Note that we cannot make it a variable in the declaration
-            // because later an EXTERNAL might have turned it into a SK_FUNCTION 
+            // because later an EXTERNAL might have turned it into a SK_FUNCTION
             // (this is the case of 'Y' shown above)
             entry->kind = SK_VARIABLE;
 
@@ -4468,11 +4471,6 @@ static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context
             *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(sym));
             nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
         }
-    }
-    else if (entry->kind == SK_FUNCTION)
-    {
-        *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(sym));
-        nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
     }
     else
     {
