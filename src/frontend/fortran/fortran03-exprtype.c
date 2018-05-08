@@ -4425,10 +4425,11 @@ static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context
             }
         }
     }
-    
-    if (entry == NULL || 
+
+    if (entry == NULL ||
            (entry->kind != SK_VARIABLE &&
-            entry->kind != SK_FUNCTION && 
+            entry->kind != SK_FUNCTION &&
+            entry->kind != SK_ENUMERATOR &&
             entry->kind != SK_UNDEFINED))
     {
         error_printf_at(ast_get_locus(sym), "'%s' cannot be an argument\n", entry->symbol_name);
@@ -4438,6 +4439,19 @@ static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context
     if (entry->kind == SK_VARIABLE)
     {
         check_symbol_name_as_a_variable(sym, entry, decl_context, nodecl_output);
+    }
+    else if (entry->kind == SK_ENUMERATOR)
+    {
+        if (nodecl_is_null(entry->value)
+                || !nodecl_is_constant(entry->value))
+        {
+            error_printf_at(ast_get_locus(sym), "'%s' is not a valid enumerator\n", entry->symbol_name);
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(sym));
+            return;
+        }
+
+        // Use the constant value instead
+        *nodecl_output = fortran_const_value_to_nodecl(nodecl_get_constant(entry->value));
     }
     else if (entry->kind == SK_FUNCTION)
     {
