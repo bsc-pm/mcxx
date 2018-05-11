@@ -6946,6 +6946,8 @@ static void build_scope_enum_def(AST a,
     {
         scope_entry_t *module = decl_context->current_scope->related_entry;
         symbol_entity_specs_add_related_symbols(module, new_enum);
+
+        symbol_entity_specs_set_in_module(new_enum, module);
     }
 
     AST it;
@@ -7019,6 +7021,8 @@ static void build_scope_enum_def(AST a,
             {
                 scope_entry_t* module = decl_context->current_scope->related_entry;
                 symbol_entity_specs_add_related_symbols(module, new_enumerator);
+
+                symbol_entity_specs_set_in_module(new_enumerator, module);
             }
         }
     }
