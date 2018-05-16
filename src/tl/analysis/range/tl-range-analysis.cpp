@@ -2258,7 +2258,7 @@ ssa_sym_found:
                      itt != constraints.end(); ++itt)
                 {
                     Symbol s(itt->second.get_symbol());
-                    std::map<Symbol, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator ssa_to_var_it;
+                    std::map<Symbol, NBase>::iterator ssa_to_var_it;
                     ssa_to_var_it = ssa_to_original_var.find(s);
                     ERROR_CONDITION (ssa_to_var_it == ssa_to_original_var.end(), 
                                      "SSA symbol '%s' is not related to any variable of the original code\n", 
