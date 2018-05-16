@@ -376,9 +376,9 @@ namespace Analysis {
     }
     static bool node_is_omp_graph_with_clause(GraphType type)
     {
-        return (type == __OmpAtomic || __OmpCritical
-                 || type == __OmpLoop || type == __OmpParallel  || type == __OmpSections
-                 || type == __OmpSingle || type == __OmpTask);
+        return (type == __OmpAtomic   || type == __OmpCritical ||
+                type == __OmpLoop     || type == __OmpParallel ||
+                type == __OmpSections || type == __OmpSingle   || type == __OmpTask);
     }
 
     PCFGPragmaInfo Node::get_pragma_node_info()
