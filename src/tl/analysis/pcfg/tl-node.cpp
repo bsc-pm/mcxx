@@ -374,45 +374,21 @@ namespace Analysis {
             internal_error("Unexpected node type '%s' while setting graph type to node '%d'. GRAPH expected.",
                             get_type_as_string().c_str(), _id);
     }
-    static bool node_is_omp_graph_with_clause(GraphType type)
-    {
-        return (type == __OmpAtomic   || type == __OmpCritical ||
-                type == __OmpLoop     || type == __OmpParallel ||
-                type == __OmpSections || type == __OmpSingle   || type == __OmpTask);
-    }
 
     PCFGPragmaInfo Node::get_pragma_node_info()
     {
-        if ((is_graph_node() && node_is_omp_graph_with_clause(get_graph_type()))
-            || _type == __OmpFlush)
-        {
-            if (has_key(_OMP_INFO))
-                return get_data<PCFGPragmaInfo>(_OMP_INFO);
-            else
-            {
-                PCFGPragmaInfo p;
-                return p;
-            }
-        }
+        if (has_key(_OMP_INFO))
+            return get_data<PCFGPragmaInfo>(_OMP_INFO);
         else
         {
-            internal_error("Unexpected node type '%s' while getting the OmpSs. OMP node expected.",
-                            get_type_as_string().c_str());
+            PCFGPragmaInfo p;
+            return p;
         }
     }
 
     void Node::set_pragma_node_info(const PCFGPragmaInfo& pragma)
     {
-        if ((is_graph_node() && node_is_omp_graph_with_clause(get_graph_type()))
-            || _type == __OmpFlush)
-        {
-            set_data<PCFGPragmaInfo>(_OMP_INFO, pragma);
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while setting the OmpSs node info. OMP node expected",
-                            get_type_as_string().c_str());
-        }
+        set_data<PCFGPragmaInfo>(_OMP_INFO, pragma);
     }
 
     bool Node::has_statements()
