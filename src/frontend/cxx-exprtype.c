@@ -20123,6 +20123,12 @@ void check_nodecl_braced_initializer(
                 }
                 else if (is_class_type(current_type))
                 {
+                    if (!designator_is_ok)
+                    {
+                        *nodecl_output = nodecl_make_err_expr(locus);
+                        return;
+                    }
+
                     int item = type_stack[type_stack_idx].item;
                     scope_entry_t* member = type_stack[type_stack_idx].fields[item];
                     if (symbol_entity_specs_get_is_unnamed_bitfield(member))
