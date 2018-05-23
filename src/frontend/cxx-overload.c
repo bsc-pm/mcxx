@@ -1082,7 +1082,7 @@ static char solve_initialization_of_direct_reference_type_ics(
     // are selected as follows:
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Solving initializaion of reference type '%s' using a value of type '%s' "
+        fprintf(stderr, "OVERLOAD: Solving initialization of reference type '%s' using a value of type '%s' "
                 "by direct reference\n",
                 print_declarator(dest),
                 print_declarator(orig));
@@ -1209,7 +1209,7 @@ static char solve_initialization_of_direct_reference_type_ics(
     {
         if (overload_resolution != NULL)
         {
-            fprintf(stderr, "OVERLOAD: Solving initializaion of reference type '%s' using a value of type '%s' "
+            fprintf(stderr, "OVERLOAD: Solving initialization of reference type '%s' using a value of type '%s' "
                     "by direct reference binding succeeded using conversion '%s' at %s\n",
                     print_declarator(dest),
                     print_declarator(orig),
@@ -1218,7 +1218,7 @@ static char solve_initialization_of_direct_reference_type_ics(
         }
         else
         {
-            fprintf(stderr, "OVERLOAD: Solving initializaion of reference type '%s' using a value of type '%s' "
+            fprintf(stderr, "OVERLOAD: Solving initialization of reference type '%s' using a value of type '%s' "
                     "by direct reference binding failed\n",
                     print_declarator(dest),
                     print_declarator(orig));
