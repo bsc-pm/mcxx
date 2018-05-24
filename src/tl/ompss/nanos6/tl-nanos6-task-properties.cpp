@@ -3861,6 +3861,7 @@ namespace TL { namespace Nanos6 {
                     priority_expr,
                     nanos6_priority_type,
                     priority_expr.get_locus());
+            priority_expr.set_text("C");
         }
 
         Nodecl::NodeclBase return_stmt = Nodecl::ReturnStatement::make(
