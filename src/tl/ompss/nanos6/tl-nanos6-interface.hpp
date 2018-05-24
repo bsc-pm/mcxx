@@ -58,10 +58,23 @@ class Interface
         static bool family_is_at_least(const std::string& family, unsigned int expected_version);
 
         /**
+         * this function returns whether the real version of the 'family' family is the 'expected_version'.
+         * Note that it returns false if the family is not present.
+         */
+        static bool family_is(const std::string& family, unsigned int expected_version);
+
+        /**
          * this function emits a fatal error if the 'family' family is not at least the 'expected_version'.
          * The 'feature' string is the feature that requires at least that version of the runtime.
          */
         static void family_must_be_at_least(
+                const std::string& family, unsigned int expected_version, const std::string& feature);
+
+        /**
+         * this function emits a fatal error if the 'family' family is not  the 'expected_version'.
+         * The 'feature' string is the feature that requires that version of the runtime.
+         */
+        static void family_must_be(
                 const std::string& family, unsigned int expected_version, const std::string& feature);
 
         /**

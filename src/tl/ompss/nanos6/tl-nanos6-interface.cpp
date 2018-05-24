@@ -39,11 +39,11 @@ namespace TL { namespace Nanos6 {
     // Since _map is a static data member we have to define it here
     std::map<const std::string, const int> Interface::_map;
 
-    bool Interface::family_is_at_least(const std::string &family, unsigned int expected_version)
+    int get_version_for_family(const std::string &family, std::map<const std::string, const int> &map)
     {
         int real_version;
-        std::map<const std::string, const int>::iterator it = _map.find(family);
-        if (it != _map.end())
+        std::map<const std::string, const int>::iterator it = map.find(family);
+        if (it != map.end())
         {
             real_version = it->second;
         }
@@ -65,10 +65,20 @@ namespace TL { namespace Nanos6 {
                 real_version = -1;
             }
 
-            _map.insert(std::make_pair(family, real_version));
+            map.insert(std::make_pair(family, real_version));
         }
+        return real_version;
+    }
 
-        return ((int)expected_version) <= real_version;
+    bool Interface::family_is_at_least(const std::string &family, unsigned int expected_version)
+    {
+
+        return ((int)expected_version) <= get_version_for_family(family, _map);
+    }
+
+    bool Interface::family_is(const std::string &family, unsigned int expected_version)
+    {
+        return ((int)expected_version) == get_version_for_family(family, _map);
     }
 
     void Interface::family_must_be_at_least(
@@ -81,13 +91,25 @@ namespace TL { namespace Nanos6 {
         }
     }
 
+    void Interface::family_must_be(
+            const std::string &family, unsigned int expected_version, const std::string& feature)
+    {
+        if (!family_is(family, expected_version))
+        {
+            fatal_error("Error: the version of the '%s' Nanos6 interface should be %d to support '%s'",
+                    family.c_str(), expected_version, feature.c_str());
+        }
+    }
+
     void Interface::check_nanos6_deprecated_headers()
     {
         std::string any_feature = "any Nanos6 feature";
         family_must_be_at_least("nanos6_final_api", 1, any_feature);
         family_must_be_at_least("nanos6_multidimensional_dependencies_api", 2, any_feature);
         family_must_be_at_least("nanos6_task_info_registration_api", 1, any_feature);
-        family_must_be_at_least("nanos6_task_info_contents", 4, any_feature);
+
+        family_must_be("nanos6_task_info_contents", 5, any_feature);
+
         family_must_be_at_least("nanos6_instantiation_api", 3, any_feature);
         family_must_be_at_least("nanos6_taskwait_api", 1, any_feature);
         family_must_be_at_least("nanos6_locking_api", 1, any_feature);
