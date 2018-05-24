@@ -807,12 +807,6 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase init_get_priority;
         if (_priority_function.is_valid())
         {
-            TL::Type priority_fun_type =
-                TL::Type::get_size_t_type().get_function_returning(
-                        TL::ObjectList<TL::Type>(
-                            1, TL::Type::get_void_type().get_pointer_to()))
-                .get_pointer_to();
-
             if (IS_FORTRAN_LANGUAGE)
             {
                 init_get_priority = _priority_function_mangled.make_nodecl(/* set_ref_type */ true);
@@ -824,7 +818,7 @@ namespace TL { namespace Nanos6 {
 
             init_get_priority = Nodecl::Conversion::make(
                     init_get_priority,
-                    priority_fun_type);
+                    field_get_priority.get_type().no_ref());
             init_get_priority.set_text("C");
         }
         else
@@ -3828,10 +3822,11 @@ namespace TL { namespace Nanos6 {
 
         std::string priority_name = get_new_name("nanos6_priority");
 
+        TL::Type nanos6_priority_type = get_nanos6_class_symbol("nanos6_priority_t").get_user_defined_type();
         _priority_function = SymbolUtils::new_function_symbol(
                 _related_function,
                 priority_name,
-                TL::Type::get_size_t_type(),
+                nanos6_priority_type,
                 parameter_names,
                 parameter_types);
 
@@ -3860,12 +3855,11 @@ namespace TL { namespace Nanos6 {
                 _env.priority_clause,
                 /* local_symbols */ TL::ObjectList<TL::Symbol>());
 
-        if (!priority_expr.get_type()
-                .is_same_type(TL::Type::get_size_t_type()))
+        if (!priority_expr.get_type().is_same_type(nanos6_priority_type))
         {
             priority_expr = Nodecl::Conversion::make(
                     priority_expr,
-                    TL::Type::get_size_t_type(),
+                    nanos6_priority_type,
                     priority_expr.get_locus());
         }
 
