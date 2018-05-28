@@ -6370,6 +6370,10 @@ void check_nodecl_member_initializer_list(
                 entry = named_type_get_symbol(t);
         }
 
+        if (entry->kind == SK_USING)
+            entry = entry_advance_aliases(entry);
+
+
         if (entry->kind == SK_CLASS
                 && entry == class_sym)
         {
