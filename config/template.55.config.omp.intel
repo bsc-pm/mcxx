@@ -1,6 +1,7 @@
 #Intel Compilers
 [imcc : omp-base]
 language = C
+options = --native-vendor=intel
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
@@ -25,6 +26,7 @@ options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-built
 
 [imcxx : omp-base]
 language = C++
+options = --native-vendor=intel
 {openmp|ompss-2} preprocessor_options = -include new
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
@@ -47,6 +49,7 @@ options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-built
 
 [imfc : omp-base]
 language = Fortran
+options = --native-vendor=intel
 options = --ifort-compat --do-not-wrap-modules --fortran-array-descriptor=ifort --enable-intel-builtins-syntax --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types --fortran-name-mangling=ifort
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 options = -I @PKGDATADIR@/fortran/openmp

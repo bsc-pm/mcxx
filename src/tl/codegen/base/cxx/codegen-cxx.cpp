@@ -2838,7 +2838,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        if (CURRENT_CONFIGURATION->xl_compatibility)
+        if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
         {
             // IBM XL is very picky regarding attribute location
             *(file) << gcc_extension << decl_spec_seq << declarator
@@ -6676,7 +6676,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
     if (symbol.has_gcc_attributes())
     {
-        if (CURRENT_CONFIGURATION->xl_compatibility)
+        if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
         {
             gcc_attributes = " " + gcc_attributes_to_str(symbol);
         }
@@ -6720,7 +6720,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         }
     }
 
-    if (CURRENT_CONFIGURATION->xl_compatibility)
+    if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
     {
         // IBM XL C/C++ only understands attributes before the initializer...
         *(file) << gcc_extension << decl_specifiers << std_attributes << declarator << gcc_attributes << virt_specifiers << bit_field;
@@ -7494,7 +7494,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         indent();
-        if (CURRENT_CONFIGURATION->xl_compatibility)
+        if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
         {
             // IBM XL requires asm_specification after the attributes, just the opposite
             // as GCC

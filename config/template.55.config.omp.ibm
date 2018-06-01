@@ -1,6 +1,7 @@
 # IBM XL
 [xlmcc : omp-base-ibm]
 language = C
+options = --native-vendor=ibm
 options = -qlanglvl=extc99
 options = --vector-flavor=altivec
 options = --xl-compat
@@ -17,6 +18,7 @@ linker_name = @XLC@
 
 [xlmcxx : omp-base-ibm]
 language = C++
+options = --native-vendor=ibm
 {openmp|ompss-2} preprocessor_options = -qinclude=new
 options = --vector-flavor=altivec
 options = --xl-compat
@@ -32,6 +34,7 @@ linker_name = @XLCXX@
 # IBM XL
 [xlmfc : omp-base]
 language = Fortran
+options = --native-vendor=ibm
 options = -I @PKGDATADIR@/fortran/openmp --fortran-array-descriptor=xlf
 # XL Fortran does not allow using LOC for functions
 # instead generate C-wrappers for this

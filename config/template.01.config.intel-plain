@@ -5,6 +5,7 @@ preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
 preprocessor_options = -E
+options = --native-vendor=intel
 options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 
@@ -14,11 +15,14 @@ preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
 preprocessor_options = -E
-options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
+options = --native-vendor=intel
+options = -vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
+
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 
 [plainifort]
 language = Fortran
+options = --native-vendor=intel
 options = --ifort-compat --do-not-wrap-modules --fortran-array-descriptor=ifort
 fortran_preprocessor_name = @IFORT@
 fortran_preprocessor_options = -P

@@ -27,6 +27,7 @@ linker_name = @G++@
 
 [iomp-imcc : intel-omp-base]
 language = C
+options = --native-vendor=intel
 options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics
 preprocessor_name = @ICC@
@@ -43,6 +44,7 @@ linker_name = @ICC@
 
 [iomp-imcxx : intel-omp-base]
 language = C++
+options = --native-vendor=intel
 {openmp} preprocessor_options = -include new
 options = --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types
 {!disable-intel-intrinsics} options = --enable-intel-intrinsics

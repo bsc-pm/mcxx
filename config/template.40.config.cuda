@@ -4,7 +4,7 @@
 # command line and It's also used in the cuda device to compile the generated CUDA file
 [cuda]
 language = C++
-options =
+options = --native-vendor=nvidia
 
 preprocessor_name =
 preprocessor_options =

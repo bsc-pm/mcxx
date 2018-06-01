@@ -2719,7 +2719,7 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values", NO_EXPAND
     } \
     const char* alias_str = UNIQUESTR_LITERAL(generic_name "_" #bytes); \
     insert_alias(global_context->current_scope, specific, alias_str); \
-    if (!CURRENT_CONFIGURATION->xl_compatibility) \
+    if (CURRENT_CONFIGURATION->native_vendor != NATIVE_VENDOR_IBM) \
     { /* We use the specific name always, except under XL compatibility */ \
         specific->symbol_name = alias_str; \
     } \

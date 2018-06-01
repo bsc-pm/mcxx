@@ -1,5 +1,6 @@
 # OpenMP + Intel OpenMP RTL
 [intel-omp-base]
+options = --native-vendor=intel
 {openmp} options = --openmp
 {openmp,omp-dry-run} options = --variable=omp_dry_run:1
 

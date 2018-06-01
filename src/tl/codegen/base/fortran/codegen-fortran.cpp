@@ -3811,7 +3811,7 @@ OPERATOR_TABLE
                             || entry.get_type().points_to().is_pointer()) */)
                     {
                         declared_type = TL::Type(get_size_t_type());
-                        if (!CURRENT_CONFIGURATION->ifort_compatibility
+                        if (CURRENT_CONFIGURATION->native_vendor != NATIVE_VENDOR_INTEL
                                 || entry.is_optional())
                         {
                             attribute_list += ", VALUE";
@@ -3835,7 +3835,7 @@ OPERATOR_TABLE
                 // }
                 else
                 {
-                    if (!CURRENT_CONFIGURATION->ifort_compatibility
+                    if (CURRENT_CONFIGURATION->native_vendor != NATIVE_VENDOR_INTEL
                             || entry.is_optional())
                     {
                         attribute_list += ", VALUE";
@@ -3979,7 +3979,7 @@ OPERATOR_TABLE
             }
 
            if (has_value_attribute
-                   && CURRENT_CONFIGURATION->ifort_compatibility
+                   && CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_INTEL
                    && !entry.is_optional())
            {
                *(file)

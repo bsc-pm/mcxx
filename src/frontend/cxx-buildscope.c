@@ -2642,7 +2642,7 @@ static void build_scope_simple_declaration(AST a, const decl_context_t* decl_con
                                 ast_get_locus(init_declarator))));
             }
 
-            if (CURRENT_CONFIGURATION->xl_compatibility)
+            if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
             {
                 if (current_gather_info.num_xl_pragmas > 0)
                 {
@@ -4297,7 +4297,7 @@ static void gather_extra_attributes(AST a,
                 }
             case AST_UNKNOWN_PRAGMA:
                 {
-                    if (CURRENT_CONFIGURATION->xl_compatibility)
+                    if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
                     {
                         P_LIST_ADD(gather_info->xl_pragmas, gather_info->num_xl_pragmas, ast_get_text(item));
                     }

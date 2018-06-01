@@ -4,7 +4,7 @@
 language = C
 
 # At some point I will remove this stuff...
-{mmic} options =
+{mmic} options = --native-vendor=intel
 {mmic} preprocessor_name = @ICC@
 {mmic} preprocessor_options = -E
 {mmic} compiler_name = @ICC@

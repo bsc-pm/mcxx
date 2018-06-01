@@ -148,6 +148,9 @@
 "  --fpc=<name>             Fortran prescanner <name> will be used\n" \
 "                           for fixed form prescanning\n" \
 "                           This flag is only meaningful for Fortran\n" \
+" --native-vendor=VENDOR    This flag is used to specify the vendor of the native compiler\n" \
+"                           Where VENDOR is:\n" \
+"                              " NATIVE_VENDORS_LIST "\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
 "                           Flags is a sequence of\n"\
@@ -376,6 +379,7 @@ typedef enum
     OPTION_UNDEFINED = 1024,
     // Keep the following options sorted (but leave OPTION_UNDEFINED as is)
     OPTION_ALWAYS_PREPROCESS,
+    OPTION_NATIVE_VENDOR,
     OPTION_CONFIG_DIR,
     OPTION_CUDA,
     OPTION_DEBUG_FLAG,
@@ -409,7 +413,6 @@ typedef enum
     OPTION_FORTRAN_REAL_KIND,
     OPTION_HELP_DEBUG_FLAGS,
     OPTION_HELP_TARGET_OPTIONS,
-    OPTION_IFORT_COMPATIBILITY,
     OPTION_INSTANTIATE_TEMPLATES,
     OPTION_ISO_C_FLOATN,
     OPTION_LINE_MARKERS,
@@ -440,7 +443,6 @@ typedef enum
     OPTION_VERBOSE,
     OPTION_VERSION,
     OPTION_XCOMPILER,
-    OPTION_XL_COMPATIBILITY,
 } COMMAND_LINE_OPTIONS;
 
 
@@ -525,12 +527,11 @@ struct command_line_long_options command_line_long_options[] =
     {"enable-intel-intrinsics", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_INTRINSICS },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
-    {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
-    {"ifort-compat", CLP_NO_ARGUMENT, OPTION_IFORT_COMPATIBILITY },
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
     {"Xcompiler", CLP_REQUIRED_ARGUMENT, OPTION_XCOMPILER },
     {"iso-c-FloatN", CLP_NO_ARGUMENT, OPTION_ISO_C_FLOATN },
+    {"native-vendor", CLP_REQUIRED_ARGUMENT, OPTION_NATIVE_VENDOR },
     // sentinel
     {NULL, 0, 0}
 };
@@ -820,7 +821,10 @@ static void ensure_codegen_is_loaded(void)
 static void help_message(void)
 {
     fprintf(stdout, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
+
+#define NATIVE_VENDOR(NAME, FLAG) #FLAG ", "
     fprintf(stdout, "%s", HELP_STRING);
+#undef NATIVE_VENDOR
 
     // We need to load the phases to show their help
     load_compiler_phases(CURRENT_CONFIGURATION);
@@ -874,6 +878,16 @@ static void handle_special_long_options(const char *flag_name, char from_command
     {
         internal_error("'%s' implicit flag was not properly registered", flag_name);
     }
+}
+
+static native_vendor_t compute_native_vendor(const char *vendor_name)
+{
+#define NATIVE_VENDOR(NAME, FLAG) \
+    if (strcmp(vendor_name, #FLAG) == 0) return NATIVE_VENDOR_##NAME;
+NATIVE_VENDORS_LIST
+#undef NATIVE_VENDOR
+    internal_error("'%s' unrecognized native vendor\n", vendor_name);
+    return NATIVE_VENDOR_UNKNOWN;
 }
 
 
@@ -1285,6 +1299,11 @@ int parse_arguments(int argc, const char* argv[],
                         show_help_message = 1;
                         return 1;
                     }
+                case OPTION_NATIVE_VENDOR :
+                    {
+                        CURRENT_CONFIGURATION->native_vendor = compute_native_vendor(parameter_info.argument);
+                        break;
+                    }
                 case OPTION_PREPROCESSOR_NAME :
                     {
                         CURRENT_CONFIGURATION->preprocessor_name = uniquestr(parameter_info.argument);
@@ -1648,16 +1667,6 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->disable_locking = 1;
                         break;
                     }
-                case OPTION_XL_COMPATIBILITY:
-                    {
-                        CURRENT_CONFIGURATION->xl_compatibility = 1;
-                        break;
-                    }
-                case OPTION_IFORT_COMPATIBILITY:
-                    {
-                        CURRENT_CONFIGURATION->ifort_compatibility = 1;
-                        break;
-                    }
                 case OPTION_LINE_MARKERS:
                     {
                         CURRENT_CONFIGURATION->line_markers = 1;
@@ -1946,14 +1955,14 @@ static char strprefix(const char* str, const char *prefix)
 // This variable stores the '-std' flag if it was specified in the command line
 static const char* std_version_flag = NULL;
 
-// Default language versions of Mercurium
-static const char* default_mercurium_std_version[] =
-{
-    [SOURCE_LANGUAGE_C]       = "-std=gnu99",
-    // We used to define the default c++ version of Mercurium to c++03, but
-    // Intel C++ Compiler didn't recognize that version...
-    [SOURCE_LANGUAGE_CXX]     = "-std=gnu++98",
-    [SOURCE_LANGUAGE_FORTRAN] = "-std=gnu",
+static const char* map_std_flags[][3] = {
+//      VENDOR                      C               CXX        FORTRAN
+    [NATIVE_VENDOR_GNU]    = { "-std=gnu99", "-std=gnu++03", "-std=gnu" },
+    // gnu++03 doesn't exit in Intel C++ Compilers
+    [NATIVE_VENDOR_INTEL]  = { "-std=gnu99", "-std=gnu++98", "-nostand" },
+    [NATIVE_VENDOR_IBM]    = { "-std=gnu99", "-std=gnu++03", "-qlanglvl=extended" },
+    // NVCC should be used to compile CUDA files, which are considered to be written in a different lang
+    [NATIVE_VENDOR_NVIDIA] = { "", "", "" },
 };
 
 static int parse_special_parameters(int *should_advance, int parameter_index,
@@ -2739,6 +2748,10 @@ static void initialize_default_values(void)
     //num args linker command  = 0
     CURRENT_CONFIGURATION->num_args_linker_command = 0;
     CURRENT_CONFIGURATION->linker_command = NULL;
+
+    // Specifying the backend vendor is mandatory. Thus, we do not need to
+    // assume anything at this point
+    CURRENT_CONFIGURATION->native_vendor = NATIVE_VENDOR_UNKNOWN;
 }
 
 static void print_version(void)
@@ -2914,15 +2927,17 @@ static void add_std_flag_to_configurations()
         }
         else
         {
-            if (configuration->source_language == SOURCE_LANGUAGE_C
-                    || configuration->source_language == SOURCE_LANGUAGE_CXX)
+            if (configuration->source_language == SOURCE_LANGUAGE_C)
             {
-                local_std_flag = default_mercurium_std_version[configuration->source_language];
+                local_std_flag = map_std_flags[configuration->native_vendor][0];
+            }
+            else if (configuration->source_language == SOURCE_LANGUAGE_CXX)
+            {
+                local_std_flag = map_std_flags[configuration->native_vendor][1];
             }
             else if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
             {
-                // '-std=XYZ' flag doesn't exist in IFORT :_( If not specifying the standard version is a
-                // problem at some point, probably we should fix it modyfing our profiles.
+                local_std_flag = map_std_flags[configuration->native_vendor][2];
             }
             else
             {
@@ -2932,7 +2947,11 @@ static void add_std_flag_to_configurations()
 
         if (local_std_flag != NULL)
         {
-            add_to_parameter_list_str(&configuration->preprocessor_options, local_std_flag);
+            const char*** ref_preprocessor_options =
+                (configuration->source_language == SOURCE_LANGUAGE_FORTRAN) ?
+                &configuration->fortran_preprocessor_options : &configuration->preprocessor_options;
+
+            add_to_parameter_list_str(ref_preprocessor_options, local_std_flag);
             add_to_parameter_list_str(&configuration->native_compiler_options, local_std_flag);
             add_to_linker_command_configuration(local_std_flag, NULL, configuration);
         }
@@ -2986,6 +3005,15 @@ static void commit_configuration(void)
                     strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
             P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
                     strappend(compilation_process.home_directory, FORTRAN_BASEDIR));
+        }
+
+        // If the current configuration defines a native compiler it must also define its vendor
+        if (configuration->native_compiler_name != NULL
+                && configuration->native_vendor == NATIVE_VENDOR_UNKNOWN)
+        {
+            fprintf(stderr, "Error: configuration '%s' does not specify the mandatory '--native-vendor=XXX' flag\n",
+                    configuration->configuration_name);
+            exit(EXIT_FAILURE);
         }
 
         finalize_committed_configuration(configuration);

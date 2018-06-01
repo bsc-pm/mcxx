@@ -1,5 +1,6 @@
 # OpenMP + Nanos
 [omp-base-common]
+options = --native-vendor=gnu
 {openmp|ompss} options = --openmp
 {debug} options = -g
 preprocessor_name = @GCC@

@@ -1,5 +1,6 @@
 # Profile mode
 [omp-prof-common]
+otions = --native-vendor=gnu
 options = --openmp
 {openmp} preprocessor_options = -D_OPENMP=200805
 {ompss} preprocessor_options = -D_OMPSS=1

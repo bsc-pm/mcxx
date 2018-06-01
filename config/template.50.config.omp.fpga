@@ -1,14 +1,14 @@
 # fpgacc (FPGA-Zynq)
 [fpgacc: omp-base]
 language = C
-options =
+options = --native-vendor=gnu
 preprocessor_options =-include nanos-fpga.h
 linker_options = -lnanox-fpga-api
 compiler_phase = libtlnanox-fpga.so
 
 [fpgacxx: omp-base]
 language = C++
-options =
+options = --native-vendor=gnu
 preprocessor_options =-include nanos-fpga.h
 linker_options = -lnanox-fpga-api
 compiler_phase = libtlnanox-fpga.so
@@ -19,7 +19,7 @@ linker_name = @G++@
 # FPGA profile
 [fpga]
 language = C++
-options =
+options = --native-vendor=gnu
 # cross compile for arm: ato some point, this is going to call a hardware build script
 preprocessor_name = @G++@
 preprocessor_options = -E

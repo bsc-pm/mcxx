@@ -77,6 +77,24 @@ typedef enum source_language_tag
     SOURCE_SUBLANGUAGE_OPENCL   = (SOURCE_IS_SUBLANGUAGE | 2),
 } source_language_t;
 
+// List of valid vendors
+// NATIVE_VENDOR(NAME, FLAG) is a template, where:
+//      * NAME is concatenated to NATIVE_VENDOR_ to generate a new enumerator for each vendor
+//      * FLAG represents the value of the '--native-vendor' flag for each vendor
+#define NATIVE_VENDORS_LIST \
+    NATIVE_VENDOR(GNU, gnu) \
+    NATIVE_VENDOR(INTEL, intel) \
+    NATIVE_VENDOR(IBM, ibm) \
+    NATIVE_VENDOR(NVIDIA, nvidia)
+
+typedef enum native_vendor_tag
+{
+    NATIVE_VENDOR_UNKNOWN = 0,
+#define NATIVE_VENDOR(NAME, STR) NATIVE_VENDOR_##NAME,
+    NATIVE_VENDORS_LIST
+#undef NATIVE_VENDOR
+} native_vendor_t;
+
 typedef struct sublanguage_profile_tag
 {
     source_language_t sublanguage;
@@ -584,11 +602,8 @@ typedef struct compilation_configuration_tag
     // same file
     char fortran_no_whole_file;
 
-    // Enable IBM XL compatibility
-    char xl_compatibility;
-
-    // Enable IFORT compatibility
-    char ifort_compatibility;
+    // Specifies the vendor of the backend compiler
+    native_vendor_t native_vendor;
 
     // Emit line markers in the output files
     char line_markers;

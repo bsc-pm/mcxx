@@ -1,7 +1,7 @@
 # Plain profiles
 [plaincc]
 language = C
-options =
+options = --native-vendor=gnu
 preprocessor_name = @GCC@
 preprocessor_options = -E
 compiler_name = @GCC@
@@ -11,7 +11,7 @@ linker_options =
 
 [plaincxx]
 language = C++
-options =
+options = --native-vendor=gnu
 preprocessor_name = @G++@
 preprocessor_options = -E
 compiler_name = @G++@
@@ -21,7 +21,7 @@ linker_options =
 
 [plainfc]
 language = Fortran
-options =
+options = --native-vendor=gnu
 fortran_preprocessor_name = @GFORTRAN@
 fortran_preprocessor_options = -cpp -E
 compiler_name = @GFORTRAN@
