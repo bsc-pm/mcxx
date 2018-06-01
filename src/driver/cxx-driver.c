@@ -637,11 +637,11 @@ int main(int argc, char* argv[])
     // the implicit parameters defined in configuration files and we switch to
     // the main profile of the compiler. Profiles are not yet fully populated.
     load_configuration();
-    
+
     // Parse arguments just to get the implicit parameters passed in the
     // command line. We need those to properly populate profiles.
     parse_arguments(compilation_process.argc,
-            compilation_process.argv, 
+            compilation_process.argv,
             /* from_command_line= */ 1,
             /* parse_implicits_only */ 1);
 
@@ -654,7 +654,7 @@ int main(int argc, char* argv[])
     // update the chosen profile
     char parse_arguments_error;
     parse_arguments_error = parse_arguments(compilation_process.argc,
-            compilation_process.argv, 
+            compilation_process.argv,
             /* from_command_line= */ 1,
             /* parse_implicits_only */ 0);
 
@@ -2731,19 +2731,6 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->input_column_width = 72;
     CURRENT_CONFIGURATION->output_column_width = 132;
-
-    // Add openmp as an implicitly enabled
-    // SMATEO: is this suff needed anymore??
-    //
-    // printf("adding OpenMP as an implicitly enabled flag\n");
-    // parameter_flags_t *new_parameter_flag = NEW0(parameter_flags_t);
-
-    // new_parameter_flag->name = uniquestr("openmp");
-    // new_parameter_flag->value = PFV_UNDEFINED;
-
-    // P_LIST_ADD(compilation_process.parameter_flags,
-    //         compilation_process.num_parameter_flags,
-    //         new_parameter_flag);
 
     //num args linker command  = 0
     CURRENT_CONFIGURATION->num_args_linker_command = 0;
