@@ -13,7 +13,7 @@ nontype_specifier_without_attribute : XL_BUILTIN_SPEC
 /*!if C99*/
 gcc_extra_bits_init_declarator : unknown_pragma attribute_specifier_seq
 {
-    if (CURRENT_CONFIGURATION->xl_compatibility)
+    if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
     {
         $$ = ast_list_concat(ASTListLeaf($1), $2);
     }
@@ -26,7 +26,7 @@ gcc_extra_bits_init_declarator : unknown_pragma attribute_specifier_seq
 }
 | unknown_pragma
 {
-    if (CURRENT_CONFIGURATION->xl_compatibility)
+    if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
     {
         $$ = ASTListLeaf($1);
     }
