@@ -5364,7 +5364,7 @@ fortran_array_descriptor_t* get_fortran_array_descriptor(const char* descriptor_
     }
 
     fprintf(stderr, "Unknown Fortran array descriptor '%s'. "
-            "Use '--list-fortran-descriptors' to get a list of supported Fortran array descriptors\n", descriptor_id);
+            "Use '--list-fortran-array-descriptors' to get a list of supported Fortran array descriptors\n", descriptor_id);
     return NULL;
 }
 

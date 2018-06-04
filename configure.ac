@@ -279,7 +279,7 @@ AC_MSG_RESULT([$enable_gfortran_8_or_greater_array_descriptors])
 
 if test x"$enable_gfortran_8_or_greater_array_descriptors" = x"yes";
 then
-    GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS="--fortran-array-descriptor=gfortan-8-or-greater"
+    GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS="--fortran-array-descriptor=gfortran-8-or-greater"
 fi
 AC_SUBST([GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS])
 
