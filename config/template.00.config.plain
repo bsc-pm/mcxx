@@ -21,7 +21,7 @@ linker_options =
 
 [plainfc]
 language = Fortran
-options = --native-vendor=gnu
+options = --native-vendor=gnu @GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS@
 fortran_preprocessor_name = @GFORTRAN@
 fortran_preprocessor_options = -cpp -E
 compiler_name = @GFORTRAN@

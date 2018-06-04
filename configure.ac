@@ -268,6 +268,20 @@ FORTRAN_TESTS_ENABLED=$fortran_tests_enabled
 AC_SUBST([FORTRAN_TESTS_ENABLED])
 dnl -- End Fortran tests ---
 
+dnl -- Use GNU Fortran compiler >= 8 array descriptors
+
+AC_MSG_CHECKING([whether the GNU Fortran compiler >= 8 array descriptors are explicitly enabled])
+AC_ARG_ENABLE([gfortran-8-or-greater-array-descriptors],
+  AS_HELP_STRING([--enable-gfortran-8-or-greater-array-descriptors], [Enable GNU Fortran compiler > 8 array descriptors (disabled by default)]),
+  [ ], # enable_gfortran_8_or_greater_array_descriptors=$enableval
+  [ enable_gfortran_8_or_greater_array_descriptors="no" ])
+AC_MSG_RESULT([$enable_gfortran_8_or_greater_array_descriptors])
+
+if test x"$enable_gfortran_8_or_greater_array_descriptors" = x"yes";
+then
+    GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS="--fortran-array-descriptor=gfortan-8-or-greater"
+fi
+AC_SUBST([GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS])
 
 dnl -- Extra compilers ---
 disable_xlc=no

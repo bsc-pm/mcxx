@@ -22,7 +22,7 @@ linker_name = @G++@
 
 [mfc : omp-base]
 language = Fortran
-options = -I @PKGDATADIR@/fortran/openmp
+options = -I @PKGDATADIR@/fortran/openmp @GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS@
 fortran_preprocessor_name = @GFORTRAN@
 fortran_preprocessor_options = -cpp -E
 compiler_name = @GFORTRAN@

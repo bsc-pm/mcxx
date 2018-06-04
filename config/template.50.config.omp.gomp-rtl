@@ -18,7 +18,7 @@ linker_name = @G++@
 #
 # [gomp-mfc : gomp-omp-base]
 # language = Fortran
-# options = --native-vendor=gnu -I @PKGDATADIR@/fortran/openmp
+# options = --native-vendor=gnu @GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS@ -I @PKGDATADIR@/fortran/openmp
 # fortran_preprocessor_name = @GFORTRAN@
 # fortran_preprocessor_options = -cpp -E
 # compiler_name = @GFORTRAN@
