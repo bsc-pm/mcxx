@@ -189,7 +189,7 @@ void fixup_entry_points(int deps_max_dimensions)
         }
         else
         {
-            fatal_error("Could not open Nanos++ include");
+            fatal_error("Could not open Nanos6 include");
         }
 
         Source::source_language = SourceLanguage::C;
