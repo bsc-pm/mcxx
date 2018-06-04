@@ -283,191 +283,89 @@ then
 fi
 AC_SUBST([GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS])
 
-dnl -- Extra compilers ---
-disable_xlc=no
-AC_MSG_CHECKING([if support for IBM XL C/C++ was explicitly disabled])
-AC_ARG_ENABLE([xlc],
-  AS_HELP_STRING([--disable-xlc], [Disables support for IBM XL C/C++]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_xlc="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_xlc="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_xlc="no"
-    AC_MSG_RESULT([no])
-  ]
-)
+dnl --------------- Extra Compilers ---------------------
 
-disable_xlf=no
-AC_MSG_CHECKING([if support for IBM XL Fortran was explicitly disabled])
-AC_ARG_ENABLE([xlf],
-  AS_HELP_STRING([--disable-xlf], [Disables support for IBM XL Fortran]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_xlf="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_xlf="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_xlf="no"
-    AC_MSG_RESULT([no])
-  ]
-)
+dnl --------------- IBM Compilers ---------------------
+AC_MSG_CHECKING([whether support for IBM XL Fortran/C/C++ compilers is enabled])
+AC_ARG_ENABLE([ibm-compilers],
+  AS_HELP_STRING([--disable-ibm-compilers], [Disables support for IBM XL Fortran/C/C++ compilers (enabled by default)]),
+  [ ], # enable_ibm_compilers=$enableval
+  [ enable_ibm_compilers="yes"])
+AC_MSG_RESULT([$enable_ibm_compilers])
 
-disable_icc=no
-AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
-AC_ARG_ENABLE([icc],
-  AS_HELP_STRING([--disable-icc], [Disables support for Intel C/C++]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_icc="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_icc="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_icc="no"
-    AC_MSG_RESULT([no])
-  ]
-)
+XLF=
+XLC=
+XLCXX=
+if test x"$enable_ibm_compilers" = x"yes";
+then
+    AC_PATH_TARGET_TOOL([XLF], [xlf95], [$XLF])
+    AC_PATH_TARGET_TOOL([XLC], [xlc], [$XLC])
+    AC_PATH_TARGET_TOOL([XLCXX], [xlC], [$XLCXX])
+fi
+dnl --------------- END IBM Compilers ---------------------
 
-disable_ifort=no
-AC_MSG_CHECKING([if support for Intel Fortran was explicitly disabled])
-AC_ARG_ENABLE([ifort],
-  AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_ifort="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_ifort="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_ifort="no"
-    AC_MSG_RESULT([no])
-  ]
-)
+
+dnl --------------- Intel Compilers ---------------------
+AC_MSG_CHECKING([whether support for Intel Fortran/C/C++ compilers is enabled])
+AC_ARG_ENABLE([intel-compilers],
+  AS_HELP_STRING([--disable-intel-compilers], [Disables support for Intel Fortran/C/C++ compilers (enabled by default)]),
+  [ ], # enable_intel_compilers=$enableval
+  [ enable_intel_compilers="yes"])
+AC_MSG_RESULT([$enable_intel_compilers])
+
+
+IFORT=
+ICC=
+ICPC=
+if test x"$enable_intel_compilers" = x"yes";
+then
+   dnl Check Intel Compiler C
+   AC_CHECK_PROG([IFORT], [ifort], [ifort])
+   AC_CHECK_PROG([ICC], [icc], [icc])
+   AC_CHECK_PROG([ICPC], [icpc], [icpc])
+fi
+dnl --------------- END Intel Compilers ---------------------
 
 mic_compilation="no"
 mic_testing="no"
 mic_testing_device="no"
-
-MIC_COMPILATION=$mic_compilation
-MIC_TESTING=$mic_testing
-MIC_TESTING_DEVICE=$mic_testing_device
-
-if test x$disable_icc = xno;
+if test x"$ICC" != x;
 then
-   dnl Check Intel Compiler C
-   AC_CHECK_PROG([ICC], [icc], [icc])
-   if test x"$ICC" != x;
-   then
-      AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
-      AC_ARG_ENABLE([mic],
-             AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
-             [
-                 if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-                 then
-                     mic_compilation="yes"
-                     AC_MSG_RESULT([yes])
-                 else if test x"$enableval" = x"no";
-                      then
-                         AC_MSG_RESULT([no])
-                         mic_compilation="no"
-                      else
-                         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-                      fi
-                 fi
-             ],
-             [AC_MSG_RESULT([no])]
-             )
+   AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
+   AC_ARG_ENABLE([mic],
+          AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
+          [
+              if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+              then
+                  mic_compilation="yes"
+                  AC_MSG_RESULT([yes])
+              else if test x"$enableval" = x"no";
+                   then
+                      AC_MSG_RESULT([no])
+                      mic_compilation="no"
+                   else
+                      AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                   fi
+              fi
+          ],
+          [AC_MSG_RESULT([no])]
+          )
 
-      AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
-      AC_ARG_ENABLE([mic-testing],
-             AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
-             [
-                if test x$enableval != x;
-                then
-                   AC_MSG_RESULT([yes])
-                   mic_testing_device="$enableval"
-                   mic_testing="yes"
-                else
-                   AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
-                fi
-             ],
-             [AC_MSG_RESULT([no])]
-             )
-
-      MIC_COMPILATION=$mic_compilation
-      MIC_TESTING=$mic_testing
-      MIC_TESTING_DEVICE=$mic_testing_device
-
-      dnl end
-   fi
-   dnl Check Intel Compiler C++
-   AC_CHECK_PROG([ICPC], [icpc], [icpc])
-else
-    ICC=
-    ICPC=
-fi
-
-if test x$disable_xlc = xno;
-then
-    dnl XL (gcc driver)
-    AC_PATH_TARGET_TOOL([XLC], [xlc], [$XLC])
-    dnl XL (g++ driver)
-    AC_PATH_TARGET_TOOL([XLCXX], [xlC], [$XLCXX])
-else
-    XLC=
-    XLCXX=
-fi
-
-dnl Check Intel Fortran
-if test x$disable_ifort = xno;
-then
-   AC_CHECK_PROG([IFORT], [ifort], [ifort])
-else
-    IFORT=
-fi
-
-dnl IBM Fortran
-if test x$disable_xlf = xno;
-then
-    AC_PATH_TARGET_TOOL([XLF], [xlf95], [$XLF])
-else
-    XLF=
+   AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
+   AC_ARG_ENABLE([mic-testing],
+          AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
+          [
+             if test x$enableval != x;
+             then
+                AC_MSG_RESULT([yes])
+                mic_testing_device="$enableval"
+                mic_testing="yes"
+             else
+                AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
+             fi
+          ],
+          [AC_MSG_RESULT([no])]
+          )
 fi
 
 
@@ -493,6 +391,8 @@ then
     fi
 fi
 dnl --------------------- End support for plain profiles for Intel Compilers ---------
+
+
 dnl -- End of extra compiler checks ---
 
 
@@ -1444,9 +1344,9 @@ fi
 
 AM_CONDITIONAL([BUILD_OMP_PROFILE], test x$is_enabled_tl_omp_profile = xyes)
 
-AC_SUBST([MIC_COMPILATION])
-AC_SUBST([MIC_TESTING])
-AC_SUBST([MIC_TESTING_DEVICE])
+AC_SUBST([MIC_COMPILATION], $mic_compilation)
+AC_SUBST([MIC_TESTING], $mic_testing)
+AC_SUBST([MIC_TESTING_DEVICE], $mic_testing_device)
 dnl --------------------- End of shared between Nanox and Nanos6 ------------------
 
 
