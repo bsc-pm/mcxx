@@ -514,7 +514,6 @@ nanox=""
 nanox_mic_include=""
 nanox_mic_lib=""
 nanox=""
-nanox_pm_selection="none"
 # Nanos++ automatic features detection mechanism
 nanox_auto_feat_detection="new"
 NANOX=""
@@ -531,8 +530,6 @@ MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
 show_mic_tools_warning=NO
 MIC_LIBS=""
 NANOX_GATE=":false:"
-NANOX_NEW_LINK=":false:"
-NANOX_OLD_LINK=":false:"
 NANOX_DYNAMIC_LIST=":false:"
 
 if test x$is_enabled_tl_omp_nanox = xyes;
@@ -603,64 +600,6 @@ then
     CPPFLAGS="$CPPFLAGSBACKUP"
     CFLAGS="$CFLAGSBACKUP"
 
-   AC_MSG_CHECKING([linking mechanism of Nanos++])
-
-    AC_ARG_ENABLE([nanos-new-link-mechanism],
-      AS_HELP_STRING([--enable-nanos-new-link-mechanism], [Override nanos++ linking mechanism autodetection]),
-      [
-        if test x$enableval = xyes -o x$enableval = x;
-        then
-            nanox_pm_selection="new"
-        else if test x$enableval = xno;
-             then
-                nanox_pm_selection="old"
-             else
-                AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-             fi
-        fi
-      ])
-
-   if test "$nanox_pm_selection" = "none"; then
-       for nanox_version in performance debug instrumentation instrumentation-debug;
-       do
-           if test -f $nanox_lib/$nanox_version/libnanox-ompss.so;
-           then
-               if test "$nanox_pm_selection" = "none";
-               then
-                   nanox_pm_selection="new"
-               elif test "$nanox_pm_selection" != "new"
-               then
-                   AC_MSG_ERROR([Nanos++ installation is broken, new library found but old library also found first. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
-               fi
-               if test -f $nanox_lib/$nanox_version/libnanox-ss.so;
-               then
-                   AC_MSG_ERROR([Nanos++ installation is broken, new and old libraries found. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
-               fi
-           elif test -f $nanox_lib/$nanox_version/libnanox-ss.so;
-           then
-               if test "$nanox_pm_selection" = "none";
-               then
-                   nanox_pm_selection="old"
-               elif test "$nanox_pm_selection" != "old";
-               then
-                   AC_MSG_ERROR([Nanos++ installation is broken, old library found but new library also found first. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
-               fi
-           fi
-       done
-   fi
-
-   if test "$nanox_pm_selection" = "none";
-   then
-       AC_MSG_ERROR([Cannot determine Nanos++ mechanism of Programming Model selection. Likely Nanos++ library path is wrong])
-   elif test "$nanox_pm_selection" = "new";
-   then
-       AC_MSG_RESULT([new mechanism])
-       NANOX_NEW_LINK=":true:"
-   elif test "$nanox_pm_selection" = "old";
-   then
-       AC_MSG_RESULT([old mechanism])
-       NANOX_OLD_LINK=":true:"
-   fi
 
    AC_ARG_WITH([nanox-mic],
            AS_HELP_STRING([--with-nanox-mic=dir], [Directory of Nanos++ MIC installation]),
@@ -699,8 +638,8 @@ then
    fi
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
-   NANOX_MIC="${nanox_mic}" 
-   
+   NANOX_MIC="${nanox_mic}"
+
 
    AC_ARG_WITH([mic-tools],
            AS_HELP_STRING([--with-mic-tools=dir], [Directory where MIC (k1om arch) tools are located (objcopy,objdump & ar)]),
@@ -741,8 +680,6 @@ fi
 
 AC_SUBST([NANOX_ENABLED])
 AC_SUBST([NANOX_GATE])
-AC_SUBST([NANOX_NEW_LINK])
-AC_SUBST([NANOX_OLD_LINK])
 AC_SUBST([NANOX_DYNAMIC_LIST])
 
 AM_CONDITIONAL([BUILD_NANOS_COMMON], test x$is_enabled_tl_omp_nanox = xyes)
@@ -2290,18 +2227,6 @@ then
   then
      AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
   fi
-
-  echo ""
-  if test "$nanox_pm_selection" = "new";
-  then
-      nanox_pm_selection_desc="new, more portable"
-  elif test "$nanox_pm_selection" = "old";
-  then
-      nanox_pm_selection_desc="old, less portable"
-  else
-      nanox_pm_selection_desc="error"
-  fi
-  echo "   Nanos++ Prog.Model. Selection Mechanism:" $nanox_pm_selection_desc
 fi
 
 echo ""
