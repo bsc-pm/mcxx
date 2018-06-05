@@ -236,8 +236,6 @@ linker_options = -dynamic -Wl,--enable-new-dtags
 # New linking mechanism (libnanox-omp.s | libnanox
 {@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,!ompss} linker_options = -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 {@NANOX_GATE@,@NANOX_NEW_LINK@,openmp,!omp-dry-run,ompss} linker_options = -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
-# used by XL
-{@NANOX_GATE@,openmp,!omp-dry-run} linker_options = @NANOX_IBM_LDFLAGS@
 # needed for the new link mechanism
 {@NANOX_GATE@,@NANOX_DYNAMIC_LIST@,openmp} linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 
