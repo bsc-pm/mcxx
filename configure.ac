@@ -368,6 +368,27 @@ then
           )
 fi
 
+dnl --------------- Cray Compilers ---------------------
+AC_MSG_CHECKING([whether support for Cray Fortran/C/C++ compilers is enabled])
+AC_ARG_ENABLE([cray-compilers],
+  AS_HELP_STRING([--disable-cray-compilers], [Disables support for Cray Fortran/C/C++ compilers (enabled by default)]),
+  [ ], # enable_intel_compilers=$enableval
+  [ enable_cray_compilers="yes"])
+AC_MSG_RESULT([$enable_cray_compilers])
+
+
+CRAYFC=
+CRAYCC=
+CRAYCXX=
+if test x"$enable_intel_compilers" = x"yes";
+then
+   dnl Check Intel Compiler C
+   AC_CHECK_PROG([CRAYFC], [ftn], [ftn])
+   AC_CHECK_PROG([CRAYCC], [cc], [cc])
+   AC_CHECK_PROG([CRAYCXX], [CC], [CC])
+fi
+dnl --------------- END Cray Compilers ---------------------
+
 
 dnl --------------------- Support for plain profiles for Intel Compilers -------------
 if test x"$ICC" != x -o x"$ICPC" != x -o x"$IFORT" != x;
@@ -1340,6 +1361,27 @@ then
           COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95 xlsmpfc"
       fi
    fi
+
+   if test x"$CRAYCC" != x -o x"$CRAYCXX" != x -o x"$CRAYFC" != x;
+   then
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.cray"
+
+      # Intel Mercurium C/C++/Fortran profiles
+      if test x"$CRAYCC" != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} craymcc"
+      fi
+
+      if test x"$CRAYCXX" != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} craymcxx"
+      fi
+
+      if test -x"$CRAYFC" != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} craymfc"
+      fi
+   fi
 fi
 
 AM_CONDITIONAL([BUILD_OMP_PROFILE], test x$is_enabled_tl_omp_profile = xyes)
@@ -1621,6 +1663,9 @@ AC_ARG_VAR([IFORT], [Intel Fortran])
 AC_ARG_VAR([XLC], [IBM XL C compiler])
 AC_ARG_VAR([XLCXX], [IBM XL C++ compiler])
 AC_ARG_VAR([XLF], [IBM XL Fortran compiler])
+AC_ARG_VAR([CRAYCC], [Cray C Compiler])
+AC_ARG_VAR([CRAYCXX], [Cray C++ Compiler])
+AC_ARG_VAR([CRAYFC], [Cray Fortran Compiler])
 AC_ARG_VAR([GPERF], [GNU gperf])
 AC_ARG_VAR([GIT], [git content tracker])
 
@@ -2214,6 +2259,10 @@ print_tool "Intel Fortran compiler" "$IFORT"
 print_tool "IBM XL C compiler " "$XLC"
 print_tool "IBM XL C++ compiler " "$XLCXX"
 print_tool "IBM XL Fortran compiler " "$XLF"
+
+print_tool "Cray C compiler " "$CRAYCC"
+print_tool "Cray C++ compiler " "$CRAYCXX"
+print_tool "Cray Fortran compiler " "$CRAYFC"
 
 echo ""
 

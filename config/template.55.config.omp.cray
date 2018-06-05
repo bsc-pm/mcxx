@@ -1,0 +1,36 @@
+[craymcc : omp-base-cray]
+language = C
+options = --native-vendor=cray
+preprocessor_name = @CRAYCC@
+compiler_name = @CRAYCC@
+linker_name = @CRAYCC@
+{@NANOX_GATE@,openmp,!ompss-2} options = --variable=weaks_as_statics:1
+
+
+
+
+
+[craymcxx : omp-base-cray]
+language = C++
+options = --native-vendor=cray
+{openmp|ompss-2} preprocessor_options = -Wp,-include,new
+preprocessor_name = @CRAYCXX@
+compiler_name = @CRAYCXX@
+linker_name = @CRAYCXX@
+
+{@NANOX_GATE@,openmp,!ompss-2} options = --variable=weaks_as_statics:1
+
+
+
+
+
+[craymfc : omp-base-cray]
+language = Fortran
+options = --native-vendor=cray
+options = -I @PKGDATADIR@/fortran/openmp
+fortran_preprocessor_name = @CRAYFC@
+fortran_preprocessor_options = -P
+compiler_name = @CRAYFC@
+compiler_options =
+linker_name = @CRAYFC@
+linker_options =

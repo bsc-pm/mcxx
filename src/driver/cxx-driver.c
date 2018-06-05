@@ -1963,6 +1963,7 @@ static const char* map_std_flags[][3] = {
     [NATIVE_VENDOR_IBM]    = { "-std=gnu99", "-std=gnu++03", "-qlanglvl=extended" },
     // NVCC should be used to compile CUDA files, which are considered to be written in a different lang
     [NATIVE_VENDOR_NVIDIA] = { "", "", "" },
+    [NATIVE_VENDOR_CRAY]   = { "-h std=c99", "-h std=c++03", ""}
 };
 
 static int parse_special_parameters(int *should_advance, int parameter_index,

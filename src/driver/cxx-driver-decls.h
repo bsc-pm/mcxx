@@ -85,7 +85,8 @@ typedef enum source_language_tag
     NATIVE_VENDOR(GNU, gnu) \
     NATIVE_VENDOR(INTEL, intel) \
     NATIVE_VENDOR(IBM, ibm) \
-    NATIVE_VENDOR(NVIDIA, nvidia)
+    NATIVE_VENDOR(NVIDIA, nvidia) \
+    NATIVE_VENDOR(CRAY, cray) \
 
 typedef enum native_vendor_tag
 {

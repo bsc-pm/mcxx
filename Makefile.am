@@ -3199,8 +3199,9 @@ CONFIG_FILES =  \
        config/50.config.omp.profiling \
        config/50.config.omp.intel-rtl \
        config/50.config.omp.gomp-rtl \
-       config/55.config.omp.ibm \
-       config/55.config.omp.intel \
+       config/55.config.omp.cray   \
+       config/55.config.omp.ibm    \
+       config/55.config.omp.intel  \
        config/55.config.omp.nvidia \
        config/55.config.omp.ocl \
        config/56.config.omp.mpi \
@@ -3267,6 +3268,9 @@ config_edit = \
      -e 's|@XLC[@]|$(XLC)|g' \
      -e 's|@XLCXX[@]|$(XLCXX)|g' \
      -e 's|@XLF[@]|$(XLF)|g' \
+     -e 's|@CRAYCC[@]|$(CRAYCC)|g' \
+     -e 's|@CRAYCXX[@]|$(CRAYCXX)|g' \
+     -e 's|@CRAYFC[@]|$(CRAYFC)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \
      -e 's|@SIMD_FLAGS[@]|$(SIMD_FLAGS)|g' \
