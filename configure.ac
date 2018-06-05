@@ -319,7 +319,6 @@ ICC=
 ICPC=
 if test x"$enable_intel_compilers" = x"yes";
 then
-   dnl Check Intel Compiler C
    AC_CHECK_PROG([IFORT], [ifort], [ifort])
    AC_CHECK_PROG([ICC], [icc], [icc])
    AC_CHECK_PROG([ICPC], [icpc], [icpc])
@@ -372,7 +371,7 @@ dnl --------------- Cray Compilers ---------------------
 AC_MSG_CHECKING([whether support for Cray Fortran/C/C++ compilers is enabled])
 AC_ARG_ENABLE([cray-compilers],
   AS_HELP_STRING([--disable-cray-compilers], [Disables support for Cray Fortran/C/C++ compilers (enabled by default)]),
-  [ ], # enable_intel_compilers=$enableval
+  [ ], # enable_cray_compilers=$enableval
   [ enable_cray_compilers="yes"])
 AC_MSG_RESULT([$enable_cray_compilers])
 
@@ -380,9 +379,8 @@ AC_MSG_RESULT([$enable_cray_compilers])
 CRAYFC=
 CRAYCC=
 CRAYCXX=
-if test x"$enable_intel_compilers" = x"yes";
+if test x"$enable_cray_compilers" = x"yes";
 then
-   dnl Check Intel Compiler C
    AC_CHECK_PROG([CRAYFC], [ftn], [ftn])
    AC_CHECK_PROG([CRAYCC], [cc], [cc])
    AC_CHECK_PROG([CRAYCXX], [CC], [CC])
