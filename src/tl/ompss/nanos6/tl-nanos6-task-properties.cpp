@@ -111,6 +111,9 @@ namespace TL { namespace Nanos6 {
     TaskProperties::TaskProperties(const Nodecl::OmpSs::Release& node, Nodecl::NodeclBase &serial_context, LoweringPhase* lowering_phase, Lower* lower) :
         _env(node.get_environment()), _serial_context(serial_context), _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0), _nanos6_task_counter(-1)
     {
+        // Note: Using this member to store the release clause locus
+        _locus_of_task_creation = node.get_locus();
+
         _related_function = Nodecl::Utils::get_enclosing_function(node);
     }
 
@@ -5074,6 +5077,13 @@ namespace TL { namespace Nanos6 {
 
     void TaskProperties::compute_release_statements(/* out */ Nodecl::List& release_stmts)
     {
+        if (!_env.dep_reduction.empty() || !_env.dep_weakreduction.empty())
+        {
+            // Note: _locus_of_task_creation stores the release clause locus
+            fatal_printf_at(_locus_of_task_creation,
+                    "'release' clause is not supported for reductions\n");
+        }
+
         struct ReleaseSet
         {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
