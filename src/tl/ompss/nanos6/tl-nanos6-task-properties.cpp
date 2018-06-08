@@ -2445,15 +2445,58 @@ namespace TL { namespace Nanos6 {
             storage_sym.get_internal_symbol()->kind = SK_VARIABLE;
             storage_sym.set_type(reduction_type.get_lvalue_reference_to());
 
-            TL::ObjectList<Nodecl::NodeclBase> arguments_list;
-            compute_base_address_and_dimensionality_information(reduction_expr, arguments_list);
+            // Compute arguments
+            TL::ObjectList<Nodecl::NodeclBase> multidim_arguments_list;
+            compute_base_address_and_dimensionality_information(reduction_expr, multidim_arguments_list);
 
+            TL::ObjectList<Nodecl::NodeclBase>::reverse_iterator it = multidim_arguments_list.rbegin();
+
+            Nodecl::NodeclBase upper_bound = *(it++);
+            Nodecl::NodeclBase lower_bound = *(it++);
+            Nodecl::NodeclBase size = *(it++);
+
+            for (; it != multidim_arguments_list.rend() - 1; it++)
+            {
+                Nodecl::NodeclBase dim_upper_bound = *(it++);
+                Nodecl::NodeclBase dim_lower_bound = *(it++);
+                Nodecl::NodeclBase dim_size = *it;
+
+                upper_bound = Nodecl::Add::make(
+                        Nodecl::Minus::make(
+                            Nodecl::Mul::make(
+                                dim_size,
+                                Nodecl::ParenthesizedExpression::make(
+                                    upper_bound, reduction_type),
+                                reduction_type),
+                            dim_size,
+                            reduction_type),
+                        dim_upper_bound,
+                        reduction_type);
+
+                lower_bound = Nodecl::Add::make(
+                        Nodecl::Mul::make(
+                            dim_size,
+                            Nodecl::ParenthesizedExpression::make(
+                                lower_bound, reduction_type),
+                            reduction_type),
+                        dim_lower_bound,
+                        reduction_type);
+
+                size = Nodecl::Mul::make(dim_size, size, reduction_type);
+            }
+
+            Nodecl::NodeclBase base_address = *it;
+
+            Nodecl::List arguments_list =
+                Nodecl::List::make(base_address, size, lower_bound, upper_bound);
+
+            // Function call
             Nodecl::NodeclBase cast;
             Nodecl::NodeclBase function_call = Nodecl::Dereference::make(
                     cast = Nodecl::Conversion::make(
                         Nodecl::FunctionCall::make(
                             get_red_storage_fun.make_nodecl(/* set_ref_type */ true),
-                            Nodecl::List::make(arguments_list),
+                            arguments_list,
                             /* alternate_name */ Nodecl::NodeclBase::null(),
                             /* function_form */ Nodecl::NodeclBase::null(),
                             TL::Type::get_void_type().get_pointer_to()),
