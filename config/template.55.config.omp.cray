@@ -13,7 +13,8 @@ linker_name = @CRAYCC@
 [craymcxx : omp-base-cray]
 language = C++
 options = --native-vendor=cray
-{openmp|ompss-2} preprocessor_options = -Wp,-include,new
+{openmp|ompss-2, cray} preprocessor_options = -Wp,-include,new
+{openmp|ompss-2,!cray} preprocessor_options = -include new
 preprocessor_name = @CRAYCXX@
 compiler_name = @CRAYCXX@
 linker_name = @CRAYCXX@
