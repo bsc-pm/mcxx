@@ -50,7 +50,7 @@ const char *entry_points[] = {
     "nanos_taskwait",
     "nanos_user_lock",
     "nanos_user_unlock",
-    "nanos_get_original_reduction_address",
+    "nanos_get_reduction_storage1",
     "nanos_register_taskloop_bounds",
 };
 

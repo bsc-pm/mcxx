@@ -63,9 +63,13 @@ namespace TL { namespace Nanos6 {
             DirectiveEnvironment _env;
             TL::ObjectList<std::shared_ptr<Device> > _implementations;
 
+            //! This member represents the serial statements of the task, can
+            //! be null if 'final' clause transformation has been disabled
+            Nodecl::NodeclBase &_serial_context;
+
             LoweringPhase* _phase;
 
-            //FIXME: Once we have the new implementation of task reductions we may be able to remove this member
+            //! Used to store some shared information between tasks
             Lower* _lower_visitor;
 
             field_map_t _field_map;
@@ -74,7 +78,7 @@ namespace TL { namespace Nanos6 {
 
             static const int VLA_OVERALLOCATION_ALIGN = 8;
 
-            //FIXME: Once we have the new implementation of task reductions we may be able to remove this member
+            //! Used to store the number of reductions within the task (and to identify them)
             unsigned int _num_reductions;
 
             //! It's used (among other things) to avoid name collision when generating new functions
@@ -84,6 +88,9 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol _dependences_function;
             TL::Symbol _dependences_function_mangled;
+
+            TL::Symbol _reduction_initializers;
+            TL::Symbol _reduction_combiners;
 
             TL::Symbol _priority_function;
             TL::Symbol _priority_function_mangled;
@@ -111,6 +118,7 @@ namespace TL { namespace Nanos6 {
             void create_dependences_function_fortran_forward();
             void create_dependences_function_fortran_mangled();
 
+            void create_reduction_functions();
 
             TL::Symbol create_constraints_function() const;
             void create_cost_function();
@@ -213,11 +221,12 @@ namespace TL { namespace Nanos6 {
         public:
             TaskProperties(
                     const Nodecl::OpenMP::Task& node,
+                    Nodecl::NodeclBase &serial_stmts,
                     LoweringPhase* lowering_phase,
                     Lower* lower);
 
             // FIXME: This constructor shouldn't exist
-            TaskProperties(const Nodecl::OmpSs::Release& node, LoweringPhase* lowering_phase, Lower* lower);
+            TaskProperties(const Nodecl::OmpSs::Release& node, Nodecl::NodeclBase &serial_stmts, LoweringPhase* lowering_phase, Lower* lower);
 
             // FIXME
             std::string get_new_name(const std::string& prefix) const;
@@ -263,8 +272,9 @@ namespace TL { namespace Nanos6 {
                     Nodecl::NodeclBase& task_flags_stmts);
 
             void handle_task_reductions(
-                    const TL::Scope& unpacked_inside_scope,
-                    Nodecl::NodeclBase unpacked_empty_stmt);
+                    TL::Scope& unpacked_inside_scope,
+                    Nodecl::NodeclBase unpacked_empty_stmt,
+                    Nodecl::Utils::SimpleSymbolMap &symbol_map);
 
             void compute_release_statements(/* out */ Nodecl::List& release_stmts);
 

@@ -155,6 +155,13 @@ namespace TL { namespace OpenMP {
                     var_sym = var_tree.as<Nodecl::Shaping>().get_postfix().get_symbol();
                     var_type = var_tree.get_type();
                 }
+                else if (var_tree.is<Nodecl::ArraySubscript>())
+                {
+                    error_printf_at(construct.get_locus(),
+                            "shaping expression '%s' is not allowed in a reduction clause.\n",
+                            var_tree.prettyprint().c_str());
+                    continue;
+                }
                 else
                 {
                     error_printf_at(construct.get_locus(),

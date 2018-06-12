@@ -574,6 +574,37 @@ namespace TL { namespace OpenMP {
         return result;
     }
 
+    void Core::get_reduction_explicit_attributes(TL::PragmaCustomLine construct,
+            Nodecl::NodeclBase statements,
+            DataEnvironment& data_environment,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        TL::ObjectList<TL::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols(statements);
+
+        struct ReductionClauseInfo {
+            const char* clause_name;
+            DataSharingAttribute data_attr;
+        } reduction_clauses[] = {
+            { "reduction", DS_REDUCTION },
+            { "task_reduction", DS_TASK_REDUCTION },
+            { "in_reduction", DS_IN_REDUCTION },
+            { "weakreduction", DS_WEAKREDUCTION },
+            { "simd_reduction", DS_SIMD_REDUCTION },
+        };
+
+        for (ReductionClauseInfo* it = reduction_clauses;
+                it != (ReductionClauseInfo*) (&reduction_clauses + 1);
+                it++)
+        {
+            ObjectList<OpenMP::ReductionSymbol> reduction_references;
+            get_reduction_symbols(construct, construct.get_clause(it->clause_name),
+                    nonlocal_symbols, data_environment, reduction_references, extra_symbols);
+
+            std::for_each(reduction_references.begin(), reduction_references.end(),
+                    DataEnvironmentSetterReduction(data_environment, it->data_attr));
+        }
+    }
+
     void Core::get_data_explicit_attributes(TL::PragmaCustomLine construct,
             Nodecl::NodeclBase statements,
             DataEnvironment& data_environment,
@@ -616,29 +647,9 @@ namespace TL { namespace OpenMP {
         std::for_each(firstlastprivate_references.begin(), firstlastprivate_references.end(),
                 DataEnvironmentSetter(construct, data_environment, DS_FIRSTLASTPRIVATE, "firstprivate and lastprivate"));
 
-
-        struct ReductionClauseInfo {
-            const char* clause_name;
-            DataSharingAttribute data_attr;
-        } reduction_clauses[] = {
-            { "reduction", DS_REDUCTION },
-            { "task_reduction", DS_TASK_REDUCTION },
-            { "in_reduction", DS_IN_REDUCTION },
-            { "weakreduction", DS_WEAKREDUCTION },
-            { "simd_reduction", DS_SIMD_REDUCTION },
-        };
-
-        for (ReductionClauseInfo* it = reduction_clauses;
-                it != (ReductionClauseInfo*) (&reduction_clauses + 1);
-                it++)
-        {
-            ObjectList<OpenMP::ReductionSymbol> reduction_references;
-            get_reduction_symbols(construct, construct.get_clause(it->clause_name),
-                    nonlocal_symbols, data_environment, reduction_references, extra_symbols);
-
-            std::for_each(reduction_references.begin(), reduction_references.end(),
-                    DataEnvironmentSetterReduction(data_environment, it->data_attr));
-        }
+        get_reduction_explicit_attributes(
+                construct, statements,
+                data_environment, extra_symbols);
 
         // Do not confuse OpenMP copyin (related with threadprivate) with
         // OmpSs copy_in (related to copies between targets)
@@ -2675,6 +2686,7 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_DECLARATION_HANDLER(task)
 
     OSS_TO_OMP_DIRECTIVE_HANDLER(taskwait)
+    OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
 
     OSS_INVALID_DECLARATION_HANDLER(loop)
 
