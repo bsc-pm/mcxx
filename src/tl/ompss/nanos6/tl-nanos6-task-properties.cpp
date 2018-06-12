@@ -766,8 +766,9 @@ namespace TL { namespace Nanos6 {
             /* out */
             TL::Symbol &task_info)
     {
-        create_dependences_function();
+        // Note: Reduction functions need to be created before dependences functions, for UDRs
         create_reduction_functions();
+        create_dependences_function();
         create_priority_function();
 
         TL::Symbol task_info_struct = get_nanos6_class_symbol("nanos_task_info");
