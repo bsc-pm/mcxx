@@ -216,8 +216,8 @@ linker_options = -Wl,--enable-new-dtags
 linker_options =
 
 #Nanos++
-{@NANOX_GATE@,openmp, cray} preprocessor_options = -I@NANOX_INCLUDES@ -Wp,-include,nanos.h,-include,nanos_omp.h
-{@NANOX_GATE@,openmp,!cray} preprocessor_options = -I@NANOX_INCLUDES@ -include nanos.h -include nanos_omp.h
+{@NANOX_GATE@,openmp,!(gnu|intel)} preprocessor_options = -I@NANOX_INCLUDES@ -Wp,-include,nanos.h,-include,nanos_omp.h
+{@NANOX_GATE@,openmp, (gnu|intel)} preprocessor_options = -I@NANOX_INCLUDES@ -include nanos.h -include nanos_omp.h
 linker_options = -dynamic -Wl,--enable-new-dtags
 {@NANOX_GATE@,openmp,!omp-dry-run,!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
 {@NANOX_GATE@,openmp,!omp-dry-run,debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
@@ -230,19 +230,19 @@ linker_options = -dynamic -Wl,--enable-new-dtags
 
 
 # Nanos++ & CUDA
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda, cray} preprocessor_options = -Wp,-include,nanos-gpu.h
-{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda,!cray} preprocessor_options = -include nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda,!(gnu|intel)} preprocessor_options = -Wp,-include,nanos-gpu.h
+{@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda, (gnu|intel)} preprocessor_options = -include nanos-gpu.h
 {@NANOX_GATE@,@ENABLE_CUDA@,ompss,cuda} linker_options = -lnanox-gpu-api
 
 
 # Nanos++ & OpenCL
-{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl, cray} preprocessor_options = -Wp,-include,nanos-opencl.h -D_MERCURIUM_OPENCL_
-{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl,!cray} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl,!(gnu|intel)} preprocessor_options = -Wp,-include,nanos-opencl.h -D_MERCURIUM_OPENCL_
+{@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl, (gnu|intel)} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
 {@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl} linker_options = -lnanox-opencl-api
 
 #Nanos 6
-{@NANOS6_GATE@,ompss-2,(!?default-nanos6-inc|default-nanos6-inc), cray} preprocessor_options = -I@NANOS6_INCLUDES@ -Wp,-include,nanos6.h
-{@NANOS6_GATE@,ompss-2,(!?default-nanos6-inc|default-nanos6-inc),!cray} preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
+{@NANOS6_GATE@,ompss-2,(!?default-nanos6-inc|default-nanos6-inc),!(gnu|intel)} preprocessor_options = -I@NANOS6_INCLUDES@ -Wp,-include,nanos6.h
+{@NANOS6_GATE@,ompss-2,(!?default-nanos6-inc|default-nanos6-inc), (gnu|intel)} preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
 {@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = @NANOS6_LIB@/nanos6-main-wrapper.o
 {@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -L@NANOS6_LIB@ -lnanos6 -ldl
 {@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = -Wl,@RPATH_PARAMETER@,@NANOS6_LIB@

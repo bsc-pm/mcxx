@@ -1,6 +1,10 @@
 [craymcc : omp-base-cray]
 language = C
-options = --native-vendor=cray
+
+options         = --native-vendor=cray
+{gnu} options   = --native-vendor=gnu
+{intel} options = --native-vendor=intel --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types --enable-intel-intrinsics
+
 preprocessor_name = @CRAYCC@
 compiler_name = @CRAYCC@
 linker_name = @CRAYCC@
@@ -12,9 +16,12 @@ linker_name = @CRAYCC@
 
 [craymcxx : omp-base-cray]
 language = C++
-options = --native-vendor=cray
-{openmp|ompss-2, cray} preprocessor_options = -Wp,-include,new
-{openmp|ompss-2,!cray} preprocessor_options = -include new
+options         = --native-vendor=cray
+{gnu} options   = --native-vendor=gnu
+{intel} options = --native-vendor=intel --vector-flavor=intel --enable-intel-builtins-syntax --enable-ms-builtins --enable-intel-vector-types --enable-intel-intrinsics
+
+{openmp|ompss-2,!(gnu|intel)} preprocessor_options = -Wp,-include,new
+{openmp|ompss-2,(gnu|intel)} preprocessor_options = -include new
 preprocessor_name = @CRAYCXX@
 compiler_name = @CRAYCXX@
 linker_name = @CRAYCXX@
@@ -27,7 +34,9 @@ linker_name = @CRAYCXX@
 
 [craymfc : omp-base-cray]
 language = Fortran
-options = --native-vendor=cray
+options         = --native-vendor=cray
+{gnu} options   = --native-vendor=gnu
+{intel} options = --native-vendor=intel --ifort-compat --do-not-wrap-modules --fortran-array-descriptor=ifort --enable-intel-builtins-syntax --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types --fortran-name-mangling=ifort --enable-intel-intrinsics
 options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = @CRAYFC@
 fortran_preprocessor_options = -P
