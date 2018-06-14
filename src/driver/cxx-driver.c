@@ -307,11 +307,6 @@
 "                           support locking at file level. This \n" \
 "                           option is incompatible with parallel\n" \
 "                           compilation\n" \
-"  --xl-compat              Enables compatibility features with\n" \
-"                           IBM XL C/C++/Fortran. This flag may be\n" \
-"                           required when using such compiler.\n" \
-"  --ifort-compat           Enables some compatibility features\n" \
-"                           required by Intel Fortran\n" \
 "  --line-markers           Adds line markers to the generated file\n" \
 "  --parallel               EXPERIMENTAL: behave in a way that \n" \
 "                           allows parallel compilation of the same\n" \
