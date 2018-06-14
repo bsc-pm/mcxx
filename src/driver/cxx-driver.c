@@ -1848,21 +1848,45 @@ int parse_arguments(int argc, const char* argv[],
     return 0;
 }
 
-static void add_parameter_all_toolchain(const char *argument, char dry_run)
+void add_to_linker_command_configuration(
+        const char *str, translation_unit_t* tr_unit, compilation_configuration_t* configuration)
+{
+    parameter_linker_command_t * ptr_param =
+        (parameter_linker_command_t *) NEW0(parameter_linker_command_t);
+
+     ptr_param->argument = str;
+
+    ptr_param->translation_unit = tr_unit;
+    P_LIST_ADD(configuration->linker_command, configuration->num_args_linker_command, ptr_param);
+}
+
+void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
+{
+    add_to_linker_command_configuration(str, tr_unit, CURRENT_CONFIGURATION);
+}
+
+
+static void add_parameter_all_toolchain_configuration(
+        const char *argument, char dry_run, compilation_configuration_t* configuration)
 {
     if (!dry_run)
     {
-        if (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_FORTRAN)
+        if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
         {
-            add_to_parameter_list_str(&CURRENT_CONFIGURATION->fortran_preprocessor_options, argument);
+            add_to_parameter_list_str(&configuration->fortran_preprocessor_options, argument);
         }
         else
         {
-            add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+            add_to_parameter_list_str(&configuration->preprocessor_options, argument);
         }
-        add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
-        add_to_linker_command(uniquestr(argument), NULL);
+        add_to_parameter_list_str(&configuration->native_compiler_options, argument);
+        add_to_linker_command_configuration(argument, NULL, configuration);
     }
+}
+
+static void add_parameter_all_toolchain(const char *argument, char dry_run)
+{
+    add_parameter_all_toolchain_configuration(argument, dry_run, CURRENT_CONFIGURATION);
 }
 
 static int parse_implicit_parameter_flag(int * should_advance, const char *parameter_flag)
@@ -1950,6 +1974,10 @@ static char strprefix(const char* str, const char *prefix)
 // This variable stores the '-std' flag if it was specified in the command line
 static const char* std_version_flag = NULL;
 
+
+// This map associates each vendor-specific std flag with the default Mercurium
+// standard of each language. We cannot asume that the native compiler is using
+// the same standard than Mercurium.
 static const char* map_std_flags[][3] = {
 //      VENDOR                      C               CXX        FORTRAN
     [NATIVE_VENDOR_GNU]    = { "-std=gnu99", "-std=gnu++03", "-std=gnu" },
@@ -2457,23 +2485,6 @@ static void enable_debug_flag(const char* flags)
     DELETE(flag_list);
 }
 
-void add_to_linker_command_configuration(
-        const char *str, translation_unit_t* tr_unit, compilation_configuration_t* configuration)
-{
-    parameter_linker_command_t * ptr_param =
-        (parameter_linker_command_t *) NEW0(parameter_linker_command_t);
-
-     ptr_param->argument = str;
-
-    ptr_param->translation_unit = tr_unit;
-    P_LIST_ADD(configuration->linker_command, configuration->num_args_linker_command, ptr_param);
-}
-
-void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
-{
-    add_to_linker_command_configuration(str, tr_unit, CURRENT_CONFIGURATION);
-}
-
 static void add_to_parameter_list_str(const char*** existing_options, const char* str)
 {
     const char* d_str = uniquestr(str);
@@ -2898,45 +2909,44 @@ static void add_std_flag_to_configurations()
                 get_sublanguage_configuration(SOURCE_SUBLANGUAGE_CUDA, /* fallback */ NULL))
             continue;
 
-        const char* local_std_flag = NULL;
 
-        // If the user specified a '-std' flag
+        // The current configuration does not have an explicit std flag.
+        // However, we need to explicitly add it since we cannot assume that
+        // the std version of the native compiler for a specific language is
+        // the same than in Mercurium.
+
+        // If the user specified a std flag for the same language than the current profile
+        const char* std_flag = NULL;
         if (std_version_flag != NULL
-                // and that flag was specicied in a configuration that has
-                // the same base language than the current one
                 && configuration->source_language == CURRENT_CONFIGURATION->source_language)
         {
-            local_std_flag = std_version_flag;
+            std_flag = std_version_flag;
         }
         else
         {
             if (configuration->source_language == SOURCE_LANGUAGE_C)
             {
-                local_std_flag = map_std_flags[configuration->native_vendor][0];
+                std_flag = map_std_flags[configuration->native_vendor][0];
             }
             else if (configuration->source_language == SOURCE_LANGUAGE_CXX)
             {
-                local_std_flag = map_std_flags[configuration->native_vendor][1];
+                std_flag = map_std_flags[configuration->native_vendor][1];
             }
             else if (configuration->source_language == SOURCE_LANGUAGE_FORTRAN)
             {
-                local_std_flag = map_std_flags[configuration->native_vendor][2];
+                std_flag = map_std_flags[configuration->native_vendor][2];
             }
             else
             {
-                // Profiles that don't define a source language should be ignored (e.g. omp-base)
+               // Profiles that don't define a source language or the source
+               // language is not supported by Mercurium's FE (such as CUDA)
+               // should be ignored (e.g. omp-base)
             }
         }
 
-        if (local_std_flag != NULL)
+        if (std_flag != NULL)
         {
-            const char*** ref_preprocessor_options =
-                (configuration->source_language == SOURCE_LANGUAGE_FORTRAN) ?
-                &configuration->fortran_preprocessor_options : &configuration->preprocessor_options;
-
-            add_to_parameter_list_str(ref_preprocessor_options, local_std_flag);
-            add_to_parameter_list_str(&configuration->native_compiler_options, local_std_flag);
-            add_to_linker_command_configuration(local_std_flag, NULL, configuration);
+            add_parameter_all_toolchain_configuration(std_flag, /* dry_run */ false, configuration);
         }
     }
 }
