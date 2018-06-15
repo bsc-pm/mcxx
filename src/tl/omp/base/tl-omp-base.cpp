@@ -340,6 +340,7 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_DECLARATION_HANDLER(task)
 
     OSS_TO_OMP_DIRECTIVE_HANDLER(taskwait)
+    OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
 
     OSS_INVALID_DECLARATION_HANDLER(loop)
 

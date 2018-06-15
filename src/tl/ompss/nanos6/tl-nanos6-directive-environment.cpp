@@ -111,6 +111,8 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OpenMP::Reduction &n)
             {
+                TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "reduction");
+
                 Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = reductions.begin();
                         it != reductions.end();
@@ -125,7 +127,29 @@ namespace TL { namespace Nanos6 {
                     OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
                     ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
 
-                    _env.reduction.insert(ReductionItem(reduction_symbol, reduction_type, red));
+                    _env.reduction.insert(ReductionItem(reduction_symbol, reduction_type, red, /* isWeak */ false));
+                }
+            }
+
+            virtual void visit(const Nodecl::OmpSs::WeakReduction &n)
+            {
+                TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "weakreduction");
+
+                Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = reductions.begin();
+                        it != reductions.end();
+                        it++)
+                {
+                    Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
+
+                    TL::Symbol reductor_sym = red_item.get_reductor().get_symbol();
+                    TL::Symbol reduction_symbol = red_item.get_reduced_symbol().get_symbol();
+                    TL::Type reduction_type = red_item.get_reduction_type().get_type();
+
+                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
+                    ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
+
+                    _env.reduction.insert(ReductionItem(reduction_symbol, reduction_type, red, /* isWeak */ true));
                 }
             }
 
@@ -179,6 +203,13 @@ namespace TL { namespace Nanos6 {
             virtual void visit(const Nodecl::OmpSs::DepReduction &n)
             {
                 handle_dependences(n, _env.dep_reduction);
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepWeakReduction &n)
+            {
+                TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "weakreduction");
+
+                handle_dependences(n, _env.dep_weakreduction);
             }
 
             virtual void visit(const Nodecl::OpenMP::Final &n)
@@ -321,38 +352,11 @@ namespace TL { namespace Nanos6 {
         visitor.walk(environment);
 
         // Fixing some data-sharings + capturing some special symbols
-        remove_redundant_data_sharings();
         compute_captured_values();
         fix_data_sharing_of_this();
 
         // Empty the '_firstprivate' list, since it won't be use from this point on
         _firstprivate.erase(_firstprivate.begin(), _firstprivate.end());
-    }
-
-    namespace {
-    struct IsReduction
-    {
-        private:
-            const TL::ObjectList<ReductionItem>& _reduction;
-
-        public:
-            IsReduction(const TL::ObjectList<ReductionItem>& reduction) : _reduction(reduction)
-            { }
-
-            bool operator()(TL::Symbol s) const
-            {
-                return _reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, s);
-            }
-    };
-    }
-
-    void DirectiveEnvironment::remove_redundant_data_sharings()
-    {
-
-        TL::ObjectList<TL::Symbol>::iterator it = std::remove_if(
-                shared.begin(), shared.end(), IsReduction(reduction));
-
-        shared.erase(it, shared.end());
     }
 
     void DirectiveEnvironment::compute_captured_values()
@@ -378,8 +382,7 @@ namespace TL { namespace Nanos6 {
         return shared.contains(sym)         ||
                private_.contains(sym)       ||
                _firstprivate.contains(sym)  ||
-               captured_value.contains(sym) ||
-               reduction.contains<TL::Symbol>(&ReductionItem::get_symbol, sym);
+               captured_value.contains(sym);
     }
 
     struct FirstprivateSymbolsWithoutDataSharing : public Nodecl::ExhaustiveVisitor<void>

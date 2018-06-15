@@ -151,6 +151,12 @@ namespace TL
                         ObjectList<ReductionSymbol>& sym_list,
                         ObjectList<Symbol>& extra_symbols);
 
+                void get_reduction_explicit_attributes(
+                        TL::PragmaCustomLine construct,
+                        Nodecl::NodeclBase statements,
+                        DataEnvironment& data_environment,
+                        ObjectList<Symbol>& extra_symbols);
+
                 void get_data_explicit_attributes(
                         TL::PragmaCustomLine construct,
                         Nodecl::NodeclBase statements,
