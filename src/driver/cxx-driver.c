@@ -148,7 +148,7 @@
 "  --fpc=<name>             Fortran prescanner <name> will be used\n" \
 "                           for fixed form prescanning\n" \
 "                           This flag is only meaningful for Fortran\n" \
-" --native-vendor=VENDOR    This flag is used to specify the vendor of the native compiler\n" \
+" --native-vendor=VENDOR    allows to specify the vendor of the native compiler\n" \
 "                           Where VENDOR is:\n" \
 "                              " NATIVE_VENDORS_LIST "\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
@@ -312,6 +312,13 @@
 "                           allows parallel compilation of the same\n" \
 "                           source codes without reusing intermediate\n" \
 "                           filenames\n" \
+"  --std=OPTION             Defines the standard language version of Mercurium.\n"   \
+"                           Note that this flag only affects to Mercurium\n" \
+"                           itself. Thus, if you want to affect also the\n" \
+"                           native tools you should use the '-std=OPTION'\n"\
+"                           flag, if this flag is supported by those tools, or\n" \
+"                           explicitly pass the right flag though\n" \
+"                           '--W<flags>,<options>'\n" \
 "  --Xcompiler OPTION       Equivalent to --Wn,OPTION\n" \
 "\n" \
 "Compatibility parameters:\n" \
@@ -348,7 +355,9 @@
 "  -S\n" \
 "  -static\n" \
 "  -static-libgcc\n" \
-"  -std=<option>\n" \
+"  -std=<option>            This compatibility flag affects to Mercurium\n" \
+"                           itself (i.e. it implies '--std=OPTION') and it is\n" \
+"                           also propagated to the native tools\n" \
 "  -v\n" \
 "  -V\n" \
 "  -w\n" \
@@ -1989,6 +1998,45 @@ static const char* map_std_flags[][3] = {
     [NATIVE_VENDOR_CRAY]   = { "-h std=c99", "-h std=c++03", ""}
 };
 
+
+static void check_argument_of_std_flag(const char* argument)
+{
+    if ( strcmp(argument, "c++11") == 0
+            || strcmp(argument, "gnu++11") == 0
+            // Old flags
+            || strcmp(argument, "c++0x") == 0
+            || strcmp(argument, "gnu++0x") == 0)
+    {
+        CURRENT_CONFIGURATION->enable_cxx11 = 1;
+    }
+    else if (strcmp(argument, "c++14") == 0
+            || strcmp(argument, "gnu++14") == 0
+            // clang flag
+            || strcmp(argument, "c++1y") == 0)
+    {
+        CURRENT_CONFIGURATION->enable_cxx11 = 1;
+        CURRENT_CONFIGURATION->enable_cxx14 = 1;
+    }
+    else if (strcmp(argument, "c11") == 0
+            || strcmp(argument, "gnu11") == 0)
+    {
+        CURRENT_CONFIGURATION->enable_c11 = 1;
+    }
+    else if (strcmp(argument, "f95") == 0)
+    {
+        // Do nothing
+    }
+    else if (strcmp(argument, "f2003") == 0)
+    {
+        CURRENT_CONFIGURATION->enable_f03 = 1;
+    }
+    else if (strcmp(argument, "f2008") == 0)
+    {
+        CURRENT_CONFIGURATION->enable_f08 = 1;
+    }
+}
+
+
 static int parse_special_parameters(int *should_advance, int parameter_index,
         const char* argv[], char dry_run)
 {
@@ -2191,39 +2239,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     if (dry_run)
                         std_version_flag = argument;
 
-                    if ( strcmp(&argument[5], "c++11") == 0
-                            || strcmp(&argument[5], "gnu++11") == 0
-                            // Old flags
-                            || strcmp(&argument[5], "c++0x") == 0
-                            || strcmp(&argument[5], "gnu++0x") == 0)
-                    {
-                        CURRENT_CONFIGURATION->enable_cxx11 = 1;
-                    }
-                    else if (strcmp(&argument[5], "c++14") == 0
-                            || strcmp(&argument[5], "gnu++14") == 0
-                            // clang flag
-                            || strcmp(&argument[5], "c++1y") == 0)
-                    {
-                        CURRENT_CONFIGURATION->enable_cxx11 = 1;
-                        CURRENT_CONFIGURATION->enable_cxx14 = 1;
-                    }
-                    else if (strcmp(&argument[5], "c11") == 0
-                            || strcmp(&argument[5], "gnu11") == 0)
-                    {
-                        CURRENT_CONFIGURATION->enable_c11 = 1;
-                    }
-                    else if (strcmp(&argument[5], "f95") == 0)
-                    {
-                        // Do nothing
-                    }
-                    else if (strcmp(&argument[5], "f2003") == 0)
-                    {
-                        CURRENT_CONFIGURATION->enable_f03 = 1;
-                    }
-                    else if (strcmp(&argument[5], "f2008") == 0)
-                    {
-                        CURRENT_CONFIGURATION->enable_f08 = 1;
-                    }
+                    check_argument_of_std_flag(&argument[5]);
                 }
                 else if (strcmp(argument, "-static") == 0) { }
                 else if (strcmp(argument, "-static-libgcc") == 0) { }
@@ -2439,6 +2455,15 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         }
                     }
                     break;
+                }
+                else if ((strlen(argument) > strlen("--std="))
+                        && argument[2] == 's'
+                        && argument[3] == 't'
+                        && argument[4] == 'd'
+                        && argument[5] == '=')
+                {
+                    CURRENT_CONFIGURATION->explicit_std_version = 1;
+                    check_argument_of_std_flag(&argument[6]);
                 }
                 else
                 {
