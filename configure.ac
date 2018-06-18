@@ -740,21 +740,14 @@ then
     AC_MSG_RESULT([$nanox_supports_cuda])
 fi
 
+ENABLE_CUDA=":false:"
 ompss_supports_cuda="no"
 if test x"$enable_nanox_cuda_device" = x"yes" -a x"$nanox_supports_cuda" = x"yes";
 then
     ompss_supports_cuda="yes"
+    ENABLE_CUDA=":true:"
 fi
 
-
-if test x"$ompss_supports_cuda" = x"yes";
-then
-   ENABLE_CUDA=":true:"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
-   COMPILER_NAMES="${COMPILER_NAMES} mnvfc mnvcc mnvcxx"
-else
-   ENABLE_CUDA=":false:"
-fi
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_CUDA], test x"$ompss_supports_cuda" = x"yes")
 
 AC_SUBST([ENABLE_CUDA])
@@ -822,12 +815,10 @@ then
    CXXFLAGS="$CXXFLAGSBACKUP"
 fi
 
+
+ENABLE_OPENCL=":false:"
 if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
-    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
     ENABLE_OPENCL=":true:"
-else
-    ENABLE_OPENCL=":false:"
 fi
 
 AC_SUBST([opencl_valid])

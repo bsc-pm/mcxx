@@ -3202,8 +3202,6 @@ CONFIG_FILES =  \
        config/55.config.omp.cray   \
        config/55.config.omp.ibm    \
        config/55.config.omp.intel  \
-       config/55.config.omp.nvidia \
-       config/55.config.omp.ocl \
        config/56.config.omp.mpi \
        config/56.config.omp.intel.mpi \
        config/57.config.omp.smp \
@@ -3213,20 +3211,21 @@ CONFIG_FILES =  \
 
 INSTALL_CONFIG_FILES = $(addprefix config/, @INSTALL_CONFIG_FILES@)
 
-# We use this to remove existing config files
-# that we know are deprecated and should not be
-# in the user installation anymore
+# We use this to remove existing config files that we know are deprecated and
+# should not be in the user installation anymore
 REMOVE_CONFIG_FILES=\
-					10.config.analysis-base \
-					50.config.gpu \
-					50.config.cuda \
-					50.config.omp.ocl \
-					50.config.omp.fortran \
-					55.config.omp.ibm.fortran \
-					55.config.omp.intel.fortran \
-					56.config.omp.intel.fortran.mpi \
-					57.config.omp.all \
-					$(END)
+	10.config.analysis-base \
+	50.config.cuda \
+	50.config.gpu \
+	50.config.omp.fortran \
+	50.config.omp.ocl \
+	55.config.omp.ibm.fortran \
+	55.config.omp.intel.fortran \
+	55.config.omp.nvidia \
+	55.config.omp.ocl \
+	56.config.omp.intel.fortran.mpi \
+	57.config.omp.all \
+	$(END)
 
 config-files-dist-hook:
 	$(MKDIR_P) $(distdir)/config

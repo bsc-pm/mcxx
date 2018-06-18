@@ -1014,7 +1014,7 @@ int parse_arguments(int argc, const char* argv[],
                     // Some files (e.g., OpenCL kernels) should be ignored because they don't
                     // affect to the current compilation. Example:
                     //
-                    //      oclmfc --ompss -o t1.o t1.c ./OCL/kernel.cl
+                    //      mfc --ompss -o t1.o t1.c ./OCL/kernel.cl
                     //
                     // In this example, the 'kernel.cl' file is not processed, compiled,
                     // embedded nor linked, it's only used to obtain the path to the kernel.
