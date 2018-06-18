@@ -4,13 +4,17 @@ Mercurium is a C/C++/Fortran source-to-source compilation infrastructure aimed a
 prototyping developed by the [*Programming Models group*](https://pm.bsc.es/)
 at the [**Barcelona Supercomputing Center**](http://www.bsc.es/).
 
-Mercurium is mainly used together with the [Nanos++ Runtime Library](https://github.com/bsc-pm/nanox)
-to implement the [**OmpSs programming model**](https://pm.bsc.es/ompss).
-Both tools also implement [**OpenMP 3.1**](https://pm.bsc.es/openmp). Apart
-from that, since Mercurium is quite extensible it has been used to implement
-other programming models or compiler transformations, examples include Cell
-Superscalar, Software Transactional Memory, Distributed Shared Memory or the
-ACOTES project, just to name a few.
+Mercurium is used, together with the [Nanos++ Runtime Library](https://github.com/bsc-pm/nanox),
+to implement the [**OmpSs programming model**](https://pm.bsc.es/ompss). Both
+tools provide also an implementation of [**OpenMP 3.1**](https://pm.bsc.es/openmp).
+More recently, Mercurium has been also used to implement the
+[**OmpSs-2 programming model**](https://pm.bsc.es/ompss-2) together with the
+[Nanos6 Runtime Library](https://github.com/bsc-pm/nanos6).
+
+Apart from that, since Mercurium is quite extensible it has been used to
+implement other programming models or compiler transformations, examples
+include Cell Superscalar, Software Transactional Memory, Distributed Shared
+Memory or the ACOTES project, just to name a few.
 
 Extending Mercurium is achieved using a plugin architecture, where plugins
 represent several phases of the compiler. These plugins are written in C++ and
