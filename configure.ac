@@ -382,8 +382,15 @@ CRAYCXX=
 if test x"$enable_cray_compilers" = x"yes";
 then
    AC_CHECK_PROG([CRAYFC], [ftn], [ftn])
-   AC_CHECK_PROG([CRAYCC], [cc], [cc])
-   AC_CHECK_PROG([CRAYCXX], [CC], [CC])
+
+   # If the Cray Fortran compiler (i.e. 'ftn' binary) is present in the $PATH, we
+   # will look for 'cc' and 'CC' binaries. We do not directly check for them because
+   # there are other vendors that also define the 'cc' binary
+   if test x"$CRAYFC" != x;
+   then
+      AC_CHECK_PROG([CRAYCC], [cc], [cc])
+      AC_CHECK_PROG([CRAYCXX], [CC], [CC])
+   fi
 fi
 dnl --------------- END Cray Compilers ---------------------
 
