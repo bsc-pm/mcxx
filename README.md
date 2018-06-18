@@ -25,9 +25,9 @@ the compiler).
 2. Download Mercurium's code
     1. From our repo
         * Clone Mercurium's repository
-    
+
             - From GitHub:
-            
+
                     $ git clone https://github.com/bsc-pm/mcxx.git
             - From our internal GitLab repository (BSC users only):
 
@@ -65,17 +65,16 @@ And that's all!
 
 Depending on the [configure flags](doc/md_pages/configure_flags.md) used to configure
 Mercurium, you may have some Mercurium profiles or others. A Mercurium profile
-is basically a binary with a predefined configuration that specifies the
+is basically a file with a predefined configuration that specifies the
 behavior of Mercurium. For example, a profile specifies which phases of
-Mercurium have to be executed or which backend compiler will be used.
+Mercurium have to be executed or which backend compiler should be used.
 
 Any installation of Mercurium has, at least, the `plain` profiles (`plaincc`,
 `plaincxx` and `plainfc` for C, C++ and Fortran languages respectively). These
 profiles do not transform any OpenMP/OmpSs pragma, they basically process your
-code and generate it again. They may seem useless, but they are really useful
-when debugging our compiler frontend.
+code and generate it again.
 
-For more information check our list of [Mercurium's profiles](https://pm.bsc.es/ompss-docs/user-guide/compile-programs.html).
+For more information check our list of [Mercurium's profiles](doc/md_pages/profiles.md).
 
 ## Contact Information
 
