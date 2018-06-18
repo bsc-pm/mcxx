@@ -31,5 +31,3 @@ linker_name = @IFORT@
 linker_options =
 
 [ifort-plainfc : plainifort]
-
-[plainimfc : plainifort]

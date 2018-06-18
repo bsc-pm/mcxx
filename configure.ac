@@ -406,7 +406,7 @@ then
 
     if test -x"$IFORT" != x;
     then
-        COMPILER_NAMES="${COMPILER_NAMES} plainifort plainimfc ifort-plainfc"
+        COMPILER_NAMES="${COMPILER_NAMES} plainifort ifort-plainfc"
     fi
 fi
 dnl --------------------- End support for plain profiles for Intel Compilers ---------
