@@ -55,7 +55,7 @@ namespace TL { namespace Nanos6 {
                     const DirectiveEnvironment &env,
                     Nodecl::NodeclBase unpacked_function_code,
                     const TL::Scope &unpacked_inside_scope,
-                    Nodecl::Utils::SimpleSymbolMap &symbol_map) const;
+                    Nodecl::Utils::SimpleSymbolMap &symbol_map);
 
             //! Generic implementation: it appends the function code to the top level
             virtual void root_unpacked_function(

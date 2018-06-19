@@ -35,7 +35,7 @@ namespace TL { namespace Nanos6 {
             const DirectiveEnvironment &env,
             Nodecl::NodeclBase unpacked_function_code,
             const TL::Scope &unpacked_inside_scope,
-            Nodecl::Utils::SimpleSymbolMap &symbol_map) const
+            Nodecl::Utils::SimpleSymbolMap &symbol_map)
     {
         return Nodecl::Utils::deep_copy(task_body, unpacked_inside_scope, symbol_map);
     }

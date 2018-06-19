@@ -49,7 +49,7 @@ namespace TL { namespace Nanos6 {
                     const DirectiveEnvironment &env,
                     Nodecl::NodeclBase unpacked_function_code,
                     const TL::Scope &unpacked_inside_scope,
-                    Nodecl::Utils::SimpleSymbolMap &symbol_map) const;
+                    Nodecl::Utils::SimpleSymbolMap &symbol_map);
 
             void root_unpacked_function(TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code);
 
