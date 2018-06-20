@@ -1989,8 +1989,7 @@ static const char* std_version_flag = NULL;
 // the same standard than Mercurium.
 static const char* map_std_flags[][3] = {
 //      VENDOR                      C               CXX        FORTRAN
-    [NATIVE_VENDOR_GNU]    = { "-std=gnu99", "-std=gnu++03", "-std=gnu" },
-    // gnu++03 doesn't exit in Intel C++ Compilers
+    [NATIVE_VENDOR_GNU]    = { "-std=gnu99", "-std=gnu++98", "-std=gnu" },
     [NATIVE_VENDOR_INTEL]  = { "-std=gnu99", "-std=gnu++98", "-nostand" },
     [NATIVE_VENDOR_IBM]    = { "-std=gnu99", "-std=gnu++03", "-qlanglvl=extended" },
     // NVCC should be used to compile CUDA files, which are considered to be written in a different lang
