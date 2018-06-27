@@ -4299,6 +4299,20 @@ namespace TL { namespace Nanos6 {
             {
             }
 
+            virtual void visit(const Nodecl::Type &node)
+            {
+                TL::Type type = node.get_type();
+
+                if (type.depends_on_nonconstant_values())
+                {
+                    TL::Type updated_type =
+                        tp.rewrite_type_using_args(arg, type, local);
+
+                    node.replace(
+                            Nodecl::Type::make(updated_type));
+                }
+            }
+
             virtual void visit(const Nodecl::Symbol& node)
             {
                 TL::Symbol sym = node.get_symbol();
