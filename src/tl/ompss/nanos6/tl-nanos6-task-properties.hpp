@@ -76,6 +76,10 @@ namespace TL { namespace Nanos6 {
             //! Used to store the number of reductions within the task (and to identify them)
             unsigned int _num_reductions;
 
+            //! Used to keep track of unique task dependence symbols
+            unsigned int _num_dep_symbols;
+            std::map<TL::Symbol, unsigned int> _dep_symbols_to_id;
+
             //! It's used (among other things) to avoid name collision when generating new functions
             int _nanos6_task_counter;
 

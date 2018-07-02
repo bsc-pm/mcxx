@@ -69,7 +69,8 @@ namespace TL { namespace Nanos6 {
             LoweringPhase* lowering_phase,
             Lower* lower)
         : _env(node.get_environment()), _serial_context(serial_context),
-        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
+        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0),
+        _num_dep_symbols(0)
     {
         TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
         _nanos6_task_counter = (int) counter;
@@ -842,7 +843,8 @@ void TaskProperties::create_task_implementations_info(
         // .num_symbols
         {
             Nodecl::NodeclBase field_num_symbols = get_field("num_symbols");
-            Nodecl::NodeclBase init_num_symbols = const_value_to_nodecl(const_value_get_signed_int(-1));
+            Nodecl::NodeclBase init_num_symbols =
+                const_value_to_nodecl(const_value_get_unsigned_int(_num_dep_symbols));
             field_init.append(
                     Nodecl::FieldDesignator::make(field_num_symbols,
                         init_num_symbols,
@@ -3115,6 +3117,7 @@ void TaskProperties::create_task_implementations_info(
         void compute_arguments_register_dependence(
                 TL::DataReference& data_ref,
                 TL::Symbol handler,
+                std::map<TL::Symbol, unsigned int> &dep_symbols_to_id,
                 // Out
                 TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
         {
@@ -3122,7 +3125,13 @@ void TaskProperties::create_task_implementations_info(
             arguments_list.append(handler.make_nodecl(/* set_ref_type */ true));
 
             // sym identifier
-            arguments_list.append(const_value_to_nodecl(const_value_get_minus_one(4, 1)));
+            std::map<TL::Symbol, unsigned int>::const_iterator it;
+            it = dep_symbols_to_id.find(data_ref.get_base_symbol());
+            ERROR_CONDITION(it == dep_symbols_to_id.end(),
+                    "Unexpected symbol '%s'", data_ref.get_base_symbol().get_name().c_str());
+
+            arguments_list.append(
+                    const_value_to_nodecl(const_value_get_unsigned_int(it->second)));
 
             // dependence text
             std::string dependence_text = Codegen::get_current().codegen_to_str(data_ref, data_ref.retrieve_context());
@@ -3156,7 +3165,7 @@ void TaskProperties::create_task_implementations_info(
             }
             compute_reduction_arguments_register_dependence(data_ref, arguments_list);
         }
-        compute_arguments_register_dependence(data_ref, handler, arguments_list);
+        compute_arguments_register_dependence(data_ref, handler, _dep_symbols_to_id, arguments_list);
 
         Nodecl::NodeclBase function_call =
             Nodecl::ExpressionStatement::make(
@@ -3313,6 +3322,12 @@ void TaskProperties::create_task_implementations_info(
             {
                 TL::DataReference data_ref = *it;
                 TL::Type data_type = data_ref.get_data_type();
+
+                TL::Symbol base_symbol = data_ref.get_base_symbol();
+                std::map<TL::Symbol, unsigned int>::const_iterator map_it =
+                    _dep_symbols_to_id.find(base_symbol);
+                if (map_it == _dep_symbols_to_id.end())
+                    _dep_symbols_to_id[base_symbol] = _num_dep_symbols++;
 
                 TL::Symbol register_fun;
                 {
