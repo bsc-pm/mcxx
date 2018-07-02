@@ -25,15 +25,15 @@
 --------------------------------------------------------------------*/
 
 
-#include "tl-nanos6-directive-environment.hpp"
-#include "tl-nanos6-interface.hpp"
+#include "tl-omp-lowering-directive-environment.hpp"
+//#include "tl-nanos6-interface.hpp"
 
 #include "tl-nodecl-visitor.hpp"
 
 #include "cxx-diagnostic.h"
 
 
-namespace TL { namespace Nanos6 {
+namespace TL { namespace OpenMP { namespace Lowering {
 
     //! This visitors traverses the environment of a directive and fills the DirectiveEnvironment structure
     struct DirectiveEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -111,7 +111,7 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OpenMP::Reduction &n)
             {
-                TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "reduction");
+                //TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "reduction");
 
                 Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = reductions.begin();
@@ -133,7 +133,7 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OmpSs::WeakReduction &n)
             {
-                TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "weakreduction");
+                //TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "weakreduction");
 
                 Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = reductions.begin();
@@ -207,8 +207,7 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OmpSs::DepWeakReduction &n)
             {
-                TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "weakreduction");
-
+                //TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "weakreduction");
                 handle_dependences(n, _env.dep_weakreduction);
             }
 
@@ -229,7 +228,7 @@ namespace TL { namespace Nanos6 {
 
             virtual void visit(const Nodecl::OmpSs::Wait &n)
             {
-                Interface::family_must_be_at_least("nanos6_instantiation_api", 2, "the 'wait' clause");
+                //Interface::family_must_be_at_least("nanos6_instantiation_api", 2, "the 'wait' clause");
                 _env.wait_clause = true;
             }
 
@@ -567,4 +566,4 @@ namespace TL { namespace Nanos6 {
         if (found_this.is_valid())
             captured_value.insert(found_this);
     }
-}}
+}}}

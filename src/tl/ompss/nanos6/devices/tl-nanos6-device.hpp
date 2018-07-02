@@ -27,13 +27,15 @@
 #ifndef TL_NANOS6_DEVICE_HPP
 #define TL_NANOS6_DEVICE_HPP
 
-#include "tl-nanos6-directive-environment.hpp"
+#include "tl-omp-lowering-directive-environment.hpp"
 
 #include "tl-symbol.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
 
 namespace TL { namespace Nanos6 {
+
+    using TL::OpenMP::Lowering::DirectiveEnvironment;
 
     class Device
     {

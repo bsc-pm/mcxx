@@ -2021,6 +2021,32 @@ EXTRA_DIST += src/tl/omp/nanos-common/nanos-exports.def
 endif
 
 ##########################################################################
+# src/tl/omp/lowering-commnon/
+##########################################################################
+
+phases_LTLIBRARIES += src/tl/omp/lowering-common/libtlomplowering-common.la
+
+src_tl_omp_lowering_common_libtlomplowering_common_la_CFLAGS = \
+    $(phases_cflags)\
+    -I$(top_srcdir)/src/tl/omp/common \
+    -I$(top_srcdir)/src/tl/omp/core
+
+src_tl_omp_lowering_common_libtlomplowering_common_la_CXXFLAGS = \
+    $(phases_cxxflags) \
+    -I$(top_srcdir)/src/tl/omp/common \
+    -I$(top_srcdir)/src/tl/omp/core
+
+src_tl_omp_lowering_common_libtlomplowering_common_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la
+
+src_tl_omp_lowering_common_libtlomplowering_common_la_LDFLAGS = $(phases_ldflags)
+
+src_tl_omp_lowering_common_libtlomplowering_common_la_SOURCES = \
+       src/tl/omp/lowering-common/tl-omp-lowering-directive-environment.hpp \
+       src/tl/omp/lowering-common/tl-omp-lowering-directive-environment.cpp
+
+
+##########################################################################
 # src/tl/omp/nanos-main/
 ##########################################################################
 
@@ -2324,6 +2350,7 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_CFLAGS = \
     $(phases_cflags) \
     -I$(top_srcdir)/src/tl/omp/core \
     -I$(top_srcdir)/src/tl/omp/common \
+    -I$(top_srcdir)/src/tl/omp/lowering-common \
     -I$(top_srcdir)/src/tl/ompss/nanos6 \
     -I$(top_srcdir)/src/tl/ompss/nanos6/devices \
     $(END)
@@ -2332,6 +2359,7 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_CXXFLAGS = \
     $(phases_cxxflags) \
     -I$(top_srcdir)/src/tl/omp/core \
     -I$(top_srcdir)/src/tl/omp/common \
+    -I$(top_srcdir)/src/tl/omp/lowering-common \
     -I$(top_srcdir)/src/tl/ompss/nanos6 \
     -I$(top_srcdir)/src/tl/ompss/nanos6/devices \
     $(END)
@@ -2348,8 +2376,6 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
     src/tl/ompss/nanos6/tl-nanos6-task.cpp \
     src/tl/ompss/nanos6/tl-nanos6-taskcall.cpp \
     src/tl/ompss/nanos6/tl-nanos6-loop.cpp \
-    src/tl/ompss/nanos6/tl-nanos6-directive-environment.cpp \
-    src/tl/ompss/nanos6/tl-nanos6-directive-environment.hpp \
     src/tl/ompss/nanos6/tl-nanos6-task-properties.hpp \
     src/tl/ompss/nanos6/tl-nanos6-task-properties.cpp \
     src/tl/ompss/nanos6/tl-nanos6-support.hpp \

@@ -25,8 +25,8 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef TL_NANOS6_DIRECTIVE_ENVIRONMENT_HPP
-#define TL_NANOS6_DIRECTIVE_ENVIRONMENT_HPP
+#ifndef TL_OMP_LOWERING_DIRECTIVE_ENVIRONMENT_HPP
+#define TL_OMP_LOWERING_DIRECTIVE_ENVIRONMENT_HPP
 
 #include "tl-nodecl.hpp"
 #include "tl-type.hpp"
@@ -34,7 +34,7 @@
 
 #include "tl-omp-reduction.hpp"
 
-namespace TL { namespace Nanos6 {
+namespace TL { namespace OpenMP { namespace Lowering {
 
     //! It represents all the information that we need to keep in order to
     //! support task reductions
@@ -43,12 +43,12 @@ namespace TL { namespace Nanos6 {
         TL::Symbol symbol;
         TL::Type reduction_type;
         TL::OpenMP::Reduction* reduction_info;
-        bool isWeak;
+        bool is_weak;
 
         ReductionItem(TL::Symbol sym, TL::Type red_type,
                 TL::OpenMP::Reduction* red_info, bool weak)
             : symbol(sym), reduction_type(red_type),
-            reduction_info(red_info), isWeak(weak)
+            reduction_info(red_info), is_weak(weak)
         { }
 
         TL::Symbol get_symbol() const
@@ -132,6 +132,6 @@ namespace TL { namespace Nanos6 {
         friend class FirstprivateSymbolsWithoutDataSharing;
     };
 
-} }
-#endif // TL_NANOS6_DIRECTIVE_ENVIRONMENT_HPP
+} } }
+#endif // TL_OMP_LOWERING_DIRECTIVE_ENVIRONMENT_HPP
 

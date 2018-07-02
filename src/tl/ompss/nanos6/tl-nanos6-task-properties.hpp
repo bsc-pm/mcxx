@@ -29,8 +29,9 @@
 #define TL_NANOS6_TASK_PROPERTIES_HPP
 
 #include "tl-nanos6.hpp"
-#include "tl-nanos6-directive-environment.hpp"
 #include "tl-nanos6-device.hpp"
+
+#include "tl-omp-lowering-directive-environment.hpp"
 
 #include "tl-datareference.hpp"
 
@@ -42,6 +43,8 @@
 
 
 namespace TL { namespace Nanos6 {
+
+    using TL::OpenMP::Lowering::DirectiveEnvironment;
 
     // Forward declaration of TL::Nanos6::Lower
     class Lower;

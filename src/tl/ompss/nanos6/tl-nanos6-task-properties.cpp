@@ -32,11 +32,14 @@
 #include "tl-nanos6-interface.hpp"
 #include "tl-nanos6-device-factory.hpp"
 
+#include "tl-omp-reduction.hpp"
+
 #include "tl-nodecl-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-counters.hpp"
+
 
 #include "codegen-phase.hpp"
 
@@ -57,6 +60,8 @@
 #include <set>
 
 namespace TL { namespace Nanos6 {
+
+    using TL::OpenMP::Lowering::ReductionItem;
 
     TaskProperties::TaskProperties(
             const Nodecl::OpenMP::Task& node,
