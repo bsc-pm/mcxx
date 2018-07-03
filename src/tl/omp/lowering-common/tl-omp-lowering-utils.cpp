@@ -25,12 +25,15 @@
 --------------------------------------------------------------------*/
 
 
-#include "tl-lowering-utils.hpp"
+#include "tl-omp-lowering-utils.hpp"
+
 #include "tl-scope.hpp"
+
 #include "fortran03-typeutils.h"
+
 #include "cxx-cexpr.h"
 
-namespace TL { namespace Lowering { namespace Utils { namespace Fortran {
+namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespace Fortran {
 
     Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase expr, int dimension_num)
     {
@@ -129,5 +132,5 @@ namespace TL { namespace Lowering { namespace Utils { namespace Fortran {
 
         return n;
     }
-} } } }
+} } } } }
 

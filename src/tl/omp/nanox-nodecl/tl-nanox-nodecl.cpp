@@ -27,8 +27,10 @@
 #include "tl-nanox-nodecl.hpp"
 #include "tl-nanos.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-final-stmts-generator.hpp"
 #include "tl-lowering-visitor.hpp"
+
+#include "tl-omp-lowering-final-stmts-generator.hpp"
+
 #include "tl-compilerpipeline.hpp"
 #include "codegen-phase.hpp"
 #include "cxx-profile.h"
@@ -101,7 +103,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase n = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
-        FinalStmtsGenerator final_generator(_ompss_mode);
+        TL::OpenMP::Lowering::FinalStmtsGenerator final_generator(_ompss_mode);
         // If the final clause transformation is disabled we shouldn't generate the final stmts
         if (!_final_clause_transformation_disabled)
             final_generator.walk(n);

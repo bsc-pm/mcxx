@@ -32,6 +32,8 @@
 #include "tl-nanos6-interface.hpp"
 #include "tl-nanos6-device-factory.hpp"
 
+#include "tl-omp-lowering-utils.hpp"
+#include "tl-omp-lowering-atomics.hpp"
 #include "tl-omp-reduction.hpp"
 
 #include "tl-nodecl-visitor.hpp"
@@ -40,11 +42,7 @@
 #include "tl-symbol-utils.hpp"
 #include "tl-counters.hpp"
 
-
 #include "codegen-phase.hpp"
-
-#include "tl-lowering-utils.hpp"
-#include "tl-atomics.hpp"
 
 #include "cxx-typeutils.h"
 #include "cxx-cexpr.h"
@@ -2326,12 +2324,12 @@ namespace TL { namespace Nanos6 {
                 {
                     type.array_get_bounds(array_lb, array_ub);
                     if (array_lb.is_null())
-                        array_lb = TL::Lowering::Utils::Fortran::get_lower_bound(data_ref, type.fortran_rank());
+                        array_lb = TL::OpenMP::Lowering::Utils::Fortran::get_lower_bound(data_ref, type.fortran_rank());
                     else
                         array_lb = array_lb.shallow_copy();
 
                     if (array_ub.is_null())
-                        array_ub = TL::Lowering::Utils::Fortran::get_upper_bound(data_ref, type.fortran_rank());
+                        array_ub = TL::OpenMP::Lowering::Utils::Fortran::get_upper_bound(data_ref, type.fortran_rank());
                     else
                         array_ub = array_ub.shallow_copy();
                 }
@@ -2349,7 +2347,7 @@ namespace TL { namespace Nanos6 {
                     }
                 }
 
-                size = TL::Lowering::Utils::Fortran::get_size_for_dimension(data_ref, type, type.fortran_rank());
+                size = TL::OpenMP::Lowering::Utils::Fortran::get_size_for_dimension(data_ref, type, type.fortran_rank());
 
                 lower_bound = Nodecl::Minus::make(
                         region_lb,

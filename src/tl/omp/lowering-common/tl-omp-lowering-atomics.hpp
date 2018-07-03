@@ -26,26 +26,18 @@
 
 
 
-#ifndef TL_LOWERING_UTILS_HPP
-#define TL_LOWERING_UTILS_HPP
+#ifndef TL_OMP_LOWERING_ATOMICS_HPP
+#define TL_OMP_LOWERING_ATOMICS_HPP
 
-#include "tl-nodecl.hpp"
-#include "tl-datareference.hpp"
-#include "tl-type.hpp"
+#include"tl-nodecl.hpp"
 
-namespace TL { namespace Lowering { namespace Utils {
+namespace TL { namespace OpenMP { namespace Lowering {
 
-    namespace Fortran
-    {
-        //FIXME: ADD DESCRIPTIONS!
-        Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase expr, int dimension_num);
+    bool allowed_expression_atomic(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api);
 
-        Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase expr, int dimension_num);
+    Nodecl::NodeclBase compare_and_exchange(Nodecl::NodeclBase expr);
 
-        Nodecl::NodeclBase get_size_for_dimension(const TL::DataReference& data_ref, TL::Type array_type, int dimension_num);
-    }
+    Nodecl::NodeclBase builtin_atomic_int_op(Nodecl::NodeclBase expr);
+}}}
 
-
-} } }
-
-#endif // TL_LOWERING_UTILS
+#endif // TL_OMP_LOWERING_ATOMICS_HPP

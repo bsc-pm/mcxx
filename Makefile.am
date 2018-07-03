@@ -1140,12 +1140,6 @@ src_tl_omp_common_libtlomp_common_la_LIBADD = $(tl_libadd)
 src_tl_omp_common_libtlomp_common_la_SOURCES = \
    src/tl/omp/common/tl-datareference.hpp \
    src/tl/omp/common/tl-datareference.cpp \
-   src/tl/omp/common/tl-final-stmts-generator.hpp \
-   src/tl/omp/common/tl-final-stmts-generator.cpp \
-   src/tl/omp/common/tl-atomics.hpp \
-   src/tl/omp/common/tl-atomics.cpp \
-   src/tl/omp/common/tl-lowering-utils.hpp \
-   src/tl/omp/common/tl-lowering-utils.cpp \
    $(END)
 
 ##########################################################################
@@ -1946,15 +1940,18 @@ if BUILD_NANOX_NODECL
 phases_LTLIBRARIES += src/tl/omp/nanox-nodecl/libtlnanox-lowering.la
 
 src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_CFLAGS = $(phases_cflags) \
-														-I$(srcdir)/src/tl/omp/nanos-common \
-														-I$(srcdir)/src/tl/omp/core \
-														-I$(srcdir)/src/tl/omp/common \
-                                                        -I@NANOX_INCLUDES@
+    -I$(srcdir)/src/tl/omp/nanos-common \
+    -I$(srcdir)/src/tl/omp/core \
+    -I$(srcdir)/src/tl/omp/common \
+    -I$(srcdir)/src/tl/omp/lowering-common \
+    -I@NANOX_INCLUDES@
+
 src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_CXXFLAGS = $(phases_cxxflags) \
-														-I$(srcdir)/src/tl/omp/nanos-common \
-														-I$(srcdir)/src/tl/omp/core \
-														-I$(srcdir)/src/tl/omp/common \
-                                                        -I@NANOX_INCLUDES@
+    -I$(srcdir)/src/tl/omp/nanos-common \
+    -I$(srcdir)/src/tl/omp/core \
+    -I$(srcdir)/src/tl/omp/common \
+    -I$(srcdir)/src/tl/omp/lowering-common \
+    -I@NANOX_INCLUDES@
 
 src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_LIBADD = $(phases_libadd) \
 								src/tl/omp/core/libtlomp-core.la \
@@ -2042,8 +2039,14 @@ src_tl_omp_lowering_common_libtlomplowering_common_la_LIBADD = \
 src_tl_omp_lowering_common_libtlomplowering_common_la_LDFLAGS = $(phases_ldflags)
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_SOURCES = \
-       src/tl/omp/lowering-common/tl-omp-lowering-directive-environment.hpp \
-       src/tl/omp/lowering-common/tl-omp-lowering-directive-environment.cpp
+    src/tl/omp/lowering-common/tl-omp-lowering-atomics.cpp \
+    src/tl/omp/lowering-common/tl-omp-lowering-atomics.hpp \
+    src/tl/omp/lowering-common/tl-omp-lowering-directive-environment.cpp \
+    src/tl/omp/lowering-common/tl-omp-lowering-directive-environment.hpp \
+    src/tl/omp/lowering-common/tl-omp-lowering-final-stmts-generator.cpp \
+    src/tl/omp/lowering-common/tl-omp-lowering-final-stmts-generator.hpp \
+    src/tl/omp/lowering-common/tl-omp-lowering-utils.cpp \
+    src/tl/omp/lowering-common/tl-omp-lowering-utils.hpp
 
 
 ##########################################################################

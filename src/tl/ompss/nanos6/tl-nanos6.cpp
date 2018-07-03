@@ -30,7 +30,7 @@
 #include "tl-nanos6-lower.hpp"
 
 #include "tl-compilerpipeline.hpp"
-#include "tl-final-stmts-generator.hpp"
+#include "tl-omp-lowering-final-stmts-generator.hpp"
 
 #include "codegen-phase.hpp"
 
@@ -84,7 +84,7 @@ namespace TL { namespace Nanos6 {
             *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
 
-        FinalStmtsGenerator final_generator(/* ompss_mode */ true);
+        TL::OpenMP::Lowering::FinalStmtsGenerator final_generator(/* ompss_mode */ true);
         // If the final clause transformation is disabled we shouldn't generate the final stmts
         if (!_final_clause_transformation_disabled)
             final_generator.walk(translation_unit);

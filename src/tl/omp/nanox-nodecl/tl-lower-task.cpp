@@ -29,7 +29,7 @@
 #include "tl-counters.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
-#include "tl-lowering-utils.hpp"
+#include "tl-omp-lowering-utils.hpp"
 #include "tl-devices.hpp"
 #include "tl-symbol-utils.hpp"
 #include "fortran03-typeutils.h"
@@ -3408,15 +3408,15 @@ void LoweringVisitor::compute_array_info(
         {
             if (array_lb.is_null())
             {
-                array_lb = TL::Lowering::Utils::Fortran::get_lower_bound(array_expr, fortran_rank);
+                array_lb = TL::OpenMP::Lowering::Utils::Fortran::get_lower_bound(array_expr, fortran_rank);
             }
             if (array_ub.is_null())
             {
-                array_ub = TL::Lowering::Utils::Fortran::get_upper_bound(array_expr, fortran_rank);
+                array_ub = TL::OpenMP::Lowering::Utils::Fortran::get_upper_bound(array_expr, fortran_rank);
             }
             if (dim_size.is_null())
             {
-                dim_size = TL::Lowering::Utils::Fortran::get_size_for_dimension(array_expr, t, fortran_rank);
+                dim_size = TL::OpenMP::Lowering::Utils::Fortran::get_size_for_dimension(array_expr, t, fortran_rank);
             }
         }
 

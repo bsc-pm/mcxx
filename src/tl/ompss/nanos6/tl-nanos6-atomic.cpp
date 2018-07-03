@@ -26,7 +26,7 @@
 
 
 #include "tl-nanos6-lower.hpp"
-#include "tl-atomics.hpp"
+#include "tl-omp-lowering-atomics.hpp"
 #include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanos6 {
@@ -41,7 +41,7 @@ namespace
         bool builtin_atomic = false;
         bool nanox_api_atomic = false; // Feasible atomic transformation using Nanox API
 
-        if (!allowed_expression_atomic(expr, builtin_atomic, nanox_api_atomic)
+        if (!TL::OpenMP::Lowering::allowed_expression_atomic(expr, builtin_atomic, nanox_api_atomic)
                 || nanox_api_atomic)
         {
             warn_printf_at(expr.get_locus(),
@@ -54,9 +54,9 @@ namespace
         }
 
         if (builtin_atomic)
-            return builtin_atomic_int_op(expr);
+            return TL::OpenMP::Lowering::builtin_atomic_int_op(expr);
 
-        return compare_and_exchange(expr);
+        return TL::OpenMP::Lowering::compare_and_exchange(expr);
     }
 }
 

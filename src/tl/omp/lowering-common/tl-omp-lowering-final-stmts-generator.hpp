@@ -24,15 +24,15 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_FINAL_STMTS_GENERATOR_HPP
-#define TL_FINAL_STMTS_GENERATOR_HPP
+#ifndef TL_OMP_LOWERING_FINAL_STMTS_GENERATOR_HPP
+#define TL_OMP_LOWERING_FINAL_STMTS_GENERATOR_HPP
 
 #include "tl-nodecl-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
 
 #include <map>
 
-namespace TL {
+namespace TL { namespace OpenMP  { namespace Lowering {
 
     class FinalStmtsGenerator : public Nodecl::ExhaustiveVisitor<void>
     {
@@ -56,6 +56,5 @@ namespace TL {
         private:
             Nodecl::NodeclBase generate_final_stmts(Nodecl::NodeclBase original_stmts);
     };
-
-}
-#endif // TL_FINAL_STMTS_GENERATOR_HPP
+}}}
+#endif // TL_OMP_LOWERING_FINAL_STMTS_GENERATOR_HPP

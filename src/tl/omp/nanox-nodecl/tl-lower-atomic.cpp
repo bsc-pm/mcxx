@@ -24,9 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-atomics.hpp"
-
 #include "tl-lowering-visitor.hpp"
+
+#include "tl-omp-lowering-atomics.hpp"
+
 #include "tl-counters.hpp"
 
 #include "tl-nodecl-utils.hpp"
@@ -217,7 +218,7 @@ namespace TL { namespace Nanox {
 
                 bool using_builtin = false;
                 bool using_nanos_api = false;
-                if (!allowed_expression_atomic(expr, using_builtin, using_nanos_api))
+                if (!TL::OpenMP::Lowering::allowed_expression_atomic(expr, using_builtin, using_nanos_api))
                 {
                     warn_printf_at(expr.get_locus(), "'atomic' expression cannot be implemented efficiently: a critical region will be used instead\n");
                     std::string lock_name = "nanos_default_critical_lock";
@@ -232,12 +233,12 @@ namespace TL { namespace Nanox {
                     }
                     else if (using_builtin)
                     {
-                        atomic_tree = builtin_atomic_int_op(expr);
+                        atomic_tree = TL::OpenMP::Lowering::builtin_atomic_int_op(expr);
                         info_printf_at(expr.get_locus(), "'atomic' directive implemented using GCC atomic builtins\n");
                     }
                     else
                     {
-                        atomic_tree = compare_and_exchange(expr);
+                        atomic_tree = TL::OpenMP::Lowering::compare_and_exchange(expr);
                         info_printf_at(expr.get_locus(), "'atomic' directive implemented using GCC compare and exchange\n");
                     }
                 }

@@ -24,11 +24,11 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include"tl-atomics.hpp"
+#include"tl-omp-lowering-atomics.hpp"
 #include"tl-nodecl-utils.hpp"
 #include"tl-counters.hpp"
 
-namespace TL {
+namespace TL { namespace OpenMP { namespace Lowering {
 
     namespace
     {
@@ -482,4 +482,4 @@ namespace TL {
 
         return critical_source.parse_statement(expr);
     }
-}
+}}}

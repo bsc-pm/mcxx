@@ -24,12 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-final-stmts-generator.hpp"
+#include "tl-omp-lowering-final-stmts-generator.hpp"
 #include "tl-symbol-utils.hpp"
 
 #include "cxx-cexpr.h"
 
-namespace TL {
+namespace TL { namespace OpenMP { namespace Lowering {
 
     Nodecl::NodeclBase FinalStmtsGenerator::generate_final_stmts(Nodecl::NodeclBase stmts)
     {
@@ -428,4 +428,4 @@ namespace TL {
     {
         return _final_stmts_map;
     }
-}
+}}}
