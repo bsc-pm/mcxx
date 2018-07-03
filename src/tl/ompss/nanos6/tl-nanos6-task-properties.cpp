@@ -69,6 +69,12 @@ namespace TL { namespace Nanos6 {
         : _env(node.get_environment()), _serial_context(serial_context),
         _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
     {
+        if (!_env.dep_reduction.empty() || !_env.dep_weakreduction.empty())
+            Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "reductions");
+
+        if ( _env.wait_clause)
+            Interface::family_must_be_at_least("nanos6_instantiation_api", 2, "the 'wait' clause");
+
         TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
         _nanos6_task_counter = (int) counter;
         counter++;
