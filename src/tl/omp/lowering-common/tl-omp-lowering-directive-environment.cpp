@@ -445,6 +445,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         dep_commutative.map(fp_syms_without_data_sharing);
         dep_concurrent.map(fp_syms_without_data_sharing);
         dep_reduction.map(fp_syms_without_data_sharing);
+        dep_weakreduction.map(fp_syms_without_data_sharing);
 
         // Other task clauses
         fp_syms_without_data_sharing(cost_clause);
