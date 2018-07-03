@@ -40,6 +40,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
        {
           private:
              bool _ompss_mode;
+             const std::string & _in_final_fun_name;
              int _num_task_related_pragmas;
              TL::ObjectList<Nodecl::NodeclBase> _function_codes_to_be_duplicated;
              TL::ObjectList<Nodecl::NodeclBase> _already_visited;
@@ -47,9 +48,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
           public:
 
-             FinalStatementsPreVisitor(bool ompss_mode, const Nodecl::Utils::SimpleSymbolMap& function_tranlation_map)
+             FinalStatementsPreVisitor(bool ompss_mode, const std::string &in_final_fun_name,
+                     const Nodecl::Utils::SimpleSymbolMap& function_tranlation_map)
                 :
                    _ompss_mode(ompss_mode),
+                   _in_final_fun_name(in_final_fun_name),
                    _num_task_related_pragmas(0),
                    _function_codes_to_be_duplicated(),
                    _already_visited(),
@@ -115,7 +118,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
                 TL::Symbol called_sym = called.as<Nodecl::Symbol>().get_symbol();
 
-                if (called_sym.get_name() == "omp_in_final")
+                if (called_sym.get_name() == _in_final_fun_name)
                 {
                    ++_num_task_related_pragmas;
                    return;
@@ -159,6 +162,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
        {
           private:
              bool _ompss_mode;
+             const std::string &_in_final_fun_name;
              Nodecl::NodeclBase _enclosing_function_code;
              Nodecl::Utils::SimpleSymbolMap& _function_translation_map;
              const TL::ObjectList<Nodecl::NodeclBase>& _function_codes_to_be_duplicated;
@@ -167,11 +171,13 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
              FinalStatementsGenerator(
                    bool ompss_mode,
+                   const std::string in_final_fun_name,
                    Nodecl::NodeclBase enclosing_function_code,
                    Nodecl::Utils::SimpleSymbolMap& function_tranlation_map,
                    const TL::ObjectList<Nodecl::NodeclBase>& function_codes_to_be_duplicated)
                 :
                    _ompss_mode(ompss_mode),
+                   _in_final_fun_name(in_final_fun_name),
                    _enclosing_function_code(enclosing_function_code),
                    _function_translation_map(function_tranlation_map),
                    _function_codes_to_be_duplicated(function_codes_to_be_duplicated) { }
@@ -244,7 +250,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
                 TL::Symbol called_sym = called.as<Nodecl::Symbol>().get_symbol();
 
-                if (called_sym.get_name() == "omp_in_final")
+                if (called_sym.get_name() == _in_final_fun_name)
                 {
                    nodecl_t true_expr;
                    if (IS_FORTRAN_LANGUAGE)
@@ -334,7 +340,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
        Nodecl::NodeclBase new_stmts = Nodecl::Utils::deep_copy(stmts, stmts.retrieve_context());
 
-       FinalStatementsPreVisitor pre_visitor(_ompss_mode, _function_translation_map);
+       FinalStatementsPreVisitor pre_visitor(_ompss_mode, _in_final_fun_name, _function_translation_map);
        pre_visitor.walk(new_stmts);
 
        TL::Symbol enclosing_funct_sym = Nodecl::Utils::get_enclosing_function(stmts);
@@ -342,6 +348,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
        FinalStatementsGenerator generator(
              _ompss_mode,
+             _in_final_fun_name,
              enclosing_funct_code,
              _function_translation_map,
              pre_visitor.get_function_codes_to_be_duplicated());
@@ -352,8 +359,9 @@ namespace TL { namespace OpenMP { namespace Lowering {
     }
 
 
-    FinalStmtsGenerator::FinalStmtsGenerator(bool ompss_mode)
+    FinalStmtsGenerator::FinalStmtsGenerator(bool ompss_mode, const std::string &in_final_fun_name)
         : _ompss_mode(ompss_mode),
+          _in_final_fun_name(in_final_fun_name),
           _final_stmts_map(),
           _function_translation_map() { }
 

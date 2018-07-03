@@ -31,6 +31,7 @@
 #include "tl-nodecl-utils.hpp"
 
 #include <map>
+#include <string>
 
 namespace TL { namespace OpenMP  { namespace Lowering {
 
@@ -38,11 +39,15 @@ namespace TL { namespace OpenMP  { namespace Lowering {
     {
         private:
             bool _ompss_mode;
+            const std::string &_in_final_fun_name;
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
             Nodecl::Utils::SimpleSymbolMap _function_translation_map;
 
         public:
-            FinalStmtsGenerator(bool ompss_mode);
+
+            //! The second parameter represents a runtime function that checks
+            //! whether the current task is a final task
+            FinalStmtsGenerator(bool ompss_mode, const std::string &in_final_fun_name);
 
             void visit(const Nodecl::OmpSs::Loop &loop);
             void visit(const Nodecl::OmpSs::TaskCall &task_call);

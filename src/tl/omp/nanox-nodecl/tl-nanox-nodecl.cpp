@@ -103,7 +103,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase n = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
-        TL::OpenMP::Lowering::FinalStmtsGenerator final_generator(_ompss_mode);
+        TL::OpenMP::Lowering::FinalStmtsGenerator final_generator(_ompss_mode, "omp_in_final");
         // If the final clause transformation is disabled we shouldn't generate the final stmts
         if (!_final_clause_transformation_disabled)
             final_generator.walk(n);
