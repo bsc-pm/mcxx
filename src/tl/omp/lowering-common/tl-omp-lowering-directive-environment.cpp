@@ -40,13 +40,10 @@ namespace TL { namespace OpenMP { namespace Lowering {
     {
         private:
             DirectiveEnvironment& _env;
-            TL::ObjectList<TL::Symbol>& _firstprivate;
 
             void not_supported(const std::string &feature, Nodecl::NodeclBase n)
             {
-                error_printf_at(n.get_locus(),
-                        "%s is not supported in Nanos6\n",
-                        feature.c_str());
+                error_printf_at(n.get_locus(), "%s is not supported\n", feature.c_str());
             }
 
             void not_supported_seq(const std::string &feature, Nodecl::List l)
@@ -59,8 +56,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
             void ignored(const std::string &feature, Nodecl::NodeclBase n)
             {
-                warn_printf_at(
-                        n.get_locus(), "%s is ignored in Nanos6\n", feature.c_str());
+                warn_printf_at(n.get_locus(), "%s is ignored\n", feature.c_str());
             }
 
             void ignored_seq(const std::string &feature, Nodecl::List l)
@@ -72,14 +68,12 @@ namespace TL { namespace OpenMP { namespace Lowering {
             }
 
         public:
-            DirectiveEnvironmentVisitor(DirectiveEnvironment& env,
-                    TL::ObjectList<TL::Symbol>& firstprivate)
-                : _env(env), _firstprivate(firstprivate)
+            DirectiveEnvironmentVisitor(DirectiveEnvironment& env) : _env(env)
             {}
 
             virtual void visit(const Nodecl::OpenMP::Firstprivate &n)
             {
-                _firstprivate.insert(
+                _env._firstprivate.insert(
                         n.get_symbols()
                         .as<Nodecl::List>()
                         .to_object_list()
@@ -111,7 +105,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
             virtual void visit(const Nodecl::OpenMP::Reduction &n)
             {
-                //TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "reduction");
 
                 Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = reductions.begin();
@@ -133,8 +126,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
             virtual void visit(const Nodecl::OmpSs::WeakReduction &n)
             {
-                //TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "weakreduction");
-
                 Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = reductions.begin();
                         it != reductions.end();
@@ -207,7 +198,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
             virtual void visit(const Nodecl::OmpSs::DepWeakReduction &n)
             {
-                //TL::Nanos6::Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "weakreduction");
                 handle_dependences(n, _env.dep_weakreduction);
             }
 
@@ -228,7 +218,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
             virtual void visit(const Nodecl::OmpSs::Wait &n)
             {
-                //Interface::family_must_be_at_least("nanos6_instantiation_api", 2, "the 'wait' clause");
                 _env.wait_clause = true;
             }
 
@@ -347,7 +336,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         any_task_dependence(false), locus_of_task_declaration(NULL)
     {
         // Traversing & filling the directive environment
-        DirectiveEnvironmentVisitor visitor(*this, _firstprivate);
+        DirectiveEnvironmentVisitor visitor(*this);
         visitor.walk(environment);
 
         // Fixing some data-sharings + capturing some special symbols

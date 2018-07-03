@@ -130,6 +130,9 @@ namespace TL { namespace OpenMP { namespace Lowering {
         bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
 
         friend class FirstprivateSymbolsWithoutDataSharing;
+        friend class DirectiveEnvironmentVisitor;
+
+
     };
 
 } } }
