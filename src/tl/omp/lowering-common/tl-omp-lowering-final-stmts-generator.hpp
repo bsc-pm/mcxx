@@ -39,7 +39,7 @@ namespace TL { namespace OpenMP  { namespace Lowering {
     {
         private:
             bool _ompss_mode;
-            const std::string &_in_final_fun_name;
+            const std::string _in_final_fun_name;
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
             Nodecl::Utils::SimpleSymbolMap _function_translation_map;
 
