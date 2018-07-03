@@ -1938,19 +1938,20 @@ endif
 phases_LTLIBRARIES += src/tl/omp/lowering-common/libtlomplowering-common.la
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_CFLAGS = \
-    $(phases_cflags)\
+    $(tl_cflags)\
     -I$(top_srcdir)/src/tl/omp/common \
     -I$(top_srcdir)/src/tl/omp/core
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_CXXFLAGS = \
-    $(phases_cxxflags) \
+    $(tl_cflags) \
     -I$(top_srcdir)/src/tl/omp/common \
     -I$(top_srcdir)/src/tl/omp/core
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_LIBADD = \
+    $(tl_libadd) \
     $(top_builddir)/src/tl/omp/common/libtlomp-common.la
 
-src_tl_omp_lowering_common_libtlomplowering_common_la_LDFLAGS = $(phases_ldflags)
+src_tl_omp_lowering_common_libtlomplowering_common_la_LDFLAGS = $(tl_ldflags)
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_SOURCES = \
     src/tl/omp/lowering-common/tl-omp-lowering-atomics.cpp \
