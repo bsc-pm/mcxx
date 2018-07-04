@@ -660,7 +660,8 @@ void LoweringVisitor::emit_async_common(
                     task_statements,
                     task_label,
                     structure_symbol,
-                    real_called_task);
+                    real_called_task,
+                    construct.get_locus());
 
             Nodecl::NodeclBase outline_placeholder, output_statements;
             Nodecl::Utils::SimpleSymbolMap* symbol_map = NULL;
@@ -957,10 +958,9 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase new_construct;
     if (generate_final_stmts)
     {
-        // We create a new Node OpenMP::Task with the same childs as the
-        // original construct. Another solution is shallow copy all the
-        // construct (less efficient)
-        new_construct = Nodecl::OpenMP::Task::make(environment, statements);
+        // We create a new Node OpenMP::Task with the same childs as the original construct.
+        // Another solution is shallow copy all the construct (less efficient)
+        new_construct = Nodecl::OpenMP::Task::make(environment, statements, construct.get_locus());
         TL::Source code;
 
         Nodecl::NodeclBase copied_statements_placeholder;

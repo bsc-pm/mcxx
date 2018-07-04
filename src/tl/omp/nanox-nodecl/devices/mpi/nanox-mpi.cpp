@@ -670,7 +670,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 host_function,
                 host_function_body,
                 info._task_label,
-                original_statements.get_locus(),
+                info._instr_locus,
                 instrument_before_host,
                 instrument_after_host); 
     } 
@@ -775,7 +775,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 device_function,
                 device_function_body,
                 info._task_label,
-                original_statements.get_locus(),
+                info._instr_locus,
                 instrument_before_dev,
                 instrument_after_dev); 
     } 

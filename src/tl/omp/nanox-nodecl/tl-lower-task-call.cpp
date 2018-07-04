@@ -961,7 +961,7 @@ void LoweringVisitor::visit_task_call_c(
 
     Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
 
-    Nodecl::NodeclBase new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
+    Nodecl::NodeclBase new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements, statements.get_locus());
 
     Nodecl::NodeclBase new_code;
     if (!_lowering->final_clause_transformation_disabled()
@@ -1376,7 +1376,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     task_environment.walk(new_environment);
 
     // Create the #pragma omp task
-    task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
+    task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq, construct.get_locus());
 
     OutlineInfo dummy_outline_info(*_lowering, new_environment,
             called_function, /* is_task_construct */ 1,  _function_task_set);
