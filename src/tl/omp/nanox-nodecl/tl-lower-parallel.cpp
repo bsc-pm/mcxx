@@ -139,7 +139,8 @@ namespace TL { namespace Nanox {
                 /* current task statements */ statements,
                 task_label,
                 structure_symbol,
-                /* called_task */ TL::Symbol::invalid());
+                /* called_task */ TL::Symbol::invalid(),
+                construct.get_locus());
 
         // List of device names
         const TL::ObjectList<std::string>& device_names = target_info.get_device_names();

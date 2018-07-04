@@ -660,7 +660,8 @@ void LoweringVisitor::emit_async_common(
                     task_statements,
                     task_label,
                     structure_symbol,
-                    real_called_task);
+                    real_called_task,
+                    construct.get_locus());
 
             Nodecl::NodeclBase outline_placeholder, output_statements;
             Nodecl::Utils::SimpleSymbolMap* symbol_map = NULL;

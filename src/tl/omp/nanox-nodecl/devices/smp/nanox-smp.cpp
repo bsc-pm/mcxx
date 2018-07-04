@@ -582,7 +582,7 @@ namespace TL { namespace Nanox {
                     outline_function,
                     outline_function_body,
                     info._task_label,
-                    original_statements.get_locus(),
+                    info._instr_locus,
                     instrument_before,
                     instrument_after);
         }
