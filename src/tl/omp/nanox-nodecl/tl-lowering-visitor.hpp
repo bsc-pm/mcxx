@@ -406,8 +406,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
                 TL::Symbol slicer_descriptor,
-                Nodecl::NodeclBase task_label,
-                Nodecl::NodeclBase final_clause);
+                Nodecl::NodeclBase task_label);
 
         static bool there_are_reductions(OutlineInfo& outline_info);
 

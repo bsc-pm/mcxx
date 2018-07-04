@@ -88,14 +88,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 walk(task_expr.get_sequential_code());
              }
 
-             void visit(const Nodecl::OpenMP::For& for_construct)
-             {
-                if (_ompss_mode)
-                   ++_num_task_related_pragmas;
-
-                walk(for_construct.get_loop());
-             }
-
              void visit(const Nodecl::OmpSs::Loop &loop)
              {
                 ++_num_task_related_pragmas;
@@ -217,21 +209,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 ERROR_CONDITION(!seq_code.is<Nodecl::ExpressionStatement>(), "Unreachable code\n", 0);
                 task_expr.replace(seq_code.as<Nodecl::ExpressionStatement>().get_nest());
                 walk(task_expr);
-             }
-
-             void visit(const Nodecl::OpenMP::For& for_construct)
-             {
-                if (_ompss_mode)
-                {
-                   for_construct.replace(for_construct.get_loop());
-                   walk(for_construct);
-                }
-                else
-                {
-                   // Note that we are calling to the 'visit' function of the ExhaustiveVisitor
-                   // class since we want to do the generic traversal of this node
-                   Nodecl::ExhaustiveVisitor<void>::visit(for_construct);
-                }
              }
 
              void visit(const Nodecl::ObjectInit& object_init)
@@ -410,26 +387,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
         //std::cerr << "task expression: " << task_expr.get_locus_str() << std::endl;
         Nodecl::NodeclBase final_stmts = generate_final_stmts(task_expr.get_sequential_code());
         _final_stmts_map.insert(std::make_pair(task_expr, final_stmts));
-    }
-
-    void FinalStmtsGenerator::visit(const Nodecl::OpenMP::For& for_construct)
-    {
-       if (_ompss_mode)
-       {
-          walk(for_construct.get_loop());
-
-          //std::cerr << "for construct: " << for_construct.get_locus_str() << std::endl;
-          Nodecl::NodeclBase final_stmts = generate_final_stmts(for_construct.get_loop());
-          _final_stmts_map.insert(std::make_pair(for_construct, final_stmts));
-       }
-       else
-       {
-          // Do not generate a sequential version of loop constructs in OpenMP
-          //
-          // Note that we are calling to the 'visit' function of the ExhaustiveVisitor
-          // class since we want to do the generic traversal of this node
-          Nodecl::ExhaustiveVisitor<void>::visit(for_construct);
-       }
     }
 
     std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& FinalStmtsGenerator::get_final_stmts()

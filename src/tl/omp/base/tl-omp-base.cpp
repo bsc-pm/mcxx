@@ -1217,12 +1217,6 @@ namespace TL { namespace OpenMP {
 
         handle_label_clause(directive, execution_environment);
 
-        if (_core.in_ompss_mode())
-        {
-            handle_task_final_clause(
-                    directive, /* parsing_context */ directive, execution_environment);
-        }
-
         if (pragma_line.get_clause("schedule").is_defined())
         {
             PragmaCustomClause clause = pragma_line.get_clause("schedule");

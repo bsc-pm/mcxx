@@ -41,8 +41,7 @@ namespace TL { namespace Nanox {
             const std::string& outline_name,
             TL::Symbol structure_symbol,
             TL::Symbol slicer_descriptor,
-            Nodecl::NodeclBase task_label,
-            Nodecl::NodeclBase final_clause)
+            Nodecl::NodeclBase task_label)
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -125,7 +124,7 @@ namespace TL { namespace Nanox {
         dynamic_wd_info << "nanos_wd_dyn_props_t " << dyn_props_var << ";";
 
         fill_dynamic_properties(dyn_props_var,
-                /* priority_expr */ nodecl_null(), final_clause, /* is_implicit */ 0, dynamic_wd_info);
+                /* priority_expr */ nodecl_null(), /* final_clause */ nodecl_null(), /* is_implicit */ 0, dynamic_wd_info);
 
         Source spawn_code, tw_if_needed;
         spawn_code
