@@ -54,6 +54,7 @@ static void move_for_loop_to_task(TL::ForStatement& for_statement,
     TL::Symbol task_ind_var = outline_task_stmt
                              .retrieve_context()
                              .get_symbol_from_name("_task_" + for_statement.get_induction_variable().get_name());
+
     TL::Symbol task_for_lb = outline_task_stmt
                              .retrieve_context()
                              .get_symbol_from_name("lower");
@@ -65,12 +66,27 @@ static void move_for_loop_to_task(TL::ForStatement& for_statement,
                              .get_symbol_from_name("incr");
     Nodecl::LoopControl for_control = for_statement.get_loop_header().as<Nodecl::LoopControl>();
 
-    Nodecl::NodeclBase init =
-        Nodecl::List::make(
+    Nodecl::NodeclBase init;
+    if (!task_ind_var.is_valid()) {
+        task_ind_var = for_statement.get_induction_variable();
+
+        task_ind_var.set_value(
+            Nodecl::Conversion::make(
+                task_for_lb.make_nodecl(),
+                task_ind_var.get_type()));
+
+        init =
+            Nodecl::List::make(
+                Nodecl::ObjectInit::make(task_ind_var));
+    }
+    else {
+        init =
+            Nodecl::List::make(
                 Nodecl::Assignment::make(
                     task_ind_var.make_nodecl(),
                     task_for_lb.make_nodecl(),
                     task_ind_var.get_type().get_lvalue_reference_to()));
+    }
 
     typedef Nodecl::NodeclBase (*ptr_to_func_t)(Nodecl::NodeclBase, Nodecl::NodeclBase, TL::Type, const locus_t*);
     ptr_to_func_t make_relative_operator;
