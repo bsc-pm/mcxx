@@ -569,11 +569,8 @@ then
            ]
    )
 
-   CFLAGSBACKUP="$CFLAGS"
    CPPFLAGSBACKUP="$CPPFLAGS"
-
    CPPFLAGS="$CPPFLAGS -I$nanox_include"
-   CFLAGS="$CFLAGS -I$nanox_include"
 
    AC_CHECK_HEADER([nanos.h],
                    [break],
@@ -605,7 +602,6 @@ then
     fi
 
     CPPFLAGS="$CPPFLAGSBACKUP"
-    CFLAGS="$CFLAGSBACKUP"
 
 
    AC_ARG_WITH([nanox-mic],
@@ -807,19 +803,12 @@ then
    AC_MSG_CHECKING([if nanox has opencl header installed])
    #tests if opencl headers are usable and correct
    #backup vars before we do the tests
-   CFLAGSBACKUP="$CFLAGS"
    CPPFLAGSBACKUP="$CPPFLAGS"
-   CXXFLAGSBACKUP="$CXXFLAGS"
-
-   CFLAGS="$CFLAGS -I$nanox_include"
    CPPFLAGS="$CPPFLAGS -I$nanox_include"
-   CXXFLAGS="$CXXFLAGS -I$nanox_include"
 
    AC_CHECK_HEADER([nanos-opencl.h], [opencl_valid=yes], [opencl_valid=no])
 
-   CFLAGS="$CFLAGSBACKUP"
    CPPFLAGS="$CPPFLAGSBACKUP"
-   CXXFLAGS="$CXXFLAGSBACKUP"
 fi
 
 
@@ -928,18 +917,12 @@ then
         AC_MSG_CHECKING([if nanox has mpi enabled])
         #tests if mpi headers are usable and correct
         #backup vars before we do the tests
-        CFLAGSBACKUP="$CFLAGS"
         CPPFLAGSBACKUP="$CPPFLAGS"
-        CXXFLAGSBACKUP="$CXXFLAGS"
-
-        CFLAGS="$CFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
         CPPFLAGS="$CPPFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
-        CXXFLAGS="$CXXFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
+
         AC_CHECK_HEADER([nanos-mpi.h], [mpi_valid=yes],[])
 
-        CFLAGS="$CFLAGSBACKUP"
         CPPFLAGS="$CPPFLAGSBACKUP"
-        CXXFLAGS="$CXXFLAGSBACKUP"
     fi
 fi
 
@@ -1021,12 +1004,8 @@ then
     )
 
     if test x${boostrapping_nanos6} != xyes ; then
-
-        CFLAGSBACKUP="$CFLAGS"
         CPPFLAGSBACKUP="$CPPFLAGS"
-
         CPPFLAGS="$CPPFLAGS -I$nanos6_include"
-        CFLAGS="$CFLAGS -I$nanos6_include"
 
         AC_CHECK_HEADER([nanos6.h],
                 [break],
@@ -1034,8 +1013,8 @@ then
 
         # Best effort: do not execute the following check when the host and target archs do not match
         if test x"$target" == x"$host"; then
-            CPPFLAGS="$CPPFLAGSBACKUP -L$nanos6_lib"
-            CFLAGS="$CFLAGSBACKUP -L$nanos6_lib"
+            LDFLAGSBACKUP="$LDFLAGS"
+            LDFLAGS="$LDFLAGSBACKUP -L$nanos6_lib"
 
             AC_CHECK_LIB([nanos6], [nanos_in_final],
                 [break],
@@ -1043,22 +1022,15 @@ then
                     if test x${nanos6_mandatory_lib} = xyes; then
                         AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])
                     fi
-
                     AS_UNSET(ac_cv_lib_nanos6_nanos_in_final)
-
-                    nanos6_lib="${nanos6}/lib64"
-
-                    CPPFLAGS="$CPPFLAGSBACKUP -L$nanos6_lib"
-                    CFLAGS="$CFLAGSBACKUP -L$nanos6_lib"
-
+                    LDFLAGS="$LDFLAGSBACKUP -L${nanos6}/lib64"
                     AC_CHECK_LIB([nanos6], [nanos_in_final],
                         [break],
                         [AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])])
                 ])
+            LDFLAGS="$LDFLAGSBACKUP"
         fi
-
         CPPFLAGS="$CPPFLAGSBACKUP"
-        CFLAGS="$CFLAGSBACKUP"
     fi
 fi
 
