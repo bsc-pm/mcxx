@@ -1032,28 +1032,30 @@ then
                 [break],
                 [AC_MSG_ERROR([Nanos6 support was required but 'nanos6.h' was not found])])
 
+        # Best effort: do not execute the following check when the host and target archs do not match
+        if test x"$target" == x"$host"; then
+            CPPFLAGS="$CPPFLAGSBACKUP -L$nanos6_lib"
+            CFLAGS="$CFLAGSBACKUP -L$nanos6_lib"
 
-        CPPFLAGS="$CPPFLAGSBACKUP -L$nanos6_lib"
-        CFLAGS="$CFLAGSBACKUP -L$nanos6_lib"
+            AC_CHECK_LIB([nanos6], [nanos_in_final],
+                [break],
+                [
+                    if test x${nanos6_mandatory_lib} = xyes; then
+                        AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])
+                    fi
 
-        AC_CHECK_LIB([nanos6], [nanos_in_final],
-            [break],
-            [
-                if test x${nanos6_mandatory_lib} = xyes; then
-                    AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])
-                fi
+                    AS_UNSET(ac_cv_lib_nanos6_nanos_in_final)
 
-                AS_UNSET(ac_cv_lib_nanos6_nanos_in_final)
+                    nanos6_lib="${nanos6}/lib64"
 
-                nanos6_lib="${nanos6}/lib64"
+                    CPPFLAGS="$CPPFLAGSBACKUP -L$nanos6_lib"
+                    CFLAGS="$CFLAGSBACKUP -L$nanos6_lib"
 
-                CPPFLAGS="$CPPFLAGSBACKUP -L$nanos6_lib"
-                CFLAGS="$CFLAGSBACKUP -L$nanos6_lib"
-
-                AC_CHECK_LIB([nanos6], [nanos_in_final],
-                    [break],
-                    [AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])])
-            ])
+                    AC_CHECK_LIB([nanos6], [nanos_in_final],
+                        [break],
+                        [AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])])
+                ])
+        fi
 
         CPPFLAGS="$CPPFLAGSBACKUP"
         CFLAGS="$CFLAGSBACKUP"
