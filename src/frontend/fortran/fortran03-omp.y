@@ -73,7 +73,7 @@ omp_dr_operator : '+'
 | USER_DEFINED_OPERATOR
 ;
 
-omp_dr_typename : declaration_type_spec
+omp_dr_typename : type_spec
 {
     $$ = $1;
 }
