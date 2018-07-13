@@ -467,6 +467,13 @@ namespace TL { namespace Nanox {
         TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
         OutlineInfo outline_info(*_lowering, environment, enclosing_function);
 
+        if (_lowering->in_ompss_mode()
+                && there_are_reductions(outline_info))
+        {
+            fatal_printf_at(construct.get_locus(),
+                    "reductions are not supported by the implementation of a for construct as a worksharing in OmpSs\n");
+        }
+
         // Handle the special object 'this'
         if (IS_CXX_LANGUAGE
                 && !enclosing_function.is_static()
