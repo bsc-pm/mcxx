@@ -689,7 +689,6 @@ static void fill_symbol_map(Nodecl::Utils::SimpleSymbolMap& symbol_map,
             it != all_symbols.end();
             it++)
     {
-        // retrieve_context busca por los nodos de arriba el scope
         TL::Symbol task_sym = outline_task_stmt.retrieve_context().get_symbol_from_name("_task_" + it->get_name());
         ERROR_CONDITION(!task_sym.is_valid(), "Invalid symbol", 0);
         symbol_map.add_map(*it, task_sym);
@@ -804,7 +803,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskloop& construct)
                      task_args_type);
 
 
-    // Poner el codigo de crear task, estructuras...
     Source src_task_call_body;
     Nodecl::NodeclBase stmt_definitions, stmt_task_alloc, stmt_task_fill, stmt_task_loop;
     Nodecl::NodeclBase stmt_set_priority;
@@ -825,7 +823,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskloop& construct)
     << as_type(kmp_taskloop_type) << " *_ret;"
     << as_type(task_args_type) << " *_args;";
     Nodecl::NodeclBase tree_definitions = src_definitions.parse_statement(stmt_definitions);
-    // Por que no puedo hacer replace en lugar de prepend_sibling?
     stmt_definitions.prepend_sibling(tree_definitions);
 
     Source src_task_final;
@@ -933,7 +930,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskloop& construct)
     << "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
     << "(kmp_task_t *)_ret,"
     << src_task_if << ","
-    // TODO: pointers to lb up. st value
     << "&(_ret->lb),"
     << "&(_ret->ub),"
     << "_ret->st,"
