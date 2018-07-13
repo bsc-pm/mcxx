@@ -935,17 +935,15 @@ namespace TL { namespace Nanox {
                                         Scope(function_context),
                                         reduction_init_map);
 
-                                Nodecl::Symbol sym_ref = Nodecl::Symbol::make(private_sym);
-                                type_t* lvalue_ref = get_lvalue_reference_type(private_sym->type_information);
-                                sym_ref.set_type(lvalue_ref);
-
-                                Nodecl::NodeclBase assignment_statement = Nodecl::ExpressionStatement::make(
-                                        Nodecl::Assignment::make(
-                                            sym_ref,
+                                if (!init_expr.is<Nodecl::FunctionCall>())
+                                {
+                                    init_expr = Nodecl::Assignment::make(
+                                            TL::Symbol(private_sym).make_nodecl(/*set_ref_type*/ true),
                                             init_expr,
-                                            lvalue_ref));
+                                            get_lvalue_reference_type(private_sym->type_information));
+                                }
 
-                                initial_statements << as_statement(assignment_statement);
+                                initial_statements << as_statement(Nodecl::ExpressionStatement::make(init_expr));
                             }
                             else
                             {
