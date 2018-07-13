@@ -399,10 +399,16 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase init_expr =
             Nodecl::Utils::deep_copy(red->get_initializer(), inner_scope, map);
+
         if (!init_expr.is<Nodecl::FunctionCall>())
         {
-            init_expr = Nodecl::Assignment::make(
-                    omp_priv.make_nodecl(/*set_ref_type*/ true), init_expr, omp_priv.get_type());
+            Nodecl::NodeclBase rhs = omp_priv.make_nodecl(/*set_ref_type*/ true);
+            if (omp_priv.get_type().no_ref().is_pointer())
+            {
+                rhs = Nodecl::Dereference::make(rhs, rhs.get_type().no_ref().points_to());
+            }
+
+            init_expr = Nodecl::Assignment::make( rhs, init_expr, rhs.get_type());
         }
         initializer_stmt.replace(Nodecl::ExpressionStatement::make(init_expr));
 
