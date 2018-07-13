@@ -59,6 +59,17 @@ namespace TL { namespace Nanox {
             }
     };
 
+    namespace
+    {
+        // Convenient implementation of the 'get_symbol_from_name' function
+        // that emits an error if the symbol does not exist
+        TL::Symbol get_symbol_from_name(TL::Scope sc, const std::string &name)
+        {
+            TL::Symbol result = sc.get_symbol_from_name(name);
+            ERROR_CONDITION(result.is_invalid(), "symbol '%s' not found\n", name.c_str());
+            return result;
+        }
+    }
 
     static TL::Symbol create_reduction_function_internal(
             OpenMP::Reduction* red,
@@ -69,13 +80,13 @@ namespace TL { namespace Nanox {
             TL::Type omp_in_type,
             bool omp_out_type_is_allocatable)
     {
-        Nodecl::NodeclBase function_body;
+        Nodecl::NodeclBase combiner_stmt_placeholder;
         Source src;
         src << "void " << function_name << "("
             << as_type(omp_out_type.no_ref().get_lvalue_reference_to()) << " omp_out,"
             << as_type(omp_in_type.no_ref().get_lvalue_reference_to()) << " omp_in)"
             << "{"
-            <<    statement_placeholder(function_body)
+            <<    statement_placeholder(combiner_stmt_placeholder)
             << "}"
             ;
 
@@ -91,16 +102,20 @@ namespace TL { namespace Nanox {
             Source::source_language = SourceLanguage::Current;
         }
 
-        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
-        TL::Symbol param_omp_in = inside_function.get_symbol_from_name("omp_in");
-        ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol omp_in not found", 0);
-        TL::Symbol param_omp_out = inside_function.get_symbol_from_name("omp_out");
-        ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol omp_out not found", 0);
+        TL::Symbol function_sym = get_symbol_from_name(TL::Scope::get_global_scope(), function_name);
+        TL::Scope inner_scope = combiner_stmt_placeholder.retrieve_context();
+        function_sym.set_related_scope(inner_scope);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::Utils::Fortran::append_used_modules(
+                    construct.retrieve_context(),
+                    function_sym.get_related_scope());
+        }
+
+        TL::Symbol param_omp_in  = get_symbol_from_name(inner_scope, "omp_in");
+        TL::Symbol param_omp_out = get_symbol_from_name(inner_scope, "omp_out");
 
         symbol_entity_specs_set_is_allocatable(param_omp_out.get_internal_symbol(), omp_out_type_is_allocatable);
-
-        TL::Symbol function_sym = inside_function.get_symbol_from_name(function_name);
-        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", function_name.c_str());
 
         Nodecl::NodeclBase expanded_combiner = red->get_combiner().shallow_copy();
 
@@ -138,7 +153,7 @@ namespace TL { namespace Nanox {
                 list_stmts.append(Nodecl::FortranDeallocateStatement::make(Nodecl::List::make(param_omp_in.make_nodecl()), nodecl_null()));
         }
 
-        function_body.replace(list_stmts);
+        combiner_stmt_placeholder.replace(list_stmts);
 
         // As the reduction function is needed during the instantiation of
         // the task, this function should be inserted before the construct
@@ -155,7 +170,7 @@ namespace TL { namespace Nanox {
     {
        std::stringstream red_fun;
        red_fun << "nanos_red_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str());
- 
+
        std::stringstream red_fun_orig_var;
        red_fun_orig_var << "nanos_red_" << red << "_" << reduction_type.get_internal_type() << "_" << simple_hash_str(construct.get_filename().c_str()) << "_orig_var";
 
@@ -224,27 +239,25 @@ namespace TL { namespace Nanox {
             fun_name = ss.str();
         }
 
-        Nodecl::NodeclBase function_body;
+        Nodecl::NodeclBase combiner_stmt_placeholder;
         Source src;
         src << "void " << fun_name << "("
             <<      as_type(reduction_type.no_ref().get_lvalue_reference_to()) << " omp_priv,"
             <<      as_type(reduction_type.no_ref().get_lvalue_reference_to()) << " omp_orig)"
             << "{"
-            <<    statement_placeholder(function_body)
+            <<    statement_placeholder(combiner_stmt_placeholder)
             << "}"
             ;
 
         Nodecl::NodeclBase function_code = src.parse_global(construct.retrieve_context().get_global_scope());
 
-        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
-        TL::Symbol param_omp_priv = inside_function.get_symbol_from_name("omp_priv");
-        ERROR_CONDITION(!param_omp_priv.is_valid(), "Symbol omp_priv not found", 0);
 
-        TL::Symbol param_omp_orig = inside_function.get_symbol_from_name("omp_orig");
-        ERROR_CONDITION(!param_omp_orig.is_valid(), "Symbol omp_orig not found", 0);
+        TL::Symbol function_sym = get_symbol_from_name(TL::Scope::get_global_scope(), fun_name);
+        TL::Scope inner_scope = combiner_stmt_placeholder.retrieve_context();
+        function_sym.set_related_scope(inner_scope);
 
-        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
-        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
+        TL::Symbol param_omp_priv = get_symbol_from_name(inner_scope, "omp_priv");
+        TL::Symbol param_omp_orig = get_symbol_from_name(inner_scope, "omp_orig");
 
         Nodecl::NodeclBase initializer = red->get_initializer().shallow_copy();
         if (initializer.is<Nodecl::StructuredValue>())
@@ -261,7 +274,7 @@ namespace TL { namespace Nanox {
         translation_map.add_map(red->get_omp_priv(), param_omp_priv);
         translation_map.add_map(red->get_omp_orig(), param_omp_orig);
 
-        Nodecl::NodeclBase new_initializer = Nodecl::Utils::deep_copy(initializer, inside_function, translation_map);
+        Nodecl::NodeclBase new_initializer = Nodecl::Utils::deep_copy(initializer, inner_scope, translation_map);
 
         if (red->get_is_initialization())
         {
@@ -271,7 +284,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase param_omp_priv_ref = Nodecl::Symbol::make(param_omp_priv);
             param_omp_priv_ref.set_type(param_omp_priv.get_type());
 
-            function_body.replace(
+            combiner_stmt_placeholder.replace(
                     Nodecl::List::make(
                         Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
@@ -282,7 +295,7 @@ namespace TL { namespace Nanox {
         }
         else
         {
-            function_body.replace(
+            combiner_stmt_placeholder.replace(
                     Nodecl::List::make(Nodecl::ExpressionStatement::make(new_initializer)));
         }
 
@@ -352,30 +365,53 @@ namespace TL { namespace Nanox {
 
             omp_out_type = t;
 
-            extra_stuff_array_red << "ALLOCATE(omp_out" << dims_descr <<")\n";
+            extra_stuff_array_red << "ALLOCATE(omp_priv" << dims_descr <<")\n";
         }
 
+        Nodecl::NodeclBase initializer_stmt;
         Source src;
-        src << "SUBROUTINE " << fun_name << "(omp_out, omp_orig)\n"
+        src << "SUBROUTINE " << fun_name << "(omp_priv, omp_orig)\n"
             <<    "IMPLICIT NONE\n"
-            <<    as_type(omp_out_type) << omp_out_extra_attributes << " ::  omp_out\n"
+            <<    as_type(omp_out_type) << omp_out_extra_attributes << " ::  omp_priv\n"
             <<    as_type(omp_ori_type) <<  " :: omp_orig\n"
             <<    extra_stuff_array_red
-            <<    "omp_out = " << as_expression(initializer) << "\n"
+            <<    statement_placeholder(initializer_stmt)
             << "END SUBROUTINE " << fun_name << "\n"
             ;
 
-        TL::Scope global_scope = construct.retrieve_context().get_global_scope();
-        Nodecl::NodeclBase function_code = src.parse_global(global_scope);
-        TL::Symbol function_sym = global_scope.get_symbol_from_name(fun_name);
+        Nodecl::NodeclBase function_code = src.parse_global(TL::Scope::get_global_scope());
 
-        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
+        TL::Scope inner_scope = initializer_stmt.retrieve_context();
+
+        TL::Symbol function_sym = get_symbol_from_name(TL::Scope::get_global_scope(), fun_name);
+        function_sym.set_related_scope(inner_scope);
+
+        Nodecl::Utils::Fortran::append_used_modules(
+                construct.retrieve_context(),
+                inner_scope);
+
+        TL::Symbol omp_priv = get_symbol_from_name(inner_scope, "omp_priv");
+        TL::Symbol omp_orig = get_symbol_from_name(inner_scope, "omp_orig");
+
+        Nodecl::Utils::SimpleSymbolMap map;
+        map.add_map(red->get_omp_priv(), omp_priv);
+        map.add_map(red->get_omp_orig(), omp_orig);
+
+        Nodecl::NodeclBase init_expr =
+            Nodecl::Utils::deep_copy(red->get_initializer(), inner_scope, map);
+        if (!init_expr.is<Nodecl::FunctionCall>())
+        {
+            init_expr = Nodecl::Assignment::make(
+                    omp_priv.make_nodecl(/*set_ref_type*/ true), init_expr, omp_priv.get_type());
+        }
+        initializer_stmt.replace(Nodecl::ExpressionStatement::make(init_expr));
 
         // As the initializer function is needed during the instantiation of
         // the task, this function should be inserted before the construct
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct,
-                function_code);
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, function_code);
 
+
+        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
         return function_sym;
     }
 
@@ -454,8 +490,7 @@ namespace TL { namespace Nanox {
        {
           TL::Symbol reduction_sym = it->first;
           std::string storage_name = it->second;
-          TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
-          ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid", 0);
+          TL::Symbol storage_sym = get_symbol_from_name(new_scope, storage_name);
 
           Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
                 storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),

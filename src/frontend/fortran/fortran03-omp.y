@@ -79,7 +79,7 @@ omp_dr_typename : type_spec
 }
 ;
 
-omp_dr_combiner : name '=' expr
+omp_dr_combiner : data_ref '=' expr
 {
     $$ = ASTMake2(AST_ASSIGNMENT, $1, $3, ast_get_locus($1), NULL);
 }
