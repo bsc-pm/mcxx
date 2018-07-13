@@ -46,7 +46,10 @@ PROGRAM P
     ENDDO
     !$OMP END TASK
 
-    IF (X==100) STOP 1
-    IF (VAR % X==100) STOP 2
+    !$OMP TASKWAIT
+
+    IF (X/=100) STOP 1
+    IF (VAR % X /=100) STOP 2
+
 END PROGRAM P
 
