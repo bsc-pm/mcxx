@@ -658,6 +658,11 @@ namespace TL
         _symbol->value = n.get_internal_nodecl();
     }
 
+    void Symbol::set_related_scope(const TL::Scope &sc)
+    {
+        _symbol->related_decl_context = sc.get_decl_context();
+    }
+
     bool Symbol::has_namespace_scope() const
     {
         return _symbol->decl_context->current_scope != NULL

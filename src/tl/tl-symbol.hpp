@@ -365,6 +365,9 @@ namespace TL
             //! Modifies the value of this symbol
             void set_value(Nodecl::NodeclBase n);
 
+            //! Modifies the related_decl_context of this symbol
+            void set_related_scope(const TL::Scope &sc);
+
             //! States whether this symbol is static
             bool is_static() const;
             //! States whether this symbol is register
