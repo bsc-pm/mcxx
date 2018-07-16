@@ -1099,7 +1099,7 @@ Source LoweringVisitor::compute_num_refs_in_multiref(DataReference& data_ref)
     ERROR_CONDITION(!data_ref.is_multireference(), "Invalid data reference", 0);
     Source src;
 
-    ObjectList<DataReference::MultiRefIterator> m = data_ref.multireferences();
+    ObjectList<DataReference::MultiRefIterator> m = data_ref.get_iterators_of_multireference();
 
     for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
             current_multidep != m.end();
@@ -1948,7 +1948,7 @@ Nodecl::NodeclBase LoweringVisitor::count_dynamic_items(OutlineInfo& outline_inf
             if (!data_ref.is_multireference())
                 continue;
 
-            TL::ObjectList<DataReference::MultiRefIterator> multideps = data_ref.multireferences();
+            TL::ObjectList<DataReference::MultiRefIterator> multideps = data_ref.get_iterators_of_multireference();
             Nodecl::NodeclBase total_size = count_multidependences_extent(multideps);
 
             if (result.is_null())
@@ -2042,7 +2042,7 @@ Nodecl::NodeclBase LoweringVisitor::count_copies_dimensions(OutlineInfo& outline
             if (data_ref.is_multireference())
             {
                 Nodecl::NodeclBase total_base =
-                    count_multidependences_extent(data_ref.multireferences());
+                    count_multidependences_extent(data_ref.get_iterators_of_multireference());
 
                 if (total_base.is_constant()
                         && current_value.is_constant())
@@ -2369,10 +2369,10 @@ void LoweringVisitor::fill_copies_region(
         }
 
         copy_ol_setup << as_symbol(dyn_copy_idx) << " = " << current_copy_idx << ";"
-                      << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
+            << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
             ;
         copy_imm_setup << as_symbol(dyn_copy_idx) << " = " << current_copy_idx << ";"
-                       << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
+            << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
             ;
 
         // Dynamic copies second
@@ -2397,7 +2397,7 @@ void LoweringVisitor::fill_copies_region(
                 }
 
                 Source copies_loop;
-                ObjectList<DataReference::MultiRefIterator> m = copy_expr.multireferences();
+                ObjectList<DataReference::MultiRefIterator> m = copy_expr.get_iterators_of_multireference();
 
                 Source dimension_array;
                 dimension_array << "nanos_dyn_copy_dims_" << (int)dep_dim_num;
@@ -2448,60 +2448,48 @@ void LoweringVisitor::fill_copies_region(
                         << "{"
                         ;
 
+                }
 
-                    if (current_multidep + 1 == m.end())
-                    {
-                        // If this is the last iterator, map the copy and
-                        // generate the loop body
-                        Nodecl::NodeclBase orig_copy = current_multidep->second;
+                // If this is the last iterator, map the copy and
+                // generate the loop body
+                Nodecl::NodeclBase orig_copy = copy_expr.get_expression_of_multireference();
 
-                        // Now ignore the multidependence as such...
-                        Nodecl::NodeclBase current_copy = copy_expr;
-                        while (current_copy.is<Nodecl::MultiExpression>())
-                        {
-                            current_copy =
-                                current_copy.as<Nodecl::MultiExpression>().get_base();
-                        }
+                Nodecl::NodeclBase updated_copy = Nodecl::Utils::deep_copy(orig_copy, sc, symbol_map);
+                TL::DataReference updated_copy_ref(updated_copy);
 
-                        // and update it
-                        Nodecl::NodeclBase updated_copy = Nodecl::Utils::deep_copy(
-                                current_copy, sc, symbol_map);
-                        TL::DataReference updated_copy_ref(updated_copy);
+                Source current_copy_index;
+                current_copy_index << as_symbol(dyn_copy_idx);
 
-                        Source current_copy_index;
-                        current_copy_index << as_symbol(dyn_copy_idx);
+                Source current_dimension_descriptor_index;
+                current_dimension_descriptor_index << as_symbol(dyn_dim_idx);
 
-                        Source current_dimension_descriptor_index;
-                        current_dimension_descriptor_index << as_symbol(dyn_dim_idx);
+                int num_dimensions_of_copy = 0;
+                handle_copy_item(updated_copy_ref,
+                        copy_it->directionality,
+                        ctr,
+                        current_copy_index,
+                        current_dimension_descriptor_index,
+                        // out
+                        copy_ol_setup,
+                        copy_imm_setup,
+                        num_dimensions_of_copy);
 
-                        int num_dimensions_of_copy = 0;
-                        handle_copy_item(updated_copy_ref,
-                                copy_it->directionality,
-                                ctr,
-                                current_copy_index,
-                                current_dimension_descriptor_index,
-                                // out
-                                copy_ol_setup,
-                                copy_imm_setup,
-                                num_dimensions_of_copy);
+                copy_ol_setup
+                    << as_symbol(dyn_copy_idx) << "++;"
+                    << as_symbol(dyn_dim_idx) << "+= " << num_dimensions_of_copy << ";"
+                    ;
 
-                        copy_ol_setup << as_symbol(dyn_copy_idx) << "++;";
-                        copy_imm_setup << as_symbol(dyn_copy_idx) << "++;";
+                copy_imm_setup
+                    << as_symbol(dyn_copy_idx) << "++;"
+                    << as_symbol(dyn_dim_idx) << "+= " << num_dimensions_of_copy << ";"
+                    ;
 
-                        copy_ol_setup << as_symbol(dyn_dim_idx) << "+= " << num_dimensions_of_copy << ";";
-                        copy_imm_setup << as_symbol(dyn_dim_idx) << "+= " << num_dimensions_of_copy << ";";
-
-                        for (ObjectList<DataReference::MultiRefIterator>::reverse_iterator
-                                rev_current_multidep = m.rbegin();
-                                rev_current_multidep != m.rend();
-                                rev_current_multidep++)
-                        {
-                            copy_ol_setup
-                                << "}";
-                            copy_imm_setup
-                                << "}";
-                        }
-                    }
+                for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
+                        current_multidep != m.end();
+                        current_multidep++)
+                {
+                    copy_ol_setup  << "}";
+                    copy_imm_setup << "}";
                 }
             }
         }
@@ -3249,7 +3237,7 @@ void LoweringVisitor::fill_dependences_internal(
                     continue;
 
                 Source dependency_loop;
-                ObjectList<DataReference::MultiRefIterator> m = dep_expr.multireferences();
+                ObjectList<DataReference::MultiRefIterator> m = dep_expr.get_iterators_of_multireference();
 
                 // Create the dimensionality array
                 Nodecl::NodeclBase total_base = count_multidependences_extent(m);
@@ -3263,7 +3251,7 @@ void LoweringVisitor::fill_dependences_internal(
 
                 dependency_regions
                     << "nanos_region_dimension_t " << dimension_array
-                        << "[" << as_expression(total_base) << "][" << std::max(1, num_dimensions) << "];"
+                    << "[" << as_expression(total_base) << "][" << std::max(1, num_dimensions) << "];"
                     ;
 
                 // Index for the dimension array
@@ -3288,7 +3276,6 @@ void LoweringVisitor::fill_dependences_internal(
                     ;
 
                 Nodecl::Utils::SimpleSymbolMap symbol_map;
-
                 for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
                         current_multidep != m.end();
                         current_multidep++)
@@ -3325,50 +3312,38 @@ void LoweringVisitor::fill_dependences_internal(
                         <<       as_symbol(new_sym) << "+=" << as_expression(stride) << ")"
                         << "{"
                         ;
+                }
 
 
-                    if (current_multidep + 1 == m.end())
-                    {
-                        // If this is the last iterator, map the dependence and
-                        // generate the loop body
-                        Nodecl::NodeclBase orig_dep = current_multidep->second;
+                // If this is the last iterator, map the dependence and
+                // generate the loop body
+                Nodecl::NodeclBase orig_dep = dep_expr.get_expression_of_multireference();
 
-                        // Now ignore the multidependence as such...
-                        Nodecl::NodeclBase current_dep = dep_expr;
-                        while (current_dep.is<Nodecl::MultiExpression>())
-                        {
-                            current_dep =
-                                current_dep.as<Nodecl::MultiExpression>().get_base();
-                        }
+                // and update it
+                Nodecl::NodeclBase updated_dep = Nodecl::Utils::deep_copy(orig_dep, sc, symbol_map);
 
-                        // and update it
-                        Nodecl::NodeclBase updated_dep = Nodecl::Utils::deep_copy(
-                                current_dep, sc, symbol_map);
+                Source current_dep_num;
+                current_dep_num << as_symbol(dyn_dep_idx);
 
-                        Source current_dep_num;
-                        current_dep_num << as_symbol(dyn_dep_idx);
+                Source current_dimension_array;
+                current_dimension_array << dimension_array << "[" << as_symbol(dyn_dim_idx) << "]";
 
-                        Source current_dimension_array;
-                        current_dimension_array << dimension_array << "[" << as_symbol(dyn_dim_idx) << "]";
+                Source current_dep_src;
+                handle_dependency_item(ctr, updated_dep, dir,
+                        current_dimension_array,
+                        current_dep_num, current_dep_src);
 
-                        Source current_dep_src;
-                        handle_dependency_item(ctr, updated_dep, dir,
-                                current_dimension_array,
-                                current_dep_num, current_dep_src);
+                result_src
+                    << current_dep_src
+                    << as_symbol(dyn_dep_idx) << "++;"
+                    << as_symbol(dyn_dim_idx) << "++;"
+                    ;
 
-                        result_src << current_dep_src;
-                        result_src << as_symbol(dyn_dep_idx) << "++;";
-                        result_src << as_symbol(dyn_dim_idx) << "++;";
-
-                        for (ObjectList<DataReference::MultiRefIterator>::reverse_iterator
-                                rev_current_multidep = m.rbegin();
-                                rev_current_multidep != m.rend();
-                                rev_current_multidep++)
-                        {
-                            result_src
-                                << "}";
-                        }
-                    }
+                for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
+                        current_multidep != m.end();
+                        current_multidep++)
+                {
+                    result_src << "}";
                 }
             }
         }

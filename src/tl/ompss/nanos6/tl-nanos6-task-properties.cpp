@@ -2914,7 +2914,7 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<TL::Symbol>& local_symbols,
             Nodecl::List& register_statements)
     {
-        TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.multireferences();
+        TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.get_iterators_of_multireference();
 
         Nodecl::Utils::SimpleSymbolMap symbol_map;
         TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-multideps");
@@ -2987,9 +2987,7 @@ namespace TL { namespace Nanos6 {
             body = Nodecl::List::make(for_stmt);
         }
 
-        Nodecl::NodeclBase base_exp = data_ref;
-        while (base_exp.is<Nodecl::MultiExpression>())
-            base_exp = base_exp.as<Nodecl::MultiExpression>().get_base();
+        Nodecl::NodeclBase base_exp = data_ref.get_expression_of_multireference();
 
         base_exp = Nodecl::Utils::deep_copy(base_exp, scope, symbol_map);
 
@@ -3184,7 +3182,7 @@ namespace TL { namespace Nanos6 {
         // Out
         Nodecl::List &register_statements)
     {
-        TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.multireferences();
+        TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.get_iterators_of_multireference();
 
         Nodecl::Utils::SimpleSymbolMap extended_symbol_map(&symbol_map);
         TL::ObjectList<TL::Symbol> current_locals;
@@ -3243,10 +3241,7 @@ namespace TL { namespace Nanos6 {
             body = Nodecl::List::make(for_stmt);
         }
 
-        Nodecl::NodeclBase base_exp = data_ref;
-        while (base_exp.is<Nodecl::MultiExpression>())
-            base_exp = base_exp.as<Nodecl::MultiExpression>().get_base();
-
+        Nodecl::NodeclBase base_exp = data_ref.get_expression_of_multireference();
         TL::DataReference base_data_ref = base_exp;
         Nodecl::List base_reg;
 
