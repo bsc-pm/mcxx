@@ -74,7 +74,8 @@ namespace TL
             TL::Symbol _base_symbol;
             TL::Type _data_type;
 
-            TL::ObjectList<MultiRefIterator> _iterators;
+            TL::ObjectList<MultiRefIterator> _mref_iterators;
+            Nodecl::NodeclBase _mref_expr;
 
             // Error log
             diagnostic_context_t* _diagnostic_context;
@@ -150,7 +151,10 @@ namespace TL
             //! States if this is a multireference data-reference
             bool is_multireference() const;
 
-            TL::ObjectList<MultiRefIterator> multireferences() const;
+            TL::ObjectList<MultiRefIterator> get_iterators_of_multireference() const;
+
+            //! It returns the expression of a multireference
+            Nodecl::NodeclBase get_expression_of_multireference() const;
 
             friend struct DataReferenceVisitor;
 
@@ -165,7 +169,8 @@ namespace TL
                 _is_assumed_size(data_ref._is_assumed_size),
                 _base_symbol(data_ref._base_symbol),
                 _data_type(data_ref._data_type),
-                _iterators(data_ref._iterators),
+                _mref_iterators(data_ref._mref_iterators),
+                _mref_expr(data_ref._mref_expr),
                 _diagnostic_context(NULL) // diagnostics cannot be copied
             {
             }
@@ -180,7 +185,8 @@ namespace TL
                     _is_assumed_size = data_ref._is_assumed_size;
                     _base_symbol = data_ref._base_symbol;
                     _data_type = data_ref._data_type;
-                    _iterators = data_ref._iterators;
+                    _mref_iterators = data_ref._mref_iterators;
+                    _mref_expr = data_ref._mref_expr;
                     _diagnostic_context = NULL; // diagnostics cannot be copied
                 }
                 return *this;

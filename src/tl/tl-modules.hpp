@@ -97,6 +97,16 @@ namespace TL
             }
         };
 
+    template <typename T1, typename T2>
+        struct ModuleWriterTrait<std::pair<T1, T2> >
+        {
+            static void write(ModuleWriter& mw, std::pair<T1, T2>& pair)
+            {
+                ModuleWriterTrait<T1>::write(mw, pair.first);
+                ModuleWriterTrait<T2>::write(mw, pair.second);
+            }
+        };
+
     template <typename T, typename P = T>
         struct BuiltinModuleWriterTrait
         {
@@ -244,6 +254,16 @@ namespace TL
                 }
             }
         };
+
+    template < typename T1, typename T2>
+    struct ModuleReaderTrait<std::pair<T1, T2> >
+    {
+            static void read(ModuleReader& mr, std::pair<T1, T2>& pair)
+            {
+                ModuleReaderTrait<T1>::read(mr, pair.first);
+                ModuleReaderTrait<T2>::read(mr, pair.second);
+            }
+    };
 
 
     template <typename T, typename P = T>

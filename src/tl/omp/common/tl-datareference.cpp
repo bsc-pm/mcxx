@@ -433,20 +433,26 @@ namespace TL
                 return rebuilt_type;
             }
 
-            virtual void visit(const Nodecl::MultiExpression& multi_deps)
+            virtual void visit(const Nodecl::MultiExpression& multi_expr)
             {
-                TL::Symbol sym = multi_deps.get_symbol();
-                Nodecl::NodeclBase range = multi_deps.get_range();
-
-                walk(multi_deps.get_base());
-
-                // Try to preserve the original order of our iterators: from left to right
-                _data_ref._iterators.append(std::make_pair(sym, range));
-
-                if (!_data_ref._is_valid)
+                Nodecl::List iterators = multi_expr.get_iterators().as<Nodecl::List>();
+                for(Nodecl::List::const_iterator it = iterators.begin();
+                        it != iterators.end();
+                        it++)
                 {
-                    _data_ref._iterators.clear();
+                    _data_ref._mref_iterators.append(
+                            std::make_pair(
+                                it->as<Nodecl::MultiExpressionIterator>().get_symbol(),
+                                it->as<Nodecl::MultiExpressionIterator>().get_range()));
                 }
+
+                Nodecl::NodeclBase expr = multi_expr.get_expr();
+                walk(expr);
+
+                if (_data_ref._is_valid)
+                    _data_ref._mref_expr = expr;
+                else
+                    _data_ref._mref_iterators.clear();
             }
 
     };
@@ -1240,40 +1246,44 @@ namespace TL
     {
         mw.write((Nodecl::NodeclBase&)*this);
         mw.write(_is_valid);
+        mw.write(_is_assumed_size);
 
         mw.write(_base_symbol);
         mw.write(_data_type);
 
-        // The old error_log, cannot remove it here for compatibility
-        std::string dummy_error_log;
-        mw.write(dummy_error_log);
-
         mw.write(_base_address);
+
+        mw.write(_mref_iterators);
+        mw.write(_mref_expr);
     }
 
     void DataReference::module_read(ModuleReader& mr)
     {
         mr.read((Nodecl::NodeclBase&)*this);
         mr.read(_is_valid);
+        mr.read(_is_assumed_size);
 
         mr.read(_base_symbol);
         mr.read(_data_type);
 
-        // The old error_log, cannot remove it here for compatibility
-        std::string dummy_error_log;
-        mr.read(dummy_error_log);
-
         mr.read(_base_address);
+
+        mr.read(_mref_iterators);
+        mr.read(_mref_expr);
     }
 
     bool DataReference::is_multireference() const
     {
-        return !_iterators.empty();
+        return !_mref_iterators.empty();
     }
 
-    TL::ObjectList<DataReference::MultiRefIterator>
-        DataReference::multireferences() const
+    TL::ObjectList<DataReference::MultiRefIterator> DataReference::get_iterators_of_multireference() const
     {
-        return _iterators;
+        return _mref_iterators;
+    }
+
+    Nodecl::NodeclBase DataReference::get_expression_of_multireference() const
+    {
+        return _mref_expr;
     }
 }

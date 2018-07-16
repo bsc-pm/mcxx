@@ -31,11 +31,13 @@
 namespace TL
 {
     template <typename T>
-        struct ModuleWriterTrait;
+    struct ModuleWriterTrait;
+
     class ModuleWriter;
 
     template <typename T>
-        struct ModuleReaderTrait;
+    struct ModuleReaderTrait;
+
     class ModuleReader;
 }
 
