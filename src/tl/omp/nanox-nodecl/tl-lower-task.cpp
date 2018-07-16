@@ -2293,10 +2293,6 @@ void LoweringVisitor::fill_copies_region(
             it++)
     {
         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-
-        if (copies.empty())
-            continue;
-
         for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
                 copy_it != copies.end();
                 copy_it++)
@@ -2304,8 +2300,8 @@ void LoweringVisitor::fill_copies_region(
             TL::DataReference copy_expr(copy_it->expression);
             if (copy_expr.is_multireference())
             {
+                // MultiReferences will be handled later
                 there_are_dynamic_copies = true;
-                // We handle them below
                 continue;
             }
 
@@ -2381,10 +2377,6 @@ void LoweringVisitor::fill_copies_region(
                 it++)
         {
             TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-
-            if (copies.empty())
-                continue;
-
             for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
                     copy_it != copies.end();
                     copy_it++)
@@ -2392,7 +2384,7 @@ void LoweringVisitor::fill_copies_region(
                 TL::DataReference copy_expr(copy_it->expression);
                 if (!copy_expr.is_multireference())
                 {
-                    // We handled them above
+                    // Copies that are not multicopies were handled before
                     continue;
                 }
 
