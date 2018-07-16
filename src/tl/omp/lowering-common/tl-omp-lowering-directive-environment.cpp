@@ -388,10 +388,22 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
         void visit(const Nodecl::MultiExpression& node)
         {
+            Nodecl::List iterators = node.get_iterators().as<Nodecl::List>();
+            for (Nodecl::List::const_iterator it = iterators.begin();
+                    it != iterators.end();
+                    it++)
+            {
+                _ignore_symbols.push_back(it->as<Nodecl::MultiExpressionIterator>().get_symbol());
+            }
             // The iterator of a MultiExpression has to be ignored!
-            _ignore_symbols.push_back(node.get_symbol());
             Nodecl::ExhaustiveVisitor<void>::visit(node);
-            _ignore_symbols.pop_back();
+
+            for (Nodecl::List::const_iterator it = iterators.begin();
+                    it != iterators.end();
+                    it++)
+            {
+                _ignore_symbols.pop_back();
+            }
         }
 
         void visit(const Nodecl::Symbol& node)

@@ -115,7 +115,6 @@ namespace TL {
                     walk(node.get_lhs());
                     // Do not walk the rhs
                 }
-
             };
 
             ExtraDataSharing _extra_data_sharing;
@@ -163,9 +162,17 @@ namespace TL {
             // traverse the iterators, only the dependence
             void visit(const Nodecl::MultiExpression& node)
             {
-                _iterators.push_back(node.get_symbol());
-                walk(node.get_base());
-                _iterators.pop_back();
+                Nodecl::List iterators = node.get_iterators().as<Nodecl::List>();
+                for (Nodecl::List::const_iterator it = iterators.begin();
+                        it != iterators.end();
+                        it++)
+                {
+                    _iterators.push_back(it->as<Nodecl::MultiExpressionIterator>().get_symbol());
+                }
+
+                walk(node.get_expr());
+
+                _iterators.clear();
             }
         };
 
