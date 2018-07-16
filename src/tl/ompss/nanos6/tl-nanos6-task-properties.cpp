@@ -2910,13 +2910,15 @@ namespace TL { namespace Nanos6 {
             TL::Symbol arg,
             TL::Symbol register_fun,
             TL::Scope scope,
+            TL::ObjectList<TL::Symbol> local_symbols,
             // Out
-            TL::ObjectList<TL::Symbol>& local_symbols,
             Nodecl::List& register_statements)
     {
         TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.get_iterators_of_multireference();
 
-        Nodecl::Utils::SimpleSymbolMap symbol_map;
+        Nodecl::Utils::SimpleSymbolMap symbol_map_for_rewrite_using_args;
+        TL::ObjectList<TL::Symbol> local_symbols_for_rewrite_using_args = local_symbols;
+
         TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-multideps");
         for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it2 = multireferences.begin();
                 it2 != multireferences.end();
@@ -2932,7 +2934,8 @@ namespace TL { namespace Nanos6 {
             local_sym.get_internal_symbol()->type_information = ::get_signed_int_type();
             symbol_entity_specs_set_is_user_declared(local_sym.get_internal_symbol(), 1);
 
-            symbol_map.add_map(it2->first, local_sym);
+            symbol_map_for_rewrite_using_args.add_map(it2->first, local_sym);
+            local_symbols_for_rewrite_using_args.append(it2->first);
             local_symbols.append(local_sym);
 
             CXX_LANGUAGE()
@@ -2955,11 +2958,22 @@ namespace TL { namespace Nanos6 {
             ERROR_CONDITION(!it2->second.is<Nodecl::Range>(), "Invalid Node", 0);
 
             Nodecl::Range range = it2->second.as<Nodecl::Range>();
-            Nodecl::NodeclBase lower = rewrite_expression_using_args(arg, range.get_lower(), local_symbols);
-            Nodecl::NodeclBase upper = rewrite_expression_using_args(arg, range.get_upper(), local_symbols);
-            Nodecl::NodeclBase stride = rewrite_expression_using_args(arg, range.get_stride(), local_symbols);
+            Nodecl::NodeclBase lower  = Nodecl::Utils::deep_copy(
+                    rewrite_expression_using_args(arg, range.get_lower(), local_symbols_for_rewrite_using_args),
+                    scope,
+                    symbol_map_for_rewrite_using_args);
 
-            TL::Symbol ind_var = symbol_map.map(it2->first);
+            Nodecl::NodeclBase upper  = Nodecl::Utils::deep_copy(
+                    rewrite_expression_using_args(arg, range.get_upper(), local_symbols_for_rewrite_using_args),
+                    scope,
+                    symbol_map_for_rewrite_using_args);
+
+            Nodecl::NodeclBase stride = Nodecl::Utils::deep_copy(
+                    rewrite_expression_using_args(arg, range.get_stride(), local_symbols_for_rewrite_using_args),
+                    scope,
+                    symbol_map_for_rewrite_using_args);
+
+            TL::Symbol ind_var = symbol_map_for_rewrite_using_args.map(it2->first);
 
             Nodecl::NodeclBase loop_control =
                 Nodecl::LoopControl::make(
@@ -2989,7 +3003,7 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::NodeclBase base_exp = data_ref.get_expression_of_multireference();
 
-        base_exp = Nodecl::Utils::deep_copy(base_exp, scope, symbol_map);
+        base_exp = Nodecl::Utils::deep_copy(base_exp, scope, symbol_map_for_rewrite_using_args);
 
         TL::DataReference base_data_ref = base_exp;
         Nodecl::List base_reg;
@@ -4286,7 +4300,6 @@ namespace TL { namespace Nanos6 {
 
         struct RewriteExpression : public Nodecl::ExhaustiveVisitor<void>
         {
-
             TL::Symbol arg;
             const field_map_t &_field_map;
             const TL::ObjectList<TL::Symbol>& shared;

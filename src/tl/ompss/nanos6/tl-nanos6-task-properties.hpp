@@ -160,15 +160,14 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List& register_statements);
 
-            /** Note that the list of local_symbols may be modified **/
             void register_multidependence_c(
                     TL::DataReference& data_ref,
                     TL::Symbol handler,
                     TL::Symbol arg,
                     TL::Symbol register_fun,
                     TL::Scope scope,
+                    TL::ObjectList<TL::Symbol> local_symbols,
                     // Out
-                    TL::ObjectList<TL::Symbol>& local_symbols,
                     Nodecl::List& register_statements);
 
             void register_multidependence_fortran(
