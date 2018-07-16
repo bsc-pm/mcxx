@@ -31674,45 +31674,57 @@ static void check_multiexpression(AST expr, const decl_context_t* decl_context, 
 {
     const decl_context_t* iterator_context = new_block_context(decl_context);
 
-    AST ompss_iterator = ASTSon1(expr);
-    AST identifier = ASTSon0(ompss_iterator);
-    AST range = ASTSon1(ompss_iterator);
+    AST list_iterators = ASTSon1(expr);
+    nodecl_t nodecl_list_iterators = nodecl_null();
 
-    const char* iterator_name = ASTText(identifier);
-
+    AST it;
+    for_each_element(list_iterators, it)
     {
-        // Shadow check
-        scope_entry_list_t* entry_list = query_name_str(decl_context, iterator_name, NULL);
-        if (entry_list != NULL)
+        AST iterator = ASTSon1(it);
+        AST identifier = ASTSon0(iterator);
+        AST range = ASTSon1(iterator);
+
+        const char* iterator_name = ASTText(identifier);
+
         {
-            scope_entry_t* entry = entry_list_head(entry_list);
-            entry_list_free(entry_list);
-            if (entry->kind == SK_VARIABLE
-                    && entry->decl_context->current_scope != NULL
-                    && entry->decl_context->current_scope->kind == BLOCK_SCOPE
-                    && entry->decl_context->current_scope->related_entry == decl_context->current_scope->related_entry)
+            // Shadow check
+            scope_entry_list_t* entry_list = query_name_str(decl_context, iterator_name, NULL);
+            if (entry_list != NULL)
             {
-                warn_printf_at(ast_get_locus(identifier), "iterator name '%s' in multidependence shadows expr previous variable\n",
-                        iterator_name);
-                info_printf_at(entry->locus, "declaration of the shadowed variable\n");
+                scope_entry_t* entry = entry_list_head(entry_list);
+                entry_list_free(entry_list);
+                if (entry->kind == SK_VARIABLE
+                        && entry->decl_context->current_scope != NULL
+                        && entry->decl_context->current_scope->kind == BLOCK_SCOPE
+                        && entry->decl_context->current_scope->related_entry == decl_context->current_scope->related_entry)
+                {
+                    warn_printf_at(ast_get_locus(identifier), "iterator name '%s' in multidependence shadows previous variable\n",
+                            iterator_name);
+                    info_printf_at(entry->locus, "declaration of the shadowed variable\n");
+                }
             }
         }
-    }
 
-    scope_entry_t* new_iterator = new_symbol(iterator_context,
-            iterator_context->current_scope,
-            iterator_name);
-    new_iterator->kind = SK_VARIABLE;
-    new_iterator->type_information = get_signed_int_type();
-    new_iterator->locus = ast_get_locus(ompss_iterator);
+        scope_entry_t* new_iterator = new_symbol(iterator_context,
+                iterator_context->current_scope,
+                iterator_name);
+        new_iterator->kind = SK_VARIABLE;
+        new_iterator->type_information = get_signed_int_type();
+        new_iterator->locus = ast_get_locus(iterator);
 
-    nodecl_t nodecl_range = nodecl_null();
-    multiexpression_check_range(range, iterator_context, &nodecl_range);
+        nodecl_t nodecl_range = nodecl_null();
+        multiexpression_check_range(range, iterator_context, &nodecl_range);
 
-    if (nodecl_is_err_expr(nodecl_range))
-    {
-        *nodecl_output = nodecl_range;
-        return;
+        if (nodecl_is_err_expr(nodecl_range))
+        {
+            *nodecl_output = nodecl_range;
+            return;
+        }
+
+        nodecl_list_iterators = nodecl_append_to_list(
+                nodecl_list_iterators,
+                nodecl_make_multi_expression_iterator(
+                    nodecl_range, new_iterator, nodecl_get_type(nodecl_range), ast_get_locus(expr)));
     }
 
     nodecl_t nodecl_subexpr = nodecl_null();
@@ -31726,9 +31738,10 @@ static void check_multiexpression(AST expr, const decl_context_t* decl_context, 
         return;
     }
 
-    *nodecl_output = nodecl_make_multi_expression(nodecl_range,
+
+    *nodecl_output = nodecl_make_multi_expression(
+            nodecl_list_iterators,
             nodecl_subexpr,
-            new_iterator,
             nodecl_get_type(nodecl_subexpr),
             ast_get_locus(expr));
 }

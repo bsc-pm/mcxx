@@ -6723,10 +6723,14 @@ static void check_multiexpression(AST expr, const decl_context_t* decl_context, 
     const decl_context_t* iterator_context = new_block_context(decl_context);
 
     AST ompss_iterator = ASTSon1(expr);
+    nodecl_t nodecl_list_iterators = nodecl_null();
+
     AST identifier = ASTSon0(ompss_iterator);
     AST range = ASTSon1(ompss_iterator);
 
     const char* iterator_name = strtolower(ASTText(identifier));
+
+    // FIXME: what if the name already exists?
 
     scope_entry_t* new_iterator = new_symbol(iterator_context,
             iterator_context->current_scope,
@@ -6744,6 +6748,11 @@ static void check_multiexpression(AST expr, const decl_context_t* decl_context, 
         return;
     }
 
+    nodecl_list_iterators = nodecl_append_to_list(
+            nodecl_list_iterators,
+            nodecl_make_multi_expression_iterator(
+                nodecl_range, new_iterator, nodecl_get_type(nodecl_range), ast_get_locus(expr)));
+
     nodecl_t nodecl_subexpr = nodecl_null();
     fortran_check_expression_impl_(ASTSon0(expr),
             iterator_context,
@@ -6755,9 +6764,9 @@ static void check_multiexpression(AST expr, const decl_context_t* decl_context, 
         return;
     }
 
-    *nodecl_output = nodecl_make_multi_expression(nodecl_range,
+    *nodecl_output = nodecl_make_multi_expression(
+            nodecl_list_iterators,
             nodecl_subexpr,
-            new_iterator,
             nodecl_get_type(nodecl_subexpr),
             ast_get_locus(expr));
 }

@@ -500,7 +500,10 @@ intel-expressions : NODECL_INTEL_ASSUME_ALIGNED([pointer] expression, [alignment
 
 # extension used for multidependences/multicopies and other places where we
 # want a range expression
-expression : NODECL_MULTI_EXPRESSION([range]multi-expr-range-expression, [base]expression) symbol type const-value-opt
+expression : NODECL_MULTI_EXPRESSION([iterators]multi-expr-iterator-seq, [expr]expression) type const-value-opt
+
+
+multi-expr-iterator : NODECL_MULTI_EXPRESSION_ITERATOR([range]multi-expr-range-expression) symbol type const-value-opt
 
 multi-expr-range-expression : range-expression
                             | range-discrete

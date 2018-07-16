@@ -8,6 +8,7 @@
 %type<ast> multiexpression
 %type<ast> multiexpression_body
 %type<ast> multiexpression_iterator
+%type<ast> multiexpression_iterator_list
 %type<ast> multiexpression_range
 %type<ast> multiexpression_range_size
 %type<ast> multiexpression_range_section
@@ -124,15 +125,23 @@ multiexpression : '{' '/' multiexpression_body '/' '}'
 }
 ;
 
-multiexpression_body : assignment_expression ',' multiexpression_iterator
-{
-    $$ = ASTMake2(AST_MULTIEXPRESSION, $1, $3, ast_get_locus($1), NULL);
-}
-| multiexpression_body ',' multiexpression_iterator
+multiexpression_body : assignment_expression ',' multiexpression_iterator_list
 {
     $$ = ASTMake2(AST_MULTIEXPRESSION, $1, $3, ast_get_locus($1), NULL);
 }
 ;
+
+
+multiexpression_iterator_list : multiexpression_iterator
+{
+	$$ = ASTListLeaf($1);
+}
+| multiexpression_iterator_list ',' multiexpression_iterator
+{
+	$$ = ASTList($1, $3);
+}
+;
+
 
 multiexpression_iterator : identifier_token '=' multiexpression_range
 {
