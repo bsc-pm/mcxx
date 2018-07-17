@@ -2,8 +2,6 @@
 ! test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
 ! test_FFLAGS="--no-copy-deps"
 ! test_ENV="NX_THROTTLE=dummy"
-! test_compile_fail_nanos6_mercurium=yes
-! test_compile_fail_nanos6_imfc=yes
 ! </testinfo>
 MODULE MOO
     INTEGER, PARAMETER :: NUM_ITEMS = 100
