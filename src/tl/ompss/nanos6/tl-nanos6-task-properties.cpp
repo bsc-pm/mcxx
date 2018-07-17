@@ -3236,9 +3236,9 @@ namespace TL { namespace Nanos6 {
         {
             ERROR_CONDITION(!it2->second.is<Nodecl::Range>(), "Invalid Node", 0);
             Nodecl::Range range = it2->second.as<Nodecl::Range>();
-            Nodecl::NodeclBase lower = range.get_lower().shallow_copy();
-            Nodecl::NodeclBase upper = range.get_upper().shallow_copy();
-            Nodecl::NodeclBase stride = range.get_stride().shallow_copy();
+            Nodecl::NodeclBase lower = Nodecl::Utils::deep_copy(range.get_lower(), scope, extended_symbol_map);
+            Nodecl::NodeclBase upper = Nodecl::Utils::deep_copy(range.get_upper(), scope, extended_symbol_map);
+            Nodecl::NodeclBase stride= Nodecl::Utils::deep_copy(range.get_stride(),scope, extended_symbol_map);
 
             TL::Symbol ind_var = extended_symbol_map.map(it2->first);
 
