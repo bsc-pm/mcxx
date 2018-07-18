@@ -6056,10 +6056,17 @@ OPERATOR_TABLE
             }
             else
             {
-                std::string return_type_spec;
-                std::string return_type_array_spec;
-                codegen_type(t.returns(), return_type_spec, return_type_array_spec);
-                ss << "PROCEDURE(" << return_type_spec << ")";
+                if (t.returns().is_void())
+                {
+                    ss << "PROCEDURE()";
+                }
+                else
+                {
+                    std::string return_type_spec;
+                    std::string return_type_array_spec;
+                    codegen_type(t.returns(), return_type_spec, return_type_array_spec);
+                    ss << "PROCEDURE(" << return_type_spec << ")";
+                }
             }
             type_specifier = ss.str();
         }

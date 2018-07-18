@@ -6129,6 +6129,81 @@ static char array_is_assumed_shape(scope_entry_t* entry, const decl_context_t* d
     return 1;
 }
 
+static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
+{
+    type_t* function_type = no_ref(orig->type_information);
+    if (is_pointer_type(function_type))
+        function_type = pointer_type_get_pointee_type(function_type);
+
+    ERROR_CONDITION(!is_function_type(function_type), "Function type is not", 0);
+
+    dest->type_information = function_type;
+
+    symbol_entity_specs_set_is_elemental(dest, symbol_entity_specs_get_is_elemental(orig));
+    symbol_entity_specs_set_is_pure(dest, symbol_entity_specs_get_is_pure(orig));
+
+    dest->related_decl_context = orig->related_decl_context;
+
+    symbol_entity_specs_copy_related_symbols_from(dest, orig);
+
+    // Mark parameters also parameters of the copied interface
+    int i, N = symbol_entity_specs_get_num_related_symbols(dest);
+    for (i = 0; i < N; i++)
+    {
+        scope_entry_t* param = symbol_entity_specs_get_related_symbols_num(dest, i);
+
+        symbol_set_as_parameter_of_function(param, dest,
+                /* nesting */ 0,
+                /* position */ symbol_get_parameter_position_in_function(param, orig));
+    }
+
+    symbol_entity_specs_set_is_implicit_basic_type(dest, 0);
+
+    symbol_entity_specs_set_procedure_decl_stmt_proc_interface(dest, orig);
+}
+
+static void synthesize_procedure_type(
+        scope_entry_t* entry,
+        scope_entry_t* interface,
+        type_t* return_type,
+        UNUSED_PARAMETER const decl_context_t* decl_context,
+        char do_pointer)
+{
+    char was_ref = is_lvalue_reference_type(entry->type_information);
+
+    if (interface == NULL)
+    {
+        type_t* new_type;
+
+        if (return_type == NULL)
+        {
+            new_type = get_nonproto_function_type(no_ref(entry->type_information), 0);
+        }
+        else
+        {
+            new_type = get_nonproto_function_type(return_type, 0);
+            symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
+        }
+
+        entry->type_information = new_type;
+    }
+    else
+    {
+        // This function sets entry->type_information (among many other things)
+        copy_interface(interface, entry);
+    }
+
+    if (do_pointer)
+    {
+        entry->type_information = get_pointer_type(entry->type_information);
+    }
+
+    if (was_ref)
+    {
+        entry->type_information = get_lvalue_reference_type(entry->type_information);
+    }
+    symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
+}
 static void build_scope_derived_type_data_component_def(
     AST component_def_stmt,
     scope_entry_t *class_name,
@@ -8566,80 +8641,6 @@ static void build_scope_print_stmt(AST a, const decl_context_t* decl_context, no
                 nodecl_make_fortran_print_statement(nodecl_get_child(nodecl_format, 0), nodecl_io_items, ast_get_locus(a)));
 }
 
-static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
-{
-    type_t* function_type = no_ref(orig->type_information);
-    if (is_pointer_type(function_type))
-        function_type = pointer_type_get_pointee_type(function_type);
-
-    ERROR_CONDITION(!is_function_type(function_type), "Function type is not", 0);
-
-    dest->type_information = function_type;
-
-    symbol_entity_specs_set_is_elemental(dest, symbol_entity_specs_get_is_elemental(orig));
-    symbol_entity_specs_set_is_pure(dest, symbol_entity_specs_get_is_pure(orig));
-
-    dest->related_decl_context = orig->related_decl_context;
-
-    symbol_entity_specs_copy_related_symbols_from(dest, orig);
-
-    // Mark parameters also parameters of the copied interface
-    int i, N = symbol_entity_specs_get_num_related_symbols(dest);
-    for (i = 0; i < N; i++)
-    {
-        scope_entry_t* param = symbol_entity_specs_get_related_symbols_num(dest, i);
-
-        symbol_set_as_parameter_of_function(param, dest,
-                /* nesting */ 0,
-                /* position */ symbol_get_parameter_position_in_function(param, orig));
-    }
-
-    symbol_entity_specs_set_is_implicit_basic_type(dest, 0);
-
-    symbol_entity_specs_set_procedure_decl_stmt_proc_interface(dest, orig);
-}
-
-static void synthesize_procedure_type(
-        scope_entry_t* entry,
-        scope_entry_t* interface,
-        type_t* return_type,
-        UNUSED_PARAMETER const decl_context_t* decl_context,
-        char do_pointer)
-{
-    char was_ref = is_lvalue_reference_type(entry->type_information);
-
-    if (interface == NULL)
-    {
-        type_t* new_type;
-
-        if (return_type == NULL)
-        {
-            new_type = get_nonproto_function_type(no_ref(entry->type_information), 0);
-        }
-        else
-        {
-            new_type = get_nonproto_function_type(return_type, 0);
-            symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
-        }
-
-        entry->type_information = new_type;
-    }
-    else
-    {
-        // This function sets entry->type_information (among many other things)
-        copy_interface(interface, entry);
-    }
-
-    if (do_pointer)
-    {
-        entry->type_information = get_pointer_type(entry->type_information);
-    }
-
-    if (was_ref)
-    {
-        entry->type_information = get_lvalue_reference_type(entry->type_information);
-    }
-}
 
 static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -8648,12 +8649,8 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
     AST proc_attr_spec_list = ASTSon1(a);
     AST proc_decl_list = ASTSon2(a);
 
-    attr_spec_t attr_spec;
-    memset(&attr_spec, 0, sizeof(attr_spec));
-
-    scope_entry_t* interface = NULL;
     type_t* return_type = NULL;
-
+    scope_entry_t* interface = NULL;
     if (proc_interface != NULL)
     {
         if (ASTKind(proc_interface) == AST_SYMBOL)
@@ -8699,6 +8696,8 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
         }
     }
 
+    attr_spec_t attr_spec;
+    memset(&attr_spec, 0, sizeof(attr_spec));
     if (proc_attr_spec_list != NULL)
         gather_attr_spec_list(proc_attr_spec_list, decl_context, &attr_spec);
 
@@ -8764,8 +8763,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
                     entry->kind = SK_VARIABLE;
                 }
 
-                synthesize_procedure_type(entry, interface, return_type, decl_context,
-                        /* do_pointer */ 0);
+                synthesize_procedure_type(entry, interface, return_type, decl_context, /* do_pointer */ 0);
             }
             else if (entry->kind == SK_FUNCTION)
             {
@@ -8798,8 +8796,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             {
                 entry->kind = SK_VARIABLE;
 
-                synthesize_procedure_type(entry, interface, return_type, decl_context,
-                        /* do_pointer */ 1);
+                synthesize_procedure_type(entry, interface, return_type, decl_context, /* do_pointer */ 1);
             }
         }
 
