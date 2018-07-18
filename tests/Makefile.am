@@ -64,6 +64,7 @@ FORTRAN_DIRS=\
 			 $(BETS_DIRS)/03_extensions_f.dg \
 			 $(BETS_DIRS)/07_phases_omp.dg/common/fortran \
 			 $(BETS_DIRS)/07_phases_ompss.dg/fortran \
+			 $(BETS_DIRS)/07_phases_ompss_2.dg/fortran \
 			 $(END)
 
 CORE_DIRS=\
