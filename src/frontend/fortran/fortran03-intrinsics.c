@@ -3325,9 +3325,18 @@ scope_entry_t* compute_intrinsic_getcwd(scope_entry_t* symbol UNUSED_PARAMETER,
         }
         else if (num_arguments == 1)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "getcwd",
-                    fortran_get_default_integer_type(),
-                    lvalue_ref(t0));
+            if (solving_call_statement)
+            {
+                return GET_INTRINSIC_IMPURE(symbol, "getcwd",
+                        /* subroutine */ get_void_type(),
+                        lvalue_ref(t0));
+            }
+            else
+            {
+                return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "getcwd",
+                        fortran_get_default_integer_type(),
+                        lvalue_ref(t0));
+            }
         }
     }
     return NULL;
@@ -5592,9 +5601,18 @@ scope_entry_t* compute_intrinsic_chdir(scope_entry_t* symbol UNUSED_PARAMETER,
         }
         else if (num_arguments == 1)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "chdir",
-                    fortran_get_default_integer_type(),
-                    lvalue_ref(t0));
+            if (solving_call_statement)
+            {
+                return GET_INTRINSIC_IMPURE(symbol, "chdir",
+                        /* subroutine */ get_void_type(),
+                        lvalue_ref(t0));
+            }
+            else
+            {
+                return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "chdir",
+                        fortran_get_default_integer_type(),
+                        lvalue_ref(t0));
+            }
         }
     }
     return NULL;
