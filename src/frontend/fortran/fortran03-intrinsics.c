@@ -1641,7 +1641,6 @@ static void fortran_init_specific_names(const decl_context_t* decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("atan2", "atan2", fortran_get_default_real_type(), fortran_get_default_real_type());
     REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(fortran_get_default_real_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("cdcos", "cos", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_2("char", "char", fortran_get_default_integer_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("clog", "log", get_complex_type(fortran_get_default_real_type()));
@@ -1717,11 +1716,19 @@ static void fortran_init_specific_names(const decl_context_t* decl_context)
     // Non standard stuff
     // Very old (normally from g77) intrinsics
     REGISTER_SPECIFIC_INTRINSIC_1("cdabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cdcos", "cos", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cdexp", "exp", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cdsin", "sin", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cdsqrt", "sqrt", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(fortran_get_doubleprecision_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("derf", "erf", fortran_get_doubleprecision_type());
     REGISTER_SPECIFIC_INTRINSIC_1("derfc", "erfc", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("zcos", "cos", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("zexp", "exp", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("zsin", "sin", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("zsqrt", "sqrt", get_complex_type(fortran_get_doubleprecision_type()));
 
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
