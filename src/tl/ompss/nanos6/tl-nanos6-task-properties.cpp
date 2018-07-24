@@ -4872,7 +4872,7 @@ namespace TL { namespace Nanos6 {
         {
             ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
 
-            if (!((IS_C_LANGUAGE || IS_CXX_LANGUAGE) && it->get_type().depends_on_nonconstant_values())
+            if (!it->get_type().depends_on_nonconstant_values()
                     && !(IS_FORTRAN_LANGUAGE && it->is_allocatable()))
                 continue;
 
@@ -4889,8 +4889,7 @@ namespace TL { namespace Nanos6 {
                         lhs_type);
 
             Nodecl::List current_captured_stmts;
-            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    && (it->get_type().depends_on_nonconstant_values()))
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
                 if (vla_offset.is_null())
                 {
@@ -4952,7 +4951,7 @@ namespace TL { namespace Nanos6 {
                         TL::Type::get_char_type().get_pointer_to());
                 vla_offset.set_text("C");
             }
-            else if (IS_FORTRAN_LANGUAGE && it->is_allocatable())
+            else if (IS_FORTRAN_LANGUAGE)
             {
                 Nodecl::NodeclBase allocate_stmt;
                 {
@@ -4982,20 +4981,27 @@ namespace TL { namespace Nanos6 {
                     allocate_stmt = allocate_src.parse_statement(task_enclosing_scope);
                 }
 
-                Nodecl::List actual_arguments = Nodecl::List::make(Nodecl::FortranActualArgument::make(it->make_nodecl(true)));
-                TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
+                if (it->is_allocatable())
+                {
+                    Nodecl::List actual_arguments = Nodecl::List::make(Nodecl::FortranActualArgument::make(it->make_nodecl(true)));
+                    TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
 
-                Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
-                        allocated.make_nodecl(),
-                        actual_arguments,
-                        /* alternate_name */ Nodecl::NodeclBase::null(),
-                        /* function_form */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_bool_type());
+                    Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
+                            allocated.make_nodecl(),
+                            actual_arguments,
+                            /* alternate_name */ Nodecl::NodeclBase::null(),
+                            /* function_form */ Nodecl::NodeclBase::null(),
+                            TL::Type::get_bool_type());
 
-                Nodecl::NodeclBase if_stmt =
-                    Nodecl::IfElseStatement::make(cond, allocate_stmt, Nodecl::NodeclBase::null());
+                    Nodecl::NodeclBase if_stmt =
+                        Nodecl::IfElseStatement::make(cond, allocate_stmt, Nodecl::NodeclBase::null());
 
-                current_captured_stmts.append(if_stmt);
+                    current_captured_stmts.append(if_stmt);
+                }
+                else
+                {
+                    current_captured_stmts.append(allocate_stmt);
+                }
             }
             else
             {

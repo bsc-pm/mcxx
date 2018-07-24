@@ -39,7 +39,7 @@ PROGRAM P
             IF (ANY(V2 /= 42)) ERROR = .TRUE.
         !$OSS END TASK
 
-        !! This ticket should be removed once ticket #2829 is fixed.
+        !! This taskwait should be removed once ticket #2829 is fixed.
         !$OSS TASKWAIT
 
     !$OSS END TASK
