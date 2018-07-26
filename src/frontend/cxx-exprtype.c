@@ -10921,6 +10921,13 @@ static void check_new_expression(AST new_expr, const decl_context_t* decl_contex
     compute_declarator_type(new_declarator, &gather_info, dummy_type,
             &declarator_type, decl_context, &dummy_nodecl_output);
 
+    if (is_error_type(declarator_type))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement);
+        return;
+    }
+
     nodecl_t nodecl_initializer = nodecl_null();
     if (new_initializer != NULL)
     {
