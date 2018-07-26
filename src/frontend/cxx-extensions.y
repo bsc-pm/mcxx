@@ -57,7 +57,7 @@ noshape_cast_expression : unary_expression %merge<ambiguityHandler>
 }
 | '(' type_id ')' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_CAST, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+	$$ = ASTMake2(AST_CAST, $2, ASTListLeaf($4), make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
