@@ -18,5 +18,3 @@ void foo_normaldep(int *p, int M, int N)
     #pragma omp task inout(((int (*)[N])p)[0:M])
     {}
 }
-
-vo
