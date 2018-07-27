@@ -21,15 +21,18 @@ SUBROUTINE FOO(M)
             I=0
             V=0
             W=0
-            !! Uncomment the following line  once #2829 is fixed!
-            !! X=0
+            X=0
         !$OSS END TASK
+
+        !! remove this TW once #2829 is fixed!
+        !$OSS TASKWAIT
+
     !$OSS END TASK
 
-    !$OSS TASKWAIT
 END SUBROUTINE FOO
 
 PROGRAM P
     IMPLICIT NONE
     CALL FOO(10)
+    !$OSS TASKWAIT
 END PROGRAM P
