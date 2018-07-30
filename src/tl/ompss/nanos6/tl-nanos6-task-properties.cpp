@@ -1432,6 +1432,32 @@ namespace TL { namespace Nanos6 {
                 }
         };
 
+        struct GetOriginalFromField
+        {
+            private:
+                typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
+                const field_map_t &_field_map;
+
+            public:
+                GetOriginalFromField(const field_map_t &field_map)
+                    : _field_map(field_map)
+                { }
+
+                const TL::Symbol& operator()(const TL::Symbol &field)
+                {
+                    for (field_map_t::const_iterator it = _field_map.begin();
+                            it != _field_map.end();
+                            it++)
+                    {
+                        if (it->second == field)
+                            return it->first;
+                    }
+
+                    internal_error("Field '%s' not mapped", field.get_name().c_str());
+                    return field;
+                }
+        };
+
         bool type_is_runtime_sized(TL::Type t)
         {
             if (!t.is_valid())
@@ -2100,7 +2126,7 @@ namespace TL { namespace Nanos6 {
             // have any representation in the field structure
             TL::ObjectList<TL::Symbol> forwarded_params =
                 forwarded_function.get_related_symbols();
-            for (unsigned int i = 1; i < forwarded_params.size() - 3; ++i)
+            for (unsigned int i = 1; i < forwarded_params.size() - 2; ++i)
             {
                 TL::Symbol param(forwarded_params[i]);
                 TL::Symbol field(names_to_fields[param.get_name()]);
@@ -2108,6 +2134,17 @@ namespace TL { namespace Nanos6 {
                 ERROR_CONDITION(!field.is_valid(), "Invalid symbol!", 0);
 
                 forwarded_symbol_map.add_map(field, param);
+
+                GetOriginalFromField get_original_from_field(_field_map);
+                TL::Symbol original_symbol = get_original_from_field(field);
+
+                // Propagate TARGET attribute
+                if (original_symbol.is_target())
+                    symbol_entity_specs_set_is_target(param.get_internal_symbol(), 1);
+
+                // Propagate ALLOCATABLE attribute
+                if (original_symbol.is_allocatable())
+                    symbol_entity_specs_set_is_allocatable(param.get_internal_symbol(), 1);
 
                 if (type_is_runtime_sized(param.get_type()))
                     forwarded_parameters_to_update_type.append(param);
