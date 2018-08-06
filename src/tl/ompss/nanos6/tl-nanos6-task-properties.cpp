@@ -1496,7 +1496,7 @@ namespace TL { namespace Nanos6 {
         struct MapSymbols
         {
             private:
-                const TL::Scope &_function_scope;
+                const TL::Scope &_inner_function_scope;
                 const std::map<TL::Symbol, std::string> &_symbols_to_param_names;
 
                 TL::ObjectList<TL::Symbol> &_parameters_to_update_type;
@@ -1506,9 +1506,10 @@ namespace TL { namespace Nanos6 {
                 MapSymbols(
                         const TL::Scope &function_scope,
                         const std::map<TL::Symbol, std::string> &symbols_to_param_names,
-                        /* out */ Nodecl::Utils::SimpleSymbolMap &symbol_map,
-                        /* out */ TL::ObjectList<TL::Symbol> &parameter_to_update_type)
-                    : _function_scope(function_scope),
+                        // Out
+                        TL::ObjectList<TL::Symbol> &parameter_to_update_type,
+                        Nodecl::Utils::SimpleSymbolMap &symbol_map)
+                    : _inner_function_scope(function_scope),
                     _symbols_to_param_names(symbols_to_param_names),
                     _parameters_to_update_type(parameter_to_update_type),
                     _symbol_map(symbol_map)
@@ -1520,7 +1521,7 @@ namespace TL { namespace Nanos6 {
                     ERROR_CONDITION(it_param_name == _symbols_to_param_names.end(),
                             "Symbol '%s' not mapped", sym.get_name().c_str());
 
-                    TL::Symbol param_sym = _function_scope.get_symbol_from_name(it_param_name->second);
+                    TL::Symbol param_sym = _inner_function_scope.get_symbol_from_name(it_param_name->second);
 
 
                     ERROR_CONDITION(!param_sym.is_valid()
@@ -1744,8 +1745,9 @@ namespace TL { namespace Nanos6 {
         MapSymbols map_symbols_functor(
                 unpacked_inside_scope,
                 symbols_to_param_names,
-                /* out */ symbol_map,
-                /* out */ parameters_to_update_type);
+                // Out
+                parameters_to_update_type,
+                symbol_map);
 
         _env.captured_value.map(map_symbols_functor);
         _env.private_.map(map_symbols_functor);
@@ -3352,8 +3354,9 @@ namespace TL { namespace Nanos6 {
         MapSymbols map_symbols_functor(
                 dep_fun_inside_scope,
                 symbols_to_param_names,
-                /* out */ symbol_map,
-                /* out */ parameters_to_update_type);
+                // Out
+                parameters_to_update_type,
+                symbol_map);
 
         _env.captured_value.map(map_symbols_functor);
         _env.shared.map(map_symbols_functor);
