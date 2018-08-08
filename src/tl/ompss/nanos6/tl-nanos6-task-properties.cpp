@@ -1197,7 +1197,9 @@ namespace TL { namespace Nanos6 {
             TL::Type type_of_field = it->get_type().no_ref();
             bool is_allocatable = it->is_allocatable();
 
-            if (type_of_field.depends_on_nonconstant_values())
+            if (!type_of_field.is_dependent()
+                    && (!type_of_field.is_class() || type_of_field.is_pod())
+                    && type_of_field.depends_on_nonconstant_values())
             {
                 if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
                     type_of_field = TL::Type::get_void_type().get_pointer_to();
