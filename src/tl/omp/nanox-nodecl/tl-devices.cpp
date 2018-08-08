@@ -437,18 +437,26 @@ namespace TL { namespace Nanox {
 
             static void fill_array_shape(Source &array_shape, TL::Type t_aux, int &lower_bound_index_aux, int &upper_bound_index_aux)
             {
+                ERROR_CONDITION(!t_aux.is_fortran_array(), "unexpected non-array type\n", 0);
+
                 aux_rec(array_shape,
                         t_aux, t_aux.get_num_dimensions(), t_aux.get_num_dimensions(),
                         lower_bound_index_aux, upper_bound_index_aux);
             }
         };
 
-        Source array_shape;
-        Aux::fill_array_shape(array_shape, t, lower_bound_index, upper_bound_index);
+        Source array_shape_opt;
+        if (t.is_fortran_array())
+        {
+            Source array_bounds;
+            Aux::fill_array_shape(array_bounds, t, lower_bound_index, upper_bound_index);
+            array_shape_opt << "(" << array_bounds << ")";
+        }
 
         result
             << "IF (mcc_is_allocated_" << is_allocated_index << ") THEN\n"
-            << "   ALLOCATE(" << sym.get_name() << "(" << array_shape <<  "));\n"
+            // the 'array_shape_opt' already includes the parenthesis if needed
+            << "   ALLOCATE(" << sym.get_name() << array_shape_opt <<  ");\n"
             << "END IF\n"
             ;
 
