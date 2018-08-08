@@ -512,9 +512,50 @@ namespace TL { namespace Nanox {
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t,
             OutlineDataItem* outline_data_item)
     {
-        bool make_allocatable = false;
         Nodecl::NodeclBase conditional_bound;
+        if (sym.is_allocatable()
+                && outline_data_item != NULL
+                && ((outline_data_item->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
+                    || (outline_data_item->get_sharing() == OutlineDataItem::SHARING_REDUCTION))
+                && conditional_bound.is_null())
+        {
+            Counter& counter = CounterManager::get_counter("array-allocatable");
+            std::stringstream ss;
+            ss << "mcc_is_allocated_" << (int)counter++;
+
+            TL::Symbol is_allocated_sym = _sc.new_symbol(ss.str());
+            is_allocated_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            is_allocated_sym.get_internal_symbol()->type_information = fortran_get_default_logical_type();
+
+            Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+            TL::Type sym_type = sym.get_type();
+
+            if (!sym_type.is_any_reference())
+                sym_type = sym_type.get_lvalue_reference_to();
+            symbol_ref.set_type(sym_type);
+
+            Source allocated_src;
+            allocated_src << "ALLOCATED(" << as_expression(symbol_ref) << ")";
+
+            Nodecl::NodeclBase allocated_tree = allocated_src.parse_expression(_sc);
+
+            this->add_capture_with_value(is_allocated_sym, allocated_tree);
+
+            conditional_bound = allocated_tree;
+        }
+
+        bool make_allocatable = sym.is_allocatable();
         TL::Type res = add_extra_dimensions_rec(sym, t, outline_data_item, make_allocatable, conditional_bound);
+
+        if (make_allocatable
+                && outline_data_item != NULL
+                && outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
+        {
+            outline_data_item->set_allocation_policy(
+                    outline_data_item->get_allocation_policy() |
+                    OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+        }
+
         if (t.is_any_reference())
             t = t.references_to();
 
@@ -580,8 +621,7 @@ namespace TL { namespace Nanox {
             // FIXME - Classes may have "VLA" components
             return t;
         }
-        else if ((IS_C_LANGUAGE
-                    || IS_CXX_LANGUAGE)
+        else if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 && t.is_array())
         {
             Nodecl::NodeclBase array_size = t.array_get_size();
@@ -605,44 +645,13 @@ namespace TL { namespace Nanox {
 
             Nodecl::NodeclBase result_lower, result_upper;
 
-            // If the array is shared and requires a descriptor, return its
-            // type
+            // If the array is shared or reduction and requires a descriptor, return its type
             if (t.array_requires_descriptor()
                     && outline_data_item != NULL
                     && (outline_data_item->get_sharing() == OutlineDataItem::SHARING_SHARED
                         || outline_data_item->get_sharing() == OutlineDataItem::SHARING_REDUCTION))
                 return t;
 
-            if (sym.is_allocatable()
-                    && outline_data_item != NULL
-                    && ((outline_data_item->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
-                        || (outline_data_item->get_sharing() == OutlineDataItem::SHARING_REDUCTION))
-                    && conditional_bound.is_null())
-            {
-                Counter& counter = CounterManager::get_counter("array-allocatable");
-                std::stringstream ss;
-                ss << "mcc_is_allocated_" << (int)counter++;
-
-                TL::Symbol is_allocated_sym = _sc.new_symbol(ss.str());
-                is_allocated_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                is_allocated_sym.get_internal_symbol()->type_information = fortran_get_default_logical_type();
-
-                Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                TL::Type sym_type = sym.get_type();
-
-                if (!sym_type.is_any_reference())
-                    sym_type = sym_type.get_lvalue_reference_to();
-                symbol_ref.set_type(sym_type);
-
-                Source allocated_src;
-                allocated_src << "ALLOCATED(" << as_expression(symbol_ref) << ")";
-
-                Nodecl::NodeclBase allocated_tree = allocated_src.parse_expression(_sc);
-
-                this->add_capture_with_value(is_allocated_sym, allocated_tree);
-
-                conditional_bound = allocated_tree;
-            }
 
             if (sym.is_optional()
                     && conditional_bound.is_null())
@@ -820,9 +829,6 @@ namespace TL { namespace Nanox {
             {
                 if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
                 {
-                    outline_data_item->set_allocation_policy(
-                            outline_data_item->get_allocation_policy() |
-                            OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
                     outline_data_item->set_field_type(
                             ::fortran_get_n_ranked_type_with_descriptor(
                                 ::fortran_get_rank0_type(t.get_internal_type()),
