@@ -1432,32 +1432,6 @@ namespace TL { namespace Nanos6 {
                 }
         };
 
-        struct GetOriginalFromField
-        {
-            private:
-                typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
-                const field_map_t &_field_map;
-
-            public:
-                GetOriginalFromField(const field_map_t &field_map)
-                    : _field_map(field_map)
-                { }
-
-                const TL::Symbol& operator()(const TL::Symbol &field)
-                {
-                    for (field_map_t::const_iterator it = _field_map.begin();
-                            it != _field_map.end();
-                            it++)
-                    {
-                        if (it->second == field)
-                            return it->first;
-                    }
-
-                    internal_error("Field '%s' not mapped", field.get_name().c_str());
-                    return field;
-                }
-        };
-
         bool type_is_runtime_sized(TL::Type t)
         {
             if (!t.is_valid())
@@ -2047,7 +2021,9 @@ namespace TL { namespace Nanos6 {
                         unpacked_function.get_type().get_pointer_to()));
 
             Nodecl::List deallocate_exprs;
-            std::map<std::string, TL::Symbol> names_to_fields;
+
+            // This map associates a symbol name with a pair that represents the original symbol and the field
+            std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> names_to_pair_field_map;
 
             // 1. Visiting captured & private symbols
             TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
@@ -2058,7 +2034,7 @@ namespace TL { namespace Nanos6 {
                 ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
                 TL::Symbol field = _field_map[*it];
 
-                names_to_fields[field.get_name()] = field;
+                names_to_pair_field_map[field.get_name()] = std::make_pair(*it, field);
 
                 forwarded_parameter_names.append(field.get_name());
                 forwarded_parameter_types.append(field.get_type().get_lvalue_reference_to());
@@ -2086,7 +2062,7 @@ namespace TL { namespace Nanos6 {
                 ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
                 TL::Symbol field = _field_map[*it];
 
-                names_to_fields[field.get_name()] = field;
+                names_to_pair_field_map[field.get_name()] = std::make_pair(*it, field);
 
                 forwarded_parameter_names.append(field.get_name());
                 forwarded_parameter_types.append(field.get_type());
@@ -2126,30 +2102,29 @@ namespace TL { namespace Nanos6 {
             // We skip the first param (function pointer)  and the last two
             // (device_env and address_translation_table) because they don't
             // have any representation in the field structure
-            TL::ObjectList<TL::Symbol> forwarded_params =
-                forwarded_function.get_related_symbols();
+            TL::ObjectList<TL::Symbol> forwarded_params = forwarded_function.get_related_symbols();
             for (unsigned int i = 1; i < forwarded_params.size() - 2; ++i)
             {
-                TL::Symbol param(forwarded_params[i]);
-                TL::Symbol field(names_to_fields[param.get_name()]);
+                TL::Symbol forwarded_param(forwarded_params[i]);
+                TL::Symbol field(names_to_pair_field_map[forwarded_param.get_name()].second);
 
                 ERROR_CONDITION(!field.is_valid(), "Invalid symbol!", 0);
 
-                forwarded_symbol_map.add_map(field, param);
+                forwarded_symbol_map.add_map(field, forwarded_param);
 
-                GetOriginalFromField get_original_from_field(_field_map);
-                TL::Symbol original_symbol = get_original_from_field(field);
+                if (type_is_runtime_sized(forwarded_param.get_type()))
+                    forwarded_parameters_to_update_type.append(forwarded_param);
 
-                // Propagate TARGET attribute
-                if (original_symbol.is_target())
-                    symbol_entity_specs_set_is_target(param.get_internal_symbol(), 1);
+                //FIXME: Propagate TARGET attribute
 
                 // Propagate ALLOCATABLE attribute
-                if (original_symbol.is_allocatable())
-                    symbol_entity_specs_set_is_allocatable(param.get_internal_symbol(), 1);
-
-                if (type_is_runtime_sized(param.get_type()))
-                    forwarded_parameters_to_update_type.append(param);
+                TL::Symbol original_symbol(names_to_pair_field_map[forwarded_param.get_name()].first);
+                if (field.is_allocatable()
+                        // VLAs in Fortran are represented as allocatable variables. However, when we call
+                        // to the fwd function we convert them to VLAs again. For this reason we need the
+                        // original symbol at this point
+                        && original_symbol.is_allocatable())
+                    symbol_entity_specs_set_is_allocatable(forwarded_param.get_internal_symbol(), 1);
             }
 
             update_function_type_if_needed(
@@ -4707,7 +4682,8 @@ namespace TL { namespace Nanos6 {
 
                 current_captured_stmts.append(Nodecl::ExpressionStatement::make(new_expr));
             }
-            else if (!it->get_type().no_ref().is_array()
+            else if (!it->is_allocatable()
+                    && !it->get_type().no_ref().is_array()
                     && !it->get_type().no_ref().is_function())
             {
                 Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);

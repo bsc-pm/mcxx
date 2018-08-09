@@ -1,5 +1,5 @@
 ! <testinfo>
-! test_generator=config/mercurium-ompss
+! test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
 ! </testinfo>
 SUBROUTINE CHECK_PRIVATE_SEMANTICS()
     IMPLICIT NONE
