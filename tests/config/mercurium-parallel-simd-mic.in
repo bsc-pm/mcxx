@@ -11,7 +11,6 @@ fi
 
 if [ "@MIC_COMPILATION@" = "no" ];
 then
-
     gen_ignore_test "MIC compilation is disabled"
     exit
 fi
@@ -93,28 +92,10 @@ test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp
 test_LDFLAGS_intel_rtl="-L@abs_top_builddir@/lib"
 EOF
 
-
-if [ "@MIC_TESTING@" != "no" -a ! -z "@INTEL_OMP_LIB@" ];
-then
-
-cat <<EOF
-runner="runner_ssh"
-ssh_host="@MIC_TESTING_DEVICE@"
-ssh_remote_commands="source \$HOME/.profile"
-
-exec_versions="1thread 122thread 244thread"
-
-test_ENV_1thread="OMP_NUM_THREADS='1'"
-test_ENV_122thread="OMP_NUM_THREADS='122'"
-test_ENV_244thread="OMP_NUM_THREADS='244'"
-EOF
-else
-
+# This generator doesn't execute tests
 cat<<EOF
 test_noexec=yes
 EOF
 
-fi
 
 fi
-
