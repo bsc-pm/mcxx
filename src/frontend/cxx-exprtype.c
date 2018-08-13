@@ -8178,7 +8178,8 @@ static void cxx_compute_name_from_entry_list(
         return;
     }
 
-    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
+    scope_entry_t* original_entry = entry_list_head(entry_list);
+    scope_entry_t* entry = entry_advance_aliases(original_entry);
 
     // Check again if this is an alias to a dependent entity
     if (entry->kind == SK_DEPENDENT_ENTITY)
@@ -8258,7 +8259,18 @@ static void cxx_compute_name_from_entry_list(
                 this_type = pointer_type_get_pointee_type(this_symbol->type_information);
             }
 
-            scope_entry_t* accessed_class = named_type_get_symbol(symbol_entity_specs_get_class_type(accessing_symbol));
+            // At this point we use the original_entry because for SK_USING symbols we want to
+            // consider the using-declaration itself and not the thing being referred by that symbol:
+            //
+            //  struct A
+            //  {
+            //      int x;
+            //  }
+            //  struct B : A
+            //  {
+            //      using A::x;
+            //  }
+            scope_entry_t* accessed_class = named_type_get_symbol(symbol_entity_specs_get_class_type(original_entry));
             while (symbol_entity_specs_get_is_anonymous_union(accessed_class)
                     && symbol_entity_specs_get_is_member(accessed_class))
             {
@@ -8266,8 +8278,7 @@ static void cxx_compute_name_from_entry_list(
             }
 
             if (this_symbol != NULL
-                    && class_type_is_base_instantiating(accessed_class->type_information, this_type,
-                        nodecl_get_locus(nodecl_name)))
+                    &&   (class_type_is_base_instantiating(accessed_class->type_information, this_type, nodecl_get_locus(nodecl_name))))
             {
                 // Construct (*this).x
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
