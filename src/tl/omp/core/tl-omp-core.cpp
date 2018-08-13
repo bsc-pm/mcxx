@@ -2279,7 +2279,7 @@ namespace TL { namespace OpenMP {
 
     void Core::target_handler_post(TL::PragmaCustomDeclaration ctr)
     {
-        if (this->in_ompss_mode())
+        if (!this->in_ompss_mode())
         {
             // Do nothing
         }
