@@ -2019,7 +2019,7 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<std::string> forwarded_parameter_names;
             TL::ObjectList<TL::Type> forwarded_parameter_types;
 
-            forwarded_parameter_names.append("ol");
+            forwarded_parameter_names.append("unpack");
             forwarded_parameter_types.append(TL::Type::get_void_type().get_pointer_to());
 
             Nodecl::List args;
@@ -2179,7 +2179,7 @@ namespace TL { namespace Nanos6 {
 
             TL::ObjectList<std::string> c_forwarded_parameter_names(forwarded_parameter_names.size(), "");
 
-            c_forwarded_parameter_names[0] = "ol";
+            c_forwarded_parameter_names[0] = "unpack";
 
             GenerateParamsNames generate_params_names;
             std::generate(c_forwarded_parameter_names.begin() + 1, c_forwarded_parameter_names.end(), generate_params_names);
