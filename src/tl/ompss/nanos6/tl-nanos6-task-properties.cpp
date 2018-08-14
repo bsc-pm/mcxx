@@ -3314,6 +3314,7 @@ namespace TL { namespace Nanos6 {
                 /* out */ symbols_to_param_names);
 
         _env.captured_value.map(add_params_functor);
+        _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
 
         _dependences_function
@@ -3343,6 +3344,7 @@ namespace TL { namespace Nanos6 {
                 symbol_map);
 
         _env.captured_value.map(map_symbols_functor);
+        _env.private_.map(map_symbols_functor);
         _env.shared.map(map_symbols_functor);
 
         update_function_type_if_needed(
@@ -3530,6 +3532,28 @@ namespace TL { namespace Nanos6 {
                 _field_map[*it].make_nodecl(),
                 /* member_literal */ Nodecl::NodeclBase::null(),
                 _field_map[*it].get_type().get_lvalue_reference_to()));
+        }
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = _env.private_.begin();
+                it != _env.private_.end();
+                it++)
+        {
+            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(),
+                    "Symbol is not mapped",
+                    0);
+            TL::Symbol field = _field_map[*it];
+
+            forwarded_parameter_names.append(field.get_name());
+            forwarded_parameter_types.append(
+                    field.get_type().get_lvalue_reference_to());
+
+            args.append(Nodecl::ClassMemberAccess::make(
+                        // Nodecl::Dereference::make(
+                        arg.make_nodecl(/* set_ref_type */ true),
+                        //    arg.get_type().points_to().get_lvalue_reference_to()),
+                        _field_map[*it].make_nodecl(),
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        _field_map[*it].get_type().get_lvalue_reference_to()));
         }
 
         for (TL::ObjectList<TL::Symbol>::iterator it = _env.shared.begin();
