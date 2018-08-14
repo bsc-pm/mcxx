@@ -3446,214 +3446,233 @@ namespace TL { namespace Nanos6 {
             _task_body, dep_fun_function_code);
     }
 
-    void TaskProperties::create_dependences_function_fortran_forward()
+    void TaskProperties::expand_parameters_with_task_args(
+            const TL::Symbol &arg,
+            // Out
+            TL::ObjectList<std::string> &parameter_names,
+            ObjectList<TL::Type> &parameter_types,
+            Nodecl::List &args)
+    {
+        TL::ObjectList<TL::Symbol> captured_and_private_symbols =
+            append_two_lists(_env.captured_value, _env.private_);
+        for (TL::ObjectList<TL::Symbol>::iterator it = captured_and_private_symbols.begin();
+                it != captured_and_private_symbols.end();
+                it++)
+        {
+            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(),
+                    "Symbol is not mapped", 0);
+            TL::Symbol field(_field_map[*it]);
+
+            parameter_names.append(field.get_name());
+            parameter_types.append(
+                    field.get_type().get_lvalue_reference_to());
+
+            Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
+                    arg.make_nodecl(/* set_ref_type */ true),
+                    field.make_nodecl(),
+                    /* member_literal */ Nodecl::NodeclBase::null(),
+                    field.get_type().no_ref().get_lvalue_reference_to());
+
+
+            args.append(argument);
+        }
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = _env.shared.begin();
+                it != _env.shared.end();
+                it++)
+        {
+            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(),
+                    "Symbol is not mapped", 0);
+            TL::Symbol field(_field_map[*it]);
+
+            parameter_names.append(field.get_name());
+            parameter_types.append(field.get_type());
+
+            Nodecl::NodeclBase argument =
+                Nodecl::ClassMemberAccess::make(
+                        arg.make_nodecl(/* set_ref_type */ true),
+                        field.make_nodecl(),
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        field.get_type().no_ref().get_lvalue_reference_to());
+
+            args.append(argument);
+        }
+    }
+
+    void TaskProperties::create_outline_function_fortran(
+            const TL::Symbol &unpack_function,
+            const std::string &common_name,
+            const TL::ObjectList<std::string> &outline_parameter_names,
+            const ObjectList<TL::Type> &outline_parameter_types,
+            // Out
+            TL::Symbol &outline_function)
     {
         /* ===================== */
-        /* Dependences function that simply calls the forward function */
+        /* Outline function that simply calls the forward function */
         /* ===================== */
-        TL::ObjectList<std::string> dep_parameter_names(2);
-        dep_parameter_names[0] = "handler";
-        dep_parameter_names[1] = "arg";
-        TL::ObjectList<TL::Type> dep_parameter_types(2);
-        dep_parameter_types[0] = TL::Type::get_void_type().get_pointer_to();
-        dep_parameter_types[1] = _info_structure.get_lvalue_reference_to();
 
-        std::string dep_name = get_new_name("nanos6_ol_dep");
+        std::string outline_function_name = get_new_name("nanos6_ol_" + common_name);
 
-        TL::Symbol proper_dependences_function = _dependences_function;
+        ERROR_CONDITION(outline_parameter_names.size() != outline_parameter_types.size(),
+                "Unexpected parameter lists", 0);
 
-        _dependences_function
-            = SymbolUtils::new_function_symbol(_related_function,
-                                               dep_name,
-                                               TL::Type::get_void_type(),
-                                               dep_parameter_names,
-                                               dep_parameter_types);
+        outline_function = SymbolUtils::new_function_symbol(
+                _related_function,
+                outline_function_name,
+                TL::Type::get_void_type(),
+                outline_parameter_names,
+                outline_parameter_types);
 
-        Nodecl::NodeclBase dependences_function_code, dependences_empty_stmt;
-        SymbolUtils::build_empty_body_for_function(_dependences_function,
-                                                   dependences_function_code,
-                                                   dependences_empty_stmt);
+        Nodecl::NodeclBase outline_function_code, outline_empty_stmt;
+        SymbolUtils::build_empty_body_for_function(
+                outline_function, outline_function_code, outline_empty_stmt);
 
-        TL::Scope dependences_inside_scope
-            = dependences_empty_stmt.retrieve_context();
-        TL::Symbol handler
-            = dependences_inside_scope.get_symbol_from_name("handler");
-        ERROR_CONDITION(!handler.is_valid(), "Invalid symbol", 0);
-        TL::Symbol arg = dependences_inside_scope.get_symbol_from_name("arg");
-        ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
+        TL::Scope outline_inside_scope = outline_empty_stmt.retrieve_context();
 
         Nodecl::Utils::append_to_enclosing_top_level_location(
-            _task_body, dependences_function_code);
+            _task_body, outline_function_code);
 
-        fortran_add_types(dependences_inside_scope);
-
+        fortran_add_types(outline_inside_scope);
 
         /* ===================== */
-        /* Dependences function that simply calls the forward function */
+        /* Forward function */
         /* Fortran side */
         /* ===================== */
-        std::string forwarded_name = get_new_name("nanos6_fwd_dep");
+
+        std::string forwarded_name = get_new_name("nanos6_fwd_" + common_name);
+
+        // Prepare function parameters and function call
 
         TL::ObjectList<std::string> forwarded_parameter_names;
         TL::ObjectList<TL::Type> forwarded_parameter_types;
 
-        forwarded_parameter_names.append("ol");
+        Nodecl::List forwarded_fun_call_args;
+
+        // Add unpack parameter/arg
+        forwarded_parameter_names.append("unpack");
         forwarded_parameter_types.append(
             TL::Type::get_void_type().get_pointer_to());
-        forwarded_parameter_names.append("handler");
-        forwarded_parameter_types.append(
-            TL::Type::get_void_type().get_pointer_to());
 
-        Nodecl::List args;
+        forwarded_fun_call_args.append(
+                Nodecl::Reference::make(
+                    unpack_function.make_nodecl(/* set_ref_type */ true),
+                    unpack_function.get_type().get_pointer_to()));
 
-        // ol
-        args.append(Nodecl::Reference::make(
-            proper_dependences_function.make_nodecl(/* set_ref_type */ true),
-            proper_dependences_function.get_type().get_pointer_to()));
-        // handler
-        args.append(handler.make_nodecl(/* set_ref_type */ true));
-
-        for (TL::ObjectList<TL::Symbol>::iterator it = _env.captured_value.begin();
-             it != _env.captured_value.end();
-             it++)
-        {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(),
-                            "Symbol is not mapped",
-                            0);
-            TL::Symbol field = _field_map[*it];
-
-            forwarded_parameter_names.append(field.get_name());
-            forwarded_parameter_types.append(
-                field.get_type().get_lvalue_reference_to());
-
-            args.append(Nodecl::ClassMemberAccess::make(
-                arg.make_nodecl(/* set_ref_type */ true),
-                _field_map[*it].make_nodecl(),
-                /* member_literal */ Nodecl::NodeclBase::null(),
-                _field_map[*it].get_type().get_lvalue_reference_to()));
-        }
-
-        for (TL::ObjectList<TL::Symbol>::iterator it = _env.private_.begin();
-                it != _env.private_.end();
+        // Add remaining parameters/args
+        for (TL::ObjectList<std::string>::const_iterator it = outline_parameter_names.begin();
+                it != outline_parameter_names.end();
                 it++)
         {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(),
-                    "Symbol is not mapped",
-                    0);
-            TL::Symbol field = _field_map[*it];
+            const std::string &param_name = *it;
 
-            forwarded_parameter_names.append(field.get_name());
-            forwarded_parameter_types.append(
-                    field.get_type().get_lvalue_reference_to());
+            TL::Symbol param = outline_inside_scope.get_symbol_from_name(param_name);
+            ERROR_CONDITION(!param.is_valid(), "Invalid symbol '%s'", param_name);
 
-            args.append(Nodecl::ClassMemberAccess::make(
-                        arg.make_nodecl(/* set_ref_type */ true),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        _field_map[*it].get_type().get_lvalue_reference_to()));
+            if (param_name == "arg")
+            {
+                // Expand 'arg' parameter in the original list with task args members
+                expand_parameters_with_task_args(
+                        param,
+                        forwarded_parameter_names,
+                        forwarded_parameter_types,
+                        forwarded_fun_call_args);
+            }
+            else
+            {
+                forwarded_parameter_names.append(param_name);
+                forwarded_parameter_types.append(param.get_type());
+                forwarded_fun_call_args.append(
+                        param.make_nodecl(/* set_ref_type */ true));
+            }
         }
 
-        for (TL::ObjectList<TL::Symbol>::iterator it = _env.shared.begin();
-             it != _env.shared.end();
-             it++)
-        {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(),
-                            "Symbol is not mapped",
-                            0);
-            TL::Symbol field = _field_map[*it];
+        TL::Symbol forwarded_function = SymbolUtils::new_function_symbol(
+                TL::Scope::get_global_scope(),
+                forwarded_name,
+                TL::Type::get_void_type(),
+                forwarded_parameter_names,
+                forwarded_parameter_types);
 
-            forwarded_parameter_names.append(field.get_name());
-            forwarded_parameter_types.append(field.get_type());
-
-            args.append(Nodecl::ClassMemberAccess::make(
-                arg.make_nodecl(/* set_ref_type */ true),
-                _field_map[*it].make_nodecl(),
-                /* member_literal */ Nodecl::NodeclBase::null(),
-                _field_map[*it].get_type().get_lvalue_reference_to()));
-        }
-
-        TL::Symbol forwarded_function
-            = SymbolUtils::new_function_symbol(TL::Scope::get_global_scope(),
-                                               forwarded_name,
-                                               TL::Type::get_void_type(),
-                                               forwarded_parameter_names,
-                                               forwarded_parameter_types);
         // Make this symbol global
         symbol_entity_specs_set_is_static(
             forwarded_function.get_internal_symbol(), 0);
 
-        Nodecl::NodeclBase call_to_forward
-            = Nodecl::ExpressionStatement::make(Nodecl::FunctionCall::make(
-                forwarded_function.make_nodecl(/* set_ref_type */ true),
-                args,
-                /* alternate_name */ Nodecl::NodeclBase::null(),
-                /* function_form */ Nodecl::NodeclBase::null(),
-                get_void_type()));
+        Nodecl::NodeclBase forwarded_function_call = Nodecl::ExpressionStatement::make(
+                Nodecl::FunctionCall::make(
+                    forwarded_function.make_nodecl(/* set_ref_type */ true),
+                    forwarded_fun_call_args,
+                    /* alternate_name */ Nodecl::NodeclBase::null(),
+                    /* function_form */ Nodecl::NodeclBase::null(),
+                    get_void_type()));
 
-        dependences_empty_stmt.prepend_sibling(call_to_forward);
+        outline_empty_stmt.prepend_sibling(forwarded_function_call);
 
         /* ===================== */
-        /* Dependences function that simply calls the forward function */
+        /* Forward function */
         /* C side */
         /* ===================== */
-        std::string c_forwarded_name
-            = ::fortran_mangle_symbol(forwarded_function.get_internal_symbol());
 
-        // Now generate the C counterpart
-        TL::ObjectList<std::string> c_forwarded_parameter_names(
-            forwarded_parameter_names.size(), "");
+        std::string c_forwarded_name =
+            ::fortran_mangle_symbol(forwarded_function.get_internal_symbol());
 
-        c_forwarded_parameter_names[0] = "ol";
+        // Now generate the C counterpart, reuse parameter names and set types to void*
 
-        GenerateParamsNames generate_params_names;
-        std::generate(c_forwarded_parameter_names.begin() + 1,
-                      c_forwarded_parameter_names.end(),
-                      generate_params_names);
-
+        TL::ObjectList<std::string> c_forwarded_parameter_names =
+            forwarded_parameter_names;
         TL::ObjectList<TL::Type> c_forwarded_parameter_types(
             forwarded_parameter_types.size(),
             TL::Type::get_void_type().get_pointer_to());
-        c_forwarded_parameter_types[0]
-            = TL::Type::get_void_type().get_function_returning(
-                TL::ObjectList<TL::Type>(
-                    forwarded_parameter_types.size() - 1,
-                    TL::Type::get_void_type().get_pointer_to()));
 
-        TL::Symbol c_forwarded_function
-            = SymbolUtils::new_function_symbol(TL::Scope::get_global_scope(),
-                                               c_forwarded_name,
-                                               TL::Type::get_void_type(),
-                                               c_forwarded_parameter_names,
-                                               c_forwarded_parameter_types);
+        // Fix unpack parameter type (always first parameter)
+        c_forwarded_parameter_types[0] =
+            TL::Type::get_void_type().get_function_returning(
+                    TL::ObjectList<TL::Type>(
+                        forwarded_parameter_types.size() - 1,
+                        TL::Type::get_void_type().get_pointer_to()));
+
+        TL::Symbol c_forwarded_function = SymbolUtils::new_function_symbol(
+                TL::Scope::get_global_scope(),
+                c_forwarded_name,
+                TL::Type::get_void_type(),
+                c_forwarded_parameter_names,
+                c_forwarded_parameter_types);
+
+        // Make this symbol global
         symbol_entity_specs_set_is_static(
-            c_forwarded_function.get_internal_symbol(), 0);
+                c_forwarded_function.get_internal_symbol(), 0);
 
         Nodecl::NodeclBase c_forwarded_function_code, c_forwarded_empty_stmt;
-        SymbolUtils::build_empty_body_for_function(c_forwarded_function,
-                                                   c_forwarded_function_code,
-                                                   c_forwarded_empty_stmt);
+        SymbolUtils::build_empty_body_for_function(
+                c_forwarded_function,
+                c_forwarded_function_code,
+                c_forwarded_empty_stmt);
+
+        // Prepare function call arguments and add function call
 
         SolveParamNames solve_param_names(
-            c_forwarded_empty_stmt.retrieve_context());
+                c_forwarded_empty_stmt.retrieve_context());
 
-        TL::ObjectList<Nodecl::NodeclBase> refs_to_params
-            = c_forwarded_parameter_names.map<Nodecl::NodeclBase>(
-                solve_param_names);
+        TL::ObjectList<Nodecl::NodeclBase> c_forwarded_parameters =
+            c_forwarded_parameter_names.map<Nodecl::NodeclBase>(
+                    solve_param_names);
 
-        Nodecl::NodeclBase c_ol_arg = refs_to_params[0];
-        Nodecl::List c_args
-            = Nodecl::List::make(TL::ObjectList<Nodecl::NodeclBase>(
-                refs_to_params.begin() + 1, refs_to_params.end()));
+        Nodecl::NodeclBase c_unpack_parameter = c_forwarded_parameters[0];
 
-        c_forwarded_empty_stmt.replace(Nodecl::CompoundStatement::make(
-            Nodecl::List::make(
-                Nodecl::ExpressionStatement::make(Nodecl::FunctionCall::make(
-                    c_ol_arg,
-                    c_args,
-                    /* alternate-symbol */ Nodecl::NodeclBase::null(),
-                    /* function-form */ Nodecl::NodeclBase::null(),
-                    TL::Type::get_void_type()))),
-            /* finalize */ Nodecl::NodeclBase::null()));
+        Nodecl::List c_unpacked_fun_call_args =
+            Nodecl::List::make(TL::ObjectList<Nodecl::NodeclBase>(
+                        c_forwarded_parameters.begin() + 1, c_forwarded_parameters.end()));
+
+        c_forwarded_empty_stmt.replace(
+                Nodecl::CompoundStatement::make(
+                    Nodecl::List::make(
+                        Nodecl::ExpressionStatement::make(
+                            Nodecl::FunctionCall::make(
+                                c_unpack_parameter,
+                                c_unpacked_fun_call_args,
+                                /* alternate-symbol */ Nodecl::NodeclBase::null(),
+                                /* function-form */ Nodecl::NodeclBase::null(),
+                                TL::Type::get_void_type()))),
+                    /* finalize */ Nodecl::NodeclBase::null()));
 
         _phase->get_extra_c_code().append(c_forwarded_function_code);
     }
@@ -3661,7 +3680,22 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_dependences_function_fortran()
     {
         create_dependences_function_fortran_proper();
-        create_dependences_function_fortran_forward();
+
+        TL::ObjectList<std::string> dep_parameter_names(2);
+        dep_parameter_names[0] = "handler";
+        dep_parameter_names[1] = "arg";
+        TL::ObjectList<TL::Type> dep_parameter_types(2);
+        dep_parameter_types[0] = TL::Type::get_void_type().get_pointer_to();
+        dep_parameter_types[1] = _info_structure.get_lvalue_reference_to();
+
+        TL::Symbol unpack_function = _dependences_function;
+        create_outline_function_fortran(
+                unpack_function,
+                "dep",
+                dep_parameter_names,
+                dep_parameter_types,
+                _dependences_function);
+
         _dependences_function_mangled =
             compute_mangled_function_symbol_from_symbol(_dependences_function);
     }

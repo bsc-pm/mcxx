@@ -118,7 +118,18 @@ namespace TL { namespace Nanos6 {
 
             void create_dependences_function_fortran();
             void create_dependences_function_fortran_proper();
-            void create_dependences_function_fortran_forward();
+
+            void expand_parameters_with_task_args(
+                    const TL::Symbol &arg,
+                    TL::ObjectList<std::string> &parameter_names,
+                    ObjectList<TL::Type> &parameter_types,
+                    Nodecl::List &args);
+            void create_outline_function_fortran(
+                    const TL::Symbol &unpack_function,
+                    const std::string &common_name,
+                    const TL::ObjectList<std::string> &outline_parameter_names,
+                    const ObjectList<TL::Type> &outline_parameter_types,
+                    TL::Symbol &outline_function);
 
             void create_reduction_functions();
 
