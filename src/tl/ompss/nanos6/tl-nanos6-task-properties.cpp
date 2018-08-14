@@ -129,13 +129,7 @@ namespace TL { namespace Nanos6 {
     std::string TaskProperties::get_new_name(const std::string& prefix) const
     {
         std::stringstream ss;
-
-        ss << prefix << "_";
-
-        if (IS_FORTRAN_LANGUAGE)
-            ss << _related_function.get_name() << "_";
-
-        ss << _nanos6_task_counter;
+        ss << prefix << "_" << _related_function.get_name() << "_" << _nanos6_task_counter;
         return ss.str();
     }
 
