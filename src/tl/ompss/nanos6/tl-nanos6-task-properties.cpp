@@ -54,7 +54,9 @@
 #include "fortran03-intrinsics.h"
 #include "fortran03-scope.h"
 
+
 #include <algorithm>
+#include <string>
 #include <set>
 
 namespace TL { namespace Nanos6 {
@@ -128,8 +130,11 @@ namespace TL { namespace Nanos6 {
 
     std::string TaskProperties::get_new_name(const std::string& prefix) const
     {
+        std::string fixed_fun_name = _related_function.get_name();
+        std::replace(fixed_fun_name.begin(), fixed_fun_name.end(), ' ', '_');
+
         std::stringstream ss;
-        ss << prefix << "_" << _related_function.get_name() << "_" << _nanos6_task_counter;
+        ss << prefix << "_" << fixed_fun_name << "_" << _nanos6_task_counter;
         return ss.str();
     }
 
