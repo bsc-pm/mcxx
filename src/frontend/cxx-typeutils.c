@@ -17063,7 +17063,7 @@ extern inline char type_is_reference_related_to(type_t* t1, type_t* t2)
     return (equivalent_types(get_unqualified_type(t1), get_unqualified_type(t2))
             || (is_class_type(t1)
                 && is_class_type(t2)
-                && class_type_is_base(t1, t2)));
+                && class_type_is_base_instantiating(t1, t2, make_locus("", 0, 0))));
 }
 
 extern inline char type_is_reference_compatible_to(type_t* t1, type_t* t2)
