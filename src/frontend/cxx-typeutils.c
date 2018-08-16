@@ -14446,7 +14446,7 @@ static char covariant_return(type_t* overrided_type, type_t* virtual_type)
             virtual_type = reference_type_get_referenced_type(virtual_type);
         }
 
-        if (class_type_is_base(virtual_type, overrided_type))
+        if (class_type_is_base_instantiating(virtual_type, overrided_type, make_locus("", 0, 0)))
             return 1;
     }
     return 0;
