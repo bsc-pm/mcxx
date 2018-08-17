@@ -17970,15 +17970,22 @@ static void check_nodecl_member_access(
             {
                 // A case like this
                 //
-                // struct A
-                // {
-                //    template <typename T>
-                //    void f()
+                //    struct B
                 //    {
-                //       this->template g<T>(3);
-                //    }
-                // };
+                //        template <typename T>
+                //        void foo();
+                //    };
                 //
+                //    template <typename T>
+                //    struct A
+                //    {
+                //        B b;
+                //        void foo()
+                //        {
+                //            this->b.template foo<T>();
+                //        }
+                //    };
+
                 // Nothing is dependent but the nodecl_member
                 *nodecl_output = nodecl_make_cxx_class_member_access(
                         nodecl_accessed_out,
