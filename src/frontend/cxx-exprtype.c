@@ -17986,6 +17986,8 @@ static void check_nodecl_member_access(
                         get_unknown_dependent_type(),
                         locus);
 
+                nodecl_set_text(*nodecl_output, "template ");
+
                 nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             }
             else
