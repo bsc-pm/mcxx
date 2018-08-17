@@ -5,6 +5,7 @@ test_nolink=yes
 </testinfo>
 */
 
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
 struct MyData
 {
     template <typename T2>
@@ -23,4 +24,5 @@ struct Derived
         _result.template allocate<T>();
     }
 };
+#endif
 
