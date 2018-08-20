@@ -14790,7 +14790,7 @@ static void compute_implicit_captures(nodecl_t node,
 
     scope_entry_t *entry = nodecl_get_symbol(node);
     if (entry != NULL
-            && (entry->kind != SK_VARIABLE
+            && ((entry->kind != SK_VARIABLE && entry->kind != SK_VARIABLE_PACK)
                 || symbol_entity_specs_get_is_saved_expression(entry)
                 || symbol_entity_specs_get_is_member(entry)
                 || (entry->decl_context->current_scope->kind != BLOCK_SCOPE)
