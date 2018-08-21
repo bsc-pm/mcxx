@@ -123,7 +123,8 @@ namespace TL { namespace Nanos6 {
                     const TL::Symbol &arg,
                     TL::ObjectList<std::string> &parameter_names,
                     ObjectList<TL::Type> &parameter_types,
-                    Nodecl::List &args);
+                    Nodecl::List &args,
+                    std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> &name_to_pair_orig_field_map);
             void create_outline_function_fortran(
                     const TL::Symbol &unpack_function,
                     const std::string &common_name,

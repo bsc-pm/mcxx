@@ -3451,7 +3451,8 @@ namespace TL { namespace Nanos6 {
             // Out
             TL::ObjectList<std::string> &parameter_names,
             ObjectList<TL::Type> &parameter_types,
-            Nodecl::List &args)
+            Nodecl::List &args,
+            std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> &name_to_pair_orig_field_map)
     {
         TL::ObjectList<TL::Symbol> captured_and_private_symbols =
             append_two_lists(_env.captured_value, _env.private_);
@@ -3475,6 +3476,8 @@ namespace TL { namespace Nanos6 {
 
 
             args.append(argument);
+
+            name_to_pair_orig_field_map[field.get_name()] = std::make_pair(*it, field);
         }
 
         for (TL::ObjectList<TL::Symbol>::iterator it = _env.shared.begin();
@@ -3496,6 +3499,8 @@ namespace TL { namespace Nanos6 {
                         field.get_type().no_ref().get_lvalue_reference_to());
 
             args.append(argument);
+
+            name_to_pair_orig_field_map[field.get_name()] = std::make_pair(*it, field);
         }
     }
 
@@ -3558,6 +3563,9 @@ namespace TL { namespace Nanos6 {
                     unpack_function.make_nodecl(/* set_ref_type */ true),
                     unpack_function.get_type().get_pointer_to()));
 
+        // This map associates a symbol name with a pair that represents the original symbol and the field
+        std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> name_to_pair_orig_field_map;
+
         // Add remaining parameters/args
         for (TL::ObjectList<std::string>::const_iterator it = outline_parameter_names.begin();
                 it != outline_parameter_names.end();
@@ -3575,7 +3583,8 @@ namespace TL { namespace Nanos6 {
                         param,
                         forwarded_parameter_names,
                         forwarded_parameter_types,
-                        forwarded_fun_call_args);
+                        forwarded_fun_call_args,
+                        name_to_pair_orig_field_map);
             }
             else
             {
@@ -3597,6 +3606,44 @@ namespace TL { namespace Nanos6 {
         symbol_entity_specs_set_is_static(
             forwarded_function.get_internal_symbol(), 0);
 
+        // Propagate attributes and update function type
+        TL::ObjectList<TL::Symbol> forwarded_parameters_to_update_type;
+        Nodecl::Utils::SimpleSymbolMap field_to_forwarded_symbol_map;
+
+        const TL::ObjectList<TL::Symbol> &forwarded_params = forwarded_function.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = forwarded_params.begin();
+                it != forwarded_params.end();
+                it++)
+        {
+            TL::Symbol forwarded_param(*it);
+            TL::Symbol field(name_to_pair_orig_field_map[forwarded_param.get_name()].second);
+
+            // Only parameters that correspond to fields need to be dealt with
+            if (field.is_valid())
+            {
+                if (type_is_runtime_sized(forwarded_param.get_type()))
+                {
+                    forwarded_parameters_to_update_type.append(forwarded_param);
+                    field_to_forwarded_symbol_map.add_map(field, forwarded_param);
+                }
+
+                //FIXME: Propagate TARGET attribute
+
+                // Propagate ALLOCATABLE attribute
+                TL::Symbol original_symbol(name_to_pair_orig_field_map[forwarded_param.get_name()].first);
+                if (field.is_allocatable()
+                        // VLAs in Fortran are represented as allocatable variables. However, when we call
+                        // to the fwd function we convert them to VLAs again. For this reason we need the
+                        // original symbol at this point
+                        && original_symbol.is_allocatable())
+                    symbol_entity_specs_set_is_allocatable(forwarded_param.get_internal_symbol(), 1);
+            }
+        }
+
+        update_function_type_if_needed(
+                forwarded_function, forwarded_parameters_to_update_type, field_to_forwarded_symbol_map);
+
+        // Add call to forward
         Nodecl::NodeclBase forwarded_function_call = Nodecl::ExpressionStatement::make(
                 Nodecl::FunctionCall::make(
                     forwarded_function.make_nodecl(/* set_ref_type */ true),
