@@ -1196,9 +1196,16 @@ namespace TL { namespace Nanos6 {
             TL::Type type_of_field = it->get_type().no_ref();
             bool is_allocatable = it->is_allocatable();
 
-            if (!type_of_field.is_dependent()
-                    && (!type_of_field.is_class() || type_of_field.is_pod())
-                    && type_of_field.depends_on_nonconstant_values())
+            if (
+                (!type_of_field.is_dependent()
+                        && (!type_of_field.is_class() || type_of_field.is_pod())
+                        && type_of_field.depends_on_nonconstant_values())
+                ||
+
+                (it->get_type().no_ref().is_array()
+                     && it->get_type().no_ref().array_requires_descriptor()
+                     && !is_allocatable)
+               )
             {
                 if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
                     type_of_field = TL::Type::get_void_type().get_pointer_to();
@@ -4890,8 +4897,10 @@ namespace TL { namespace Nanos6 {
         {
             ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
 
+            // If the privatized symbol is neither a VLA nor a symbol that is
+            // represented as an allocatable variable in the environment structure, skip it!
             if (!it->get_type().depends_on_nonconstant_values()
-                    && !(IS_FORTRAN_LANGUAGE && it->is_allocatable()))
+                    && !_field_map[*it].is_allocatable())
                 continue;
 
             TL::Type lhs_type =
