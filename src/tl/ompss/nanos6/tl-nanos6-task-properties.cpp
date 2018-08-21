@@ -2032,7 +2032,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::List deallocate_exprs;
 
             // This map associates a symbol name with a pair that represents the original symbol and the field
-            std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> names_to_pair_field_map;
+            std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> name_to_pair_orig_field_map;
 
             // 1. Visiting captured & private symbols
             TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
@@ -2043,12 +2043,12 @@ namespace TL { namespace Nanos6 {
                 ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
                 TL::Symbol field = _field_map[*it];
 
-                names_to_pair_field_map[field.get_name()] = std::make_pair(*it, field);
+                name_to_pair_orig_field_map[field.get_name()] = std::make_pair(*it, field);
 
                 forwarded_parameter_names.append(field.get_name());
                 forwarded_parameter_types.append(field.get_type().get_lvalue_reference_to());
 
-                Nodecl::NodeclBase class_member_access =  Nodecl::ClassMemberAccess::make(
+                Nodecl::NodeclBase class_member_access = Nodecl::ClassMemberAccess::make(
                         arg.make_nodecl(/* set_ref_type */ true),
                         _field_map[*it].make_nodecl(),
                         /* member_literal */ Nodecl::NodeclBase::null(),
@@ -2071,7 +2071,7 @@ namespace TL { namespace Nanos6 {
                 ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
                 TL::Symbol field = _field_map[*it];
 
-                names_to_pair_field_map[field.get_name()] = std::make_pair(*it, field);
+                name_to_pair_orig_field_map[field.get_name()] = std::make_pair(*it, field);
 
                 forwarded_parameter_names.append(field.get_name());
                 forwarded_parameter_types.append(field.get_type());
@@ -2105,8 +2105,8 @@ namespace TL { namespace Nanos6 {
             // Make this symbol global
             symbol_entity_specs_set_is_static(forwarded_function.get_internal_symbol(), 0);
 
-            Nodecl::Utils::SimpleSymbolMap forwarded_symbol_map;
             TL::ObjectList<TL::Symbol> forwarded_parameters_to_update_type;
+            Nodecl::Utils::SimpleSymbolMap field_to_forwarded_symbol_map;
 
             // We skip the first param (function pointer)  and the last two
             // (device_env and address_translation_table) because they don't
@@ -2115,19 +2115,20 @@ namespace TL { namespace Nanos6 {
             for (unsigned int i = 1; i < forwarded_params.size() - 2; ++i)
             {
                 TL::Symbol forwarded_param(forwarded_params[i]);
-                TL::Symbol field(names_to_pair_field_map[forwarded_param.get_name()].second);
+                TL::Symbol field(name_to_pair_orig_field_map[forwarded_param.get_name()].second);
 
                 ERROR_CONDITION(!field.is_valid(), "Invalid symbol!", 0);
 
-                forwarded_symbol_map.add_map(field, forwarded_param);
-
                 if (type_is_runtime_sized(forwarded_param.get_type()))
+                {
                     forwarded_parameters_to_update_type.append(forwarded_param);
+                    field_to_forwarded_symbol_map.add_map(field, forwarded_param);
+                }
 
                 //FIXME: Propagate TARGET attribute
 
                 // Propagate ALLOCATABLE attribute
-                TL::Symbol original_symbol(names_to_pair_field_map[forwarded_param.get_name()].first);
+                TL::Symbol original_symbol(name_to_pair_orig_field_map[forwarded_param.get_name()].first);
                 if (field.is_allocatable()
                         // VLAs in Fortran are represented as allocatable variables. However, when we call
                         // to the fwd function we convert them to VLAs again. For this reason we need the
@@ -2137,7 +2138,7 @@ namespace TL { namespace Nanos6 {
             }
 
             update_function_type_if_needed(
-                    forwarded_function, forwarded_parameters_to_update_type, forwarded_symbol_map);
+                    forwarded_function, forwarded_parameters_to_update_type, field_to_forwarded_symbol_map);
 
             Nodecl::NodeclBase call_to_forward =
                 Nodecl::ExpressionStatement::make(
@@ -3526,9 +3527,7 @@ namespace TL { namespace Nanos6 {
                 field.get_type().get_lvalue_reference_to());
 
             args.append(Nodecl::ClassMemberAccess::make(
-                // Nodecl::Dereference::make(
                 arg.make_nodecl(/* set_ref_type */ true),
-                //    arg.get_type().points_to().get_lvalue_reference_to()),
                 _field_map[*it].make_nodecl(),
                 /* member_literal */ Nodecl::NodeclBase::null(),
                 _field_map[*it].get_type().get_lvalue_reference_to()));
@@ -3548,9 +3547,7 @@ namespace TL { namespace Nanos6 {
                     field.get_type().get_lvalue_reference_to());
 
             args.append(Nodecl::ClassMemberAccess::make(
-                        // Nodecl::Dereference::make(
                         arg.make_nodecl(/* set_ref_type */ true),
-                        //    arg.get_type().points_to().get_lvalue_reference_to()),
                         _field_map[*it].make_nodecl(),
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         _field_map[*it].get_type().get_lvalue_reference_to()));
@@ -3569,9 +3566,7 @@ namespace TL { namespace Nanos6 {
             forwarded_parameter_types.append(field.get_type());
 
             args.append(Nodecl::ClassMemberAccess::make(
-                // Nodecl::Dereference::make(
                 arg.make_nodecl(/* set_ref_type */ true),
-                //    arg.get_type().points_to().get_lvalue_reference_to()),
                 _field_map[*it].make_nodecl(),
                 /* member_literal */ Nodecl::NodeclBase::null(),
                 _field_map[*it].get_type().get_lvalue_reference_to()));

@@ -119,12 +119,10 @@ namespace TL { namespace Nanos6 {
             void create_dependences_function_fortran();
             void create_dependences_function_fortran_proper();
             void create_dependences_function_fortran_forward();
-            void create_dependences_function_fortran_mangled();
 
             void create_reduction_functions();
 
             TL::Symbol create_constraints_function() const;
-            void create_cost_function();
             void create_priority_function();
 
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
