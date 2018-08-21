@@ -1261,7 +1261,8 @@ namespace TL { namespace Nanos6 {
             {
                 type_of_field = TL::Type::get_void_type().get_pointer_to();
                 if (it->get_type().no_ref().is_array()
-                    && it->get_type().no_ref().array_requires_descriptor())
+                    && it->get_type().no_ref().array_requires_descriptor()
+                    && !it->is_allocatable())
                 {
                     TL::Symbol field = add_field_to_class(
                         new_class_symbol,
