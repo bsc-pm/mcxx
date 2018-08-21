@@ -778,6 +778,7 @@ namespace TL { namespace Nanos6 {
         create_reduction_functions();
         create_dependences_function();
         create_priority_function();
+        create_destroy_function();
 
         TL::Symbol task_info_struct = get_nanos6_class_symbol("nanos_task_info");
         std::string task_info_name = get_new_name("task_info_var");
@@ -856,7 +857,29 @@ namespace TL { namespace Nanos6 {
 
         // .destroy
         Nodecl::NodeclBase field_destroy = get_field("destroy");
-        Nodecl::NodeclBase init_destroy  = const_value_to_nodecl(const_value_get_signed_int(0));
+        Nodecl::NodeclBase init_destroy;
+        if (_destroy_function.is_valid())
+        {
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                init_destroy =
+                    _destroy_function_mangled.make_nodecl(/* set_ref_type */ true);
+            }
+            else
+            {
+                init_destroy =
+                    _destroy_function.make_nodecl(/* set_ref_type */ true);
+            }
+
+            init_destroy = Nodecl::Conversion::make(
+                    init_destroy,
+                    field_destroy.get_type().no_ref());
+            init_destroy.set_text("C");
+        }
+        else
+        {
+            init_destroy = const_value_to_nodecl(const_value_get_signed_int(0));
+        }
 
         TL::ObjectList<Nodecl::NodeclBase> field_init;
         field_init.append(
@@ -1920,21 +1943,6 @@ namespace TL { namespace Nanos6 {
                     cast.set_text("C");
                 }
                 args.append(argument);
-
-                if (it->get_type().is_dependent()
-                        || (it->get_type().no_ref().is_class() && !it->get_type().no_ref().is_pod()))
-                {
-                    argument.set_is_type_dependent(1);
-                    TL::Source src;
-
-                    src << "{"
-                        <<      "typedef " << as_type(it->get_type().no_ref().get_unqualified_type()) << " DepType;"
-                        <<      "( " << as_expression(argument.shallow_copy()) << ").~DepType();"
-                        << "}"
-                        ;
-
-                    outline_empty_stmt.append_sibling(src.parse_statement(outline_inside_scope));
-                }
             }
 
             // 2. Visiting shared symbols
@@ -2029,8 +2037,6 @@ namespace TL { namespace Nanos6 {
                         unpacked_function.make_nodecl(/* set_ref_type */ true),
                         unpacked_function.get_type().get_pointer_to()));
 
-            Nodecl::List deallocate_exprs;
-
             // This map associates a symbol name with a pair that represents the original symbol and the field
             std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> name_to_pair_orig_field_map;
 
@@ -2054,13 +2060,6 @@ namespace TL { namespace Nanos6 {
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         _field_map[*it].get_type().get_lvalue_reference_to());
                 args.append(class_member_access);
-
-                // Finally, if the field symbol is an allocatable, we have to deallocate it.
-                // Note that this copy was created when we captured its value.
-                if (field.is_allocatable())
-                {
-                    deallocate_exprs.append(class_member_access.shallow_copy());
-                }
             }
 
             // 2. Visiting shared symbols
@@ -2150,32 +2149,6 @@ namespace TL { namespace Nanos6 {
                             get_void_type()));
 
             outline_empty_stmt.prepend_sibling(call_to_forward);
-
-
-            Nodecl::List conditional_deallocation_stmts;
-            for(Nodecl::List::iterator it = deallocate_exprs.begin();
-                    it != deallocate_exprs.end();
-                    it++)
-            {
-                Nodecl::NodeclBase dealloc_expr(*it);
-                Nodecl::List actual_arguments = Nodecl::List::make(Nodecl::FortranActualArgument::make(dealloc_expr));
-
-                TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
-
-                Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
-                        allocated.make_nodecl(),
-                        actual_arguments,
-                        /* alternate-symbol */ Nodecl::NodeclBase::null(),
-                        /* function-form */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_bool_type());
-
-                Nodecl::NodeclBase dealloc_stmt = Nodecl::FortranDeallocateStatement::make(
-                        Nodecl::List::make(dealloc_expr.shallow_copy()), Nodecl::NodeclBase::null());
-
-                outline_empty_stmt.append_sibling(
-                        Nodecl::IfElseStatement::make(cond, Nodecl::List::make(dealloc_stmt), Nodecl::NodeclBase::null()));
-            }
-
 
             TL::ObjectList<std::string> c_forwarded_parameter_names(forwarded_parameter_names.size(), "");
 
@@ -4742,6 +4715,144 @@ namespace TL { namespace Nanos6 {
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
                 _task_body,
                 priority_function_code);
+    }
+
+    void TaskProperties::create_destroy_function()
+    {
+        // Collect symbols that need to be dealt with: Visit captured & private symbols
+
+        ObjectList<TL::Symbol> fields_to_destroy;
+
+        TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = captured_and_private_symbols.begin();
+                it != captured_and_private_symbols.end();
+                it++)
+        {
+            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
+            TL::Symbol field = _field_map[*it];
+            TL::Type field_type = it->get_type();
+
+            if ((IS_CXX_LANGUAGE &&
+                        (field_type.is_dependent() ||
+                         (field_type.no_ref().is_class() && !field_type.no_ref().is_pod())))
+                    ||
+                    (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+            {
+                fields_to_destroy.append(field);
+            }
+        }
+
+        // Do not generate an empty function
+        if (fields_to_destroy.empty())
+            return;
+
+        // Destroy function
+        std::string function_name = get_new_name("nanos6_destroy");
+
+        TL::ObjectList<std::string> destroy_param_names;
+        TL::ObjectList<TL::Type> destroy_param_types;
+
+        destroy_param_names.append("arg");
+        destroy_param_types.append(_info_structure.get_lvalue_reference_to());
+
+        TL::Symbol destroy_function;
+        destroy_function = SymbolUtils::new_function_symbol(
+                _related_function,
+                function_name,
+                TL::Type::get_void_type(),
+                destroy_param_names,
+                destroy_param_types);
+
+        Nodecl::NodeclBase destroy_function_code, destroy_empty_stmt;
+        SymbolUtils::build_empty_body_for_function(
+                destroy_function,
+                destroy_function_code,
+                destroy_empty_stmt);
+
+        // Compute destroy statements
+
+        TL::Scope destroy_inside_scope = destroy_empty_stmt.retrieve_context();
+        TL::Symbol arg = destroy_inside_scope.get_symbol_from_name("arg");
+        ERROR_CONDITION(!arg.is_valid() || !arg.is_parameter(), "Invalid symbol", 0);
+
+        Nodecl::List destroy_stmts;
+
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = fields_to_destroy.begin();
+                it != fields_to_destroy.end();
+                it++)
+        {
+            TL::Symbol field(*it);
+
+            Nodecl::NodeclBase class_member_access = Nodecl::ClassMemberAccess::make(
+                    arg.make_nodecl(/* set_ref_type */ true),
+                    field.make_nodecl(),
+                    /* member_literal */ Nodecl::NodeclBase::null(),
+                    field.get_type().no_ref().get_lvalue_reference_to());
+
+            if (IS_CXX_LANGUAGE)
+            {
+                // Field symbol is an object, we have to destroy it
+
+                class_member_access.set_is_type_dependent(field.get_type().is_dependent());
+
+                TL::Source src;
+                src << "{"
+                    <<      "typedef " << as_type(field.get_type().no_ref().get_unqualified_type()) << " DepType;"
+                    <<       as_expression(class_member_access) << ".~DepType();"
+                    << "}"
+                    ;
+
+                destroy_stmts.append(src.parse_statement(destroy_inside_scope));
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                // Field symbol is an allocatable, we have to deallocate it
+                // Note that this copy was created when we captured its value
+
+                Nodecl::List actual_arguments = Nodecl::List::make(
+                        Nodecl::FortranActualArgument::make(class_member_access));
+
+                TL::Symbol allocated =
+                    get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
+
+                Nodecl::NodeclBase condition = Nodecl::FunctionCall::make(
+                        allocated.make_nodecl(),
+                        actual_arguments,
+                        /* alternate-symbol */ Nodecl::NodeclBase::null(),
+                        /* function-form */ Nodecl::NodeclBase::null(),
+                        TL::Type::get_bool_type());
+
+                Nodecl::NodeclBase dealloc_stmt = Nodecl::FortranDeallocateStatement::make(
+                        Nodecl::List::make(class_member_access.shallow_copy()),
+                        Nodecl::NodeclBase::null());
+
+                destroy_stmts.append(
+                        Nodecl::IfElseStatement::make(
+                            condition, Nodecl::List::make(dealloc_stmt), Nodecl::NodeclBase::null()));
+            }
+        }
+
+        ERROR_CONDITION(destroy_stmts.empty(), "Unexpected list", 0);
+
+        if (IS_CXX_LANGUAGE && !_related_function.is_member())
+        {
+            Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    _task_body,
+                    Nodecl::CxxDecl::make(
+                        Nodecl::Context::make(
+                            Nodecl::NodeclBase::null(),
+                            _related_function.get_scope()),
+                        destroy_function));
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            _destroy_function_mangled =
+                compute_mangled_function_symbol_from_symbol(destroy_function);
+        }
+
+        destroy_empty_stmt.replace(destroy_stmts);
+        Nodecl::Utils::append_to_top_level_nodecl(destroy_function_code);
+        _destroy_function = destroy_function;
     }
 
     void TaskProperties::capture_environment(

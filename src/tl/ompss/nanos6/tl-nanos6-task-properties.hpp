@@ -98,6 +98,9 @@ namespace TL { namespace Nanos6 {
             TL::Symbol _priority_function;
             TL::Symbol _priority_function_mangled;
 
+            TL::Symbol _destroy_function;
+            TL::Symbol _destroy_function_mangled;
+
             TaskloopBounds _taskloop_bounds;
 
             Nodecl::NodeclBase _task_body;
@@ -136,6 +139,7 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol create_constraints_function() const;
             void create_priority_function();
+            void create_destroy_function();
 
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
                                           TL::Scope class_scope,

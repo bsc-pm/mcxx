@@ -24,9 +24,6 @@ SUBROUTINE FOO(M)
             X=0
         !$OSS END TASK
 
-        !! remove this TW once #2829 is fixed!
-        !$OSS TASKWAIT
-
     !$OSS END TASK
 
 END SUBROUTINE FOO
