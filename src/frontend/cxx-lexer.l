@@ -661,7 +661,7 @@ type {
 
     pragma_directive_kind_t directive_kind = PDK_NONE; 
 
-    char original_directive[strlen(yytext)];
+    char original_directive[strlen(yytext) + 1];
     memset(original_directive, 0, sizeof(original_directive));
 
     // This call will unput appropriately what was lexed too much
