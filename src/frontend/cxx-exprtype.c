@@ -20474,6 +20474,16 @@ void check_nodecl_braced_initializer(
                                 }
                                 type_stack[type_stack_idx].num_items = -1;
                             }
+                            else if (!nodecl_is_constant(array_type_get_array_size_expr(type_to_be_initialized)))
+                            {
+                                error_printf_at(nodecl_get_locus(nodecl_initializer_clause), "initialization not allowed for variable-length arrays\n");
+
+                                DELETE(list);
+                                free_stack_of_type_init_stack_t(type_stack, type_stack_idx);
+
+                                *nodecl_output = nodecl_make_err_expr(locus);
+                                return;
+                            }
                             else
                             {
                                 type_stack[type_stack_idx].num_items =
