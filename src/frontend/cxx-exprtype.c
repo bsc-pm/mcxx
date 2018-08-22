@@ -20121,6 +20121,7 @@ void check_nodecl_braced_initializer(
                             warn_printf_at(nodecl_get_locus(nodecl_initializer_clause), "too many initializers for type '%s'\n",
                                     print_type_str(type_stack[type_stack_idx].type, decl_context));
 
+                            DELETE(list);
                             free_stack_of_type_init_stack_t(type_stack, type_stack_idx);
 
                             *nodecl_output = nodecl_make_err_expr(locus);
@@ -20230,6 +20231,7 @@ void check_nodecl_braced_initializer(
 
                     if (nodecl_is_err_expr(nodecl_init_output))
                     {
+                        DELETE(list);
                         free_stack_of_type_init_stack_t(type_stack, type_stack_idx);
 
                         *nodecl_output = nodecl_make_err_expr(locus);
