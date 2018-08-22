@@ -10095,6 +10095,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
                 {
                     return "__m128i";
                 }
+                break;
             }
       case 32:
             {
@@ -10110,6 +10111,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
                 {
                     return "__m256i";
                 }
+                break;
             }
       case 64:
             {
@@ -10125,6 +10127,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
                 {
                     return "__m512i";
                 }
+                break;
             }
       case 128:
             {
@@ -10140,6 +10143,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
                 {
                     return "__m1024i";
                 }
+                break;
             }
 
     }
