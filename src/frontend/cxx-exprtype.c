@@ -18940,6 +18940,24 @@ struct type_init_stack_t
     const_value_t** values;
 };
 
+
+//! This functions frees the extra heap memory allocated for each level of the stack.
+// @param base_addr_array: base address of the array used to represent the stack of type inits
+// @param last_level: index of the last level filled of our stack
+static void free_stack_of_type_init_stack_t(struct type_init_stack_t *base_addr_array, int last_level)
+{
+    int current_level = last_level;
+    while (current_level >= 0)
+    {
+        DELETE(base_addr_array[current_level].values);
+        base_addr_array[current_level].values = NULL;
+
+        DELETE(base_addr_array[current_level].fields);
+        base_addr_array[current_level].fields = NULL;
+        current_level--;
+    }
+}
+
 #define MAX_ITEM(a, b) ((a) > (b) ? (a) : (b))
 static char update_stack_to_designator(type_t* declared_type,
         struct type_init_stack_t *type_stack,
@@ -20103,16 +20121,7 @@ void check_nodecl_braced_initializer(
                             warn_printf_at(nodecl_get_locus(nodecl_initializer_clause), "too many initializers for type '%s'\n",
                                     print_type_str(type_stack[type_stack_idx].type, decl_context));
 
-                            // Free the stack
-                            while (type_stack_idx >= 0)
-                            {
-                                DELETE(type_stack[type_stack_idx].values);
-                                type_stack[type_stack_idx].values = NULL;
-
-                                DELETE(type_stack[type_stack_idx].fields);
-                                type_stack[type_stack_idx].fields = NULL;
-                                type_stack_idx--;
-                            }
+                            free_stack_of_type_init_stack_t(type_stack, type_stack_idx);
 
                             *nodecl_output = nodecl_make_err_expr(locus);
                             return;
@@ -20221,16 +20230,7 @@ void check_nodecl_braced_initializer(
 
                     if (nodecl_is_err_expr(nodecl_init_output))
                     {
-                        // Free the stack
-                        while (type_stack_idx >= 0)
-                        {
-                            DELETE(type_stack[type_stack_idx].values);
-                            type_stack[type_stack_idx].values = NULL;
-
-                            DELETE(type_stack[type_stack_idx].fields);
-                            type_stack[type_stack_idx].fields = NULL;
-                            type_stack_idx--;
-                        }
+                        free_stack_of_type_init_stack_t(type_stack, type_stack_idx);
 
                         *nodecl_output = nodecl_make_err_expr(locus);
                         return;
