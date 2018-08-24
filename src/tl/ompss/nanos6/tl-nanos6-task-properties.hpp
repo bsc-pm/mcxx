@@ -98,6 +98,9 @@ namespace TL { namespace Nanos6 {
             TL::Symbol _priority_function;
             TL::Symbol _priority_function_mangled;
 
+            TL::Symbol _destroy_function;
+            TL::Symbol _destroy_function_mangled;
+
             TaskloopBounds _taskloop_bounds;
 
             Nodecl::NodeclBase _task_body;
@@ -118,14 +121,25 @@ namespace TL { namespace Nanos6 {
 
             void create_dependences_function_fortran();
             void create_dependences_function_fortran_proper();
-            void create_dependences_function_fortran_forward();
-            void create_dependences_function_fortran_mangled();
+
+            void expand_parameters_with_task_args(
+                    const TL::Symbol &arg,
+                    TL::ObjectList<std::string> &parameter_names,
+                    ObjectList<TL::Type> &parameter_types,
+                    Nodecl::List &args,
+                    std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> &name_to_pair_orig_field_map);
+            void create_outline_function_fortran(
+                    const TL::Symbol &unpack_function,
+                    const std::string &common_name,
+                    const TL::ObjectList<std::string> &outline_parameter_names,
+                    const ObjectList<TL::Type> &outline_parameter_types,
+                    TL::Symbol &outline_function);
 
             void create_reduction_functions();
 
             TL::Symbol create_constraints_function() const;
-            void create_cost_function();
             void create_priority_function();
+            void create_destroy_function();
 
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
                                           TL::Scope class_scope,
