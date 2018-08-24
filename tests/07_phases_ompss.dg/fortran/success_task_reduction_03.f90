@@ -2,10 +2,8 @@
 ! test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
 ! test_compile_fail_nanos6_mercurium=yes
 ! test_compile_fail_nanos6_imfc=yes
-! test_FFLAGS="--variable=disable_final_clause_transformation:1"
 ! </testinfo>
 
-! Note: Final clause transformation needs to be disabled for OmpSs to pass this test, see issue #2826
 
 PROGRAM P
     IMPLICIT NONE
