@@ -526,12 +526,6 @@ namespace TL { namespace Nanox {
         TL::Source
             reductions_stuff,
             final_clause_stuff,
-            // This source represents an expression which is used to check if
-            // we can do an optimization in the final code. This optimization
-            // consists on calling the original code (with a serial closure) if
-            // we are in a final context and the reduction variables that we
-            // are using have not been registered previously
-            final_clause_opt_expr,
             extra_array_red_memcpy;
 
         std::map<TL::Symbol, std::string> reduction_symbols_map;
@@ -685,9 +679,6 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            if (num_reductions > 0)
-                final_clause_opt_expr << " && ";
-            final_clause_opt_expr << storage_var << " == 0 ";
             num_reductions++;
 
             reductions_stuff
@@ -706,24 +697,14 @@ namespace TL { namespace Nanox {
             // Generating the final code if needed
             if (generate_final_stmts)
             {
-                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it4 = _final_stmts_map.find(construct);
-                ERROR_CONDITION(it4 == _final_stmts_map.end(), "Unreachable code", 0);
-
                 Nodecl::NodeclBase placeholder;
                 TL::Source new_statements_src;
                 new_statements_src
                     << "{"
                     <<      "nanos_err_t nanos_err;"
                     <<      reductions_stuff
-                    <<      "if (" << final_clause_opt_expr  << ")"
-                    <<      "{"
-                    <<          as_statement(it4->second)
-                    <<      "}"
-                    <<      "else"
-                    <<      "{"
-                    <<          final_clause_stuff
-                    <<          statement_placeholder(placeholder)
-                    <<      "}"
+                    <<      final_clause_stuff
+                    <<      statement_placeholder(placeholder)
                     << "}"
                     ;
 
