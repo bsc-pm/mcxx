@@ -90,7 +90,6 @@ namespace TL { namespace Nanos6 {
             TL::Type _info_structure;
 
             TL::Symbol _dependences_function;
-            TL::Symbol _dependences_function_mangled;
 
             TL::Symbol _reduction_initializers;
             TL::Symbol _reduction_combiners;
@@ -114,35 +113,54 @@ namespace TL { namespace Nanos6 {
 
         private:
 
-            TL::Symbol create_outline_function(std::shared_ptr<Device> device);
+            TL::Symbol create_task_region_function(std::shared_ptr<Device> device);
 
             void create_dependences_function();
             void create_dependences_function_c();
-
             void create_dependences_function_fortran();
 
             //! This function creates the unpacked function for the task dependences,
             //! generates its statements and finally returns the symbol
             TL::Symbol create_dependences_unpack_function_fortran();
 
-            void expand_parameters_with_task_args(
-                    const TL::Symbol &arg,
-                    TL::ObjectList<std::string> &parameter_names,
-                    ObjectList<TL::Type> &parameter_types,
-                    Nodecl::List &args,
-                    std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> &name_to_pair_orig_field_map);
-            void create_outline_function_fortran(
-                    const TL::Symbol &unpack_function,
-                    const std::string &common_name,
-                    const TL::ObjectList<std::string> &outline_parameter_names,
-                    const ObjectList<TL::Type> &outline_parameter_types,
-                    TL::Symbol &outline_function);
-
             void create_reduction_functions();
 
             TL::Symbol create_constraints_function() const;
             void create_priority_function();
             void create_destroy_function();
+
+            void unpack_datasharing_arguments(
+                    const TL::Symbol &arg,
+                    // Out
+                    Nodecl::List &args,
+                    TL::ObjectList<std::string> *parameter_names,
+                    ObjectList<TL::Type> *parameter_types,
+                    std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> *name_to_pair_orig_field_map) const;
+
+            friend class ComputeUnpackedArgumentFromSymbolName;
+
+            void create_forward_function_fortran(
+                    const TL::Symbol &unpack_function,
+                    const std::string &common_name,
+                    const TL::ObjectList<std::string> &outline_parameter_names,
+                    const TL::Scope &outline_inside_scope,
+                    // Out
+                    Nodecl::NodeclBase &forwarded_function_call);
+
+            void create_outline_function_common(
+                    const std::string &common_name,
+                    const TL::ObjectList<std::string> &outline_parameter_names,
+                    const ObjectList<TL::Type> &outline_parameter_types,
+                    //Out
+                    TL::Symbol &outline_function,
+                    Nodecl::NodeclBase &outline_empty_stmt);
+            void create_outline_function(
+                    const TL::Symbol &unpack_function,
+                    const std::string &common_name,
+                    const TL::ObjectList<std::string> &outline_parameter_names,
+                    const ObjectList<TL::Type> &outline_parameter_types,
+                    // Out
+                    TL::Symbol &outline_function);
 
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
                                           TL::Scope class_scope,
