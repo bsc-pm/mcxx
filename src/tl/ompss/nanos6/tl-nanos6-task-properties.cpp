@@ -3547,7 +3547,7 @@ namespace TL { namespace Nanos6 {
             const std::string &param_name = *it;
 
             TL::Symbol param = outline_inside_scope.get_symbol_from_name(param_name);
-            ERROR_CONDITION(!param.is_valid(), "Invalid symbol '%s'", param_name);
+            ERROR_CONDITION(!param.is_valid(), "Invalid symbol '%s'", param_name.c_str());
 
             if (param_name == "arg")
             {
