@@ -23427,12 +23427,21 @@ static void check_sizeof_typeid(AST expr, const decl_context_t* decl_context, no
     const locus_t* locus = ast_get_locus(expr);
 
     AST type_id = ASTSon0(expr);
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
     type_t* declarator_type = compute_type_for_type_id_tree(type_id, decl_context,
-            /* out_simple_type */ NULL, /* out_gather_info */ NULL);
+            /* out_simple_type */ NULL, &gather_info);
     if (is_error_type(declarator_type))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
+    }
+
+    int i;
+    for (i = 0; i < gather_info.num_vla_dimension_symbols; i++)
+    {
+        push_extra_declaration_symbol(gather_info.vla_dimension_symbols[i]);
     }
 
     check_sizeof_type(declarator_type, /* nodecl_expr */ nodecl_null(), decl_context, locus, nodecl_output);
