@@ -24,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
+
 #include "fortran03-typeutils.h"
 #include "fortran03-typeenviron.h"
 
@@ -526,14 +528,9 @@ namespace TL { namespace Nanox {
         TL::Source
             reductions_stuff,
             final_clause_stuff,
-            // This source represents an expression which is used to check if
-            // we can do an optimization in the final code. This optimization
-            // consists on calling the original code (with a serial closure) if
-            // we are in a final context and the reduction variables that we
-            // are using have not been registered previously
-            final_clause_opt_expr,
             extra_array_red_memcpy;
 
+        std::map<std::string, Nodecl::NodeclBase> is_registered_stmt_placeholders_map;
         std::map<TL::Symbol, std::string> reduction_symbols_map;
 
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
@@ -619,7 +616,7 @@ namespace TL { namespace Nanox {
                 orig_address << (reduction_item_type.is_pointer() ? "" : "&") << (*it)->get_field_name();
 
                 final_clause_stuff
-                    << "if (" << storage_var_name << " == 0)"
+                    << "if (" << storage_var_name << "_registered)"
                     << "{"
                     <<     storage_var_name  << " = "
                     <<        "(" << as_type(storage_var_type) << ")" << orig_address << ";"
@@ -648,7 +645,7 @@ namespace TL { namespace Nanox {
                             ;
 
                     final_clause_stuff
-                        << "if (" << storage_var << " == 0)"
+                        << "if (" << storage_var_name << "_registered)"
                         << "{"
                         <<     "nanos_err = nanos_memcpy("
                         <<         "(void **) &" << storage_var_name << ","
@@ -677,7 +674,7 @@ namespace TL { namespace Nanox {
                     storage_var << storage_var_name;
 
                     final_clause_stuff
-                        << "if (" << storage_var << " == 0)"
+                        << "if (" << storage_var_name << "_registered)"
                         << "{"
                         <<     storage_var_name << " = " << func.get_name() << "(" <<  orig_address << ");"
                         << "}"
@@ -685,10 +682,6 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            if (num_reductions > 0)
-                final_clause_opt_expr << " && ";
-            final_clause_opt_expr << storage_var << " == 0 ";
-            num_reductions++;
 
             reductions_stuff
                 << extra_array_red_decl
@@ -696,9 +689,13 @@ namespace TL { namespace Nanox {
                 << "nanos_err = nanos_task_reduction_get_thread_storage("
                 <<         "(void *)" << orig_address  << ","
                 <<         "(void **) &" << storage_var << ");"
+
+                << as_type(TL::Type::get_bool_type()) << " " << storage_var_name << "_registered;"
+                << statement_placeholder(is_registered_stmt_placeholders_map[storage_var_name]);
                 ;
 
             reduction_symbols_map[reduction_item] = storage_var_name;
+            num_reductions++;
         }
 
         if (num_reductions != 0)
@@ -706,29 +703,55 @@ namespace TL { namespace Nanox {
             // Generating the final code if needed
             if (generate_final_stmts)
             {
-                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it4 = _final_stmts_map.find(construct);
-                ERROR_CONDITION(it4 == _final_stmts_map.end(), "Unreachable code", 0);
-
                 Nodecl::NodeclBase placeholder;
                 TL::Source new_statements_src;
                 new_statements_src
                     << "{"
                     <<      "nanos_err_t nanos_err;"
                     <<      reductions_stuff
-                    <<      "if (" << final_clause_opt_expr  << ")"
-                    <<      "{"
-                    <<          as_statement(it4->second)
-                    <<      "}"
-                    <<      "else"
-                    <<      "{"
-                    <<          final_clause_stuff
-                    <<          statement_placeholder(placeholder)
-                    <<      "}"
+                    <<      final_clause_stuff
+                    <<      statement_placeholder(placeholder)
                     << "}"
                     ;
 
                 final_statements = handle_task_statements(
                       construct, statements, placeholder, new_statements_src, reduction_symbols_map);
+
+                for (std::map<std::string, Nodecl::NodeclBase>::const_iterator it = is_registered_stmt_placeholders_map.begin();
+                        it != is_registered_stmt_placeholders_map.end();
+                        it++)
+                {
+                    const std::string & storage_var_name = it->first;
+                    Nodecl::NodeclBase is_registered_stmt_placeholder = it->second;
+
+                    TL::Scope inner_scope = is_registered_stmt_placeholder.retrieve_context();
+
+                    TL::Symbol storage_var_sym = get_symbol_from_name(inner_scope, storage_var_name);
+                    ERROR_CONDITION(storage_var_sym.is_invalid(), "Invalid symbol", 0);
+
+                    Nodecl::NodeclBase expr_stmt;
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    {
+                        TL::Symbol is_registered_symbol = get_symbol_from_name(inner_scope, storage_var_name + "_registered");
+
+                        expr_stmt = Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    is_registered_symbol.make_nodecl(/*set_ref_type*/ true),
+                                    Nodecl::Equal::make(
+                                        storage_var_sym.make_nodecl(/*set_ref_type*/ true),
+                                        const_value_to_nodecl(const_value_get_signed_int(0)),
+                                        TL::Type::get_bool_type()),
+                                    is_registered_symbol.get_type().get_lvalue_reference_to()));
+                    }
+                    else // IS_FORTRAN_LANGUAGE
+                    {
+                        TL::Source src;
+                        src << storage_var_name << "_registered = ASSOCIATED(" << as_symbol(storage_var_sym) << ")";
+                        expr_stmt = src.parse_statement(inner_scope);
+                    }
+
+                    is_registered_stmt_placeholder.replace(expr_stmt);
+                }
             }
 
             // Generating the task code
