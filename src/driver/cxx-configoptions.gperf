@@ -58,4 +58,5 @@ fortran_preprocessor_options, config_set_fortran_preprocessor_options
 target_objcopy, config_set_target_objcopy
 target_objdump, config_set_target_objdump
 target_ar, config_set_target_ar
+error, config_set_error_message
 %%

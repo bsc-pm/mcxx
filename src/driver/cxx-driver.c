@@ -654,6 +654,7 @@ int main(int argc, char* argv[])
     // filling its values.
     commit_configuration();
 
+
     // Parse arguments again, but this time ignore implicit ones and
     // update the chosen profile
     char parse_arguments_error;
@@ -3038,6 +3039,7 @@ static void commit_configuration(void)
 
     add_std_flag_to_configurations();
 
+
     DEBUG_CODE()
     {
         if (!CURRENT_CONFIGURATION->disable_sizeof)
@@ -3045,6 +3047,18 @@ static void commit_configuration(void)
             fprintf(stderr, "DRIVER: Using type environment '%s' for type size calculation\n",
                     CURRENT_CONFIGURATION->type_environment->environ_name);
         }
+    }
+}
+
+static void check_profile_errors_of_current_configuration(void)
+{
+    if (CURRENT_CONFIGURATION->num_errors != 0)
+    {
+        for (int i = 0; i < CURRENT_CONFIGURATION->num_errors; ++i)
+            fprintf(stderr, "Error in '%s' profile: '%s'\n",
+                    CURRENT_CONFIGURATION->configuration_name, CURRENT_CONFIGURATION->error_messages[i]);
+
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -3133,6 +3147,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         // This looks a bit redundant but it turns that the compiler has a
         // configuration even before of any file
         SET_CURRENT_CONFIGURATION(file_process->compilation_configuration);
+
+        // Some profiles may generate some errors such as using OmpSs without a
+        // proper lowering phase. Check if there are any at this point
+        check_profile_errors_of_current_configuration();
 
         translation_unit_t* translation_unit = CURRENT_COMPILED_FILE;
 
