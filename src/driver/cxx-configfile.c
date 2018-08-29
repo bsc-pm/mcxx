@@ -594,6 +594,12 @@ int config_set_target_ar(compilation_configuration_t* config, const char* index 
     return 0;
 }
 
+int config_set_error_message(compilation_configuration_t* config, const char* index UNUSED_PARAMETER, const char* value)
+{
+    P_LIST_ADD(config->error_messages, config->num_errors, uniquestr(value));
+    return 0;
+}
+
 char config_file_parse(const char *filename)
 {
     if (open_configuration_file_for_scan(filename))

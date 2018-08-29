@@ -608,6 +608,10 @@ typedef struct compilation_configuration_tag
 
     // Emit line markers in the output files
     char line_markers;
+
+    // List of profile errors
+    int num_errors;
+    const char** error_messages;
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

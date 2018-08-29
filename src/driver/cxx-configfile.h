@@ -72,6 +72,8 @@ option_function_t config_set_target_objcopy;
 option_function_t config_set_target_objdump;
 option_function_t config_set_target_ar;
 
+option_function_t config_set_error_message;
+
 void print_help_target_options(void);
 
 MCXX_END_DECLS

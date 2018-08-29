@@ -464,16 +464,40 @@ static p_compilation_configuration_line process_option_line(
         int line)
 {
     p_compilation_configuration_line result;
-
-    char* option_value_tmp = xstrdup(option_value);
+    char *duplicated_option_value = xstrdup(option_value);
+    char *fixed_option_value = duplicated_option_value;
     {
-        // Trim the option value
-        char *p = &option_value_tmp[strlen(option_value_tmp) - 1];
-        while (p >= option_value_tmp
-                && (*p == ' ' || *p == '\t'))
+        if (*fixed_option_value == '"')
         {
-            *p = '\0';
-            p--;
+            fixed_option_value++;
+            char *p = &fixed_option_value[strlen(fixed_option_value) - 1];
+            while (p >= fixed_option_value
+                    && (*p == ' ' || *p == '\t'))
+            {
+                p--;
+            }
+
+            if(p >= fixed_option_value && *p == '"')
+            {
+                *p = '\0';
+            }
+            else
+            {
+                fprintf(stderr,"%s:%d: warning: missing '\"' in '%s' string value\n", filename, line, option_value);
+            }
+
+            // We do not trim the content of the string
+        }
+        else
+        {
+            // Trim the option value
+            char *p = &fixed_option_value[strlen(fixed_option_value) - 1];
+            while (p >= fixed_option_value
+                    && (*p == ' ' || *p == '\t'))
+            {
+                *p = '\0';
+                p--;
+            }
         }
     }
 
@@ -481,8 +505,8 @@ static p_compilation_configuration_line process_option_line(
 
     result->name = uniquestr(name->option_name);
     result->index = uniquestr(name->option_index);
-    result->value = uniquestr(option_value_tmp);
-    DELETE(option_value_tmp);
+    result->value = uniquestr(fixed_option_value);
+    DELETE(duplicated_option_value);
 
     result->flag_expr = flag_expr;
     result->filename = filename;
