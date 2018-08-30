@@ -3279,9 +3279,8 @@ namespace TL { namespace Nanos6 {
     }
 
 
-    void TaskProperties::create_dependences_function_fortran_proper()
+    TL::Symbol TaskProperties::create_dependences_unpack_function_fortran()
     {
-        // This is similar to the dep_fun function
         TL::ObjectList<std::string> dep_fun_param_names;
         TL::ObjectList<TL::Type> dep_fun_param_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
@@ -3300,8 +3299,8 @@ namespace TL { namespace Nanos6 {
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
 
-        _dependences_function
-            = SymbolUtils::new_function_symbol(_related_function,
+        TL::Symbol deps_unpack_function =
+            SymbolUtils::new_function_symbol(_related_function,
                                                dep_fun_name,
                                                TL::Type::get_void_type(),
                                                dep_fun_param_names,
@@ -3309,9 +3308,9 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::NodeclBase dep_fun_function_code, dep_fun_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
-            _dependences_function, dep_fun_function_code, dep_fun_empty_stmt);
+            deps_unpack_function, dep_fun_function_code, dep_fun_empty_stmt);
 
-        TL::Scope dep_fun_inside_scope = _dependences_function.get_related_scope();
+        TL::Scope dep_fun_inside_scope = deps_unpack_function.get_related_scope();
 
         fortran_add_types(dep_fun_inside_scope);
 
@@ -3331,7 +3330,7 @@ namespace TL { namespace Nanos6 {
         _env.shared.map(map_symbols_functor);
 
         update_function_type_if_needed(
-                _dependences_function, parameters_to_update_type, symbol_map);
+                deps_unpack_function, parameters_to_update_type, symbol_map);
 
         TL::Symbol handler
             = dep_fun_inside_scope.get_symbol_from_name("handler");
@@ -3426,6 +3425,8 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::Utils::append_to_enclosing_top_level_location(
             _task_body, dep_fun_function_code);
+
+        return deps_unpack_function;
     }
 
     void TaskProperties::expand_parameters_with_task_args(
@@ -3708,7 +3709,7 @@ namespace TL { namespace Nanos6 {
 
     void TaskProperties::create_dependences_function_fortran()
     {
-        create_dependences_function_fortran_proper();
+        TL::Symbol unpack_function = create_dependences_unpack_function_fortran();
 
         TL::ObjectList<std::string> dep_parameter_names(2);
         dep_parameter_names[0] = "handler";
@@ -3717,7 +3718,6 @@ namespace TL { namespace Nanos6 {
         dep_parameter_types[0] = TL::Type::get_void_type().get_pointer_to();
         dep_parameter_types[1] = _info_structure.get_lvalue_reference_to();
 
-        TL::Symbol unpack_function = _dependences_function;
         create_outline_function_fortran(
                 unpack_function,
                 "dep",

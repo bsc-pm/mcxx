@@ -120,7 +120,10 @@ namespace TL { namespace Nanos6 {
             void create_dependences_function_c();
 
             void create_dependences_function_fortran();
-            void create_dependences_function_fortran_proper();
+
+            //! This function creates the unpacked function for the task dependences,
+            //! generates its statements and finally returns the symbol
+            TL::Symbol create_dependences_unpack_function_fortran();
 
             void expand_parameters_with_task_args(
                     const TL::Symbol &arg,
