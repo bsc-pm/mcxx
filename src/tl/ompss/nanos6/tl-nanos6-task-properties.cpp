@@ -2231,29 +2231,6 @@ namespace TL { namespace Nanos6 {
             return outline_function_mangled;
     }
 
-    class ReplaceSymbolsVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
-        const std::map<TL::Symbol, TL::Symbol> _symbols_to_be_replaced;
-
-        public:
-        ReplaceSymbolsVisitor(const std::map<TL::Symbol, TL::Symbol>& map)
-            : _symbols_to_be_replaced(map)
-        { }
-
-        void visit(const Nodecl::Symbol& node)
-        {
-            TL::Symbol current_symbol = node.get_symbol();
-            std::map<TL::Symbol, TL::Symbol>::const_iterator it = _symbols_to_be_replaced.find(current_symbol);
-
-            // Do nothing if the symbol is not present
-            if (it == _symbols_to_be_replaced.end())
-                return;
-
-            TL::Symbol mapped_symbol(it->second);
-            node.replace(mapped_symbol.make_nodecl(/* set_ref_type */ true));
-        }
-    };
-
     namespace
     {
         void compute_dimensionality_information_c(
