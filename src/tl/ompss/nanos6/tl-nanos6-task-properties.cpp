@@ -357,7 +357,16 @@ namespace TL { namespace Nanos6 {
             if (cond.is_null())
                 return cond;
 
-            return Nodecl::LogicalNot::make(cond, TL::Type::get_bool_type());
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                return Nodecl::LogicalNot::make(cond, TL::Type::get_bool_type());
+            }
+            else // IS_FORTRAN_LANGUAGE
+            {
+                return Nodecl::LogicalNot::make(
+                    Nodecl::ParenthesizedExpression::make(cond, TL::Type::get_bool_type()),
+                    TL::Type::get_bool_type());
+            }
         }
     }
 
