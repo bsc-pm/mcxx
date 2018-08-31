@@ -302,7 +302,7 @@ TL::Symbol SymbolUtils::new_function_symbol(
             current_function.get_scope(),
             current_function,
             function_name,
-            /* result_symbol_name */ "",
+            result_symbol_name,
             return_type,
             parameter_names,
             parameter_types);
