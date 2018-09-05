@@ -4396,7 +4396,7 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<TL::Type> parameter_types(2);
         std::string constraints_name = get_new_name("nanos6_constraints");
 
-        parameter_names[0] = "args";
+        parameter_names[0] = "arg";
         parameter_types[0] = _info_structure.get_lvalue_reference_to();
 
         TL::Symbol constraints_class_sym = get_nanos6_class_symbol("nanos6_task_constraints_t");
@@ -4421,8 +4421,8 @@ namespace TL { namespace Nanos6 {
             constraints_function, constraints_function_code, constraints_empty_stmt);
 
         TL::Scope scope_inside_cost = constraints_empty_stmt.retrieve_context();
-        TL::Symbol args = scope_inside_cost.get_symbol_from_name("args");
-        ERROR_CONDITION(!args.is_valid(), "Invalid symbol", 0);
+        TL::Symbol arg = scope_inside_cost.get_symbol_from_name("arg");
+        ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
 
         TL::Symbol constraints = scope_inside_cost.get_symbol_from_name("constraints");
         ERROR_CONDITION(!constraints.is_valid(), "Invalid symbol", 0);
@@ -4442,7 +4442,7 @@ namespace TL { namespace Nanos6 {
                         cost_member.get_type());
 
             Nodecl::NodeclBase rhs_expr
-                = rewrite_expression_using_args(args, _env.cost_clause, /* locals */ TL::ObjectList<TL::Symbol>());
+                = rewrite_expression_using_args(arg, _env.cost_clause, /* locals */ TL::ObjectList<TL::Symbol>());
 
             if (!rhs_expr.get_type().is_same_type(cost_member.get_type()))
             {
