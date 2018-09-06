@@ -123,12 +123,12 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol &unpack_function);
 
             void create_dependences_function();
-            void create_dependences_function_c();
-            void create_dependences_function_fortran();
-
             //! This function creates the unpacked function for the task dependences,
             //! generates its statements and finally returns the symbol
-            TL::Symbol create_dependences_unpack_function_fortran();
+            void create_dependences_unpack_function(
+                    const std::string &common_name,
+                    // Out
+                    TL::Symbol &unpack_function);
 
             void create_reduction_functions();
 
@@ -193,39 +193,20 @@ namespace TL { namespace Nanos6 {
                     // Out
                     TL::ObjectList<Nodecl::NodeclBase>& arguments_list);
 
-            void register_dependence_c(
-                    TL::DataReference& data_ref,
-                    TL::Symbol handler,
-                    TL::Symbol arg,
-                    TL::Symbol register_fun,
-                    const TL::ObjectList<TL::Symbol>& local_symbols,
-                    // Out
-                    Nodecl::List& register_statements);
-
-            void register_multidependence_c(
-                    TL::DataReference& data_ref,
-                    TL::Symbol handler,
-                    TL::Symbol arg,
-                    TL::Symbol register_fun,
-                    TL::Scope scope,
-                    TL::ObjectList<TL::Symbol> local_symbols,
-                    // Out
-                    Nodecl::List& register_statements);
-
-            void register_multidependence_fortran(
+            void register_dependence(
                     TL::DataReference &data_ref,
                     TL::Symbol handler,
                     Nodecl::Utils::SymbolMap &symbol_map,
                     TL::Symbol register_fun,
-                    TL::Scope scope,
                     // Out
                     Nodecl::List &register_statements);
 
-            void register_dependence_fortran(
+            void register_multidependence(
                     TL::DataReference &data_ref,
                     TL::Symbol handler,
                     Nodecl::Utils::SymbolMap &symbol_map,
                     TL::Symbol register_fun,
+                    TL::Scope scope,
                     // Out
                     Nodecl::List &register_statements);
 
