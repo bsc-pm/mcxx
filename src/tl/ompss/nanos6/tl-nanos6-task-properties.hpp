@@ -95,7 +95,6 @@ namespace TL { namespace Nanos6 {
             TL::Symbol _reduction_combiners;
 
             TL::Symbol _priority_function;
-            TL::Symbol _priority_function_mangled;
 
             TL::Symbol _destroy_function;
             TL::Symbol _destroy_function_mangled;
@@ -133,7 +132,15 @@ namespace TL { namespace Nanos6 {
             void create_reduction_functions();
 
             TL::Symbol create_constraints_function() const;
+
             void create_priority_function();
+            //! This function creates the unpacked function that evaluate the priority of a task,
+            //! generates its statements and finally returns the symbol
+            void create_priority_unpack_function(
+                    const std::string& common_name,
+                    // Out
+                    TL::Symbol& unpack_function);
+
             void create_destroy_function();
 
             void unpack_datasharing_arguments(

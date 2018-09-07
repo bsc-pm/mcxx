@@ -825,15 +825,7 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase init_get_priority;
         if (_priority_function.is_valid())
         {
-            if (IS_FORTRAN_LANGUAGE)
-            {
-                init_get_priority = _priority_function_mangled.make_nodecl(/* set_ref_type */ true);
-            }
-            else
-            {
-                init_get_priority = _priority_function.make_nodecl(/* set_ref_type */ true);
-            }
-
+            init_get_priority = _priority_function.make_nodecl(/* set_ref_type */ true);
             init_get_priority = Nodecl::Conversion::make(
                     init_get_priority,
                     field_get_priority.get_type().no_ref());
@@ -4247,50 +4239,78 @@ namespace TL { namespace Nanos6 {
             return constraints_function_mangled;
     }
 
-    void TaskProperties::create_priority_function()
+    void TaskProperties::create_priority_unpack_function(
+            const std::string& common_name,
+            // Out
+            TL::Symbol& unpack_function)
     {
-        // Skip this function if the current task doesn't have a priority clause
-        if (_env.priority_clause.is_null())
-            return;
+        TL::ObjectList<std::string> priority_fun_param_names;
+        TL::ObjectList<TL::Type> priority_fun_param_types;
+        std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        TL::ObjectList<std::string> parameter_names(1, "arg");
-        TL::ObjectList<TL::Type> parameter_types(
-                1, _info_structure.get_lvalue_reference_to());
+        std::string name = get_new_name("nanos6_unpack_" + common_name);
 
-        std::string priority_name = get_new_name("nanos6_priority");
+        TL::Type nanos6_priority_type =
+            get_nanos6_class_symbol("nanos6_priority_t").get_user_defined_type();
 
-        TL::Type nanos6_priority_type = get_nanos6_class_symbol("nanos6_priority_t").get_user_defined_type();
-        _priority_function = SymbolUtils::new_function_symbol(
+        priority_fun_param_names.append("priority");
+        priority_fun_param_types.append(nanos6_priority_type.get_lvalue_reference_to());
+
+        AddParameter add_params_functor(
+                /* out */ priority_fun_param_names,
+                /* out */ priority_fun_param_types,
+                /* out */ symbols_to_param_names);
+
+        _env.captured_value.map(add_params_functor);
+        _env.private_.map(add_params_functor);
+        _env.shared.map(add_params_functor);
+
+        unpack_function = SymbolUtils::new_function_symbol(
                 _related_function,
-                priority_name,
-                nanos6_priority_type,
-                parameter_names,
-                parameter_types);
+                name,
+                TL::Type::get_void_type(),
+                priority_fun_param_names,
+                priority_fun_param_types);
+
+        Nodecl::NodeclBase function_code, empty_stmt;
+        SymbolUtils::build_empty_body_for_function(
+            unpack_function, function_code, empty_stmt);
+
+        TL::Scope priority_fun_inside_scope = unpack_function.get_related_scope();
+
+        fortran_add_types(priority_fun_inside_scope);
+
+        // Prepare deep copy and remember those parameters that need fixup
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
+        TL::ObjectList<TL::Symbol> parameters_to_update_type;
+
+        MapSymbols map_symbols_functor(
+                priority_fun_inside_scope,
+                symbols_to_param_names,
+                // Out
+                parameters_to_update_type,
+                symbol_map);
+
+        _env.captured_value.map(map_symbols_functor);
+        _env.private_.map(map_symbols_functor);
+        _env.shared.map(map_symbols_functor);
+
+        update_function_type_if_needed(
+                unpack_function, parameters_to_update_type, symbol_map);
 
         if (IS_FORTRAN_LANGUAGE)
         {
-            _priority_function_mangled =
-                compute_mangled_function_symbol_from_symbol(_priority_function);
+            // Insert extra symbol declarations and add them to the symbol map
+            // (e.g. functions and subroutines declared in other scopes)
+            Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
+                    symbol_map,
+                    priority_fun_inside_scope,
+                    _related_function);
+            fun_visitor.insert_extra_symbols(_env.priority_clause);
         }
 
-        Nodecl::NodeclBase priority_function_code;
-        Nodecl::NodeclBase priority_empty_stmt;
-
-        SymbolUtils::build_empty_body_for_function(
-                _priority_function,
-                priority_function_code,
-                priority_empty_stmt);
-
-        TL::Scope scope_inside_priority =
-            priority_empty_stmt.retrieve_context();
-
-        TL::Symbol arg = scope_inside_priority.get_symbol_from_name("arg");
-        ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
-
-        Nodecl::NodeclBase priority_expr = rewrite_expression_using_args(
-                arg,
-                _env.priority_clause,
-                /* local_symbols */ TL::ObjectList<TL::Symbol>());
+        Nodecl::NodeclBase priority_expr =
+            Nodecl::Utils::deep_copy(_env.priority_clause, priority_fun_inside_scope, symbol_map);
 
         if (!priority_expr.get_type().is_same_type(nanos6_priority_type))
         {
@@ -4301,15 +4321,46 @@ namespace TL { namespace Nanos6 {
             priority_expr.set_text("C");
         }
 
-        Nodecl::NodeclBase return_stmt = Nodecl::ReturnStatement::make(
-                priority_expr,
-                priority_expr.get_locus());
+        TL::Symbol result_sym = priority_fun_inside_scope.get_symbol_from_name("priority");
+        Nodecl::NodeclBase expr_stmt = Nodecl::ExpressionStatement::make(
+                Nodecl::Assignment::make(
+                    result_sym.make_nodecl(/* set_ref_type */ true),
+                    priority_expr,
+                    nanos6_priority_type.get_lvalue_reference_to()));
 
-        priority_empty_stmt.replace(return_stmt);
+        empty_stmt.replace(expr_stmt);
 
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
                 _task_body,
-                priority_function_code);
+                function_code);
+    }
+
+    void TaskProperties::create_priority_function()
+    {
+        // Skip this function if the current task doesn't have a priority clause
+        if (_env.priority_clause.is_null())
+            return;
+
+        const std::string priority_fun_name = "priority";
+        TL::Symbol priority_unpack_function;
+        create_priority_unpack_function(priority_fun_name, priority_unpack_function);
+
+        TL::ObjectList<std::string> priority_parameter_names(2);
+        TL::ObjectList<TL::Type> priority_parameter_types(2);
+
+        priority_parameter_names[0] = "priority";
+        priority_parameter_types[0] = get_nanos6_class_symbol("nanos6_priority_t")
+            .get_user_defined_type().get_lvalue_reference_to();
+
+        priority_parameter_names[1] = "arg";
+        priority_parameter_types[1] = _info_structure.get_lvalue_reference_to();
+
+        create_outline_function(
+                priority_unpack_function,
+                priority_fun_name,
+                priority_parameter_names,
+                priority_parameter_types,
+                _priority_function);
     }
 
     void TaskProperties::create_destroy_function()
