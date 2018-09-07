@@ -2142,19 +2142,17 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-
-    TL::Symbol TaskProperties::create_task_region_function(std::shared_ptr<Device> device)
+    void TaskProperties::create_task_region_unpack_function(
+            const std::string &common_name,
+            const std::shared_ptr<Device> &device,
+            // Out
+            TL::Symbol &unpack_function)
     {
-        // Skip this function if the current task comes from a taskwait depend
-        if (_env.task_is_taskwait_with_deps)
-            return TL::Symbol::invalid();
-
-        // Unpacked function
         TL::ObjectList<std::string> unpack_parameter_names;
         TL::ObjectList<TL::Type> unpack_parameter_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        std::string unpacked_name = get_new_name("nanos6_unpack_region");
+        std::string unpack_name = get_new_name("nanos6_unpack_" + common_name);
 
         AddParameter add_params_functor(
                 /* out */ unpack_parameter_names,
@@ -2166,41 +2164,44 @@ namespace TL { namespace Nanos6 {
         _env.shared.map(add_params_functor);
 
         // Extra arguments: device_env and address_translation_table
-        const char *device_env_name = "device_env";
-        TL::Type type_arg = TL::Type::get_void_type().get_pointer_to();
+        const char *device_env_name;
+        TL::Type type_arg;
         if (_env.task_is_loop)
         {
             device_env_name = "taskloop_bounds";
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
             type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
         }
+        else
+        {
+            device_env_name = "device_env";
+            type_arg = TL::Type::get_void_type().get_pointer_to();
+        }
 
         unpack_parameter_names.append(device_env_name);
         unpack_parameter_types.append(type_arg);
 
+        unpack_parameter_names.append("address_translation_table");
         TL::Type address_translation_type =
             get_nanos6_class_symbol("nanos6_address_translation_entry_t").get_user_defined_type();
-        const char *address_translation_table_name = "address_translation_table";
-        unpack_parameter_names.append(address_translation_table_name);
         unpack_parameter_types.append(address_translation_type.get_pointer_to());
 
-        TL::Symbol unpacked_function
-            = SymbolUtils::new_function_symbol(
-                    _related_function,
-                    unpacked_name,
-                    TL::Type::get_void_type(),
-                    unpack_parameter_names,
-                    unpack_parameter_types);
+        unpack_function = SymbolUtils::new_function_symbol(
+                _related_function,
+                unpack_name,
+                TL::Type::get_void_type(),
+                unpack_parameter_names,
+                unpack_parameter_types);
 
         Nodecl::NodeclBase unpacked_function_code, unpacked_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
-                unpacked_function,
+                unpack_function,
                 unpacked_function_code,
                 unpacked_empty_stmt);
 
-        device->root_unpacked_function(unpacked_function, unpacked_function_code);
+        device->root_unpacked_function(unpack_function, unpacked_function_code);
 
-        TL::Scope unpacked_inside_scope = unpacked_function.get_related_scope();
+        TL::Scope unpacked_inside_scope = unpack_function.get_related_scope();
         // Prepare deep copy and remember those parameters that need fixup
         Nodecl::Utils::SimpleSymbolMap symbol_map;
         TL::ObjectList<TL::Symbol> parameters_to_update_type;
@@ -2217,7 +2218,7 @@ namespace TL { namespace Nanos6 {
         _env.shared.map(map_symbols_functor);
 
         update_function_type_if_needed(
-                unpacked_function, parameters_to_update_type, symbol_map);
+                unpack_function, parameters_to_update_type, symbol_map);
 
         Nodecl::List nested_functions;
         if (IS_FORTRAN_LANGUAGE)
@@ -2279,10 +2280,15 @@ namespace TL { namespace Nanos6 {
             TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
 
             TL::Symbol ind_var = for_stmt.get_induction_variable();
-            // The taskloop bounds are passed as if they were the device environment...
-            TL::Symbol taskloop_bounds = unpacked_inside_scope.get_symbol_from_name(device_env_name);
+            // FIXME: The taskloop bounds are passed as if they were the device environment...
+            TL::Symbol taskloop_bounds =
+                unpacked_inside_scope.get_symbol_from_name(device_env_name);
 
-            for_stmt.set_loop_header(compute_taskloop_loop_control(taskloop_bounds, ind_var, for_stmt.induction_variable_in_separate_scope()));
+            for_stmt.set_loop_header(
+                    compute_taskloop_loop_control(
+                        taskloop_bounds,
+                        ind_var,
+                        for_stmt.induction_variable_in_separate_scope()));
         }
 
         // Deep copy device-specific task body
@@ -2303,31 +2309,58 @@ namespace TL { namespace Nanos6 {
                         Nodecl::Context::make(
                             Nodecl::NodeclBase::null(),
                             _related_function.get_scope()),
-                        unpacked_function));
+                        unpack_function));
+        }
+    }
+
+    TL::Symbol TaskProperties::create_task_region_function(std::shared_ptr<Device> device)
+    {
+        // Skip this function if the current task comes from a taskwait depend
+        if (_env.task_is_taskwait_with_deps)
+            return TL::Symbol::invalid();
+
+        const std::string common_name = "task_region";
+        TL::Symbol region_unpack_function;
+        create_task_region_unpack_function(common_name, device, region_unpack_function);
+
+        // Second argument is different for a loop task
+        const char *device_env_name;
+        TL::Type type_arg;
+        if (_env.task_is_loop)
+        {
+            device_env_name = "taskloop_bounds";
+            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
+        }
+        else
+        {
+            device_env_name = "device_env";
+            type_arg = TL::Type::get_void_type().get_pointer_to();
         }
 
-        // Outline function
-        TL::ObjectList<std::string> ol_param_names;
-        TL::ObjectList<TL::Type> ol_param_types;
+        TL::ObjectList<std::string> region_parameter_names(3);
+        TL::ObjectList<TL::Type> region_parameter_types(3);
 
-        ol_param_names.append("arg");
-        ol_param_types.append(_info_structure.get_lvalue_reference_to());
+        region_parameter_names[0] = "arg";
+        region_parameter_types[0] = _info_structure.get_lvalue_reference_to();
 
-        ol_param_names.append(device_env_name);
-        ol_param_types.append(type_arg);
+        region_parameter_names[1] = device_env_name;
+        region_parameter_types[1] = type_arg;
 
-        ol_param_names.append(address_translation_table_name);
-        ol_param_types.append(address_translation_type.get_pointer_to());
+        region_parameter_names[2] = "address_translation_table";
+        TL::Type address_translation_type =
+            get_nanos6_class_symbol("nanos6_address_translation_entry_t").get_user_defined_type();
+        region_parameter_types[2] = address_translation_type.get_pointer_to();
 
-        TL::Symbol outline_function;
+        TL::Symbol region_outline_function;
         create_outline_function(
-                unpacked_function,
-                "region",
-                ol_param_names,
-                ol_param_types,
-                outline_function);
+                region_unpack_function,
+                common_name,
+                region_parameter_names,
+                region_parameter_types,
+                region_outline_function);
 
-        return outline_function;
+        return region_outline_function;
     }
 
     namespace

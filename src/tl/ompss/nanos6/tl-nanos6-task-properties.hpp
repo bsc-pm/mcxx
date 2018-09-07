@@ -114,6 +114,13 @@ namespace TL { namespace Nanos6 {
         private:
 
             TL::Symbol create_task_region_function(std::shared_ptr<Device> device);
+            //! This function creates the unpacked function for the task region,
+            //! generates its statements and finally returns the symbol
+            void create_task_region_unpack_function(
+                    const std::string &common_name,
+                    const std::shared_ptr<Device> &device,
+                    // Out
+                    TL::Symbol &unpack_function);
 
             void create_dependences_function();
             void create_dependences_function_c();
