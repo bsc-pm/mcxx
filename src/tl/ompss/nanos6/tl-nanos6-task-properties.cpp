@@ -3242,6 +3242,17 @@ namespace TL { namespace Nanos6 {
         {
             ERROR_CONDITION(!it2->second.is<Nodecl::Range>(), "Invalid Node", 0);
             Nodecl::Range range = it2->second.as<Nodecl::Range>();
+
+            // Insert extra symbol declarations and add them to the symbol map
+            // (e.g. functions and subroutines declared in other scopes)
+            Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
+                    extended_symbol_map,
+                    scope,
+                    _related_function);
+            fun_visitor.insert_extra_symbols(range.get_lower());
+            fun_visitor.insert_extra_symbols(range.get_upper());
+            fun_visitor.insert_extra_symbols(range.get_stride());
+
             Nodecl::NodeclBase lower = Nodecl::Utils::deep_copy(range.get_lower(), scope, extended_symbol_map);
             Nodecl::NodeclBase upper = Nodecl::Utils::deep_copy(range.get_upper(), scope, extended_symbol_map);
             Nodecl::NodeclBase stride= Nodecl::Utils::deep_copy(range.get_stride(),scope, extended_symbol_map);
