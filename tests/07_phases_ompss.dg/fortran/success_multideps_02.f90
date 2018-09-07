@@ -23,6 +23,6 @@ PROGRAM P
         END FUNCTION
     END INTERFACE
 
-    !$OSS TASK INOUT([X(I, J), I = FOO(1), FOO(10), J = I, I + 9])
-    !$OSS END TASK
+    !$OMP TASK INOUT([X(I, J), I = FOO(1), FOO(10), J = I, I + 9])
+    !$OMP END TASK
 END PROGRAM
