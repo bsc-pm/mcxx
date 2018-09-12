@@ -27,16 +27,13 @@
 
 /*
 <testinfo>
-test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
-test_compile_fail_nanox_mercurium=yes
-test_compile_fail_nanox_imcc=yes
-test_compile_fail_nanox_instrument=yes
+test_generator=config/mercurium-ompss-2
 test_nolink=yes
 </testinfo>
 */
 void bar()
 {
     int v[10][10];
-    #pragma omp task inout({v[i][j], i=0:9, j=0:i})
+    #pragma oss task inout({v[i][j], i=0:9, j=0:i})
     {}
 }
