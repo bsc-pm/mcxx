@@ -1,6 +1,5 @@
 ! <testinfo>
-! test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
-! test_FFLAGS="--no-copy-deps"
+! test_generator=config/mercurium-ompss-2
 ! </testinfo>
 
 FUNCTION FOO(A)
@@ -23,6 +22,6 @@ PROGRAM P
         END FUNCTION
     END INTERFACE
 
-    !$OMP TASK INOUT([X(I, J), I = FOO(1), FOO(10), J = I, I + 9])
-    !$OMP END TASK
+    !$OSS TASK INOUT([X(I, J), I = FOO(1), FOO(10), J = I, I + 9])
+    !$OSS END TASK
 END PROGRAM
