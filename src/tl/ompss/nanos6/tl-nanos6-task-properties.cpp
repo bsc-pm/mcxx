@@ -854,17 +854,7 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase init_destroy;
         if (_destroy_function.is_valid())
         {
-            if (IS_FORTRAN_LANGUAGE)
-            {
-                init_destroy =
-                    _destroy_function_mangled.make_nodecl(/* set_ref_type */ true);
-            }
-            else
-            {
-                init_destroy =
-                    _destroy_function.make_nodecl(/* set_ref_type */ true);
-            }
-
+            init_destroy = _destroy_function.make_nodecl(/* set_ref_type */ true);
             init_destroy = Nodecl::Conversion::make(
                     init_destroy,
                     field_destroy.get_type().no_ref());
@@ -4539,6 +4529,10 @@ namespace TL { namespace Nanos6 {
         }
 
         ERROR_CONDITION(destroy_stmts.empty(), "Unexpected list", 0);
+        destroy_empty_stmt.replace(destroy_stmts);
+
+        Nodecl::Utils::append_to_enclosing_top_level_location(
+                _task_body, destroy_function_code);
 
         if (IS_CXX_LANGUAGE && !_related_function.is_member())
         {
@@ -4552,12 +4546,10 @@ namespace TL { namespace Nanos6 {
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            _destroy_function_mangled =
+            destroy_function =
                 compute_mangled_function_symbol_from_symbol(destroy_function);
         }
 
-        destroy_empty_stmt.replace(destroy_stmts);
-        Nodecl::Utils::append_to_top_level_nodecl(destroy_function_code);
         _destroy_function = destroy_function;
     }
 

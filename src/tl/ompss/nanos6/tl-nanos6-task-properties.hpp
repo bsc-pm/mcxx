@@ -97,7 +97,6 @@ namespace TL { namespace Nanos6 {
             TL::Symbol _priority_function;
 
             TL::Symbol _destroy_function;
-            TL::Symbol _destroy_function_mangled;
 
             TaskloopBounds _taskloop_bounds;
 
