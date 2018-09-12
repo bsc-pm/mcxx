@@ -296,8 +296,8 @@ namespace TL { namespace Nanos6 {
                     Nodecl::NodeclBase& task_flags_stmts);
 
             void handle_task_reductions(
-                    TL::Scope& unpacked_inside_scope,
-                    Nodecl::NodeclBase unpacked_empty_stmt,
+                    TL::Scope& unpacked_fun_inside_scope,
+                    Nodecl::NodeclBase unpacked_fun_empty_stmt,
                     Nodecl::Utils::SimpleSymbolMap &symbol_map);
 
             void compute_release_statements(/* out */ Nodecl::List& release_stmts);
