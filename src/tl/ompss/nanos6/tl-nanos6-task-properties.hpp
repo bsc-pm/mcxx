@@ -131,7 +131,13 @@ namespace TL { namespace Nanos6 {
 
             void create_reduction_functions();
 
-            TL::Symbol create_constraints_function() const;
+            TL::Symbol  create_constraints_function();
+            //! This function creates the unpacked function for the task constraints,
+            //! generates its statements and finally returns the symbol
+            void create_constraints_unpack_function(
+                    const std::string& common_name,
+                    // Out
+                    TL::Symbol& unpack_function);
 
             void create_priority_function();
             //! This function creates the unpacked function that evaluate the priority of a task,

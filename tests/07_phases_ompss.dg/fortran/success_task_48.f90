@@ -32,5 +32,8 @@ program p
     !$omp task cost(10)
     !$omp end task
 
+    !$omp task cost(foo(x))
+    !$omp end task
+
     !$omp taskwait
 end program p

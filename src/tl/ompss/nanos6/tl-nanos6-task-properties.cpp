@@ -4155,50 +4155,69 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    TL::Symbol TaskProperties::create_constraints_function() const
+    void TaskProperties::create_constraints_unpack_function(
+            const std::string& common_name,
+            // Out
+            TL::Symbol& unpack_function)
     {
-        // Do not generate this function if the current task doesn't have any restriction
-        if (_env.cost_clause.is_null())
-            return TL::Symbol::invalid();
+        TL::ObjectList<std::string> constraints_fun_param_names;
+        TL::ObjectList<TL::Type> constraints_fun_param_types;
+        std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        TL::Symbol constraints_function, constraints_function_mangled;
+        std::string constraints_fun_name = get_new_name("nanos6_unpack_" + common_name);
 
-        TL::ObjectList<std::string> parameter_names(2);
-        TL::ObjectList<TL::Type> parameter_types(2);
-        std::string constraints_name = get_new_name("nanos6_constraints");
+        AddParameter add_params_functor(
+                /* out */ constraints_fun_param_names,
+                /* out */ constraints_fun_param_types,
+                /* out */ symbols_to_param_names);
 
-        parameter_names[0] = "arg";
-        parameter_types[0] = _info_structure.get_lvalue_reference_to();
+        _env.captured_value.map(add_params_functor);
+        _env.private_.map(add_params_functor);
+        _env.shared.map(add_params_functor);
 
-        TL::Symbol constraints_class_sym = get_nanos6_class_symbol("nanos6_task_constraints_t");
-        parameter_names[1] = "constraints";
-        parameter_types[1] = constraints_class_sym.get_user_defined_type().get_lvalue_reference_to();
+        constraints_fun_param_names.append("constraints");
+        constraints_fun_param_types.append(get_nanos6_class_symbol("nanos6_task_constraints_t")
+                .get_user_defined_type().get_lvalue_reference_to());
 
-        constraints_function = SymbolUtils::new_function_symbol(
+        unpack_function = SymbolUtils::new_function_symbol(
                 _related_function,
-                constraints_name,
+                constraints_fun_name,
                 TL::Type::get_void_type(),
-                parameter_names,
-                parameter_types);
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            constraints_function_mangled =
-                compute_mangled_function_symbol_from_symbol(constraints_function);
-        }
+                constraints_fun_param_names,
+                constraints_fun_param_types);
 
         Nodecl::NodeclBase constraints_function_code, constraints_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
-            constraints_function, constraints_function_code, constraints_empty_stmt);
+            unpack_function, constraints_function_code, constraints_empty_stmt);
 
-        TL::Scope scope_inside_cost = constraints_empty_stmt.retrieve_context();
-        TL::Symbol arg = scope_inside_cost.get_symbol_from_name("arg");
-        ERROR_CONDITION(!arg.is_valid(), "Invalid symbol", 0);
+        TL::Scope constraints_fun_inside_scope = unpack_function.get_related_scope();
 
-        TL::Symbol constraints = scope_inside_cost.get_symbol_from_name("constraints");
+        fortran_add_types(constraints_fun_inside_scope);
+
+        // Prepare deep copy and remember those parameters that need fixup
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
+        TL::ObjectList<TL::Symbol> parameters_to_update_type;
+
+        MapSymbols map_symbols_functor(
+                constraints_fun_inside_scope,
+                symbols_to_param_names,
+                // Out
+                parameters_to_update_type,
+                symbol_map);
+
+        _env.captured_value.map(map_symbols_functor);
+        _env.private_.map(map_symbols_functor);
+        _env.shared.map(map_symbols_functor);
+
+        update_function_type_if_needed(
+                unpack_function, parameters_to_update_type, symbol_map);
+
+        TL::Symbol constraints =
+            constraints_fun_inside_scope.get_symbol_from_name("constraints");
         ERROR_CONDITION(!constraints.is_valid(), "Invalid symbol", 0);
 
-        TL::ObjectList<TL::Symbol> fields = constraints_class_sym.get_type().get_nonstatic_data_members();
+        TL::ObjectList<TL::Symbol> fields =
+            constraints.get_type().no_ref().get_nonstatic_data_members();
         GetField get_field(fields);
 
         // Cost
@@ -4212,31 +4231,72 @@ namespace TL { namespace Nanos6 {
                         /* member_literal */ Nodecl::NodeclBase::null(),
                         cost_member.get_type());
 
-            Nodecl::NodeclBase rhs_expr
-                = rewrite_expression_using_args(arg, _env.cost_clause, /* locals */ TL::ObjectList<TL::Symbol>());
-
-            if (!rhs_expr.get_type().is_same_type(cost_member.get_type()))
+            if (IS_FORTRAN_LANGUAGE)
             {
-                rhs_expr = Nodecl::Conversion::make(
-                        rhs_expr, TL::Type::get_size_t_type(), rhs_expr.get_locus());
+                // Insert extra symbol declarations and add them to the symbol map
+                // (e.g. functions and subroutines declared in other scopes)
+                Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
+                        symbol_map,
+                        constraints_fun_inside_scope,
+                        _related_function);
+                fun_visitor.insert_extra_symbols(_env.cost_clause);
+            }
+
+            Nodecl::NodeclBase cost_expr =
+                Nodecl::Utils::deep_copy(_env.cost_clause, constraints_fun_inside_scope, symbol_map);
+
+            if (!cost_expr.get_type().is_same_type(cost_member.get_type()))
+            {
+                cost_expr = Nodecl::Conversion::make(
+                        cost_expr,
+                        cost_member.get_type(),
+                        cost_expr.get_locus());
+                cost_expr.set_text("C");
             }
 
             Nodecl::NodeclBase assignment_stmt =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::Assignment::make(
                             lhs_expr,
-                            rhs_expr,
+                            cost_expr,
                             lhs_expr.get_type()));
 
             constraints_empty_stmt.replace(assignment_stmt);
         }
 
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(_task_body, constraints_function_code);
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                _task_body, constraints_function_code);
+    }
 
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            return constraints_function;
-        else
-            return constraints_function_mangled;
+    TL::Symbol TaskProperties::create_constraints_function()
+    {
+        // Do not generate this function if the current task doesn't have any restriction
+        if (_env.cost_clause.is_null())
+            return TL::Symbol::invalid();
+
+        const std::string constraints_fun_name = "constraints";
+        TL::Symbol constraints_unpack_function;
+        create_constraints_unpack_function(constraints_fun_name, constraints_unpack_function);
+
+        TL::ObjectList<std::string> constraints_parameter_names(2);
+        TL::ObjectList<TL::Type> constraints_parameter_types(2);
+
+        constraints_parameter_names[0] = "arg";
+        constraints_parameter_types[0] = _info_structure.get_lvalue_reference_to();
+
+        constraints_parameter_names[1] = "constraints";
+        constraints_parameter_types[1] = get_nanos6_class_symbol("nanos6_task_constraints_t")
+            .get_user_defined_type().get_lvalue_reference_to();
+
+        TL::Symbol constraints_function;
+        create_outline_function(
+                constraints_unpack_function,
+                constraints_fun_name,
+                constraints_parameter_names,
+                constraints_parameter_types,
+                constraints_function);
+
+        return constraints_function;
     }
 
     void TaskProperties::create_priority_unpack_function(
