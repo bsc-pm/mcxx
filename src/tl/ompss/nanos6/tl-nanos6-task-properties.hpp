@@ -105,14 +105,14 @@ namespace TL { namespace Nanos6 {
             //! Generate the complete function chain for the task region and
             //! return the outline function symbol
             TL::Symbol create_task_region_function(std::shared_ptr<Device> device);
-            TL::Symbol create_task_region_unpack_function(
+            TL::Symbol create_task_region_unpacked_function(
                     const std::string &common_name,
                     const std::shared_ptr<Device> &device);
 
             //! Generate the complete function chain for the task region and
             //! return the outline function symbol
             TL::Symbol create_constraints_function();
-            TL::Symbol create_constraints_unpack_function(
+            TL::Symbol create_constraints_unpacked_function(
                     const std::string& common_name);
 
             //! Generate the reduction initializer and combiner functions and
@@ -124,13 +124,13 @@ namespace TL { namespace Nanos6 {
             //! Generate the complete function chain for the task region and
             //! return the outline function symbol
             TL::Symbol create_dependences_function();
-            TL::Symbol create_dependences_unpack_function(
+            TL::Symbol create_dependences_unpacked_function(
                     const std::string &common_name);
 
             //! Generate the complete function chain for the task region and
             //! return the outline function symbol
             TL::Symbol create_priority_function();
-            TL::Symbol create_priority_unpack_function(
+            TL::Symbol create_priority_unpacked_function(
                     const std::string& common_name);
 
             //! Generate the destroy function (outline only) and return the
@@ -148,7 +148,7 @@ namespace TL { namespace Nanos6 {
             friend class ComputeUnpackedArgumentFromSymbolName;
 
             void create_forward_function_fortran(
-                    const TL::Symbol &unpack_function,
+                    const TL::Symbol &unpacked_function,
                     const std::string &common_name,
                     const TL::ObjectList<std::string> &outline_parameter_names,
                     const TL::Scope &outline_inside_scope,
@@ -163,7 +163,7 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol &outline_function,
                     Nodecl::NodeclBase &outline_empty_stmt);
             TL::Symbol create_outline_function(
-                    const TL::Symbol &unpack_function,
+                    const TL::Symbol &unpacked_function,
                     const std::string &common_name,
                     const TL::ObjectList<std::string> &outline_parameter_names,
                     const ObjectList<TL::Type> &outline_parameter_types);

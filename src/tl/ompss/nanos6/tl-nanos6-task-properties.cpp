@@ -2013,7 +2013,7 @@ namespace TL { namespace Nanos6 {
     };
 
     void TaskProperties::create_forward_function_fortran(
-            const TL::Symbol &unpack_function,
+            const TL::Symbol &unpacked_function,
             const std::string &common_name,
             const TL::ObjectList<std::string> &outline_parameter_names,
             const TL::Scope &outline_inside_scope,
@@ -2033,15 +2033,15 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::List forwarded_fun_call_args;
 
-        // Add unpack parameter/arg
-        forwarded_parameter_names.append("unpack");
+        // Add 'unpacked' function parameter/arg
+        forwarded_parameter_names.append("unpacked");
         forwarded_parameter_types.append(
             TL::Type::get_void_type().get_pointer_to());
 
         forwarded_fun_call_args.append(
                 Nodecl::Reference::make(
-                    unpack_function.make_nodecl(/* set_ref_type */ true),
-                    unpack_function.get_type().get_pointer_to()));
+                    unpacked_function.make_nodecl(/* set_ref_type */ true),
+                    unpacked_function.get_type().get_pointer_to()));
 
         // This map associates a symbol name with a pair that represents the original symbol and the field
         std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> name_to_pair_orig_field_map;
@@ -2129,7 +2129,7 @@ namespace TL { namespace Nanos6 {
             forwarded_parameter_types.size(),
             TL::Type::get_void_type().get_pointer_to());
 
-        // Fix unpack parameter type (always first parameter)
+        // Fix 'unpacked' function parameter type (always first parameter)
         c_forwarded_parameter_types[0] =
             TL::Type::get_void_type().get_function_returning(
                     TL::ObjectList<TL::Type>(
@@ -2162,7 +2162,7 @@ namespace TL { namespace Nanos6 {
             c_forwarded_parameter_names.map<Nodecl::NodeclBase>(
                     solve_param_names);
 
-        Nodecl::NodeclBase c_unpack_parameter = c_forwarded_parameters[0];
+        Nodecl::NodeclBase c_unpacked_fun_parameter = c_forwarded_parameters[0];
 
         Nodecl::List c_unpacked_fun_call_args =
             Nodecl::List::make(TL::ObjectList<Nodecl::NodeclBase>(
@@ -2173,7 +2173,7 @@ namespace TL { namespace Nanos6 {
                     Nodecl::List::make(
                         Nodecl::ExpressionStatement::make(
                             Nodecl::FunctionCall::make(
-                                c_unpack_parameter,
+                                c_unpacked_fun_parameter,
                                 c_unpacked_fun_call_args,
                                 /* alternate-symbol */ Nodecl::NodeclBase::null(),
                                 /* function-form */ Nodecl::NodeclBase::null(),
@@ -2235,7 +2235,7 @@ namespace TL { namespace Nanos6 {
     }
 
     TL::Symbol TaskProperties::create_outline_function(
-            const TL::Symbol &unpack_function,
+            const TL::Symbol &unpacked_function,
             const std::string &common_name,
             const TL::ObjectList<std::string> &outline_parameter_names,
             const ObjectList<TL::Type> &outline_parameter_types)
@@ -2253,7 +2253,7 @@ namespace TL { namespace Nanos6 {
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            // Unpacked function call
+            // 'Unpacked' function call
 
             // Compute function call arguments
             // Note: optional parameters are not passed, as at this point no
@@ -2269,21 +2269,20 @@ namespace TL { namespace Nanos6 {
 
             outline_parameter_names.map(compute_unpacked_argument_from_symbol_name);
 
-            // Make sure we explicitly pass template arguments to the
-            // unpacked function
+            // Make sure we explicitly pass template arguments to the 'unpacked' function
             Nodecl::NodeclBase function_form;
-            if (unpack_function.get_type().is_template_specialized_type())
+            if (unpacked_function.get_type().is_template_specialized_type())
             {
                 function_form = Nodecl::CxxFunctionFormTemplateId::make();
                 function_form.set_template_parameters(
-                        unpack_function.get_type()
+                        unpacked_function.get_type()
                         .template_specialized_type_get_template_arguments());
             }
 
             Nodecl::NodeclBase unpacked_function_call =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::FunctionCall::make(
-                            unpack_function.make_nodecl(/* set_ref_type */ true),
+                            unpacked_function.make_nodecl(/* set_ref_type */ true),
                             unpacked_fun_call_args,
                             /* alternate_name */ Nodecl::NodeclBase::null(),
                             function_form,
@@ -2295,7 +2294,7 @@ namespace TL { namespace Nanos6 {
         {
             Nodecl::NodeclBase forwarded_function_call;
             create_forward_function_fortran(
-                    unpack_function,
+                    unpacked_function,
                     common_name,
                     outline_parameter_names,
                     outline_inside_scope,
@@ -2741,19 +2740,19 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    TL::Symbol TaskProperties::create_task_region_unpack_function(
+    TL::Symbol TaskProperties::create_task_region_unpacked_function(
             const std::string &common_name,
             const std::shared_ptr<Device> &device)
     {
-        TL::ObjectList<std::string> unpack_parameter_names;
-        TL::ObjectList<TL::Type> unpack_parameter_types;
+        TL::ObjectList<std::string> unpacked_parameter_names;
+        TL::ObjectList<TL::Type> unpacked_parameter_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        std::string unpack_name = get_new_name("nanos6_unpack_" + common_name);
+        std::string unpacked_name = get_new_name("nanos6_unpacked_" + common_name);
 
         AddParameter add_params_functor(
-                /* out */ unpack_parameter_names,
-                /* out */ unpack_parameter_types,
+                /* out */ unpacked_parameter_names,
+                /* out */ unpacked_parameter_types,
                 /* out */ symbols_to_param_names);
 
         _env.captured_value.map(add_params_functor);
@@ -2775,36 +2774,36 @@ namespace TL { namespace Nanos6 {
             type_arg = TL::Type::get_void_type().get_pointer_to();
         }
 
-        unpack_parameter_names.append(device_env_name);
-        unpack_parameter_types.append(type_arg);
+        unpacked_parameter_names.append(device_env_name);
+        unpacked_parameter_types.append(type_arg);
 
-        unpack_parameter_names.append("address_translation_table");
+        unpacked_parameter_names.append("address_translation_table");
         TL::Type address_translation_type =
             get_nanos6_class_symbol("nanos6_address_translation_entry_t").get_user_defined_type();
-        unpack_parameter_types.append(address_translation_type.get_pointer_to());
+        unpacked_parameter_types.append(address_translation_type.get_pointer_to());
 
-        TL::Symbol unpack_function = SymbolUtils::new_function_symbol(
+        TL::Symbol unpacked_function = SymbolUtils::new_function_symbol(
                 _related_function,
-                unpack_name,
+                unpacked_name,
                 TL::Type::get_void_type(),
-                unpack_parameter_names,
-                unpack_parameter_types);
+                unpacked_parameter_names,
+                unpacked_parameter_types);
 
-        Nodecl::NodeclBase unpack_function_code, unpack_empty_stmt;
+        Nodecl::NodeclBase unpacked_function_code, unpacked_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
-                unpack_function,
-                unpack_function_code,
-                unpack_empty_stmt);
+                unpacked_function,
+                unpacked_function_code,
+                unpacked_empty_stmt);
 
-        device->root_unpacked_function(unpack_function, unpack_function_code);
+        device->root_unpacked_function(unpacked_function, unpacked_function_code);
 
-        TL::Scope unpack_inside_scope = unpack_function.get_related_scope();
+        TL::Scope unpacked_inside_scope = unpacked_function.get_related_scope();
         // Prepare deep copy and remember those parameters that need fixup
         Nodecl::Utils::SimpleSymbolMap symbol_map;
         TL::ObjectList<TL::Symbol> parameters_to_update_type;
 
         MapSymbols map_symbols_functor(
-                unpack_inside_scope,
+                unpacked_inside_scope,
                 symbols_to_param_names,
                 // Out
                 parameters_to_update_type,
@@ -2815,14 +2814,14 @@ namespace TL { namespace Nanos6 {
         _env.shared.map(map_symbols_functor);
 
         update_function_type_if_needed(
-                unpack_function, parameters_to_update_type, symbol_map);
+                unpacked_function, parameters_to_update_type, symbol_map);
 
         Nodecl::List nested_functions;
         if (IS_FORTRAN_LANGUAGE)
         {
             Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
                     symbol_map,
-                    unpack_inside_scope,
+                    unpacked_inside_scope,
                     _related_function);
             fun_visitor.insert_extra_symbols(_task_body);
 
@@ -2836,7 +2835,7 @@ namespace TL { namespace Nanos6 {
 
             Nodecl::Utils::Fortran::append_used_modules(
                     _task_body.retrieve_context(),
-                    unpack_inside_scope);
+                    unpacked_inside_scope);
 
             if (_related_function.is_nested_function())
             {
@@ -2849,22 +2848,22 @@ namespace TL { namespace Nanos6 {
 
                 Nodecl::Utils::Fortran::append_used_modules(
                         enclosing_function.get_related_scope(),
-                        unpack_inside_scope);
+                        unpacked_inside_scope);
             }
 
-            fortran_add_types(unpack_inside_scope);
+            fortran_add_types(unpacked_inside_scope);
 
             // Now get all the needed internal functions and duplicate them in the outline
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
             internal_functions.walk(_task_body);
 
             nested_functions = duplicate_internal_subprograms(internal_functions.function_codes,
-                    unpack_inside_scope,
+                    unpacked_inside_scope,
                     symbol_map);
         }
-        unpack_empty_stmt.append_sibling(nested_functions);
+        unpacked_empty_stmt.append_sibling(nested_functions);
 
-        handle_task_reductions(unpack_inside_scope, unpack_empty_stmt, symbol_map);
+        handle_task_reductions(unpacked_inside_scope, unpacked_empty_stmt, symbol_map);
 
         if (_env.task_is_loop)
         {
@@ -2879,7 +2878,7 @@ namespace TL { namespace Nanos6 {
             TL::Symbol ind_var = for_stmt.get_induction_variable();
             // FIXME: The taskloop bounds are passed as if they were the device environment...
             TL::Symbol taskloop_bounds =
-                unpack_inside_scope.get_symbol_from_name(device_env_name);
+                unpacked_inside_scope.get_symbol_from_name(device_env_name);
 
             for_stmt.set_loop_header(
                     compute_taskloop_loop_control(
@@ -2889,12 +2888,12 @@ namespace TL { namespace Nanos6 {
         }
 
         // Deep copy device-specific task body
-        unpack_empty_stmt.replace(
+        unpacked_empty_stmt.replace(
                 device->compute_specific_task_body(
                     _task_body,
                     _env,
-                    unpack_function_code,
-                    unpack_inside_scope,
+                    unpacked_function_code,
+                    unpacked_inside_scope,
                     symbol_map));
 
         if (IS_CXX_LANGUAGE
@@ -2906,10 +2905,10 @@ namespace TL { namespace Nanos6 {
                         Nodecl::Context::make(
                             Nodecl::NodeclBase::null(),
                             _related_function.get_scope()),
-                        unpack_function));
+                        unpacked_function));
         }
 
-        return unpack_function;
+        return unpacked_function;
     }
 
     TL::Symbol TaskProperties::create_task_region_function(std::shared_ptr<Device> device)
@@ -2919,8 +2918,8 @@ namespace TL { namespace Nanos6 {
             return TL::Symbol::invalid();
 
         const std::string common_name = "task_region";
-        TL::Symbol region_unpack_function =
-            create_task_region_unpack_function(common_name, device);
+        TL::Symbol region_unpacked_function =
+            create_task_region_unpacked_function(common_name, device);
 
         // Second argument is different for a loop task
         const char *device_env_name;
@@ -2952,7 +2951,7 @@ namespace TL { namespace Nanos6 {
         region_parameter_types[2] = address_translation_type.get_pointer_to();
 
         TL::Symbol region_outline_function = create_outline_function(
-                region_unpack_function,
+                region_unpacked_function,
                 common_name,
                 region_parameter_names,
                 region_parameter_types);
@@ -2960,14 +2959,14 @@ namespace TL { namespace Nanos6 {
         return region_outline_function;
     }
 
-    TL::Symbol TaskProperties::create_constraints_unpack_function(
+    TL::Symbol TaskProperties::create_constraints_unpacked_function(
             const std::string& common_name)
     {
         TL::ObjectList<std::string> constraints_fun_param_names;
         TL::ObjectList<TL::Type> constraints_fun_param_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        std::string constraints_fun_name = get_new_name("nanos6_unpack_" + common_name);
+        std::string constraints_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
         AddParameter add_params_functor(
                 /* out */ constraints_fun_param_names,
@@ -2982,7 +2981,7 @@ namespace TL { namespace Nanos6 {
         constraints_fun_param_types.append(get_nanos6_class_symbol("nanos6_task_constraints_t")
                 .get_user_defined_type().get_lvalue_reference_to());
 
-        TL::Symbol unpack_function = SymbolUtils::new_function_symbol(
+        TL::Symbol unpacked_function = SymbolUtils::new_function_symbol(
                 _related_function,
                 constraints_fun_name,
                 TL::Type::get_void_type(),
@@ -2991,9 +2990,9 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::NodeclBase constraints_function_code, constraints_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
-            unpack_function, constraints_function_code, constraints_empty_stmt);
+            unpacked_function, constraints_function_code, constraints_empty_stmt);
 
-        TL::Scope constraints_fun_inside_scope = unpack_function.get_related_scope();
+        TL::Scope constraints_fun_inside_scope = unpacked_function.get_related_scope();
 
         fortran_add_types(constraints_fun_inside_scope);
 
@@ -3013,7 +3012,7 @@ namespace TL { namespace Nanos6 {
         _env.shared.map(map_symbols_functor);
 
         update_function_type_if_needed(
-                unpack_function, parameters_to_update_type, symbol_map);
+                unpacked_function, parameters_to_update_type, symbol_map);
 
         TL::Symbol constraints =
             constraints_fun_inside_scope.get_symbol_from_name("constraints");
@@ -3070,7 +3069,7 @@ namespace TL { namespace Nanos6 {
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
                 _task_body, constraints_function_code);
 
-        return unpack_function;
+        return unpacked_function;
     }
 
     TL::Symbol TaskProperties::create_constraints_function()
@@ -3080,8 +3079,8 @@ namespace TL { namespace Nanos6 {
             return TL::Symbol::invalid();
 
         const std::string constraints_fun_name = "constraints";
-        TL::Symbol constraints_unpack_function =
-            create_constraints_unpack_function(constraints_fun_name);
+        TL::Symbol constraints_unpacked_function =
+            create_constraints_unpacked_function(constraints_fun_name);
 
         TL::ObjectList<std::string> constraints_parameter_names(2);
         TL::ObjectList<TL::Type> constraints_parameter_types(2);
@@ -3094,7 +3093,7 @@ namespace TL { namespace Nanos6 {
             .get_user_defined_type().get_lvalue_reference_to();
 
         TL::Symbol constraints_function = create_outline_function(
-                constraints_unpack_function,
+                constraints_unpacked_function,
                 constraints_fun_name,
                 constraints_parameter_names,
                 constraints_parameter_types);
@@ -4099,14 +4098,14 @@ namespace TL { namespace Nanos6 {
         register_statements.append(body);
     }
 
-    TL::Symbol TaskProperties::create_dependences_unpack_function(
+    TL::Symbol TaskProperties::create_dependences_unpacked_function(
             const std::string &common_name)
     {
         TL::ObjectList<std::string> deps_fun_param_names;
         TL::ObjectList<TL::Type> deps_fun_param_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        std::string deps_fun_name = get_new_name("nanos6_unpack_" + common_name);
+        std::string deps_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
         deps_fun_param_names.append("handler");
         deps_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
@@ -4120,7 +4119,7 @@ namespace TL { namespace Nanos6 {
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
 
-        TL::Symbol unpack_function = SymbolUtils::new_function_symbol(
+        TL::Symbol unpacked_function = SymbolUtils::new_function_symbol(
                 _related_function,
                 deps_fun_name,
                 TL::Type::get_void_type(),
@@ -4129,9 +4128,9 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::NodeclBase deps_fun_function_code, deps_fun_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
-            unpack_function, deps_fun_function_code, deps_fun_empty_stmt);
+            unpacked_function, deps_fun_function_code, deps_fun_empty_stmt);
 
-        TL::Scope deps_fun_inside_scope = unpack_function.get_related_scope();
+        TL::Scope deps_fun_inside_scope = unpacked_function.get_related_scope();
 
         fortran_add_types(deps_fun_inside_scope);
 
@@ -4151,7 +4150,7 @@ namespace TL { namespace Nanos6 {
         _env.shared.map(map_symbols_functor);
 
         update_function_type_if_needed(
-                unpack_function, parameters_to_update_type, symbol_map);
+                unpacked_function, parameters_to_update_type, symbol_map);
 
         TL::Symbol handler = deps_fun_inside_scope.get_symbol_from_name("handler");
         ERROR_CONDITION(!handler.is_valid(), "Invalid symbol", 0);
@@ -4250,13 +4249,13 @@ namespace TL { namespace Nanos6 {
                         Nodecl::Context::make(
                             Nodecl::NodeclBase::null(),
                             _related_function.get_scope()),
-                        unpack_function));
+                        unpacked_function));
         }
 
         Nodecl::Utils::append_to_enclosing_top_level_location(
             _task_body, deps_fun_function_code);
 
-        return unpack_function;
+        return unpacked_function;
     }
 
     TL::Symbol TaskProperties::create_dependences_function()
@@ -4266,8 +4265,8 @@ namespace TL { namespace Nanos6 {
             return TL::Symbol::invalid();
 
         const std::string deps_fun_name = "deps";
-        TL::Symbol deps_unpack_function =
-            create_dependences_unpack_function(deps_fun_name);
+        TL::Symbol deps_unpacked_function =
+            create_dependences_unpacked_function(deps_fun_name);
 
         TL::ObjectList<std::string> deps_parameter_names(2);
         TL::ObjectList<TL::Type> deps_parameter_types(2);
@@ -4279,7 +4278,7 @@ namespace TL { namespace Nanos6 {
         deps_parameter_types[1] = _info_structure.get_lvalue_reference_to();
 
         TL::Symbol dependences_function = create_outline_function(
-                deps_unpack_function,
+                deps_unpacked_function,
                 deps_fun_name,
                 deps_parameter_names,
                 deps_parameter_types);
@@ -4287,14 +4286,14 @@ namespace TL { namespace Nanos6 {
         return dependences_function;
     }
 
-    TL::Symbol TaskProperties::create_priority_unpack_function(
+    TL::Symbol TaskProperties::create_priority_unpacked_function(
             const std::string& common_name)
     {
         TL::ObjectList<std::string> priority_fun_param_names;
         TL::ObjectList<TL::Type> priority_fun_param_types;
         std::map<TL::Symbol, std::string> symbols_to_param_names;
 
-        std::string name = get_new_name("nanos6_unpack_" + common_name);
+        std::string name = get_new_name("nanos6_unpacked_" + common_name);
 
         TL::Type nanos6_priority_type =
             get_nanos6_class_symbol("nanos6_priority_t").get_user_defined_type();
@@ -4311,7 +4310,7 @@ namespace TL { namespace Nanos6 {
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
 
-        TL::Symbol unpack_function = SymbolUtils::new_function_symbol(
+        TL::Symbol unpacked_function = SymbolUtils::new_function_symbol(
                 _related_function,
                 name,
                 TL::Type::get_void_type(),
@@ -4320,9 +4319,9 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::NodeclBase function_code, empty_stmt;
         SymbolUtils::build_empty_body_for_function(
-            unpack_function, function_code, empty_stmt);
+            unpacked_function, function_code, empty_stmt);
 
-        TL::Scope priority_fun_inside_scope = unpack_function.get_related_scope();
+        TL::Scope priority_fun_inside_scope = unpacked_function.get_related_scope();
 
         fortran_add_types(priority_fun_inside_scope);
 
@@ -4342,7 +4341,7 @@ namespace TL { namespace Nanos6 {
         _env.shared.map(map_symbols_functor);
 
         update_function_type_if_needed(
-                unpack_function, parameters_to_update_type, symbol_map);
+                unpacked_function, parameters_to_update_type, symbol_map);
 
         if (IS_FORTRAN_LANGUAGE)
         {
@@ -4380,7 +4379,7 @@ namespace TL { namespace Nanos6 {
                 _task_body,
                 function_code);
 
-        return unpack_function;
+        return unpacked_function;
     }
 
     TL::Symbol TaskProperties::create_priority_function()
@@ -4390,8 +4389,8 @@ namespace TL { namespace Nanos6 {
             return TL::Symbol::invalid();
 
         const std::string priority_fun_name = "priority";
-        TL::Symbol priority_unpack_function =
-            create_priority_unpack_function(priority_fun_name);
+        TL::Symbol priority_unpacked_function =
+            create_priority_unpacked_function(priority_fun_name);
 
         TL::ObjectList<std::string> priority_parameter_names(2);
         TL::ObjectList<TL::Type> priority_parameter_types(2);
@@ -4404,7 +4403,7 @@ namespace TL { namespace Nanos6 {
         priority_parameter_types[1] = _info_structure.get_lvalue_reference_to();
 
         TL::Symbol priority_function = create_outline_function(
-                priority_unpack_function,
+                priority_unpacked_function,
                 priority_fun_name,
                 priority_parameter_names,
                 priority_parameter_types);
