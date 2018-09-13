@@ -4295,10 +4295,6 @@ namespace TL { namespace Nanos6 {
 
         std::string unpacked_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
-        unpacked_fun_param_names.append("priority");
-        unpacked_fun_param_types.append(get_nanos6_class_symbol("nanos6_priority_t")
-                .get_user_defined_type().get_lvalue_reference_to());
-
         AddParameter add_params_functor(
                 /* out */ unpacked_fun_param_names,
                 /* out */ unpacked_fun_param_types,
@@ -4307,6 +4303,10 @@ namespace TL { namespace Nanos6 {
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
+
+        unpacked_fun_param_names.append("priority");
+        unpacked_fun_param_types.append(get_nanos6_class_symbol("nanos6_priority_t")
+                .get_user_defined_type().get_lvalue_reference_to());
 
         TL::Symbol unpacked_function = SymbolUtils::new_function_symbol(
                 _related_function,
@@ -4394,12 +4394,12 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<std::string> unpacked_fun_param_names(2);
         TL::ObjectList<TL::Type> unpacked_fun_param_types(2);
 
-        unpacked_fun_param_names[0] = "priority";
-        unpacked_fun_param_types[0] = get_nanos6_class_symbol("nanos6_priority_t")
-            .get_user_defined_type().get_lvalue_reference_to();
+        unpacked_fun_param_names[0] = "arg";
+        unpacked_fun_param_types[0] = _info_structure.get_lvalue_reference_to();
 
-        unpacked_fun_param_names[1] = "arg";
-        unpacked_fun_param_types[1] = _info_structure.get_lvalue_reference_to();
+        unpacked_fun_param_names[1] = "priority";
+        unpacked_fun_param_types[1] = get_nanos6_class_symbol("nanos6_priority_t")
+            .get_user_defined_type().get_lvalue_reference_to();
 
         TL::Symbol outline_function = create_outline_function(
                 unpacked_function,
