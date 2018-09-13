@@ -3051,7 +3051,7 @@ namespace TL { namespace Nanos6 {
             {
                 cost_expr = Nodecl::Conversion::make(
                         cost_expr,
-                        cost_member.get_type(),
+                        cost_member.get_type().no_ref(),
                         cost_expr.get_locus());
                 cost_expr.set_text("C");
             }
@@ -4295,9 +4295,6 @@ namespace TL { namespace Nanos6 {
 
         std::string unpacked_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
-        TL::Type nanos6_priority_type =
-            get_nanos6_class_symbol("nanos6_priority_t").get_user_defined_type();
-
         unpacked_fun_param_names.append("priority");
         unpacked_fun_param_types.append(get_nanos6_class_symbol("nanos6_priority_t")
                 .get_user_defined_type().get_lvalue_reference_to());
@@ -4364,7 +4361,7 @@ namespace TL { namespace Nanos6 {
         {
             priority_expr = Nodecl::Conversion::make(
                     priority_expr,
-                    result_sym.get_type(),
+                    result_sym.get_type().no_ref(),
                     priority_expr.get_locus());
             priority_expr.set_text("C");
         }
