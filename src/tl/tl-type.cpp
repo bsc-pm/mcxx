@@ -114,15 +114,17 @@ namespace TL
         }
         else if (this->is_function())
         {
-            // Do not fix unprototyped functions
+            TL::Type fixed_result = this->returns().fix_references_();
             if (this->lacks_prototype())
-                return (*this);
+            {
+                // For unprototyped functions we only fix the return type
+                return function_type_replace_return_type(this->_type_info, fixed_result._type_info);
+            }
 
             cv_qualifier_t cv_qualif = CV_NONE;
             ::advance_over_typedefs_with_cv_qualif(this->get_internal_type(), &cv_qualif);
 
             ref_qualifier_t ref_qualifier = function_type_get_ref_qualifier(this->get_internal_type());
-            TL::Type fixed_result = this->returns().fix_references_();
             bool has_ellipsis = 0;
 
             TL::ObjectList<TL::Type> fixed_parameters = this->parameters(has_ellipsis);
