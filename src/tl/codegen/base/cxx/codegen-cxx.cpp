@@ -3667,7 +3667,35 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
     emit_line_marker(node);
     indent();
     *(file) << "return ";
-    walk(expression);
+
+    // The epression may be invalid (i.e. empty return statements)
+    if (!expression.is_null())
+    {
+        TL::Scope enclosing_function_scope = expression.retrieve_context();
+        TL::Symbol function_symbol(enclosing_function_scope.get_decl_context()->block_scope->related_entry);
+
+        TL::Type return_type = function_symbol.get_type().returns();
+
+        bool is_non_ref = is_non_language_reference_type(return_type);
+        bool extra_parentheses = false;
+        if (is_non_ref)
+        {
+            if (!return_type.no_ref().is_array())
+            {
+                extra_parentheses = true;
+                *(file) << "&";
+            }
+        }
+
+        if (extra_parentheses)
+            *(file) << "(";
+
+        walk(expression);
+
+        if (extra_parentheses)
+            *(file) << ")";
+    }
+
     *(file) << ";\n";
 }
 
