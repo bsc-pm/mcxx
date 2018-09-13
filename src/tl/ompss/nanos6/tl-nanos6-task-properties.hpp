@@ -89,15 +89,6 @@ namespace TL { namespace Nanos6 {
 
             TL::Type _info_structure;
 
-            TL::Symbol _dependences_function;
-
-            TL::Symbol _reduction_initializers;
-            TL::Symbol _reduction_combiners;
-
-            TL::Symbol _priority_function;
-
-            TL::Symbol _destroy_function;
-
             TaskloopBounds _taskloop_bounds;
 
             Nodecl::NodeclBase _task_body;
@@ -111,42 +102,40 @@ namespace TL { namespace Nanos6 {
 
         private:
 
+            //! Generate the complete function chain for the task region and
+            //! return the outline function symbol
             TL::Symbol create_task_region_function(std::shared_ptr<Device> device);
-            //! This function creates the unpacked function for the task region,
-            //! generates its statements and finally returns the symbol
-            void create_task_region_unpack_function(
+            TL::Symbol create_task_region_unpack_function(
                     const std::string &common_name,
-                    const std::shared_ptr<Device> &device,
-                    // Out
-                    TL::Symbol &unpack_function);
+                    const std::shared_ptr<Device> &device);
 
-            void create_dependences_function();
-            //! This function creates the unpacked function for the task dependences,
-            //! generates its statements and finally returns the symbol
-            void create_dependences_unpack_function(
-                    const std::string &common_name,
-                    // Out
-                    TL::Symbol &unpack_function);
+            //! Generate the complete function chain for the task region and
+            //! return the outline function symbol
+            TL::Symbol create_constraints_function();
+            TL::Symbol create_constraints_unpack_function(
+                    const std::string& common_name);
 
-            void create_reduction_functions();
+            //! Generate the reduction initializer and combiner functions and
+            //! return the symbols corresponding to the arrays containing them
+            void create_reduction_functions(
+                    TL::Symbol &reduction_initializers,
+                    TL::Symbol &reduction_combiners);
 
-            TL::Symbol  create_constraints_function();
-            //! This function creates the unpacked function for the task constraints,
-            //! generates its statements and finally returns the symbol
-            void create_constraints_unpack_function(
-                    const std::string& common_name,
-                    // Out
-                    TL::Symbol& unpack_function);
+            //! Generate the complete function chain for the task region and
+            //! return the outline function symbol
+            TL::Symbol create_dependences_function();
+            TL::Symbol create_dependences_unpack_function(
+                    const std::string &common_name);
 
-            void create_priority_function();
-            //! This function creates the unpacked function that evaluate the priority of a task,
-            //! generates its statements and finally returns the symbol
-            void create_priority_unpack_function(
-                    const std::string& common_name,
-                    // Out
-                    TL::Symbol& unpack_function);
+            //! Generate the complete function chain for the task region and
+            //! return the outline function symbol
+            TL::Symbol create_priority_function();
+            TL::Symbol create_priority_unpack_function(
+                    const std::string& common_name);
 
-            void create_destroy_function();
+            //! Generate the destroy function (outline only) and return the
+            //! function symbol
+            TL::Symbol create_destroy_function();
 
             void unpack_datasharing_arguments(
                     const TL::Symbol &arg,
@@ -173,13 +162,11 @@ namespace TL { namespace Nanos6 {
                     //Out
                     TL::Symbol &outline_function,
                     Nodecl::NodeclBase &outline_empty_stmt);
-            void create_outline_function(
+            TL::Symbol create_outline_function(
                     const TL::Symbol &unpack_function,
                     const std::string &common_name,
                     const TL::ObjectList<std::string> &outline_parameter_names,
-                    const ObjectList<TL::Type> &outline_parameter_types,
-                    // Out
-                    TL::Symbol &outline_function);
+                    const ObjectList<TL::Type> &outline_parameter_types);
 
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
                                           TL::Scope class_scope,
