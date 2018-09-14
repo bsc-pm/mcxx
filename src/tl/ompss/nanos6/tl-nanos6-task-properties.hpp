@@ -109,7 +109,7 @@ namespace TL { namespace Nanos6 {
                     const std::string &common_name,
                     const std::shared_ptr<Device> &device);
 
-            //! Generate the complete function chain for the task region and
+            //! Generate the complete function chain for the constraints and
             //! return the outline function symbol
             TL::Symbol create_constraints_function();
             TL::Symbol create_constraints_unpacked_function(
@@ -121,13 +121,13 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol &reduction_initializers,
                     TL::Symbol &reduction_combiners);
 
-            //! Generate the complete function chain for the task region and
+            //! Generate the complete function chain for the dependences and
             //! return the outline function symbol
             TL::Symbol create_dependences_function();
             TL::Symbol create_dependences_unpacked_function(
                     const std::string &common_name);
 
-            //! Generate the complete function chain for the task region and
+            //! Generate the complete function chain for the priority and
             //! return the outline function symbol
             TL::Symbol create_priority_function();
             TL::Symbol create_priority_unpacked_function(
