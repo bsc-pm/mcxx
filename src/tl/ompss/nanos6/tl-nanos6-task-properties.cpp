@@ -4107,9 +4107,6 @@ namespace TL { namespace Nanos6 {
 
         std::string unpacked_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
-        unpacked_fun_param_names.append("handler");
-        unpacked_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
-
         AddParameter add_params_functor(
                 /* out */ unpacked_fun_param_names,
                 /* out */ unpacked_fun_param_types,
@@ -4118,6 +4115,9 @@ namespace TL { namespace Nanos6 {
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
+
+        unpacked_fun_param_names.append("handler");
+        unpacked_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
 
         TL::Symbol unpacked_function = SymbolUtils::new_function_symbol(
                 _related_function,
@@ -4271,11 +4271,11 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<std::string> unpacked_fun_param_names(2);
         TL::ObjectList<TL::Type> unpacked_fun_param_types(2);
 
-        unpacked_fun_param_names[0] = "handler";
-        unpacked_fun_param_types[0] = TL::Type::get_void_type().get_pointer_to();
+        unpacked_fun_param_names[0] = "arg";
+        unpacked_fun_param_types[0] = _info_structure.get_lvalue_reference_to();
 
-        unpacked_fun_param_names[1] = "arg";
-        unpacked_fun_param_types[1] = _info_structure.get_lvalue_reference_to();
+        unpacked_fun_param_names[1] = "handler";
+        unpacked_fun_param_types[1] = TL::Type::get_void_type().get_pointer_to();
 
         TL::Symbol dependences_function = create_outline_function(
                 unpacked_function,
