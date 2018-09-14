@@ -49,13 +49,13 @@ namespace TL { namespace Nanos6 {
         }
 
         TL::Symbol nanos_user_lock =
-            TL::Scope::get_global_scope().get_symbol_from_name("nanos_user_lock");
+            TL::Scope::get_global_scope().get_symbol_from_name("nanos6_user_lock");
         ERROR_CONDITION(!nanos_user_lock.is_valid()
                 || !nanos_user_lock.is_function(),
                 "Invalid symbol", 0);
 
         TL::Symbol nanos_user_unlock =
-            TL::Scope::get_global_scope().get_symbol_from_name("nanos_user_unlock");
+            TL::Scope::get_global_scope().get_symbol_from_name("nanos6_user_unlock");
         ERROR_CONDITION(!nanos_user_unlock.is_valid()
                 || !nanos_user_unlock.is_function(),
                 "Invalid symbol", 0);

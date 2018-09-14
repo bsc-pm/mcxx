@@ -44,43 +44,44 @@ namespace TL { namespace Nanos6 {
 namespace
 {
 const char *entry_points[] = {
-    "nanos_in_final",
-    "nanos_create_task",
-    "nanos_submit_task",
-    "nanos_taskwait",
-    "nanos_user_lock",
-    "nanos_user_unlock",
-    "nanos_get_reduction_storage1",
-    "nanos_register_taskloop_bounds",
+    "nanos6_in_final",
+    "nanos6_create_task",
+    "nanos6_submit_task",
+    "nanos6_taskwait",
+    "nanos6_user_lock",
+    "nanos6_user_unlock",
+    "nanos6_get_reduction_storage1",
+    "nanos6_register_taskloop_bounds",
+    "nanos6_bzero",
 };
 
 // We have '__nanos6_max_dimensions' different versions for each symbol, for
 // this reason they're treated a bit different
 const char *register_dependences[] =
 {
-    "nanos_register_region_read_depinfo",
-    "nanos_register_region_write_depinfo",
-    "nanos_register_region_readwrite_depinfo",
-    "nanos_register_region_weak_read_depinfo",
-    "nanos_register_region_weak_write_depinfo",
-    "nanos_register_region_weak_readwrite_depinfo",
-    "nanos_register_region_commutative_depinfo",
-    "nanos_register_region_concurrent_depinfo",
-    "nanos_register_region_reduction_depinfo",
+    "nanos6_register_region_read_depinfo",
+    "nanos6_register_region_write_depinfo",
+    "nanos6_register_region_readwrite_depinfo",
+    "nanos6_register_region_weak_read_depinfo",
+    "nanos6_register_region_weak_write_depinfo",
+    "nanos6_register_region_weak_readwrite_depinfo",
+    "nanos6_register_region_commutative_depinfo",
+    "nanos6_register_region_concurrent_depinfo",
+    "nanos6_register_region_reduction_depinfo",
 };
 
 // We have '__nanos6_max_dimensions' different versions for each symbol, for
 // this reason they're treated a bit different
 const char* release_dependences[] =
 {
-    "nanos_release_read_",
-    "nanos_release_write_",
-    "nanos_release_readwrite_",
-    "nanos_release_weak_read_",
-    "nanos_release_weak_write_",
-    "nanos_release_weak_readwrite_",
-    "nanos_release_commutative_",
-    "nanos_release_concurrent_" ,
+    "nanos6_release_read_",
+    "nanos6_release_write_",
+    "nanos6_release_readwrite_",
+    "nanos6_release_weak_read_",
+    "nanos6_release_weak_write_",
+    "nanos6_release_weak_readwrite_",
+    "nanos6_release_commutative_",
+    "nanos6_release_concurrent_" ,
 };
 
 void fix_entry_point(std::string name)
@@ -115,8 +116,6 @@ void fixup_entry_points(int deps_max_dimensions)
             fix_entry_point(ss.str());
         }
     }
-
-    fix_entry_point("nanos6_bzero");
 
     for(int dim = 1; dim <= deps_max_dimensions; dim++)
     {

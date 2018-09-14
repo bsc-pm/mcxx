@@ -109,7 +109,7 @@ namespace TL { namespace Nanos6 {
     void Lower::lower_taskwait(const Nodecl::OpenMP::Taskwait& node)
     {
         TL::Symbol nanos_taskwait_sym =
-            TL::Scope::get_global_scope().get_symbol_from_name("nanos_taskwait");
+            TL::Scope::get_global_scope().get_symbol_from_name("nanos6_taskwait");
         ERROR_CONDITION(!nanos_taskwait_sym.is_valid()
                 || !nanos_taskwait_sym.is_function(),
                 "Invalid symbol", 0);

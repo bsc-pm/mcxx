@@ -65,7 +65,7 @@ namespace TL { namespace Nanos6 {
 
             // Wrap the function call into if (nanos_in_final())
             TL::Symbol nanos_in_final_sym =
-                TL::Scope::get_global_scope().get_symbol_from_name("nanos_in_final");
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos6_in_final");
             ERROR_CONDITION(!nanos_in_final_sym .is_valid()
                     || !nanos_in_final_sym.is_function(),
                     "Invalid symbol", 0);
@@ -179,7 +179,7 @@ namespace TL { namespace Nanos6 {
                 }
 
                 TL::Symbol nanos_create_task_sym =
-                    TL::Scope::get_global_scope().get_symbol_from_name("nanos_create_task");
+                    TL::Scope::get_global_scope().get_symbol_from_name("nanos6_create_task");
                 ERROR_CONDITION(!nanos_create_task_sym.is_valid()
                         || !nanos_create_task_sym.is_function(),
                         "Invalid symbol", 0);
@@ -343,7 +343,7 @@ namespace TL { namespace Nanos6 {
                 Interface::family_must_be_at_least("nanos6_taskloop_api", 1, "the 'loop' construct");
 
                 TL::Symbol nanos_register_loop_sym =
-                    TL::Scope::get_global_scope().get_symbol_from_name("nanos_register_taskloop_bounds");
+                    TL::Scope::get_global_scope().get_symbol_from_name("nanos6_register_taskloop_bounds");
                 ERROR_CONDITION(!nanos_register_loop_sym.is_valid()
                         || !nanos_register_loop_sym.is_function(), "Invalid symbol", 0);
 
@@ -393,7 +393,7 @@ namespace TL { namespace Nanos6 {
             // Submit the created task
             {
                 TL::Symbol nanos_submit_task_sym =
-                    TL::Scope::get_global_scope().get_symbol_from_name("nanos_submit_task");
+                    TL::Scope::get_global_scope().get_symbol_from_name("nanos6_submit_task");
                 ERROR_CONDITION(!nanos_submit_task_sym.is_valid()
                         || !nanos_submit_task_sym.is_function(),
                         "Invalid symbol", 0);

@@ -203,7 +203,7 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_task_invocation_info(
         /* out */ TL::Symbol &task_invocation_info)
     {
-        TL::Symbol task_invocation_info_struct = get_nanos6_class_symbol("nanos_task_invocation_info");
+        TL::Symbol task_invocation_info_struct = get_nanos6_class_symbol("nanos6_task_invocation_info");
 
         std::string task_invocation_info_name = get_new_name("task_invocation_info");
         task_invocation_info = TL::Scope::get_global_scope().new_symbol(task_invocation_info_name);
@@ -791,7 +791,7 @@ namespace TL { namespace Nanos6 {
         TL::Symbol priority_function = create_priority_function();
         TL::Symbol destroy_function = create_destroy_function();
 
-        TL::Symbol task_info_struct = get_nanos6_class_symbol("nanos_task_info");
+        TL::Symbol task_info_struct = get_nanos6_class_symbol("nanos6_task_info");
         std::string task_info_name = get_new_name("task_info_var");
 
         create_static_variable_depending_on_function_context(
@@ -2493,7 +2493,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::List &extra_stmts)
         {
             // Obtain function symbol
-            std::string get_red_storage_fun_name = "nanos_get_reduction_storage1";
+            std::string get_red_storage_fun_name = "nanos6_get_reduction_storage1";
             TL::Scope global_context = TL::Scope::get_global_scope();
             TL::Symbol get_red_storage_fun =
                 global_context.get_symbol_from_name(get_red_storage_fun_name);
@@ -4162,19 +4162,19 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
             std::string func_name;
         } deps[] = {
-            { _env.dep_in,    "nanos_register_region_read_depinfo"              },
-            { _env.dep_out,   "nanos_register_region_write_depinfo"             },
-            { _env.dep_inout, "nanos_register_region_readwrite_depinfo"         },
+            { _env.dep_in,    "nanos6_register_region_read_depinfo"              },
+            { _env.dep_out,   "nanos6_register_region_write_depinfo"             },
+            { _env.dep_inout, "nanos6_register_region_readwrite_depinfo"         },
 
-            { _env.dep_weakin,    "nanos_register_region_weak_read_depinfo"      },
-            { _env.dep_weakout,   "nanos_register_region_weak_write_depinfo"     },
-            { _env.dep_weakinout, "nanos_register_region_weak_readwrite_depinfo" },
+            { _env.dep_weakin,    "nanos6_register_region_weak_read_depinfo"      },
+            { _env.dep_weakout,   "nanos6_register_region_weak_write_depinfo"     },
+            { _env.dep_weakinout, "nanos6_register_region_weak_readwrite_depinfo" },
 
-            { _env.dep_commutative, "nanos_register_region_commutative_depinfo" },
-            { _env.dep_concurrent,  "nanos_register_region_concurrent_depinfo"  },
+            { _env.dep_commutative, "nanos6_register_region_commutative_depinfo" },
+            { _env.dep_concurrent,  "nanos6_register_region_concurrent_depinfo"  },
 
-            { _env.dep_reduction,     "nanos_register_region_reduction_depinfo"      },
-            { _env.dep_weakreduction, "nanos_register_region_weak_reduction_depinfo" },
+            { _env.dep_reduction,     "nanos6_register_region_reduction_depinfo"      },
+            { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo" },
         };
 
         for (DependencesSet *dep_set = deps;
@@ -5102,19 +5102,19 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
             std::string func_name;
         } deps[] = {
-            { _env.dep_in,    "nanos_release_read_"              },
-            { _env.dep_out,   "nanos_release_write_"             },
-            { _env.dep_inout, "nanos_release_readwrite_"         },
+            { _env.dep_in,    "nanos6_release_read_"              },
+            { _env.dep_out,   "nanos6_release_write_"             },
+            { _env.dep_inout, "nanos6_release_readwrite_"         },
 
-            { _env.dep_weakin,    "nanos_release_weak_read_"      },
-            { _env.dep_weakout,   "nanos_release_weak_write_"     },
-            { _env.dep_weakinout, "nanos_release_weak_readwrite_" },
+            { _env.dep_weakin,    "nanos6_release_weak_read_"      },
+            { _env.dep_weakout,   "nanos6_release_weak_write_"     },
+            { _env.dep_weakinout, "nanos6_release_weak_readwrite_" },
 
-            { _env.dep_commutative, "nanos_release_commutative_" },
-            { _env.dep_concurrent,  "nanos_release_concurrent_"  },
+            { _env.dep_commutative, "nanos6_release_commutative_" },
+            { _env.dep_concurrent,  "nanos6_release_concurrent_"  },
 
-           // { dep_reduction,     "nanos_release_reduction_" },
-           // { dep_weakreduction, "nanos_release_weak_reduction_" },
+           // { dep_reduction,     "nanos6_release_reduction_" },
+           // { dep_weakreduction, "nanos6_release_weak_reduction_" },
         };
 
         TL::Scope global_context = TL::Scope::get_global_scope();
