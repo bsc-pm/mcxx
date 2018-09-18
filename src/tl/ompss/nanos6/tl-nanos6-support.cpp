@@ -36,7 +36,6 @@
 
 namespace
 {
-
 TL::Symbol clone_vla_var(TL::Symbol sym,
                          TL::Scope sc,
                          Nodecl::Utils::SimpleSymbolMap &symbol_map)
@@ -74,45 +73,60 @@ void add_extra_mapping_for_dimension(Nodecl::NodeclBase vla_var,
 }
 }
 
-void TL::Nanos6::add_extra_mappings_for_vla_types(
-    TL::Type t,
-    TL::Scope sc,
-    /* out */
-    Nodecl::Utils::SimpleSymbolMap &symbol_map,
-    TL::ObjectList<TL::Symbol> &new_vlas)
-{
-    if (!t.is_valid())
-        return;
+namespace TL { namespace Nanos6 {
 
-    if (t.is_array())
+    TL::Symbol get_nanos6_class_symbol(const std::string &name)
     {
-        add_extra_mappings_for_vla_types(
-            t.array_element(), sc, symbol_map, new_vlas);
+        TL::Symbol struct_sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
 
-        if (IS_FORTRAN_LANGUAGE)
+        ERROR_CONDITION(!struct_sym.is_valid() ||
+                        !(struct_sym.is_typedef() || struct_sym.is_class()),
+                        "Symbol '%s' not found", name.c_str());
+
+        return struct_sym;
+    }
+
+
+    void add_extra_mappings_for_vla_types(
+            TL::Type t,
+            TL::Scope sc,
+            /* out */
+            Nodecl::Utils::SimpleSymbolMap &symbol_map,
+            TL::ObjectList<TL::Symbol> &new_vlas)
+    {
+        if (!t.is_valid())
+            return;
+
+        if (t.is_array())
         {
-            Nodecl::NodeclBase lower_bound, upper_bound;
-            t.array_get_bounds(lower_bound, upper_bound);
+            add_extra_mappings_for_vla_types(
+                    t.array_element(), sc, symbol_map, new_vlas);
 
-            add_extra_mapping_for_dimension(
-                lower_bound, sc, symbol_map, new_vlas);
-            add_extra_mapping_for_dimension(
-                upper_bound, sc, symbol_map, new_vlas);
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Nodecl::NodeclBase lower_bound, upper_bound;
+                t.array_get_bounds(lower_bound, upper_bound);
+
+                add_extra_mapping_for_dimension(
+                        lower_bound, sc, symbol_map, new_vlas);
+                add_extra_mapping_for_dimension(
+                        upper_bound, sc, symbol_map, new_vlas);
+            }
+            else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                Nodecl::NodeclBase size = t.array_get_size();
+
+                add_extra_mapping_for_dimension(size, sc, symbol_map, new_vlas);
+            }
         }
-        else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        else if (t.is_any_reference())
         {
-            Nodecl::NodeclBase size = t.array_get_size();
-
-            add_extra_mapping_for_dimension(size, sc, symbol_map, new_vlas);
+            add_extra_mappings_for_vla_types(t.no_ref(), sc, symbol_map, new_vlas);
+        }
+        else if (t.is_pointer())
+        {
+            add_extra_mappings_for_vla_types(
+                    t.points_to(), sc, symbol_map, new_vlas);
         }
     }
-    else if (t.is_any_reference())
-    {
-        add_extra_mappings_for_vla_types(t.no_ref(), sc, symbol_map, new_vlas);
-    }
-    else if (t.is_pointer())
-    {
-        add_extra_mappings_for_vla_types(
-            t.points_to(), sc, symbol_map, new_vlas);
-    }
-}
+}}

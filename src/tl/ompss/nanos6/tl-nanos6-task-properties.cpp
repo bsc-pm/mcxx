@@ -139,14 +139,6 @@ namespace TL { namespace Nanos6 {
     }
 
     namespace {
-    TL::Symbol get_nanos6_class_symbol(const std::string &name) {
-        TL::Symbol struct_sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
-        ERROR_CONDITION(!struct_sym.is_valid() || !(struct_sym.is_typedef() || struct_sym.is_class()), "Invalid symbol", 0);
-        return struct_sym;
-    }
-    }
-
-    namespace {
     //! Create a detached symbol with the same name as the real one We need to
     //! do that otherwise Fortran codegen attempts to initialize this symbol
     //! (We may want to fix this somehow)
@@ -203,7 +195,7 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_task_invocation_info(
         /* out */ TL::Symbol &task_invocation_info)
     {
-        TL::Symbol task_invocation_info_struct = get_nanos6_class_symbol("nanos6_task_invocation_info");
+        TL::Symbol task_invocation_info_struct = get_nanos6_class_symbol("nanos6_task_invocation_info_t");
 
         std::string task_invocation_info_name = get_new_name("task_invocation_info");
         task_invocation_info = TL::Scope::get_global_scope().new_symbol(task_invocation_info_name);
@@ -791,7 +783,7 @@ namespace TL { namespace Nanos6 {
         TL::Symbol priority_function = create_priority_function();
         TL::Symbol destroy_function = create_destroy_function();
 
-        TL::Symbol task_info_struct = get_nanos6_class_symbol("nanos6_task_info");
+        TL::Symbol task_info_struct = get_nanos6_class_symbol("nanos6_task_info_t");
         std::string task_info_name = get_new_name("task_info_var");
 
         create_static_variable_depending_on_function_context(
