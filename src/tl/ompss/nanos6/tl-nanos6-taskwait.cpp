@@ -26,7 +26,10 @@
 
 
 #include "tl-nanos6-lower.hpp"
+#include "tl-nanos6-support.hpp"
+
 #include "tl-source.hpp"
+
 #include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 
@@ -108,11 +111,7 @@ namespace TL { namespace Nanos6 {
 
     void Lower::lower_taskwait(const Nodecl::OpenMP::Taskwait& node)
     {
-        TL::Symbol nanos_taskwait_sym =
-            TL::Scope::get_global_scope().get_symbol_from_name("nanos6_taskwait");
-        ERROR_CONDITION(!nanos_taskwait_sym.is_valid()
-                || !nanos_taskwait_sym.is_function(),
-                "Invalid symbol", 0);
+        TL::Symbol nanos_taskwait_sym = get_nanos6_function_symbol("nanos6_taskwait");
         const char* locus = locus_to_str(node.get_locus());
 
         Nodecl::NodeclBase taskwait_tree =

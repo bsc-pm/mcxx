@@ -38,6 +38,7 @@ namespace TL
 namespace Nanos6
 {
     TL::Symbol get_nanos6_class_symbol(const std::string &name);
+    TL::Symbol get_nanos6_function_symbol(const std::string &name);
 
     void add_extra_mappings_for_vla_types(
             TL::Type t,

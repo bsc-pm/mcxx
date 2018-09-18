@@ -2485,16 +2485,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::List &extra_stmts)
         {
             // Obtain function symbol
-            std::string get_red_storage_fun_name = "nanos6_get_reduction_storage1";
-            TL::Scope global_context = TL::Scope::get_global_scope();
-            TL::Symbol get_red_storage_fun =
-                global_context.get_symbol_from_name(get_red_storage_fun_name);
-            if (!get_red_storage_fun.is_valid())
-            {
-                fatal_error(
-                        "'%s' function not found while trying to register dependences\n",
-                        get_red_storage_fun_name.c_str());
-            }
+            TL::Symbol get_red_storage_fun = get_nanos6_function_symbol("nanos6_get_reduction_storage1");
 
             TL::Symbol reduction_sym = reduction_expr.get_base_symbol();
             TL::Type reduction_type = reduction_expr.get_type().no_ref();
@@ -4198,13 +4189,7 @@ namespace TL { namespace Nanos6 {
                     std::stringstream ss;
                     ss << dep_set->func_name << num_dims_dep;
 
-                    register_fun = global_context.get_symbol_from_name(ss.str());
-                    if (!register_fun.is_valid())
-                    {
-                        fatal_error(
-                                "'%s' function not found while trying to register dependences\n",
-                                ss.str().c_str());
-                    }
+                    register_fun = get_nanos6_function_symbol(ss.str());
                 }
 
                 Nodecl::List register_statements;
@@ -5139,13 +5124,7 @@ namespace TL { namespace Nanos6 {
                     std::stringstream ss;
                     ss << release_set->func_name << num_dims_dep;
 
-                    release_fun = global_context.get_symbol_from_name(ss.str());
-                    if (!release_fun.is_valid())
-                    {
-                        fatal_error(
-                                "'%s' function not found while trying to release dependences\n",
-                                ss.str().c_str());
-                    }
+                    release_fun = get_nanos6_function_symbol(ss.str());
                 }
 
                 ERROR_CONDITION(data_ref.is_multireference(), "Unexpected multi-dependence in a release construct\n", 0);

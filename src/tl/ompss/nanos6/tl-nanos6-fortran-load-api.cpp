@@ -29,6 +29,8 @@
 #include "tl-nanos6-lower.hpp"
 #include "tl-nanos6-task-properties.hpp"
 #include "tl-nanos6-interface.hpp"
+#include "tl-nanos6-support.hpp"
+
 #include "tl-source.hpp"
 
 #include "cxx-driver-utils.h"
@@ -86,8 +88,7 @@ const char* release_dependences[] =
 
 void fix_entry_point(std::string name)
 {
-    TL::Symbol sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
-    ERROR_CONDITION(!sym.is_valid(), "Nanos 6 entry point '%s' not found", name.c_str());
+    TL::Symbol sym = get_nanos6_function_symbol(name);
 
     symbol_entity_specs_set_bind_info(
             sym.get_internal_symbol(),

@@ -86,6 +86,16 @@ namespace TL { namespace Nanos6 {
         return struct_sym;
     }
 
+    TL::Symbol get_nanos6_function_symbol(const std::string &name)
+    {
+        TL::Symbol fun_sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
+
+        ERROR_CONDITION(!fun_sym.is_valid() ||
+                !fun_sym.is_function(),
+                "Symbol '%s' not found", name.c_str());
+
+        return fun_sym;
+    }
 
     void add_extra_mappings_for_vla_types(
             TL::Type t,
