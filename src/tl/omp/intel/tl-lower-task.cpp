@@ -37,18 +37,14 @@ namespace TL { namespace Intel {
 extern std::map<TL::Symbol, TL::Symbol> vla_sym_size_map;
 
 static void create_task_function(const Nodecl::OpenMP::Task& construct,
-                                 const TL::Scope& scope,
                                  TL::Symbol& outline_task,
                                  Nodecl::NodeclBase& outline_task_code,
                                  Nodecl::NodeclBase& outline_task_stmt) {
 
-    TL::Type kmp_int32_type = scope
-        .get_symbol_from_name("kmp_int32")
-        .get_user_defined_type();
+    TL::Type kmp_int32_type = Source("kmp_int32").parse_c_type_id(TL::Scope(CURRENT_COMPILED_FILE->global_decl_context));
     ERROR_CONDITION(!kmp_int32_type.is_valid(), "Type kmp_int32 not in scope", 0);
-    TL::Type kmp_task_type = scope
-                            .get_symbol_from_name("kmp_task_t")
-                            .get_user_defined_type();
+
+    TL::Type kmp_task_type = Source("kmp_task_t").parse_c_type_id(TL::Scope(CURRENT_COMPILED_FILE->global_decl_context));
     ERROR_CONDITION(!kmp_task_type.is_valid(), "Type kmp_task_type not in scope", 0);
 
     TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
@@ -77,7 +73,6 @@ static void create_task_function(const Nodecl::OpenMP::Task& construct,
 }
 
 static void create_task_args(const Nodecl::OpenMP::Task& construct,
-                             const TL::Scope& scope,
                              const TL::Symbol& outline_task,
                              const TL::ObjectList<TL::Symbol>& shared_no_vla_symbols,
                              const TL::ObjectList<TL::Symbol>& shared_vla_symbols,
@@ -166,6 +161,7 @@ static void create_task_args(const Nodecl::OpenMP::Task& construct,
             << ";";
     }
 
+    TL::Scope scope = TL::Scope(CURRENT_COMPILED_FILE->global_decl_context);
 
     src_task_args_struct << "};";
     Nodecl::NodeclBase tree_task_args_struct = src_task_args_struct.parse_declaration(scope);
@@ -942,7 +938,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TL::Symbol outline_task;
     Nodecl::NodeclBase outline_task_code, outline_task_stmt;
     create_task_function(construct,
-                         global_scope,
                          outline_task,
                          outline_task_code,
                          outline_task_stmt);
@@ -976,7 +971,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 
     TL::Type task_args_type;
     create_task_args(construct,
-                     global_scope,
                      outline_task,
                      shared_no_vla_symbols,
                      shared_vla_symbols,
