@@ -29,9 +29,12 @@
 #include "tl-lowering-utils.hpp"
 #include "tl-lower-task-common.hpp"
 #include "tl-symbol-utils.hpp"
+#include "../lowering-common/tl-omp-lowering-directive-environment.hpp"
 #include "cxx-cexpr.h"
 
 namespace TL { namespace Intel {
+
+using TL::OpenMP::Lowering::DirectiveEnvironment;
 
 // This is used in task lowering to save the vla_size into a global value declared here
 extern std::map<TL::Symbol, TL::Symbol> vla_sym_size_map;
@@ -796,126 +799,36 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
 
-    TL::ObjectList<Nodecl::OpenMP::Shared> shared_list = environment.find_all<Nodecl::OpenMP::Shared>();
-    TL::ObjectList<Nodecl::OpenMP::Private> private_list = environment.find_all<Nodecl::OpenMP::Private>();
-    TL::ObjectList<Nodecl::OpenMP::Firstprivate> firstprivate_list = environment.find_all<Nodecl::OpenMP::Firstprivate>();
-    TL::ObjectList<Nodecl::OpenMP::DepIn> depin_list = environment.find_all<Nodecl::OpenMP::DepIn>();
-    TL::ObjectList<Nodecl::OpenMP::DepOut> depout_list = environment.find_all<Nodecl::OpenMP::DepOut>();
-    TL::ObjectList<Nodecl::OpenMP::DepInout> depinout_list = environment.find_all<Nodecl::OpenMP::DepInout>();
-    TL::ObjectList<Nodecl::OpenMP::InReduction> reduction_list = environment.find_all<Nodecl::OpenMP::InReduction>();
+    DirectiveEnvironment de(environment);
 
-    TL::ObjectList<TL::Symbol> private_symbols;
+    TL::ObjectList<TL::Symbol> private_symbols = de.private_;
     TL::ObjectList<TL::Symbol> private_no_vla_symbols;
     TL::ObjectList<TL::Symbol> private_vla_symbols;
+    split_symbol_list_in_vla_notvla(private_symbols, private_no_vla_symbols, private_vla_symbols);
 
-    TL::ObjectList<TL::Symbol> firstprivate_symbols;
+    TL::ObjectList<TL::Symbol> firstprivate_symbols = de.captured_value;
     TL::ObjectList<TL::Symbol> firstprivate_no_vla_symbols;
     TL::ObjectList<TL::Symbol> firstprivate_vla_symbols;
+    split_symbol_list_in_vla_notvla(firstprivate_symbols, firstprivate_no_vla_symbols, firstprivate_vla_symbols);
 
+    TL::ObjectList<TL::Symbol> shared_symbols = de.shared;
     TL::ObjectList<TL::Symbol> shared_no_vla_symbols;
     TL::ObjectList<TL::Symbol> shared_vla_symbols;
-    TL::ObjectList<TL::Symbol> shared_symbols;
+    split_symbol_list_in_vla_notvla(shared_symbols, shared_no_vla_symbols, shared_vla_symbols);
 
-    TL::ObjectList<Nodecl::NodeclBase> depin_nodecl;
-    TL::ObjectList<Nodecl::NodeclBase> depout_nodecl;
-    TL::ObjectList<Nodecl::NodeclBase> depinout_nodecl;
+    TL::ObjectList<TL::Symbol> reduction_symbols;
+    TL::ObjectList<TL::Symbol> reduction_no_vla_symbols;
+    TL::ObjectList<TL::Symbol> reduction_vla_symbols;
+    TL::ObjectList<TL::OpenMP::Lowering::ReductionItem> reduction_items = de.in_reduction;
+    reduction_symbols = reduction_items
+        .map<TL::Symbol>(&TL::OpenMP::Lowering::ReductionItem::get_symbol); // TL::ObjectList<TL::Symbol>
+    split_symbol_list_in_vla_notvla(reduction_symbols, reduction_no_vla_symbols, reduction_vla_symbols);
 
-    TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items;
+    TL::ObjectList<Nodecl::NodeclBase> depin_nodecl = de.dep_in;
+    TL::ObjectList<Nodecl::NodeclBase> depout_nodecl = de.dep_out;
+    TL::ObjectList<Nodecl::NodeclBase> depinout_nodecl = de.dep_inout;
 
-    if (!shared_list.empty())
-    {
-        TL::ObjectList<Symbol> tmp =
-            shared_list  // TL::ObjectList<OpenMP::Shared>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Shared::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        shared_symbols.insert(tmp);
-        split_symbol_list_in_vla_notvla(shared_symbols, shared_no_vla_symbols, shared_vla_symbols);
-    }
-    if (!private_list.empty())
-    {
-        TL::ObjectList<Symbol> tmp =
-            private_list  // TL::ObjectList<OpenMP::Private>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        private_symbols.insert(tmp);
-        split_symbol_list_in_vla_notvla(private_symbols, private_no_vla_symbols, private_vla_symbols);
-    }
-    if (!firstprivate_list.empty())
-    {
-        TL::ObjectList<Symbol> tmp =
-            firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        firstprivate_symbols.insert(tmp);
-        split_symbol_list_in_vla_notvla(firstprivate_symbols, firstprivate_no_vla_symbols, firstprivate_vla_symbols);
-    }
-    bool no_deps = true;
-    if (!depin_list.empty())
-    {
-        no_deps = false;
-        TL::ObjectList<Nodecl::NodeclBase> tmp =
-            depin_list  // TL::ObjectList<OpenMP::DepIn>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepIn::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            ;
-
-        depin_nodecl.insert(tmp);
-    }
-    if (!depout_list.empty())
-    {
-        no_deps = false;
-        TL::ObjectList<Nodecl::NodeclBase> tmp =
-            depout_list  // TL::ObjectList<OpenMP::DepOut>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepOut::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            ;
-
-        depout_nodecl.insert(tmp);
-    }
-    if (!depinout_list.empty())
-    {
-        no_deps = false;
-        TL::ObjectList<Nodecl::NodeclBase> tmp =
-            depinout_list  // TL::ObjectList<OpenMP::DepInout>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::DepInout::get_exprs) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            ;
-
-        depinout_nodecl.insert(tmp);
-    }
-
-    if (!reduction_list.empty()) {
-        TL::ObjectList<Nodecl::OpenMP::ReductionItem> tmp
-            = reduction_list
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::InReduction::get_reductions)
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list)
-            .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
-            .map<Nodecl::OpenMP::ReductionItem>(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
-
-        reduction_items.insert(tmp);
-    }
+    bool no_deps = depin_nodecl.empty() && depout_nodecl.empty() && depinout_nodecl.empty();
 
     // END VARS
 
@@ -958,16 +871,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
     Nodecl::NodeclBase tree_task_call_body = src_task_call_body.parse_statement(construct);
 
     TL::Symbol taskgroup_desc;
-    TL::ObjectList<TL::Symbol> reduction_symbols;
-    TL::ObjectList<TL::Symbol> reduction_no_vla_symbols;
-    TL::ObjectList<TL::Symbol> reduction_vla_symbols;
 
     // get taskgroup descritor symbol (tg) created in taskgroup
     taskgroup_desc = construct.retrieve_context().get_symbol_from_name("tg");
-    reduction_symbols = reduction_items
-        .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
-    split_symbol_list_in_vla_notvla(reduction_symbols, reduction_no_vla_symbols, reduction_vla_symbols);
 
     TL::Type task_args_type;
     create_task_args(construct,

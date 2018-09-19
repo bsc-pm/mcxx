@@ -2277,17 +2277,20 @@ phases_LTLIBRARIES += src/tl/omp/intel/libtlintel-omp-lowering.la
 
 src_tl_omp_intel_libtlintel_omp_lowering_la_CFLAGS= $(phases_cflags)\
 													-I$(srcdir)/src/tl/omp/core \
+													-I$(srcdir)/src/tl/omp/lowering-common \
 													-I$(srcdir)/src/tl/omp/common \
 													$(END)
 
 src_tl_omp_intel_libtlintel_omp_lowering_la_CXXFLAGS= $(phases_cxxflags) \
 													  -I$(srcdir)/src/tl/omp/core \
+													  -I$(srcdir)/src/tl/omp/lowering-common \
 													  -I$(srcdir)/src/tl/omp/common \
 													  $(END)
 
 src_tl_omp_intel_libtlintel_omp_lowering_la_LIBADD= $(phases_libadd) \
 								src/tl/omp/common/libtlomp-common.la \
 								src/tl/omp/core/libtlomp-core.la \
+								src/tl/omp/lowering-common/libtlomplowering-common.la \
 								$(END)
 
 src_tl_omp_intel_libtlintel_omp_lowering_la_LDFLAGS= $(phases_ldflags)

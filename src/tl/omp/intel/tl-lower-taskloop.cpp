@@ -29,9 +29,12 @@
 #include "tl-lowering-utils.hpp"
 #include "tl-lower-task-common.hpp"
 #include "tl-symbol-utils.hpp"
+#include "../lowering-common/tl-omp-lowering-directive-environment.hpp"
 #include "cxx-cexpr.h"
 
 namespace TL { namespace Intel {
+
+using TL::OpenMP::Lowering::DirectiveEnvironment;
 
 static void move_for_loop_to_task(TL::ForStatement& for_statement,
                                   Nodecl::NodeclBase& outline_task_stmt) {
@@ -707,64 +710,22 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskloop& construct)
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
 
-    TL::ObjectList<Nodecl::OpenMP::Shared> shared_list = environment.find_all<Nodecl::OpenMP::Shared>();
-    TL::ObjectList<Nodecl::OpenMP::Private> private_list = environment.find_all<Nodecl::OpenMP::Private>();
-    TL::ObjectList<Nodecl::OpenMP::Firstprivate> firstprivate_list = environment.find_all<Nodecl::OpenMP::Firstprivate>();
+    DirectiveEnvironment de(environment);
 
-    TL::ObjectList<TL::Symbol> private_symbols;
+    TL::ObjectList<TL::Symbol> private_symbols = de.private_;
     TL::ObjectList<TL::Symbol> private_no_vla_symbols;
     TL::ObjectList<TL::Symbol> private_vla_symbols;
+    split_symbol_list_in_vla_notvla(private_symbols, private_no_vla_symbols, private_vla_symbols);
 
-    TL::ObjectList<TL::Symbol> firstprivate_symbols;
+    TL::ObjectList<TL::Symbol> firstprivate_symbols = de.captured_value;
     TL::ObjectList<TL::Symbol> firstprivate_no_vla_symbols;
     TL::ObjectList<TL::Symbol> firstprivate_vla_symbols;
+    split_symbol_list_in_vla_notvla(firstprivate_symbols, firstprivate_no_vla_symbols, firstprivate_vla_symbols);
 
+    TL::ObjectList<TL::Symbol> shared_symbols = de.shared;
     TL::ObjectList<TL::Symbol> shared_no_vla_symbols;
     TL::ObjectList<TL::Symbol> shared_vla_symbols;
-    TL::ObjectList<TL::Symbol> shared_symbols;
-
-    if (!shared_list.empty())
-    {
-        TL::ObjectList<Symbol> tmp =
-            shared_list  // TL::ObjectList<OpenMP::Shared>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Shared::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        shared_symbols.insert(tmp);
-        split_symbol_list_in_vla_notvla(shared_symbols, shared_no_vla_symbols, shared_vla_symbols);
-    }
-    if (!private_list.empty())
-    {
-        TL::ObjectList<Symbol> tmp =
-            private_list  // TL::ObjectList<OpenMP::Private>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        private_symbols.insert(tmp);
-        split_symbol_list_in_vla_notvla(private_symbols, private_no_vla_symbols, private_vla_symbols);
-    }
-    if (!firstprivate_list.empty())
-    {
-        TL::ObjectList<Symbol> tmp =
-            firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        firstprivate_symbols.insert(tmp);
-        split_symbol_list_in_vla_notvla(firstprivate_symbols, firstprivate_no_vla_symbols, firstprivate_vla_symbols);
-    }
+    split_symbol_list_in_vla_notvla(shared_symbols, shared_no_vla_symbols, shared_vla_symbols);
 
     // END VARS
 
