@@ -854,7 +854,7 @@ namespace TL { namespace Nanos6 {
         Nodecl::NodeclBase init_implementations  = implementations.make_nodecl(/*ref_type*/ true);
 
         // .destroy
-        Nodecl::NodeclBase field_destroy = get_field("destroy");
+        Nodecl::NodeclBase field_destroy = get_field("destroy_args_block");
         Nodecl::NodeclBase init_destroy;
         if (destroy_function.is_valid())
         {
@@ -4426,30 +4426,21 @@ namespace TL { namespace Nanos6 {
         if (fields_to_destroy.empty())
             return TL::Symbol::invalid();
 
-        // Destroy function
-        std::string function_name = get_new_name("nanos6_destroy");
-
         TL::ObjectList<std::string> destroy_param_names;
         TL::ObjectList<TL::Type> destroy_param_types;
 
         destroy_param_names.append("arg");
         destroy_param_types.append(_info_structure.get_lvalue_reference_to());
 
-        TL::Symbol destroy_function = SymbolUtils::new_function_symbol(
-                _related_function,
-                function_name,
-                TL::Type::get_void_type(),
+        TL::Symbol destroy_function;
+        Nodecl::NodeclBase destroy_empty_stmt;
+        create_outline_function_common("destroy",
                 destroy_param_names,
-                destroy_param_types);
-
-        Nodecl::NodeclBase destroy_function_code, destroy_empty_stmt;
-        SymbolUtils::build_empty_body_for_function(
+                destroy_param_types,
                 destroy_function,
-                destroy_function_code,
                 destroy_empty_stmt);
 
         // Compute destroy statements
-
         TL::Scope destroy_inside_scope = destroy_empty_stmt.retrieve_context();
         TL::Symbol arg = destroy_inside_scope.get_symbol_from_name("arg");
         ERROR_CONDITION(!arg.is_valid() || !arg.is_parameter(), "Invalid symbol", 0);
@@ -4513,25 +4504,6 @@ namespace TL { namespace Nanos6 {
 
         ERROR_CONDITION(destroy_stmts.empty(), "Unexpected list", 0);
         destroy_empty_stmt.replace(destroy_stmts);
-
-        Nodecl::Utils::append_to_enclosing_top_level_location(
-                _task_body, destroy_function_code);
-
-        if (IS_CXX_LANGUAGE && !_related_function.is_member())
-        {
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                    _task_body,
-                    Nodecl::CxxDecl::make(
-                        Nodecl::Context::make(
-                            Nodecl::NodeclBase::null(),
-                            _related_function.get_scope()),
-                        destroy_function));
-        }
-        else if (IS_FORTRAN_LANGUAGE)
-        {
-            destroy_function =
-                compute_mangled_function_symbol_from_symbol(destroy_function);
-        }
 
         return destroy_function;
     }
