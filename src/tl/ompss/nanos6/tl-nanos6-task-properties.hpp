@@ -133,9 +133,11 @@ namespace TL { namespace Nanos6 {
             TL::Symbol create_priority_unpacked_function(
                     const std::string& common_name);
 
-            //! Generate the destroy function (outline only) and return the
-            //! function symbol
+            //! Generate the destroy function (outline only) and return the function symbol
             TL::Symbol create_destroy_function();
+
+            //! Generate the duplicate function (outline only) and return the function symbol
+            TL::Symbol create_duplicate_function();
 
             void unpack_datasharing_arguments(
                     const TL::Symbol &arg,
