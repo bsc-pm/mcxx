@@ -743,6 +743,16 @@ namespace TL { namespace Nanos6 {
                         Nodecl::FieldDesignator::make(field, value, value.get_type()));
             }
 
+            // .run_wrapper
+            {
+                Nodecl::NodeclBase field = get_field("declaration_source");
+
+                Nodecl::NodeclBase value = const_value_to_nodecl(const_value_get_signed_int(0));
+
+                field_init.append(
+                        Nodecl::FieldDesignator::make(field, value, value.get_type()));
+            }
+
             implementations_init.append(
                     Nodecl::StructuredValue::make(
                         Nodecl::List::make(field_init),
