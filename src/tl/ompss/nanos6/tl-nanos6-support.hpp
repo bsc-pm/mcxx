@@ -37,13 +37,17 @@ namespace TL
 {
 namespace Nanos6
 {
+    TL::Symbol get_nanos6_class_symbol(const std::string &name);
+    TL::Symbol get_nanos6_function_symbol(const std::string &name);
 
-void add_extra_mappings_for_vla_types(
-    TL::Type t,
-    Scope sc,
-    /* out */
-    Nodecl::Utils::SimpleSymbolMap &symbol_map,
-    TL::ObjectList<TL::Symbol> &vla_vars);
+    void add_extra_mappings_for_vla_types(
+            TL::Type t,
+            Scope sc,
+            /* out */
+            Nodecl::Utils::SimpleSymbolMap &symbol_map,
+            TL::ObjectList<TL::Symbol> &vla_vars);
+
+    Nodecl::NodeclBase compute_call_to_nanos6_bzero(Nodecl::NodeclBase pointer_expr_to_be_initialized);
 }
 }
 

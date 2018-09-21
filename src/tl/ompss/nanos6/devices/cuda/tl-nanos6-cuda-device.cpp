@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-nanos6-cuda-device.hpp"
+#include "tl-nanos6-support.hpp"
 
 #include "tl-compilerpipeline.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -244,9 +245,7 @@ Nodecl::NodeclBase CUDADevice::compute_specific_task_body(
         {
             TL::Symbol device_env = unpacked_inside_scope.get_symbol_from_name("device_env");
 
-            TL::Symbol dev_env_type_symbol =
-                TL::Scope::get_global_scope().get_symbol_from_name("nanos6_cuda_device_environment_t");
-            ERROR_CONDITION(!dev_env_type_symbol.is_valid(), "Invalid 'nanos6_cuda_device_environment_t' type", 0);
+            TL::Symbol dev_env_type_symbol = get_nanos6_class_symbol("nanos6_cuda_device_environment_t");
 
             // Adding a definition of the nanos6_cuda_device_environment_t type
             _cuda_code.prepend(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), dev_env_type_symbol));

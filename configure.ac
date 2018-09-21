@@ -1016,7 +1016,7 @@ then
             LDFLAGSBACKUP="$LDFLAGS"
             LDFLAGS="$LDFLAGSBACKUP -L$nanos6_lib"
 
-            AC_CHECK_LIB([nanos6], [nanos_in_final],
+            AC_CHECK_LIB([nanos6], [nanos6_in_final],
                 [break],
                 [
                     if test x${nanos6_mandatory_lib} = xyes; then
@@ -1025,7 +1025,7 @@ then
                     AS_UNSET(ac_cv_lib_nanos6_nanos_in_final)
                     nanos6_lib="${withval}/lib64"
                     LDFLAGS="$LDFLAGSBACKUP -L${nanos6_lib}"
-                    AC_CHECK_LIB([nanos6], [nanos_in_final],
+                    AC_CHECK_LIB([nanos6], [nanos6_in_final],
                         [break],
                         [AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])])
                 ])

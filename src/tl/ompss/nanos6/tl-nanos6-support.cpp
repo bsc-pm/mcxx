@@ -36,7 +36,6 @@
 
 namespace
 {
-
 TL::Symbol clone_vla_var(TL::Symbol sym,
                          TL::Scope sc,
                          Nodecl::Utils::SimpleSymbolMap &symbol_map)
@@ -74,45 +73,113 @@ void add_extra_mapping_for_dimension(Nodecl::NodeclBase vla_var,
 }
 }
 
-void TL::Nanos6::add_extra_mappings_for_vla_types(
-    TL::Type t,
-    TL::Scope sc,
-    /* out */
-    Nodecl::Utils::SimpleSymbolMap &symbol_map,
-    TL::ObjectList<TL::Symbol> &new_vlas)
-{
-    if (!t.is_valid())
-        return;
+namespace TL { namespace Nanos6 {
 
-    if (t.is_array())
+    TL::Symbol get_nanos6_class_symbol(const std::string &name)
     {
-        add_extra_mappings_for_vla_types(
-            t.array_element(), sc, symbol_map, new_vlas);
+        TL::Symbol struct_sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
 
-        if (IS_FORTRAN_LANGUAGE)
+        ERROR_CONDITION(!struct_sym.is_valid() ||
+                        !(struct_sym.is_typedef() || struct_sym.is_class()),
+                        "Symbol '%s' not found", name.c_str());
+
+        return struct_sym;
+    }
+
+    TL::Symbol get_nanos6_function_symbol(const std::string &name)
+    {
+        TL::Symbol fun_sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
+
+        ERROR_CONDITION(!fun_sym.is_valid() ||
+                !fun_sym.is_function(),
+                "Symbol '%s' not found", name.c_str());
+
+        return fun_sym;
+    }
+
+    void add_extra_mappings_for_vla_types(
+            TL::Type t,
+            TL::Scope sc,
+            /* out */
+            Nodecl::Utils::SimpleSymbolMap &symbol_map,
+            TL::ObjectList<TL::Symbol> &new_vlas)
+    {
+        if (!t.is_valid())
+            return;
+
+        if (t.is_array())
         {
-            Nodecl::NodeclBase lower_bound, upper_bound;
-            t.array_get_bounds(lower_bound, upper_bound);
+            add_extra_mappings_for_vla_types(
+                    t.array_element(), sc, symbol_map, new_vlas);
 
-            add_extra_mapping_for_dimension(
-                lower_bound, sc, symbol_map, new_vlas);
-            add_extra_mapping_for_dimension(
-                upper_bound, sc, symbol_map, new_vlas);
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Nodecl::NodeclBase lower_bound, upper_bound;
+                t.array_get_bounds(lower_bound, upper_bound);
+
+                add_extra_mapping_for_dimension(
+                        lower_bound, sc, symbol_map, new_vlas);
+                add_extra_mapping_for_dimension(
+                        upper_bound, sc, symbol_map, new_vlas);
+            }
+            else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                Nodecl::NodeclBase size = t.array_get_size();
+
+                add_extra_mapping_for_dimension(size, sc, symbol_map, new_vlas);
+            }
         }
-        else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        else if (t.is_any_reference())
         {
-            Nodecl::NodeclBase size = t.array_get_size();
-
-            add_extra_mapping_for_dimension(size, sc, symbol_map, new_vlas);
+            add_extra_mappings_for_vla_types(t.no_ref(), sc, symbol_map, new_vlas);
+        }
+        else if (t.is_pointer())
+        {
+            add_extra_mappings_for_vla_types(
+                    t.points_to(), sc, symbol_map, new_vlas);
         }
     }
-    else if (t.is_any_reference())
+
+    Nodecl::NodeclBase compute_call_to_nanos6_bzero(Nodecl::NodeclBase pointer_expr_to_be_initialized)
     {
-        add_extra_mappings_for_vla_types(t.no_ref(), sc, symbol_map, new_vlas);
+        TL::Type type = pointer_expr_to_be_initialized.get_type().no_ref();
+        ERROR_CONDITION(!type.is_pointer(), "This type should be a pointer type", 0);
+
+        type = type.points_to();
+
+        Nodecl::NodeclBase num_bytes;
+        if (type.is_dependent())
+        {
+            num_bytes = Nodecl::Sizeof::make(
+                    Nodecl::Type::make(type, pointer_expr_to_be_initialized.get_locus()),
+                    Nodecl::NodeclBase::null(),
+                    TL::Type::get_size_t_type(),
+                    pointer_expr_to_be_initialized.get_locus());
+        }
+        else
+        {
+            num_bytes = const_value_to_nodecl_with_basic_type(
+                    const_value_get_integer(
+                        type.get_size(),
+                        /* bytes */TL::Type::get_size_t_type().get_size(),
+                        /* sign */ 0),
+                    TL::Type::get_size_t_type().get_internal_type());
+        }
+
+        TL::Symbol nanos6_bzero_sym = get_nanos6_function_symbol("nanos6_bzero");
+        Nodecl::NodeclBase call_to_nanos6_bzero =
+            Nodecl::ExpressionStatement::make(
+                    Nodecl::FunctionCall::make(
+                        nanos6_bzero_sym.make_nodecl( /* set_ref_type */ true),
+                        Nodecl::List::make(
+                            pointer_expr_to_be_initialized,
+                            num_bytes),
+                        /* alternate symbol */ Nodecl::NodeclBase::null(),
+                        /* alternate symbol */ Nodecl::NodeclBase::null(),
+                        TL::Type::get_void_type(),
+                        pointer_expr_to_be_initialized.get_locus()),
+                    pointer_expr_to_be_initialized.get_locus());
+
+        return call_to_nanos6_bzero;
     }
-    else if (t.is_pointer())
-    {
-        add_extra_mappings_for_vla_types(
-            t.points_to(), sc, symbol_map, new_vlas);
-    }
-}
+}}

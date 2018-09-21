@@ -103,18 +103,7 @@ namespace TL { namespace Nanos6 {
 
     void Interface::check_nanos6_deprecated_headers()
     {
-        std::string any_feature = "any Nanos6 feature";
-        family_must_be_at_least("nanos6_final_api", 1, any_feature);
-        family_must_be_at_least("nanos6_multidimensional_dependencies_api", 2, any_feature);
-        family_must_be_at_least("nanos6_task_info_registration_api", 1, any_feature);
-
-        family_must_be_at_least("nanos6_task_info_contents", 5, any_feature);
-
-        family_must_be_at_least("nanos6_instantiation_api", 3, any_feature);
-        family_must_be_at_least("nanos6_taskwait_api", 1, any_feature);
-        family_must_be_at_least("nanos6_locking_api", 1, any_feature);
-        family_must_be_at_least("nanos6_utils_api", 1, any_feature);
-        family_must_be_at_least("nanos6_task_execution_api", 1, any_feature);
-        family_must_be_at_least("nanos6_multidimensional_release_api", 1, any_feature);
+        //IMPORTANT: every change in the major version resets all other versions to 1
+        family_must_be_at_least("nanos6_major_api", 2, "any feature of OmpSs-2");
     }
 }}

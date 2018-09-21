@@ -29,6 +29,7 @@
 #include "tl-nanos6-task-properties.hpp"
 #include "tl-nanos6-fortran-support.hpp"
 #include "tl-nanos6-interface.hpp"
+#include "tl-nanos6-support.hpp"
 
 #include "tl-counters.hpp"
 #include "tl-source.hpp"
@@ -64,11 +65,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase stmts = node.get_statements();
 
             // Wrap the function call into if (nanos_in_final())
-            TL::Symbol nanos_in_final_sym =
-                TL::Scope::get_global_scope().get_symbol_from_name("nanos_in_final");
-            ERROR_CONDITION(!nanos_in_final_sym .is_valid()
-                    || !nanos_in_final_sym.is_function(),
-                    "Invalid symbol", 0);
+            TL::Symbol nanos_in_final_sym = get_nanos6_function_symbol("nanos6_in_final");
 
             Nodecl::NodeclBase call_to_nanos_in_final = Nodecl::FunctionCall::make(
                 /* called */ nanos_in_final_sym.make_nodecl(/* set_ref_type */ true, node.get_locus()),
@@ -178,11 +175,7 @@ namespace TL { namespace Nanos6 {
                     new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_ptr));
                 }
 
-                TL::Symbol nanos_create_task_sym =
-                    TL::Scope::get_global_scope().get_symbol_from_name("nanos_create_task");
-                ERROR_CONDITION(!nanos_create_task_sym.is_valid()
-                        || !nanos_create_task_sym.is_function(),
-                        "Invalid symbol", 0);
+                TL::Symbol nanos_create_task_sym = get_nanos6_function_symbol("nanos6_create_task");
 
                 // void nanos_create_task(
                 //         nanos_task_info *task_info,
@@ -291,14 +284,8 @@ namespace TL { namespace Nanos6 {
 
             if (requires_initialization)
             {
-                // FORTRAN ONLY
                 ERROR_CONDITION(IS_CXX_LANGUAGE || IS_C_LANGUAGE, "Unreachable code\n", 0);
-
-                TL::Symbol nanos6_bzero_sym =
-                    TL::Scope::get_global_scope().get_symbol_from_name("nanos6_bzero");
-                ERROR_CONDITION(!nanos6_bzero_sym.is_valid()
-                        || !nanos6_bzero_sym.is_function(),
-                        "Invalid symbol", 0);
+                // FORTRAN ONLY
 
                 //  TYPE(ARGS_T), POINTER :: ARGS
                 //
@@ -309,22 +296,10 @@ namespace TL { namespace Nanos6 {
                             Nodecl::Dereference::make(
                                 args.make_nodecl(/*set_ref_type*/true),
                                 args.get_type().points_to()),
-                            args.get_type().no_ref());
-
-                Nodecl::NodeclBase call_to_nanos6_bzero =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::FunctionCall::make(
-                               nanos6_bzero_sym.make_nodecl( /* set_ref_type */ true),
-                               Nodecl::List::make(
-                                   address_of_args,
-                                   args_size.shallow_copy()),
-                               /* alternate symbol */ Nodecl::NodeclBase::null(),
-                               /* alternate symbol */ Nodecl::NodeclBase::null(),
-                               TL::Type::get_void_type(),
-                               node.get_locus()),
+                            args.get_type().no_ref(),
                             node.get_locus());
 
-                new_stmts.append(call_to_nanos6_bzero);
+                new_stmts.append(compute_call_to_nanos6_bzero(address_of_args));
             }
 
             // Capture environment
@@ -340,12 +315,7 @@ namespace TL { namespace Nanos6 {
 
             if (task_properties.task_is_loop())
             {
-                Interface::family_must_be_at_least("nanos6_taskloop_api", 1, "the 'loop' construct");
-
-                TL::Symbol nanos_register_loop_sym =
-                    TL::Scope::get_global_scope().get_symbol_from_name("nanos_register_taskloop_bounds");
-                ERROR_CONDITION(!nanos_register_loop_sym.is_valid()
-                        || !nanos_register_loop_sym.is_function(), "Invalid symbol", 0);
+                TL::Symbol nanos_register_loop_sym = get_nanos6_function_symbol("nanos6_register_taskloop_bounds");
 
                 ERROR_CONDITION(!node.get_statements().is<Nodecl::List>(), "Unexpected node\n", 0);
                 Nodecl::NodeclBase stmt = node.get_statements().as<Nodecl::List>().front();
@@ -392,11 +362,7 @@ namespace TL { namespace Nanos6 {
 
             // Submit the created task
             {
-                TL::Symbol nanos_submit_task_sym =
-                    TL::Scope::get_global_scope().get_symbol_from_name("nanos_submit_task");
-                ERROR_CONDITION(!nanos_submit_task_sym.is_valid()
-                        || !nanos_submit_task_sym.is_function(),
-                        "Invalid symbol", 0);
+                TL::Symbol nanos_submit_task_sym = get_nanos6_function_symbol("nanos6_submit_task");
 
                 Nodecl::NodeclBase task_ptr_arg = task_ptr.make_nodecl(/* set_ref_type */ true);
                 task_ptr_arg = ::cxx_nodecl_make_conversion(

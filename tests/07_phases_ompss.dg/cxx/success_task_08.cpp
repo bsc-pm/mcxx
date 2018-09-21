@@ -42,5 +42,10 @@ int main()
 {
     int a;
     foo(&a);
-#pragma omp taskwait
+
+    #pragma omp task priority(0)
+    {
+    }
+
+    #pragma omp taskwait
 }

@@ -26,6 +26,8 @@
 
 
 #include "tl-nanos6-lower.hpp"
+#include "tl-nanos6-support.hpp"
+
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
@@ -48,17 +50,8 @@ namespace TL { namespace Nanos6 {
             }
         }
 
-        TL::Symbol nanos_user_lock =
-            TL::Scope::get_global_scope().get_symbol_from_name("nanos_user_lock");
-        ERROR_CONDITION(!nanos_user_lock.is_valid()
-                || !nanos_user_lock.is_function(),
-                "Invalid symbol", 0);
-
-        TL::Symbol nanos_user_unlock =
-            TL::Scope::get_global_scope().get_symbol_from_name("nanos_user_unlock");
-        ERROR_CONDITION(!nanos_user_unlock.is_valid()
-                || !nanos_user_unlock.is_function(),
-                "Invalid symbol", 0);
+        TL::Symbol nanos_user_lock   = get_nanos6_function_symbol("nanos6_user_lock");
+        TL::Symbol nanos_user_unlock = get_nanos6_function_symbol("nanos6_user_unlock");
 
         TL::Symbol lock_sym = TL::Scope::get_global_scope().get_symbol_from_name(lock_name);
         if (!lock_sym.is_valid())
