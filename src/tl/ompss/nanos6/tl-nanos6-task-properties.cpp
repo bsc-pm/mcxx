@@ -71,12 +71,6 @@ namespace TL { namespace Nanos6 {
         : _env(node.get_environment()), _serial_context(serial_context),
         _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
     {
-        if (!_env.dep_reduction.empty() || !_env.dep_weakreduction.empty())
-            Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", 5, "reductions");
-
-        if ( _env.wait_clause)
-            Interface::family_must_be_at_least("nanos6_instantiation_api", 2, "the 'wait' clause");
-
         TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
         _nanos6_task_counter = (int) counter;
         counter++;
@@ -805,127 +799,145 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<TL::Symbol> fields = task_info_struct.get_type().get_nonstatic_data_members();
         GetField get_field(fields);
 
+        TL::ObjectList<Nodecl::NodeclBase> field_init;
+
         // .num_symbols
-        Nodecl::NodeclBase field_num_symbols = get_field("num_symbols");
-        Nodecl::NodeclBase init_num_symbols = const_value_to_nodecl(const_value_get_signed_int(-1));
+        {
+            Nodecl::NodeclBase field_num_symbols = get_field("num_symbols");
+            Nodecl::NodeclBase init_num_symbols = const_value_to_nodecl(const_value_get_signed_int(-1));
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_num_symbols,
+                        init_num_symbols,
+                        field_num_symbols.get_type()));
+        }
 
         // .register_depinfo
-        Nodecl::NodeclBase field_register_depinfo = get_field("register_depinfo");
-        Nodecl::NodeclBase init_register_depinfo;
-        if (deps_function.is_valid())
         {
-            init_register_depinfo = deps_function.make_nodecl(/* set_ref_type */ true);
-            init_register_depinfo = Nodecl::Conversion::make(
-                    init_register_depinfo,
-                    field_register_depinfo.get_type().no_ref());
-            init_register_depinfo.set_text("C");
-        }
-        else
-        {
-            init_register_depinfo = const_value_to_nodecl(const_value_get_signed_int(0));
+            Nodecl::NodeclBase field_register_depinfo = get_field("register_depinfo");
+            Nodecl::NodeclBase init_register_depinfo;
+            if (deps_function.is_valid())
+            {
+                init_register_depinfo = deps_function.make_nodecl(/* set_ref_type */ true);
+                init_register_depinfo = Nodecl::Conversion::make(
+                        init_register_depinfo,
+                        field_register_depinfo.get_type().no_ref());
+                init_register_depinfo.set_text("C");
+            }
+            else
+            {
+                init_register_depinfo = const_value_to_nodecl(const_value_get_signed_int(0));
+            }
+
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_register_depinfo,
+                        init_register_depinfo,
+                        field_register_depinfo.get_type()));
         }
 
         // .get_priority
-        Nodecl::NodeclBase field_get_priority = get_field("get_priority");
-        Nodecl::NodeclBase init_get_priority;
-        if (priority_function.is_valid())
         {
-            init_get_priority = priority_function.make_nodecl(/* set_ref_type */ true);
-            init_get_priority = Nodecl::Conversion::make(
-                    init_get_priority,
-                    field_get_priority.get_type().no_ref());
-            init_get_priority.set_text("C");
-        }
-        else
-        {
-            init_get_priority = const_value_to_nodecl(const_value_get_signed_int(0));
+            Nodecl::NodeclBase field_get_priority = get_field("get_priority");
+            Nodecl::NodeclBase init_get_priority;
+            if (priority_function.is_valid())
+            {
+                init_get_priority = priority_function.make_nodecl(/* set_ref_type */ true);
+                init_get_priority = Nodecl::Conversion::make(
+                        init_get_priority,
+                        field_get_priority.get_type().no_ref());
+                init_get_priority.set_text("C");
+            }
+            else
+            {
+                init_get_priority = const_value_to_nodecl(const_value_get_signed_int(0));
+            }
+
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_get_priority,
+                        init_get_priority,
+                        field_get_priority.get_type()));
         }
 
         // .type_identifier
-        Nodecl::NodeclBase field_type_identifier = get_field("type_identifier");
-        Nodecl::NodeclBase init_type_identifier = const_value_to_nodecl(const_value_get_signed_int(0));
+        {
+            Nodecl::NodeclBase field_type_identifier = get_field("type_identifier");
+            Nodecl::NodeclBase init_type_identifier = const_value_to_nodecl(const_value_get_signed_int(0));
+
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_type_identifier,
+                        init_type_identifier,
+                        field_type_identifier.get_type()));
+        }
 
         // .implementation_count
-        int num_impl = _implementations.size();
-        Nodecl::NodeclBase field_implementation_count = get_field("implementation_count");
-        Nodecl::NodeclBase init_implementation_count  = const_value_to_nodecl(const_value_get_signed_int(num_impl));
+        {
+            int num_impl = _implementations.size();
+            Nodecl::NodeclBase field_implementation_count = get_field("implementation_count");
+            Nodecl::NodeclBase init_implementation_count  = const_value_to_nodecl(const_value_get_signed_int(num_impl));
+
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_implementation_count,
+                        init_implementation_count,
+                        field_implementation_count.get_type()));
+        }
 
         // .implementations
-        Nodecl::NodeclBase field_implementations = get_field("implementations");
-        Nodecl::NodeclBase init_implementations  = implementations.make_nodecl(/*ref_type*/ true);
+        {
+            Nodecl::NodeclBase field_implementations = get_field("implementations");
+            Nodecl::NodeclBase init_implementations  = implementations.make_nodecl(/*ref_type*/ true);
+
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_implementations,
+                        init_implementations,
+                        field_implementations.get_type()));
+        }
 
         // .destroy
-        Nodecl::NodeclBase field_destroy = get_field("destroy_args_block");
-        Nodecl::NodeclBase init_destroy;
-        if (destroy_function.is_valid())
         {
-            init_destroy = destroy_function.make_nodecl(/* set_ref_type */ true);
-            init_destroy = Nodecl::Conversion::make(
-                    init_destroy,
-                    field_destroy.get_type().no_ref());
-            init_destroy.set_text("C");
-        }
-        else
-        {
-            init_destroy = const_value_to_nodecl(const_value_get_signed_int(0));
-        }
+            Nodecl::NodeclBase field_destroy = get_field("destroy_args_block");
+            Nodecl::NodeclBase init_destroy;
+            if (destroy_function.is_valid())
+            {
+                init_destroy = destroy_function.make_nodecl(/* set_ref_type */ true);
+                init_destroy = Nodecl::Conversion::make(
+                        init_destroy,
+                        field_destroy.get_type().no_ref());
+                init_destroy.set_text("C");
+            }
+            else
+            {
+                init_destroy = const_value_to_nodecl(const_value_get_signed_int(0));
+            }
 
-        Nodecl::NodeclBase field_duplicate = get_field("duplicate_args_block");
-        Nodecl::NodeclBase init_duplicate;
-        if (duplicate_function.is_valid())
-        {
-            init_duplicate = duplicate_function.make_nodecl(/* set_ref_type */ true);
-            init_duplicate = Nodecl::Conversion::make(
-                    init_duplicate,
-                    field_duplicate.get_type().no_ref());
-            init_duplicate.set_text("C");
-        }
-        else
-        {
-            init_duplicate = const_value_to_nodecl(const_value_get_signed_int(0));
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_destroy,
+                        init_destroy,
+                        field_destroy.get_type()));
         }
 
+        // .duplicate_args_block
+        {
+            Nodecl::NodeclBase field_duplicate = get_field("duplicate_args_block");
+            Nodecl::NodeclBase init_duplicate;
+            if (duplicate_function.is_valid())
+            {
+                init_duplicate = duplicate_function.make_nodecl(/* set_ref_type */ true);
+                init_duplicate = Nodecl::Conversion::make(
+                        init_duplicate,
+                        field_duplicate.get_type().no_ref());
+                init_duplicate.set_text("C");
+            }
+            else
+            {
+                init_duplicate = const_value_to_nodecl(const_value_get_signed_int(0));
+            }
 
-        TL::ObjectList<Nodecl::NodeclBase> field_init;
-        field_init.append(
-                Nodecl::FieldDesignator::make(field_num_symbols,
-                    init_num_symbols,
-                    field_num_symbols.get_type()));
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_duplicate,
+                        init_duplicate,
+                        field_duplicate.get_type()));
+        }
 
-        field_init.append(
-                Nodecl::FieldDesignator::make(field_register_depinfo,
-                    init_register_depinfo,
-                    field_register_depinfo.get_type()));
-
-        field_init.append(
-                Nodecl::FieldDesignator::make(field_get_priority,
-                    init_get_priority,
-                    field_get_priority.get_type()));
-
-        field_init.append(
-                Nodecl::FieldDesignator::make(field_type_identifier,
-                    init_type_identifier,
-                    field_type_identifier.get_type()));
-
-        field_init.append(
-                Nodecl::FieldDesignator::make(field_implementation_count,
-                    init_implementation_count,
-                    field_implementation_count.get_type()));
-        field_init.append(
-                Nodecl::FieldDesignator::make(field_implementations,
-                    init_implementations,
-                    field_implementations.get_type()));
-
-        field_init.append(
-                Nodecl::FieldDesignator::make(field_destroy,
-                    init_destroy,
-                    field_destroy.get_type()));
-
-        field_init.append(
-                Nodecl::FieldDesignator::make(field_duplicate,
-                    init_duplicate,
-                    field_duplicate.get_type()));
-        if (Interface::family_is_at_least("nanos6_task_info_contents", 6))
+        // .reduction_initializers
         {
             Nodecl::NodeclBase field_reduction_initializers = get_field("reduction_initializers");
             Nodecl::NodeclBase init_reduction_initializers;
@@ -941,6 +953,14 @@ namespace TL { namespace Nanos6 {
                     const_value_to_nodecl(const_value_get_signed_int(0));
             }
 
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field_reduction_initializers,
+                        init_reduction_initializers,
+                        field_reduction_initializers.get_type()));
+        }
+
+        // .reduction_combiners
+        {
             Nodecl::NodeclBase field_reduction_combiners = get_field("reduction_combiners");
             Nodecl::NodeclBase init_reduction_combiners;
 
@@ -955,10 +975,6 @@ namespace TL { namespace Nanos6 {
                     const_value_to_nodecl(const_value_get_signed_int(0));
             }
 
-            field_init.append(
-                    Nodecl::FieldDesignator::make(field_reduction_initializers,
-                        init_reduction_initializers,
-                        field_reduction_initializers.get_type()));
             field_init.append(
                     Nodecl::FieldDesignator::make(field_reduction_combiners,
                         init_reduction_combiners,

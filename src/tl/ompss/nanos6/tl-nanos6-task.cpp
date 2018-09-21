@@ -329,8 +329,6 @@ namespace TL { namespace Nanos6 {
 
             if (task_properties.task_is_loop())
             {
-                Interface::family_must_be_at_least("nanos6_taskloop_api", 1, "the 'loop' construct");
-
                 TL::Symbol nanos_register_loop_sym = get_nanos6_function_symbol("nanos6_register_taskloop_bounds");
 
                 ERROR_CONDITION(!node.get_statements().is<Nodecl::List>(), "Unexpected node\n", 0);

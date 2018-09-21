@@ -34,8 +34,6 @@ namespace TL { namespace Nanos6 {
 
     void Lower::visit(const Nodecl::OmpSs::Release& node)
     {
-        Interface::family_must_be_at_least("nanos6_multidimensional_release_api", 1, "Release construct");
-
         Nodecl::NodeclBase dummy_serial_stmts;
         Nodecl::List release_stmts;
         TaskProperties task_properties(node, dummy_serial_stmts, _phase, this);
