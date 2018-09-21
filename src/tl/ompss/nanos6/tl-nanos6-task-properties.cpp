@@ -4604,50 +4604,13 @@ namespace TL { namespace Nanos6 {
 
         if (IS_FORTRAN_LANGUAGE)
         {
-            Nodecl::NodeclBase basic_size;
-            if (_info_structure.is_dependent())
-            {
-                basic_size = Nodecl::Sizeof::make(
-                        Nodecl::Type::make(_info_structure, _locus_of_task_creation),
-                        Nodecl::NodeclBase::null(),
-                        TL::Type::get_size_t_type(),
-                        _locus_of_task_creation);
-            }
-            else
-            {
-                basic_size = const_value_to_nodecl_with_basic_type(
-                        const_value_get_integer(
-                            _info_structure.get_size(),
-                            /* bytes */ type_get_size(get_size_t_type()),
-                            /* sign */ 0),
-                        get_size_t_type());
-            }
-
-            TL::Symbol nanos6_bzero_sym = get_nanos6_function_symbol("nanos6_bzero");
-
-            //  TYPE(ARGS_T), POINTER :: ARGS
-            //
-            //  What we want to set to zero is the storage of this pointer, not
-            //  the descriptor itself: LOC(ARGS)
             Nodecl::NodeclBase address_of_args =
                 Nodecl::Reference::make(
                         dst_data_env.make_nodecl(/*set_ref_type*/true),
-                        dst_data_env.get_type().no_ref().get_pointer_to());
-
-            Nodecl::NodeclBase call_to_nanos6_bzero =
-                Nodecl::ExpressionStatement::make(
-                        Nodecl::FunctionCall::make(
-                            nanos6_bzero_sym.make_nodecl( /* set_ref_type */ true),
-                            Nodecl::List::make(
-                                address_of_args,
-                                basic_size),
-                            /* alternate symbol */ Nodecl::NodeclBase::null(),
-                            /* alternate symbol */ Nodecl::NodeclBase::null(),
-                            TL::Type::get_void_type(),
-                            _locus_of_task_creation),
+                        dst_data_env.get_type().no_ref().get_pointer_to(),
                         _locus_of_task_creation);
 
-            captured_stmts.append(call_to_nanos6_bzero);
+            captured_stmts.append(compute_call_to_nanos6_bzero(address_of_args));
         }
 
         // 1. Traversing captured variables (firstprivate + other captures)
@@ -4656,7 +4619,6 @@ namespace TL { namespace Nanos6 {
                 it++)
         {
             ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
-
 
             Nodecl::NodeclBase lhs =
                 Nodecl::ClassMemberAccess::make(

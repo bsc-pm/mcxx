@@ -284,10 +284,8 @@ namespace TL { namespace Nanos6 {
 
             if (requires_initialization)
             {
-                // FORTRAN ONLY
                 ERROR_CONDITION(IS_CXX_LANGUAGE || IS_C_LANGUAGE, "Unreachable code\n", 0);
-
-                TL::Symbol nanos6_bzero_sym = get_nanos6_function_symbol("nanos6_bzero");
+                // FORTRAN ONLY
 
                 //  TYPE(ARGS_T), POINTER :: ARGS
                 //
@@ -298,22 +296,10 @@ namespace TL { namespace Nanos6 {
                             Nodecl::Dereference::make(
                                 args.make_nodecl(/*set_ref_type*/true),
                                 args.get_type().points_to()),
-                            args.get_type().no_ref());
-
-                Nodecl::NodeclBase call_to_nanos6_bzero =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::FunctionCall::make(
-                               nanos6_bzero_sym.make_nodecl( /* set_ref_type */ true),
-                               Nodecl::List::make(
-                                   address_of_args,
-                                   args_size.shallow_copy()),
-                               /* alternate symbol */ Nodecl::NodeclBase::null(),
-                               /* alternate symbol */ Nodecl::NodeclBase::null(),
-                               TL::Type::get_void_type(),
-                               node.get_locus()),
+                            args.get_type().no_ref(),
                             node.get_locus());
 
-                new_stmts.append(call_to_nanos6_bzero);
+                new_stmts.append(compute_call_to_nanos6_bzero(address_of_args));
             }
 
             // Capture environment

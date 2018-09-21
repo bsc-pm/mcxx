@@ -46,6 +46,8 @@ namespace Nanos6
             /* out */
             Nodecl::Utils::SimpleSymbolMap &symbol_map,
             TL::ObjectList<TL::Symbol> &vla_vars);
+
+    Nodecl::NodeclBase compute_call_to_nanos6_bzero(Nodecl::NodeclBase pointer_expr_to_be_initialized);
 }
 }
 
