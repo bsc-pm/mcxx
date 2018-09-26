@@ -1022,7 +1022,7 @@ then
                     if test x${nanos6_mandatory_lib} = xyes; then
                         AC_MSG_ERROR([Nanos6 support was required but 'libnanos6.so' was not found])
                     fi
-                    AS_UNSET(ac_cv_lib_nanos6_nanos_in_final)
+                    AS_UNSET(ac_cv_lib_nanos6_nanos6_in_final)
                     nanos6_lib="${withval}/lib64"
                     LDFLAGS="$LDFLAGSBACKUP -L${nanos6_lib}"
                     AC_CHECK_LIB([nanos6], [nanos6_in_final],
