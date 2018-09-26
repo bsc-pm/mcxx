@@ -3680,76 +3680,20 @@ namespace TL { namespace Nanos6 {
         std::string reduction_initializers_name =
             get_new_name("nanos6_reduction_initializers");
 
-        reduction_initializers =
-            scope.new_symbol(reduction_initializers_name);
-        reduction_initializers.get_internal_symbol()->kind = SK_VARIABLE;
-        symbol_entity_specs_set_is_user_declared(
-                reduction_initializers.get_internal_symbol(), 1);
-        symbol_entity_specs_set_is_static(
-                reduction_initializers.get_internal_symbol(), 1);
-        reduction_initializers.set_type(reduction_function_type.get_array_to());
-
-        // Scope where initializers/combiners arrays definitions belong
-        Nodecl::NodeclBase array_def_context;
-
-        if (IS_CXX_LANGUAGE && _related_function.is_member())
-        {
-            TL::Type class_type = _related_function.get_class_type();
-            symbol_entity_specs_set_is_member(
-                    reduction_initializers.get_internal_symbol(), 1);
-            symbol_entity_specs_set_class_type(
-                    reduction_initializers.get_internal_symbol(),
-                    class_type.get_internal_type());
-            symbol_entity_specs_set_is_static(
-                    reduction_initializers.get_internal_symbol(), 1);
-            symbol_entity_specs_set_access(
-                    reduction_initializers.get_internal_symbol(),
-                    AS_PUBLIC);
-            class_type_add_member(
-                    class_type.get_internal_type(),
-                    reduction_initializers.get_internal_symbol(),
-                    reduction_initializers.get_internal_symbol()->decl_context,
-                    /* is_definition */ 0);
-
-            // No need to use namespace scope, codegen fixes it for us
-            array_def_context = Nodecl::Context::make(
-                    /*statements*/ Nodecl::NodeclBase::null(),
-                    TL::Scope::get_global_scope());
-        }
+        create_static_variable_depending_on_function_context(
+                reduction_initializers_name,
+                reduction_function_type.get_array_to(),
+                reduction_initializers);
 
         // 2.2. Reduction combiners
 
         std::string reduction_combiners_name =
             get_new_name("nanos6_reduction_combiners");
 
-        reduction_combiners =
-            scope.new_symbol(reduction_combiners_name);
-        reduction_combiners.get_internal_symbol()->kind = SK_VARIABLE;
-        symbol_entity_specs_set_is_user_declared(
-                reduction_combiners.get_internal_symbol(), 1);
-        symbol_entity_specs_set_is_static(
-                reduction_combiners.get_internal_symbol(), 1);
-        reduction_combiners.set_type(reduction_function_type.get_array_to());
-
-        if (IS_CXX_LANGUAGE && _related_function.is_member())
-        {
-            TL::Type class_type = _related_function.get_class_type();
-            symbol_entity_specs_set_is_member(
-                    reduction_combiners.get_internal_symbol(), 1);
-            symbol_entity_specs_set_class_type(
-                    reduction_combiners.get_internal_symbol(),
-                    class_type.get_internal_type());
-            symbol_entity_specs_set_is_static(
-                    reduction_combiners.get_internal_symbol(), 1);
-            symbol_entity_specs_set_access(
-                    reduction_combiners.get_internal_symbol(),
-                    AS_PUBLIC);
-            class_type_add_member(
-                    class_type.get_internal_type(),
-                    reduction_combiners.get_internal_symbol(),
-                    reduction_combiners.get_internal_symbol()->decl_context,
-                    /* is_definition */ 0);
-        }
+        create_static_variable_depending_on_function_context(
+                reduction_combiners_name,
+                reduction_function_type.get_array_to(),
+                reduction_combiners);
 
         // 3. Build brace initializers (ie {A, B, C}) for the global symbols
         // and set them as their value
@@ -3768,21 +3712,6 @@ namespace TL { namespace Nanos6 {
 
         reduction_initializers.set_value(reduction_initializers_value);
         reduction_combiners.set_value(reduction_combiners_value);
-
-        if (IS_CXX_LANGUAGE)
-        {
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                    _task_body,
-                    Nodecl::CxxDef::make(
-                        array_def_context,
-                        reduction_initializers));
-
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                    _task_body,
-                    Nodecl::CxxDef::make(
-                        array_def_context.shallow_copy(),
-                        reduction_combiners));
-        }
     }
 
     // FIXME: MOVE THIS FUNCTION TO ANOTHER PLACE
