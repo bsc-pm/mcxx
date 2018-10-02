@@ -84,6 +84,17 @@ namespace TL { namespace Intel {
 
         virtual void visit(const Nodecl::Symbol& node);
     };
+
+    struct TranslateReductionExpr: public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            std::map<TL::Symbol, Nodecl::NodeclBase>& _translation_map;
+
+        public:
+            TranslateReductionExpr(std::map<TL::Symbol, Nodecl::NodeclBase>& translation_map);
+
+        virtual void visit(const Nodecl::Symbol& node);
+    };
 } }
 
 #endif // TL_LOWER_REDUCTIONS_HPP

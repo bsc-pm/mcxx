@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -36,7 +36,6 @@
 #include "cxx-cexpr.h"
 
 namespace TL { namespace Intel {
-
 void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
 {
     lower_for(construct, Nodecl::NodeclBase::null(),
@@ -249,13 +248,64 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
 
             TL::Symbol reductor = current.get_reductor().get_symbol();
             OpenMP::Reduction* omp_reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
+            TL::Symbol reduced_symbol = current.get_reduced_symbol().get_symbol();
 
-            Source init_field;
-            init_field << as_symbol(reduction_pack_symbol) << "." << it_fields->get_name()
-                << " = " << as_expression(omp_reduction->get_initializer().shallow_copy()) << ";"
-                ;
-            Nodecl::NodeclBase init_field_tree = init_field.parse_statement(stmt_placeholder);
-            stmt_placeholder.prepend_sibling(init_field_tree);
+            Nodecl::NodeclBase init_stmt = omp_reduction->get_initializer().shallow_copy();
+            if (omp_reduction->get_is_initialization()) {
+                init_stmt = Nodecl::Assignment::make(
+                        omp_reduction->get_omp_priv().make_nodecl(/* set_ref_type */ true),
+                        init_stmt,
+                        omp_reduction->get_omp_priv().get_type().no_ref());
+            }
+            init_stmt = Nodecl::List::make(Nodecl::ExpressionStatement::make(init_stmt));
+
+            Type type = reduced_symbol.get_type();
+
+            Type base_type = type;
+            while (base_type.is_array()) base_type = base_type.array_element();
+
+            std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_nodecl_map;
+
+            if (type.is_array()) {
+
+                TL::Symbol ind_var;
+                Nodecl::NodeclBase init_for_stmt = build_for(const_value_to_nodecl(const_value_get_signed_int(0)),
+                          reduced_symbol.get_type().array_get_size().shallow_copy(),
+                          const_value_to_nodecl(const_value_get_signed_int(1)),
+                          init_stmt,
+                          construct.retrieve_context(),
+                          ind_var);
+                sym_to_nodecl_map[omp_reduction->get_omp_priv()] =
+                    TL::Source(as_symbol(reduction_pack_symbol)
+                               + "."
+                               + it_fields->get_name()
+                               + "["
+                               + as_symbol(ind_var)
+                               + "]").parse_expression(construct);
+                sym_to_nodecl_map[omp_reduction->get_omp_orig()] =
+                    Nodecl::ArraySubscript::make(
+                            reduced_symbol.make_nodecl(/* set_ref_type */ true),
+                            Nodecl::List::make(
+                                ind_var.make_nodecl(/* set_ref_type */ true)),
+                            base_type);
+
+                TranslateReductionExpr nodecl_replacer(sym_to_nodecl_map);
+                nodecl_replacer.walk(init_stmt);
+                stmt_placeholder.prepend_sibling(init_for_stmt);
+            }
+            else {
+                sym_to_nodecl_map[omp_reduction->get_omp_priv()] =
+                    TL::Source(as_symbol(reduction_pack_symbol)
+                               + "."
+                               + it_fields->get_name()).parse_expression(construct);
+                sym_to_nodecl_map[omp_reduction->get_omp_orig()] =
+                            reduced_symbol.make_nodecl(/* set_ref_type */ true);
+
+                TranslateReductionExpr nodecl_replacer(sym_to_nodecl_map);
+                nodecl_replacer.walk(init_stmt);
+                stmt_placeholder.prepend_sibling(init_stmt);
+            }
+
         }
     }
 
@@ -466,15 +516,52 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
                 OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
 
                 Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
+                Nodecl::NodeclBase red_item_comb_stmt = Source(as_expression(combiner_expr) + ";").parse_statement(construct);
 
-                ReplaceInOutMaster replace_inout(
-                        *it_fields,
-                        reduction->get_omp_in(), reduction_pack_symbol,
-                        reduction->get_omp_out(), reduced_symbol);
-                replace_inout.walk(combiner_expr);
+                Type type = reduced_symbol.get_type();
 
-                master_combiner << as_expression(combiner_expr) << ";"
-                    ;
+                Type base_type = type;
+                while (base_type.is_array()) base_type = base_type.array_element();
+
+                std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_nodecl_map;
+
+                if (type.is_array()) {
+                    TL::Symbol ind_var;
+                    master_combiner << as_statement(build_for(const_value_to_nodecl(const_value_get_signed_int(0)),
+                              reduced_symbol.get_type().array_get_size().shallow_copy(),
+                              const_value_to_nodecl(const_value_get_signed_int(1)),
+                              red_item_comb_stmt,
+                              construct.retrieve_context(),
+                              ind_var));
+                    sym_to_nodecl_map[reduction->get_omp_in()] =
+                        TL::Source(as_symbol(reduction_pack_symbol)
+                                   + "."
+                                   + it_fields->get_name()
+                                   + "["
+                                   + as_symbol(ind_var)
+                                   + "]").parse_expression(construct);
+                    sym_to_nodecl_map[reduction->get_omp_out()] =
+                        Nodecl::ArraySubscript::make(
+                                reduced_symbol.make_nodecl(/* set_ref_type */ true),
+                                Nodecl::List::make(
+                                    ind_var.make_nodecl(/* set_ref_type */ true)),
+                                base_type);
+
+                    TranslateReductionExpr nodecl_replacer(sym_to_nodecl_map);
+                    nodecl_replacer.walk(red_item_comb_stmt);
+                }
+                else {
+                    sym_to_nodecl_map[reduction->get_omp_in()] =
+                        TL::Source(as_symbol(reduction_pack_symbol)
+                                   + "."
+                                   + it_fields->get_name()).parse_expression(construct);
+                    sym_to_nodecl_map[reduction->get_omp_out()] =
+                                reduced_symbol.make_nodecl(/* set_ref_type */ true);
+
+                    TranslateReductionExpr nodecl_replacer(sym_to_nodecl_map);
+                    nodecl_replacer.walk(red_item_comb_stmt);
+                    master_combiner << as_statement(red_item_comb_stmt);
+                }
             }
 
             Source reduction_size;
@@ -566,7 +653,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
                 <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
                 <<               ", " << reduction_items.size()
                 <<               ", " << reduction_size
-                <<               ", " << reduction_data 
+                <<               ", " << reduction_data
                 <<               ", (void(*)(void*,void*))" << as_symbol(callback)
                 <<               ", &" << as_symbol(Intel::get_global_lock_symbol(construct)) << "))"
                 << "{"

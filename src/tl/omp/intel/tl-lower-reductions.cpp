@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -50,7 +50,7 @@ namespace TL
 
         if (sym == _orig_omp_in)
         {
-            Nodecl::NodeclBase class_member = 
+            Nodecl::NodeclBase class_member =
                 Nodecl::ClassMemberAccess::make(
                         _reduction_pack_symbol.make_nodecl(/* set_ref_type */ true, node.get_locus()),
                         Nodecl::Symbol::make(_field, node.get_locus()),
@@ -95,7 +95,7 @@ namespace TL
             else
                 return;
 
-            Nodecl::NodeclBase class_member = 
+            Nodecl::NodeclBase class_member =
                 Nodecl::ClassMemberAccess::make(
                         new_symbol->make_nodecl(/* set_ref_type */ true, node.get_locus()),
                         Nodecl::Symbol::make(_field, node.get_locus()),
@@ -186,19 +186,63 @@ namespace TL
                 it++, it_fields++)
         {
             Nodecl::OpenMP::ReductionItem &current(*it);
+
             TL::Symbol reductor = current.get_reductor().get_symbol();
             OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
+            TL::Symbol reduced_symbol = current.get_reduced_symbol().get_symbol();
 
             Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
+            Nodecl::NodeclBase red_item_comb_stmt =
+                Nodecl::ExpressionStatement::make(combiner_expr);
 
-            ReplaceInOut replace_inout(
-                    *it_fields,
-                    reduction->get_omp_in(), red_omp_in,
-                    reduction->get_omp_out(), red_omp_out);
-            replace_inout.walk(combiner_expr);
+            Type type = reduced_symbol.get_type();
 
-            combiner << as_expression(combiner_expr) << ";"
-                ;
+            Type base_type = type;
+            while (base_type.is_array()) base_type = base_type.array_element();
+
+            std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_nodecl_map;
+
+            if (type.is_array()) {
+                TL::Symbol ind_var;
+                combiner << as_statement(build_for(const_value_to_nodecl(const_value_get_signed_int(0)),
+                          reduced_symbol.get_type().array_get_size().shallow_copy(),
+                          const_value_to_nodecl(const_value_get_signed_int(1)),
+                          Nodecl::List::make(red_item_comb_stmt),
+                          empty_stmt.retrieve_context(),
+                          ind_var));
+
+                sym_to_nodecl_map[reduction->get_omp_in()] =
+                    TL::Source(as_symbol(red_omp_in)
+                               + "."
+                               + it_fields->get_name()
+                               + "["
+                               + as_symbol(ind_var)
+                               + "]").parse_expression(empty_stmt.retrieve_context());
+                sym_to_nodecl_map[reduction->get_omp_out()] =
+                    TL::Source(as_symbol(red_omp_out)
+                               + "."
+                               + it_fields->get_name()
+                               + "["
+                               + as_symbol(ind_var)
+                               + "]").parse_expression(empty_stmt.retrieve_context());
+
+                TranslateReductionExpr nodecl_replacer(sym_to_nodecl_map);
+                nodecl_replacer.walk(red_item_comb_stmt);
+            }
+            else {
+                sym_to_nodecl_map[reduction->get_omp_in()] =
+                    TL::Source(as_symbol(red_omp_in)
+                               + "."
+                               + it_fields->get_name()).parse_expression(empty_stmt.retrieve_context());
+                sym_to_nodecl_map[reduction->get_omp_out()] =
+                    TL::Source(as_symbol(red_omp_out)
+                               + "."
+                               + it_fields->get_name()).parse_expression(empty_stmt.retrieve_context());
+
+                TranslateReductionExpr nodecl_replacer(sym_to_nodecl_map);
+                nodecl_replacer.walk(red_item_comb_stmt);
+                combiner << as_statement(red_item_comb_stmt);
+            }
         }
 
         Nodecl::NodeclBase new_body_tree = combiner.parse_statement(empty_stmt);
@@ -357,7 +401,7 @@ namespace TL
             ReplaceInOutSIMD * _replace_inout;
 
             SIMDizeCombiner(int vector_width_bytes) :
-                _vector_width_bytes(vector_width_bytes), _replace_inout(NULL) 
+                _vector_width_bytes(vector_width_bytes), _replace_inout(NULL)
             {
             }
 
@@ -793,6 +837,21 @@ namespace TL
                         current_function);
             default:
                 internal_error("Code unreachable", 0);
+        }
+    }
+
+    Intel::TranslateReductionExpr::TranslateReductionExpr(std::map<TL::Symbol, Nodecl::NodeclBase>& translation_map)
+        : _translation_map(translation_map)
+    {}
+
+    void Intel::TranslateReductionExpr::visit(const Nodecl::Symbol& node)
+    {
+        TL::Symbol symbol = node.get_symbol();
+
+        std::map<TL::Symbol, Nodecl::NodeclBase>::iterator it = _translation_map.find(symbol);
+        if (it != _translation_map.end())
+        {
+            node.replace(it->second.shallow_copy());
         }
     }
 }

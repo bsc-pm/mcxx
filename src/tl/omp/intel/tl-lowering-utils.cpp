@@ -264,4 +264,64 @@ void Intel::gather_vla_symbols(TL::Symbol symbol,
     gather_vla_symbol_type(symbol.get_type(), extra_symbols);
 }
 
+// Pre: 'body' must be a List
+// Post: returns a for loop with 'body' as a body and the induction var in 'ind_var'
+Nodecl::NodeclBase Intel::build_for(const Nodecl::NodeclBase& init,
+                             const Nodecl::NodeclBase& cond,
+                             const Nodecl::NodeclBase& incr,
+                             const Nodecl::NodeclBase& body,
+                             const TL::Scope& sc,
+                             TL::Symbol& ind_var) {
+
+    TL::Scope loop_control_scope = TL::Scope(
+        new_block_context(sc.get_decl_context()));
+
+    TL::Scope loop_statements_scope = TL::Scope(
+        new_block_context(loop_control_scope.get_decl_context()));
+
+    TL::Counter &ind_var_num = TL::CounterManager::get_counter("intel-omp-for-ind_var");
+    std::stringstream ss;
+    ss << "_i" << (int)(ind_var_num);
+    ind_var_num++;
+
+    ind_var = loop_control_scope.new_symbol(ss.str());
+    symbol_entity_specs_set_is_user_declared(ind_var.get_internal_symbol(), 1);
+    ind_var.get_internal_symbol()->kind = SK_VARIABLE;
+    ind_var.set_type(TL::Type::get_size_t_type());
+    ind_var.set_value(init);
+
+    Nodecl::NodeclBase assignment = Nodecl::ObjectInit::make(ind_var);
+
+    Nodecl::NodeclBase condition = Nodecl::LowerThan::make(
+            ind_var.make_nodecl(/* set_ref_type */ true),
+            cond,
+            TL::Type::get_bool_type());
+
+    Nodecl::NodeclBase step = Nodecl::AddAssignment::make(
+            ind_var.make_nodecl(/* set_ref_type */ true),
+            incr,
+            ind_var.get_type());
+
+    Nodecl::NodeclBase loop_control = Nodecl::LoopControl::make(
+            Nodecl::List::make(assignment),
+            condition,
+            step);
+
+    Nodecl::NodeclBase new_outer_loop = Nodecl::Context::make(
+            Nodecl::List::make(
+                Nodecl::ForStatement::make(
+                    loop_control,
+                    Nodecl::List::make(
+                        Nodecl::Context::make(
+                            Nodecl::List::make(
+                                Nodecl::CompoundStatement::make(
+                                    body,
+                                    /* finally */ Nodecl::NodeclBase::null())),
+                            loop_statements_scope)),
+                    /* loop_name */ Nodecl::NodeclBase::null())),
+            loop_control_scope.get_decl_context());
+    return new_outer_loop;
+
+    }
+
 } // TL
