@@ -4,23 +4,15 @@ test_generator=config/mercurium-iomp
 </testinfo>
 */
 
-#include <cassert>
+#include <assert.h>
 #include <stdint.h>
 
-int array[20] = { 0 };
-
 int main(void) {
+	int sum = 0;
 	#pragma omp parallel
 	{
-		#pragma omp for
-		for (int32_t i = 0; i < 20; i++) array[i] += i;
-		#pragma omp for
-		for (uint32_t i = 0; i < 20; i++) array[i] += i;
-
-		#pragma omp for
-		for (int64_t i = 0; i < 20; i++) array[i] += i;
-		#pragma omp for
-		for (uint64_t i = 0; i < 20; i++) array[i] += i;
+		#pragma omp for reduction(+ : sum)
+		for (int32_t i = 0; i < 20; i++) sum += i;
 	}
-	for (size_t i = 0; i < 20; i++) assert(array[i] == 4*i);
+	assert(sum == 20*19/2);
 }

@@ -8,8 +8,6 @@ test_ignore_fail=yes
 #include <assert.h>
 #include <stdint.h>
 
-// This seems to fail with LLVM runtime, but not with Intel private runtime
-
 struct A {
     int x;
 };
