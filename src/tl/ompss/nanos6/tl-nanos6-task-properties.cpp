@@ -133,39 +133,6 @@ namespace TL { namespace Nanos6 {
     }
 
     namespace {
-    //! Create a detached symbol with the same name as the real one We need to
-    //! do that otherwise Fortran codegen attempts to initialize this symbol
-    //! (We may want to fix this somehow)
-    TL::Symbol fortran_create_detached_symbol_from_static_symbol(TL::Symbol &static_symbol)
-    {
-        ERROR_CONDITION(!symbol_entity_specs_get_is_static(static_symbol.get_internal_symbol()),
-                "The symbol must be static", 0);
-
-        symbol_entity_specs_set_is_static(static_symbol.get_internal_symbol(), 0);
-
-        scope_entry_t *detached_symbol = NEW0(scope_entry_t);
-        detached_symbol->symbol_name = static_symbol.get_internal_symbol()->symbol_name;
-        detached_symbol->kind = static_symbol.get_internal_symbol()->kind;
-        detached_symbol->decl_context = static_symbol.get_internal_symbol()->decl_context;
-        symbol_entity_specs_set_is_user_declared(detached_symbol, 1);
-
-        const int size_of_ptr = TL::Type::get_void_type().get_pointer_to().get_size();
-        ERROR_CONDITION(static_symbol.get_type().get_size() % size_of_ptr != 0,
-                "Struct size does not divide the size of a pointer", 0);
-
-        int num_elements = static_symbol.get_type().get_size() / size_of_ptr;
-
-        detached_symbol->type_information =
-            TL::Type(fortran_choose_int_type_from_kind(size_of_ptr))
-            .get_array_to(
-                    const_value_to_nodecl(const_value_get_signed_int(num_elements)),
-                    TL::Scope::get_global_scope()).get_internal_type();
-
-        return detached_symbol;
-    }
-    }
-
-    namespace {
     //! Given a name (parameter) and a list of symbols (non-static data
     //! member), this functor constructs a Nodecl::Symbol if there is a symbol
     //! whose name is exactly the same as the parameter. Otherwise, it emits an
@@ -239,29 +206,6 @@ namespace TL { namespace Nanos6 {
     }
 
     namespace {
-
-        template < unsigned int num_arguments>
-        TL::Symbol get_fortran_intrinsic_symbol(const std::string &name, const Nodecl::List& actual_arguments, bool is_call)
-        {
-            // Note that this function is template to avoid to use VLAs in C++ or dynamic memory allocation
-            nodecl_t arguments[num_arguments];
-
-            int index = 0;
-            for (Nodecl::List::const_iterator it = actual_arguments.begin();
-                    it != actual_arguments.end();
-                    it++)
-            {
-                arguments[index++]=it->get_internal_nodecl();
-            }
-            TL::Symbol intrinsic(
-                    fortran_solve_generic_intrinsic_call(
-                        fortran_query_intrinsic_name_str(TL::Scope::get_global_scope().get_decl_context(), name.c_str()),
-                        arguments,
-                        num_arguments,
-                        is_call));
-
-            return intrinsic;
-        }
 
         void compute_generic_flag_c(
                 Nodecl::NodeclBase opt_expr,
@@ -778,73 +722,6 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    TL::Scope TaskProperties::compute_scope_for_environment_structure()
-    {
-        TL::Scope sc = _related_function.get_scope();
-        // We are enclosed by a function because we are an internal subprogram
-        if (IS_FORTRAN_LANGUAGE && _related_function.is_nested_function())
-        {
-            // Get the enclosing function
-            TL::Symbol enclosing_function = _related_function.get_scope().get_related_symbol();
-
-            // Update the scope
-            sc = enclosing_function.get_scope();
-        }
-
-        if (_related_function.is_member())
-        {
-            // Class scope
-            sc = ::class_type_get_inner_context(_related_function.get_class_type().get_internal_type());
-        }
-        else if (_related_function.is_in_module())
-        {
-            // Scope of the module
-            sc = _related_function.in_module().get_related_scope();
-        }
-
-        return sc;
-    }
-
-    TL::Symbol TaskProperties::add_field_to_class(TL::Symbol new_class_symbol,
-                                                  TL::Scope class_scope,
-                                                  const std::string &var_name,
-                                                  const locus_t *var_locus,
-                                                  bool is_allocatable,
-                                                  TL::Type field_type)
-    {
-        TL::Type new_class_type = new_class_symbol.get_user_defined_type();
-
-        std::string orig_field_name = var_name;
-
-        if (IS_CXX_LANGUAGE && orig_field_name == "this")
-        {
-            orig_field_name = "_this";
-        }
-
-        TL::Symbol field = class_scope.new_symbol(orig_field_name);
-        field.get_internal_symbol()->kind = SK_VARIABLE;
-        symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
-
-        field.set_type( field_type );
-        field.get_internal_symbol()->locus = var_locus;
-
-        symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
-        symbol_entity_specs_set_class_type(field.get_internal_symbol(),
-                new_class_type.get_internal_type());
-        symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
-
-        symbol_entity_specs_set_is_allocatable(
-                field.get_internal_symbol(), is_allocatable);
-
-        class_type_add_member(
-                new_class_type.get_internal_type(),
-                field.get_internal_symbol(),
-                field.get_internal_symbol()->decl_context,
-                /* is_definition */ 1);
-
-        return field;
-    }
-
     namespace
     {
     TL::Type rewrite_type(TL::Type t, TL::Scope scope, Nodecl::Utils::SymbolMap &symbol_map)
@@ -854,57 +731,6 @@ namespace TL { namespace Nanos6 {
             scope.get_decl_context(),
             symbol_map.get_symbol_map());
     }
-
-    TL::Type fortran_storage_type_array_descriptor(TL::Type array_type)
-    {
-        TL::Type void_pointer = TL::Type::get_void_type().get_pointer_to();
-        TL::Type suitable_integer
-            = fortran_choose_int_type_from_kind(void_pointer.get_size());
-
-        size_t size_of_array_descriptor = fortran_size_of_array_descriptor(
-            fortran_get_rank0_type(array_type.get_internal_type()),
-            fortran_get_rank_of_type(array_type.get_internal_type()));
-
-        ERROR_CONDITION(
-            (size_of_array_descriptor % suitable_integer.get_size()) != 0,
-            "The size of the descriptor is not a multiple of the integer type",
-            0);
-
-        int num_items = size_of_array_descriptor / suitable_integer.get_size();
-
-        return get_array_type_bounds(
-            suitable_integer.get_internal_type(),
-            const_value_to_nodecl(const_value_get_signed_int(1)),
-            const_value_to_nodecl(const_value_get_signed_int(num_items)),
-            TL::Scope::get_global_scope().get_decl_context());
-    }
-
-    std::string get_name_for_descriptor(const std::string &var_name)
-    {
-        Counter &counter
-            = CounterManager::get_counter("array-descriptor-copies");
-        std::stringstream ss;
-        ss << var_name << "_descriptor_" << (int)counter;
-        counter++;
-        return ss.str();
-    }
-
-    // Given an array type, this function returns an array type with descriptor
-    //      INTEGER :: V(N, M)  -> INTEGER, WITH_DESC :: V(N, M)
-    TL::Type array_type_to_array_with_descriptor_type(TL::Type array_type, TL::Scope sc)
-    {
-        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This function is only for Fortran", 0);
-        ERROR_CONDITION(!array_type.is_array(), "This type should be an array type", 0);
-
-        TL::Type element_type = array_type.array_element();
-        if (element_type.is_array())
-            element_type = array_type_to_array_with_descriptor_type(element_type, sc);
-
-        Nodecl::NodeclBase lbound, ubound;
-        array_type.array_get_bounds(lbound, ubound);
-        return element_type.get_array_to_with_descriptor(lbound, ubound, sc);
-    }
-
     }
 
     void TaskProperties::create_environment_structure(
@@ -913,111 +739,8 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase& args_size,
             bool &requires_initialization)
     {
-        _field_map.clear();
-
-        // By default the arguments structure doesn't require to be initialized
-        requires_initialization = false;
-
-        TL::Scope sc = compute_scope_for_environment_structure();
-
-        std::string structure_name;
-        if (IS_C_LANGUAGE
-                || IS_FORTRAN_LANGUAGE)
-        {
-            // We need an extra 'struct '
-            structure_name = "struct " + get_new_name("nanos_task_args");
-        }
-        else
-        {
-            structure_name = get_new_name("nanos_task_args");
-        }
-
-        // Create the class symbol
-        TL::Symbol new_class_symbol = sc.new_symbol(structure_name);
-        symbol_entity_specs_set_is_user_declared(
-            new_class_symbol.get_internal_symbol(), 1);
-
-        type_t *new_class_type
-            = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
-
-        if (_related_function.get_type().is_template_specialized_type()
-            && _related_function.get_type().is_dependent())
-        {
-            template_parameter_list_t *tpl
-                = _related_function.get_type()
-                      .template_specialized_type_get_template_parameters()
-                      .get_internal_template_parameter_list();
-            ERROR_CONDITION(
-                tpl == NULL, "There must be template parameters", 0);
-
-            new_class_symbol.get_internal_symbol()->kind = SK_TEMPLATE;
-            type_t *template_type = get_new_template_type(
-                tpl,
-                new_class_type,
-                uniquestr(structure_name.c_str()),
-                _related_function.get_scope().get_decl_context(),
-                _locus_of_task_creation);
-            new_class_symbol.set_type(template_type);
-
-            ::template_type_set_related_symbol(
-                template_type, new_class_symbol.get_internal_symbol());
-
-            symbol_entity_specs_set_is_user_declared(
-                new_class_symbol.get_internal_symbol(), 1);
-
-            new_class_symbol
-                = TL::Type(::template_type_get_primary_type(
-                               new_class_symbol.get_type().get_internal_type()))
-                      .get_symbol();
-            new_class_type = new_class_symbol.get_type().get_internal_type();
-        }
-        else
-        {
-            new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
-        }
-
-        if (sc.is_class_scope())
-        {
-            symbol_entity_specs_set_is_member(
-                new_class_symbol.get_internal_symbol(), 1);
-            symbol_entity_specs_set_access(
-                new_class_symbol.get_internal_symbol(), AS_PUBLIC);
-            symbol_entity_specs_set_class_type(
-                new_class_symbol.get_internal_symbol(),
-                _related_function.get_class_type().get_internal_type());
-            symbol_entity_specs_set_is_defined_inside_class_specifier(
-                new_class_symbol.get_internal_symbol(), 1);
-
-            class_type_add_member(
-                _related_function.get_class_type().get_internal_type(),
-                new_class_symbol.get_internal_symbol(),
-                new_class_symbol.get_internal_symbol()->decl_context,
-                /* is_definition */ 1);
-
-            class_type_set_enclosing_class_type(new_class_type,
-                                                sc.get_related_symbol()
-                                                    .get_user_defined_type()
-                                                    .get_internal_type());
-            set_is_dependent_type(
-                new_class_type,
-                is_dependent_type(new_class_type)
-                    || sc.get_related_symbol().get_type().is_dependent());
-        }
-
-        symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
-
-        const decl_context_t* class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
-                new_class_symbol.get_internal_symbol());
-
-        TL::Scope class_scope(class_context);
-
-        class_type_set_inner_context(new_class_type, class_context);
-
-        new_class_symbol.get_internal_symbol()->type_information = new_class_type;
-
-        // It maps each captured symbol with its respective symbol in the arguments structure
-
-        Nodecl::Utils::SimpleSymbolMap captured_symbols_map;
+        std::string structure_name = get_new_name("nanos_task_args");
+        _environment_capture.begin_type_setup(structure_name, _related_function, _locus_of_task_creation, _task_body);
 
         // 1. Create fields for captured & private symbols
         TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
@@ -1025,69 +748,7 @@ namespace TL { namespace Nanos6 {
                 it != captured_and_private_symbols.end();
                 it++)
         {
-            TL::Type type_of_field = it->get_type().no_ref();
-            bool is_allocatable = it->is_allocatable();
-
-            if (
-                (!type_of_field.is_dependent()
-                        && (!type_of_field.is_class() || type_of_field.is_pod())
-                        && type_of_field.depends_on_nonconstant_values())
-                ||
-
-                (it->get_type().no_ref().is_array()
-                     && it->get_type().no_ref().array_requires_descriptor()
-                     && !is_allocatable)
-               )
-            {
-                if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
-                    type_of_field = TL::Type::get_void_type().get_pointer_to();
-                else
-                {
-                    // We rewrite the type since it may refer to captured symbols
-                    TL::Type updated_type = rewrite_type(type_of_field, class_scope, captured_symbols_map);
-                    type_of_field = array_type_to_array_with_descriptor_type(updated_type, sc);
-                    is_allocatable = 1;
-                }
-            }
-            else if (type_of_field.is_function())
-            {
-                if (IS_FORTRAN_LANGUAGE)
-                {
-                    type_of_field = TL::Type::get_void_type().get_pointer_to();
-                }
-                else
-                {
-                    type_of_field = type_of_field.get_pointer_to();
-                }
-            }
-            else
-            {
-                type_of_field = type_of_field.get_unqualified_type();
-            }
-
-            // Fields that require an array descriptor have to be initialized
-            if (IS_FORTRAN_LANGUAGE
-                    && (
-                        (type_of_field.is_array()
-                         && type_of_field.array_requires_descriptor())
-                        ||
-                        (type_of_field.is_pointer()
-                            && type_of_field.points_to().is_array()
-                            && type_of_field.points_to().array_requires_descriptor())))
-            {
-                requires_initialization = true;
-            }
-
-            TL::Symbol field = add_field_to_class(
-                    new_class_symbol,
-                    class_scope,
-                    it->get_name(),
-                    it->get_locus(),
-                    is_allocatable,
-                    type_of_field);
-
-            _field_map[*it] = field;
-            captured_symbols_map.add_map(*it, field);
+            _environment_capture.add_storage_for_private_symbol(*it);
         }
 
         // 2. Create fields for shared symbols
@@ -1095,125 +756,12 @@ namespace TL { namespace Nanos6 {
                 it != _env.shared.end();
                 it++)
         {
-            TL::Type type_of_field = it->get_type().no_ref();
-            if (IS_FORTRAN_LANGUAGE)
-            {
-                type_of_field = TL::Type::get_void_type().get_pointer_to();
-                if (it->get_type().no_ref().is_array()
-                    && it->get_type().no_ref().array_requires_descriptor()
-                    && !it->is_allocatable())
-                {
-                    TL::Symbol field = add_field_to_class(
-                        new_class_symbol,
-                        class_scope,
-                        get_name_for_descriptor(it->get_name()),
-                        it->get_locus(),
-                        /* is_allocatable */ false,
-                        fortran_storage_type_array_descriptor(
-                            it->get_type().no_ref()));
-
-                    _array_descriptor_map[*it] = field;
-                }
-            }
-            else
-            {
-                if (type_of_field.depends_on_nonconstant_values())
-                {
-                    type_of_field = TL::Type::get_void_type().get_pointer_to();
-                }
-                else
-                {
-                    type_of_field = type_of_field.get_pointer_to();
-                }
-            }
-
-            TL::Symbol field = add_field_to_class(
-                    new_class_symbol,
-                    class_scope,
-                    it->get_name(),
-                    it->get_locus(),
-                    /* is_allocatable */ false,
-                    type_of_field);
-
-            _field_map[*it] = field;
+            _environment_capture.add_storage_for_shared_symbol(*it);
         }
 
-        nodecl_t nodecl_output = nodecl_null();
-        finish_class_type(new_class_type,
-                ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
-                sc.get_decl_context(),
-                _locus_of_task_creation,
-                &nodecl_output);
-        set_is_complete_type(new_class_type, /* is_complete */ 1);
-        set_is_complete_type(get_actual_class_type(new_class_type), /* is_complete */ 1);
-
-        _info_structure
-            = data_env_struct
-            = new_class_symbol.get_user_defined_type();
-
-
-        // Computing the size of the arguments structure
-        {
-
-            // This nodecl represents the size of the structure of arguments
-            Nodecl::NodeclBase basic_size;
-            if (new_class_symbol.get_type().is_dependent())
-            {
-                basic_size = Nodecl::Sizeof::make(
-                        Nodecl::Type::make(_info_structure, _locus_of_task_creation),
-                        Nodecl::NodeclBase::null(),
-                        TL::Type::get_size_t_type(),
-                        _locus_of_task_creation);
-            }
-            else
-            {
-                basic_size = const_value_to_nodecl_with_basic_type(
-                        const_value_get_integer(
-                            _info_structure.get_size(),
-                            /* bytes */ type_get_size(get_size_t_type()),
-                            /* sign */ 0),
-                        get_size_t_type());
-            }
-
-            // This nodecl represents the extra storage that the runtime has to
-            // allocate contiguosly to the arguments structure to support VLAs
-            Nodecl::NodeclBase extra_storage = const_value_to_nodecl(const_value_get_signed_int(0));
-            for (TL::ObjectList<TL::Symbol>::iterator it = captured_and_private_symbols.begin();
-                    it != captured_and_private_symbols.end();
-                    it++)
-            {
-                if (it->get_type().depends_on_nonconstant_values())
-                {
-                    if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
-                    {
-                        Nodecl::NodeclBase size_of_array = Nodecl::Add::make(
-                                const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN)),
-                                Nodecl::Sizeof::make(
-                                    Nodecl::Type::make(it->get_type()),
-                                    Nodecl::NodeclBase::null(),
-                                    get_size_t_type()),
-                                get_size_t_type());
-
-                        extra_storage = Nodecl::Add::make(
-                                extra_storage,
-                                size_of_array,
-                                size_of_array.get_type());
-                    }
-                }
-            }
-
-            // Finally, we compute the real size of our arguments
-            args_size = Nodecl::Add::make(basic_size, extra_storage, basic_size.get_type());
-        }
-
-        if (IS_CXX_LANGUAGE)
-        {
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(
-                    _task_body,
-                    Nodecl::CxxDef::make(
-                        Nodecl::NodeclBase::null(),
-                        new_class_symbol));
-        }
+       _info_structure = data_env_struct = _environment_capture.end_type_setup();
+       args_size = _environment_capture.get_size();
+       requires_initialization = _environment_capture.requires_initialization();
     }
 
     namespace {
@@ -1493,186 +1041,6 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    Nodecl::NodeclBase TaskProperties::rewrite_expression_using_args(
-            TL::Symbol arg,
-            Nodecl::NodeclBase expr,
-            const TL::ObjectList<TL::Symbol>& local) const
-    {
-        Nodecl::NodeclBase result = expr.shallow_copy();
-
-        struct RewriteExpression : public Nodecl::ExhaustiveVisitor<void>
-        {
-            TL::Symbol arg;
-            const field_map_t &_field_map;
-            const TL::ObjectList<TL::Symbol>& shared;
-            const TL::ObjectList<TL::Symbol>& local;
-            const TaskProperties& tp;
-
-            RewriteExpression(TL::Symbol arg_,
-                    const field_map_t& field_map_,
-                    const TL::ObjectList<TL::Symbol> &shared_,
-                    const TL::ObjectList<TL::Symbol> &local_,
-                    const TaskProperties &tp_)
-                : arg(arg_), _field_map(field_map_), shared(shared_),
-                  local(local_), tp(tp_)
-            {
-            }
-
-            virtual void visit(const Nodecl::Type &node)
-            {
-                TL::Type type = node.get_type();
-
-                if (type.depends_on_nonconstant_values())
-                {
-                    TL::Type updated_type =
-                        tp.rewrite_type_using_args(arg, type, local);
-
-                    node.replace(
-                            Nodecl::Type::make(updated_type));
-                }
-            }
-
-            virtual void visit(const Nodecl::Symbol& node)
-            {
-                TL::Symbol sym = node.get_symbol();
-
-                // Ignoring local symbols
-                if (local.contains(sym))
-                    return;
-
-                // Ignoring symbols that are not variables
-                if (!sym.is_variable())
-                    return;
-
-                field_map_t::const_iterator it = _field_map.find(sym);
-                ERROR_CONDITION(it == _field_map.end(),
-                        "Symbol '%s' not found in the field map!",
-                        sym.get_name().c_str());
-
-                TL::Symbol field(it->second);
-
-                Nodecl::NodeclBase new_expr =
-                    Nodecl::ClassMemberAccess::make(
-                            arg.make_nodecl(/* set_ref_type */ true, node.get_locus()),
-                            field.make_nodecl(node.get_locus()),
-                            /* form */ Nodecl::NodeclBase::null(),
-                            field.get_type(),
-                            node.get_locus());
-
-                if (shared.contains(sym))
-                {
-                    if (sym.get_type().depends_on_nonconstant_values())
-                    {
-                        TL::Type updated_cast_type = tp.rewrite_type_using_args(
-                                arg,
-                                sym.get_type().no_ref().get_pointer_to(),
-                                local);
-
-                        new_expr = Nodecl::Conversion::make(
-                                new_expr, updated_cast_type, node.get_locus());
-
-                        new_expr.set_text("C");
-                    }
-                    new_expr = Nodecl::Dereference::make(
-                            new_expr,
-                            sym.get_type().no_ref().get_lvalue_reference_to(),
-                            new_expr.get_locus());
-                }
-
-                node.replace(new_expr);
-            }
-
-            virtual void visit(const Nodecl::ClassMemberAccess &node)
-            {
-                walk(node.get_lhs());
-            }
-        };
-
-        RewriteExpression r(arg, _field_map, _env.shared, local, *this);
-        r.walk(result);
-
-        struct RemoveRedundantRefDerref : public Nodecl::ExhaustiveVisitor<void>
-        {
-            virtual void visit(const Nodecl::Reference& node)
-            {
-                if (node.get_rhs().is<Nodecl::Dereference>())
-                {
-                    node.replace(node.get_rhs().as<Nodecl::Dereference>().get_rhs());
-                }
-            }
-
-            virtual void visit(const Nodecl::Dereference& node)
-            {
-                if (node.get_rhs().is<Nodecl::Reference>())
-                {
-                    node.replace(node.get_rhs().as<Nodecl::Reference>().get_rhs());
-                }
-            }
-        };
-
-        RemoveRedundantRefDerref c;
-        c.walk(result);
-
-        return result;
-    }
-
-    TL::Type TaskProperties::rewrite_type_using_args(
-            TL::Symbol arg,
-            TL::Type t,
-            const TL::ObjectList<TL::Symbol> &local) const
-    {
-        if (t.is_array())
-        {
-            TL::Type elem_type = rewrite_type_using_args(arg, t.array_element(), local);
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                Nodecl::NodeclBase new_size = t.array_get_size();
-                new_size = rewrite_expression_using_args(arg, new_size, local);
-
-                return elem_type.get_array_to(new_size, TL::Scope::get_global_scope());
-            }
-            else if (IS_FORTRAN_LANGUAGE)
-            {
-                Nodecl::NodeclBase new_lower, new_upper;
-                t.array_get_bounds(new_lower, new_upper);
-
-                if (is_saved_expression(new_lower))
-                {
-                    new_lower = rewrite_expression_using_args(arg, new_lower, local);
-                }
-                if (is_saved_expression(new_upper))
-                {
-                    new_upper = rewrite_expression_using_args(arg, new_upper, local);
-                }
-
-                return elem_type.get_array_to(new_lower, new_upper, TL::Scope::get_global_scope());
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-
-        }
-        else if (t.is_lvalue_reference())
-        {
-            return rewrite_type_using_args(arg, t.no_ref(), local).get_lvalue_reference_to();
-        }
-        else if (t.is_rvalue_reference())
-        {
-            return rewrite_type_using_args(arg, t.no_ref(), local).get_rvalue_reference_to();
-        }
-        else if (t.is_pointer())
-        {
-            return rewrite_type_using_args(arg, t.points_to(), local)
-                .get_pointer_to()
-                .get_as_qualified_as(t);
-        }
-        else
-        {
-            return t;
-        }
-    }
-
     void TaskProperties::unpack_datasharing_arguments(
             const TL::Symbol &arg,
             // Out
@@ -1687,99 +1055,40 @@ namespace TL { namespace Nanos6 {
                 it != captured_and_private_symbols.end();
                 it++)
         {
-            field_map_t::const_iterator field_it = _field_map.find(*it);
-            ERROR_CONDITION(field_it == _field_map.end(),
-                    "Symbol is not mapped", 0);
-            TL::Symbol field(field_it->second);
+            TL::Symbol symbol = *it;
+            EnvironmentCapture::Accessor symbol_accessor =
+                _environment_capture.get_private_symbol_accessor(
+                    arg, symbol, /* actual_storage_if_vla */ true);
 
             // Note: This is similar to AddParameter functor
             if (parameter_names != NULL)
-                parameter_names->append(field.get_name());
+                parameter_names->append(symbol_accessor._environment_name);
             if (parameter_types != NULL)
-                parameter_types->append(field.get_type().get_lvalue_reference_to());
+                parameter_types->append(symbol_accessor._environment_type);
 
-            Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
-                    arg.make_nodecl(/* set_ref_type */ true),
-                    field.make_nodecl(),
-                    /* member_literal */ Nodecl::NodeclBase::null(),
-                    field.get_type().no_ref().get_lvalue_reference_to());
-
-            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE) &&
-                    (it->get_type().depends_on_nonconstant_values() &&
-                     (it->get_type().no_ref().is_array() ||
-                      it->get_type().no_ref().is_pointer())))
-            {
-                // A conversion between pointer type (from argument) and
-                // array type (from parameter) is required. This is done by
-                // getting a reference (&) from the argument, casting it to a
-                // pointer to the array type, and dereferencing (*) it afterwards.
-
-                TL::Type param_type = rewrite_type_using_args(
-                        arg, it->get_type().no_ref(), TL::ObjectList<TL::Symbol>());
-
-                Nodecl::NodeclBase cast;
-                argument = Nodecl::Dereference::make(
-                        cast = Nodecl::Conversion::make(
-                            Nodecl::Reference::make(
-                                argument,
-                                field.get_type().get_pointer_to()),
-                            param_type.get_pointer_to()),
-                        param_type.get_lvalue_reference_to());
-
-                cast.set_text("C");
-            }
-
-            args.append(argument);
+            args.append(std::move(symbol_accessor._environment_access));
 
             if (name_to_pair_orig_field_map != NULL)
-                (*name_to_pair_orig_field_map)[field.get_name()] = std::make_pair(*it, field);
+                (*name_to_pair_orig_field_map)[symbol_accessor._environment_name] = std::make_pair(symbol, symbol_accessor._environment_symbol);
         }
 
         for (TL::ObjectList<TL::Symbol>::const_iterator it = _env.shared.begin();
                 it != _env.shared.end();
                 it++)
         {
-            field_map_t::const_iterator field_it = _field_map.find(*it);
-            ERROR_CONDITION(field_it == _field_map.end(),
-                    "Symbol is not mapped", 0);
-            TL::Symbol field(field_it->second);
+            TL::Symbol symbol = *it;
+            EnvironmentCapture::Accessor symbol_accessor = _environment_capture.get_shared_symbol_accessor(arg, symbol);
 
             // Note: This is similar to AddParameter functor
             if (parameter_names != NULL)
-                parameter_names->append(field.get_name());
+                parameter_names->append(symbol_accessor._environment_name);
             if (parameter_types != NULL)
-                parameter_types->append(field.get_type());
+                parameter_types->append(symbol_accessor._environment_type);
 
-            Nodecl::NodeclBase argument =
-                Nodecl::ClassMemberAccess::make(
-                        arg.make_nodecl(/* set_ref_type */ true),
-                        field.make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        field.get_type().no_ref().get_lvalue_reference_to());
-
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                if (it->get_type().depends_on_nonconstant_values())
-                {
-                    TL::Type cast_type = rewrite_type_using_args(
-                            arg, it->get_type().no_ref().get_pointer_to(),
-                            TL::ObjectList<TL::Symbol>());
-
-                    argument =
-                        Nodecl::Conversion::make(argument, cast_type);
-                    argument.set_text("C");
-                }
-
-                argument = Nodecl::Dereference::make(
-                        argument,
-                        argument.get_type().no_ref()
-                            .points_to().get_lvalue_reference_to());
-            }
-
-            args.append(argument);
+            args.append(std::move(symbol_accessor._environment_access));
 
             if (name_to_pair_orig_field_map != NULL)
-                (*name_to_pair_orig_field_map)[field.get_name()] = std::make_pair(*it, field);
+                (*name_to_pair_orig_field_map)[symbol_accessor._environment_name] = std::make_pair(symbol, symbol_accessor._environment_symbol);
         }
     }
 
@@ -4153,32 +3462,10 @@ namespace TL { namespace Nanos6 {
 
     TL::Symbol TaskProperties::create_destroy_function()
     {
-        // Collect symbols that need to be dealt with: Visit captured & private symbols
-
-        ObjectList<TL::Symbol> fields_to_destroy;
-
-        TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
-        for (TL::ObjectList<TL::Symbol>::const_iterator it = captured_and_private_symbols.begin();
-                it != captured_and_private_symbols.end();
-                it++)
-        {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
-            TL::Symbol field = _field_map[*it];
-            TL::Type field_type = it->get_type();
-
-            if ((IS_CXX_LANGUAGE &&
-                        (field_type.is_dependent() ||
-                         (field_type.no_ref().is_class() && !field_type.no_ref().is_pod())))
-                    ||
-                    (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
-            {
-                fields_to_destroy.append(field);
-            }
-        }
-
         // Do not generate an empty function
-        if (fields_to_destroy.empty())
+        if (!_environment_capture.requires_destruction_function())
             return TL::Symbol::invalid();
+
 
         TL::ObjectList<std::string> destroy_param_names;
         TL::ObjectList<TL::Type> destroy_param_types;
@@ -4201,59 +3488,17 @@ namespace TL { namespace Nanos6 {
 
         Nodecl::List destroy_stmts;
 
-        for (TL::ObjectList<TL::Symbol>::const_iterator it = fields_to_destroy.begin();
-                it != fields_to_destroy.end();
+        TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
+        for (TL::ObjectList<TL::Symbol>::const_iterator it = captured_and_private_symbols.begin();
+                it != captured_and_private_symbols.end();
                 it++)
         {
-            TL::Symbol field(*it);
-
-            Nodecl::NodeclBase class_member_access = Nodecl::ClassMemberAccess::make(
-                    arg.make_nodecl(/* set_ref_type */ true),
-                    field.make_nodecl(),
-                    /* member_literal */ Nodecl::NodeclBase::null(),
-                    field.get_type().no_ref().get_lvalue_reference_to());
-
-            if (IS_CXX_LANGUAGE)
-            {
-                // Field symbol is an object, we have to destroy it
-
-                class_member_access.set_is_type_dependent(field.get_type().is_dependent());
-
-                TL::Source src;
-                src << "{"
-                    <<      "typedef " << as_type(field.get_type().no_ref().get_unqualified_type()) << " DepType;"
-                    <<       as_expression(class_member_access) << ".~DepType();"
-                    << "}"
-                    ;
-
-                destroy_stmts.append(src.parse_statement(destroy_inside_scope));
-            }
-            else if (IS_FORTRAN_LANGUAGE)
-            {
-                // Field symbol is an allocatable, we have to deallocate it
-                // Note that this copy was created when we captured its value
-
-                Nodecl::List actual_arguments = Nodecl::List::make(
-                        Nodecl::FortranActualArgument::make(class_member_access));
-
-                TL::Symbol allocated =
-                    get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
-
-                Nodecl::NodeclBase condition = Nodecl::FunctionCall::make(
-                        allocated.make_nodecl(),
-                        actual_arguments,
-                        /* alternate-symbol */ Nodecl::NodeclBase::null(),
-                        /* function-form */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_bool_type());
-
-                Nodecl::NodeclBase dealloc_stmt = Nodecl::FortranDeallocateStatement::make(
-                        Nodecl::List::make(class_member_access.shallow_copy()),
-                        Nodecl::NodeclBase::null());
-
-                destroy_stmts.append(
-                        Nodecl::IfElseStatement::make(
-                            condition, Nodecl::List::make(dealloc_stmt), Nodecl::NodeclBase::null()));
-            }
+            Nodecl::List current_destroy_stmts =
+                _environment_capture.emit_symbol_destruction(
+                    destroy_inside_scope,
+                    arg,
+                    *it);
+            destroy_stmts.append(current_destroy_stmts);
         }
 
         ERROR_CONDITION(destroy_stmts.empty(), "Unexpected list", 0);
@@ -4268,30 +3513,7 @@ namespace TL { namespace Nanos6 {
         if (!_env.task_is_loop)
             return TL::Symbol::invalid();
 
-        bool require_duplication_fun = false;
-        TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
-        for (TL::ObjectList<TL::Symbol>::const_iterator it = captured_and_private_symbols.begin();
-                it != captured_and_private_symbols.end() && !require_duplication_fun;
-                it++)
-        {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
-
-            TL::Symbol field = _field_map[*it];
-            TL::Type field_type = it->get_type();
-            if ((IS_CXX_LANGUAGE &&
-                        (field_type.is_dependent() ||
-                         (field_type.no_ref().is_class() && !field_type.no_ref().is_pod())))
-                    ||
-                    ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                     && it->get_type().depends_on_nonconstant_values())
-                    ||
-                    (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
-            {
-                require_duplication_fun = true;
-            }
-        }
-
-        if (!require_duplication_fun)
+        if (!_environment_capture.requires_duplication_function())
             return TL::Symbol::invalid();
 
         TL::ObjectList<std::string> duplicate_param_names;
@@ -4335,218 +3557,11 @@ namespace TL { namespace Nanos6 {
                 it != _env.captured_value.end();
                 it++)
         {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
-
-            Nodecl::NodeclBase lhs =
-                Nodecl::ClassMemberAccess::make(
-                        dst_data_env.make_nodecl(/* set_ref_type */ true),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        _field_map[*it].get_type().no_ref().get_lvalue_reference_to());
-
-            Nodecl::NodeclBase rhs =
-                Nodecl::ClassMemberAccess::make(
-                        src_data_env.make_nodecl(/* set_ref_type */ true),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        _field_map[*it].get_type().no_ref().get_lvalue_reference_to());
-
-            Nodecl::List current_captured_stmts;
-            if (it->get_type().is_dependent()
-                    || (it->get_type().no_ref().is_class() && !it->get_type().no_ref().is_pod()))
-            {
-                type_t *t = it->get_type().get_internal_type();
-
-                // new (&args.e)E(e);
-                Nodecl::NodeclBase new_expr = Nodecl::CxxDepNew::make(
-                        Nodecl::CxxParenthesizedInitializer::make(
-                            Nodecl::List::make(rhs),
-                            get_sequence_of_types(1, &t)),
-                        Nodecl::Type::make(it->get_type().no_ref().get_unqualified_type()),
-                        Nodecl::List::make(Nodecl::Reference::make(lhs, lhs.get_type().no_ref().get_pointer_to())),
-                        it->get_type().no_ref().get_unqualified_type(),
-                        /* global */ "");
-
-                current_captured_stmts.append(Nodecl::ExpressionStatement::make(new_expr));
-            }
-            else if (!it->is_allocatable()
-                    && !it->get_type().no_ref().is_array())
-            {
-                Nodecl::NodeclBase assignment_stmt =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                lhs,
-                                rhs,
-                                lhs.get_type()));
-
-                current_captured_stmts.append(assignment_stmt);
-            }
-            else
-            {
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    if (it->get_type().depends_on_nonconstant_values())
-                    {
-                        if (vla_offset.is_null())
-                        {
-                            // Skipping the arguments structure
-                            Nodecl::NodeclBase cast = Nodecl::Conversion::make(
-                                    Nodecl::Add::make(
-                                        Nodecl::Reference::make(
-                                            src_data_env.make_nodecl(/* ser_ref_type */ true),
-                                            src_data_env.get_type().no_ref().get_pointer_to()),
-                                        /* 1, */ const_value_to_nodecl(const_value_get_signed_int(1)),
-                                        src_data_env.get_type().no_ref()),
-                                    TL::Type::get_char_type().get_pointer_to());
-
-                            cast.set_text("C");
-                            vla_offset = cast;
-                        }
-
-                        // Skipping the extra space allocated for each vla
-                        Nodecl::NodeclBase mask_align =
-                            const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN - 1));
-
-                        // expr = (size_t)(vla_offset + mask_align)
-                        Nodecl::NodeclBase cast_expr;
-                        cast_expr = Nodecl::Conversion::make(
-                                Nodecl::Add::make(
-                                    vla_offset,
-                                    mask_align,
-                                    vla_offset.get_type()),
-                                get_size_t_type());
-                        cast_expr.set_text("C");
-
-                        // expr = (void *)((size_t)(vla_offset + mask_align) & ~mask_align)
-                        cast_expr = Nodecl::Conversion::make(
-                                Nodecl::BitwiseAnd::make(
-                                    cast_expr,
-                                    Nodecl::BitwiseNot::make(
-                                        mask_align.shallow_copy(),
-                                        mask_align.get_type()),
-                                    get_size_t_type()),
-                                TL::Type::get_void_type().get_pointer_to());
-                        cast_expr.set_text("C");
-
-                        Nodecl::NodeclBase assignment_stmt = Nodecl::ExpressionStatement::make(
-                                Nodecl::Assignment::make(
-                                    lhs.shallow_copy(),
-                                    cast_expr,
-                                    lhs.get_type()));
-
-                        current_captured_stmts.append(assignment_stmt);
-
-                        // Compute the offset for the next vla symbol (current member + its size)
-                        vla_offset = Nodecl::Conversion::make(
-                                Nodecl::Add::make(
-                                    lhs.shallow_copy(),
-                                    Nodecl::Sizeof::make(
-                                        Nodecl::Type::make(rewrite_type_using_args(src_data_env, it->get_type(), TL::ObjectList<TL::Symbol>())),
-                                        Nodecl::NodeclBase::null(),
-                                        get_size_t_type()),
-                                    get_size_t_type()),
-                                TL::Type::get_char_type().get_pointer_to());
-                        vla_offset.set_text("C");
-                    }
-
-
-                    Nodecl::NodeclBase ref_lhs =
-                        Nodecl::Reference::make(lhs, lhs.get_type().no_ref().get_pointer_to());
-
-                    rhs = Nodecl::Conversion::make(
-                            rhs,
-                            it->get_type().no_ref().array_element().get_pointer_to());
-
-                    Nodecl::NodeclBase size_of_array;
-                    if (it->get_type().depends_on_nonconstant_values())
-                    {
-
-                        TL::Type updated_type = rewrite_type_using_args(src_data_env, it->get_type(), TL::ObjectList<TL::Symbol>());
-                        size_of_array =
-                            Nodecl::Sizeof::make(
-                                    Nodecl::Type::make(updated_type),
-                                    Nodecl::NodeclBase::null(),
-                                    get_size_t_type());
-                    }
-                    else
-                    {
-                        size_of_array =
-                            const_value_to_nodecl_with_basic_type(
-                                    const_value_get_signed_int(
-                                        it->get_type().no_ref().get_size()),
-                                    get_size_t_type());
-                    }
-
-                    TL::Symbol builtin_memcpy =
-                        TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
-
-                    ERROR_CONDITION(!builtin_memcpy.is_valid()
-                            || !builtin_memcpy.is_function(), "Invalid symbol", 0);
-
-                    Nodecl::NodeclBase function_call_stmt = Nodecl::ExpressionStatement::make(
-                            Nodecl::FunctionCall::make(
-                                builtin_memcpy.make_nodecl(/* set_ref_type */ true),
-                                Nodecl::List::make(ref_lhs, rhs, size_of_array),
-                                /* alternate-name */ Nodecl::NodeclBase::null(),
-                                /* function-form */ Nodecl::NodeclBase::null(),
-                                TL::Type::get_void_type().get_pointer_to()));
-
-                    current_captured_stmts.append(function_call_stmt);
-                }
-                else // IS_FORTRAN_LANGUAGE
-                {
-                    Nodecl::NodeclBase stmt =
-                        Nodecl::ExpressionStatement::make(
-                                Nodecl::Assignment::make(
-                                    lhs,
-                                    rhs,
-                                    lhs.get_type()));
-
-                    if (it->is_allocatable())
-                    {
-                        Nodecl::List allocated_args = Nodecl::List::make(Nodecl::FortranActualArgument::make(rhs.shallow_copy()));
-                        TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", allocated_args, /* is_call */ 0);
-
-                        Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
-                                allocated.make_nodecl(),
-                                allocated_args,
-                                /* alternate_name */ Nodecl::NodeclBase::null(),
-                                /* function_form */ Nodecl::NodeclBase::null(),
-                                TL::Type::get_bool_type());
-
-                        stmt = Nodecl::IfElseStatement::make(cond, Nodecl::List::make(stmt), Nodecl::NodeclBase::null());
-                    }
-
-                    current_captured_stmts.append(stmt);
-                }
-            }
-
-            if (IS_FORTRAN_LANGUAGE
-                    && it->is_parameter()
-                    && it->is_optional())
-            {
-                Source conditional_capture_src;
-
-                Nodecl::NodeclBase capture_null =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                lhs.shallow_copy(),
-                                Source("MERCURIUM_NULL()").parse_expression(dup_fun_inner_scope),
-                                TL::Type::get_void_type().get_pointer_to()));
-
-                conditional_capture_src
-                    << "IF (PRESENT(" << as_symbol(*it) << ")) THEN\n"
-                    <<    as_statement(current_captured_stmts)
-                    << "ELSE\n"
-                    <<    as_statement(capture_null)
-                    << "END IF\n"
-                    ;
-
-                Nodecl::NodeclBase if_else_stmt =
-                    conditional_capture_src.parse_statement(dup_fun_inner_scope);
-
-                current_captured_stmts = Nodecl::List::make(if_else_stmt);
-            }
+            Nodecl::List current_captured_stmts = _environment_capture.emit_copy_of_captured_symbol(
+                dup_fun_inner_scope,
+                src_data_env, dst_data_env,
+                *it,
+                /* inout */ vla_offset);
 
             captured_stmts.append(current_captured_stmts);
         }
@@ -4556,151 +3571,11 @@ namespace TL { namespace Nanos6 {
                 it != _env.private_.end();
                 it++)
         {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
-
-            // If the privatized symbol is neither a VLA nor a symbol that is
-            // represented as an allocatable variable in the environment structure, skip it!
-            if (!it->get_type().depends_on_nonconstant_values()
-                    && !_field_map[*it].is_allocatable())
-                continue;
-
-            TL::Type lhs_type =
-                _field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-            Nodecl::NodeclBase lhs =
-                Nodecl::ClassMemberAccess::make(
-                        src_data_env.make_nodecl(/* set_ref_type */ true),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        lhs_type);
-
-            Nodecl::List current_captured_stmts;
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                if (vla_offset.is_null())
-                {
-                    // Skipping the arguments structure
-                    Nodecl::NodeclBase cast = Nodecl::Conversion::make(
-                            Nodecl::Add::make(
-                                Nodecl::Reference::make(
-                                    src_data_env.make_nodecl(/* ser_ref_type */ true),
-                                    src_data_env.get_type().no_ref().get_pointer_to()),
-                                /* 1, */ const_value_to_nodecl(const_value_get_signed_int(1)),
-                                src_data_env.get_type().no_ref()),
-                            TL::Type::get_char_type().get_pointer_to());
-
-                    cast.set_text("C");
-                    vla_offset = cast;
-                }
-
-                // Skipping the extra space allocated for each vla
-                Nodecl::NodeclBase mask_align =
-                    const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN - 1));
-
-                // expr = (size_t)(vla_offset + mask_align)
-                Nodecl::NodeclBase cast_expr;
-                cast_expr = Nodecl::Conversion::make(
-                        Nodecl::Add::make(
-                            vla_offset,
-                            mask_align,
-                            vla_offset.get_type()),
-                        get_size_t_type());
-                cast_expr.set_text("C");
-
-                // expr = (void *)((size_t)(vla_offset + mask_align) & ~mask_align)
-                cast_expr = Nodecl::Conversion::make(
-                        Nodecl::BitwiseAnd::make(
-                            cast_expr,
-                            Nodecl::BitwiseNot::make(
-                                mask_align.shallow_copy(),
-                                mask_align.get_type()),
-                            get_size_t_type()),
-                        TL::Type::get_void_type().get_pointer_to());
-                cast_expr.set_text("C");
-
-                Nodecl::NodeclBase rhs = cast_expr;
-                Nodecl::NodeclBase assignment_stmt = Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                            lhs,
-                            rhs,
-                            lhs_type));
-
-                current_captured_stmts.append(assignment_stmt);
-
-                // Compute the offset for the next vla symbol (current member + its size)
-                vla_offset = Nodecl::Conversion::make(
-                        Nodecl::Add::make(
-                            lhs.shallow_copy(),
-                            Nodecl::Sizeof::make(
-                                Nodecl::Type::make(rewrite_type_using_args(src_data_env, it->get_type(), TL::ObjectList<TL::Symbol>())),
-                                Nodecl::NodeclBase::null(),
-                                get_size_t_type()),
-                            get_size_t_type()),
-                        TL::Type::get_char_type().get_pointer_to());
-                vla_offset.set_text("C");
-            }
-            else if (IS_FORTRAN_LANGUAGE)
-            {
-                Nodecl::NodeclBase allocate_stmt;
-                {
-                    std::stringstream shape_list;
-                    if (it->get_type().no_ref().is_array())
-                    {
-                        TL::Type array_type = it->get_type().no_ref();
-                        int dim = 1;
-                        shape_list << "(";
-                        while (array_type.is_array())
-                        {
-                            shape_list
-                                << (dim > 1 ? ", " : "")
-                                << "LBOUND(" << as_symbol(src_data_env)<< " % " << it->get_name() << ", " << dim << ")"
-                                << " : "
-                                << "UBOUND(" << as_symbol(src_data_env) << " % " << it->get_name() << ", " << dim << ")"
-                                ;
-
-                            array_type = array_type.array_element();
-                            dim++;
-                        }
-                        shape_list << ")";
-                    }
-
-                    TL::Source allocate_src;
-                    allocate_src << "ALLOCATE(" << as_symbol(dst_data_env) << " % " << it->get_name() << shape_list.str() << ")\n";
-                    allocate_stmt = allocate_src.parse_statement(dup_fun_inner_scope);
-                }
-
-                if (it->is_allocatable())
-                {
-                    Nodecl::List actual_arguments = Nodecl::List::make(
-                            Nodecl::FortranActualArgument::make(
-                                Nodecl::ClassMemberAccess::make(src_data_env.make_nodecl(/*set_ref_type*/true),
-                                    _field_map[*it].make_nodecl(/*set_ref_type*/true),
-                                    /* member_literal */ Nodecl::NodeclBase::null(),
-                                    _field_map[*it].get_type().no_ref().get_lvalue_reference_to())));
-
-                    TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
-
-                    Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
-                            allocated.make_nodecl(),
-                            actual_arguments,
-                            /* alternate_name */ Nodecl::NodeclBase::null(),
-                            /* function_form */ Nodecl::NodeclBase::null(),
-                            TL::Type::get_bool_type());
-
-                    Nodecl::NodeclBase if_stmt =
-                        Nodecl::IfElseStatement::make(cond, allocate_stmt, Nodecl::NodeclBase::null());
-
-                    current_captured_stmts.append(if_stmt);
-                }
-                else
-                {
-                    current_captured_stmts.append(allocate_stmt);
-                }
-            }
-            else
-            {
-                internal_error("Unexpected code\n", 0);
-            }
+            Nodecl::List current_captured_stmts = _environment_capture.emit_copy_of_private_symbol_allocation(
+                dup_fun_inner_scope,
+                src_data_env, dst_data_env,
+                *it,
+                /* inout */ vla_offset);
 
             captured_stmts.append(current_captured_stmts);
         }
@@ -4715,25 +3590,11 @@ namespace TL { namespace Nanos6 {
                 it != _env.shared.end();
                 it++)
         {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
+            Nodecl::List current_captured_stmts = _environment_capture.emit_copy_of_shared_symbol_location(
+                src_data_env, dst_data_env,
+                *it);
 
-            Nodecl::NodeclBase lhs =
-                Nodecl::ClassMemberAccess::make(
-                        dst_data_env.make_nodecl(/* set_ref_type */ true),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        _field_map[*it].get_type().no_ref().get_lvalue_reference_to());
-
-            Nodecl::NodeclBase rhs =
-                Nodecl::ClassMemberAccess::make(
-                        src_data_env.make_nodecl(/* set_ref_type */ true),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        _field_map[*it].get_type().no_ref().get_lvalue_reference_to());
-
-            captured_stmts.append(
-                    Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(lhs, rhs, lhs.get_type())));
+            captured_stmts.append(current_captured_stmts);
         }
 
         if (!captured_stmts.is_null())
@@ -4757,233 +3618,13 @@ namespace TL { namespace Nanos6 {
                 it != _env.captured_value.end();
                 it++)
         {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
-
-            TL::Type lhs_type =
-                _field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-            Nodecl::NodeclBase lhs =
-                Nodecl::ClassMemberAccess::make(
-                        Nodecl::Dereference::make(
-                            args.make_nodecl(/* set_ref_type */ true),
-                            args.get_type().points_to().get_lvalue_reference_to()),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        lhs_type);
-
-            Nodecl::List current_captured_stmts;
-            if (it->get_type().is_dependent()
-                    || (it->get_type().no_ref().is_class() && !it->get_type().no_ref().is_pod()))
-            {
-                type_t *t = it->get_type().get_internal_type();
-
-                // new (&args.e)E(e);
-                Nodecl::NodeclBase new_expr = Nodecl::CxxDepNew::make(
-                        Nodecl::CxxParenthesizedInitializer::make(
-                            Nodecl::List::make(it->make_nodecl(/* set_ref_type */ true)),
-                            get_sequence_of_types(1, &t)),
-                        Nodecl::Type::make(it->get_type().no_ref().get_unqualified_type()),
-                        Nodecl::List::make(Nodecl::Reference::make(lhs, lhs.get_type().no_ref().get_pointer_to())),
-                        it->get_type().no_ref().get_unqualified_type(),
-                        /* global */ "");
-
-                current_captured_stmts.append(Nodecl::ExpressionStatement::make(new_expr));
-            }
-            else if (!it->is_allocatable()
-                    && !it->get_type().no_ref().is_array()
-                    && !it->get_type().no_ref().is_function())
-            {
-                Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
-
-                Nodecl::NodeclBase assignment_stmt =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                lhs,
-                                rhs,
-                                lhs_type));
-
-                current_captured_stmts.append(assignment_stmt);
-            }
-            else if (it->get_type().no_ref().is_function())
-            {
-                Nodecl::NodeclBase rhs = Nodecl::Reference::make(
-                        it->make_nodecl(/* set_ref_type */ true),
-                        it->get_type().no_ref().get_pointer_to());
-
-                Nodecl::NodeclBase assignment_stmt =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                lhs,
-                                rhs,
-                                lhs_type));
-
-                current_captured_stmts.append(assignment_stmt);
-            }
-            else
-            {
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    if (it->get_type().depends_on_nonconstant_values())
-                    {
-                        if (vla_offset.is_null())
-                        {
-                            // Skipping the arguments structure
-                            Nodecl::NodeclBase cast = Nodecl::Conversion::make(
-                                    Nodecl::Add::make(
-                                        args.make_nodecl(/* ser_ref_type */ true),
-                                        /* 1, */ const_value_to_nodecl(const_value_get_signed_int(1)),
-                                        args.get_type().no_ref()),
-                                    TL::Type::get_char_type().get_pointer_to());
-
-                            cast.set_text("C");
-                            vla_offset = cast;
-                        }
-
-                        // Skipping the extra space allocated for each vla
-                        Nodecl::NodeclBase mask_align =
-                            const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN - 1));
-
-                        // expr = (size_t)(vla_offset + mask_align)
-                        Nodecl::NodeclBase cast_expr;
-                        cast_expr = Nodecl::Conversion::make(
-                                Nodecl::Add::make(
-                                    vla_offset,
-                                    mask_align,
-                                    vla_offset.get_type()),
-                                get_size_t_type());
-                        cast_expr.set_text("C");
-
-                        // expr = (void *)((size_t)(vla_offset + mask_align) & ~mask_align)
-                        cast_expr = Nodecl::Conversion::make(
-                                Nodecl::BitwiseAnd::make(
-                                    cast_expr,
-                                    Nodecl::BitwiseNot::make(
-                                        mask_align.shallow_copy(),
-                                        mask_align.get_type()),
-                                    get_size_t_type()),
-                                TL::Type::get_void_type().get_pointer_to());
-                        cast_expr.set_text("C");
-
-                        Nodecl::NodeclBase rhs = cast_expr;
-                        Nodecl::NodeclBase assignment_stmt = Nodecl::ExpressionStatement::make(
-                                Nodecl::Assignment::make(
-                                    lhs.shallow_copy(),
-                                    rhs,
-                                    lhs_type));
-
-                        current_captured_stmts.append(assignment_stmt);
-
-                        // Compute the offset for the next vla symbol (current member + its size)
-                        vla_offset = Nodecl::Conversion::make(
-                                Nodecl::Add::make(
-                                    lhs.shallow_copy(),
-                                    Nodecl::Sizeof::make(
-                                        Nodecl::Type::make(it->get_type()),
-                                        Nodecl::NodeclBase::null(),
-                                        get_size_t_type()),
-                                    get_size_t_type()),
-                                TL::Type::get_char_type().get_pointer_to());
-                        vla_offset.set_text("C");
-                    }
-
-
-                    Nodecl::NodeclBase ref_lhs =
-                        Nodecl::Reference::make(lhs, lhs_type.no_ref().get_pointer_to());
-
-                    Nodecl::NodeclBase rhs = Nodecl::Conversion::make(
-                            it->make_nodecl(/* set_ref_type */ true),
-                            it->get_type().no_ref().array_element().get_pointer_to());
-
-                    Nodecl::NodeclBase size_of_array;
-                    if (it->get_type().depends_on_nonconstant_values())
-                    {
-                        size_of_array =
-                            Nodecl::Sizeof::make(
-                                    Nodecl::Type::make(it->get_type()),
-                                    Nodecl::NodeclBase::null(),
-                                    get_size_t_type());
-                    }
-                    else
-                    {
-                        size_of_array =
-                            const_value_to_nodecl_with_basic_type(
-                                    const_value_get_signed_int(
-                                        it->get_type().no_ref().get_size()),
-                                    get_size_t_type());
-                    }
-
-                    TL::Symbol builtin_memcpy =
-                        TL::Scope::get_global_scope().get_symbol_from_name("__builtin_memcpy");
-
-                    ERROR_CONDITION(!builtin_memcpy.is_valid()
-                            || !builtin_memcpy.is_function(), "Invalid symbol", 0);
-
-                    Nodecl::NodeclBase function_call_stmt = Nodecl::ExpressionStatement::make(
-                            Nodecl::FunctionCall::make(
-                                builtin_memcpy.make_nodecl(/* set_ref_type */ true),
-                                Nodecl::List::make(ref_lhs, rhs, size_of_array),
-                                /* alternate-name */ Nodecl::NodeclBase::null(),
-                                /* function-form */ Nodecl::NodeclBase::null(),
-                                TL::Type::get_void_type().get_pointer_to()));
-
-                    current_captured_stmts.append(function_call_stmt);
-                }
-                else // IS_FORTRAN_LANGUAGE
-                {
-                    Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
-
-                    Nodecl::NodeclBase stmt =
-                        Nodecl::ExpressionStatement::make(
-                                Nodecl::Assignment::make(
-                                    lhs,
-                                    rhs,
-                                    lhs_type));
-
-                    if (it->is_allocatable())
-                    {
-                        Nodecl::List allocated_args = Nodecl::List::make(Nodecl::FortranActualArgument::make(rhs.shallow_copy()));
-                        TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", allocated_args, /* is_call */ 0);
-
-                        Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
-                                allocated.make_nodecl(),
-                                allocated_args,
-                                /* alternate_name */ Nodecl::NodeclBase::null(),
-                                /* function_form */ Nodecl::NodeclBase::null(),
-                                TL::Type::get_bool_type());
-
-                        stmt = Nodecl::IfElseStatement::make(cond, Nodecl::List::make(stmt), Nodecl::NodeclBase::null());
-                    }
-
-                    current_captured_stmts.append(stmt);
-                }
-            }
-
-            if (IS_FORTRAN_LANGUAGE
-                    && it->is_parameter()
-                    && it->is_optional())
-            {
-                Source conditional_capture_src;
-
-                Nodecl::NodeclBase capture_null =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                lhs.shallow_copy(),
-                                Source("MERCURIUM_NULL()").parse_expression(task_enclosing_scope),
-                                TL::Type::get_void_type().get_pointer_to()));
-
-                conditional_capture_src
-                    << "IF (PRESENT(" << as_symbol(*it) << ")) THEN\n"
-                    <<    as_statement(current_captured_stmts)
-                    << "ELSE\n"
-                    <<    as_statement(capture_null)
-                    << "END IF\n"
-                    ;
-
-                Nodecl::NodeclBase if_else_stmt =
-                    conditional_capture_src.parse_statement(task_enclosing_scope);
-
-               current_captured_stmts = Nodecl::List::make(if_else_stmt);
-            }
+            Nodecl::List current_captured_stmts =
+                _environment_capture.emit_capture_of_captured_symbol(
+                    task_enclosing_scope,
+                    args,
+                    *it,
+                    /* inout */
+                    vla_offset);
 
             captured_list.append(current_captured_stmts);
         }
@@ -4993,145 +3634,13 @@ namespace TL { namespace Nanos6 {
                 it != _env.private_.end();
                 it++)
         {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(), "Symbol is not mapped", 0);
-
-            // If the privatized symbol is neither a VLA nor a symbol that is
-            // represented as an allocatable variable in the environment structure, skip it!
-            if (!it->get_type().depends_on_nonconstant_values()
-                    && !_field_map[*it].is_allocatable())
-                continue;
-
-            TL::Type lhs_type =
-                _field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-            Nodecl::NodeclBase lhs =
-                Nodecl::ClassMemberAccess::make(
-                        Nodecl::Dereference::make(
-                            args.make_nodecl(/* set_ref_type */ true),
-                            args.get_type().points_to().get_lvalue_reference_to()),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        lhs_type);
-
-            Nodecl::List current_captured_stmts;
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                if (vla_offset.is_null())
-                {
-                    // Skipping the arguments structure
-                    Nodecl::NodeclBase cast = Nodecl::Conversion::make(
-                            Nodecl::Add::make(
-                                args.make_nodecl(/* ser_ref_type */ true),
-                                /* 1, */ const_value_to_nodecl(const_value_get_signed_int(1)),
-                                args.get_type().no_ref()),
-                            TL::Type::get_char_type().get_pointer_to());
-
-                    cast.set_text("C");
-                    vla_offset = cast;
-                }
-
-                // Skipping the extra space allocated for each vla
-                Nodecl::NodeclBase mask_align =
-                    const_value_to_nodecl(const_value_get_signed_int(VLA_OVERALLOCATION_ALIGN - 1));
-
-                // expr = (size_t)(vla_offset + mask_align)
-                Nodecl::NodeclBase cast_expr;
-                cast_expr = Nodecl::Conversion::make(
-                        Nodecl::Add::make(
-                            vla_offset,
-                            mask_align,
-                            vla_offset.get_type()),
-                        get_size_t_type());
-                cast_expr.set_text("C");
-
-                // expr = (void *)((size_t)(vla_offset + mask_align) & ~mask_align)
-                cast_expr = Nodecl::Conversion::make(
-                        Nodecl::BitwiseAnd::make(
-                            cast_expr,
-                            Nodecl::BitwiseNot::make(
-                                mask_align.shallow_copy(),
-                                mask_align.get_type()),
-                            get_size_t_type()),
-                        TL::Type::get_void_type().get_pointer_to());
-                cast_expr.set_text("C");
-
-                Nodecl::NodeclBase rhs = cast_expr;
-                Nodecl::NodeclBase assignment_stmt = Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                            lhs,
-                            rhs,
-                            lhs_type));
-
-                current_captured_stmts.append(assignment_stmt);
-
-                // Compute the offset for the next vla symbol (current member + its size)
-                vla_offset = Nodecl::Conversion::make(
-                        Nodecl::Add::make(
-                            lhs.shallow_copy(),
-                            Nodecl::Sizeof::make(
-                                Nodecl::Type::make(it->get_type()),
-                                Nodecl::NodeclBase::null(),
-                                get_size_t_type()),
-                            get_size_t_type()),
-                        TL::Type::get_char_type().get_pointer_to());
-                vla_offset.set_text("C");
-            }
-            else if (IS_FORTRAN_LANGUAGE)
-            {
-                Nodecl::NodeclBase allocate_stmt;
-                {
-                    std::stringstream shape_list;
-                    if (it->get_type().no_ref().is_array())
-                    {
-                        TL::Type array_type = it->get_type().no_ref();
-                        int dim = 1;
-                        shape_list << "(";
-                        while (array_type.is_array())
-                        {
-                            shape_list
-                                << (dim > 1 ? ", " : "")
-                                << "LBOUND(" << it->get_name() << ", " << dim << ")"
-                                << " : "
-                                << "UBOUND(" << it->get_name() << ", " << dim << ")"
-                                ;
-
-                            array_type = array_type.array_element();
-                            dim++;
-                        }
-                        shape_list << ")";
-                    }
-
-                    TL::Source allocate_src;
-                    allocate_src << "ALLOCATE(" << as_symbol(args) << " % " << it->get_name() << shape_list.str() << ")\n";
-                    allocate_stmt = allocate_src.parse_statement(task_enclosing_scope);
-                }
-
-                if (it->is_allocatable())
-                {
-                    Nodecl::List actual_arguments = Nodecl::List::make(Nodecl::FortranActualArgument::make(it->make_nodecl(true)));
-                    TL::Symbol allocated = get_fortran_intrinsic_symbol<1>("allocated", actual_arguments, /* is_call */ 0);
-
-                    Nodecl::NodeclBase cond = Nodecl::FunctionCall::make(
-                            allocated.make_nodecl(),
-                            actual_arguments,
-                            /* alternate_name */ Nodecl::NodeclBase::null(),
-                            /* function_form */ Nodecl::NodeclBase::null(),
-                            TL::Type::get_bool_type());
-
-                    Nodecl::NodeclBase if_stmt =
-                        Nodecl::IfElseStatement::make(cond, allocate_stmt, Nodecl::NodeclBase::null());
-
-                    current_captured_stmts.append(if_stmt);
-                }
-                else
-                {
-                    current_captured_stmts.append(allocate_stmt);
-                }
-            }
-            else
-            {
-                internal_error("Unexpected code\n", 0);
-            }
+            Nodecl::List current_captured_stmts =
+                _environment_capture.emit_private_symbol_allocation(
+                    task_enclosing_scope,
+                    args,
+                    *it,
+                    /* inout */
+                    vla_offset);
 
             captured_list.append(current_captured_stmts);
         }
@@ -5141,132 +3650,21 @@ namespace TL { namespace Nanos6 {
         if (!vla_offset.is_null())
             nodecl_free(vla_offset.get_internal_nodecl());
 
-        // 2. Traversing SHARED variables
+        // 3. Traversing SHARED variables
         for (TL::ObjectList<TL::Symbol>::iterator it = _env.shared.begin();
                 it != _env.shared.end();
                 it++)
         {
-            ERROR_CONDITION(_field_map.find(*it) == _field_map.end(),
-                    "Symbol is not mapped", 0);
+            Nodecl::List current_captured_stmts =
+                _environment_capture.emit_caputure_of_shared_symbol_location(
+                    task_enclosing_scope,
+                    args,
+                    *it,
+                    _related_function.get_related_scope(),
+                    /* inout */
+                    _phase->get_extra_c_code());
 
-            Nodecl::NodeclBase rhs = it->make_nodecl(/* set_ref_type */ true);
-
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                rhs = Nodecl::Reference::make(
-                        rhs,
-                        rhs.get_type().no_ref().get_pointer_to());
-            }
-            else // IS_FORTRAN_LANGUAGE
-            {
-                if (it->get_type().no_ref().is_pointer()
-                    || it->is_allocatable())
-                {
-                    TL::Symbol ptr_of_sym = fortran_get_function_ptr_of(
-                        *it,
-                        _related_function.get_related_scope(),
-                        _phase->get_extra_c_code());
-
-                    rhs = Nodecl::FunctionCall::make(
-                        ptr_of_sym.make_nodecl(/* set_ref_type */ true),
-                        Nodecl::List::make(
-                            it->make_nodecl(/* set_ref_type */ true)),
-                        /* alternate_name */ Nodecl::NodeclBase::null(),
-                        /* function_form */ Nodecl::NodeclBase::null(),
-                        ptr_of_sym.get_type().returns());
-                }
-                else if (it->get_type().no_ref().is_array()
-                         && it->get_type().no_ref().array_requires_descriptor())
-                {
-                    TL::Symbol descriptor_field = _array_descriptor_map[*it];
-                    ERROR_CONDITION(!descriptor_field.is_valid(),
-                                    "Array descriptor field not found",
-                                    0);
-
-                    TL::Symbol copy_function
-                        = fortran_get_copy_descriptor_function(
-                            /* dest */ descriptor_field,
-                            /* source */ *it,
-                            _related_function.get_related_scope(),
-                            _phase->get_extra_c_code());
-
-                    Nodecl::NodeclBase dest = Nodecl::ClassMemberAccess::make(
-                        Nodecl::Dereference::make(
-                            args.make_nodecl(/* set_ref_type */ true),
-                            args.get_type()
-                                .points_to()
-                                .get_lvalue_reference_to()),
-                        descriptor_field.make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        descriptor_field.get_type().get_lvalue_reference_to());
-
-                    Nodecl::NodeclBase capture_descriptor_stmt
-                        = Nodecl::ExpressionStatement::make(
-                            Nodecl::FunctionCall::make(
-                                copy_function.make_nodecl(/* set_ref */ true),
-                                Nodecl::List::make(
-                                    dest, it->make_nodecl(/* set_ref */ true)),
-                                Nodecl::NodeclBase::null(),
-                                Nodecl::NodeclBase::null(),
-                                get_void_type()));
-
-                    captured_list.append(capture_descriptor_stmt);
-
-                    rhs = Nodecl::Reference::make(
-                        dest.shallow_copy(),
-                        descriptor_field.get_type().get_pointer_to());
-                }
-                else
-                {
-                    rhs = Nodecl::Reference::make(
-                        rhs, rhs.get_type().no_ref().get_pointer_to());
-                }
-            }
-
-            TL::Type lhs_type =
-                _field_map[*it].get_type().no_ref().get_lvalue_reference_to();
-
-            Nodecl::NodeclBase lhs =
-                Nodecl::ClassMemberAccess::make(
-                        Nodecl::Dereference::make(
-                            args.make_nodecl(/* set_ref_type */ true),
-                            args.get_type().points_to().get_lvalue_reference_to()),
-                        _field_map[*it].make_nodecl(),
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        lhs_type);
-
-            Nodecl::NodeclBase current_captured_stmt = Nodecl::ExpressionStatement::make(
-                    Nodecl::Assignment::make(
-                        lhs,
-                        rhs,
-                        lhs_type));
-
-            if (IS_FORTRAN_LANGUAGE
-                    && it->is_parameter()
-                    && it->is_optional())
-            {
-                Nodecl::NodeclBase capture_null = 
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                lhs.shallow_copy(),
-                                Source("MERCURIUM_NULL()").parse_expression(task_enclosing_scope),
-                                TL::Type::get_void_type().get_pointer_to()));
-
-                Source conditional_capture_src;
-
-                conditional_capture_src
-                    << "IF (PRESENT(" << as_symbol(*it) << ")) THEN\n"
-                    <<    as_statement(current_captured_stmt)
-                    << "ELSE\n"
-                    <<    as_statement(capture_null)
-                    << "END IF\n"
-                    ;
-
-                current_captured_stmt =
-                    conditional_capture_src.parse_statement(task_enclosing_scope);
-            }
-
-            captured_list.append(current_captured_stmt);
+            captured_list.append(current_captured_stmts);
         }
 
         captured_env = captured_list;
@@ -5358,12 +3756,6 @@ namespace TL { namespace Nanos6 {
                 release_stmts.append(call_to_release);
             }
         }
-    }
-
-    bool TaskProperties::is_saved_expression(Nodecl::NodeclBase n)
-    {
-        return (n.is<Nodecl::Symbol>()
-                && n.get_symbol().is_saved_expression());
     }
 
     bool TaskProperties::task_is_loop() const

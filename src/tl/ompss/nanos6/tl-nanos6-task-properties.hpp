@@ -40,6 +40,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-type.hpp"
 #include "tl-symbol.hpp"
+#include "tl-nanos6-support.hpp"
 
 
 namespace TL { namespace Nanos6 {
@@ -52,9 +53,6 @@ namespace TL { namespace Nanos6 {
     struct TaskProperties
     {
         private:
-            typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
-            typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
-
             struct TaskloopBounds
             {
                 Nodecl::NodeclBase lower_bound;
@@ -75,11 +73,7 @@ namespace TL { namespace Nanos6 {
             //! Used to store some shared information between tasks
             Lower* _lower_visitor;
 
-            field_map_t _field_map;
-
-            array_descriptor_map_t _array_descriptor_map;
-
-            static const int VLA_OVERALLOCATION_ALIGN = 8;
+            EnvironmentCapture _environment_capture;
 
             //! Used to store the number of reductions within the task (and to identify them)
             unsigned int _num_reductions;
@@ -179,16 +173,6 @@ namespace TL { namespace Nanos6 {
 
             TL::Scope compute_scope_for_environment_structure();
 
-            Nodecl::NodeclBase rewrite_expression_using_args(
-                TL::Symbol args,
-                Nodecl::NodeclBase expr,
-                const TL::ObjectList<TL::Symbol> &local) const;
-
-            TL::Type rewrite_type_using_args(
-                    TL::Symbol arg,
-                    TL::Type t,
-                    const TL::ObjectList<TL::Symbol> &local) const;
-
             void compute_reduction_arguments_register_dependence(
                     TL::DataReference& data_ref,
                     // Out
@@ -283,8 +267,6 @@ namespace TL { namespace Nanos6 {
             void fortran_add_types(TL::Scope sc);
 
             bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
-
-            static bool is_saved_expression(Nodecl::NodeclBase n);
 
             bool task_is_loop() const;
 
