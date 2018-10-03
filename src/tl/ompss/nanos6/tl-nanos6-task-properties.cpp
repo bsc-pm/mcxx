@@ -3467,6 +3467,8 @@ namespace TL { namespace Nanos6 {
         create_static_variable_depending_on_function_context(
                 reduction_initializers_name,
                 reduction_function_type.get_array_to(),
+                _task_body,
+                _phase,
                 reduction_initializers);
 
         // 2.2. Reduction combiners
@@ -3477,6 +3479,8 @@ namespace TL { namespace Nanos6 {
         create_static_variable_depending_on_function_context(
                 reduction_combiners_name,
                 reduction_function_type.get_array_to(),
+                _task_body,
+                _phase,
                 reduction_combiners);
 
         // 3. Build brace initializers (ie {A, B, C}) for the global symbols
