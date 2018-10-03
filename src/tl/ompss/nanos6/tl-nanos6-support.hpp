@@ -28,6 +28,8 @@
 #ifndef TL_NANOS6_SUPPORT_HPP
 #define TL_NANOS6_SUPPORT_HPP
 
+#include "tl-nanos6.hpp"
+
 #include "tl-objectlist.hpp"
 #include "tl-scope.hpp"
 #include "tl-nodecl.hpp"
@@ -48,6 +50,15 @@ namespace Nanos6
             TL::ObjectList<TL::Symbol> &vla_vars);
 
     Nodecl::NodeclBase compute_call_to_nanos6_bzero(Nodecl::NodeclBase pointer_expr_to_be_initialized);
+
+    void create_static_variable_depending_on_function_context(
+        const std::string &var_name,
+        TL::Type var_type,
+        Nodecl::NodeclBase context,
+        LoweringPhase* phase,
+        /* out */
+        TL::Symbol &new_var);
+
 }
 }
 

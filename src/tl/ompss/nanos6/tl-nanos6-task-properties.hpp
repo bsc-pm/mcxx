@@ -211,30 +211,6 @@ namespace TL { namespace Nanos6 {
                     // Out
                     Nodecl::List &register_statements);
 
-            void create_static_variable_depending_on_function_context(
-                    const std::string &var_name,
-                    TL::Type var_type,
-                    // Out
-                    TL::Symbol &new_var) const;
-
-            void create_static_variable_regular_function(
-                    const std::string &var_name,
-                    TL::Type var_type,
-                    // Out
-                    TL::Symbol &new_var) const;
-
-            void create_static_variable_nondependent_function(
-                    const std::string &var_name,
-                    TL::Type var_type,
-                    // Out
-                    TL::Symbol &new_var) const;
-
-            void create_static_variable_dependent_function(
-                    const std::string &var_name,
-                    TL::Type var_type,
-                    // Out
-                    TL::Symbol &new_var) const;
-
             void compute_captured_saved_expressions();
 
             /* This function traverses all the expressions that are evaluated using the arguments structure
