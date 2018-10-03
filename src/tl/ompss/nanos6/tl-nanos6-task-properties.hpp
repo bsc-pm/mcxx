@@ -30,6 +30,7 @@
 
 #include "tl-nanos6.hpp"
 #include "tl-nanos6-device.hpp"
+#include "tl-nanos6-environment-capture.hpp"
 
 #include "tl-omp-lowering-directive-environment.hpp"
 
@@ -40,7 +41,6 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-type.hpp"
 #include "tl-symbol.hpp"
-#include "tl-nanos6-support.hpp"
 
 
 namespace TL { namespace Nanos6 {
@@ -48,7 +48,7 @@ namespace TL { namespace Nanos6 {
     using TL::OpenMP::Lowering::DirectiveEnvironment;
 
     // Forward declaration of TL::Nanos6::Lower
-    class Lower;
+    struct Lower;
 
     struct TaskProperties
     {
