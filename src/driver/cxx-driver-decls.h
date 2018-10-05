@@ -172,6 +172,7 @@ struct debug_flags_list_t
 typedef struct debug_options_tag
 {
     char abort_on_ice;
+    char abort_on_error_message;
     char backtrace_on_ice;
     char print_scope;
     char enable_debug_code;
