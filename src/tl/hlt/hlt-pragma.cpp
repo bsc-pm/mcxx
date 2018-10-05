@@ -99,11 +99,19 @@ void HLTPragmaPhase::do_loop_unroll(TL::PragmaCustomStatement construct)
     HLT::LoopUnroll loop_unroll;
     Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
     loop_unroll.set_loop(loop);
+    if (loop_unroll.is_invalid())
+    {
+        error_printf_at(construct.get_locus(),
+                        "loop cannot be unrolled because %s\n",
+                        loop_unroll.get_error_reason().c_str());
+        return;
+    }
 
     int unroll_factor = 0;
 
     TL::PragmaCustomLine custom_line = construct.get_pragma_line();
     TL::PragmaCustomParameter clause = custom_line.get_parameter();
+    bool seen_unroll_factor = false;
     if (clause.is_defined())
     {
         TL::ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
@@ -114,8 +122,16 @@ void HLTPragmaPhase::do_loop_unroll(TL::PragmaCustomStatement construct)
             {
                 unroll_factor = const_value_cast_to_signed_int(first.get_constant());
                 loop_unroll.set_unroll_factor(unroll_factor);
+                seen_unroll_factor = true;
             }
         }
+    }
+
+    if (!seen_unroll_factor)
+    {
+        error_printf_at(construct.get_locus(),
+                        "no unroll factor has been specified\n");
+        return;
     }
 
     loop_unroll.unroll();

@@ -52,6 +52,14 @@ namespace TL
                 Nodecl::NodeclBase _loop, _transformation, _unrolled, _epilog;
                 int _unroll_factor;
                 bool _create_epilog;
+                bool _is_invalid;
+                std::string _error_reason;
+
+                void set_invalid_loop(const std::string &reason)
+                {
+                  _is_invalid = true;
+                  _error_reason = reason;
+                }
             public:
                 LoopUnroll();
 
@@ -59,6 +67,16 @@ namespace TL
                 LoopUnroll& set_loop(Nodecl::NodeclBase loop);
                 LoopUnroll& set_unroll_factor(int n);
                 LoopUnroll& set_create_epilog(bool b);
+
+                bool is_invalid() const
+                {
+                    return _is_invalid;
+                }
+
+                std::string get_error_reason() const
+                {
+                    return _error_reason;
+                }
 
                 // Action
                 void unroll();
