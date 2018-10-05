@@ -129,7 +129,7 @@ passfail ()
 
    # Note that >> is right here since $* may have appended stuff already
    START=$(date "+%s.%N")
-   $* 1>> $junit_log_OUT 2>> $junit_log_ERR || ret=1
+   $* 1>> $junit_log_OUT 2>> $junit_log_ERR || ret=$?
    END=$(date "+%s.%N")
 
    ELAPSED=$(arithmetic $END - $START)
@@ -142,7 +142,23 @@ passfail ()
 
    junit_log "<testcase name=\"${full_test_name}\" time=\"$ELAPSED\">"
 
-   if [ $reverse $ret -eq 0 ]; then
+   # In Linux signals range from 1 to 64. The error code is 128+signal so
+   # we assume that a $ret in [128,192] is always due to a signal.
+   # We don't allow ending with a signal unless we've been told so
+   if [ 129 -le $ret -a $ret -le 192 -a -z "$test_end_signal" ];
+   then
+       filtered_message "${RED}failed due to signal${NORMAL}!"
+       log "failed!"
+       junit_log "<error />"
+       let run_fail=run_fail+1
+     elif [ ! '(' 129 -le $ret -a $ret -le 192 ')' -a -n "$test_end_signal" ];
+   then
+       # If the test must end with a signal and it does not, this is wrong
+       filtered_message "${RED}failed, test must finish with a signal${NORMAL}!"
+       log "failed!"
+       junit_log "<error />"
+       let run_fail=run_fail+1
+   elif [ $reverse $ret -eq 0 ]; then
      if [ ! "$test_faulty" ];
      then
        filtered_message "${GREEN}passed${NORMAL}"
@@ -732,8 +748,13 @@ run_test ()
               log "***Start compile test $name-$v"
               eval test_fail=\${test_compile_fail_$v}
               test_fail=${test_fail:-$test_compile_fail}
+
               eval test_faulty=\${test_compile_faulty_$v}
               test_faulty=${test_faulty:-$test_compile_faulty}
+
+              eval test_end_signal=\${test_compile_end_signal_$v}
+              test_end_signal=${test_end_signal:-$test_compile_end_signal}
+
               passfail "$name-$v" compile_$type $v $source $name $srcdir
               local ok=$?
 
@@ -756,9 +777,15 @@ run_test ()
                        eval test_fail=\${test_exec_fail_${v}_${e}}
                        eval test_fail=\${test_fail:-\$test_exec_fail_${e}}
                        test_fail=${test_fail:-$test_exec_fail}
+
                        eval test_faulty=\${test_exec_faulty_${v}_${e}}
                        eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
                        test_faulty=${test_faulty:-$test_exec_faulty}
+
+                       eval test_end_signal=\${test_exec_end_signal_${v}_${e}}
+                       eval test_end_signal=\${test_end_signal:-\$test_exec_end_signal_${e}}
+                       test_end_signal=${test_end_signal:-$test_exec_end_signal}
+
                        eval test_ignore_fail=\${test_ignore_fail}
                        eval test_exec_command=\${test_exec_command}
                        passfail "$name-$v-$e" execute $e $name $v
