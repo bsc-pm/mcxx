@@ -16,7 +16,7 @@ then
 fi
 
 cat <<EOF
-MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 test_CC="do_not_use_this_profile_for_c"
 test_CXX="\${MCXX} --profile=plaincxx -std=c++14"
 test_FC="do_not_use_this_profile_for_fortran"
