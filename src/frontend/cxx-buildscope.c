@@ -19613,14 +19613,6 @@ static void build_scope_expression_statement(AST a,
     nodecl_t nodecl_expr = nodecl_null();
     check_expression(expr, decl_context, &nodecl_expr);
 
-    if (CURRENT_CONFIGURATION->strict_typecheck
-            && nodecl_is_err_expr(nodecl_expr))
-    {
-        internal_error("Could not check expression '%s' at '%s'\n",
-                prettyprint_in_buffer(ASTSon0(a)),
-                ast_location(ASTSon0(a)));
-    }
-
     build_scope_nodecl_expression_statement(nodecl_expr,
             decl_context,
             ast_get_locus(a),

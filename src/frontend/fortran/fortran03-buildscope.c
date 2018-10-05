@@ -5100,7 +5100,9 @@ static void build_scope_arithmetic_if_stmt(AST a, const decl_context_t* decl_con
 
 }
 
-static void build_scope_expression_stmt(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+static void build_scope_expression_stmt(AST a,
+    const decl_context_t* decl_context UNUSED_PARAMETER,
+    nodecl_t* nodecl_output)
 {
     DEBUG_CODE()
     {
@@ -5109,13 +5111,8 @@ static void build_scope_expression_stmt(AST a, const decl_context_t* decl_contex
     }
     AST expr = ASTSon0(a);
     nodecl_t nodecl_expr = nodecl_null();
-    if (!fortran_check_expression(expr, decl_context, &nodecl_expr)
-            && CURRENT_CONFIGURATION->strict_typecheck)
-    {
-        internal_error("Could not check expression '%s' at '%s'\n",
-                fortran_prettyprint_in_buffer(ASTSon0(a)),
-                ast_location(ASTSon0(a)));
-    }
+
+    fortran_check_expression(expr, decl_context, &nodecl_expr);
 
     if (!nodecl_is_err_expr(nodecl_expr))
     {

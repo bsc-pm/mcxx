@@ -509,9 +509,6 @@ typedef struct compilation_configuration_tag
     const char** pragma_custom_prefix;
     pragma_directive_set_t **pragma_custom_prefix_info;
 
-    // Enable strict typecheck (will fail if something can't be verified or fails)
-    char strict_typecheck;
-
     // Disable g++ 4.3 type traits
     char disable_gxx_type_traits;
 

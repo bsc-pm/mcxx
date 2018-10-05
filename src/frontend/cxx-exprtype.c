@@ -22888,14 +22888,6 @@ char check_initialization(AST initializer,
         }
     }
 
-    if (CURRENT_CONFIGURATION->strict_typecheck
-            && nodecl_is_err_expr(*nodecl_output))
-    {
-        internal_error("Initializer '%s' at '%s' does not have a valid computed type\n",
-                prettyprint_in_buffer(initializer),
-                ast_location(initializer));
-    }
-
     return !nodecl_is_err_expr(*nodecl_output);
 }
 
