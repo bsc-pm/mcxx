@@ -12355,6 +12355,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         else
                         {
                             error_printf_at(ast_get_locus(declarator), "declaration lacks a type-specifier\n");
+                            declarator_type = get_error_type();
                         }
                     }
                     else
@@ -12402,6 +12403,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                     if (type_specifier == NULL)
                     {
                         error_printf_at(ast_get_locus(declarator), "declaration lacks a type-specifier\n");
+                        declarator_type = get_error_type();
                     }
 
                     scope_entry_list_t* entry_list = query_nested_name(decl_context,
@@ -12480,6 +12482,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         else
                         {
                             error_printf_at(ast_get_locus(declarator), "declaration lacks a type-specifier\n");
+                            declarator_type = get_error_type();
                         }
                     }
                     else
@@ -12508,6 +12511,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                 if (type_specifier == NULL)
                 {
                     error_printf_at(ast_get_locus(declarator), "declaration lacks a type-specifier\n");
+                    declarator_type = get_error_type();
                 }
 
                 // An unqualified operator_function_id "operator +"
@@ -12562,6 +12566,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                 {
                     error_printf_at(ast_get_locus(declarator),
                             "literal operator lacks a type-specifier\n");
+                    declarator_type = get_error_type();
                 }
 
                 return build_scope_user_defined_literal_declarator(declarator_id, declarator_type, gather_info, decl_context);
@@ -13060,6 +13065,10 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, const decl_context_t* decl_context)
 {
+    // Give up if the declarator turned out to be bad.
+    if (is_error_type(declarator_type))
+        return NULL;
+
     if (!is_function_type(declarator_type)
             // A parameter might have function type but we do not want to do
             // anything special on it, later on its type will be adjusted
