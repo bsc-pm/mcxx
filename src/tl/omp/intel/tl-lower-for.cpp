@@ -88,20 +88,6 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     TL::ObjectList<TL::Symbol> firstprivate_symbols = de.captured_value;
     TL::ObjectList<TL::Symbol> lastprivate_symbols = de.lastprivate;
     TL::ObjectList<TL::Symbol> firstlastprivate_symbols = de.firstlastprivate;
-    std::cout << "DATAENV" << std::endl;
-    std::cout << "private" << std::endl;
-    for (Symbol sym : private_symbols) std::cout << " " << sym.get_name();
-    std::cout << std::endl;
-    std::cout << "captured" << std::endl;
-    for (Symbol sym : firstprivate_symbols) std::cout << " " << sym.get_name();
-    std::cout << std::endl;
-    std::cout << "lastprivate" << std::endl;
-    for (Symbol sym : lastprivate_symbols) std::cout << " " << sym.get_name();
-    std::cout << std::endl;
-    std::cout << "firstlastprivate" << std::endl;
-    for (Symbol sym : firstlastprivate_symbols) std::cout << " " << sym.get_name();
-    std::cout << std::endl;
-    std::cout << "OLDENV" << std::endl;
     if (!firstprivate_symbols.empty())
     {
         private_symbols.insert(firstprivate_symbols);
