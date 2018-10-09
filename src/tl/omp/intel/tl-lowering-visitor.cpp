@@ -44,11 +44,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Atomic& construct)
     error_printf_at(construct.get_locus(), "OpenMP Atomic construct not yet implemented\n");
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::Critical& construct)
-{
-    error_printf_at(construct.get_locus(), "OpenMP Critical construct not yet implemented\n");
-}
-
 void LoweringVisitor::visit(const Nodecl::OpenMP::FlushMemory& construct)
 {
     error_printf_at(construct.get_locus(), "OpenMP FlushMemory construct not yet implemented\n");
@@ -69,11 +64,6 @@ void LoweringVisitor::visit(const Nodecl::OmpSs::TargetDeclaration& construct)
     error_printf_at(construct.get_locus(), "OmpSs TargetDeclaration construct not yet implemented\n");
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
-{
-    error_printf_at(construct.get_locus(), "OpenMP Task construct not yet implemented\n");
-}
-
 void LoweringVisitor::visit(const Nodecl::OmpSs::TaskCall& construct)
 {
     error_printf_at(construct.get_locus(), "OmpSs TaskCall construct not yet implemented\n");
@@ -84,8 +74,4 @@ void LoweringVisitor::visit(const Nodecl::OmpSs::TaskExpression& construct)
     error_printf_at(construct.get_locus(), "OmpSs TaskExpression construct not yet implemented\n");
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::Taskwait& construct)
-{
-    error_printf_at(construct.get_locus(), "OpenMP Taskwait construct not yet implemented\n");
-}
 } }

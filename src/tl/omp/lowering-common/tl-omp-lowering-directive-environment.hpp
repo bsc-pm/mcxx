@@ -69,7 +69,10 @@ namespace TL { namespace OpenMP { namespace Lowering {
         TL::ObjectList<TL::Symbol> shared;
         TL::ObjectList<TL::Symbol> private_;
         TL::ObjectList<TL::Symbol> captured_value; // Superset of firstprivate
+        TL::ObjectList<TL::Symbol> lastprivate;
+        TL::ObjectList<TL::Symbol> firstlastprivate;
         TL::ObjectList<ReductionItem> reduction;
+        TL::ObjectList<ReductionItem> in_reduction;
 
         /* --------  Dependences information ------ */
         TL::ObjectList<Nodecl::NodeclBase> dep_in;

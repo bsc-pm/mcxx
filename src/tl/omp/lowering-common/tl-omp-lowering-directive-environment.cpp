@@ -98,6 +98,24 @@ namespace TL { namespace OpenMP { namespace Lowering {
                         .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
             }
 
+            virtual void visit(const Nodecl::OpenMP::Lastprivate &n)
+            {
+                _env.lastprivate.insert(
+                        n.get_symbols()
+                        .as<Nodecl::List>()
+                        .to_object_list()
+                        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
+            }
+
+            virtual void visit(const Nodecl::OpenMP::FirstLastprivate &n)
+            {
+                _env.firstlastprivate.insert(
+                        n.get_symbols()
+                        .as<Nodecl::List>()
+                        .to_object_list()
+                        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
+            }
+
             virtual void visit(const Nodecl::OpenMP::If &n)
             {
                 _env.if_clause = n.get_condition();
@@ -121,6 +139,27 @@ namespace TL { namespace OpenMP { namespace Lowering {
                     ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
 
                     _env.reduction.insert(ReductionItem(reduction_symbol, reduction_type, red, /* isWeak */ false));
+                }
+            }
+
+            virtual void visit(const Nodecl::OpenMP::InReduction &n)
+            {
+
+                Nodecl::List reductions = n.get_reductions().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = reductions.begin();
+                        it != reductions.end();
+                        it++)
+                {
+                    Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
+
+                    TL::Symbol reductor_sym = red_item.get_reductor().get_symbol();
+                    TL::Symbol reduction_symbol = red_item.get_reduced_symbol().get_symbol();
+                    TL::Type reduction_type = red_item.get_reduction_type().get_type();
+
+                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reductor_sym);
+                    ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
+
+                    _env.in_reduction.insert(ReductionItem(reduction_symbol, reduction_type, red, /* isWeak */ false));
                 }
             }
 

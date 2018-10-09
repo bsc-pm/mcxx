@@ -30,6 +30,7 @@
 
 #include "tl-lowering-utils.hpp"
 #include "tl-omp.hpp"
+#include "tl-omp-lowering-directive-environment.hpp"
 
 namespace TL { namespace Intel {
 
@@ -38,13 +39,13 @@ namespace TL { namespace Intel {
 
     TL::Symbol emit_callback_for_reduction(
             CombinerISA combiner_isa,
-            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::ObjectList<TL::OpenMP::Lowering::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
 
     TL::Symbol emit_callback_for_reduction_scalar(
-            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::ObjectList<TL::OpenMP::Lowering::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
@@ -58,7 +59,7 @@ namespace TL { namespace Intel {
 
     SIMDReductionPair emit_callback_for_reduction_simd(
             CombinerISA isa,
-            Nodecl::OpenMP::ReductionItem &reduction_item,
+            TL::OpenMP::Lowering::ReductionItem &reduction_item,
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
 
@@ -68,7 +69,7 @@ namespace TL { namespace Intel {
             TL::Symbol current_function);
 
     void update_reduction_uses(Nodecl::NodeclBase node,
-            const TL::ObjectList<Nodecl::OpenMP::ReductionItem>& reduction_items,
+            const TL::ObjectList<TL::OpenMP::Lowering::ReductionItem>& reduction_items,
             TL::Symbol reduction_pack_symbol);
 
     struct ReplaceInOutMaster : Nodecl::ExhaustiveVisitor<void>
@@ -81,6 +82,17 @@ namespace TL { namespace Intel {
                 TL::Symbol field,
                 TL::Symbol orig_omp_in,  TL::Symbol reduction_pack_symbol,
                 TL::Symbol orig_omp_out, TL::Symbol reduced_symbol);
+
+        virtual void visit(const Nodecl::Symbol& node);
+    };
+
+    struct TranslateReductionExpr: public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            std::map<TL::Symbol, Nodecl::NodeclBase>& _translation_map;
+
+        public:
+            TranslateReductionExpr(std::map<TL::Symbol, Nodecl::NodeclBase>& translation_map);
 
         virtual void visit(const Nodecl::Symbol& node);
     };

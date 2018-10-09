@@ -54,6 +54,14 @@ namespace TL { namespace Intel {
     void gather_vla_symbols(TL::Symbol symbol,
             TL::ObjectList<TL::Symbol>& extra_symbols);
 
+    Nodecl::NodeclBase build_for(const Nodecl::NodeclBase& init,
+                                 const Nodecl::NodeclBase& cond,
+                                 const Nodecl::NodeclBase& incr,
+                                 const Nodecl::NodeclBase& body,
+                                 const TL::Scope& sc,
+                                 TL::Symbol& ind_var);
+
+    static const int VLA_OVERALLOCATION_ALIGN = 8;
 } }
 
 #endif // TL_LOWERING_UTILS_HPP
