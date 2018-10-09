@@ -32,7 +32,7 @@
 #include "tl-symbol-utils.hpp"
 
 #include "tl-lower-reductions.hpp"
-#include "../lowering-common/tl-omp-lowering-directive-environment.hpp"
+#include "tl-omp-lowering-directive-environment.hpp"
 
 #include "cxx-cexpr.h"
 

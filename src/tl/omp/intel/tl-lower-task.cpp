@@ -29,7 +29,7 @@
 #include "tl-lowering-utils.hpp"
 #include "tl-lower-task-common.hpp"
 #include "tl-symbol-utils.hpp"
-#include "../lowering-common/tl-omp-lowering-directive-environment.hpp"
+#include "tl-omp-lowering-directive-environment.hpp"
 #include "cxx-cexpr.h"
 
 namespace TL { namespace Intel {

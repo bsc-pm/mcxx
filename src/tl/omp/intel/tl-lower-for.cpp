@@ -33,7 +33,7 @@
 #include "tl-counters.hpp"
 
 #include "cxx-diagnostic.h"
-#include "../lowering-common/tl-omp-lowering-directive-environment.hpp"
+#include "tl-omp-lowering-directive-environment.hpp"
 #include "cxx-cexpr.h"
 
 namespace TL { namespace Intel {

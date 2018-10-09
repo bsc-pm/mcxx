@@ -30,7 +30,7 @@
 
 #include "tl-lowering-utils.hpp"
 #include "tl-omp.hpp"
-#include "../lowering-common/tl-omp-lowering-directive-environment.hpp"
+#include "tl-omp-lowering-directive-environment.hpp"
 
 namespace TL { namespace Intel {
 
