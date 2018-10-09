@@ -32,13 +32,15 @@
 #include "tl-symbol-utils.hpp"
 
 #include "tl-lower-reductions.hpp"
+#include "../lowering-common/tl-omp-lowering-directive-environment.hpp"
 
 #include "cxx-cexpr.h"
 
 #include <numeric>
 
-
 namespace TL { namespace Intel {
+
+using TL::OpenMP::Lowering::DirectiveEnvironment;
 
 struct AccountReductions : public Nodecl::ExhaustiveVisitor<void>
 {
@@ -89,101 +91,31 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     walk(statements);
     statements = construct.get_statements(); // Should not be necessary
 
+    DirectiveEnvironment de(environment);
+
     Nodecl::NodeclBase num_threads = construct.get_num_replicas();
 
-    TL::ObjectList<Nodecl::OpenMP::Shared> shared_list = environment.find_all<Nodecl::OpenMP::Shared>();
-    TL::ObjectList<Nodecl::OpenMP::Private> private_list = environment.find_all<Nodecl::OpenMP::Private>();
-    TL::ObjectList<Nodecl::OpenMP::Firstprivate> firstprivate_list = environment.find_all<Nodecl::OpenMP::Firstprivate>();
-    TL::ObjectList<Nodecl::OpenMP::Reduction> reduction_list = environment.find_all<Nodecl::OpenMP::Reduction>();
-
     TL::ObjectList<TL::Symbol> all_symbols_passed; // Set of all symbols passed in the outline
-    TL::ObjectList<TL::Symbol> private_symbols;
-    TL::ObjectList<TL::Symbol> firstprivate_symbols;
-    TL::ObjectList<TL::Symbol> shared_symbols;
+    TL::ObjectList<TL::Symbol> private_symbols = de.private_;
+    TL::ObjectList<TL::Symbol> firstprivate_symbols = de.captured_value;
+    TL::ObjectList<TL::Symbol> shared_symbols = de.shared;
 
-    if (!shared_list.empty())
+    TL::ObjectList<TL::OpenMP::Lowering::ReductionItem> reduction_items
+        = de.reduction;
+
+    if (!firstprivate_symbols.empty())
     {
-        TL::ObjectList<Symbol> tmp =
-            shared_list  // TL::ObjectList<OpenMP::Shared>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Shared::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        shared_symbols.insert(tmp);
-        all_symbols_passed.insert(tmp);
+        private_symbols.insert(firstprivate_symbols);
+        all_symbols_passed.insert(firstprivate_symbols);
     }
-    if (!private_list.empty())
+    if (!shared_symbols.empty())
     {
-        TL::ObjectList<Symbol> tmp =
-            private_list  // TL::ObjectList<OpenMP::Private>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        private_symbols.insert(tmp);
+        all_symbols_passed.insert(shared_symbols);
     }
-    if (!firstprivate_list.empty())
+    if (!reduction_items.empty())
     {
-        TL::ObjectList<Symbol> tmp =
-            firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-            .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
-            ;
-
-        private_symbols.insert(tmp);
-        firstprivate_symbols.insert(tmp);
-        all_symbols_passed.insert(tmp);
-    }
-
-    // Add the VLA symbols
-    {
-        TL::ObjectList<TL::Symbol> vla_symbols;
-        for (TL::ObjectList<TL::Symbol>::iterator it = all_symbols_passed.begin();
-                it != all_symbols_passed.end();
-                it++)
-        {
-            Intel::gather_vla_symbols(*it, vla_symbols);
-        }
-
-        // VLA symbols are always firstprivate
-        // TODO: hack to have vla symbols first. would be better have an ObjectList function to do this
-        TL::ObjectList<TL::Symbol> private_symbols_ord;
-        TL::ObjectList<TL::Symbol> firstprivate_symbols_ord;
-
-        private_symbols_ord.insert(vla_symbols);
-        private_symbols_ord.insert(private_symbols);
-        private_symbols = private_symbols_ord;
-
-        firstprivate_symbols_ord.insert(vla_symbols);
-        firstprivate_symbols_ord.insert(firstprivate_symbols);
-        firstprivate_symbols = firstprivate_symbols_ord;
-
-        // We want all the gathered VLA symbols be the first ones
-        vla_symbols.insert(all_symbols_passed);
-        all_symbols_passed = vla_symbols;
-    }
-
-    TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items;
-    if (!reduction_list.empty())
-    {
-        reduction_items = reduction_list
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::Reduction::get_reductions)
-            .map<Nodecl::List>(&Nodecl::NodeclBase::as<Nodecl::List>)
-            .map<TL::ObjectList<Nodecl::NodeclBase> >(&Nodecl::List::to_object_list)
-            .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
-            .map<Nodecl::OpenMP::ReductionItem>(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&TL::OpenMP::Lowering::ReductionItem::get_symbol); // TL::ObjectList<TL::Symbol>
         all_symbols_passed.insert(reduction_symbols);
     }
 
@@ -329,8 +261,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     if (!reduction_items.empty())
     {
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&TL::OpenMP::Lowering::ReductionItem::get_symbol); // TL::ObjectList<TL::Symbol>
 
         TL::Symbol reduction_pack_type = declare_reduction_pack(reduction_symbols, construct);
         reduction_pack_symbol = Intel::new_private_symbol(
@@ -342,14 +273,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         // Initialize every member with the neuter
         TL::ObjectList<TL::Symbol> fields = reduction_pack_symbol.get_type().get_fields();
         TL::ObjectList<TL::Symbol>::iterator it_fields = fields.begin();
-        for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
+        for (auto it = reduction_items.begin();
                 it != reduction_items.end();
                 it++, it_fields++)
         {
-            Nodecl::OpenMP::ReductionItem &current(*it);
+                TL::OpenMP::Lowering::ReductionItem &current(*it);
 
-            TL::Symbol reductor = current.get_reductor().get_symbol();
-            OpenMP::Reduction* omp_reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
+                OpenMP::Reduction* omp_reduction = current.reduction_info;
+                TL::Symbol reduced_symbol = current.symbol;
 
             Source init_field;
             init_field << as_symbol(reduction_pack_symbol) << "." << it_fields->get_name()
@@ -373,8 +304,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     if (!reduction_items.empty())
     {
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&TL::OpenMP::Lowering::ReductionItem::get_symbol); // TL::ObjectList<TL::Symbol>
         for (TL::ObjectList<Symbol>::iterator it = reduction_symbols.begin();
                 it != reduction_symbols.end();
                 it++)
@@ -410,14 +340,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
             Source master_combiner;
             TL::ObjectList<TL::Symbol> reduction_fields = reduction_pack_symbol.get_type().get_fields();
             TL::ObjectList<TL::Symbol>::iterator it_fields = reduction_fields.begin();
-            for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
+            for (auto it = reduction_items.begin();
                     it != reduction_items.end();
                     it++, it_fields++)
             {
-                Nodecl::OpenMP::ReductionItem &current(*it);
-                TL::Symbol reduced_symbol = current.get_reduced_symbol().get_symbol();
-                TL::Symbol reductor = current.get_reductor().get_symbol();
-                OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
+                TL::OpenMP::Lowering::ReductionItem &current(*it);
+
+                OpenMP::Reduction* reduction = current.reduction_info;
+                TL::Symbol reduced_symbol = current.symbol;
 
                 Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
 

@@ -142,7 +142,7 @@ namespace TL
     };
 
     TL::Symbol Intel::emit_callback_for_reduction_scalar(
-            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::ObjectList<TL::OpenMP::Lowering::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
             TL::Symbol current_function)
@@ -181,15 +181,14 @@ namespace TL
         TL::Source combiner;
         TL::ObjectList<TL::Symbol> reduction_fields = reduction_pack_type.get_fields();
         TL::ObjectList<TL::Symbol>::iterator it_fields = reduction_fields.begin();
-        for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
+        for (auto it = reduction_items.begin();
                 it != reduction_items.end();
                 it++, it_fields++)
         {
-            Nodecl::OpenMP::ReductionItem &current(*it);
+            TL::OpenMP::Lowering::ReductionItem &current(*it);
 
-            TL::Symbol reductor = current.get_reductor().get_symbol();
-            OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
-            TL::Symbol reduced_symbol = current.get_reduced_symbol().get_symbol();
+            OpenMP::Reduction* reduction = current.reduction_info;
+            TL::Symbol reduced_symbol = current.symbol;
 
             Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
             Nodecl::NodeclBase red_item_comb_stmt =
@@ -255,7 +254,7 @@ namespace TL
 
     TL::Symbol Intel::emit_callback_for_reduction(
             CombinerISA isa,
-            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::ObjectList<TL::OpenMP::Lowering::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
             TL::Symbol current_function)
@@ -269,7 +268,7 @@ namespace TL
                     // an array of functions
                     TL::ObjectList<SIMDReductionPair> pairs;
 
-                    for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
+                    for (auto it = reduction_items.begin();
                             it != reduction_items.end();
                             it++)
                     {
@@ -339,12 +338,11 @@ namespace TL
     };
 
     void Intel::update_reduction_uses(Nodecl::NodeclBase node,
-            const TL::ObjectList<Nodecl::OpenMP::ReductionItem>& reduction_items,
+            const TL::ObjectList<TL::OpenMP::Lowering::ReductionItem>& reduction_items,
             TL::Symbol reduction_pack_symbol)
     {
         TL::ObjectList<Symbol> reduction_symbols = reduction_items
-            .map<Nodecl::NodeclBase>(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
-            .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
+            .map<TL::Symbol>(&TL::OpenMP::Lowering::ReductionItem::get_symbol); // TL::ObjectList<TL::Symbol>
 
         UpdateReductionUses update(reduction_pack_symbol, reduction_symbols);
         update.walk(node);
@@ -640,7 +638,7 @@ namespace TL
         TL::Symbol generate_simd_combiner(
                 TL::Intel::CombinerISA isa,
                 SIMDizeCombiner &simdizer,
-                Nodecl::OpenMP::ReductionItem &reduction_item,
+                TL::OpenMP::Lowering::ReductionItem &reduction_item,
                 Nodecl::NodeclBase location,
                 TL::Symbol current_function)
         {
@@ -648,17 +646,17 @@ namespace TL
             TL::ObjectList<TL::Type> parameter_types;
 
             parameter_names.append("red_omp_out");
-            parameter_types.append(reduction_item.get_reduction_type().get_type().get_lvalue_reference_to());
+            parameter_types.append(reduction_item.reduction_type.get_lvalue_reference_to());
 
             parameter_names.append("red_omp_in");
-            parameter_types.append(reduction_item.get_reduction_type().get_type().get_lvalue_reference_to());
+            parameter_types.append(reduction_item.reduction_type.get_lvalue_reference_to());
 
 //            TL::Symbol mmask_16_typedef = current_function.get_scope().get_symbol_from_name("__mmask16");
 //            ERROR_CONDITION(!mmask_16_typedef.is_valid(), "__mmask16 not found in the scope", 0);
 
             parameter_names.append("red_omp_mask");
             parameter_types.append(simdizer.vector_mask_type_of_scalar(
-                        reduction_item.get_reduction_type().get_type()));
+                        reduction_item.reduction_type));
             //mmask_16_typedef.get_user_defined_type());
 
             TL::Counter &counters = TL::CounterManager::get_counter("intel-omp-reduction");
@@ -686,8 +684,7 @@ namespace TL
 
             TL::Source combiner;
 
-            TL::Symbol reductor = reduction_item.get_reductor().get_symbol();
-            OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
+            OpenMP::Reduction* reduction = reduction_item.reduction_info;
 
             Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
 
@@ -790,7 +787,7 @@ namespace TL
     Intel::SIMDReductionPair
     generate_simd_combiners(
             Intel::CombinerISA isa,
-            Nodecl::OpenMP::ReductionItem &reduction_item,
+            TL::OpenMP::Lowering::ReductionItem &reduction_item,
             Nodecl::NodeclBase location,
             TL::Symbol current_function)
     {
@@ -817,7 +814,7 @@ namespace TL
     // SIMD - KNC
     Intel::SIMDReductionPair Intel::emit_callback_for_reduction_simd(
             CombinerISA isa,
-            Nodecl::OpenMP::ReductionItem &reduction_item,
+            TL::OpenMP::Lowering::ReductionItem &reduction_item,
             Nodecl::NodeclBase location,
             TL::Symbol current_function)
     {
