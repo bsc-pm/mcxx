@@ -98,6 +98,24 @@ namespace TL { namespace OpenMP { namespace Lowering {
                         .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
             }
 
+            virtual void visit(const Nodecl::OpenMP::Lastprivate &n)
+            {
+                _env.lastprivate.insert(
+                        n.get_symbols()
+                        .as<Nodecl::List>()
+                        .to_object_list()
+                        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
+            }
+
+            virtual void visit(const Nodecl::OpenMP::FirstLastprivate &n)
+            {
+                _env.firstlastprivate.insert(
+                        n.get_symbols()
+                        .as<Nodecl::List>()
+                        .to_object_list()
+                        .map<TL::Symbol>(&Nodecl::NodeclBase::get_symbol));
+            }
+
             virtual void visit(const Nodecl::OpenMP::If &n)
             {
                 _env.if_clause = n.get_condition();
