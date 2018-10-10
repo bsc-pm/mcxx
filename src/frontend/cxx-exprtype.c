@@ -1321,12 +1321,6 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
             fprintf(stderr, "\n");
         }
     }
-
-    // if (CURRENT_CONFIGURATION->strict_typecheck
-    //         && nodecl_is_err_expr(*nodecl_output))
-    // {
-    //     internal_error("Invalid expression '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
-    // }
 }
 
 // This function removes the base prefix (if any) and the quotes, if any

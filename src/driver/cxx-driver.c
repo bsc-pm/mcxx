@@ -1377,8 +1377,6 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         fprintf(stderr, "%s: option --typecheck has been deprecated and it has no effect\n",
                                     compilation_process.exec_basename);
-                        // FIXME: Deprecate this flag
-                        // CURRENT_CONFIGURATION->strict_typecheck = 1;
                         break;
                     }
                 case OPTION_PREPROCESSOR_USES_STDOUT :

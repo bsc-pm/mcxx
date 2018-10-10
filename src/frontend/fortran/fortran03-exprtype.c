@@ -290,17 +290,6 @@ static void fortran_check_expression_impl_(AST expression, const decl_context_t*
                     const_value_to_str(konst));
         }
     }
-
-    // if (CURRENT_CONFIGURATION->strict_typecheck)
-    // {
-    //     if (nodecl_get_type(*nodecl_output) == NULL
-    //             || nodecl_is_err_expr(*nodecl_output))
-    //     {
-    //         internal_error("%s: invalid expression '%s'\n",
-    //                 ast_location(expression),
-    //                 fortran_prettyprint_in_buffer(expression));
-    //     }
-    // }
 }
 
 static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context_t*,
