@@ -208,9 +208,6 @@ void fatal_vprintf(const char* message, va_list ap)
         backtrace_symbols_fd(backtrace_buffer, nptrs, fileno(stderr));
     }
 
-    if (debug_options.abort_on_ice)
-        raise(SIGABRT);
-
     DELETE(sanitized_message);
 
     exit(EXIT_FAILURE);

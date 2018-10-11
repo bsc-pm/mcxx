@@ -3,6 +3,7 @@
 test_generator=config/mercurium-extensions
 test_compile_fail=yes
 test_CXXFLAGS="--env=linux-x86_64 --enable-ms-builtins --enable-intel-vector-types"
+test_compile_end_signal=yes
 </testinfo>
 */
 

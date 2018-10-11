@@ -10,7 +10,7 @@ test_generator="config/mercurium-cxx11"
 
 export test_nolink=no
 test_noexec=yes
-test_CXXFLAGS="-y --typecheck"
+test_CXXFLAGS="-y"
 </testinfo>
 */
 

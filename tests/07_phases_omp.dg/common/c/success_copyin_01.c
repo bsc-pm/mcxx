@@ -32,8 +32,11 @@ test_generator=config/mercurium-omp
 
 test_exec_fail_nanox_2thread=yes
 test_exec_faulty_nanox_2thread=yes
+test_exec_end_signal_nanox_2thread=yes
+
 test_exec_fail_nanox_4thread=yes
 test_exec_faulty_nanox_4thread=yes
+test_exec_end_signal_nanox_4thread=yes
 </testinfo>
 */
 #include <stdlib.h>

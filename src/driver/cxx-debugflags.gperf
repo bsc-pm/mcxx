@@ -36,7 +36,8 @@
 
 struct debug_flags_list_t;
 %%
-"abort_on_ice", DEBUG_OPTION_REF(abort_on_ice), "When an error condition is detected, compiler will raise SIGABRT signal. This is useful for debugging"
+"abort_on_ice", DEBUG_OPTION_REF(abort_on_ice), "When an error condition is detected, the compiler will raise a SIGABRT signal. This is useful for debugging"
+"abort_on_error_message", DEBUG_OPTION_REF(abort_on_error_message), "When an error diagnostic is emitted, the compiler will raise a SIGABRT signal. This is useful for debugging"
 "analysis_info", DEBUG_OPTION_REF(analysis_info), "Adds analysis information in text format in the source code"
 "analysis_perf", DEBUG_OPTION_REF(analysis_perf), "Prints the performance information of the static analysis"
 "analysis_verbose", DEBUG_OPTION_REF(analysis_verbose), "Prints the results of the static analysis"

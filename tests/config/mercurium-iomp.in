@@ -12,8 +12,8 @@ fi
 cat <<EOF
 compile_versions="\${compile_versions} iomp_gnu"
 
-test_CC_iomp_gnu="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-mcc --config-dir=@abs_top_builddir@/config --verbose"
-test_CXX_iomp_gnu="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-mcxx --config-dir=@abs_top_builddir@/config --verbose"
+test_CC_iomp_gnu="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+test_CXX_iomp_gnu="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-mcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 
 test_CFLAGS="\${test_CFLAGS} --openmp"
 test_CXXFLAGS="\${test_CXXFLAGS} --openmp"
@@ -25,7 +25,7 @@ if [ "$TEST_LANGUAGE" = "c" -a ! -z "@ICC@" ];
 then
 cat <<EOF
 compile_versions="\${compile_versions} iomp_imcc"
-test_CC_iomp_imcc="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcc --config-dir=@abs_top_builddir@/config --verbose"
+test_CC_iomp_imcc="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 test_LDFLAGS_iomp_imcc="@abs_top_builddir@/lib/perish.o"
 EOF
 fi
@@ -34,7 +34,7 @@ if [ "$TEST_LANGUAGE" = "cpp" -a ! -z "@ICPC@" ];
 then
 cat <<EOF
 compile_versions="\${compile_versions} iomp_imcxx"
-test_CXX_iomp_imcxx="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcxx --config-dir=@abs_top_builddir@/config --verbose"
+test_CXX_iomp_imcxx="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 test_LDFLAGS_iomp_imcxx="@abs_top_builddir@/lib/perish.o"
 EOF
 fi

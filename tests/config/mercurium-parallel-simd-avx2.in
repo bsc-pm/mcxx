@@ -33,7 +33,7 @@ if [ -n "@ICC@" -a "@NANOX_ENABLED@" = "yes" ];
 then
 cat <<EOF
 
-IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose"
+IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} nanox_imcc"
 test_CC_nanox_imcc="\${IMCC}"
 
@@ -66,7 +66,7 @@ if [ ! -z "@ICC@" -a ! -z "@INTEL_OMP_LIB@" ];
 then
 cat <<EOF
 
-INTEL_RTL="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcc --config-dir=@abs_top_builddir@/config --verbose"
+INTEL_RTL="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} intel_rtl"
 test_CC_intel_rtl="\${INTEL_RTL}"
 

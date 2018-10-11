@@ -172,6 +172,7 @@ struct debug_flags_list_t
 typedef struct debug_options_tag
 {
     char abort_on_ice;
+    char abort_on_error_message;
     char backtrace_on_ice;
     char print_scope;
     char enable_debug_code;
@@ -507,9 +508,6 @@ typedef struct compilation_configuration_tag
     int num_pragma_custom_prefix;
     const char** pragma_custom_prefix;
     pragma_directive_set_t **pragma_custom_prefix_info;
-
-    // Enable strict typecheck (will fail if something can't be verified or fails)
-    char strict_typecheck;
 
     // Disable g++ 4.3 type traits
     char disable_gxx_type_traits;

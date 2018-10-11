@@ -88,7 +88,7 @@ static void diagnose_to_stderr(diagnostic_context_stderr_t* ctx, diagnostic_seve
             break;
         case DS_ERROR:
             ctx->_base.num_error++;
-            if (debug_options.abort_on_ice)
+            if (debug_options.abort_on_error_message)
                 raise(SIGABRT);
             break;
         default:

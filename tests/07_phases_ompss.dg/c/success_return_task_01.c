@@ -30,7 +30,9 @@
 test_generator=(config/mercurium-ompss "config/mercurium-ompss-2 openmp-compatibility")
 test_CFLAGS=--variable=enable_nonvoid_function_tasks:1
 test_compile_fail_nanos6_mercurium=yes
+test_compile_end_signal_nanos6_mercurium=yes
 test_compile_fail_nanos6_imcc=yes
+test_compile_end_signal_nanos6_imcc=yes
 </testinfo>
 */
 #include<assert.h>

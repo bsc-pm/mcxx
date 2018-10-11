@@ -13,5 +13,5 @@ fi
 source @abs_top_builddir@/tests/config/mercurium $@
 
 cat <<EOF
-test_FFLAGS="--typecheck --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner \${test_FFLAGS}"
+test_FFLAGS="--fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner \${test_FFLAGS}"
 EOF

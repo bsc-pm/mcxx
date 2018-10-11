@@ -80,8 +80,8 @@ fi
 
 cat <<EOF
 
-INTEL_CC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcc --config-dir=@abs_top_builddir@/config --verbose"
-INTEL_CXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcxx --config-dir=@abs_top_builddir@/config --verbose"
+INTEL_CC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+INTEL_CXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=iomp-imcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} intel_rtl"
 test_CC_intel_rtl="\${INTEL_CC}"
 test_CXX_intel_rtl="\${INTEL_CXX}"

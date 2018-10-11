@@ -33,21 +33,28 @@
 namespace TL { namespace HLT {
 
     LoopUnroll::LoopUnroll()
-        : Transform(), _loop(), _unrolled(), _epilog(), _unroll_factor(-1), _create_epilog(true)
+        : Transform(), _loop(), _unrolled(), _epilog(), _unroll_factor(-1), _create_epilog(true), _is_invalid(false)
     {
     }
 
     LoopUnroll& LoopUnroll::set_loop(Nodecl::NodeclBase loop)
     {
         this->_loop = loop;
-        ERROR_CONDITION (!this->_loop.is<Nodecl::ForStatement>(),
-                "Only ForStatement can be unrolled. This is a %s", ast_print_node_type(loop.get_kind()));
+        if (!this->_loop.is<Nodecl::ForStatement>())
+        {
+          set_invalid_loop("this is not a for-loop");
+          return *this;
+        }
         Nodecl::NodeclBase loop_control = this->_loop.as<Nodecl::ForStatement>().get_loop_header();
         ERROR_CONDITION(!loop_control.is<Nodecl::LoopControl>()
                 && !loop_control.is<Nodecl::RangeLoopControl>(),
                 "Only LoopControl or RangeLoopControl can be unrolled", 0);
         TL::ForStatement for_stmt(loop.as<Nodecl::ForStatement>());
-        ERROR_CONDITION(!for_stmt.is_omp_valid_loop(), "Loop is too complicated", 0);
+        if (!for_stmt.is_omp_valid_loop())
+        {
+          set_invalid_loop("this for-loop does not have the canonical form of OpenMP for-loops");
+          return *this;
+        }
         ERROR_CONDITION(!for_stmt.get_step().is_constant(),
                 "Loop has a nonconstant step, normalize it first", 0);
 

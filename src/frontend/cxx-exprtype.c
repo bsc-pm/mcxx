@@ -1321,12 +1321,6 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
             fprintf(stderr, "\n");
         }
     }
-
-    // if (CURRENT_CONFIGURATION->strict_typecheck
-    //         && nodecl_is_err_expr(*nodecl_output))
-    // {
-    //     internal_error("Invalid expression '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
-    // }
 }
 
 // This function removes the base prefix (if any) and the quotes, if any
@@ -22886,14 +22880,6 @@ char check_initialization(AST initializer,
             fprintf(stderr, "EXPRTYPE: Initializer '%s' does not have any computed type\n",
                     prettyprint_in_buffer(initializer));
         }
-    }
-
-    if (CURRENT_CONFIGURATION->strict_typecheck
-            && nodecl_is_err_expr(*nodecl_output))
-    {
-        internal_error("Initializer '%s' at '%s' does not have a valid computed type\n",
-                prettyprint_in_buffer(initializer),
-                ast_location(initializer));
     }
 
     return !nodecl_is_err_expr(*nodecl_output);
