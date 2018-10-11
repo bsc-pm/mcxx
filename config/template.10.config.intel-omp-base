@@ -11,7 +11,7 @@ compiler_name = @GCC@
 compiler_options =
 linker_name = @GCC@
 linker_options = -Xlinker --enable-new-dtags
-{openmp} linker_options = -L@INTEL_OMP_LIB@ -liomp5
+{openmp} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @INTEL_OMP_LIB@ -L@INTEL_OMP_LIB@ -liomp5
 
 {openmp} preprocessor_options = -I@PKGDATADIR@/intel-omp -D_OPENMP=200805
 {openmp} preprocessor_options = -include intel-omp.h
