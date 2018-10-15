@@ -1815,9 +1815,8 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
       }
       return ')'; 
     }
-
-[^\[\]{}()\n]* { parse_token_text(); update_location(); return STD_ATTRIBUTE_TEXT; }
-
+[^\"\[\]{}()\n]* { parse_token_text(); update_location(); return STD_ATTRIBUTE_TEXT; }
+\"{schar}*\" { parse_token_text(); update_location(); return STD_ATTRIBUTE_TEXT; }
 }
  /*!endif*/
 
