@@ -3069,6 +3069,7 @@ static void gather_std_attribute_spec(AST attribute_spec,
         { "gnu::unused",    "unused",     1,         0, add_gcc_attribute_generic },
         { "gnu::may_alias", "may_alias",  1,         0, add_gcc_attribute_generic },
         { "deprecated",     "deprecated", 1,         0, add_gcc_attribute_deprecated },
+        { "__deprecated__", "deprecated", 1,         0, add_gcc_attribute_deprecated },
         // GCC does not implement this one
         // { "carries_dependency", 1,           0, NULL, },
     };
