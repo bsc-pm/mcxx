@@ -1692,7 +1692,8 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_ISO_C_FLOATN:
                     {
-                        CURRENT_CONFIGURATION->supports_ISO_C_FloatN = 1;
+                        fprintf(stderr, "%s: option --iso-c-FloatN has been deprecated and it has no effect\n",
+                                    compilation_process.exec_basename);
                         break;
                     }
                 default:

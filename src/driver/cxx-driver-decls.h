@@ -535,9 +535,6 @@ typedef struct compilation_configuration_tag
     // Mimic all the process but preprocess and parsing
     char pass_through;
 
-    // Enable supports of ISO C _FloatN types (See #2821)
-    char supports_ISO_C_FloatN;
-
     // Type environment
     struct type_environment_tag* type_environment;
 
