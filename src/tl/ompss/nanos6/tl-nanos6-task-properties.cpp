@@ -519,7 +519,7 @@ namespace TL { namespace Nanos6 {
 
             // .run_wrapper
             {
-                Nodecl::NodeclBase field = get_field("declaration_source");
+                Nodecl::NodeclBase field = get_field("run_wrapper");
 
                 Nodecl::NodeclBase value = const_value_to_nodecl(const_value_get_signed_int(0));
 
