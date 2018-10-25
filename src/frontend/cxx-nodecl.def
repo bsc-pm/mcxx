@@ -235,6 +235,7 @@ expression : literal
            | NODECL_VECTOR_MASK_AND_1_NOT([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_VECTOR_MASK_AND_2_NOT([lhs] expression, [rhs] expression) type const-value-opt
            | NODECL_VECTOR_LOOP([peeling] expression, [main_loop] expression, [epilog] expression) type const-value-opt
+           | NODECL_NOEXCEPT_IMPLICIT_TRUE() type const-value
            | c-cxx-expressions
            | fortran-expressions
            | object-init

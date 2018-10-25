@@ -18920,7 +18920,7 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
 
     if (const_expr == NULL)
     {
-        nodecl_t true_expr = nodecl_make_boolean_literal(
+        nodecl_t true_expr = nodecl_make_noexcept_implicit_true(
                 get_bool_type(),
                 const_value_get_one(type_get_size(get_bool_type()), 0),
                 ast_get_locus(a));
