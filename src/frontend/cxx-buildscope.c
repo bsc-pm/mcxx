@@ -194,7 +194,6 @@ static void build_scope_declarator_rec(AST a,
                                        const decl_context_t *declarator_context,
                                        const decl_context_t *entity_context,
                                        const decl_context_t **prototype_context,
-                                       char is_top_level_declarator,
                                        nodecl_t *nodecl_output);
 
 static scope_entry_t* build_scope_declarator_name(AST declarator,
@@ -10638,7 +10637,6 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
                                    decl_context,
                                    entity_context,
                                    prototype_context,
-                                   /* is_top_level_declarator */ 1,
                                    nodecl_output);
 
         if (declarator_name != NULL)
@@ -11691,8 +11689,6 @@ static void build_scope_declarator_rec(
     // in function definitions and a prototype context for function
     // declarations or functional types
     const decl_context_t **prototype_context,
-    // States if this is a top level declarator
-    char is_top_level_declarator,
     nodecl_t *nodecl_output)
 {
     if (a == NULL)
@@ -11712,7 +11708,6 @@ static void build_scope_declarator_rec(
                                            declarator_context,
                                            entity_context,
                                            prototype_context,
-                                           is_top_level_declarator,
                                            nodecl_output);
                 break;
             }
@@ -11739,7 +11734,6 @@ static void build_scope_declarator_rec(
                                            declarator_context,
                                            entity_context,
                                            prototype_context,
-                                           /* is_top_level_declarator */ 0,
                                            nodecl_output);
                 break;
             }
@@ -11751,6 +11745,9 @@ static void build_scope_declarator_rec(
                     error_printf_at(ast_get_locus(a), "invalid array declarator for 'decltype(auto)'\n");
                     return;
                 }
+                char is_top_level_declarator
+                    = ASTSon0(a) == NULL // For the abstract declarator case
+                      || ASTKind(ASTSon0(a)) == AST_DECLARATOR_ID_EXPR;
                 set_array_type(declarator_type,
                                /* expr */ ASTSon1(a),
                                /* (C99)static_qualif */ ASTSon3(a),
@@ -11769,7 +11766,6 @@ static void build_scope_declarator_rec(
                                            declarator_context,
                                            entity_context,
                                            prototype_context,
-                                           /* is_top_level_declarator */ 0,
                                            nodecl_output);
                 break;
             }
@@ -11788,7 +11784,6 @@ static void build_scope_declarator_rec(
                                            declarator_context,
                                            entity_context,
                                            prototype_context,
-                                           /* is_top_level_declarator */ 0,
                                            nodecl_output);
                 break;
             }
@@ -11862,7 +11857,6 @@ static void build_scope_declarator_rec(
                                            declarator_context,
                                            entity_context,
                                            prototype_context,
-                                           /* is_top_level_declarator */ 0,
                                            nodecl_output);
                 break;
             }
@@ -11890,7 +11884,6 @@ static void build_scope_declarator_rec(
                                            declarator_context,
                                            entity_context,
                                            prototype_context,
-                                           /* is_top_level_declarator */ 0,
                                            nodecl_output);
                 break;
             }
