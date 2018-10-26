@@ -5189,10 +5189,62 @@ static void gather_type_spec_from_dependent_typename(AST a,
     *type_info = entry->type_information;
 }
 
-static void common_gather_type_spec_from_simple_type_specifier(AST a, 
+// Some types are intrinsics only in later versions of GCC so we are flexible
+// with that fact.
+static scope_entry_list_t *query_flexible_builtin_type(
+    AST a, const decl_context_t *decl_context)
+{
+    ERROR_CONDITION(ASTKind(a) != AST_SYMBOL, "Invalid tree", 0);
+    const char *name = ASTText(a);
+
+    struct {
+      const char* iso_type_name;
+      type_t* (*fn)(void);
+    } flexible_builtin_types[] =
+    {
+      { "_Float16", get_float16_type },
+      { "_Float16x", get_float16_type },
+      { "_Float32", get_float_type },
+      { "_Float32x", get_float_type },
+      { "_Float64", get_double_type },
+      { "_Float64x", get_double_type },
+#ifdef HAVE_QUADMATH_H
+      { "_Float128", get_float128_type },
+      { "_Float128x", get_float128_type },
+#endif
+    };
+
+    int i, num_types = STATIC_ARRAY_LENGTH(flexible_builtin_types);
+    for (i = 0; i < num_types; i++)
+    {
+        if (strcmp(name, flexible_builtin_types[i].iso_type_name) == 0)
+        {
+            scope_entry_t *new_typename
+                = new_symbol(decl_context, decl_context->global_scope, name);
+            new_typename->kind = SK_TYPEDEF;
+            new_typename->type_information = (flexible_builtin_types[i].fn)();
+            new_typename->locus = ast_get_locus(a);
+            return entry_list_new(new_typename);
+        }
+    }
+
+    return NULL;
+}
+
+static void common_gather_type_spec_from_simple_type_specifier(AST a,
         const decl_context_t* decl_context UNUSED_PARAMETER,
         type_t** type_info, gather_decl_spec_t* gather_info, scope_entry_list_t* query_results)
 {
+    if (query_results == NULL
+            && ASTKind(a) == AST_SIMPLE_TYPE_SPEC
+            && ASTKind(ASTSon0(a)) == AST_SYMBOL
+            // We may have to relax this in the future
+            && ASTText(ASTSon0(a))[0] == '_')
+    {
+        query_results = query_flexible_builtin_type(
+            ASTSon0(a), CURRENT_COMPILED_FILE->global_decl_context);
+    }
+
     if (query_results == NULL)
     {
         error_printf_at(ast_get_locus(a), "type name '%s' has not been found in the current scope\n", prettyprint_in_buffer(a));
