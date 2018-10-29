@@ -32,7 +32,13 @@
 #include "tl-symbol.hpp"
 #include "tl-source.hpp"
 #include "tl-type.hpp"
+#include "tl-counters.hpp"
 #include "cxx-cexpr.h"
+
+#include <fortran03-typeutils.h>
+#include <fortran03-typeenviron.h>
+#include "tl-nanos6-fortran-support.hpp"
+
 
 namespace
 {
@@ -161,7 +167,6 @@ void create_static_variable_dependent_function(
     TL::Type var_type,
     Nodecl::NodeclBase context,
     TL::Symbol related_function,
-    TL::Nanos6::LoweringPhase* phase,
     /* out */
     TL::Symbol &new_var)
 {
@@ -293,11 +298,11 @@ namespace TL { namespace Nanos6 {
     }
 
     void add_extra_mappings_for_vla_types(
-            TL::Type t,
-            TL::Scope sc,
-            /* out */
-            Nodecl::Utils::SimpleSymbolMap &symbol_map,
-            TL::ObjectList<TL::Symbol> &new_vlas)
+        TL::Type t,
+        TL::Scope sc,
+        /* out */
+        Nodecl::Utils::SimpleSymbolMap &symbol_map,
+        TL::ObjectList<TL::Symbol> &new_vlas)
     {
         if (!t.is_valid())
             return;
@@ -305,7 +310,7 @@ namespace TL { namespace Nanos6 {
         if (t.is_array())
         {
             add_extra_mappings_for_vla_types(
-                    t.array_element(), sc, symbol_map, new_vlas);
+                t.array_element(), sc, symbol_map, new_vlas);
 
             if (IS_FORTRAN_LANGUAGE)
             {
@@ -313,9 +318,9 @@ namespace TL { namespace Nanos6 {
                 t.array_get_bounds(lower_bound, upper_bound);
 
                 add_extra_mapping_for_dimension(
-                        lower_bound, sc, symbol_map, new_vlas);
+                    lower_bound, sc, symbol_map, new_vlas);
                 add_extra_mapping_for_dimension(
-                        upper_bound, sc, symbol_map, new_vlas);
+                    upper_bound, sc, symbol_map, new_vlas);
             }
             else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
@@ -331,7 +336,7 @@ namespace TL { namespace Nanos6 {
         else if (t.is_pointer())
         {
             add_extra_mappings_for_vla_types(
-                    t.points_to(), sc, symbol_map, new_vlas);
+                t.points_to(), sc, symbol_map, new_vlas);
         }
     }
 
@@ -417,10 +422,107 @@ namespace TL { namespace Nanos6 {
                         var_type,
                         context,
                         related_function,
-                        phase,
                         new_var);
             }
         }
     }
 
+    Symbol fortran_create_detached_symbol_from_static_symbol(Symbol &static_symbol)
+    {
+        ERROR_CONDITION(!symbol_entity_specs_get_is_static(static_symbol.get_internal_symbol()),
+                "The symbol must be static", 0);
+
+        symbol_entity_specs_set_is_static(static_symbol.get_internal_symbol(), 0);
+
+        scope_entry_t *detached_symbol = NEW0(scope_entry_t);
+        detached_symbol->symbol_name = static_symbol.get_internal_symbol()->symbol_name;
+        detached_symbol->kind = static_symbol.get_internal_symbol()->kind;
+        detached_symbol->decl_context = static_symbol.get_internal_symbol()->decl_context;
+        symbol_entity_specs_set_is_user_declared(detached_symbol, 1);
+
+        const int size_of_ptr = Type::get_void_type().get_pointer_to().get_size();
+        ERROR_CONDITION(static_symbol.get_type().get_size() % size_of_ptr != 0,
+                "Struct size does not divide the size of a pointer", 0);
+
+        int num_elements = static_symbol.get_type().get_size() / size_of_ptr;
+
+        detached_symbol->type_information =
+            Type(fortran_choose_int_type_from_kind(size_of_ptr))
+            .get_array_to(
+                    const_value_to_nodecl(const_value_get_signed_int(num_elements)),
+                    Scope::get_global_scope()).get_internal_type();
+
+        return detached_symbol;
+    }
+
+
+    Scope compute_scope_for_environment_structure(Symbol related_function)
+    {
+        Scope sc = related_function.get_scope();
+        // We are enclosed by a function because we are an internal subprogram
+        if (IS_FORTRAN_LANGUAGE && related_function.is_nested_function())
+        {
+            // Get the enclosing function
+            Symbol enclosing_function = related_function.get_scope().get_related_symbol();
+
+            // Update the scope
+            sc = enclosing_function.get_scope();
+        }
+
+        if (related_function.is_member())
+        {
+            // Class scope
+            sc = ::class_type_get_inner_context(related_function.get_class_type().get_internal_type());
+        }
+        else if (related_function.is_in_module())
+        {
+            // Scope of the module
+            sc = related_function.in_module().get_related_scope();
+        }
+
+        return sc;
+    }
+
+    Symbol add_field_to_class(Symbol new_class_symbol,
+        Scope class_scope,
+        const std::string &var_name,
+        const locus_t *var_locus,
+        bool is_allocatable,
+        Type field_type)
+    {
+        Type new_class_type = new_class_symbol.get_user_defined_type();
+
+        std::string orig_field_name = var_name;
+
+        if (IS_CXX_LANGUAGE && orig_field_name == "this")
+        {
+            orig_field_name = "_this";
+        }
+
+        Symbol field = class_scope.new_symbol(orig_field_name);
+        field.get_internal_symbol()->kind = SK_VARIABLE;
+        symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
+
+        field.set_type( field_type );
+        field.get_internal_symbol()->locus = var_locus;
+
+        symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+        symbol_entity_specs_set_class_type(field.get_internal_symbol(),
+            new_class_type.get_internal_type());
+        symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
+
+        symbol_entity_specs_set_is_allocatable(
+            field.get_internal_symbol(), is_allocatable);
+
+        class_type_add_member(
+            new_class_type.get_internal_type(),
+            field.get_internal_symbol(),
+            field.get_internal_symbol()->decl_context,
+            /* is_definition */ 1);
+
+        return field;
+    }
+
 }}
+
+
