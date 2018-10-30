@@ -2408,6 +2408,7 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
     src/tl/ompss/nanos6/tl-nanos6-interface.hpp \
     src/tl/ompss/nanos6/tl-nanos6-interface.cpp \
     src/tl/ompss/nanos6/tl-nanos6-release.cpp \
+    src/tl/ompss/nanos6/devices/tl-nanos6-device-manager.hpp \
     src/tl/ompss/nanos6/devices/tl-nanos6-device-factory.hpp \
     src/tl/ompss/nanos6/devices/tl-nanos6-device.hpp \
     src/tl/ompss/nanos6/devices/tl-nanos6-device.cpp \

@@ -29,6 +29,8 @@
 #define TL_NANOS6_VISITOR_HPP
 
 #include "tl-nanos6.hpp"
+#include "tl-nanos6-device-manager.hpp"
+
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-omp-reduction.hpp"
@@ -42,6 +44,7 @@ namespace TL { namespace Nanos6 {
         private:
             LoweringPhase* _phase;
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
+            DeviceManager _device_manager;
 
         public:
             Lower(LoweringPhase* phase,
@@ -90,6 +93,8 @@ namespace TL { namespace Nanos6 {
             typedef std::map<TL::OpenMP::Reduction*, ReductionFunctions>
                 reduction_functions_map_t;
             reduction_functions_map_t _reduction_functions_map;
+
+            DeviceManager& get_device_manager() { return _device_manager; }
 
 
         private:

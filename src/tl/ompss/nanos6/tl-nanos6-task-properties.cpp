@@ -30,7 +30,7 @@
 #include "tl-nanos6-support.hpp"
 #include "tl-nanos6-fortran-support.hpp"
 #include "tl-nanos6-interface.hpp"
-#include "tl-nanos6-device-factory.hpp"
+#include "tl-nanos6-device-manager.hpp"
 
 #include "tl-omp-lowering-utils.hpp"
 #include "tl-omp-lowering-atomics.hpp"
@@ -91,7 +91,7 @@ namespace TL { namespace Nanos6 {
                 it != _env.device_names.end();
                 it++)
         {
-            _implementations.insert(DeviceFactory::get_device(*it));
+            _implementations.insert(lower->get_device_manager().get_device(*it));
         }
 
         if (_env.task_is_loop)
