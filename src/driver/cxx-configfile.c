@@ -124,6 +124,8 @@ const char* expand_profile_environment_variables(const char* value)
 
             strbuilder_append(str_builder, next_chunk);
 
+            *next_environment_variable = '$';
+
             // {
             char* opening = next_environment_variable + 1;
             if (opening == 0 || *opening != '{')
@@ -144,6 +146,8 @@ const char* expand_profile_environment_variables(const char* value)
                 fprintf(stderr, "warning: undefined environment variable '%s'\n", next_chunk);
             else
                 strbuilder_append(str_builder, env_variable);
+
+            *closing = '}';
 
             next_chunk = closing + 1;
         }
