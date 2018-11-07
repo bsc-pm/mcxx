@@ -124,6 +124,10 @@ linker_name = @GCC@
 {@NANOS6_GATE@,ompss-2,!do-not-lower-omp} compiler_phase = libtlnanos6-lowering.so
 
 
+# dlb
+{dlb} fortran_preprocessor_options = -I${DLB_HOME}/include
+{dlb} preprocessor_options = -I${DLB_HOME}/include
+{dlb} linker_options = -L${DLB_HOME}/lib -ldlb  -Xlinker @RPATH_PARAMETER@ -Xlinker ${DLB_HOME}/lib
 
 
 
@@ -174,11 +178,6 @@ linker_options = -Xlinker --enable-new-dtags
 # Nanos6 + OpenCL
 {@NANOS6_GATE@,ompss-2,opencl} preprocessor_options = -DNANOS6_OPENCL
 
-# dlb
-{@DLB_GATE@} fortran_preprocessor_options = -I@DLB_INCLUDE@
-{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
-{@DLB_GATE@} linker_options = -L@DLB_LIB@  -ldlb  -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
-
 
 
 [omp-base-ibm : omp-base-common]
@@ -207,12 +206,6 @@ linker_options = -Wl,--enable-new-dtags
 # Nanos++ & OpenCL
 {@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl} preprocessor_options = -qinclude nanos-opencl.h -D_MERCURIUM_OPENCL_
 {@NANOX_GATE@,@ENABLE_OPENCL@,ompss,opencl} linker_options = -lnanox-opencl-api
-
-
-# dlb
-{@DLB_GATE@} fortran_preprocessor_options = -I@DLB_INCLUDE@
-{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
-{@DLB_GATE@} linker_options = -L@DLB_LIB@ -ldlb -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
 
 
 [omp-base-cray : omp-base-common]
@@ -255,8 +248,3 @@ linker_options = -dynamic -Wl,--enable-new-dtags
 
 # Nanos6 + OpenCL
 {@NANOS6_GATE@,ompss-2,opencl} preprocessor_options = -DNANOS6_OPENCL
-
-# dlb
-{@DLB_GATE@} fortran_preprocessor_options = -I@DLB_INCLUDE@
-{@DLB_GATE@} preprocessor_options = -I@DLB_INCLUDE@
-{@DLB_GATE@} linker_options = -L@DLB_LIB@ -ldlb -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@

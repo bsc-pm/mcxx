@@ -1051,11 +1051,6 @@ fi
 dnl ---------------------- End of Support for OmpSs-2 Nanos6 -----------------------------------------
 
 
-dnl ---------------------- DLB support ---------------------------------
-AX_DLB
-dnl ---------------------- End of DLB support ---------------------------------
-
-
 dnl --------------------- Support for GOMP ---------------------------------
 is_enabled_tl_omp_gomp="no"
 
@@ -2209,15 +2204,6 @@ then
   echo ""
   echo "   Nanos6 includes :" $nanos6_include
   echo "   Nanos6 libraries:" $nanos6_lib
-fi
-
-echo ""
-echo " * Dynamic Load Balancing (DLB) :" $ax_cv_is_enabled_dlb
-if test x$ax_cv_is_enabled_dlb = xyes;
-then
-  echo ""
-  echo "   DLB includes :" $ax_cv_dlb_include
-  echo "   DLB libraries:" $ax_cv_dlb_lib
 fi
 
 echo ""
