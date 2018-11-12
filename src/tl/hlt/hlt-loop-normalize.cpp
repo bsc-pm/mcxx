@@ -107,15 +107,6 @@ namespace TL { namespace HLT {
             }
         }
 
-        virtual void visit(const Nodecl::CxxDef& node)
-        {
-            TL::Symbol sym = node.get_symbol();
-
-            Nodecl::NodeclBase value = sym.get_value();
-            if (!value.is_null())
-                walk(value);
-        }
-
         virtual void visit(const Nodecl::ObjectInit& node)
         {
             TL::Symbol sym = node.get_symbol();
