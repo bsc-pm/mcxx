@@ -1949,6 +1949,7 @@ src_tl_omp_lowering_common_libtlomplowering_common_la_CXXFLAGS = \
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_LIBADD = \
     $(tl_libadd) \
+    $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
     $(top_builddir)/src/tl/omp/common/libtlomp-common.la
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_LDFLAGS = $(tl_ldflags)
