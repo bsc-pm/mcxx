@@ -203,5 +203,44 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespa
 
         Source::source_language = SourceLanguage::Current;
     }
+
+    namespace {
+        void fix_entry_point(std::string name)
+        {
+            TL::Symbol sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
+            ERROR_CONDITION(sym.is_invalid() || !sym.is_function(), "Invalid '%s' symbol\n", 0);
+
+            symbol_entity_specs_set_bind_info(
+                    sym.get_internal_symbol(),
+                    nodecl_make_fortran_bind_c(/* name */ nodecl_null(),sym.get_locus()));
+        }
+    }
+
+    void fixup_entry_points(const char **entry_points, const char **multidimensional_entry_points, int num_dims)
+    {
+        if (entry_points != NULL)
+        {
+            while (*entry_points != NULL)
+            {
+                fix_entry_point(*entry_points);
+                entry_points++;
+            }
+        }
+
+        if (multidimensional_entry_points != NULL)
+        {
+            while (*multidimensional_entry_points != NULL)
+            {
+                for(int dim = 1; dim <= num_dims; dim++)
+                {
+                    std::stringstream ss;
+                    ss << *multidimensional_entry_points << dim;
+
+                    fix_entry_point(ss.str());
+                }
+                multidimensional_entry_points++;
+            }
+        }
+    }
 } } } } }
 

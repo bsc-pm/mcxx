@@ -26,10 +26,8 @@
 
 
 #include "tl-nanos6.hpp"
-#include "tl-nanos6-lower.hpp"
-#include "tl-nanos6-task-properties.hpp"
-#include "tl-nanos6-interface.hpp"
-#include "tl-nanos6-support.hpp"
+
+#include "tl-omp-lowering-utils.hpp"
 
 namespace TL { namespace Nanos6 {
 
@@ -45,11 +43,12 @@ const char *entry_points[] = {
     "nanos6_get_reduction_storage1",
     "nanos6_register_taskloop_bounds",
     "nanos6_bzero",
+    NULL
 };
 
 // We have '__nanos6_max_dimensions' different versions for each symbol, for
 // this reason they're treated a bit different
-const char *register_dependences[] =
+const char *multidimensional_entry_points[] =
 {
     "nanos6_register_region_read_depinfo",
     "nanos6_register_region_write_depinfo",
@@ -60,12 +59,6 @@ const char *register_dependences[] =
     "nanos6_register_region_commutative_depinfo",
     "nanos6_register_region_concurrent_depinfo",
     "nanos6_register_region_reduction_depinfo",
-};
-
-// We have '__nanos6_max_dimensions' different versions for each symbol, for
-// this reason they're treated a bit different
-const char* release_dependences[] =
-{
     "nanos6_release_read_",
     "nanos6_release_write_",
     "nanos6_release_readwrite_",
@@ -74,58 +67,13 @@ const char* release_dependences[] =
     "nanos6_release_weak_readwrite_",
     "nanos6_release_commutative_",
     "nanos6_release_concurrent_" ,
+    NULL
 };
-
-void fix_entry_point(std::string name)
-{
-    TL::Symbol sym = get_nanos6_function_symbol(name);
-
-    symbol_entity_specs_set_bind_info(
-            sym.get_internal_symbol(),
-            nodecl_make_fortran_bind_c(/* name */ nodecl_null(),sym.get_locus()));
-}
-
-// This is kludgy: devise a way to do this in the FE
-void fixup_entry_points(int deps_max_dimensions)
-{
-    for (const char **it = entry_points;
-         it < (const char **)(&entry_points + 1);
-         it++)
-    {
-        fix_entry_point(*it);
-    }
-
-    for(int dim = 1; dim <= deps_max_dimensions; dim++)
-    {
-        for(const char **it = register_dependences;
-                it < (const char**)(&register_dependences + 1);
-                it++)
-        {
-            std::stringstream ss;
-            ss << *it << dim;
-
-            fix_entry_point(ss.str());
-        }
-    }
-
-    for(int dim = 1; dim <= deps_max_dimensions; dim++)
-    {
-        for(const char **it = release_dependences;
-                it < (const char**)(&release_dependences + 1);
-                it++)
-        {
-            std::stringstream ss;
-            ss << *it << dim;
-
-            fix_entry_point(ss.str());
-        }
-    }
-}
 }
     void LoweringPhase::fortran_fixup_api()
     {
         ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
-        fixup_entry_points(nanos6_api_max_dimensions());
+        TL::OpenMP::Lowering::Utils::Fortran::fixup_entry_points(
+                entry_points, multidimensional_entry_points, nanos6_api_max_dimensions());
     }
-
 } }
