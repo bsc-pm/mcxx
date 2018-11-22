@@ -32,7 +32,11 @@
 #include "fortran03-typeutils.h"
 
 #include "cxx-cexpr.h"
+#include "cxx-driver-utils.h"
 
+#include <string>
+#include <fstream>
+#include <iomanip>
 namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespace Fortran {
 
     Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase expr, int dimension_num)
@@ -131,6 +135,73 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespa
         }
 
         return n;
+    }
+
+    void preprocess_api(Nodecl::NodeclBase top_level)
+    {
+        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
+
+        const char** old_preprocessor_options = CURRENT_CONFIGURATION->preprocessor_options;
+
+        int num_orig_args = count_null_ended_array((void**)old_preprocessor_options);
+        int num_args = num_orig_args;
+
+        // -x c
+        num_args += 2;
+
+        // NULL ended
+        num_args += 1;
+
+        const char** preprocessor_options = new const char*[num_args];
+
+        for (int i = 0;  i < num_orig_args; i++)
+        {
+            preprocessor_options[i] = old_preprocessor_options[i];
+        }
+
+        // We add -x c since we want /dev/null be preprocessed as an empty C file
+        // FIXME - This is very gcc specific
+        preprocessor_options[num_args - 3] = "-x";
+        preprocessor_options[num_args - 2] = "c";
+        preprocessor_options[num_args - 1] = NULL;
+
+        CURRENT_CONFIGURATION->preprocessor_options = preprocessor_options;
+
+        const char* output_filename = preprocess_file("/dev/null");
+
+        delete[] preprocessor_options;
+
+        // Restore old flags
+        CURRENT_CONFIGURATION->preprocessor_options = old_preprocessor_options;
+
+        TL::Source src;
+
+        std::ifstream preproc_file(output_filename);
+
+        if (preproc_file.is_open())
+        {
+            std::string str;
+
+            while (preproc_file.good())
+            {
+                std::getline(preproc_file, str);
+                src << str << "\n";
+            }
+            preproc_file.close();
+        }
+        else
+        {
+            fatal_error("Could not open Nanos6 include");
+        }
+
+        Source::source_language = SourceLanguage::C;
+
+        Nodecl::NodeclBase new_tree = src.parse_global(top_level);
+        // This is actually a top level tree!
+        new_tree = Nodecl::TopLevel::make(new_tree);
+        // FIXME - keep this?
+
+        Source::source_language = SourceLanguage::Current;
     }
 } } } } }
 

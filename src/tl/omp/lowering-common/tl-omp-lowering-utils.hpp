@@ -43,6 +43,10 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils {
         Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase expr, int dimension_num);
 
         Nodecl::NodeclBase get_size_for_dimension(const TL::DataReference& data_ref, TL::Type array_type, int dimension_num);
+
+        //! It honours the C/C++ preprocessor flags in Fortran, executing them
+        //over an empty file that is parsed by our C/C++ FE afterwards.
+        void preprocess_api(Nodecl::NodeclBase top_level);
     }
 
 } } } }
