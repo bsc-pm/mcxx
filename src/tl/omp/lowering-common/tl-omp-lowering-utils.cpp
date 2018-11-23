@@ -137,9 +137,17 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespa
         return n;
     }
 
-    void preprocess_api(Nodecl::NodeclBase top_level)
+    Nodecl::NodeclBase preprocess_api(Nodecl::NodeclBase top_level)
     {
         ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
+
+        static std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> top_level_to_api_map;
+
+        // We should not preprocess the API more than once. Apart from that, there are some phases
+        // that require access to the api_tree, for these reason we have to book-keep them
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = top_level_to_api_map.find(top_level);
+        if (it != top_level_to_api_map.end())
+            return it->second;
 
         const char** old_preprocessor_options = CURRENT_CONFIGURATION->preprocessor_options;
 
@@ -175,7 +183,6 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespa
         CURRENT_CONFIGURATION->preprocessor_options = old_preprocessor_options;
 
         TL::Source src;
-
         std::ifstream preproc_file(output_filename);
 
         if (preproc_file.is_open())
@@ -197,11 +204,14 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespa
         Source::source_language = SourceLanguage::C;
 
         Nodecl::NodeclBase new_tree = src.parse_global(top_level);
+        Source::source_language = SourceLanguage::Current;
+
         // This is actually a top level tree!
         new_tree = Nodecl::TopLevel::make(new_tree);
-        // FIXME - keep this?
 
-        Source::source_language = SourceLanguage::Current;
+        top_level_to_api_map[top_level] = new_tree;
+
+        return new_tree;
     }
 
     namespace {
