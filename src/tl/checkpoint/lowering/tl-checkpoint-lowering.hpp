@@ -24,24 +24,25 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-nanox-nodecl.hpp"
-#include "tl-source.hpp"
+#ifndef TL_CHECKPOINT_LOWERING_HPP
+#define TL_CHECKPOINT_LOWERING_HPP
+
+#include "tl-compilerphase.hpp"
 #include "tl-nodecl.hpp"
 
-#include "tl-nanos.hpp"
+namespace TL { namespace Checkpoint {
 
-#include "cxx-driver-utils.h"
-#include "cxx-utils.h"
+    class LoweringPhase : public TL::CompilerPhase
+    {
+        private:
+            int _tcl_max_dims;
 
-#include <string>
-#include <fstream>
-#include <iomanip>
+        public:
+            LoweringPhase();
+            virtual void run(DTO& dto);
 
-namespace TL { namespace Nanox {
-
-void Lowering::pre_run(DTO& dto)
-{
-    std::cerr << "Nanos++ prerun" << std::endl;
-}
-
+            int get_tcl_max_dims() const;
+    };
 } }
+
+#endif // TL_CHECKPOINT_LOWERING_HPP

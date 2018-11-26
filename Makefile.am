@@ -1949,6 +1949,7 @@ src_tl_omp_lowering_common_libtlomplowering_common_la_CXXFLAGS = \
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_LIBADD = \
     $(tl_libadd) \
+    $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
     $(top_builddir)/src/tl/omp/common/libtlomp-common.la
 
 src_tl_omp_lowering_common_libtlomplowering_common_la_LDFLAGS = $(tl_ldflags)
@@ -2764,6 +2765,57 @@ src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LIBADD = \
     $(END)
 endif
 
+if BUILD_TCL
+##########################################################################
+# src/tl/checkpoint/base
+##########################################################################
+
+phases_LTLIBRARIES += src/tl/checkpoint/base/libtlcheckpoint-base.la
+
+src_tl_checkpoint_base_libtlcheckpoint_base_la_CFLAGS = $(phases_cflags)
+
+src_tl_checkpoint_base_libtlcheckpoint_base_la_CXXFLAGS = $(phases_cxxflags)
+
+src_tl_checkpoint_base_libtlcheckpoint_base_la_LDFLAGS = $(phases_ldflags)
+src_tl_checkpoint_base_libtlcheckpoint_base_la_LIBADD = $(phases_libadd)
+
+
+src_tl_checkpoint_base_libtlcheckpoint_base_la_SOURCES = \
+   src/tl/checkpoint/base/tl-checkpoint-base.hpp \
+   src/tl/checkpoint/base/tl-checkpoint-base.cpp \
+   $(END)
+
+##########################################################################
+# src/tl/checkpoint/lowering
+##########################################################################
+
+phases_LTLIBRARIES += src/tl/checkpoint/lowering/libtlcheckpoint-lowering.la
+
+src_tl_checkpoint_lowering_libtlcheckpoint_lowering_la_CFLAGS = $(phases_cflags) \
+    -I$(srcdir)/src/tl/omp/common \
+    -I$(srcdir)/src/tl/omp/lowering-common \
+    $(END)
+
+src_tl_checkpoint_lowering_libtlcheckpoint_lowering_la_CXXFLAGS = $(phases_cxxflags) \
+    -I$(srcdir)/src/tl/omp/common \
+    -I$(srcdir)/src/tl/omp/lowering-common \
+    $(END)
+
+src_tl_checkpoint_lowering_libtlcheckpoint_lowering_la_LDFLAGS = $(phases_ldflags)
+src_tl_checkpoint_lowering_libtlcheckpoint_lowering_la_LIBADD = $(phases_libadd) \
+    src/tl/omp/common/libtlomp-common.la \
+    src/tl/omp/lowering-common/libtlomplowering-common.la \
+    $(END)
+
+
+src_tl_checkpoint_lowering_libtlcheckpoint_lowering_la_SOURCES = \
+   src/tl/checkpoint/lowering/tl-checkpoint-lowering.hpp \
+   src/tl/checkpoint/lowering/tl-checkpoint-lowering.cpp \
+   src/tl/checkpoint/lowering/tl-checkpoint-visitor.hpp \
+   src/tl/checkpoint/lowering/tl-checkpoint-visitor.cpp \
+   $(END)
+endif
+
 
 ##########################################################################
 # src/tl/codegen
@@ -3331,6 +3383,9 @@ config_edit = \
      -e 's|@NANOS6_LIB[@]|$(NANOS6_LIB)|g' \
      -e 's|@GOMP_OMP_LIB[@]|$(GOMP_OMP_LIB)|g' \
      -e 's|@GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS[@]|$(GFORTRAN_8_OR_GREATER_ARRAY_DESCRIPTORS)|g' \
+     -e 's|@TCL_GATE[@]|$(TCL_GATE)|g' \
+     -e 's|@TCL_INCLUDES[@]|$(TCL_INCLUDES)|g' \
+     -e 's|@TCL_LIB[@]|$(TCL_LIB)|g' \
     $(END)
 
 # Cross compiler profile names

@@ -29,6 +29,8 @@
 #include "tl-nanos6-interface.hpp"
 #include "tl-nanos6-lower.hpp"
 
+#include "tl-omp-lowering-utils.hpp"
+
 #include "tl-compilerpipeline.hpp"
 #include "tl-omp-lowering-final-stmts-generator.hpp"
 
@@ -64,9 +66,12 @@ namespace TL { namespace Nanos6 {
             std::cerr << "Nanos 6 phase" << std::endl;
         }
 
+        Nodecl::NodeclBase translation_unit =
+            *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
+
         FORTRAN_LANGUAGE()
         {
-            fortran_preprocess_api(dto);
+            TL::OpenMP::Lowering::Utils::Fortran::preprocess_api(translation_unit);
         }
 
         Interface::check_nanos6_deprecated_headers();
@@ -79,10 +84,6 @@ namespace TL { namespace Nanos6 {
             // This function depends on the implementation constants
             fortran_fixup_api();
         }
-
-        Nodecl::NodeclBase translation_unit =
-            *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
-
 
         TL::OpenMP::Lowering::FinalStmtsGenerator final_generator(/* ompss_mode */ true, "nanos6_in_final");
         // If the final clause transformation is disabled we shouldn't generate the final stmts

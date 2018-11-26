@@ -43,6 +43,15 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils {
         Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase expr, int dimension_num);
 
         Nodecl::NodeclBase get_size_for_dimension(const TL::DataReference& data_ref, TL::Type array_type, int dimension_num);
+
+        //! It honours the C/C++ preprocessor flags in Fortran, executing them over an empty file that is
+        //parsed by our C/C++ FE afterwards. It returns the parsed tree representing the C/C++ headers.
+        Nodecl::NodeclBase preprocess_api(Nodecl::NodeclBase top_level);
+
+        //! This function looks for all the function symbols specified as entry_points and mark them as BIND(C).
+        //! A multidimensional_entry_point is a way to represent a set of functions that have the same name but
+        //! with a number from [1..num_dims] as suffix.
+        void fixup_entry_points(const char **entry_points, const char **multidimensional_entry_points, int num_dims);
     }
 
 } } } }

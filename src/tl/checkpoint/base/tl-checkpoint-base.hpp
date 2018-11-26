@@ -24,24 +24,26 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-nanox-nodecl.hpp"
-#include "tl-source.hpp"
-#include "tl-nodecl.hpp"
+#ifndef TL_CHECKPOINT_BASE_HPP
+#define TL_CHECKPOINT_BASE_HPP
 
-#include "tl-nanos.hpp"
+#include "tl-pragmasupport.hpp"
 
-#include "cxx-driver-utils.h"
-#include "cxx-utils.h"
-
-#include <string>
-#include <fstream>
-#include <iomanip>
-
-namespace TL { namespace Nanox {
-
-void Lowering::pre_run(DTO& dto)
+namespace TL
 {
-    std::cerr << "Nanos++ prerun" << std::endl;
-}
+    namespace Checkpoint
+    {
+        //! This class transforms Checkpoint pragmas to the Nodecl representation of parallelism
+        class Base : public TL::PragmaCustomCompilerPhase
+        {
+            public:
+                Base();
 
-} }
+                void store_directive_handler_post(TL::PragmaCustomDirective);
+                void load_directive_handler_post(TL::PragmaCustomDirective);
+                void init_directive_handler_post(TL::PragmaCustomDirective);
+                void shutdown_directive_handler_post(TL::PragmaCustomDirective);
+        };
+    }
+}
+#endif // TL_CHECKPOINT_BASE_HPP

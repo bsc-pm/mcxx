@@ -32,7 +32,11 @@
 #include "fortran03-typeutils.h"
 
 #include "cxx-cexpr.h"
+#include "cxx-driver-utils.h"
 
+#include <string>
+#include <fstream>
+#include <iomanip>
 namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespace Fortran {
 
     Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase expr, int dimension_num)
@@ -131,6 +135,122 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespa
         }
 
         return n;
+    }
+
+    Nodecl::NodeclBase preprocess_api(Nodecl::NodeclBase top_level)
+    {
+        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This is only for Fortran", 0);
+
+        static std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> top_level_to_api_map;
+
+        // We should not preprocess the API more than once. Apart from that, there are some phases
+        // that require access to the api_tree, for these reason we have to book-keep them
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = top_level_to_api_map.find(top_level);
+        if (it != top_level_to_api_map.end())
+            return it->second;
+
+        const char** old_preprocessor_options = CURRENT_CONFIGURATION->preprocessor_options;
+
+        int num_orig_args = count_null_ended_array((void**)old_preprocessor_options);
+        int num_args = num_orig_args;
+
+        // -x c
+        num_args += 2;
+
+        // NULL ended
+        num_args += 1;
+
+        const char** preprocessor_options = new const char*[num_args];
+
+        for (int i = 0;  i < num_orig_args; i++)
+        {
+            preprocessor_options[i] = old_preprocessor_options[i];
+        }
+
+        // We add -x c since we want /dev/null be preprocessed as an empty C file
+        // FIXME - This is very gcc specific
+        preprocessor_options[num_args - 3] = "-x";
+        preprocessor_options[num_args - 2] = "c";
+        preprocessor_options[num_args - 1] = NULL;
+
+        CURRENT_CONFIGURATION->preprocessor_options = preprocessor_options;
+
+        const char* output_filename = preprocess_file("/dev/null");
+
+        delete[] preprocessor_options;
+
+        // Restore old flags
+        CURRENT_CONFIGURATION->preprocessor_options = old_preprocessor_options;
+
+        TL::Source src;
+        std::ifstream preproc_file(output_filename);
+
+        if (preproc_file.is_open())
+        {
+            std::string str;
+
+            while (preproc_file.good())
+            {
+                std::getline(preproc_file, str);
+                src << str << "\n";
+            }
+            preproc_file.close();
+        }
+        else
+        {
+            fatal_error("Could not open Nanos6 include");
+        }
+
+        Source::source_language = SourceLanguage::C;
+
+        Nodecl::NodeclBase new_tree = src.parse_global(top_level);
+        Source::source_language = SourceLanguage::Current;
+
+        // This is actually a top level tree!
+        new_tree = Nodecl::TopLevel::make(new_tree);
+
+        top_level_to_api_map[top_level] = new_tree;
+
+        return new_tree;
+    }
+
+    namespace {
+        void fix_entry_point(std::string name)
+        {
+            TL::Symbol sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
+            ERROR_CONDITION(sym.is_invalid() || !sym.is_function(), "Invalid '%s' symbol\n", 0);
+
+            symbol_entity_specs_set_bind_info(
+                    sym.get_internal_symbol(),
+                    nodecl_make_fortran_bind_c(/* name */ nodecl_null(),sym.get_locus()));
+        }
+    }
+
+    void fixup_entry_points(const char **entry_points, const char **multidimensional_entry_points, int num_dims)
+    {
+        if (entry_points != NULL)
+        {
+            while (*entry_points != NULL)
+            {
+                fix_entry_point(*entry_points);
+                entry_points++;
+            }
+        }
+
+        if (multidimensional_entry_points != NULL)
+        {
+            while (*multidimensional_entry_points != NULL)
+            {
+                for(int dim = 1; dim <= num_dims; dim++)
+                {
+                    std::stringstream ss;
+                    ss << *multidimensional_entry_points << dim;
+
+                    fix_entry_point(ss.str());
+                }
+                multidimensional_entry_points++;
+            }
+        }
     }
 } } } } }
 

@@ -70,8 +70,6 @@ namespace TL { namespace Nanox {
             Flag seen_gpu_cublas_handle;
             Flag seen_fpga_task;
         private:
-            void load_headers(DTO& dto);
-
             static Nodecl::List _extra_c_code;
 
             std::string _ancillary_filename;

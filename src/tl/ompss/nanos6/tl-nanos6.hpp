@@ -59,7 +59,6 @@ namespace TL { namespace Nanos6 {
             unsigned int nanos6_api_max_dimensions() const;
 
         private:
-            void fortran_preprocess_api(DTO& dto);
             void fortran_fixup_api();
 
             void compute_impl_constants();
