@@ -2012,6 +2012,11 @@ const_value_t* const_value_cast_to_floating_type_value(const_value_t* val, type_
     {
         return const_value_cast_to_long_double_value(val);
     }
+    else if (is_other_float_type(floating_type))
+    {
+      // FIXME
+      return NULL;
+    }
     else
     {
 #ifdef HAVE_QUADMATH_H

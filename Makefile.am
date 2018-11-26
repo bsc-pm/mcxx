@@ -3565,7 +3565,7 @@ generate_builtins_neon: scripts/generate_builtins_neon.bin
 # ARM64 NEON builtins generator
 #####################################
 
-LATEST_GXX_NEON_ARM64=aarch64-linux-gnu-g++
+LATEST_GXX_NEON_ARM64=/apps/gcc/7.2.0/bin/aarch64-unknown-linux-gnu-g++
 LATEST_GXX_NEON_ARM64_FLAGS =
 
 # These files are only regenerated manually
@@ -3580,7 +3580,7 @@ scripts/generate_builtins_neon_arm64.bin : $(srcdir)/scripts/simd/neon/builtins_
 		$(srcdir)/scripts/simd/neon/builtins_neon_arm64.cpp
 
 generate_builtins_neon_arm64: scripts/generate_builtins_neon_arm64.bin
-	qemu-aarch64 ./scripts/generate_builtins_neon_arm64.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm64-neon.h
+	./scripts/generate_builtins_neon_arm64.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-arm64-neon.h
 
 #####################################
 

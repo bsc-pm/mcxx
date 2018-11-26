@@ -3706,71 +3706,46 @@ extern void gcc_builtins_arm(const decl_context_t* global_context)
     gcc_builtins_neon(global_context);
 }
 
+static type_t* query_builtin_typedef(const char* name, const decl_context_t* decl_context)
+{
+    scope_entry_list_t *entry_list
+        = query_name_str(decl_context, uniquestr(name), NULL);
+    ERROR_CONDITION(entry_list == NULL, "Unknown builtin typename '%s'\n", name);
+    ERROR_CONDITION(entry_list_size(entry_list) != 1, "Too many '%s' found\n", name);
+    scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    ERROR_CONDITION(entry->kind != SK_TYPEDEF, "Invalid symbol kind\n", 0);
+
+    return get_user_defined_type(entry);
+}
+
 static void gcc_builtins_neon_arm64(const decl_context_t* decl_context)
 {
-#define GENERATE_NEON_VECTOR_BUILTINS \
-    GENERATE_NEON_VECTOR(64,  __Int8x8_t,     get_signed_char_type()) \
-    GENERATE_NEON_VECTOR(64,  __Int16x4_t,    get_signed_short_int_type()) \
-    GENERATE_NEON_VECTOR(64,  __Int32x2_t,    get_signed_int_type()) \
-    GENERATE_NEON_VECTOR(64,  __Int64x1_t,    get_signed_long_int_type()) \
-    GENERATE_NEON_VECTOR(64,  __Float32x2_t,  get_float_type()) \
-    GENERATE_NEON_VECTOR(64,  __Poly8x8_t,    get_signed_char_type()) \
-    GENERATE_NEON_VECTOR(64,  __Poly16x4_t,   get_signed_short_int_type()) \
-    GENERATE_NEON_VECTOR(64,  __Uint8x8_t,    get_unsigned_char_type()) \
-    GENERATE_NEON_VECTOR(64,  __Uint16x4_t,   get_unsigned_short_int_type()) \
-    GENERATE_NEON_VECTOR(64,  __Uint32x2_t,   get_unsigned_int_type()) \
-    GENERATE_NEON_VECTOR(64,  __Float64x1_t,  get_double_type()) \
-    GENERATE_NEON_VECTOR(64,  __Uint64x1_t,   get_unsigned_long_int_type()) \
-    GENERATE_NEON_VECTOR(128, __Int8x16_t,    get_signed_char_type()) \
-    GENERATE_NEON_VECTOR(128, __Int16x8_t,    get_signed_short_int_type()) \
-    GENERATE_NEON_VECTOR(128, __Int32x4_t,    get_signed_int_type()) \
-    GENERATE_NEON_VECTOR(128, __Int64x2_t,    get_signed_long_int_type()) \
-    GENERATE_NEON_VECTOR(128, __Float32x4_t,  get_float_type()) \
-    GENERATE_NEON_VECTOR(128, __Float64x2_t,  get_double_type()) \
-    GENERATE_NEON_VECTOR(128, __Poly8x16_t,   get_signed_char_type()) \
-    GENERATE_NEON_VECTOR(128, __Poly16x8_t,   get_signed_short_int_type()) \
-    GENERATE_NEON_VECTOR(128, __Poly64x2_t,   get_unsigned_long_int_type()) \
-    GENERATE_NEON_VECTOR(128, __Uint8x16_t,   get_unsigned_char_type()) \
-    GENERATE_NEON_VECTOR(128, __Uint16x8_t,   get_unsigned_short_int_type()) \
-    GENERATE_NEON_VECTOR(128, __Uint32x4_t,   get_unsigned_int_type()) \
-    GENERATE_NEON_VECTOR(128, __Uint64x2_t,   get_unsigned_long_int_type()) \
-
-#define GENERATE_NEON_VECTOR(bits, elem_typename, elem_type) \
-    { \
-        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL(#elem_typename)); \
-        sym->locus = make_locus("(builtin-simd-type)", 0, 0); \
-        sym->kind = SK_TYPEDEF; \
-        sym->type_information = get_vector_type_by_elements(elem_type, bits / (type_get_size(elem_type) * 8)); \
-        sym->defined = 1; \
-        sym->do_not_print = 1; \
-        symbol_entity_specs_set_is_user_declared(sym, 1); \
-    }
-    GENERATE_NEON_VECTOR_BUILTINS
-#undef GENERATE_NEON_VECTOR
-
     int i, N;
 
-    // Aliases
+    // Typenames
     struct
     {
         const char* name;
         type_t* (*fun)(void);
-    } aliased_names[] =
-    {
-        {"__Poly8_t",    get_signed_char_type   },
-        {"__Poly16_t",   get_signed_short_int_type   },
-        {"__Poly64_t",   get_unsigned_long_int_type },
+    } aliased_names[] = {
+        { "__fp16", get_float16_type },
+        { "__Poly8_t", get_unsigned_char_type },
+        { "__Poly16_t", get_unsigned_short_int_type },
+        { "__Poly64_t", get_unsigned_long_int_type },
 #ifdef HAVE_INT128
-        {"__Poly128_t",  get_unsigned_int128_type },
+        { "__Poly128_t", get_unsigned_int128_type },
 #else
-        {"__Poly128_t",  get_unsigned_16x8_int      },
+        { "__Poly128_t", get_unsigned_16x8_int },
 #endif
-        {"__builtin_aarch64_simd_qi", get_signed_char_type       },
-        {"__builtin_aarch64_simd_hi", get_signed_short_int_type  },
-        {"__builtin_aarch64_simd_si", get_signed_int_type        },
-        {"__builtin_aarch64_simd_di", get_signed_long_int_type   },
-        {"__builtin_aarch64_simd_sf", get_float_type             },
-        {"__builtin_aarch64_simd_df", get_double_type            },
+        { "__builtin_aarch64_simd_qi", get_signed_char_type },
+        { "__builtin_aarch64_simd_hi", get_signed_short_int_type },
+        { "__builtin_aarch64_simd_si", get_signed_int_type },
+        { "__builtin_aarch64_simd_di", get_signed_long_int_type },
+        { "__builtin_aarch64_simd_hf", get_float16_type },
+        { "__builtin_aarch64_simd_sf", get_float_type },
+        { "__builtin_aarch64_simd_df", get_double_type },
     };
     for (i = 0, N = STATIC_ARRAY_LENGTH(aliased_names); i < N; i++)
     {
@@ -3811,6 +3786,49 @@ static void gcc_builtins_neon_arm64(const decl_context_t* decl_context)
         sym->do_not_print = 1; \
         symbol_entity_specs_set_is_builtin(sym, 1);
     }
+
+#define GENERATE_NEON_VECTOR_BUILTINS \
+    GENERATE_NEON_VECTOR(64,  __Int8x8_t,     get_signed_char_type()) \
+    GENERATE_NEON_VECTOR(64,  __Int16x4_t,    get_signed_short_int_type()) \
+    GENERATE_NEON_VECTOR(64,  __Int32x2_t,    get_signed_int_type()) \
+    GENERATE_NEON_VECTOR(64,  __Int64x1_t,    get_signed_long_int_type()) \
+    GENERATE_NEON_VECTOR(64,  __Float16x4_t,  query_builtin_typedef("__fp16", decl_context)) \
+    GENERATE_NEON_VECTOR(64,  __Float32x2_t,  get_float_type()) \
+    GENERATE_NEON_VECTOR(64,  __Poly8x8_t,    query_builtin_typedef("__Poly8_t", decl_context)) \
+    GENERATE_NEON_VECTOR(64,  __Poly16x4_t,   query_builtin_typedef("__Poly16_t", decl_context)) \
+    GENERATE_NEON_VECTOR(64,  __Poly64x1_t,   query_builtin_typedef("__Poly64_t", decl_context)) \
+    GENERATE_NEON_VECTOR(64,  __Uint8x8_t,    get_unsigned_char_type()) \
+    GENERATE_NEON_VECTOR(64,  __Uint16x4_t,   get_unsigned_short_int_type()) \
+    GENERATE_NEON_VECTOR(64,  __Uint32x2_t,   get_unsigned_int_type()) \
+    GENERATE_NEON_VECTOR(64,  __Float64x1_t,  get_double_type()) \
+    GENERATE_NEON_VECTOR(64,  __Uint64x1_t,   get_unsigned_long_int_type()) \
+    GENERATE_NEON_VECTOR(128, __Int8x16_t,    get_signed_char_type()) \
+    GENERATE_NEON_VECTOR(128, __Int16x8_t,    get_signed_short_int_type()) \
+    GENERATE_NEON_VECTOR(128, __Int32x4_t,    get_signed_int_type()) \
+    GENERATE_NEON_VECTOR(128, __Int64x2_t,    get_signed_long_int_type()) \
+    GENERATE_NEON_VECTOR(128, __Float16x8_t,  query_builtin_typedef("__fp16", decl_context)) \
+    GENERATE_NEON_VECTOR(128, __Float32x4_t,  get_float_type()) \
+    GENERATE_NEON_VECTOR(128, __Float64x2_t,  get_double_type()) \
+    GENERATE_NEON_VECTOR(128, __Poly8x16_t,   query_builtin_typedef("__Poly8_t", decl_context)) \
+    GENERATE_NEON_VECTOR(128, __Poly16x8_t,   query_builtin_typedef("__Poly16_t", decl_context)) \
+    GENERATE_NEON_VECTOR(128, __Poly64x2_t,   query_builtin_typedef("__Poly64_t", decl_context)) \
+    GENERATE_NEON_VECTOR(128, __Uint8x16_t,   get_unsigned_char_type()) \
+    GENERATE_NEON_VECTOR(128, __Uint16x8_t,   get_unsigned_short_int_type()) \
+    GENERATE_NEON_VECTOR(128, __Uint32x4_t,   get_unsigned_int_type()) \
+    GENERATE_NEON_VECTOR(128, __Uint64x2_t,   get_unsigned_long_int_type()) \
+
+#define GENERATE_NEON_VECTOR(bits, elem_typename, elem_type) \
+    { \
+        scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL(#elem_typename)); \
+        sym->locus = make_locus("(builtin-simd-type)", 0, 0); \
+        sym->kind = SK_TYPEDEF; \
+        sym->type_information = get_vector_type_by_elements(elem_type, bits / (type_get_size(elem_type) * 8)); \
+        sym->defined = 1; \
+        sym->do_not_print = 1; \
+        symbol_entity_specs_set_is_user_declared(sym, 1); \
+    }
+    GENERATE_NEON_VECTOR_BUILTINS
+#undef GENERATE_NEON_VECTOR
 
     const locus_t* builtins_locus = make_locus("(gcc-builtin-aarch64)", 0, 0);
 #include "cxx-gccbuiltins-arm64-neon.h"

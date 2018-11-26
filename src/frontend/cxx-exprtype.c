@@ -19571,6 +19571,8 @@ char check_narrowing_conversion(nodecl_t orig_expr,
     return 0;
 }
 
+// This function can return NULL if we can't currently represent the constant
+// value of the type.
 static const_value_t* get_zero_value_of_type(type_t* t)
 {
     if (is_integral_type(t)
@@ -19595,6 +19597,11 @@ static const_value_t* get_zero_value_of_type(type_t* t)
     {
         return const_value_get_long_double(0.0L);
     }
+    else if (is_other_float_type(t))
+    {
+        // FIXME
+        return NULL;
+    }
     else if (is_pointer_type(t)
             || is_pointer_to_member_type(t))
     {
@@ -19615,11 +19622,15 @@ static const_value_t* get_zero_value_of_type(type_t* t)
         if (!nodecl_is_constant(n))
             return NULL;
 
+        const_value_t *elem
+            = get_zero_value_of_type(array_type_get_element_type(t));
+        if (elem == NULL)
+          return NULL;
+
         return const_value_make_array_from_scalar(
                 const_value_cast_to_signed_int(
                     nodecl_get_constant(n)),
-                get_zero_value_of_type(
-                    array_type_get_element_type(t)));
+                elem);
     }
     else if (is_class_type(t))
     {
@@ -19638,6 +19649,11 @@ static const_value_t* get_zero_value_of_type(type_t* t)
 
             cval[i] = get_zero_value_of_type(
                     field->type_information);
+            if (cval[i] == NULL)
+            {
+              DELETE(cval);
+              return NULL;
+            }
         }
         entry_list_iterator_free(it);
         entry_list_free(fields);
@@ -19651,10 +19667,12 @@ static const_value_t* get_zero_value_of_type(type_t* t)
     {
         int n = vector_type_get_num_elements(t);
 
-        return const_value_make_array_from_scalar(
-                n,
-                get_zero_value_of_type(
-                    vector_type_get_element_type(t)));
+        const_value_t *elem
+            = get_zero_value_of_type(vector_type_get_element_type(t));
+        if (elem == NULL)
+          return NULL;
+
+        return const_value_make_array_from_scalar(n, elem);
     }
     else
     {
@@ -19691,6 +19709,8 @@ static const_value_t* generate_aggregate_constant(struct type_init_stack_t *type
                 if (!is_union_type(initializer_type))
                 {
                     type_stack[type_stack_idx].values[j] = get_zero_value_of_type(sub_type);
+                    if (type_stack[type_stack_idx].values[j] == NULL)
+                        return NULL;
                 }
             }
         }
