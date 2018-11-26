@@ -2261,7 +2261,7 @@ namespace TL { namespace Nanos6 {
                 const TL::Symbol& related_function,
                 int function_identifier)
         {
-            OpenMP::Reduction& reduction_info = *red.reduction_info;
+            OpenMP::Reduction& reduction_info = *red._reduction_info;
             TL::Symbol omp_priv = reduction_info.get_omp_priv();
             TL::Symbol omp_orig = reduction_info.get_omp_orig();
 
@@ -2280,7 +2280,7 @@ namespace TL { namespace Nanos6 {
             red_init_parameter_names[2] = "size";
 
             TL::Type base_element_type =
-                get_base_element_type(red.reduction_type.no_ref());
+                get_base_element_type(red._reduction_type.no_ref());
 
             TL::ObjectList<TL::Type> red_init_parameter_types(3);
             red_init_parameter_types[0] = base_element_type.get_pointer_to();
@@ -2344,7 +2344,7 @@ namespace TL { namespace Nanos6 {
 
             std::map<TL::Symbol, Nodecl::NodeclBase> translation_map;
 
-            if (red.reduction_type.is_array())
+            if (red._reduction_type.is_array())
             {
                 // 2.3.A. For array reductions, we need to map an expression
                 // written in terms of scalars onto an array section
@@ -2464,7 +2464,7 @@ namespace TL { namespace Nanos6 {
                 const TL::Symbol& related_function,
                 int function_identifier)
         {
-            OpenMP::Reduction& reduction_info = *red.reduction_info;
+            OpenMP::Reduction& reduction_info = *red._reduction_info;
             TL::Symbol omp_out = reduction_info.get_omp_out();
             TL::Symbol omp_in = reduction_info.get_omp_in();
 
@@ -2483,7 +2483,7 @@ namespace TL { namespace Nanos6 {
             red_comb_parameter_names[2] = "size";
 
             TL::Type base_element_type =
-                get_base_element_type(red.reduction_type.no_ref());
+                get_base_element_type(red._reduction_type.no_ref());
 
             TL::ObjectList<TL::Type> red_comb_parameter_types(3);
             red_comb_parameter_types[0] = base_element_type.get_pointer_to();
@@ -2532,7 +2532,7 @@ namespace TL { namespace Nanos6 {
 
             std::map<TL::Symbol, Nodecl::NodeclBase> translation_map;
 
-            if (red.reduction_type.is_array())
+            if (red._reduction_type.is_array())
             {
                 // 2.3.A. For array reductions, we need to map an expression
                 // written in terms of scalars onto an array section
@@ -2679,8 +2679,9 @@ namespace TL { namespace Nanos6 {
             TL::Symbol reduction_initializer_function_sym;
             TL::Symbol reduction_combiner_function_sym;
 
+            // Note: Find in terms of reduction info & type, it doesn't consider the symbol
             TL::Nanos6::Lower::reduction_functions_map_t::iterator reduction_functions_it =
-                _lower_visitor->_reduction_functions_map.find(it->reduction_info);
+                _lower_visitor->_reduction_functions_map.find(*it);
             if (reduction_functions_it == _lower_visitor->_reduction_functions_map.end())
             {
                 // Create new reduction functions
@@ -2718,7 +2719,7 @@ namespace TL { namespace Nanos6 {
                                 reduction_combiner_function_sym));
                 }
 
-                _lower_visitor->_reduction_functions_map[it->reduction_info] =
+                _lower_visitor->_reduction_functions_map[*it] =
                     TL::Nanos6::Lower::ReductionFunctions(reduction_initializer_function_sym, reduction_combiner_function_sym);
             }
             else
@@ -2918,7 +2919,8 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(red_items.empty(), "No reduction item for symbol '%s'",
                 data_ref.get_base_symbol().get_name().c_str());
 
-        TL::OpenMP::Reduction *reduction_info = red_items.begin()->reduction_info;
+        ReductionItem& reduction_item = *red_items.begin();
+        TL::OpenMP::Reduction *reduction_info = reduction_item._reduction_info;
 
         Nodecl::NodeclBase arg1_type_op;
 
@@ -2942,8 +2944,9 @@ namespace TL { namespace Nanos6 {
             // units to run concurrently. Also, we need to ensure the
             // combination function is defined at this point.
 
+            // Note: Find in terms of reduction info & type, it doesn't consider the symbol
             TL::Nanos6::Lower::reduction_functions_map_t::iterator it =
-                _lower_visitor->_reduction_functions_map.find(reduction_info);
+                _lower_visitor->_reduction_functions_map.find(reduction_item);
 
             ERROR_CONDITION(it == _lower_visitor->_reduction_functions_map.end(),
                     "No reduction functions found", 0);

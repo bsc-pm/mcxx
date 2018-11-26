@@ -40,25 +40,29 @@ namespace TL { namespace OpenMP { namespace Lowering {
     //! support task reductions
     struct ReductionItem
     {
-        TL::Symbol symbol;
-        TL::Type reduction_type;
-        TL::OpenMP::Reduction* reduction_info;
-        bool is_weak;
+        TL::Symbol _symbol;
+        TL::Type _reduction_type;
+        TL::OpenMP::Reduction* _reduction_info;
+        bool _is_weak;
 
-        ReductionItem(TL::Symbol sym, TL::Type red_type,
-                TL::OpenMP::Reduction* red_info, bool weak)
-            : symbol(sym), reduction_type(red_type),
-            reduction_info(red_info), is_weak(weak)
-        { }
+        ReductionItem(TL::Symbol symbol, TL::Type reduction_type,
+                TL::OpenMP::Reduction* reduction_info, bool is_weak)
+            : _symbol(symbol), _reduction_type(reduction_type),
+            _reduction_info(reduction_info), _is_weak(is_weak)
+        {}
 
         TL::Symbol get_symbol() const
         {
-            return symbol;
+            return _symbol;
         }
 
         bool operator==(const ReductionItem& red_item) const
         {
-            return symbol == red_item.symbol;
+            return (this == &red_item) ||
+                ((_symbol == red_item._symbol)
+                && _reduction_type.is_same_type(red_item._reduction_type)
+                && (_reduction_info == red_item._reduction_info)
+                && (_is_weak == red_item._is_weak));
         }
     };
 

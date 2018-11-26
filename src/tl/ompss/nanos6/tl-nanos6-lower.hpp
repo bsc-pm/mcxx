@@ -90,7 +90,23 @@ namespace TL { namespace Nanos6 {
                 TL::Symbol initializer;
                 TL::Symbol combiner;
             };
-            typedef std::map<TL::OpenMP::Reduction*, ReductionFunctions>
+
+            // Note: This comparator takes into consideration the reduction info
+            // and type only, ignoring the symbol
+            struct ReductionTypeComparator {
+                bool operator() (const TL::OpenMP::Lowering::ReductionItem& x, const TL::OpenMP::Lowering::ReductionItem& y) const
+                {
+                    if (&x == &y) return false;
+
+                    if (x._reduction_info != y._reduction_info)
+                        return (x._reduction_info < y._reduction_info);
+                    else if (!x._reduction_type.is_same_type(y._reduction_type))
+                        return (x._reduction_type < y._reduction_type);
+                    else
+                        return false;
+                }
+            };
+            typedef std::map<TL::OpenMP::Lowering::ReductionItem, ReductionFunctions, ReductionTypeComparator>
                 reduction_functions_map_t;
             reduction_functions_map_t _reduction_functions_map;
 
