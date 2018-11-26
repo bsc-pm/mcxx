@@ -817,3 +817,20 @@ assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environme
 top-level : assert-directive
 
 assert-directive : NODECL_ANALYSIS*ASSERT_DECL([environment] analysis-exec-environment-seq-opt) symbol
+
+
+##############################
+# CHECKPOINT                 #
+##############################
+
+statement-but-object-init : checkpoint_directives
+
+checkpoint_directives : NODECL_CHECKPOINT*STORE([environment] checkpoint-environment-seq-opt])
+                      | NODECL_CHECKPOINT*LOAD([environment] checkpoint-environment-seq-opt])
+                      | NODECL_CHECKPOINT*INIT([environment] checkpoint-environment-seq-opt])
+                      | NODECL_CHECKPOINT*SHUTDOWN()
+
+checkpoint-environment : NODECL_CHECKPOINT*DATA([exprs] expression-seq)
+                       | NODECL_CHECKPOINT*LEVEL([expr] expression)
+                       | NODECL_CHECKPOINT*ID([expr] expression)
+                       | NODECL_CHECKPOINT*COMM([expr] expression)

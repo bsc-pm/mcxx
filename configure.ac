@@ -230,6 +230,8 @@ then
    )
 fi
 
+
+
 EXTRAE_LIB=$extrae_lib
 EXTRAE_INCLUDE=$extrae_include
 AC_SUBST([EXTRAE_LIB])
@@ -237,6 +239,45 @@ AC_SUBST([EXTRAE_INCLUDE])
 
 AM_CONDITIONAL([EXTRAE_ENABLED], test x$extrae_support = xyes)
 dnl --- End of support for Extrae ------------
+
+
+dnl --- Support for Transparent Checkpoint Library ------------
+tcl_support="no"
+TCL_GATE=":false:"
+AC_ARG_WITH([tcl],
+        AS_HELP_STRING([--with-tcl=dir], [Directory of TCL installation]),
+        [
+         tcl_support="yes"
+         TCL_GATE=":true:"
+         tcl_include="${withval}/include"
+         tcl_lib="${withval}/lib"
+        ]
+)
+
+AC_ARG_WITH([tcl-include],
+        AS_HELP_STRING([--with-tcl-include=dir], [Directory of TCL headers]),
+        [
+         tcl_support="yes"
+         TCL_GATE=":true:"
+         tcl_include="${withval}"
+        ]
+)
+
+AC_ARG_WITH([tcl-lib],
+        AS_HELP_STRING([--with-tcl-lib=dir], [Directory of TCL libraries]),
+        [
+         tcl_support="yes"
+         TCL_GATE=":true:"
+         tcl_lib="${withval}"
+        ]
+)
+
+AM_CONDITIONAL([BUILD_TCL], test x$tcl_support = xyes)
+
+AC_SUBST([TCL_GATE])
+AC_SUBST([TCL_INCLUDES], ["${tcl_include}"])
+AC_SUBST([TCL_LIB],      ["${tcl_lib}"])
+dnl --- End support for Transparent Checkpoint Library ------------
 
 
 dnl -- Fortran tests ---
@@ -2233,6 +2274,14 @@ echo ""
 echo "   Analysis phase enabled:" $is_enabled_analysis
 echo "   Vectorization phase enabled:" $is_enabled_vectorization
 echo ""
+
+if test x$tcl_support = xyes;
+then
+  echo " TCL support enabled"
+  echo "   TCL includes :" $tcl_include
+  echo "   TCL libraries:" $tcl_lib
+  echo ""
+fi
 
 if test x$extrae_support = xyes;
 then

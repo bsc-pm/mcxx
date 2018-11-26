@@ -13,6 +13,12 @@ linker_name = @GCC@
 {cuda} preprocessor_options = -D__CUDABE__ -D__CUDA_LIBDEVICE__ -I${CUDA_HOME}/include
 {cuda} linker_options = -D__CUDABE__ -D__CUDA_LIBDEVICE__ -L${CUDA_HOME}/lib64 -lcudart
 
+
+# Transparent Checkpoint Mechanism
+{checkpoint} pragma_prefix = chk
+{checkpoint} compiler_phase = libtlcheckpoint-base.so
+{checkpoint, !@TCL_GATE@} error = "Flag --checkpoint passed but Mercurium was built without support for TCL"
+
 # OpenMP & OmpSs (runtime independent)
 {openmp,omp-dry-run} options = --variable=omp_dry_run:1
 {openmp} compiler_phase = libtlomp-base.so
@@ -102,6 +108,10 @@ linker_name = @GCC@
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 
+# Transparent Checkpoint Mechanism
+{@TCL_GATE@,checkpoint} preprocessor_options = -I@TCL_INCLUDES@ -include tcl.h
+{@TCL_GATE@,checkpoint} compiler_phase = libtlcheckpoint-lowering.so
+{@TCL_GATE@,checkpoint} linker_options = -L@TCL_LIB@/performance -ltcl
 
 # Nanos++
 {@NANOX_GATE@,openmp} pragma_prefix = nanos
