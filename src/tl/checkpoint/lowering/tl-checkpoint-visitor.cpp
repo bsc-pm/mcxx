@@ -194,7 +194,7 @@ namespace TL { namespace Checkpoint {
                 upper_bound = size.shallow_copy();
             }
 
-            // Fortran is a bit repellent checking the actual arguments types, for
+            // Fortran is a bit picky checking the actual arguments types, for
             // this reason we may need to add some conversions
             TL::Type param_type = fortran_choose_int_type_from_kind(8);
             arguments_list.append(Nodecl::Conversion::make(size, param_type));
