@@ -279,8 +279,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         {
                 TL::OpenMP::Lowering::ReductionItem &current(*it);
 
-                OpenMP::Reduction* omp_reduction = current.reduction_info;
-                TL::Symbol reduced_symbol = current.symbol;
+                OpenMP::Reduction* omp_reduction = current._reduction_info;
+                TL::Symbol reduced_symbol = current._symbol;
 
             Source init_field;
             init_field << as_symbol(reduction_pack_symbol) << "." << it_fields->get_name()
@@ -346,8 +346,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
             {
                 TL::OpenMP::Lowering::ReductionItem &current(*it);
 
-                OpenMP::Reduction* reduction = current.reduction_info;
-                TL::Symbol reduced_symbol = current.symbol;
+                OpenMP::Reduction* reduction = current._reduction_info;
+                TL::Symbol reduced_symbol = current._symbol;
 
                 Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
 

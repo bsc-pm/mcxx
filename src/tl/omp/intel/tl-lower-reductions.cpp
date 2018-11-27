@@ -187,8 +187,8 @@ namespace TL
         {
             TL::OpenMP::Lowering::ReductionItem &current(*it);
 
-            OpenMP::Reduction* reduction = current.reduction_info;
-            TL::Symbol reduced_symbol = current.symbol;
+            OpenMP::Reduction* reduction = current._reduction_info;
+            TL::Symbol reduced_symbol = current._symbol;
 
             Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
             Nodecl::NodeclBase red_item_comb_stmt =
@@ -646,17 +646,17 @@ namespace TL
             TL::ObjectList<TL::Type> parameter_types;
 
             parameter_names.append("red_omp_out");
-            parameter_types.append(reduction_item.reduction_type.get_lvalue_reference_to());
+            parameter_types.append(reduction_item._reduction_type.get_lvalue_reference_to());
 
             parameter_names.append("red_omp_in");
-            parameter_types.append(reduction_item.reduction_type.get_lvalue_reference_to());
+            parameter_types.append(reduction_item._reduction_type.get_lvalue_reference_to());
 
 //            TL::Symbol mmask_16_typedef = current_function.get_scope().get_symbol_from_name("__mmask16");
 //            ERROR_CONDITION(!mmask_16_typedef.is_valid(), "__mmask16 not found in the scope", 0);
 
             parameter_names.append("red_omp_mask");
             parameter_types.append(simdizer.vector_mask_type_of_scalar(
-                        reduction_item.reduction_type));
+                        reduction_item._reduction_type));
             //mmask_16_typedef.get_user_defined_type());
 
             TL::Counter &counters = TL::CounterManager::get_counter("intel-omp-reduction");
@@ -684,7 +684,7 @@ namespace TL
 
             TL::Source combiner;
 
-            OpenMP::Reduction* reduction = reduction_item.reduction_info;
+            OpenMP::Reduction* reduction = reduction_item._reduction_info;
 
             Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
 

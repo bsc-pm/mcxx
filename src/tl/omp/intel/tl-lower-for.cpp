@@ -193,8 +193,8 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         {
             TL::OpenMP::Lowering::ReductionItem &current(*it);
 
-            OpenMP::Reduction* omp_reduction = current.reduction_info;
-            TL::Symbol reduced_symbol = current.symbol;
+            OpenMP::Reduction* omp_reduction = current._reduction_info;
+            TL::Symbol reduced_symbol = current._symbol;
 
             Nodecl::NodeclBase init_stmt = omp_reduction->get_initializer().shallow_copy();
             if (omp_reduction->get_is_initialization()) {
@@ -458,8 +458,8 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             {
                 TL::OpenMP::Lowering::ReductionItem &current(*it);
 
-                OpenMP::Reduction* reduction = current.reduction_info;
-                TL::Symbol reduced_symbol = current.symbol;
+                OpenMP::Reduction* reduction = current._reduction_info;
+                TL::Symbol reduced_symbol = current._symbol;
 
                 Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
                 Nodecl::NodeclBase red_item_comb_stmt = Source(as_expression(combiner_expr) + ";").parse_statement(construct);
