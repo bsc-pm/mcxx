@@ -486,7 +486,7 @@ namespace TL { namespace OpenMP {
                         && (_data_attrib & DS_PRIVATE)
                         && data_ref.is_assumed_size_array())
                 {
-                    warn_printf_at(
+                    error_printf_at(
                             _ref_tree.get_locus(),
                             "assumed-size array '%s' cannot be privatized\n",
                             sym.get_name().c_str());
