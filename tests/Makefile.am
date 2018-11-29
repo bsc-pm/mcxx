@@ -90,10 +90,20 @@ OMP_DIRS= \
         $(OMPSS_DIRS) \
         $(END)
 
+OMP_FORTRAN_DIRS= \
+        $(BETS_DIRS)/07_phases_omp.dg/common/fortran \
+        $(OMPSS_FORTRAN_DIRS) \
+        $(END)
+
 OMPSS_DIRS=\
         $(BETS_DIRS)/07_phases_ompss.dg \
         $(BETS_DIRS)/07_phases_ompss_2.dg \
-		$(END)
+	$(END)
+
+OMPSS_FORTRAN_DIRS=\
+        $(BETS_DIRS)/07_phases_ompss.dg/fortran \
+        $(BETS_DIRS)/07_phases_ompss_2.dg/fortran \
+	$(END)
 
 ANALYSIS_DIRS=\
 	$(BETS_DIRS)/07_phases_analysis.dg \
@@ -119,16 +129,26 @@ omp-check : prepare-check
 	./config/bets \
 		$(BETS_OPTIONS) $(OMP_DIRS)
 
+omp-fortran-check: prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMP_FORTRAN_DIRS)
+
 ompss-check : prepare-check
 	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(OMPSS_DIRS)
 
+ompss-fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMPSS_FORTRAN_DIRS)
+
 analysis-check : prepare-check
 	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(ANALYSIS_DIRS)
-		
+
 dist-hook:
 	for i in $(srcdir)/*.dg; \
 	do  \
