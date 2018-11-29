@@ -667,44 +667,49 @@ namespace TL { namespace Nanox {
             {
                 if (t.array_requires_descriptor())
                 {
-                    Counter& counter = CounterManager::get_counter("array-lower-boundaries");
-                    std::stringstream ss;
-                    ss << "mcc_lower_bound_" << (int)counter++;
+                    make_allocatable = !sym.get_type().no_ref().is_pointer();
 
-                    // This is a deferred shape, create a symbol
-                    TL::Symbol bound_sym = _sc.new_symbol(ss.str());
-                    bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                    bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
-
-                    int dim = fortran_get_rank_of_type(t.get_internal_type());
-
-                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                    TL::Type sym_type = sym.get_type();
-                    if (!sym_type.no_ref().is_pointer())
+                    // A private of a variable that is not a pointer but requires a descriptor implies
+                    // the capture of the lower and upper bounds (assumed-shapes are also included!)
+                    if (!sym.get_type().no_ref().is_pointer() &&
+                            outline_data_item->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
                     {
-                        if (!sym_type.is_any_reference())
-                            sym_type = sym_type.get_lvalue_reference_to();
-                        symbol_ref.set_type(sym_type);
+                        Counter& counter = CounterManager::get_counter("array-lower-boundaries");
+                        std::stringstream ss;
+                        ss << "mcc_lower_bound_" << (int)counter++;
+
+                        // This is a deferred shape, create a symbol
+                        TL::Symbol bound_sym = _sc.new_symbol(ss.str());
+                        bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                        bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
+
+                        int dim = fortran_get_rank_of_type(t.get_internal_type());
+
+                        Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                        TL::Type sym_type = sym.get_type();
+                        if (!sym_type.no_ref().is_pointer())
+                        {
+                            if (!sym_type.is_any_reference())
+                                sym_type = sym_type.get_lvalue_reference_to();
+                            symbol_ref.set_type(sym_type);
+                        }
+                        else
+                        {
+                            symbol_ref.set_type(sym_type);
+                            symbol_ref = Nodecl::Dereference::make(
+                                    symbol_ref,
+                                    sym_type.no_ref().points_to().get_lvalue_reference_to());
+                        }
+
+                        Source lbound_src;
+                        lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
+
+                        Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
+
+                        this->add_capture_with_value(bound_sym, lbound_tree, conditional_bound);
+
+                        result_lower = bound_sym.make_nodecl(/*set_ref_type*/ true);
                     }
-                    else
-                    {
-                        symbol_ref.set_type(sym_type);
-                        symbol_ref = Nodecl::Dereference::make(
-                                symbol_ref,
-                                sym_type.no_ref().points_to().get_lvalue_reference_to());
-                    }
-
-                    Source lbound_src;
-                    lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-
-                    Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
-
-                    this->add_capture_with_value(bound_sym, lbound_tree, conditional_bound);
-
-                    result_lower = Nodecl::Symbol::make(bound_sym, make_locus("", 0, 0));
-                    result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
-
-                    make_allocatable = !sym_type.no_ref().is_pointer();
                 }
                 else
                 {
@@ -733,59 +738,54 @@ namespace TL { namespace Nanox {
             {
                 if (t.array_requires_descriptor())
                 {
-                    // This is an assumed shape or deferred shape
-                    Counter& counter = CounterManager::get_counter("array-upper-boundaries");
-                    std::stringstream ss;
-                    ss << "mcc_upper_bound_" << (int)counter++;
+                    make_allocatable = !sym.get_type().no_ref().is_pointer();
 
-                    // This is a deferred shape, create a symbol
-                    TL::Symbol bound_sym = _sc.new_symbol(ss.str());
-                    bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                    bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
-
-                    int dim = fortran_get_rank_of_type(t.get_internal_type());
-
-                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                    TL::Type sym_type = sym.get_type();
-                    if (!sym_type.no_ref().is_pointer())
+                    // A private of a variable that is not a pointer but requires a descriptor implies
+                    // the capture of the lower and upper bounds (assumed-shapes are also included!)
+                    if (!sym.get_type().no_ref().is_pointer() &&
+                            outline_data_item->get_sharing() == OutlineDataItem::SHARING_PRIVATE)
                     {
-                        if (!sym_type.is_any_reference())
-                            sym_type = sym_type.get_lvalue_reference_to();
-                        symbol_ref.set_type(sym_type);
+                        // This is an assumed shape or deferred shape
+                        Counter& counter = CounterManager::get_counter("array-upper-boundaries");
+                        std::stringstream ss;
+                        ss << "mcc_upper_bound_" << (int)counter++;
+
+                        // This is a deferred shape, create a symbol
+                        TL::Symbol bound_sym = _sc.new_symbol(ss.str());
+                        bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                        bound_sym.get_internal_symbol()->type_information = get_signed_int_type();
+
+                        int dim = fortran_get_rank_of_type(t.get_internal_type());
+
+                        Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                        TL::Type sym_type = sym.get_type();
+                        if (!sym_type.no_ref().is_pointer())
+                        {
+                            if (!sym_type.is_any_reference())
+                                sym_type = sym_type.get_lvalue_reference_to();
+                            symbol_ref.set_type(sym_type);
+                        }
+                        else
+                        {
+                            symbol_ref.set_type(sym_type);
+                            symbol_ref = Nodecl::Dereference::make(
+                                    symbol_ref,
+                                    sym_type.no_ref().points_to().get_lvalue_reference_to());
+                        }
+
+                        Source ubound_src;
+                        ubound_src << "UBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
+
+                        Nodecl::NodeclBase ubound_tree = ubound_src.parse_expression(_sc);
+
+                        this->add_capture_with_value(bound_sym, ubound_tree, conditional_bound);
+
+                        result_upper = bound_sym.make_nodecl(/*set_ref_type*/ true);
                     }
-                    else
-                    {
-                        symbol_ref.set_type(sym_type);
-                        symbol_ref = Nodecl::Dereference::make(
-                                symbol_ref,
-                                sym_type.no_ref().points_to().get_lvalue_reference_to());
-                    }
-
-                    Source ubound_src;
-                    ubound_src << "UBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-
-                    Nodecl::NodeclBase ubound_tree = ubound_src.parse_expression(_sc);
-
-                    this->add_capture_with_value(bound_sym, ubound_tree, conditional_bound);
-
-                    result_upper = Nodecl::Symbol::make(bound_sym, make_locus("", 0, 0));
-                    result_upper.set_type(bound_sym.get_type().get_lvalue_reference_to());
-
-                    make_allocatable = !sym_type.no_ref().is_pointer();
                 }
                 else
                 {
                     // This is an assumed size array, result_upper must remain null
-                    if (outline_data_item != NULL)
-                    {
-                        // FIXME - We should check this earlier. In OpenMP::Core
-                        if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
-                        {
-                            error_printf_at(sym.get_locus(),
-                                    "symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
-                                    sym.get_name().c_str());
-                        }
-                    }
                 }
             }
             else if (upper.is<Nodecl::Symbol>()
