@@ -469,6 +469,12 @@ namespace TL { namespace OmpSs {
                 locus,
                 result_list);
 
+        _base->make_item_list<Nodecl::OmpSs::DepWeakCommutative>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_COMMUTATIVE,
+                locus,
+                result_list);
+
         // Make sure the remaining symbols are firstprivate
         std::vector<bool> has_dep(function_sym.get_type().parameters().size(), false);
 
@@ -773,6 +779,11 @@ namespace TL { namespace OmpSs {
             there_are_dependences = true;
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakCommutative& dep_commutative)
+        {
+            there_are_dependences = true;
+        }
+
         void visit(const Nodecl::OmpSs::CopyIn& copy_in)
         {
             there_are_copies = true;
@@ -872,6 +883,11 @@ namespace TL { namespace OmpSs {
         void visit(const Nodecl::OmpSs::DepCommutative& dep_inout)
         {
             report_dep(dep_inout.get_exprs(), OpenMP::DEP_OMPSS_COMMUTATIVE);
+        }
+
+        void visit(const Nodecl::OmpSs::DepWeakCommutative& dep_commutative)
+        {
+            report_dep(dep_commutative.get_exprs(), OpenMP::DEP_OMPSS_WEAK_COMMUTATIVE);
         }
     };
 

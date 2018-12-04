@@ -319,7 +319,8 @@ namespace TL { namespace OpenMP {
             inout_arguments,
             weakinout_arguments,
             concurrent_arguments,
-            commutative_arguments;
+            commutative_arguments,
+				weakcommutative_arguments;
 
         {
             struct DependencesClauses
@@ -337,6 +338,7 @@ namespace TL { namespace OpenMP {
                 { weakinout_arguments, "weakinout", NULL },
                 { concurrent_arguments, "concurrent", NULL },
                 { commutative_arguments, "commutative", NULL },
+                { weakcommutative_arguments, "weakcommutative", NULL },
             };
 
             for (DependencesClauses* it = deps_clauses;
@@ -443,15 +445,16 @@ namespace TL { namespace OpenMP {
                 TL::ObjectList<Nodecl::NodeclBase>& deps_nodes;
                 DependencyItem::ItemDirection direction;
             } deps_info[] = {
-                { input_arguments,         DEP_DIR_IN               },
-                { weakinput_arguments,     DEP_OMPSS_WEAK_IN        },
-                { input_private_arguments, DEP_OMPSS_DIR_IN_PRIVATE },
-                { output_arguments,        DEP_DIR_OUT              },
-                { weakoutput_arguments,    DEP_OMPSS_WEAK_OUT       },
-                { inout_arguments,         DEP_DIR_INOUT            },
-                { weakinout_arguments,     DEP_OMPSS_WEAK_INOUT     },
-                { concurrent_arguments,    DEP_OMPSS_CONCURRENT     },
-                { commutative_arguments,   DEP_OMPSS_COMMUTATIVE    },
+                { input_arguments,           DEP_DIR_IN               },
+                { weakinput_arguments,       DEP_OMPSS_WEAK_IN        },
+                { input_private_arguments,   DEP_OMPSS_DIR_IN_PRIVATE },
+                { output_arguments,          DEP_DIR_OUT              },
+                { weakoutput_arguments,      DEP_OMPSS_WEAK_OUT       },
+                { inout_arguments,           DEP_DIR_INOUT            },
+                { weakinout_arguments,       DEP_OMPSS_WEAK_INOUT     },
+                { concurrent_arguments,      DEP_OMPSS_CONCURRENT     },
+                { commutative_arguments,     DEP_OMPSS_COMMUTATIVE    },
+                { weakcommutative_arguments, DEP_OMPSS_WEAK_COMMUTATIVE    },
             };
 
             for (DependencesInformation* it = deps_info;

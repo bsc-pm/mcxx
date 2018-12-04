@@ -225,6 +225,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 handle_dependences(n, _env.dep_commutative);
             }
 
+            virtual void visit(const Nodecl::OmpSs::DepWeakCommutative &n)
+            {
+                handle_dependences(n, _env.dep_weakcommutative);
+            }
+
             virtual void visit(const Nodecl::OmpSs::DepConcurrent &n)
             {
                 handle_dependences(n, _env.dep_concurrent);
@@ -483,6 +488,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         dep_weakout.map(fp_syms_without_data_sharing);
         dep_weakinout.map(fp_syms_without_data_sharing);
         dep_commutative.map(fp_syms_without_data_sharing);
+        dep_weakcommutative.map(fp_syms_without_data_sharing);
         dep_concurrent.map(fp_syms_without_data_sharing);
         dep_reduction.map(fp_syms_without_data_sharing);
         dep_weakreduction.map(fp_syms_without_data_sharing);

@@ -3554,6 +3554,12 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_item_list<Nodecl::OmpSs::DepWeakCommutative>(
+                dependences,
+                OpenMP::DEP_OMPSS_WEAK_COMMUTATIVE,
+                locus,
+                result_list);
+
         make_item_list<Nodecl::OmpSs::DepReduction>(
                 dependences, OpenMP::DEP_OMPSS_REDUCTION,
                 locus,

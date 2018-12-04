@@ -625,6 +625,7 @@ namespace TL
                                 break;
                             }
                         case DEP_OMPSS_WEAK_INOUT:
+                        case DEP_OMPSS_WEAK_COMMUTATIVE:
                             {
                                 p = &dep_list_weakinout;
                                 break;

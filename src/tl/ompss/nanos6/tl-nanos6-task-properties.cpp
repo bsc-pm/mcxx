@@ -3232,6 +3232,8 @@ namespace TL { namespace Nanos6 {
             { _env.dep_commutative, "nanos6_register_region_commutative_depinfo" },
             { _env.dep_concurrent,  "nanos6_register_region_concurrent_depinfo"  },
 
+            { _env.dep_weakcommutative, "nanos6_register_region_weak_commutative_depinfo" },
+
             { _env.dep_reduction,     "nanos6_register_region_reduction_depinfo"      },
             { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo" },
         };
@@ -3706,6 +3708,8 @@ namespace TL { namespace Nanos6 {
 
             { _env.dep_commutative, "nanos6_release_commutative_" },
             { _env.dep_concurrent,  "nanos6_release_concurrent_"  },
+
+            { _env.dep_weakcommutative, "nanos6_release_weak_commutative_" },
 
            // { dep_reduction,     "nanos6_release_reduction_" },
            // { dep_weakreduction, "nanos6_release_weak_reduction_" },
