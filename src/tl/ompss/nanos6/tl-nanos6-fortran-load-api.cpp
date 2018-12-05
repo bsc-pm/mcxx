@@ -67,6 +67,7 @@ const char *multidimensional_entry_points[] =
     "nanos6_release_weak_write_",
     "nanos6_release_weak_readwrite_",
     "nanos6_release_commutative_",
+    "nanos6_release_weak_commutative_",
     "nanos6_release_concurrent_" ,
     NULL
 };
