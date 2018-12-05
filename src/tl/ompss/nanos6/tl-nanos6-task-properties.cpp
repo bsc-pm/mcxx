@@ -3220,22 +3220,24 @@ namespace TL { namespace Nanos6 {
         {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
             std::string func_name;
+            unsigned int min_api_vers;
+            std::string api_feature;
         } deps[] = {
-            { _env.dep_in,    "nanos6_register_region_read_depinfo"              },
-            { _env.dep_out,   "nanos6_register_region_write_depinfo"             },
-            { _env.dep_inout, "nanos6_register_region_readwrite_depinfo"         },
+            { _env.dep_in,    "nanos6_register_region_read_depinfo", 5, "input dependencies"              },
+            { _env.dep_out,   "nanos6_register_region_write_depinfo", 5, "output dependencies"             },
+            { _env.dep_inout, "nanos6_register_region_readwrite_depinfo", 5, "inout dependencies"         },
 
-            { _env.dep_weakin,    "nanos6_register_region_weak_read_depinfo"      },
-            { _env.dep_weakout,   "nanos6_register_region_weak_write_depinfo"     },
-            { _env.dep_weakinout, "nanos6_register_region_weak_readwrite_depinfo" },
+            { _env.dep_weakin,    "nanos6_register_region_weak_read_depinfo", 5, "weak input dependencies"      },
+            { _env.dep_weakout,   "nanos6_register_region_weak_write_depinfo", 5, "weak output dependencies"     },
+            { _env.dep_weakinout, "nanos6_register_region_weak_readwrite_depinfo", 5, "weak inout dependencies" },
 
-            { _env.dep_commutative, "nanos6_register_region_commutative_depinfo" },
-            { _env.dep_concurrent,  "nanos6_register_region_concurrent_depinfo"  },
+            { _env.dep_commutative, "nanos6_register_region_commutative_depinfo", 5, "commutative dependencies" },
+            { _env.dep_concurrent,  "nanos6_register_region_concurrent_depinfo", 5, "concurrent dependencies"  },
 
-            { _env.dep_weakcommutative, "nanos6_register_region_weak_commutative_depinfo" },
+            { _env.dep_weakcommutative, "nanos6_register_region_weak_commutative_depinfo", 6, "weak commutative dependencies" },
 
-            { _env.dep_reduction,     "nanos6_register_region_reduction_depinfo"      },
-            { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo" },
+            { _env.dep_reduction,     "nanos6_register_region_reduction_depinfo", 5, "reduction dependencies"      },
+            { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo", 5, "weak reduction dependencies" },
         };
 
         for (DependencesSet *dep_set = deps;
@@ -3246,6 +3248,8 @@ namespace TL { namespace Nanos6 {
 
             if (dep_list.empty())
                 continue;
+
+            Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", dep_set->min_api_vers, dep_set->api_feature);
 
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it
                  = dep_list.begin();
@@ -3697,22 +3701,24 @@ namespace TL { namespace Nanos6 {
         {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
             std::string func_name;
+            unsigned int min_api_vers;
+            std::string api_feature;
         } deps[] = {
-            { _env.dep_in,    "nanos6_release_read_"              },
-            { _env.dep_out,   "nanos6_release_write_"             },
-            { _env.dep_inout, "nanos6_release_readwrite_"         },
+            { _env.dep_in,    "nanos6_release_read_", 1, "releasing input dependencies"              },
+            { _env.dep_out,   "nanos6_release_write_", 1, "releasing output dependencies"             },
+            { _env.dep_inout, "nanos6_release_readwrite_", 1, "releasing inout dependencies"         },
 
-            { _env.dep_weakin,    "nanos6_release_weak_read_"      },
-            { _env.dep_weakout,   "nanos6_release_weak_write_"     },
-            { _env.dep_weakinout, "nanos6_release_weak_readwrite_" },
+            { _env.dep_weakin,    "nanos6_release_weak_read_", 1, "releasing weak input dependencies"      },
+            { _env.dep_weakout,   "nanos6_release_weak_write_", 1, "releasing weak output dependencies"     },
+            { _env.dep_weakinout, "nanos6_release_weak_readwrite_", 1, "releasing weak inout dependencies" },
 
-            { _env.dep_commutative, "nanos6_release_commutative_" },
-            { _env.dep_concurrent,  "nanos6_release_concurrent_"  },
+            { _env.dep_commutative, "nanos6_release_commutative_", 1, "releasing commutative dependencies" },
+            { _env.dep_concurrent,  "nanos6_release_concurrent_", 1, "releasing concurrent dependencies"  },
 
-            { _env.dep_weakcommutative, "nanos6_release_weak_commutative_" },
+            { _env.dep_weakcommutative, "nanos6_release_weak_commutative_", 2, "releasing weak commutative dependencies" },
 
-           // { dep_reduction,     "nanos6_release_reduction_" },
-           // { dep_weakreduction, "nanos6_release_weak_reduction_" },
+           // { dep_reduction,     "nanos6_release_reduction_", ??, "releasing reduction dependencies" },
+           // { dep_weakreduction, "nanos6_release_weak_reduction_", ??, "releasing weak reduction dependencies" },
         };
 
         TL::Scope global_context = TL::Scope::get_global_scope();
@@ -3724,6 +3730,8 @@ namespace TL { namespace Nanos6 {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list = release_set->dep_list;
             if (dep_list.empty())
                 continue;
+
+				Interface::family_must_be_at_least("nanos6_multidimensional_release_api", release_set->min_api_vers, release_set->api_feature);
 
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator
                     it = dep_list.begin();
