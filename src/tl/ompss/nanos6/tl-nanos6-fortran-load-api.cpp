@@ -59,6 +59,7 @@ const char *multidimensional_entry_points[] =
     "nanos6_register_region_commutative_depinfo",
     "nanos6_register_region_concurrent_depinfo",
     "nanos6_register_region_reduction_depinfo",
+    "nanos6_register_region_weakreduction_depinfo",
     "nanos6_release_read_",
     "nanos6_release_write_",
     "nanos6_release_readwrite_",
