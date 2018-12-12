@@ -442,6 +442,13 @@ namespace TL {
                 expr_list, default_data_attr, this->in_ompss_mode(),
                 "commutative", data_sharing_environment, extra_symbols);
 
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("weakcommutative"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_WEAK_COMMUTATIVE>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "weakcommutative", data_sharing_environment, extra_symbols);
+
         // OpenMP standard clauses
         PragmaCustomClause depends = pragma_line.get_clause("depend");
         get_dependences_openmp(depends, parsing_context, data_sharing_environment,
@@ -788,6 +795,7 @@ namespace TL {
             case DEP_OMPSS_WEAK_IN:
             case DEP_OMPSS_WEAK_OUT:
             case DEP_OMPSS_WEAK_INOUT:
+            case DEP_OMPSS_WEAK_COMMUTATIVE:
             case DEP_OMPSS_WEAK_REDUCTION:
                 return true;
             default:
@@ -817,6 +825,8 @@ namespace TL {
                 return "weakout";
             case DEP_OMPSS_WEAK_INOUT:
                 return "weakinout";
+            case DEP_OMPSS_WEAK_COMMUTATIVE:
+                return "weakcommutative";
             case DEP_OMPSS_REDUCTION:
                 return "reduction";
             case DEP_OMPSS_WEAK_REDUCTION:
