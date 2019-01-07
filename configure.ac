@@ -1085,7 +1085,9 @@ AC_SUBST([NANOS6_TESTS_ENABLED],  ["${is_enabled_tl_ompss_nanos6_tests}"])
 
 AC_SUBST([NANOS6_GATE])
 
-if test x$is_enabled_tl_ompss_nanos6 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
+if test x$is_enabled_tl_ompss_nanos6 = xyes \
+     -o x$is_enabled_tl_omp_nanox = xyes \
+     -o x$tcl_support = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
 fi
@@ -1248,10 +1250,11 @@ AC_ARG_ENABLE([tl-openmp-profile],
 dnl --------------------- end of OpenMP profile mode ---------------------
 
 
-dnl --------------------- Shared between Nanox and Nanos6 ------------------
+dnl --------------------- Shared between Nanox, Nanos6 and TCL ------------------
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes \
-      -o x$is_enabled_tl_ompss_nanos6 = xyes;
+      -o x$is_enabled_tl_ompss_nanos6 = xyes \
+      -o x$tcl_support = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
 
