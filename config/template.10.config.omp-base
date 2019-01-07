@@ -188,7 +188,8 @@ linker_options = -Xlinker --enable-new-dtags
 # Nanos6 + OpenCL
 {@NANOS6_GATE@,ompss-2,opencl} preprocessor_options = -DNANOS6_OPENCL
 
-
+# TCL
+{@TCL_GATE@, checkpoint} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @TCL_LIB@/performance
 
 [omp-base-ibm : omp-base-common]
 linker_options =
