@@ -72,7 +72,6 @@ namespace TL { namespace Checkpoint {
 
         env.append(Nodecl::Checkpoint::Level::make(level_args[0]));
 
-
         if (!pragma_line.get_clause("id").is_defined())
             fatal_printf_at(directive.get_locus(), "missing mandatory 'id' clause");
 
@@ -81,6 +80,15 @@ namespace TL { namespace Checkpoint {
             fatal_printf_at(directive.get_locus(), "invalid number of arguments in 'id' clause (it should be one argument)");
 
         env.append(Nodecl::Checkpoint::Id::make(id_args[0]));
+
+        if (pragma_line.get_clause("if").is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> if_args = pragma_line.get_clause("if").get_arguments_as_expressions();
+            if (if_args.size() != 1)
+                fatal_printf_at(directive.get_locus(), "invalid number of arguments in 'if' clause (it should be one argument)");
+
+            env.append(Nodecl::Checkpoint::If::make(if_args[0]));
+        }
 
         directive.replace(
                Nodecl::Checkpoint::Store::make(env, directive.get_locus()));
@@ -93,6 +101,9 @@ namespace TL { namespace Checkpoint {
         PragmaClauseArgList parameter = directive.get_pragma_line().get_parameter();
         if (parameter.is_null())
             fatal_printf_at(directive.get_locus(), "A load construct must specify some data to be checkpointed");
+
+        if (pragma_line.get_clause("if").is_defined())
+            fatal_printf_at(directive.get_locus(), "The 'if' clause is not currently supported on the load construct");
 
         Nodecl::List env;
         env.append(Nodecl::Checkpoint::Data::make(

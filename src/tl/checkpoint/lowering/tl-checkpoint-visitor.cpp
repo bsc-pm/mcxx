@@ -33,6 +33,7 @@
 
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
+#include "cxx-scope.h"
 #include "fortran03-typeutils.h"
 
 namespace TL { namespace Checkpoint {
@@ -342,6 +343,7 @@ namespace TL { namespace Checkpoint {
         CheckpointEnvironment env(store_construct.get_environment());
 
         Nodecl::List new_stmts;
+
         {
             TL::Symbol beg_store_fun = get_function_symbol("tcl_begin_store");
 
@@ -377,6 +379,27 @@ namespace TL { namespace Checkpoint {
             new_stmts.append(Nodecl::ExpressionStatement::make(function_call));
         }
 
-        store_construct.replace(new_stmts);
+        if (!env.if_expr.is_null())
+        {
+            TL::Scope new_scope = TL::Scope(new_block_context(store_construct.retrieve_context().get_decl_context()));
+
+
+            Nodecl::NodeclBase if_stmt = Nodecl::IfElseStatement::make(
+                    env.if_expr,
+                    Nodecl::List::make(
+                        Nodecl::Context::make(
+                            Nodecl::List::make(
+                                Nodecl::CompoundStatement::make(
+                                    new_stmts,
+                                    /*finally*/ Nodecl::NodeclBase::null())),
+                            new_scope)),
+                    /*else*/ Nodecl::NodeclBase::null());
+
+            store_construct.replace(if_stmt);
+        }
+        else
+        {
+            store_construct.replace(new_stmts);
+        }
     }
 }}

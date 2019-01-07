@@ -37,6 +37,8 @@ namespace TL { namespace Checkpoint {
         Nodecl::NodeclBase id;
         Nodecl::NodeclBase level;
         Nodecl::NodeclBase communicator;
+        Nodecl::NodeclBase if_expr;
+
         TL::ObjectList<Nodecl::NodeclBase> data_exprs;
 
         CheckpointEnvironment(Nodecl::NodeclBase env)
@@ -49,6 +51,8 @@ namespace TL { namespace Checkpoint {
         void visit(const Nodecl::Checkpoint::Level& node) { level = node.get_expr(); }
 
         void visit(const Nodecl::Checkpoint::Comm& node) { communicator = node.get_expr(); }
+
+        void visit(const Nodecl::Checkpoint::If& node) { if_expr = node.get_expr(); }
 
         void visit(const Nodecl::Checkpoint::Data& node)
         {
