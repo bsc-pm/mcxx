@@ -57,7 +57,7 @@ const char *multidimensional_entry_points[] =
     "nanos6_register_region_weak_write_depinfo",
     "nanos6_register_region_weak_readwrite_depinfo",
     "nanos6_register_region_commutative_depinfo",
-    "nanos6_register_region_weak_commutative_depinfo",
+//    "nanos6_register_region_weak_commutative_depinfo",
     "nanos6_register_region_concurrent_depinfo",
     "nanos6_register_region_reduction_depinfo",
     "nanos6_register_region_weak_reduction_depinfo",
@@ -68,7 +68,7 @@ const char *multidimensional_entry_points[] =
     "nanos6_release_weak_write_",
     "nanos6_release_weak_readwrite_",
     "nanos6_release_commutative_",
-    "nanos6_release_weak_commutative_",
+//    "nanos6_release_weak_commutative_",
     "nanos6_release_concurrent_" ,
     NULL
 };
