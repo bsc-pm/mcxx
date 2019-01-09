@@ -218,7 +218,7 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespa
         void fix_entry_point(std::string name)
         {
             TL::Symbol sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
-            ERROR_CONDITION(sym.is_invalid() || !sym.is_function(), "Invalid '%s' symbol\n", 0);
+            ERROR_CONDITION(sym.is_invalid() || !sym.is_function(), "Invalid '%s' symbol\n", name.c_str());
 
             symbol_entity_specs_set_bind_info(
                     sym.get_internal_symbol(),
