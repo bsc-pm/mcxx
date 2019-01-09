@@ -81,6 +81,15 @@ namespace TL { namespace Checkpoint {
 
         env.append(Nodecl::Checkpoint::Id::make(id_args[0]));
 
+        if (pragma_line.get_clause("kind").is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> kind_args = pragma_line.get_clause("kind").get_arguments_as_expressions();
+            if (kind_args.size() != 1)
+                fatal_printf_at(directive.get_locus(), "invalid number of arguments in 'kind' clause (it should be one argument)");
+
+            env.append(Nodecl::Checkpoint::Kind::make(kind_args[0]));
+        }
+
         if (pragma_line.get_clause("if").is_defined())
         {
             TL::ObjectList<Nodecl::NodeclBase> if_args = pragma_line.get_clause("if").get_arguments_as_expressions();

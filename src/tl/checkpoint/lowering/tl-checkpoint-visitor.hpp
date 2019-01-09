@@ -38,6 +38,7 @@ namespace TL { namespace Checkpoint {
         Nodecl::NodeclBase level;
         Nodecl::NodeclBase communicator;
         Nodecl::NodeclBase if_expr;
+        Nodecl::NodeclBase kind;
 
         TL::ObjectList<Nodecl::NodeclBase> data_exprs;
 
@@ -53,6 +54,8 @@ namespace TL { namespace Checkpoint {
         void visit(const Nodecl::Checkpoint::Comm& node) { communicator = node.get_expr(); }
 
         void visit(const Nodecl::Checkpoint::If& node) { if_expr = node.get_expr(); }
+
+        void visit(const Nodecl::Checkpoint::Kind& node) { kind = node.get_expr(); }
 
         void visit(const Nodecl::Checkpoint::Data& node)
         {

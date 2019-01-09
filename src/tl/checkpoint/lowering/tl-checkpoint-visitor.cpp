@@ -350,6 +350,7 @@ namespace TL { namespace Checkpoint {
             // int level, size_t id, bool is_mandatory, void (*handler)(int)
             Nodecl::List args;
             args.append(Nodecl::Conversion::make(env.level, TL::Type::get_int_type()));
+            args.append(env.kind);
             args.append(Nodecl::Conversion::make(env.id, TL::Type::get_size_t_type()));
             args.append(Nodecl::Conversion::make(const_value_to_nodecl(const_value_get_one(4, 1)), TL::Type::get_bool_type()));
             args.append(const_value_to_nodecl(const_value_get_zero(get_sizeof_type(get_size_t_type()), 1)));
