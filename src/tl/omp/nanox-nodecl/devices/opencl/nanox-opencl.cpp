@@ -1138,7 +1138,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         }
 
         // Generate ancillary code in C
-        add_forward_function_code_to_extra_c_code(outline_name, data_items, outline_function_body);
+        add_forward_function_code_to_extra_c_code(forward_function, outline_function_body);
     }
     else
     {

@@ -254,9 +254,12 @@ namespace TL { namespace Nanox {
                      Source &initial_statements,
                      Source &final_statements);
 
+             // It creates the forward function in the C file. Note that we
+             // have two symbols that represent the same function: one that
+             // exists in the Fortran side and another one that exists in the C
+             // side.
              void add_forward_function_code_to_extra_c_code(
-                     const std::string& outline_name,
-                     TL::ObjectList<OutlineDataItem*> data_items,
+                     const TL::Symbol&  fortran_forward_symbol,
                      Nodecl::NodeclBase parse_context);
 
              TL::Type rewrite_type_of_vla_in_outline(

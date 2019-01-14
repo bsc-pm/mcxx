@@ -1273,40 +1273,35 @@ namespace TL { namespace Nanox {
     }
 
     void DeviceProvider::add_forward_function_code_to_extra_c_code(
-            const std::string& outline_name,
-            TL::ObjectList<OutlineDataItem*> data_items,
+            const TL::Symbol& fortran_forward_symbol,
             Nodecl::NodeclBase parse_context)
     {
         Source ancillary_source, parameters;
 
         ancillary_source
-            << "extern void " << outline_name << "_forward_" << "(";
-        int num_data_items = data_items.size();
-        if (num_data_items == 0)
+            << "extern void " << fortran_forward_symbol.get_name() << "_(";
+
+        int num_data_items = fortran_forward_symbol.get_type().parameters().size();
+
+        // It will always have at least one argument (function pointer)
+        if (num_data_items == 1)
         {
             ancillary_source << "void (*outline_fun)(void)";
         }
         else
         {
             ancillary_source << "void (*outline_fun)(";
-            if (num_data_items == 0)
+            for (int i = 1; i < num_data_items; i++)
             {
-                ancillary_source << "void";
-            }
-            else
-            {
-                for (int i = 0; i < num_data_items; i++)
+                if (i > 1)
                 {
-                    if (i > 0)
-                    {
-                        ancillary_source << ", ";
-                    }
-                    ancillary_source << "void *p" << i;
+                    ancillary_source << ", ";
                 }
+                ancillary_source << "void *p" << i;
             }
             ancillary_source << ")";
 
-            for (int i = 0; i < num_data_items; i++)
+            for (int i = 1; i < num_data_items; i++)
             {
                 ancillary_source << ", void *p" << i;
             }
@@ -1315,9 +1310,9 @@ namespace TL { namespace Nanox {
             // << "    extern int nanos_free(void*);\n"
             << "    extern int nanos_handle_error(int);\n\n"
             << "    outline_fun(";
-        for (int i = 0; i < num_data_items; i++)
+        for (int i = 1; i < num_data_items; i++)
         {
-            if (i > 0)
+            if (i > 1)
             {
                 ancillary_source << ", ";
             }

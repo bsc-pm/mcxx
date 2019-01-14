@@ -756,7 +756,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         }
 
         // Generate ancillary code in C
-        add_forward_function_code_to_extra_c_code(device_outline_name, data_items, outline_placeholder);
+        add_forward_function_code_to_extra_c_code(forward_function, outline_placeholder);
     }
     else
     {

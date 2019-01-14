@@ -568,7 +568,7 @@ namespace TL { namespace Nanox {
             }
 
             // Generate ancillary code in C
-            add_forward_function_code_to_extra_c_code(outline_name, data_items, outline_placeholder);
+            add_forward_function_code_to_extra_c_code(forward_function, outline_placeholder);
         }
         else
         {
