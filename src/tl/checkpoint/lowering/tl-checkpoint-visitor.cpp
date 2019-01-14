@@ -350,7 +350,19 @@ namespace TL { namespace Checkpoint {
             // int level, size_t id, bool is_mandatory, void (*handler)(int)
             Nodecl::List args;
             args.append(Nodecl::Conversion::make(env.level, TL::Type::get_int_type()));
-            args.append(env.kind);
+
+            Nodecl::NodeclBase checkpoint_kind = env.kind;
+
+            if (checkpoint_kind.is_null())
+            {
+                TL::Symbol default_checkpoint_kind =
+                    TL::Scope::get_global_scope().get_symbol_from_name("TCL_CHECKPOINT_FULL");
+                ERROR_CONDITION(!default_checkpoint_kind.is_valid(), "Invalid 'TCL_CHECKPOINT_FULL' enumerator\n", 0);
+
+                checkpoint_kind = default_checkpoint_kind.make_nodecl(/*set_ref_type*/false);
+            }
+            args.append(checkpoint_kind);
+
             args.append(Nodecl::Conversion::make(env.id, TL::Type::get_size_t_type()));
             args.append(Nodecl::Conversion::make(const_value_to_nodecl(const_value_get_one(4, 1)), TL::Type::get_bool_type()));
             args.append(const_value_to_nodecl(const_value_get_zero(get_sizeof_type(get_size_t_type()), 1)));
