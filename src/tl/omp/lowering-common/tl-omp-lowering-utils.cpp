@@ -133,6 +133,10 @@ namespace TL { namespace OpenMP { namespace Lowering { namespace Utils { namespa
                 n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
             }
         }
+        else
+        {
+            n = n.shallow_copy();
+        }
 
         return n;
     }

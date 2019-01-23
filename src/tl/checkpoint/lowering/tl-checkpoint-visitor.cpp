@@ -159,7 +159,7 @@ namespace TL { namespace Checkpoint {
                 upper_bound = Nodecl::Add::make(
                         Nodecl::Minus::make(
                             region_ub,
-                            array_lb,
+                            array_lb.shallow_copy(),
                             region_lb.get_type().no_ref()),
                         const_value_to_nodecl(const_value_get_one(8, 1)),
                         region_lb.get_type().no_ref());
