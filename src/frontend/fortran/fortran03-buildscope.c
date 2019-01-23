@@ -58,6 +58,7 @@ enum build_scope_delay_category_tag
     DELAY_AFTER_USE_STATEMENT,
     DELAY_AFTER_IMPLICIT_STATEMENT,
     DELAY_AFTER_DECLARATIONS,
+    DELAY_AFTER_EXECUTABLE_STATEMENTS,
     DELAY_AFTER_PROGRAM_UNIT,
     // Used for sizing
     DELAY_NUM_CATEGORIES,
@@ -3166,6 +3167,10 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                     internal_subprograms_info[i].decl_context,
                     &(internal_subprograms_info[i].nodecl_output));
 
+            build_scope_delay_list_run(
+                    DELAY_AFTER_EXECUTABLE_STATEMENTS,
+                    &(internal_subprograms_info[i].nodecl_output));
+
             build_scope_program_unit_body_internal_subprograms_executable(
                     n_internal_subprograms, 
                     n_num_internal_program_units,
@@ -3279,7 +3284,9 @@ static void build_scope_program_unit_body(
             end_statement,
             decl_context,
             nodecl_output);
-    
+
+    build_scope_delay_list_run(DELAY_AFTER_EXECUTABLE_STATEMENTS, nodecl_output);
+
     // 4) Internal program units remaining statements
     build_scope_program_unit_body_internal_subprograms_executable(
             internal_subprograms, 
@@ -6038,7 +6045,7 @@ static void build_scope_data_stmt(AST a, const decl_context_t* decl_context, nod
     data->decl_context = decl_context;
 
     build_scope_delay_list_add(
-        DELAY_AFTER_DECLARATIONS, delayed_compute_data_stmt, data);
+        DELAY_AFTER_EXECUTABLE_STATEMENTS, delayed_compute_data_stmt, data);
 }
 
 static void build_scope_deallocate_stmt(AST a,
