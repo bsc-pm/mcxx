@@ -2985,13 +2985,13 @@ scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUS
             && (t3 == NULL || is_integer_type(t3))
             && (t4 == NULL || fortran_is_character_type(t4)))
     {
-        return GET_INTRINSIC_IMPURE(symbol, "execute_command_line", 
+        return GET_INTRINSIC_IMPURE(symbol, "execute_command_line",
                 get_void_type(), // It is a subroutine
-                lvalue_ref(t1),
+                lvalue_ref(t0),
+                lvalue_ref(t1 == NULL ? fortran_get_default_logical_type() : t1),
                 lvalue_ref(t2 == NULL ? fortran_get_default_integer_type() : t2),
                 lvalue_ref(t3 == NULL ? fortran_get_default_integer_type() : t3),
-                lvalue_ref(t4 == NULL ? fortran_get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t3));
-
+                lvalue_ref(t4 == NULL ? fortran_get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t4));
     }
 
     return NULL;
