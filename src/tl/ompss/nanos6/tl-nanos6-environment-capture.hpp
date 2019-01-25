@@ -45,7 +45,13 @@ namespace Nanos6
 {
     struct EnvironmentCapture {
     private:
+        enum symbol_type_t {
+            private_symbol_type,
+            shared_symbol_type
+        };
+
         typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
+        typedef std::map<TL::Symbol, symbol_type_t> field_type_map_t;
         typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
         typedef std::map<std::string, std::pair<TL::Symbol, TL::Type> > standalone_field_map_t;
 
@@ -68,6 +74,8 @@ namespace Nanos6
         Nodecl::Utils::SimpleSymbolMap _captured_symbols_map;
 
         field_map_t _field_map;
+        field_type_map_t _field_type_map;
+
         array_descriptor_map_t _array_descriptor_map;
         standalone_field_map_t _standalone_field_map;
 
@@ -109,6 +117,9 @@ namespace Nanos6
             TL::Symbol related_function,
             const locus_t* originating_locus,
             Nodecl::NodeclBase originating_context);
+
+        static std::string get_private_symbol_name(const TL::Symbol& symbol);
+        static std::string get_shared_symbol_name(const TL::Symbol& symbol);
 
         void add_storage_for_private_symbol(TL::Symbol symbol);
         void add_storage_for_shared_symbol(TL::Symbol symbol);
@@ -158,8 +169,10 @@ namespace Nanos6
             const rewrite_symbol_bypass_map_t& bypass_map,
             TL::Type t) const;
 
+        std::string get_registered_symbol_name(const TL::Symbol& symbol) const;
 
-        // In the next two methods "object" can be either a structure instance or a pointer to it
+        // In the next methods "object" can be either a structure instance or a pointer to it
+        Accessor get_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool actual_storage_if_private_vla, bool reference_to_pointer_if_shared) const;
         Accessor get_private_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool actual_storage_if_vla) const;
         Accessor get_shared_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool reference_to_pointer) const;
         Accessor get_standalone_field_accessor(const TL::Symbol& object, const std::string &field_name, bool actual_storage_if_vla) const;

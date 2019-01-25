@@ -796,24 +796,25 @@ namespace TL { namespace Nanos6 {
         struct AddParameter
         {
             private:
+                EnvironmentCapture &_environment_capture;
                 TL::ObjectList<std::string> &_parameter_names;
                 TL::ObjectList<TL::Type> &_parameter_types;
                 std::map<TL::Symbol, std::string> &_symbols_to_param_names;
 
             public:
                 AddParameter(
+                        EnvironmentCapture &environment_capture,
                         TL::ObjectList<std::string> &parameter_names,
                         TL::ObjectList<TL::Type> &parameter_types,
                         std::map<TL::Symbol, std::string> &symbols_to_param_names)
-                    : _parameter_names(parameter_names), _parameter_types(parameter_types),
+                    : _environment_capture(environment_capture),
+                    _parameter_names(parameter_names), _parameter_types(parameter_types),
                     _symbols_to_param_names(symbols_to_param_names)
                 {}
 
                 void operator()(TL::Symbol sym)
                 {
-                    std::string fixed_name = sym.get_name();
-                    if (IS_CXX_LANGUAGE && fixed_name == "this")
-                        fixed_name = "_this";
+                    std::string fixed_name = _environment_capture.get_registered_symbol_name(sym);
 
                     _symbols_to_param_names[sym] = fixed_name;
 
@@ -1876,9 +1877,10 @@ namespace TL { namespace Nanos6 {
         std::string unpacked_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
         AddParameter add_params_functor(
-                /* out */ unpacked_fun_param_names,
-                /* out */ unpacked_fun_param_types,
-                /* out */ symbols_to_param_names);
+            /* in */ _environment_capture,
+            /* out */ unpacked_fun_param_names,
+            /* out */ unpacked_fun_param_types,
+            /* out */ symbols_to_param_names);
 
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
@@ -2094,9 +2096,10 @@ namespace TL { namespace Nanos6 {
         std::string unpacked_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
         AddParameter add_params_functor(
-                /* out */ unpacked_fun_param_names,
-                /* out */ unpacked_fun_param_types,
-                /* out */ symbols_to_param_names);
+            /* in */ _environment_capture,
+            /* out */ unpacked_fun_param_names,
+            /* out */ unpacked_fun_param_types,
+            /* out */ symbols_to_param_names);
 
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
@@ -3169,9 +3172,10 @@ namespace TL { namespace Nanos6 {
         std::string unpacked_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
         AddParameter add_params_functor(
-                /* out */ unpacked_fun_param_names,
-                /* out */ unpacked_fun_param_types,
-                /* out */ symbols_to_param_names);
+            /* in */ _environment_capture,
+            /* out */ unpacked_fun_param_names,
+            /* out */ unpacked_fun_param_types,
+            /* out */ symbols_to_param_names);
 
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
@@ -3357,9 +3361,10 @@ namespace TL { namespace Nanos6 {
         std::string unpacked_fun_name = get_new_name("nanos6_unpacked_" + common_name);
 
         AddParameter add_params_functor(
-                /* out */ unpacked_fun_param_names,
-                /* out */ unpacked_fun_param_types,
-                /* out */ symbols_to_param_names);
+            /* in */ _environment_capture,
+            /* out */ unpacked_fun_param_names,
+            /* out */ unpacked_fun_param_types,
+            /* out */ symbols_to_param_names);
 
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
