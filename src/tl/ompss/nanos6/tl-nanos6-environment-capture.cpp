@@ -152,6 +152,10 @@ namespace TL { namespace Nanos6 {
 
         _captured_symbols_map = Nodecl::Utils::SimpleSymbolMap();
 
+        _field_map.clear();
+        _array_descriptor_map.clear();
+        _standalone_field_map.clear();
+
         _extra_storage = const_value_to_nodecl(const_value_get_signed_int(0));
     }
 
@@ -761,7 +765,7 @@ namespace TL { namespace Nanos6 {
             if (bypass_map.find(shared_symbol) == bypass_map.end())
             {
                 symbol_map[shared_symbol] =
-                    get_shared_symbol_accessor(environment, shared_symbol);
+                    get_shared_symbol_accessor(environment, shared_symbol, /* reference_to_pointer */ false);
             }
         }
 
@@ -984,7 +988,8 @@ namespace TL { namespace Nanos6 {
 
     EnvironmentCapture::Accessor EnvironmentCapture::get_shared_symbol_accessor(
         const TL::Symbol& object,
-        const TL::Symbol& symbol) const
+        const TL::Symbol& symbol,
+        bool reference_to_pointer) const
     {
         field_map_t::const_iterator field_it = _field_map.find(symbol);
         ERROR_CONDITION(field_it == _field_map.end(),
@@ -1007,21 +1012,24 @@ namespace TL { namespace Nanos6 {
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            if (symbol.get_type().depends_on_nonconstant_values())
+            if (!reference_to_pointer)
             {
-                TL::Type cast_type = rewrite_type_using_args(
-                        object, symbol.get_type().no_ref().get_pointer_to(),
-                        TL::ObjectList<TL::Symbol>(), TL::ObjectList<TL::Symbol>());
+                if (symbol.get_type().depends_on_nonconstant_values())
+                {
+                    TL::Type cast_type = rewrite_type_using_args(
+                            object, symbol.get_type().no_ref().get_pointer_to(),
+                            TL::ObjectList<TL::Symbol>(), TL::ObjectList<TL::Symbol>());
 
-                argument =
-                    Nodecl::Conversion::make(argument, cast_type);
-                argument.set_text("C");
-            }
+                    argument =
+                        Nodecl::Conversion::make(argument, cast_type);
+                    argument.set_text("C");
+                }
 
-            argument = Nodecl::Dereference::make(
+                argument = Nodecl::Dereference::make(
                     argument,
                     argument.get_type().no_ref()
                         .points_to().get_lvalue_reference_to());
+            }
         }
 
         Accessor result = {
@@ -1499,17 +1507,17 @@ namespace TL { namespace Nanos6 {
         const TL::Symbol& original_symbol)
     {
         EnvironmentCapture::Accessor source_accessor =
-            get_private_symbol_accessor(
+            get_shared_symbol_accessor(
                 source_environment,
                 original_symbol,
-                /* actual_storage_if_vla */ false /* Cannot be a VLA */);
+                /* reference_to_pointer */ true);
         Nodecl::NodeclBase rhs = std::move(source_accessor._environment_access);
 
         EnvironmentCapture::Accessor destination_accessor =
-            get_private_symbol_accessor(
+            get_shared_symbol_accessor(
                 destination_environment,
                 original_symbol,
-                /* actual_storage_if_vla */ false /* Cannot be a VLA */);
+                /* reference_to_pointer */ true);
         Nodecl::NodeclBase lhs = std::move(destination_accessor._environment_access);
 
         Nodecl::List result;
@@ -1911,10 +1919,10 @@ namespace TL { namespace Nanos6 {
         Nodecl::List result;
 
         EnvironmentCapture::Accessor destination_accessor =
-            get_private_symbol_accessor(
+            get_shared_symbol_accessor(
                 destination_environment,
                 original_symbol,
-                /* actual_storage_if_vla */ false /* Cannot be a VLA */);
+                /* reference_to_pointer */ true);
         Nodecl::NodeclBase lhs = std::move(destination_accessor._environment_access);
         Nodecl::NodeclBase rhs = original_symbol.make_nodecl(/* set_ref_type */ true);
 

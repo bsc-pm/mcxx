@@ -161,7 +161,7 @@ namespace Nanos6
 
         // In the next two methods "object" can be either a structure instance or a pointer to it
         Accessor get_private_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool actual_storage_if_vla) const;
-        Accessor get_shared_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol) const;
+        Accessor get_shared_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool reference_to_pointer) const;
         Accessor get_standalone_field_accessor(const TL::Symbol& object, const std::string &field_name, bool actual_storage_if_vla) const;
 
         bool requires_initialization() const
