@@ -404,6 +404,10 @@ namespace TL { namespace OpenMP { namespace Lowering {
         // saved expressions in their type and add them to the 'captured_value' list
         compute_captured_saved_expressions();
 
+        // Due to default data sharing rules, saved expressions may end up in the
+        // shared set after expanding an inner construct
+        fix_data_sharing_of_captured_saved_expressions();
+
         // Insert the remaining symbols in '_firstprivate' at the end of the
         // 'captured_value' list
         captured_value.insert(_firstprivate);
@@ -572,6 +576,33 @@ namespace TL { namespace OpenMP { namespace Lowering {
             if (it->get_type().depends_on_nonconstant_values())
                 walk_type_for_saved_expressions(it->get_type());
         }
+    }
+
+    namespace
+    {
+        bool only_saved_expressions(const TL::Symbol& s)
+        {
+            return s.is_saved_expression();
+        }
+    }
+
+    void DirectiveEnvironment::fix_data_sharing_of_captured_saved_expressions()
+    {
+        struct RemoveSymbols
+        {
+            const TL::ObjectList<TL::Symbol>& _exclusion_list;
+
+            RemoveSymbols(TL::ObjectList<TL::Symbol>& exclusion_list) : _exclusion_list(exclusion_list) {}
+            bool operator()(const TL::Symbol& s) const
+            {
+                return !_exclusion_list.contains(s);
+            }
+        };
+
+        TL::ObjectList<TL::Symbol> saved_expressions = captured_value.filter(only_saved_expressions);
+        RemoveSymbols remove_saved_expressions(saved_expressions);
+
+        shared = shared.filter(remove_saved_expressions);
     }
 
     namespace  {

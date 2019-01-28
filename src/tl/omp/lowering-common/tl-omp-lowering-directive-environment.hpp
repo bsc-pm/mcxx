@@ -131,6 +131,8 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
         void compute_captured_saved_expressions();
 
+        void fix_data_sharing_of_captured_saved_expressions();
+
         void handle_array_bound(Nodecl::NodeclBase n);
 
         void walk_type_for_saved_expressions(TL::Type t);
