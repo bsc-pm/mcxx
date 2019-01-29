@@ -107,8 +107,9 @@ namespace TL { namespace Nanos6 {
             _taskloop_bounds.upper_bound =
                 Nodecl::Add::make(
                         for_stmt.get_upper_bound(),
-                        const_value_to_nodecl(const_value_get_signed_int(1)),
-                        for_stmt.get_upper_bound().get_type());
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_signed_int(1), get_size_t_type()),
+                        TL::Type::get_size_t_type());
             _taskloop_bounds.step = for_stmt.get_step();
         }
     }
