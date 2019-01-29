@@ -1078,7 +1078,8 @@ namespace TL { namespace Nanos6 {
                 it++)
         {
             TL::Symbol symbol = *it;
-            EnvironmentCapture::Accessor symbol_accessor = _environment_capture.get_shared_symbol_accessor(arg, symbol);
+            EnvironmentCapture::Accessor symbol_accessor =
+                _environment_capture.get_shared_symbol_accessor(arg, symbol, /* reference_to_pointer */ false);
 
             // Note: This is similar to AddParameter functor
             if (parameter_names != NULL)
