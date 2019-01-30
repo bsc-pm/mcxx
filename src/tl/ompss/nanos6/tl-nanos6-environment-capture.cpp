@@ -153,6 +153,7 @@ namespace TL { namespace Nanos6 {
         _captured_symbols_map = Nodecl::Utils::SimpleSymbolMap();
 
         _field_map.clear();
+        _field_type_map.clear();
         _array_descriptor_map.clear();
         _standalone_field_map.clear();
 
@@ -270,8 +271,20 @@ namespace TL { namespace Nanos6 {
         _class_symbol.get_internal_symbol()->type_information = _inner_class_type;
     }
 
+    std::string EnvironmentCapture::get_private_symbol_name(const TL::Symbol& symbol)
+    {
+        return std::string("mcc_private_") + symbol.get_name();
+    }
+
+    std::string EnvironmentCapture::get_shared_symbol_name(const TL::Symbol& symbol)
+    {
+        return std::string("mcc_shared_") + symbol.get_name();
+    }
+
     void EnvironmentCapture::add_storage_for_private_symbol(TL::Symbol symbol)
     {
+        ERROR_CONDITION(_field_type_map.find(symbol) != _field_type_map.end(), "Duplicate symbol capture", 0);
+
         TL::Type type_of_field = symbol.get_type().no_ref();
         bool is_allocatable = symbol.is_allocatable();
 
@@ -328,11 +341,12 @@ namespace TL { namespace Nanos6 {
         TL::Symbol field = add_field_to_class(
             _class_symbol,
             _class_scope,
-            symbol.get_name(),
+            get_private_symbol_name(symbol),
             symbol.get_locus(),
             is_allocatable,
             type_of_field);
 
+        _field_type_map[symbol] = private_symbol_type;
         _field_map[symbol] = field;
         _captured_symbols_map.add_map(symbol, field);
 
@@ -387,6 +401,8 @@ namespace TL { namespace Nanos6 {
 
     void EnvironmentCapture::add_storage_for_shared_symbol(TL::Symbol symbol)
     {
+        ERROR_CONDITION(_field_type_map.find(symbol) != _field_type_map.end(), "Duplicate symbol capture", 0);
+
         TL::Type type_of_field = symbol.get_type().no_ref();
         if (IS_FORTRAN_LANGUAGE)
         {
@@ -422,11 +438,12 @@ namespace TL { namespace Nanos6 {
         TL::Symbol field = add_field_to_class(
             _class_symbol,
             _class_scope,
-            symbol.get_name(),
+            get_shared_symbol_name(symbol),
             symbol.get_locus(),
             /* is_allocatable */ false,
             type_of_field);
 
+        _field_type_map[symbol] = shared_symbol_type;
         _field_map[symbol] = field;
     }
 
@@ -924,6 +941,38 @@ namespace TL { namespace Nanos6 {
         }
     }
 
+    std::string EnvironmentCapture::get_registered_symbol_name(const TL::Symbol& symbol) const
+    {
+        field_map_t::const_iterator field_it = _field_map.find(symbol);
+        ERROR_CONDITION(field_it == _field_map.end(),
+                "Symbol is not mapped", 0);
+
+        const TL::Symbol& field = field_it->second;
+        return field.get_name();
+    }
+
+    EnvironmentCapture::Accessor EnvironmentCapture::get_symbol_accessor(
+        const TL::Symbol& object,
+        const TL::Symbol& symbol,
+        bool actual_storage_if_private_vla,
+        bool reference_to_pointer_if_shared) const
+    {
+        field_type_map_t::const_iterator field_type_it = _field_type_map.find(symbol);
+        ERROR_CONDITION(field_type_it == _field_type_map.end(),
+            "Symbol not mapped", 0);
+
+        switch (field_type_it->second)
+        {
+            case private_symbol_type:
+                return get_private_symbol_accessor(object, symbol, actual_storage_if_private_vla);
+                break;
+            case shared_symbol_type:
+                return get_shared_symbol_accessor(object, symbol, reference_to_pointer_if_shared);
+                break;
+        }
+
+        ERROR_CONDITION(true, "Unhandled data-sharing type", 0);
+    }
 
 
     EnvironmentCapture::Accessor EnvironmentCapture::get_private_symbol_accessor(
@@ -935,6 +984,9 @@ namespace TL { namespace Nanos6 {
         ERROR_CONDITION(field_it == _field_map.end(),
                 "Symbol is not mapped", 0);
         const TL::Symbol& field = field_it->second;
+
+        ERROR_CONDITION(_field_type_map.find(symbol)->second != private_symbol_type,
+            "Invalid symbol data-sharing in lookup", 0);
 
         Nodecl::NodeclBase object_expression = object.make_nodecl(/* set_ref_type */ true);
         if (object.get_type().is_pointer())
@@ -996,6 +1048,9 @@ namespace TL { namespace Nanos6 {
                 "Symbol is not mapped", 0);
         const TL::Symbol& field = field_it->second;
 
+        ERROR_CONDITION(_field_type_map.find(symbol)->second != shared_symbol_type,
+            "Invalid symbol data-sharing in lookup", 0);
+
         Nodecl::NodeclBase object_expression = object.make_nodecl(/* set_ref_type */ true);
         if (object.get_type().is_pointer())
         {
@@ -1050,7 +1105,8 @@ namespace TL { namespace Nanos6 {
     {
         standalone_field_map_t::const_iterator field_it = _standalone_field_map.find(field_name);
         ERROR_CONDITION(field_it == _standalone_field_map.end(),
-                "Field not found", 0);
+            "Field not found", 0);
+
         const TL::Symbol& field = field_it->second.first;
         const TL::Type& type = field_it->second.second;
 
@@ -1873,7 +1929,7 @@ namespace TL { namespace Nanos6 {
                 }
 
                 TL::Source allocate_src;
-                allocate_src << "ALLOCATE(" << as_symbol(destination_environment) << " % " << original_symbol.get_name() << shape_list.str() << ")\n";
+                allocate_src << "ALLOCATE(" << as_symbol(destination_environment) << " % " << destination_accessor._environment_name << shape_list.str() << ")\n";
                 allocate_stmt = allocate_src.parse_statement(context);
             }
 
