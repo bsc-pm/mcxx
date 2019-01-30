@@ -535,6 +535,37 @@ namespace TL { namespace Nanox {
                 final_statements);
     }
 
+    namespace {
+        TL::Symbol duplicate_function_symbol(TL::Symbol original_fun, TL::Scope function_context)
+        {
+            ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "Unexpected language", 0);
+
+            TL::Symbol new_fun = function_context.new_symbol(original_fun.get_name());
+            new_fun.get_internal_symbol()->kind = SK_FUNCTION;
+            new_fun.get_internal_symbol()->type_information = original_fun.get_type().get_internal_type();
+            symbol_entity_specs_set_is_user_declared(new_fun.get_internal_symbol(), 1);
+            new_fun.get_internal_symbol()->defined = 1;
+
+            TL::ObjectList<TL::Symbol> params = original_fun.get_related_symbols();
+            for (ObjectList<TL::Symbol>::iterator it = params.begin();
+                    it != params.end();
+                    it++)
+            {
+                ERROR_CONDITION(type_is_runtime_sized(it->get_type().get_internal_type()),"Unsupported case", 0);
+
+                scope_entry_t* new_param = function_context.new_symbol(it->get_name()).get_internal_symbol();
+                new_param->kind = it->get_internal_symbol()->kind;
+                new_param->type_information = it->get_type().get_internal_type();
+
+                symbol_entity_specs_set_is_user_declared(new_param, 1);
+                new_param->defined = 1;
+
+                symbol_entity_specs_add_related_symbols(new_fun.get_internal_symbol(), new_param);
+            }
+
+            return new_fun;
+        }
+    }
     TL::Symbol DeviceProvider::new_function_symbol_unpacked(
             TL::Symbol current_function,
             const std::string& function_name,
@@ -655,13 +686,22 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context->current_scope,
-                                uniquestr(name.c_str()));
+                        scope_entry_t* private_sym = NULL;
+                        if (IS_FORTRAN_LANGUAGE
+                                && is_function_type(no_ref((*it)->get_in_outline_type().get_internal_type())))
+                        {
+                            private_sym = duplicate_function_symbol((*it)->get_symbol(), function_context).get_internal_symbol();
+                        }
+                        else
+                        {
+                            private_sym = ::new_symbol(function_context, function_context->current_scope,
+                                    uniquestr(name.c_str()));
 
-                        private_sym->kind = SK_VARIABLE;
-                        private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
-                        private_sym->defined = 1;
+                            private_sym->kind = SK_VARIABLE;
+                            private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
+                            symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                            private_sym->defined = 1;
+                        }
 
                         if (sym.is_valid())
                         {
@@ -673,8 +713,6 @@ namespace TL { namespace Nanox {
 
                             symbol_map->add_map(sym, private_sym);
                         }
-
-
 
                         symbol_entity_specs_set_is_allocatable(private_sym,
                                 symbol_entity_specs_get_is_allocatable(private_sym) ||
