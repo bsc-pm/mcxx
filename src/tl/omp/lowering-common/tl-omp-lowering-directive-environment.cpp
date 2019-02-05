@@ -588,21 +588,18 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
     void DirectiveEnvironment::fix_data_sharing_of_captured_saved_expressions()
     {
-        struct RemoveSymbols
-        {
-            const TL::ObjectList<TL::Symbol>& _exclusion_list;
-
-            RemoveSymbols(TL::ObjectList<TL::Symbol>& exclusion_list) : _exclusion_list(exclusion_list) {}
-            bool operator()(const TL::Symbol& s) const
-            {
-                return !_exclusion_list.contains(s);
-            }
-        };
-
         TL::ObjectList<TL::Symbol> saved_expressions = captured_value.filter(only_saved_expressions);
-        RemoveSymbols remove_saved_expressions(saved_expressions);
 
-        shared = shared.filter(remove_saved_expressions);
+        TL::ObjectList<TL::Symbol> filtered_shared;
+        for (TL::ObjectList<TL::Symbol>::iterator it = shared.begin();
+                it != shared.end();
+                it++)
+        {
+            if (!saved_expressions.contains(*it))
+                filtered_shared.append(*it);
+        }
+
+        shared = filtered_shared;
     }
 
     namespace  {
