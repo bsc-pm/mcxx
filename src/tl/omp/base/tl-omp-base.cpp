@@ -1171,11 +1171,14 @@ namespace TL { namespace OpenMP {
         }
 
         ERROR_CONDITION(!statements.is<Nodecl::List>(), "This is not a list!", 0);
-        Nodecl::List tasks = statements.as<Nodecl::List>();
-
-        // There is an extra compound statement right after #pragma omp sections
-        ERROR_CONDITION(!tasks[0].is<Nodecl::CompoundStatement>(), "Expecting a compound statement here", 0);
-        tasks = tasks[0].as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
+        statements = statements.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statements.is<Nodecl::Context>(), "Expecting a context here", 0);
+        statements = statements.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!statements.is<Nodecl::CompoundStatement>(),
+                        "Expecting a compound statement here", 0);
+        Nodecl::List tasks = statements.as<Nodecl::CompoundStatement>()
+                                 .get_statements()
+                                 .as<Nodecl::List>();
 
         Nodecl::List section_list;
 
@@ -2569,6 +2572,7 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
         // This is the usual context of the statements of a pragma
         statement = statement.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
 
         Nodecl::NodeclBase num_threads;
         PragmaCustomClause clause = pragma_line.get_clause("num_threads");
