@@ -1647,13 +1647,27 @@ namespace TL { namespace OpenMP {
     {
         Nodecl::NodeclBase stms = directive.get_statements();
 
-        const decl_context_t* new_context =
+        Nodecl::NodeclBase inner_context = stms;
+        ERROR_CONDITION(!inner_context.is<Nodecl::List>(), "Invalid tree", 0);
+        inner_context = inner_context.as<Nodecl::List>().front();
+        ERROR_CONDITION(
+            !inner_context.is<Nodecl::Context>(), "Invalid tree", 0);
+        const decl_context_t *inner_decl_context
+            = nodecl_get_decl_context(inner_context.get_internal_nodecl());
+
+        const decl_context_t* outer_decl_context =
             new_block_context(directive.retrieve_context().get_decl_context());
         Nodecl::NodeclBase ctx = Nodecl::List::make(
                 Nodecl::Context::make(
                     stms,
-                    new_context,
+                    outer_decl_context,
                     stms.get_locus()));
+
+        ERROR_CONDITION(inner_decl_context->current_scope->kind != BLOCK_SCOPE,
+                        "We expected a block scope here", 0);
+        // Nest the inner scope, because it still points to its original parent.
+        inner_decl_context->current_scope->contained_in
+            = outer_decl_context->current_scope;
 
         directive.set_statements(ctx);
     }
