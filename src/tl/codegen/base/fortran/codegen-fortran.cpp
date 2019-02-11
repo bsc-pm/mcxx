@@ -1223,30 +1223,32 @@ OPERATOR_TABLE
             emit_floating_constant(value);
         else if (const_value_is_integer(value))
             emit_integer_constant(value, node.get_type());
+        else if (const_value_is_complex(value))
+            emit_complex_constant(value);
         else
             internal_error("Code unreachable", 0);
     }
 
     void FortranBase::visit(const Nodecl::ComplexLiteral& node)
     {
-        bool in_data = state.in_data_value;
-
-        // This ommits parentheses in negative literals
-        state.in_data_value = 1;
-
-        TL::Type t = node.get_type().complex_get_base_type();
-
         const_value_t* complex_cval = node.get_constant();
-
         if (const_value_is_array(complex_cval))
         {
             // COMPLEX :: C(10) = (1,2)
             // (1,2) will be a ComplexLiteral but its constant value will be array, simplify to rank 0
             complex_cval = fortran_const_value_rank_zero(complex_cval);
         }
+        emit_complex_constant(complex_cval);
+    }
 
-        const_value_t* cval_real = const_value_complex_get_real_part(complex_cval);
-        const_value_t* cval_imag = const_value_complex_get_imag_part(complex_cval);
+    void FortranBase::emit_complex_constant(const_value_t* value)
+    {
+        bool in_data = state.in_data_value;
+        // This ommits parentheses in negative literals
+        state.in_data_value = 1;
+
+        const_value_t* cval_real = const_value_complex_get_real_part(value);
+        const_value_t* cval_imag = const_value_complex_get_imag_part(value);
 
         *(file) << "(";
         emit_floating_constant(cval_real);
@@ -1415,6 +1417,8 @@ OPERATOR_TABLE
             emit_floating_constant(value);
         else if (const_value_is_integer(value))
             emit_integer_constant(value, node.get_type());
+        else if (const_value_is_complex(value))
+            emit_complex_constant(value);
         else
             internal_error("Code unreachable", 0);
     }

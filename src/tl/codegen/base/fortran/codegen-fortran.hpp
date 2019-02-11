@@ -481,6 +481,7 @@ namespace Codegen
 
             void if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_);
 
+            void emit_complex_constant(const_value_t* value);
             void emit_floating_constant(const_value_t* value);
             void emit_integer_constant(const_value_t* value, TL::Type t);
 
