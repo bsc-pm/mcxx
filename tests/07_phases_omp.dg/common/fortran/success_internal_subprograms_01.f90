@@ -5,6 +5,8 @@ PROGRAM OUTER
     IMPLICIT NONE
     INTEGER :: Y(100), J, M, W
 
+    M = 0
+
     !$OMP PARALLEL
     CALL INNER(Y, 100, M)
     !$OMP END PARALLEL
@@ -23,7 +25,7 @@ PROGRAM OUTER
             IMPLICIT NONE
             INTEGER :: N, X(N), I, S
 
-            S = 0
+! S is associated to M which has been initialised above
 
             !$OMP DO REDUCTION(+:S)
             DO I = 1, N
