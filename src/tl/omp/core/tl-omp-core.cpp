@@ -1193,6 +1193,7 @@ namespace TL { namespace OpenMP {
         // In C/C++ a compound statement is mandatory
 
         Nodecl::List l = stmt.as<Nodecl::List>();
+        Nodecl::Context original_context;
 
         TL::ObjectList<Nodecl::NodeclBase> section_seq;
 
@@ -1213,13 +1214,13 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                l = first.as<Nodecl::Context>()
-                    .get_in_context()
-                    .as<Nodecl::List>()
-                    .front()
-                    .as<Nodecl::CompoundStatement>()
-                    .get_statements()
-                    .as<Nodecl::List>();
+                original_context = first.as<Nodecl::Context>();
+                l = original_context.get_in_context()
+                        .as<Nodecl::List>()
+                        .front()
+                        .as<Nodecl::CompoundStatement>()
+                        .get_statements()
+                        .as<Nodecl::List>();
             }
 
             if (l.empty())
@@ -1306,6 +1307,7 @@ namespace TL { namespace OpenMP {
         {
             Nodecl::NodeclBase first = l[0];
             ERROR_CONDITION(!first.is<Nodecl::Context>(), "Invalid node", 0);
+            original_context = first.as<Nodecl::Context>();
 
             l = first.as<Nodecl::Context>().get_in_context().as<Nodecl::List>();
 
@@ -1398,15 +1400,18 @@ namespace TL { namespace OpenMP {
             internal_error("Code unreachable", 0);
         }
 
+        ERROR_CONDITION(original_context.is_null(), "We didn't get the context", 0);
+
         Nodecl::NodeclBase compound_statement =
             Nodecl::CompoundStatement::make(
                     Nodecl::List::make(section_seq),
                     Nodecl::NodeclBase::null(),
                     construct.get_locus());
+        original_context.set_in_context(compound_statement);
 
         construct
             .get_statements()
-            .replace(compound_statement);
+            .replace(original_context);
     }
 
     void Core::common_for_handler(
