@@ -732,6 +732,26 @@ static void check_substring(AST expr, const decl_context_t* decl_context, nodecl
         nodecl_upper = fortran_expression_as_value(nodecl_upper);
     }
 
+    // If lower or upper are invalid
+    if ((nodecl_is_null(nodecl_upper) ||
+                nodecl_is_null(nodecl_lower)) &&
+            // but the subscripted expression is constant
+            nodecl_is_constant(nodecl_subscripted))
+    {
+        char is_null_ended = 0;
+        const char* str =
+            const_value_string_unpack_to_string(nodecl_get_constant(nodecl_subscripted), &is_null_ended);
+
+        // subscripted_expr(:K)
+        if (nodecl_is_null(nodecl_lower))
+            nodecl_lower = const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), 1));
+
+        // subscripted_expr(K:)
+        if (nodecl_is_null(nodecl_upper))
+            nodecl_upper = const_value_to_nodecl(
+                    const_value_get_integer(strlen(str), fortran_get_default_integer_type_kind(), 1));
+    }
+
     type_t* string_type = fortran_get_rank0_type(lhs_type);
     ERROR_CONDITION(!fortran_is_character_type(string_type), "Bad string type", 0);
 
@@ -761,7 +781,35 @@ static void check_substring(AST expr, const decl_context_t* decl_context, nodecl
                 nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, fortran_get_default_integer_type(), ast_get_locus(expr))),
             data_type,
             ast_get_locus(expr));
-    // FIXME - We should compute a constant
+
+    if (nodecl_is_constant(nodecl_subscripted) &&
+            nodecl_is_constant(nodecl_lower) &&
+            nodecl_is_constant(nodecl_upper))
+    {
+        uint32_t val_lower = const_value_cast_to_4(nodecl_get_constant(nodecl_lower)) - 1;
+        uint32_t val_upper = const_value_cast_to_4(nodecl_get_constant(nodecl_upper)) - 1;
+
+        char is_null_ended = 0;
+        const char* str = const_value_string_unpack_to_string(nodecl_get_constant(nodecl_subscripted), &is_null_ended);
+
+        const_value_t* cvalue_substring = 0;
+        if ((strlen(str) < val_upper) || // We are out of bounds
+                (val_lower > val_upper)) // or val_lower > val_upper
+        {
+            cvalue_substring = const_value_make_string("", 0);
+        }
+        else
+        {
+            char* new_str = xstrdup(str);
+            new_str[val_upper+1] = '\0';
+
+            char *adjusted_str = new_str + val_lower;
+
+            cvalue_substring = const_value_make_string(adjusted_str, strlen(adjusted_str));
+            DELETE(new_str);
+        }
+        nodecl_set_constant(*nodecl_output, cvalue_substring);
+    }
 }
 
 
