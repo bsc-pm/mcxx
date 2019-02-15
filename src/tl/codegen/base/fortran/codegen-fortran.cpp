@@ -6010,6 +6010,10 @@ OPERATOR_TABLE
             {
                 type_specifier = real_name;
             }
+            else if (variant_type_is_fortran_polymorphic(t.get_internal_type()))
+            {
+                type_specifier = "CLASS(" + real_name + ")";
+            }
             else
             {
                 type_specifier = "TYPE(" + real_name + ")";
