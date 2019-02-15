@@ -6590,6 +6590,7 @@ static void build_scope_derived_type_procedure_binding_def_specific(
         binding_entry->kind = SK_FUNCTION;
         binding_entry->locus = ast_get_locus(binding_name);
         binding_entry->defined = 1;
+        symbol_entity_specs_set_is_member(binding_entry, 1);
 
         if (attr_spec.is_nopass)
           symbol_entity_specs_set_is_static(binding_entry, 1);
