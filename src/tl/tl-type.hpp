@@ -708,8 +708,11 @@ namespace TL
 
             //! Returns all the data members, either static or non-static
             ObjectList<Symbol> get_all_data_members() const;
+            //
+            //! Returns all the members functions, either static or non-static
+            ObjectList<Symbol> get_all_member_functions() const;
 
-            //! Returns all the data members, either static or non-static
+            //! Returns all the members, either static or non-static
             ObjectList<Symbol> get_all_members() const;
 
             //! Returns (all) the data member declarations
