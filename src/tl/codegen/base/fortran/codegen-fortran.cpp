@@ -4502,7 +4502,59 @@ OPERATOR_TABLE
             if (members.empty())
             {
                 indent();
-                *(file) << "! DERIVED TYPE WITHOUT MEMBERS\n";
+                *(file) << "! DERIVED TYPE WITHOUT DATA MEMBERS\n";
+            }
+
+            TL::ObjectList<TL::Symbol> member_functions
+                = entry.get_type().get_all_member_functions();
+
+            if (!member_functions.empty())
+            {
+                indent();
+                *(file) << "CONTAINS\n";
+
+                inc_indent();
+
+                for (TL::ObjectList<TL::Symbol>::iterator it = member_functions.begin();
+                     it != member_functions.end(); it++)
+                {
+                    indent();
+                    (*file) << "PROCEDURE, "
+                            << (it->is_static() ? "NOPASS" : "PASS");
+                    if (it->is_final())
+                    {
+                        (*file) << ", NON_OVERRIDEABLE";
+                    }
+                    if (it->is_virtual())
+                    {
+                        (*file) << ", DEFERRED";
+                    }
+                    // FIXME: We may have to be more precise here
+                    if (it->get_access_specifier() == AS_PRIVATE)
+                    {
+                        (*file) << ", PRIVATE";
+                    }
+                    else if (it->get_access_specifier() == AS_PUBLIC)
+                    {
+                        (*file) << ", PUBLIC";
+                    }
+
+                    (*file) << " :: ";
+
+                    if (it->get_name() != it->get_alias_to().get_name())
+                    {
+                        (*file) << it->get_name() << " => "
+                                << it->get_alias_to().get_name();
+                    }
+                    else
+                    {
+                        (*file) << it->get_name();
+                    }
+
+                    (*file) << "\n";
+                }
+
+                dec_indent();
             }
 
             dec_indent();
