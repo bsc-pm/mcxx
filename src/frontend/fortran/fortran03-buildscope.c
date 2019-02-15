@@ -3917,8 +3917,16 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_CLASS_NAME:
             {
-                error_printf_at(ast_get_locus(a), "sorry: CLASS type-specifier not implemented\n");
-                result = get_error_type();
+                result = get_derived_type_name(ASTSon0(a), decl_context);
+                if (result == NULL || !is_class_type(result))
+                {
+                    error_printf_at(ast_get_locus(a), "invalid type-specifier '%s'\n",
+                            fortran_prettyprint_in_buffer(a));
+                    result = get_error_type();
+                }
+                // We need to remember this is CLASS(T), otherwise this will be
+                // handled like TYPE(T)
+                result = get_variant_type_fortran_polymorphic(result);
                 break;
             }
             // Special nodes
@@ -6530,9 +6538,8 @@ static void build_scope_derived_type_procedure_binding_def_specific(
                     "Invalid node",
                     0);
 
-    // AST labeldef = ASTSon0(type_bound_proc_binding_def);
-    AST interface_name = ASTSon1(type_bound_proc_binding_def);
-    AST binding_attr_list = ASTSon2(type_bound_proc_binding_def);
+    AST interface_name = ASTSon0(type_bound_proc_binding_def);
+    AST binding_attr_list = ASTSon1(type_bound_proc_binding_def);
     // Note this is just binding_name_list when interface_name != NULL
     AST type_bound_proc_decl_list = ASTSon2(type_bound_proc_binding_def);
 
@@ -6544,7 +6551,10 @@ static void build_scope_derived_type_procedure_binding_def_specific(
 
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
-    gather_attr_spec_list(binding_attr_list, decl_context, &attr_spec);
+    if (binding_attr_list != NULL)
+    {
+        gather_attr_spec_list(binding_attr_list, decl_context, &attr_spec);
+    }
 
     if (!attr_spec.is_nopass && attr_spec.pass_name != NULL)
     {
@@ -6625,7 +6635,8 @@ static void build_scope_derived_type_procedure_binding_def_specific(
                 strtolower(ASTText(procedure_name)),
                 /*no_implicit*/ 1);
 
-            procedure_entry->kind = SK_FUNCTION;
+            // This must be defined later
+            procedure_entry->kind = SK_UNDEFINED;
 
             add_delay_check_fully_defined_symbol(decl_context, procedure_entry);
         }
