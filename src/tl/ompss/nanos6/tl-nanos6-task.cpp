@@ -109,7 +109,7 @@ namespace TL { namespace Nanos6 {
         // Creates the task instantiation and submission
         void handle_task_transformation(const Nodecl::OpenMP::Task& node, TaskProperties& task_properties)
         {
-            Nodecl::NodeclBase args_size;
+            Nodecl::NodeclBase args_size, num_deps;
             TL::Type data_env_struct;
             bool requires_initialization;
             task_properties.create_environment_structure(
@@ -132,7 +132,8 @@ namespace TL { namespace Nanos6 {
             task_properties.create_task_info(
                     implementations,
                     /* out */
-                    task_info);
+                    task_info,
+                    num_deps);
 
             TL::Scope sc = node.retrieve_context();
 
@@ -183,7 +184,8 @@ namespace TL { namespace Nanos6 {
                 //         size_t args_block_size,
                 //         /* OUT */ void **args_block_pointer,
                 //         /* OUT */ void **task_pointer,
-                //         size_t flags);
+                //         size_t flags,
+                //         size_t num_deps);
 
                 Nodecl::List create_task_args;
 
@@ -267,6 +269,10 @@ namespace TL { namespace Nanos6 {
                     flags_nodecl = task_flags.make_nodecl(/*set_ref_type */ true);
                     create_task_args.append(flags_nodecl);
                 }
+
+                // num_deps
+                create_task_args.append(num_deps);
+
 
                 Nodecl::NodeclBase call_to_nanos_create_task =
                     Nodecl::ExpressionStatement::make(
