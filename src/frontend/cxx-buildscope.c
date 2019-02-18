@@ -7994,6 +7994,7 @@ static void finish_class_type_cxx(type_t* class_type,
             if (symbol_entity_specs_get_is_override(entry))
             {
                 char does_override = 0;
+                char is_destructor = symbol_entity_specs_get_is_destructor(entry);
                 for (it1 = entry_list_iterator_begin(all_bases);
                         !entry_list_iterator_end(it1);
                         entry_list_iterator_next(it1))
@@ -8010,8 +8011,12 @@ static void finish_class_type_cxx(type_t* class_type,
                     {
                         scope_entry_t* current_virtual = entry_list_iterator_current(it2);
 
-                        if (strcmp(entry->symbol_name, current_virtual->symbol_name) == 0
+                        if ((strcmp(entry->symbol_name, current_virtual->symbol_name) == 0
                                 && function_type_can_override(entry->type_information, current_virtual->type_information))
+                                ||
+                                // Even though destructors are not inherited, a destructor in a derived class overrides a
+                                // base class destructor declared virtual
+                                (is_destructor && symbol_entity_specs_get_is_destructor(current_virtual)))
                         {
                             does_override = 1;
                         }
