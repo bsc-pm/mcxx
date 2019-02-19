@@ -3252,8 +3252,6 @@ namespace TL { namespace Nanos6 {
 
         TL::Scope global_context = TL::Scope::get_global_scope();
 
-        num_deps = const_value_to_nodecl(const_value_get_zero(TL::Type::get_size_t_type().get_size(), 1));
-
         struct DependencesSet
         {
             TL::ObjectList<Nodecl::NodeclBase> &dep_list;
@@ -3365,6 +3363,9 @@ namespace TL { namespace Nanos6 {
 
     TL::Symbol TaskProperties::create_dependences_function(Nodecl::NodeclBase &num_deps)
     {
+        num_deps = const_value_to_nodecl(
+                const_value_get_zero(TL::Type::get_size_t_type().get_size(), 1));
+
         // Skip this function if the current task doesn't have any task dependence
         if (!_env.any_task_dependence)
             return TL::Symbol::invalid();
