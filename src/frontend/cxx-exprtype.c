@@ -30379,11 +30379,18 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
             &v->nodecl_result);
 }
 
-static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+static void instantiate_function_call_impl(
+        nodecl_instantiate_expr_visitor_t* v,
+        nodecl_t called,
+        nodecl_t argument_list,
+        nodecl_t alternate_name,
+        nodecl_t function_form,
+        type_t* fun_call_type,
+        const locus_t* locus)
 {
     // This does not have to be instantiated
-    nodecl_t nodecl_called = nodecl_shallow_copy(nodecl_get_child(node, 0));
-    nodecl_t nodecl_argument_list = nodecl_get_child(node, 1);
+    nodecl_t nodecl_called = nodecl_shallow_copy(called);
+    nodecl_t nodecl_argument_list = argument_list;
 
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
@@ -30402,7 +30409,7 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
 
         if (nodecl_is_err_expr(current_arg))
         {
-            v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            v->nodecl_result = nodecl_make_err_expr(locus);
             nodecl_free(new_list);
             nodecl_free(current_arg);
             return;
@@ -30413,17 +30420,42 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
                 current_arg);
     }
 
-    nodecl_t alternate_name = nodecl_shallow_copy(nodecl_get_child(node, 2));
-    nodecl_t function_form = nodecl_shallow_copy(nodecl_get_child(node, 3));
+    nodecl_t nodecl_alternate_name = nodecl_shallow_copy(alternate_name);
+    nodecl_t nodecl_function_form = nodecl_shallow_copy(function_form);
 
     v->nodecl_result = cxx_nodecl_make_function_call(
             nodecl_called,
-            alternate_name,
+            nodecl_alternate_name,
             new_list,
-            function_form,
-            nodecl_get_type(node),
+            nodecl_function_form,
+            fun_call_type,
             v->decl_context,
-            nodecl_get_locus(node));
+            locus);
+}
+
+
+static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    instantiate_function_call_impl(
+            v,
+           /* called */      nodecl_get_child(node, 0),
+           /* arguments */   nodecl_get_child(node, 1),
+           /* alt-name */    nodecl_get_child(node, 2),
+           /* func-form */   nodecl_get_child(node, 3),
+           nodecl_get_type(node),
+           nodecl_get_locus(node));
+}
+
+static void instantiate_virtual_function_call(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    instantiate_function_call_impl(
+            v,
+           /* called */      nodecl_get_child(node, 0),
+           /* arguments */   nodecl_get_child(node, 1),
+           /* alt-name */    nodecl_null(),
+           /* func-form */   nodecl_get_child(node, 2),
+           nodecl_get_type(node),
+           nodecl_get_locus(node));
 }
 
 static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -31427,6 +31459,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     // Function call
     NODECL_VISITOR(v)->visit_function_call = instantiate_expr_visitor_fun(instantiate_function_call);
+    NODECL_VISITOR(v)->visit_virtual_function_call = instantiate_expr_visitor_fun(instantiate_virtual_function_call);
     NODECL_VISITOR(v)->visit_cxx_dep_function_call = instantiate_expr_visitor_fun(instantiate_cxx_dep_function_call);
     NODECL_VISITOR(v)->visit_gxx_trait = instantiate_expr_visitor_fun(instantiate_gxx_trait);
 
