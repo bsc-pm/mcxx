@@ -45,6 +45,46 @@ namespace TL { namespace Checkpoint {
             return fun_sym;
         }
 
+        TL::Symbol get_basic_tcl_data_type(TL::Type type)
+        {
+            TL::Type aux_type = type.no_ref().get_unqualified_type();
+
+            const char* enumerator_name;
+
+            if (aux_type.is_char())
+                enumerator_name ="TCL_CHAR";
+            else if (aux_type.is_signed_char())
+                enumerator_name ="TCL_SCHAR";
+            else if (aux_type.is_unsigned_char())
+                enumerator_name ="TCL_UCHAR";
+            else if (aux_type.is_signed_short_int())
+                enumerator_name ="TCL_SHORT";
+            else if (aux_type.is_unsigned_short_int())
+                enumerator_name ="TCL_USHORT";
+            else if (aux_type.is_signed_int())
+                enumerator_name ="TCL_INT";
+            else if (aux_type.is_unsigned_int())
+                enumerator_name ="TCL_UINT";
+            else if (aux_type.is_signed_long_int())
+                enumerator_name ="TCL_LONG";
+            else if (aux_type.is_unsigned_long_int())
+                enumerator_name ="TCL_ULONG";
+            else if (aux_type.is_float())
+                enumerator_name ="TCL_FLOAT";
+            else if (aux_type.is_double())
+                enumerator_name ="TCL_DOUBLE";
+            else if (aux_type.is_long_double())
+                enumerator_name ="TCL_LDOUBLE";
+            else
+                enumerator_name ="TCL_UNKNOWN";
+
+
+            TL::Symbol enumerator = TL::Scope::get_global_scope().get_symbol_from_name(enumerator_name);
+            ERROR_CONDITION(!enumerator.is_valid(), "Invalid '%s' enumerator\n", enumerator_name);
+            return enumerator;
+        }
+
+
         void compute_dimensionality_information_c(
                 TL::Type type,
                 // Out
@@ -74,6 +114,9 @@ namespace TL { namespace Checkpoint {
                 // Continuous dimension should be expressed in bytes
                 if (!element_type.is_array())
                 {
+                    TL::Symbol enumerator = get_basic_tcl_data_type(element_type);
+                    arguments_list.append(enumerator.make_nodecl(/*set_ref_type*/false));
+
                     Nodecl::NodeclBase element_type_size = Nodecl::Sizeof::make(
                             Nodecl::Type::make(element_type),
                             Nodecl::NodeclBase::null(),
@@ -93,6 +136,9 @@ namespace TL { namespace Checkpoint {
             }
             else
             {
+                TL::Symbol enumerator = get_basic_tcl_data_type(type);
+                arguments_list.append(enumerator.make_nodecl(/*set_ref_type*/false));
+
                 // Continuous dimension should be expressed in bytes
                 size = Nodecl::Sizeof::make(
                         Nodecl::Type::make(type),
@@ -167,6 +213,9 @@ namespace TL { namespace Checkpoint {
                 // Continuous dimension should be expressed in bytes
                 if (!element_type.is_array())
                 {
+                    TL::Symbol enumerator = get_basic_tcl_data_type(element_type);
+                    arguments_list.append(enumerator.make_nodecl(/*set_ref_type*/false));
+
                     Nodecl::NodeclBase element_type_size = Nodecl::Sizeof::make(
                             Nodecl::Type::make(element_type),
                             Nodecl::NodeclBase::null(),
@@ -190,6 +239,9 @@ namespace TL { namespace Checkpoint {
             }
             else
             {
+                TL::Symbol enumerator = get_basic_tcl_data_type(type);
+                arguments_list.append(enumerator.make_nodecl(/*set_ref_type*/false));
+
                 size = data_ref.get_sizeof().shallow_copy();
                 lower_bound = const_value_to_nodecl(const_value_get_zero(8, 0));
                 upper_bound = size.shallow_copy();
