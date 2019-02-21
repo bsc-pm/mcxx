@@ -356,8 +356,8 @@ namespace TL { namespace Checkpoint {
             if (checkpoint_kind.is_null())
             {
                 TL::Symbol default_checkpoint_kind =
-                    TL::Scope::get_global_scope().get_symbol_from_name("TCL_CHECKPOINT_FULL");
-                ERROR_CONDITION(!default_checkpoint_kind.is_valid(), "Invalid 'TCL_CHECKPOINT_FULL' enumerator\n", 0);
+                    TL::Scope::get_global_scope().get_symbol_from_name("CHK_FULL");
+                ERROR_CONDITION(!default_checkpoint_kind.is_valid(), "Invalid 'CHK_FULL' enumerator\n", 0);
 
                 checkpoint_kind = default_checkpoint_kind.make_nodecl(/*set_ref_type*/false);
             }
