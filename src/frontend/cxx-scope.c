@@ -4318,28 +4318,17 @@ static type_t* update_type_aux_(type_t* orig_type,
     else if (is_sequence_of_types(orig_type))
     {
         int num_types = sequence_of_types_get_num_types(orig_type);
-        if (pack_index == -1)
+        type_t* types[num_types + 1];
+        int i;
+        for (i = 0; i < num_types; i++)
         {
-            type_t* types[num_types + 1];
-            int i;
-            for (i = 0; i < num_types; i++)
-            {
-                types[i] = update_type_aux_(sequence_of_types_get_type_num(orig_type, i), decl_context, locus,
-                        instantiation_symbol_map, pack_index);
-                if (types[i] == NULL)
-                    return NULL;
-            }
-
-            return get_sequence_of_types_flattened(num_types, types);
-        }
-        else
-        {
-            if (pack_index >= num_types)
+            types[i] = update_type_aux_(sequence_of_types_get_type_num(orig_type, i), decl_context, locus,
+                    instantiation_symbol_map, pack_index);
+            if (types[i] == NULL)
                 return NULL;
-
-            return update_type_aux_(sequence_of_types_get_type_num(orig_type, pack_index),
-                    decl_context, locus, instantiation_symbol_map, /* pack_index */ -1);
         }
+
+        return get_sequence_of_types_flattened(num_types, types);
     }
     else if (is_gxx_underlying_type(orig_type))
     {
