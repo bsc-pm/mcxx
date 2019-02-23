@@ -176,4 +176,5 @@ src/frontend/cxx-asttype-str-internal.h
 src/frontend/cxx-asttype-str.gperf
 .clang-format
 .ycm_extra_conf.py*
+*.pyc
 tags
