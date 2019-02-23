@@ -3,6 +3,8 @@
 ! test_compile_fail=yes
 ! test_compile_end_signal=yes
 ! test_compile_faulty=yes
+! # Let's not run gdb because it takes ages to process
+! test_FFLAGS="--debug-flags=do_not_run_gdb"
 ! </testinfo>
 SUBROUTINE FOO(FUN, I)
     IMPLICIT NONE
