@@ -21560,7 +21560,7 @@ static void check_nodecl_pointer_to_member(
     }
 
     if (nodecl_expr_is_type_dependent(nodecl_lhs)
-            || nodecl_expr_is_type_dependent(nodecl_lhs))
+            || nodecl_expr_is_type_dependent(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_cxx_dot_ptr_member(
                 nodecl_lhs,
