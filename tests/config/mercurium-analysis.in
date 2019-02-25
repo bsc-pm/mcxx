@@ -27,7 +27,7 @@ EOF
 cat <<EOF
 test_CC="\${MCC} --profile=mcc"
 test_CXX="\${MCXX} --profile=mcxx"
-test_FC="\${MFC} --profile=mfc"
+test_FC="\${MFC} --profile=mfc ${TEMPORARY_MODULE_PATH}"
 
 test_CFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_CXXFLAGS_nanox_mercurium="--analysis-check --debug-flags=analysis_verbose ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"

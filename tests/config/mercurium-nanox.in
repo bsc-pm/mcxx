@@ -40,7 +40,7 @@ source @abs_builddir@/mercurium-libraries
 cat <<EOF
 NANOX_MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 NANOX_MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose ${CXX11_FLAG} --debug-flags=abort_on_ice"
-NANOX_MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
+NANOX_MFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
 EOF
 
 
@@ -118,7 +118,7 @@ then
   if [ ! -z "@IFORT@" ];
   then
 cat <<EOF
-NANOX_IMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
+NANOX_IMFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --module-out-pattern=-module,%s --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} nanox_imfc"
 test_FC_nanox_imfc="\${NANOX_IMFC}"
 test_FFLAGS_nanox_imfc="${PROGRAMMING_MODEL}"
@@ -130,7 +130,7 @@ EOF
   if [ ! -z "@XLF@" ];
   then
 cat <<EOF
-NANOX_XLMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
+NANOX_XLMFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --module-out-pattern=-qmoddir=%s --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} nanox_xlmfc"
 test_FC_nanox_xlmfc="\${NANOX_XLMFC}"
 test_FFLAGS_nanox_xlmfc="${PROGRAMMING_MODEL}"
