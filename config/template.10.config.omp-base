@@ -177,8 +177,10 @@ linker_options = -Xlinker --enable-new-dtags
 
 
 #Nanos6
-{@NANOS6_GATE@,ompss-2,!?default-nanos6-inc|default-nanos6-inc} preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
-{@NANOS6_GATE@,ompss-2,!?default-nanos6-lib|default-nanos6-lib} linker_options = @NANOS6_LIB@/nanos6-main-wrapper.o -L@NANOS6_LIB@ -Wl,-z,lazy -lnanos6 -ldl -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
+{@NANOS6_GATE@,ompss-2,nanos6-by-env} preprocessor_options = -I${NANOS6_INCLUDE} -include nanos6.h
+{@NANOS6_GATE@,ompss-2,nanos6-by-env} linker_options = ${NANOS6_LIB}/nanos6-main-wrapper.o -L${NANOS6_LIB} -Wl,-z,lazy -lnanos6 -ldl -Xlinker @RPATH_PARAMETER@ -Xlinker ${NANOS6_LIB}
+{@NANOS6_GATE@,ompss-2,!nanos6-by-env,!?default-nanos6-inc|default-nanos6-inc} preprocessor_options = -I@NANOS6_INCLUDES@ -include nanos6.h
+{@NANOS6_GATE@,ompss-2,!nanos6-by-env,!?default-nanos6-lib|default-nanos6-lib} linker_options = @NANOS6_LIB@/nanos6-main-wrapper.o -L@NANOS6_LIB@ -Wl,-z,lazy -lnanos6 -ldl -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS6_LIB@
 
 # Nanos6 + CUDA
 {@NANOS6_GATE@,ompss-2,cuda} preprocessor_options = -DNANOS6_CUDA
