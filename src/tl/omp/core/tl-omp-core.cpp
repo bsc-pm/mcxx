@@ -1095,6 +1095,13 @@ namespace TL { namespace OpenMP {
                         "'this' pseudo-variable is always shared");
                 continue;
             }
+            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    && sym.get_name() == "__MERCURIUM_PRETTY_FUNCTION__")
+            {
+                data_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
+                        "'__MERCURIUM_PRETTY_FUNCTION__' variable is always shared");
+                continue;
+            }
 
             if (IS_FORTRAN_LANGUAGE
                     && sym.get_type().no_ref().is_function())
@@ -1611,6 +1618,14 @@ namespace TL { namespace OpenMP {
                 // 'this' is special
                 data_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                         "'this' pseudo-variable is always shared");
+                continue;
+            }
+
+            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    && sym.get_name() == "__MERCURIUM_PRETTY_FUNCTION__")
+            {
+                data_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
+                        "'__MERCURIUM_PRETTY_FUNCTION__' variable is always shared");
                 continue;
             }
 
