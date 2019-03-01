@@ -41,7 +41,7 @@ wipe-modules:
 
 BETS_DIRS=$(srcdir)
 LIT_DIR=$(top_srcdir)/scripts/lit
-LIT_OPTIONS=-sv --param build-dir=$(PWD) --xunit-xml-output=test.log.xml
+LIT_OPTIONS=-sv --threads=$(shell nproc) --param build-dir=$(PWD) --xunit-xml-output=test.log.xml
 LIT=PYTHONPATH=$(LIT_SUPPORT) $(PYTHON) $(LIT_DIR)/lit.py $(LIT_OPTIONS)
 LIT_SUPPORT=$(srcdir)
 
