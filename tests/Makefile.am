@@ -30,6 +30,7 @@ END=
 DISTCLEANFILES=
 
 DISTCLEANFILES+=test.log test.log.xml
+EXTRA_DIST=
 
 prepare-check: ./config/bets wipe-modules
 	rm -f config/libraries-libtool.cache
@@ -133,6 +134,13 @@ ompss-fortran-check : prepare-check
 
 analysis-check : prepare-check
 	$(LIT) $(ANALYSIS_DIRS)
+
+LIT_FILES=\
+	lit.site.cfg \
+	litsupport/bets.py \
+	litsupport/__init__.py
+
+EXTRA_DIST+=$(LIT_FILES)
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \
