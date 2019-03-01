@@ -13,17 +13,17 @@ source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
 MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
-MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 
 GENERIC_OPENCL_FLAGS="--ompss --opencl --variable=disable_opencl_file_check:1"
 test_CC="\${MCC}"
-test_FC="\${MFC}"
 test_CXX="\${MCXX}"
+test_FC="\${MFC}"
 
 test_CFLAGS="\${GENERIC_OPENCL_FLAGS}"
-test_FFLAGS="\${GENERIC_OPENCL_FLAGS}"
 test_CXXFLAGS="\${GENERIC_OPENCL_FLAGS}"
+test_FFLAGS="\${GENERIC_OPENCL_FLAGS}"
 
 test_nolink=yes
 EOF

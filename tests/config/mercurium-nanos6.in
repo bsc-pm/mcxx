@@ -45,7 +45,7 @@ source @abs_builddir@/mercurium-libraries
 cat <<EOF
 NANOS6_CC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 NANOS6_CXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose ${CXX11_FLAG} --debug-flags=abort_on_ice"
-NANOS6_FC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
+NANOS6_FC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
 EOF
 
 
@@ -128,7 +128,7 @@ then
   if [ ! -z "@IFORT@" ];
   then
 cat <<EOF
-NANOS6_IMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+NANOS6_IMFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --module-out-pattern=-module,%s --output-dir=@abs_top_builddir@/tests --profile=imfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} nanos6_imfc"
 runner_nanos6_imfc=runner_taskset
 test_FC_nanos6_imfc="\${NANOS6_IMFC}"
@@ -141,7 +141,7 @@ EOF
   if [ ! -z "@XLF@" ];
   then
 cat <<EOF
-NANOS6_XLMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+NANOS6_XLMFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --module-out-pattern=-qmoddir=%s --output-dir=@abs_top_builddir@/tests --profile=xlmfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} nanos6_xlmfc"
 runner_nanos6_xlmfc=runner_taskset
 test_FC_nanos6_xlmfc="\${NANOS6_XLMFC}"

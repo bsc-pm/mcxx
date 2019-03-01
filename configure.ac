@@ -78,11 +78,11 @@ AX_CXX_COMPILE_STDCXX_11([noext],[optional])
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
 
-dnl Check python 2.4
-AM_PATH_PYTHON2([2.4],, [:])
+dnl Check python 2.7
+AM_PATH_PYTHON2([2.7],, [:])
 
 if test "$PYTHON" = ":"; then
-   AC_MSG_ERROR([Python 2.x not found (note that Python 3 can't be used)])
+   AC_MSG_ERROR([Python 2.7 not found (note that Python 3 can't be used)])
 fi
 
 if test x$BASH = x; then

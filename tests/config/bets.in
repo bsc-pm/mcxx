@@ -977,6 +977,8 @@ do_run ()
    if [ "${logfile:0:1}" != "/" ]; then
      logfile=$basedir/$logfile
      junit_logfile=${logfile}.xml
+   else
+     junit_logfile=/dev/null
    fi
    readonly logfile
    readonly junit_logfile

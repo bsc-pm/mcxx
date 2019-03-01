@@ -39,14 +39,15 @@ wipe-modules:
 	rm -f *.mf03
 
 BETS_DIRS=$(srcdir)
-
-BETS_OPTIONS="-only-fails"
+LIT_DIR=$(top_srcdir)/scripts/lit
+LIT_OPTIONS=-sv --param build-dir=$(PWD) --xunit-xml-output=test.log.xml
+LIT=PYTHONPATH=$(LIT_SUPPORT) $(PYTHON) $(LIT_DIR)/lit.py $(LIT_OPTIONS)
+LIT_SUPPORT=$(srcdir)
 
 do-check : prepare-check
 	$(MAKE) -C config
 	$(MAKE) -C .
-	export MALLOC_CHECK_=2; \
-	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
+	$(LIT) $(BETS_DIRS)
 
 preserve-check-log:
 if RUNNING_DISTCHECK
@@ -110,44 +111,28 @@ ANALYSIS_DIRS=\
 	$(END)
 
 fortran-check : prepare-check
-	export MALLOC_CHECK_=2; \
-	./config/bets \
-		$(BETS_OPTIONS) $(FORTRAN_DIRS)
+	$(LIT) $(FORTRAN_DIRS)
 
 core-check : prepare-check
-	export MALLOC_CHECK_=2; \
-	./config/bets \
-		$(BETS_OPTIONS) $(CORE_DIRS)
+	$(LIT) $(CORE_DIRS)
 
 core-fortran-check : prepare-check
-	export MALLOC_CHECK_=2; \
-	./config/bets \
-		$(BETS_OPTIONS) $(CORE_DIRS) $(FORTRAN_DIRS)
+	$(LIT) $(CORE_DIRS) $(FORTRAN_DIRS)
 
 omp-check : prepare-check
-	export MALLOC_CHECK_=2; \
-	./config/bets \
-		$(BETS_OPTIONS) $(OMP_DIRS)
+	$(LIT) $(OMP_DIRS)
 
 omp-fortran-check: prepare-check
-	export MALLOC_CHECK_=2; \
-	./config/bets \
-		$(BETS_OPTIONS) $(OMP_FORTRAN_DIRS)
+	$(LIT) $(OMP_FORTRAN_DIRS)
 
 ompss-check : prepare-check
-	export MALLOC_CHECK_=2; \
-	./config/bets \
-		$(BETS_OPTIONS) $(OMPSS_DIRS)
+	$(LIT) $(OMPSS_DIRS)
 
 ompss-fortran-check : prepare-check
-	export MALLOC_CHECK_=2; \
-	./config/bets \
-		$(BETS_OPTIONS) $(OMPSS_FORTRAN_DIRS)
+	$(LIT) $(OMPSS_FORTRAN_DIRS)
 
 analysis-check : prepare-check
-	export MALLOC_CHECK_=2; \
-	./config/bets \
-		$(BETS_OPTIONS) $(ANALYSIS_DIRS)
+	$(LIT) $(ANALYSIS_DIRS)
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \
@@ -169,3 +154,53 @@ clean-local:
 	rm -f *.mod
 	rm -f *.mf03
 
+# Old bets targets, kept only just in case we need them
+# TODO: Remove these at some point
+
+BETS_OPTIONS="-only-fails"
+
+bets-do-check : prepare-check
+	$(MAKE) -C config
+	$(MAKE) -C .
+	export MALLOC_CHECK_=2; \
+	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
+
+bets-fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(FORTRAN_DIRS)
+
+bets-core-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(CORE_DIRS)
+
+bets-core-fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(CORE_DIRS) $(FORTRAN_DIRS)
+
+bets-omp-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMP_DIRS)
+
+bets-omp-fortran-check: prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMP_FORTRAN_DIRS)
+
+bets-ompss-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMPSS_DIRS)
+
+bets-ompss-fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMPSS_FORTRAN_DIRS)
+
+bets-analysis-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(ANALYSIS_DIRS)

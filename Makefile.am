@@ -3460,7 +3460,8 @@ EXTRA_DIST += \
 			scripts/simd/x86/builtins_ia32.cpp \
 			scripts/simd/neon/builtins_neon.cpp \
 			scripts/simd/builtins-common.hpp \
-			$(DEBIAN_EXTRA)
+			$(DEBIAN_EXTRA) \
+			$(LIT_EXTRA) \
 			$(END)
 
 DEBIAN_EXTRA=\
@@ -3469,6 +3470,43 @@ DEBIAN_EXTRA=\
               scripts/debian/rules \
               scripts/debian/control \
               $(END)
+
+LIT_EXTRA=\
+          scripts/lit \
+          scripts/lit/lit.py \
+          scripts/lit/setup.cfg \
+          scripts/lit/PKG-INFO \
+          scripts/lit/setup.py \
+          scripts/lit/MANIFEST.in \
+          scripts/lit/lit \
+          scripts/lit/lit/main.py \
+          scripts/lit/lit/__init__.py \
+          scripts/lit/lit/LitTestCase.py \
+          scripts/lit/lit/ShCommands.py \
+          scripts/lit/lit/BooleanExpression.py \
+          scripts/lit/lit/ProgressBar.py \
+          scripts/lit/lit/discovery.py \
+          scripts/lit/lit/run.py \
+          scripts/lit/lit/builtin_commands \
+          scripts/lit/lit/builtin_commands/cat.py \
+          scripts/lit/lit/builtin_commands/__init__.py \
+          scripts/lit/lit/LitConfig.py \
+          scripts/lit/lit/llvm \
+          scripts/lit/lit/llvm/subst.py \
+          scripts/lit/lit/llvm/__init__.py \
+          scripts/lit/lit/llvm/config.py \
+          scripts/lit/lit/TestingConfig.py \
+          scripts/lit/lit/TestRunner.py \
+          scripts/lit/lit/ShUtil.py \
+          scripts/lit/lit/util.py \
+          scripts/lit/lit/Test.py \
+          scripts/lit/lit/formats \
+          scripts/lit/lit/formats/__init__.py \
+          scripts/lit/lit/formats/googletest.py \
+          scripts/lit/lit/formats/base.py \
+          scripts/lit/lit/formats/shtest.py \
+          scripts/lit/README.txt \
+		  $(END)
 
 #####################################
 # x86 builtins generator for GCC
