@@ -1799,8 +1799,14 @@ static void check_component_ref_(AST expr,
 
     type_t* rhs_type = component_symbol->type_information;
 
+    // It may be a type bound procedure
+    if (component_symbol->kind == SK_FUNCTION)
+    {
+	rhs_type = symbol_entity_specs_get_alias_to(component_symbol)->type_information;
+    }
+
     nodecl_t nodecl_rhs = nodecl_make_symbol(component_symbol, ast_get_locus(name));
-    type_t* component_type = no_ref(component_symbol->type_information);
+    type_t* component_type = no_ref(rhs_type);
 
     if (ASTKind(rhs) == AST_ARRAY_SUBSCRIPT
             && !fortran_is_array_type(component_type)
@@ -2892,6 +2898,7 @@ static void check_called_symbol_list(
                 symbol->symbol_name);
     }
 
+    scope_entry_t* original_symbol = symbol;
     type_t* return_type = NULL;
     // This is a generic procedure reference
     if (symbol_entity_specs_get_is_builtin(symbol)
@@ -2988,6 +2995,13 @@ static void check_called_symbol_list(
     }
     else
     {
+	if (symbol_entity_specs_get_is_member(symbol))
+	{
+            // If this is a type bound procedure, we should check the arguments
+            // with the alias symbol!
+	    symbol = symbol_entity_specs_get_alias_to(symbol);
+	}
+
         type_t* function_type = no_ref(symbol->type_information);
         if (is_pointer_to_function_type(function_type))
         {
@@ -3331,7 +3345,16 @@ static void check_called_symbol_list(
     *num_actual_arguments = (last_argument + 1);
 
     *result_type = return_type;
-    *called_symbol = symbol;
+
+    if (symbol_entity_specs_get_is_member(original_symbol))
+    {
+        // Return the symbol that reprensents the binding name
+        *called_symbol = original_symbol;
+    }
+    else
+    {
+        *called_symbol = symbol;
+    }
 }
 
 static void check_function_call(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
@@ -3343,7 +3366,39 @@ static void check_function_call(AST expr, const decl_context_t* decl_context, no
     AST actual_arg_spec_list = ASTSon1(expr);
 
     scope_entry_list_t* symbol_list = NULL;
-    check_symbol_of_called_name(procedure_designator, decl_context, &symbol_list, is_call_stmt);
+
+    char is_member = 0;
+    char is_static = 0;
+    nodecl_t object_nodecl = nodecl_null();
+    if (ASTKind(procedure_designator) == AST_SYMBOL
+	 || ASTKind(procedure_designator) == AST_SYMBOL_LITERAL_REF)
+    {
+	check_symbol_of_called_name(procedure_designator, decl_context, &symbol_list, is_call_stmt);
+    }
+    else
+    {
+        nodecl_t procedure_designator_nodecl = nodecl_null();
+	fortran_check_expression_impl_(procedure_designator, decl_context, &procedure_designator_nodecl);
+
+	scope_entry_t* symbol = fortran_data_ref_get_symbol(procedure_designator_nodecl);
+
+        if (symbol == NULL || symbol->kind != SK_FUNCTION)
+        {
+            error_printf_at(ast_get_locus(procedure_designator), "invalid function call\n");
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+
+	symbol_list = entry_list_new(symbol);
+        is_member = symbol_entity_specs_get_is_member(symbol);
+        is_static = symbol_entity_specs_get_is_static(symbol);
+
+        ERROR_CONDITION(nodecl_is_null(procedure_designator_nodecl), "Invalid tree\n", 0);
+        ERROR_CONDITION(nodecl_get_kind(procedure_designator_nodecl) != NODECL_CLASS_MEMBER_ACCESS, "Unexpected tree\n", 0);
+        object_nodecl = nodecl_make_fortran_actual_argument(
+                nodecl_get_child(procedure_designator_nodecl, 0),
+                nodecl_get_locus(procedure_designator_nodecl));
+    }
 
     if (symbol_list == NULL)
     {
@@ -3355,6 +3410,11 @@ static void check_function_call(AST expr, const decl_context_t* decl_context, no
 
     nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(nodecl_arguments, 0, sizeof(nodecl_arguments));
+
+    if (is_member && !is_static)
+    {
+        nodecl_arguments[num_actual_arguments++] = object_nodecl;
+    }
 
     // Check arguments
     if (actual_arg_spec_list != NULL)
@@ -3466,6 +3526,10 @@ static void check_function_call(AST expr, const decl_context_t* decl_context, no
     if (nodecl_is_null(nodecl_simplify))
     {
         nodecl_t nodecl_argument_list = nodecl_null();
+        if (is_member && is_static)
+        {
+            nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, object_nodecl);
+        }
         int i;
         for (i = 0; i < num_actual_arguments; i++)
         {
