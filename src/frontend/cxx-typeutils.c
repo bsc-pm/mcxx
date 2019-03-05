@@ -448,6 +448,7 @@ struct common_type_info_tag
     _Bool is_dependent:1;
     _Bool is_incomplete:1;
     _Bool is_interoperable:1;
+    _Bool is_fortran_polymorphic:1;
     _Bool is_zero_type:1;
     _Bool is_atomic_type:1;
 
@@ -16054,6 +16055,42 @@ extern inline char variant_type_is_interoperable(type_t* t)
     return (t != NULL
             && t->info != NULL
             && t->info->is_interoperable);
+}
+
+// This function constructs a CLASS(T) for a class-type
+// This is used only in Fortran
+static dhash_ptr_t *_fortran_polymorphic_hash = NULL;
+extern inline type_t* get_variant_type_fortran_polymorphic(type_t* t)
+{
+    if (t == NULL)
+        return NULL;
+
+    if (t->info->is_fortran_polymorphic)
+        return t;
+
+    if (_fortran_polymorphic_hash == NULL)
+    {
+        _fortran_polymorphic_hash = dhash_ptr_new(5);
+    }
+
+    type_t* result = dhash_ptr_query(_fortran_polymorphic_hash, (const char*)t);
+
+    if (result == NULL)
+    {
+        result = copy_type_for_variant(t);
+        result->info->is_fortran_polymorphic = 1;
+
+        dhash_ptr_insert(_fortran_polymorphic_hash, (const char*)t, result);
+    }
+
+    return result;
+}
+
+extern inline char variant_type_is_fortran_polymorphic(type_t* t)
+{
+    return (t != NULL
+            && t->info != NULL
+            && t->info->is_fortran_polymorphic);
 }
 
 static char _initialized_generics = 0;

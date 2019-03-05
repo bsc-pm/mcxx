@@ -1633,9 +1633,10 @@ OPERATOR_TABLE
         *(file) << ")";
     }
 
-    void FortranBase::codegen_function_call_arguments(const Nodecl::NodeclBase arguments, 
+    void FortranBase::codegen_function_call_arguments(const Nodecl::NodeclBase arguments,
             TL::Symbol called_symbol,
-            TL::Type function_type)
+            TL::Type function_type,
+            int ignore_n_first_arguments)
     {
         Nodecl::List l = arguments.as<Nodecl::List>();
 
@@ -1650,6 +1651,10 @@ OPERATOR_TABLE
         bool keywords_are_mandatory = false;
         for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
         {
+            // Skip arguments that have been already handled!
+            if (pos < ignore_n_first_arguments)
+                continue;
+
             if (it->is<Nodecl::FortranNotPresent>())
             {
                 keywords_are_mandatory = true;
@@ -1722,6 +1727,9 @@ OPERATOR_TABLE
         ERROR_CONDITION(!called.get_symbol().is_valid(), "Invalid symbol in call", 0);
 
         TL::Type function_type = called.get_symbol().get_type();
+        if (called.get_symbol().is_member())
+            function_type = called.get_symbol().get_alias_to().get_type();
+
         if (function_type.is_any_reference())
             function_type = function_type.references_to();
 
@@ -1751,20 +1759,26 @@ OPERATOR_TABLE
 
         if (!infix_notation)
         {
+            Nodecl::List arg_list = arguments.as<Nodecl::List>();
             if (is_call)
             {
                 *(file) << "CALL ";
             }
 
+            int ignore_n_first_arguments = 0;
+            if (entry.is_member())
+            {
+                walk(arg_list[ignore_n_first_arguments++]);
+                *(file) << " % ";
+            }
 
             *(file) << entry.get_name() << "(";
-            codegen_function_call_arguments(arguments, called.get_symbol(), function_type);
+            codegen_function_call_arguments(arguments, called.get_symbol(), function_type, ignore_n_first_arguments);
             *(file) << ")";
         }
         else
         {
             Nodecl::List arg_list = arguments.as<Nodecl::List>();
-
             if (is_user_defined_assignment)
             {
                 ERROR_CONDITION(arg_list.size() != 2, "Invalid user defined assignment", 0);
@@ -4502,7 +4516,59 @@ OPERATOR_TABLE
             if (members.empty())
             {
                 indent();
-                *(file) << "! DERIVED TYPE WITHOUT MEMBERS\n";
+                *(file) << "! DERIVED TYPE WITHOUT DATA MEMBERS\n";
+            }
+
+            TL::ObjectList<TL::Symbol> member_functions
+                = entry.get_type().get_all_member_functions();
+
+            if (!member_functions.empty())
+            {
+                indent();
+                *(file) << "CONTAINS\n";
+
+                inc_indent();
+
+                for (TL::ObjectList<TL::Symbol>::iterator it = member_functions.begin();
+                     it != member_functions.end(); it++)
+                {
+                    indent();
+                    (*file) << "PROCEDURE, "
+                            << (it->is_static() ? "NOPASS" : "PASS");
+                    if (it->is_final())
+                    {
+                        (*file) << ", NON_OVERRIDEABLE";
+                    }
+                    if (it->is_virtual())
+                    {
+                        (*file) << ", DEFERRED";
+                    }
+                    // FIXME: We may have to be more precise here
+                    if (it->get_access_specifier() == AS_PRIVATE)
+                    {
+                        (*file) << ", PRIVATE";
+                    }
+                    else if (it->get_access_specifier() == AS_PUBLIC)
+                    {
+                        (*file) << ", PUBLIC";
+                    }
+
+                    (*file) << " :: ";
+
+                    if (it->get_name() != it->get_alias_to().get_name())
+                    {
+                        (*file) << it->get_name() << " => "
+                                << it->get_alias_to().get_name();
+                    }
+                    else
+                    {
+                        (*file) << it->get_name();
+                    }
+
+                    (*file) << "\n";
+                }
+
+                dec_indent();
             }
 
             dec_indent();
@@ -6009,6 +6075,10 @@ OPERATOR_TABLE
             if (without_type_qualifier)
             {
                 type_specifier = real_name;
+            }
+            else if (variant_type_is_fortran_polymorphic(t.get_internal_type()))
+            {
+                type_specifier = "CLASS(" + real_name + ")";
             }
             else
             {

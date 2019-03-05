@@ -1561,7 +1561,7 @@ type_bound_procedure_part : contains_stmt private_stmt type_bound_proc_binding_s
 }
 | contains_stmt private_stmt
 {
-    $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURE_PART, NULL, $2, ast_get_locus($2), NULL);
+    $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURE_PART, $2, NULL, ast_get_locus($2), NULL);
 }
 | contains_stmt
 {

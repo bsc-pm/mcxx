@@ -1479,11 +1479,12 @@ static void delay_check_fully_defined_symbol(
                         "COMMON '%s' does not exist\n",
                         entry->symbol_name + strlen(".common."));
     }
-    else if (!entry->defined && entry->kind == SK_FUNCTION
-             && symbol_entity_specs_get_is_module_procedure(entry))
+    else if (!entry->defined && entry->kind == SK_FUNCTION)
     {
         error_printf_at(entry->locus,
-                        "MODULE PROCEDURE '%s' does not exist\n",
+                        "%sPROCEDURE '%s' does not exist\n",
+                        symbol_entity_specs_get_is_module_procedure(entry) ?
+                          "MODULE " : "",
                         entry->symbol_name);
     }
     else if (!entry->defined && entry->kind == SK_CLASS)
@@ -3916,8 +3917,16 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_CLASS_NAME:
             {
-                error_printf_at(ast_get_locus(a), "sorry: CLASS type-specifier not implemented\n");
-                result = get_error_type();
+                result = get_derived_type_name(ASTSon0(a), decl_context);
+                if (result == NULL || !is_class_type(result))
+                {
+                    error_printf_at(ast_get_locus(a), "invalid type-specifier '%s'\n",
+                            fortran_prettyprint_in_buffer(a));
+                    result = get_error_type();
+                }
+                // We need to remember this is CLASS(T), otherwise this will be
+                // handled like TYPE(T)
+                result = get_variant_type_fortran_polymorphic(result);
                 break;
             }
             // Special nodes
@@ -3988,6 +3997,13 @@ struct attr_spec_tag
 
     nodecl_t bind_info;
 
+    char is_nopass;
+    const char* pass_name;
+
+    char is_non_overridable;
+
+    char is_deferred;
+
     // Mercurium extension
     char is_variable;
 } attr_spec_t;
@@ -4012,6 +4028,10 @@ ATTR_SPEC_HANDLER(public) \
 ATTR_SPEC_HANDLER(private) \
 ATTR_SPEC_HANDLER(volatile) \
 ATTR_SPEC_HANDLER(bind) \
+ATTR_SPEC_HANDLER(pass) \
+ATTR_SPEC_HANDLER(nopass) \
+ATTR_SPEC_HANDLER(non_overridable) \
+ATTR_SPEC_HANDLER(deferred) \
 ATTR_SPEC_HANDLER_STR(is_variable, "@IS_VARIABLE@")
 
 // Forward declarations
@@ -4294,12 +4314,45 @@ static void check_bind_spec(scope_entry_t *entry,
     }
 }
 
-static void attr_spec_is_variable_handler(AST a UNUSED_PARAMETER, 
+static void attr_spec_is_variable_handler(AST a UNUSED_PARAMETER,
         const decl_context_t* decl_context UNUSED_PARAMETER,
         attr_spec_t* attr_spec)
 {
     // This is a special extension flag used by mercurium
     attr_spec->is_variable = 1;
+}
+
+static void attr_spec_pass_handler(AST a,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        attr_spec_t* attr_spec)
+{
+    attr_spec->is_nopass = 0;
+    AST pass_name = ASTSon0(a);
+    if (pass_name != NULL)
+    {
+        attr_spec->pass_name = ASTText(pass_name);
+    }
+}
+
+static void attr_spec_nopass_handler(AST a UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        attr_spec_t* attr_spec)
+{
+    attr_spec->is_nopass = 1;
+}
+
+static void attr_spec_non_overridable_handler(AST a UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        attr_spec_t* attr_spec)
+{
+    attr_spec->is_non_overridable = 1;
+}
+
+static void attr_spec_deferred_handler(AST a UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        attr_spec_t* attr_spec)
+{
+  attr_spec->is_deferred = 1;
 }
 
 static void gather_attr_spec_list(AST attr_spec_list, const decl_context_t* decl_context, attr_spec_t *attr_spec)
@@ -6473,6 +6526,161 @@ static void build_scope_derived_type_data_component_def(
     }
 }
 
+static void build_scope_derived_type_procedure_binding_def_specific(
+    AST type_bound_proc_binding_def,
+    scope_entry_t *class_name,
+    char proc_bindings_are_private,
+    const decl_context_t *decl_context,
+    const decl_context_t *inner_decl_context)
+{
+    ERROR_CONDITION(ASTKind(type_bound_proc_binding_def)
+                        != AST_TYPE_BOUND_PROCEDURE_STATEMENT,
+                    "Invalid node",
+                    0);
+
+    AST interface_name = ASTSon0(type_bound_proc_binding_def);
+    AST binding_attr_list = ASTSon1(type_bound_proc_binding_def);
+    // Note this is just binding_name_list when interface_name != NULL
+    AST type_bound_proc_decl_list = ASTSon2(type_bound_proc_binding_def);
+
+    if (interface_name != NULL)
+    {
+        sorry_printf_at(ast_get_locus(interface_name),
+                        "DEFERRED type-bound procedures not implemented yet\n");
+    }
+
+    attr_spec_t attr_spec;
+    memset(&attr_spec, 0, sizeof(attr_spec));
+    if (binding_attr_list != NULL)
+    {
+        gather_attr_spec_list(binding_attr_list, decl_context, &attr_spec);
+    }
+
+    if (!attr_spec.is_nopass && attr_spec.pass_name != NULL)
+    {
+        sorry_printf_at(ast_get_locus(binding_attr_list),
+                        "PASS with a pass-name is not implemented yet\n");
+    }
+
+    AST it;
+    for_each_element(type_bound_proc_decl_list, it)
+    {
+        AST type_bound_proc_decl = ASTSon1(it);
+        ERROR_CONDITION(ASTKind(type_bound_proc_decl) != AST_SYMBOL
+                            && ASTKind(type_bound_proc_decl) != AST_RENAME,
+                        "Invalid node", 0);
+        AST binding_name = type_bound_proc_decl;
+        AST procedure_name = type_bound_proc_decl;
+        if (ASTKind(type_bound_proc_decl) == AST_RENAME)
+        {
+            binding_name = ASTSon0(type_bound_proc_decl);
+            procedure_name = ASTSon1(type_bound_proc_decl);
+        }
+
+        // binding_name => procedure_name
+        // binding_name will always be declared
+        // procedure_name will likely be a module procedure (but it might be
+        // function/subroutine with interface). We need to delay that the symbol
+        // has been fully defined if not found
+
+        // FIXME: Check that the symbol is not being redefined
+        scope_entry_t *binding_entry
+            = new_fortran_symbol(inner_decl_context, ASTText(binding_name));
+
+        binding_entry->kind = SK_FUNCTION;
+        binding_entry->locus = ast_get_locus(binding_name);
+        binding_entry->defined = 1;
+        symbol_entity_specs_set_is_member(binding_entry, 1);
+
+        if (attr_spec.is_nopass)
+          symbol_entity_specs_set_is_static(binding_entry, 1);
+
+        if (attr_spec.is_deferred)
+          symbol_entity_specs_set_is_virtual(binding_entry, 1);
+
+        if (attr_spec.is_non_overridable)
+          symbol_entity_specs_set_is_final(binding_entry, 1);
+
+        if (proc_bindings_are_private)
+          symbol_entity_specs_set_access(binding_entry, AS_PRIVATE);
+
+        // FIXME: Do we need this?
+        // symbol_entity_specs_set_is_type_bound_procedure(binding_entry, 1);
+
+        class_type_add_member(class_name->type_information,
+                              binding_entry,
+                              binding_entry->decl_context,
+                              /* is_definition */ 1);
+
+        // Now try to locate procedure_name
+        scope_entry_t *procedure_entry = NULL;
+        scope_entry_list_t *entry_list
+            = query_in_scope_str_flags(decl_context,
+                                       strtolower(ASTText(procedure_name)),
+                                       NULL,
+                                       DF_ONLY_CURRENT_SCOPE);
+
+        if (entry_list != NULL)
+        {
+            // FIXME: What if we find more than one?
+            ERROR_CONDITION(
+                entry_list_size(entry_list) != 1, "Unhandled size list", 0);
+            procedure_entry = entry_list_head(entry_list);
+            entry_list_free(entry_list);
+        }
+        else
+        {
+            procedure_entry = create_fortran_symbol_for_name_(
+                decl_context,
+                procedure_name,
+                strtolower(ASTText(procedure_name)),
+                /*no_implicit*/ 1);
+
+            // This must be defined later
+            procedure_entry->kind = SK_UNDEFINED;
+
+            add_delay_check_fully_defined_symbol(decl_context, procedure_entry);
+        }
+
+        // Now we need to link this binding to the procedure. We can use
+        // the alias field because these names can't be involved in renames
+        // of the USE-statement.
+        symbol_entity_specs_set_alias_to(binding_entry, procedure_entry);
+    }
+}
+
+static void build_scope_derived_type_procedure_binding_def(
+    AST type_bound_proc_binding_def,
+    scope_entry_t *class_name,
+    char proc_bindings_are_private,
+    const decl_context_t *decl_context,
+    const decl_context_t *inner_decl_context)
+{
+    switch (ASTKind(type_bound_proc_binding_def))
+    {
+        case AST_TYPE_BOUND_PROCEDURE_STATEMENT:
+            build_scope_derived_type_procedure_binding_def_specific(
+                type_bound_proc_binding_def,
+                class_name,
+                proc_bindings_are_private,
+                decl_context,
+                inner_decl_context);
+            break;
+        case AST_TYPE_BOUND_GENERIC_PROCEDURE:
+            sorry_printf_at(ast_get_locus(type_bound_proc_binding_def),
+                            "generic type-bound procedure bindings are not "
+                            "implemented yet\n");
+            break;
+        case AST_FINAL_STATEMENT:
+            sorry_printf_at(
+                ast_get_locus(type_bound_proc_binding_def),
+                "FINAL type-bound procedures not implemented yet\n");
+            break;
+        default:
+            internal_error("Code unreachable", 0);
+    }
+}
+
 static void build_scope_derived_type_def(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST derived_type_stmt = ASTSon0(a);
@@ -6647,13 +6855,6 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
         }
     }
 
-    if (type_bound_procedure_part != NULL)
-    {
-        sorry_printf_at(
-                ast_get_locus(type_bound_procedure_part),
-                "type-bound procedures are not supported\n");
-    }
-
     const decl_context_t* inner_decl_context = new_class_context(class_name->decl_context, class_name);
     class_type_set_inner_context(class_name->type_information, inner_decl_context);
 
@@ -6673,6 +6874,27 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
                                                         fields_are_private,
                                                         decl_context,
                                                         inner_decl_context);
+        }
+    }
+
+    if (type_bound_procedure_part != NULL)
+    {
+        AST private_stmt = ASTSon0(type_bound_procedure_part);
+        AST type_bound_proc_binding_seq = ASTSon1(type_bound_procedure_part);
+
+        // TODO: if private_stmt != NULL check that we are in a module
+        char proc_bindings_are_private = private_stmt != NULL;
+
+        for_each_element(type_bound_proc_binding_seq, it)
+        {
+            AST type_bound_proc_binding_def = ASTSon1(it);
+
+            build_scope_derived_type_procedure_binding_def(
+                type_bound_proc_binding_def,
+                class_name,
+                proc_bindings_are_private,
+                decl_context,
+                inner_decl_context);
         }
     }
 

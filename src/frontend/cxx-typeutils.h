@@ -873,6 +873,9 @@ LIBMCXX_EXTERN type_t* type_deep_copy_compute_maps(
 LIBMCXX_EXTERN type_t* get_variant_type_interoperable(type_t* t);
 LIBMCXX_EXTERN char variant_type_is_interoperable(type_t* t);
 
+LIBMCXX_EXTERN type_t* get_variant_type_fortran_polymorphic(type_t* t);
+LIBMCXX_EXTERN char variant_type_is_fortran_polymorphic(type_t* t);
+
 LIBMCXX_EXTERN type_t* get_variant_type_add_gcc_attribute(type_t* t, gcc_attribute_t attr);
 LIBMCXX_EXTERN type_t* get_variant_type_add_ms_attribute(type_t* t, gcc_attribute_t attr);
 

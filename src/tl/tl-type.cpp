@@ -1091,6 +1091,17 @@ namespace TL
         return result;
     }
 
+    ObjectList<Symbol> Type::get_all_member_functions() const
+    {
+        ObjectList<Symbol> result;
+        scope_entry_list_t *list = class_type_get_member_functions(
+            ::get_actual_class_type(_type_info));
+        Scope::convert_to_vector(list, result);
+        entry_list_free(list);
+
+        return result;
+    }
+
     ObjectList<Symbol> Type::get_all_members() const
     {
         ObjectList<Symbol> result;
