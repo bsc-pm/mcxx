@@ -6234,7 +6234,9 @@ static void synthesize_procedure_type(
 
         if (return_type == NULL)
         {
-            new_type = get_nonproto_function_type(no_ref(entry->type_information), 0);
+            // PROCEDURE() declarations are managed as SUBROUTINEs
+            new_type = get_nonproto_function_type(get_void_type(), 0);
+            symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
         }
         else
         {
