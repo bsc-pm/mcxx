@@ -1535,19 +1535,19 @@ proc_component_def_stmt : labeldef TOKEN_PROCEDURE '(' proc_interface ')' ',' pr
 ;
 proc_component_attr_spec : TOKEN_POINTER
 {
-    $$ = ASTLeaf(AST_ATTR_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+    $$ = ASTLeaf(AST_ATTR_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_PASS '(' name ')'
 {
-    $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+    $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_PASS
 {
-    $$ = ASTMake1(AST_ATTR_SPEC, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+    $$ = ASTMake1(AST_ATTR_SPEC, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_NOPASS
 {
-    $$ = ASTLeaf(AST_ATTR_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+    $$ = ASTLeaf(AST_ATTR_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | access_spec
 ;

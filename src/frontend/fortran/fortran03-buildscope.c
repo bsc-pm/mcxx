@@ -6224,7 +6224,8 @@ static void synthesize_procedure_type(
         scope_entry_t* interface,
         type_t* return_type,
         UNUSED_PARAMETER const decl_context_t* decl_context,
-        char do_pointer)
+        char do_pointer,
+        char is_pass_proc_component)
 {
     char was_ref = is_lvalue_reference_type(entry->type_information);
 
@@ -6254,7 +6255,16 @@ static void synthesize_procedure_type(
 
     if (do_pointer)
     {
-        entry->type_information = get_pointer_type(entry->type_information);
+        if (!is_pass_proc_component)
+        {
+            entry->type_information = get_pointer_type(entry->type_information);
+        }
+        else
+        {
+            entry->type_information = get_pointer_to_member_type(
+                    entry->type_information,
+                    symbol_entity_specs_get_class_type(entry));
+        }
     }
 
     if (was_ref)
@@ -6263,6 +6273,136 @@ static void synthesize_procedure_type(
     }
     symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
 }
+
+static void build_scope_derived_type_proc_component_def(
+	AST component_def_stmt,
+	scope_entry_t *class_name,
+	char fields_are_private UNUSED_PARAMETER,
+	const decl_context_t *decl_context,
+	const decl_context_t *inner_decl_context)
+{
+    ERROR_CONDITION(ASTKind(component_def_stmt) != AST_PROC_COMPONENT_DEF_STATEMENT, "Invalid tree", 0);
+
+    // PROCEDURE(proc-interface), attr_spec_list :: component_decl_list
+
+    AST proc_interface = ASTSon0(component_def_stmt);
+    AST component_attr_spec_list = ASTSon1(component_def_stmt);
+    AST component_decl_list = ASTSon2(component_def_stmt);
+
+    type_t* return_type = NULL;
+    scope_entry_t* interface = NULL;
+    if (proc_interface != NULL)
+    {
+	if (ASTKind(proc_interface) == AST_SYMBOL)
+        {
+            error_printf_at(ast_get_locus(proc_interface),
+                    "procedure components with interface are not supported yet\n");
+
+            interface = fortran_query_name_str(decl_context,
+                    strtolower(ASTText(proc_interface)),
+                    ast_get_locus(proc_interface));
+
+	    if (interface != NULL
+		    && (interface->kind == SK_FUNCTION
+			|| (interface->kind == SK_VARIABLE
+			    && (is_function_type(no_ref(interface->type_information))
+				|| is_pointer_to_function_type(no_ref(interface->type_information))))))
+	    {
+		type_t* function_type = no_ref(interface->type_information);
+
+		if (is_pointer_type(function_type))
+		{
+		    function_type = pointer_type_get_pointee_type(function_type);
+		}
+
+		if (function_type_get_lacking_prototype(function_type))
+		{
+		    error_printf_at(ast_get_locus(proc_interface), "'%s' does not have an explicit interface\n",
+			    interface->symbol_name);
+
+		    interface = NULL;
+		}
+	    }
+	    else
+	    {
+		error_printf_at(ast_get_locus(proc_interface), "'%s' is not an valid procedure interface\n",
+			interface->symbol_name);
+		interface = NULL;
+	    }
+	}
+	else
+	{
+	    return_type = fortran_gather_type_from_declaration_type_spec(proc_interface,
+		    decl_context,
+		    // FIXME - support nonconstant character lengths here
+		    /* character_length_out */ NULL);
+	}
+    }
+
+    attr_spec_t attr_spec;
+    memset(&attr_spec, 0, sizeof(attr_spec));
+    if (component_attr_spec_list != NULL)
+	gather_attr_spec_list(component_attr_spec_list, decl_context, &attr_spec);
+
+    // All procedure components must have the POINTER attribute
+    if (!attr_spec.is_pointer)
+    {
+	error_printf_at(ast_get_locus(component_attr_spec_list),
+		"a procedure component declaration must have the POINTER attribute\n");
+	return;
+    }
+
+    // A procedure component that has the PASS attribute must have an explicit proc-interface
+    if (!attr_spec.is_nopass && interface == NULL)
+    {
+	error_printf_at(ast_get_locus(component_attr_spec_list),
+		"a procedure component with the PASS atribute must have a procedure interface\n");
+	return;
+    }
+
+    AST it2;
+    for_each_element(component_decl_list, it2)
+    {
+	AST name = ASTSon1(it2);
+	AST init = NULL;
+
+	if (ASTKind(name) == AST_PROCEDURE_DECL)
+	{
+	    init = ASTSon1(name);
+	    name = ASTSon0(name);
+	}
+
+	scope_entry_t* entry = get_symbol_for_name(inner_decl_context, name, ASTText(name));
+	entry->kind = SK_VARIABLE;
+	entry->defined = 1;
+
+	symbol_entity_specs_set_is_member(entry, 1);
+	symbol_entity_specs_set_class_type(entry, get_user_defined_type(class_name));
+	symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
+	symbol_entity_specs_set_is_procedure_decl_stmt(entry, 1);
+
+        synthesize_procedure_type(entry, interface, return_type, decl_context, /* do_pointer */ 1, !attr_spec.is_nopass);
+
+	if (init != NULL)
+	{
+	    fortran_delay_check_initialization(
+		    entry,
+		    init,
+		    decl_context,
+		    /* is_pointer_init */ 1,
+		    /* adjust_assumed_character_length */ 0,
+		    /* is_parameter */ 0,
+		    /* is_variable */ 0);
+	}
+
+	class_type_add_member(class_name->type_information,
+		entry,
+		entry->decl_context,
+		/* is_definition */ 1);
+    }
+}
+
+
 static void build_scope_derived_type_data_component_def(
     AST component_def_stmt,
     scope_entry_t *class_name,
@@ -6866,16 +7006,20 @@ static void build_scope_derived_type_def(AST a, const decl_context_t* decl_conte
         {
             AST component_def_stmt = ASTSon1(it);
 
-            if (ASTKind(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
-            {
-                sorry_printf_at(ast_get_locus(component_def_stmt),
-                        "unsupported procedure components in derived type definition\n");
-            }
-            build_scope_derived_type_data_component_def(component_def_stmt,
-                                                        class_name,
-                                                        fields_are_private,
-                                                        decl_context,
-                                                        inner_decl_context);
+	    if (ASTKind(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
+	    {
+		build_scope_derived_type_proc_component_def(
+			component_def_stmt, class_name, fields_are_private, decl_context, inner_decl_context);
+	    }
+	    else if (ASTKind(component_def_stmt) == AST_DATA_COMPONENT_DEF_STATEMENT)
+	    {
+		build_scope_derived_type_data_component_def(
+			component_def_stmt, class_name, fields_are_private, decl_context, inner_decl_context);
+	    }
+	    else
+	    {
+		internal_error("Unexpected '%s' node\n", ast_print_node_type(ASTKind(component_def_stmt)));
+	    }
         }
     }
 
@@ -8991,7 +9135,8 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
                     entry->kind = SK_VARIABLE;
                 }
 
-                synthesize_procedure_type(entry, interface, return_type, decl_context, /* do_pointer */ 0);
+                synthesize_procedure_type(entry, interface, return_type,
+                        decl_context, /* do_pointer */ 0, /*is_pass_proc_component*/ 0);
             }
             else if (entry->kind == SK_FUNCTION)
             {
@@ -9024,7 +9169,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             {
                 entry->kind = SK_VARIABLE;
 
-                synthesize_procedure_type(entry, interface, return_type, decl_context, /* do_pointer */ 1);
+                synthesize_procedure_type(entry, interface, return_type, decl_context, /* do_pointer */ 1, /*is_pass_proc_component */ 0);
             }
         }
 
