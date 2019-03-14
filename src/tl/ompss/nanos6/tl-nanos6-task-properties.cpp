@@ -3159,13 +3159,13 @@ namespace TL { namespace Nanos6 {
                                 Nodecl::ParenthesizedExpression::make(
                                     Nodecl::Add::make(
                                         Nodecl::Minus::make(
-                                            upper.shallow_copy(),
-                                            lower.shallow_copy(),
+                                            range.get_upper().shallow_copy(),
+                                            range.get_lower().shallow_copy(),
                                             size_t_type),
                                         const_value_to_nodecl(const_value_get_one(size_t_type.get_size(), 1)),
                                         size_t_type),
                                     size_t_type),
-                                stride.shallow_copy(),
+                                range.get_stride().shallow_copy(),
                                 size_t_type),
                             size_t_type),
                         size_t_type),
