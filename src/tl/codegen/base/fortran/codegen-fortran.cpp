@@ -1710,26 +1710,34 @@ OPERATOR_TABLE
         Nodecl::NodeclBase alternate_name = node.get_alternate_name();
 
 
+        if (called.is<Nodecl::Dereference>())
+            called = called.as<Nodecl::Dereference>().get_rhs();
+
+
+        TL::Symbol called_symbol;
         if (called.is<Nodecl::Symbol>())
         {
-            // Do nothing
+            called_symbol = called.get_symbol();
         }
-        else if (called.is<Nodecl::Dereference>())
+        else if (called.is<Nodecl::ClassMemberAccess>())
         {
-            called = called.as<Nodecl::Dereference>().get_rhs();
+            Nodecl::NodeclBase member = called.as<Nodecl::ClassMemberAccess>().get_member();
+            if (!member.is<Nodecl::Symbol>())
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(called.get_kind()));
+
+            called_symbol = member.get_symbol();
         }
         else
         {
             internal_error("Unexpected node '%s'\n", ast_print_node_type(called.get_kind()));
         }
 
-        ERROR_CONDITION(!called.is<Nodecl::Symbol>(), "Unexpected node '%s'", ast_print_node_type(called.get_kind()));
-        ERROR_CONDITION(!called.get_symbol().is_valid(), "Invalid symbol in call", 0);
+        // Type-bound procedures
+        if (called_symbol.is_function()
+                && called_symbol.is_member())
+            called_symbol = called_symbol.get_alias_to();
 
-        TL::Type function_type = called.get_symbol().get_type();
-        if (called.get_symbol().is_member())
-            function_type = called.get_symbol().get_alias_to().get_type();
-
+        TL::Type function_type = called_symbol.get_type();
         if (function_type.is_any_reference())
             function_type = function_type.references_to();
 
@@ -1741,11 +1749,10 @@ OPERATOR_TABLE
 
 
         // Use the alternate_name if it's valid
-        Nodecl::NodeclBase function_name_in_charge = called;
+        TL::Symbol entry = called_symbol;
         if (!alternate_name.is_null())
-            function_name_in_charge = alternate_name;
+            entry = alternate_name.get_symbol();
 
-        TL::Symbol entry = function_name_in_charge.get_symbol();
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol in call", 0);
 
         bool is_user_defined_assignment = 
@@ -1766,14 +1773,26 @@ OPERATOR_TABLE
             }
 
             int ignore_n_first_arguments = 0;
-            if (entry.is_member())
+            if (entry.is_function()
+                    && entry.is_member()
+                    && !entry.is_static())
             {
+                // The first argument of non-static member functions represents the object
                 walk(arg_list[ignore_n_first_arguments++]);
                 *(file) << " % ";
+                *(file) << entry.get_name();
+            }
+            else if (called.is<Nodecl::ClassMemberAccess>())
+            {
+                walk(called);
+            }
+            else
+            {
+                *(file) << entry.get_name();
             }
 
-            *(file) << entry.get_name() << "(";
-            codegen_function_call_arguments(arguments, called.get_symbol(), function_type, ignore_n_first_arguments);
+            *(file) << "(";
+            codegen_function_call_arguments(arguments, called_symbol, function_type, ignore_n_first_arguments);
             *(file) << ")";
         }
         else
@@ -3942,6 +3961,20 @@ OPERATOR_TABLE
                 else
                 {
                     attribute_list += ", BIND(C, NAME=" + codegen_to_str(bind_name, entry.get_scope()) + ")";
+                }
+            }
+
+            if (entry.is_member()
+                    && entry.is_procedure_declaration_statement())
+            {
+                if (entry.get_type().is_pointer()
+                    && entry.get_type().points_to().is_function())
+                {
+                    attribute_list += ", NOPASS";
+                }
+                else if (entry.get_type().is_pointer_to_member())
+                {
+                    attribute_list += ", PASS";
                 }
             }
 
@@ -6142,6 +6175,13 @@ OPERATOR_TABLE
                     ss << "PROCEDURE(" << return_type_spec << ")";
                 }
             }
+            type_specifier = ss.str();
+        }
+        else if (t.is_pointer_to_member())
+        {
+            // It must be a procedure component. The procedure interface must be valid
+            std::stringstream ss;
+            ss << "PROCEDURE(" << procedure_interface.get_name() << ")";
             type_specifier = ss.str();
         }
         // Special case for char* / const char*
