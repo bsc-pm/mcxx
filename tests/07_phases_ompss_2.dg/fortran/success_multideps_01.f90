@@ -1,5 +1,7 @@
 ! <testinfo>
 ! test_generator=config/mercurium-ompss-2
+! test_compile_fail=yes
+! test_compile_faulty=yes
 ! </testinfo>
 
 FUNCTION FOO(A)
