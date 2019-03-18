@@ -271,7 +271,8 @@ namespace TL { namespace Nanos6 {
                 }
 
                 // num_deps
-                create_task_args.append(num_deps);
+                if (Interface::family_is("nanos6_instantiation_api", 2))
+                    create_task_args.append(num_deps);
 
 
                 Nodecl::NodeclBase call_to_nanos_create_task =
