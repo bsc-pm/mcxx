@@ -504,13 +504,14 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_task_info(
             TL::Symbol implementations,
             /* out */
-            TL::Symbol &task_info)
+            TL::Symbol &task_info,
+            Nodecl::NodeclBase &num_deps)
     {
         // Note: Reduction functions need to be created before dependences functions, for UDRs
         TL::Symbol reduction_initializers, reduction_combiners;
         create_reduction_functions(reduction_initializers, reduction_combiners);
 
-        TL::Symbol deps_function = create_dependences_function();
+        TL::Symbol deps_function = create_dependences_function(num_deps);
         TL::Symbol priority_function = create_priority_function();
         TL::Symbol destroy_function = create_destroy_function();
         TL::Symbol duplicate_function = create_duplicate_function();
@@ -3040,7 +3041,8 @@ namespace TL { namespace Nanos6 {
         TL::Symbol register_fun,
         TL::Scope scope,
         // Out
-        Nodecl::List &register_statements)
+        Nodecl::List &register_statements,
+        Nodecl::NodeclBase &curr_num_deps)
     {
         TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.get_iterators_of_multireference();
 
@@ -3078,6 +3080,10 @@ namespace TL { namespace Nanos6 {
         // This empty stmt will be replaced by the function call to the runtime
         Nodecl::NodeclBase empty_stmt = Nodecl::EmptyStatement::make();
         Nodecl::NodeclBase body = Nodecl::List::make(empty_stmt);
+
+        // Neutral element product -> 1
+        TL::Type size_t_type = TL::Type::get_size_t_type();
+        curr_num_deps = const_value_to_nodecl(const_value_get_one(size_t_type.get_size(), 1));
 
         for (TL::ObjectList<TL::DataReference::MultiRefIterator>::reverse_iterator it2 = multireferences.rbegin();
                 it2 != multireferences.rend();
@@ -3143,7 +3149,29 @@ namespace TL { namespace Nanos6 {
                         loop_control, body, /* loop-name */ Nodecl::NodeclBase::null());
 
             body = Nodecl::List::make(for_stmt);
+
+            // curr_num_deps = (curr_num_deps * ((upper-lower+1)/stride));
+            curr_num_deps = Nodecl::ParenthesizedExpression::make(
+                    Nodecl::Mul::make(
+                        curr_num_deps,
+                        Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Div::make(
+                                Nodecl::ParenthesizedExpression::make(
+                                    Nodecl::Add::make(
+                                        Nodecl::Minus::make(
+                                            range.get_upper().shallow_copy(),
+                                            range.get_lower().shallow_copy(),
+                                            size_t_type),
+                                        const_value_to_nodecl(const_value_get_one(size_t_type.get_size(), 1)),
+                                        size_t_type),
+                                    size_t_type),
+                                range.get_stride().shallow_copy(),
+                                size_t_type),
+                            size_t_type),
+                        size_t_type),
+                    size_t_type);
         }
+
 
         Nodecl::NodeclBase base_exp = data_ref.get_expression_of_multireference();
         TL::DataReference base_data_ref = base_exp;
@@ -3163,7 +3191,9 @@ namespace TL { namespace Nanos6 {
     }
 
     TL::Symbol TaskProperties::create_dependences_unpacked_function(
-            const std::string &common_name)
+            const std::string &common_name,
+            // Out
+            Nodecl::NodeclBase &num_deps)
     {
         TL::ObjectList<std::string> unpacked_fun_param_names;
         TL::ObjectList<TL::Type> unpacked_fun_param_types;
@@ -3257,8 +3287,7 @@ namespace TL { namespace Nanos6 {
 
             Interface::family_must_be_at_least("nanos6_multidimensional_dependencies_api", dep_set->min_api_vers, dep_set->api_feature);
 
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it
-                 = dep_list.begin();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = dep_list.begin();
                  it != dep_list.end();
                  it++)
             {
@@ -3280,9 +3309,12 @@ namespace TL { namespace Nanos6 {
                     register_fun = get_nanos6_function_symbol(ss.str());
                 }
 
+                Nodecl::NodeclBase curr_num_deps;
                 Nodecl::List register_statements;
                 if (!data_ref.is_multireference())
                 {
+                    curr_num_deps = const_value_to_nodecl(const_value_get_one(TL::Type::get_size_t_type().get_size(), 1));
+
                     register_dependence(
                             data_ref,
                             handler,
@@ -3300,8 +3332,14 @@ namespace TL { namespace Nanos6 {
                             register_fun,
                             unpacked_fun_inside_scope,
                             // Out
-                            register_statements);
+                            register_statements,
+                            curr_num_deps);
                 }
+
+                num_deps = Nodecl::Add::make(
+                        curr_num_deps,
+                        num_deps,
+                        TL::Type::get_size_t_type());
 
                 unpacked_fun_empty_stmt.prepend_sibling(register_statements);
             }
@@ -3323,15 +3361,18 @@ namespace TL { namespace Nanos6 {
         return unpacked_function;
     }
 
-    TL::Symbol TaskProperties::create_dependences_function()
+    TL::Symbol TaskProperties::create_dependences_function(Nodecl::NodeclBase &num_deps)
     {
+        num_deps = const_value_to_nodecl(
+                const_value_get_zero(TL::Type::get_size_t_type().get_size(), 1));
+
         // Skip this function if the current task doesn't have any task dependence
         if (!_env.any_task_dependence)
             return TL::Symbol::invalid();
 
         const std::string common_name = "deps";
         TL::Symbol unpacked_function =
-            create_dependences_unpacked_function(common_name);
+            create_dependences_unpacked_function(common_name, num_deps);
 
         TL::ObjectList<std::string> unpacked_fun_param_names(2);
         TL::ObjectList<TL::Type> unpacked_fun_param_types(2);
