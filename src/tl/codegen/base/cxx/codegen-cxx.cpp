@@ -2830,6 +2830,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
+    std::string virt_specifiers;
+
+    if (symbol.is_member() && symbol.is_defined_inside_class())
+    {
+        if (symbol.is_explicit_override())
+        {
+            virt_specifiers += " override";
+        }
+        if (symbol.is_final())
+        {
+            virt_specifiers += " final";
+        }
+    }
+
     if (!symbol.is_member()
             && asm_specification != ""
             // Only emit this extra declaration if we were not declared earlier at all
@@ -2841,19 +2855,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
         {
             // IBM XL is very picky regarding attribute location
-            *(file) << gcc_extension << decl_spec_seq << declarator
+            *(file) << gcc_extension << decl_spec_seq << declarator << virt_specifiers
                 << exception_spec << " " << gcc_attributes << " " << asm_specification << trailing_type_specifier << ";\n";
         }
         else
         {
-            *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
+            *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << virt_specifiers
                 << exception_spec << asm_specification << trailing_type_specifier << ";\n";
         }
     }
 
     emit_line_marker(node);
     indent();
-    *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
+    *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << virt_specifiers
         << exception_spec << trailing_type_specifier << "\n";
 
 
