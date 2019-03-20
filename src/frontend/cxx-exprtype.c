@@ -28490,12 +28490,13 @@ nodecl_t cxx_nodecl_make_function_call(
                         return new_default_argument;
                     }
 
-                    check_nodecl_expr_initializer(new_default_argument,
+                    check_nodecl_function_argument_initialization(
+                            new_default_argument,
                             called_symbol->decl_context,
                             default_param_type,
                             /* disallow_narrowing */ 0,
-                            IK_COPY_INITIALIZATION,
                             &new_default_argument);
+
                     diagnostic_context_pop_and_commit();
 
                     if (nodecl_is_err_expr(new_default_argument))

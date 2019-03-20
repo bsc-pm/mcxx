@@ -3120,11 +3120,11 @@ parameter_declaration : decl_specifier_seq_0 %merge<ambiguityHandler>
    $$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ast_get_locus($1), NULL);
 }
 // --
-| decl_specifier_seq_0 '=' assignment_expression gcc_attributes_opt %merge<ambiguityHandler>
+| decl_specifier_seq_0 '=' initializer_clause gcc_attributes_opt %merge<ambiguityHandler>
 {
    $$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, $3, $4, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec '=' assignment_expression gcc_attributes_opt %merge<ambiguityHandler>
+| decl_specifier_seq_ended_with_named_type_spec '=' initializer_clause gcc_attributes_opt %merge<ambiguityHandler>
 {
    $$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, $3, $4, ast_get_locus($1), NULL);
 }
@@ -3138,11 +3138,11 @@ parameter_declaration : decl_specifier_seq_0 %merge<ambiguityHandler>
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
 }
 // --
-| decl_specifier_seq_0 nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' assignment_expression  %merge<ambiguityHandler>
+| decl_specifier_seq_0 nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' initializer_clause  %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' assignment_expression  %merge<ambiguityHandler>
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' initializer_clause  %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
 }
@@ -3156,11 +3156,11 @@ parameter_declaration : decl_specifier_seq_0 %merge<ambiguityHandler>
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
 }
 // --
-| decl_specifier_seq_0 abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' assignment_expression %merge<ambiguityHandler>
+| decl_specifier_seq_0 abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' initializer_clause %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' assignment_expression %merge<ambiguityHandler>
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' initializer_clause %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
 }
