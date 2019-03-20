@@ -6325,7 +6325,7 @@ static void build_scope_derived_type_proc_component_def(
 	    }
 	    else
 	    {
-		error_printf_at(ast_get_locus(proc_interface), "'%s' is not an valid procedure interface\n",
+		error_printf_at(ast_get_locus(proc_interface), "'%s' is not a valid procedure interface\n",
 			interface->symbol_name);
 		interface = NULL;
 	    }
@@ -9054,7 +9054,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             }
             else
             {
-                error_printf_at(ast_get_locus(proc_interface), "'%s' is not an valid procedure interface\n",
+                error_printf_at(ast_get_locus(proc_interface), "'%s' is not a valid procedure interface\n",
                         interface->symbol_name);
                 interface = NULL;
             }
