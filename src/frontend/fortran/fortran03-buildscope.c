@@ -9014,8 +9014,13 @@ static void build_scope_print_stmt(AST a, const decl_context_t* decl_context, no
 }
 
 
-static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_context, 
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+typedef struct delayed_procedure_decl_stmt_data_tag
+{
+    AST a;
+    const decl_context_t* decl_context;
+} delayed_procedure_decl_stmt_data_t;
+
+static void delayed_build_scope_procedure_decl_stmt_(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST proc_interface = ASTSon0(a);
     AST proc_attr_spec_list = ASTSon1(a);
@@ -9077,9 +9082,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
     for_each_element(proc_decl_list, it)
     {
         AST name = ASTSon1(it);
-
         AST init = NULL;
-
         if (ASTKind(name) == AST_PROCEDURE_DECL)
         {
             init = ASTSon1(name);
@@ -9101,7 +9104,7 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             if (symbol_entity_specs_get_is_static(entry))
             {
                 error_printf_at(ast_get_locus(name),
-                        "SAVE attribute already specified for symbol '%s'\n", 
+                        "SAVE attribute already specified for symbol '%s'\n",
                         entry->symbol_name);
             }
             symbol_entity_specs_set_is_static(entry, 1);
@@ -9168,8 +9171,8 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
             else
             {
                 entry->kind = SK_VARIABLE;
-
-                synthesize_procedure_type(entry, interface, return_type, decl_context, /* do_pointer */ 1, /*is_pass_proc_component */ 0);
+                synthesize_procedure_type(entry, interface, return_type,
+					decl_context, /* do_pointer */ 1, /*is_pass_proc_component */ 0);
             }
         }
 
@@ -9181,16 +9184,67 @@ static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_co
                         "only procedure pointers can be initialized in a procedure declaration statement\n");
             }
 
-            fortran_delay_check_initialization(
-                entry,
-                init,
-                decl_context,
-                /* is_pointer_init */ 1,
-                /* adjust_assumed_character_length */ 0,
-                /* is_parameter */ 0,
-                /* is_variable */ 1);
+            fortran_immediate_check_initialization(
+                    entry,
+                    init,
+                    decl_context,
+                    /* is_pointer_init */ 1,
+                    /* adjust_assumed_character_length */ 9,
+                    /* is_parameter */ 0,
+                    /* is_variable */ 1);
         }
     }
+}
+
+static void delayed_build_scope_procedure_decl_stmt(void* info, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    delayed_procedure_decl_stmt_data_t* data = (delayed_procedure_decl_stmt_data_t*) info;
+    delayed_build_scope_procedure_decl_stmt_(data->a, data->decl_context, nodecl_output);
+}
+
+static void build_scope_procedure_decl_stmt(AST a, const decl_context_t* decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    // The computation of the type of a procedure declaration statement must be delayed since
+    // it may depend on other symbols that have not been completed yet.
+    //
+    //      PROCEDURE(IFOO), POINTER :: FOO1 => NULL()
+    //      INTERFACE
+    //          SUBROUTINE IFOO(X)
+    //              INTEGER :: X
+    //          END SUBROUTINE IFOO
+    //      END INTERFACE
+    //
+    // In some cases the symbols that represent a procedure declaration may already exist (e.g.
+    // when they are used as dummy arguments). Thus, we may have two delayed operations:
+    //    1) Checking that the type of that existant symbol is completed (because an IMPLICIT NONE).
+    //    2) The delayed computation of the procedure declaration statement itself.
+    //
+    // In order to avoid emmiting an error because of 1), what we do is marking the symbols that represent
+    // a procedure declaration as if they already have a valid non-implicit type.
+
+    AST proc_decl_list = ASTSon2(a);
+
+    AST it;
+    for_each_element(proc_decl_list, it)
+    {
+        AST name = ASTSon1(it);
+        if (ASTKind(name) == AST_PROCEDURE_DECL)
+        {
+            name = ASTSon0(name);
+        }
+
+        scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+        symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
+    }
+
+
+    delayed_procedure_decl_stmt_data_t *data = NEW0(delayed_procedure_decl_stmt_data_t);
+    data->a = a;
+    data->decl_context = decl_context;
+
+    build_scope_delay_list_add(
+            DELAY_AFTER_DECLARATIONS, delayed_build_scope_procedure_decl_stmt, data);
 }
 
 static void build_scope_protected_stmt(AST a, const decl_context_t* decl_context UNUSED_PARAMETER, 
