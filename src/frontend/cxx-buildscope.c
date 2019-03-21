@@ -18084,6 +18084,25 @@ static scope_entry_t* build_scope_member_function_definition(
     symbol_entity_specs_set_access(entry, current_access);
     symbol_entity_specs_set_class_type(entry, class_info);
 
+    if ((is_template
+                || symbol_entity_specs_get_is_constructor(entry)
+                || symbol_entity_specs_get_is_static(entry))
+            && (gather_info->is_override
+                || gather_info->is_final
+                || gather_info->is_hides_member))
+    {
+        error_printf_at(ast_get_locus(declarator_name),
+                        "member '%s' cannot have virt-specifiers\n",
+                        prettyprint_in_buffer(declarator_name));
+    }
+    else
+    {
+        symbol_entity_specs_set_is_override(entry, gather_info->is_override);
+        symbol_entity_specs_set_is_hides_member(entry,
+                gather_info->is_hides_member);
+        symbol_entity_specs_set_is_final(entry, gather_info->is_final);
+    }
+
     if (gather_info->is_friend
             && is_template_specialized_type(entry->type_information)
             && !gather_info->is_template)
@@ -18595,9 +18614,24 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
                         symbol_entity_specs_set_class_type(entry, class_info);
 
                         // Copy some extra attributes
-                        symbol_entity_specs_set_is_override(entry, current_gather_info.is_override);
-                        symbol_entity_specs_set_is_hides_member(entry, current_gather_info.is_hides_member);
-                        symbol_entity_specs_set_is_final(entry, current_gather_info.is_final);
+                        if ((is_template
+                                    || symbol_entity_specs_get_is_constructor(entry)
+                                    || symbol_entity_specs_get_is_static(entry))
+                                && (gather_info.is_override
+                                    || gather_info.is_final
+                                    || gather_info.is_hides_member))
+                        {
+                            error_printf_at(
+                                ast_get_locus(declarator_name),
+                                "member '%s' cannot have virt-specifiers\n",
+                                prettyprint_in_buffer(declarator_name));
+                        }
+                        else
+                        {
+                            symbol_entity_specs_set_is_override(entry, current_gather_info.is_override);
+                            symbol_entity_specs_set_is_hides_member(entry, current_gather_info.is_hides_member);
+                            symbol_entity_specs_set_is_final(entry, current_gather_info.is_final);
+                        }
 
                         if (entry->kind == SK_FUNCTION)
                         {

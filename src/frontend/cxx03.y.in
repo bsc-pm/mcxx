@@ -3446,7 +3446,7 @@ function_definition_header : functional_declarator %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, NULL, ast_get_locus($1), NULL);
 }
-| functional_declarator gcc_attributes %merge<ambiguityHandler>
+| functional_declarator gcc_attr_or_virt_specifier_seq %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, NULL, $1, $2, ast_get_locus($1), NULL);
 }
