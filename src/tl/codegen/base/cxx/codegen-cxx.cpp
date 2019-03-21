@@ -9533,9 +9533,17 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     scope_of_param = symbol.get_scope();
                 }
 
-                // Note that we add redundant parentheses because of a g++ 4.3 problem
-                parameter_attributes[i] += " = (" + this->codegen_to_str(symbol.get_default_argument_num(i), 
-                            scope_of_param) + ")";
+                Nodecl::NodeclBase default_argument = symbol.get_default_argument_num(i);
+                if (default_argument.is<Nodecl::CxxBracedInitializer>())
+                {
+                    parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i), scope_of_param);
+                }
+                else
+                {
+                    // Note that we add redundant parentheses because of a g++ 4.3 problem
+                    parameter_attributes[i] += " = (" + this->codegen_to_str(symbol.get_default_argument_num(i),
+                                scope_of_param) + ")";
+                }
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
         }
