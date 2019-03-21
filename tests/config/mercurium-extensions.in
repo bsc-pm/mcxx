@@ -1,11 +1,33 @@
 #!/usr/bin/env bash
 
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
+if [ "$TEST_LANGUAGE" = "fortran" -a @FORTRAN_TESTS_ENABLED@ = no ];
+then
+    gen_ignore_test "Fortran tests are disabled"
+    exit
+fi
+
+# Parsing the test-generator arguments
+parse_arguments $@
+
+if [ "$TG_ARG_CXX11" = "yes" ];
+then
+    if ! $(gcc_supports_cxx11);
+    then
+        gen_ignore_test "requires g++ 4.8 or better"
+        exit
+    fi
+    CXX11_FLAG="-std=c++11"
+fi
+
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
 MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 test_CC="\${MCXX} --profile=plaincc"
-test_CXX="\${MCXX} --profile=plaincxx"
+test_CXX="\${MCXX} --profile=plaincxx ${CXX11_FLAG}"
 test_FC="\${MCXX} ${TEMPORARY_MODULE_PATH} --profile=plainfc"
 test_noexec=yes
 test_CFLAGS="\${test_CFLAGS} -y"

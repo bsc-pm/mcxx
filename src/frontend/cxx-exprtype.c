@@ -24568,30 +24568,18 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         return;
     }
 
+    nodecl_t nodecl_updated_shape_list = nodecl_null();
+
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_shape_list, &num_items);
-
     int i;
     for (i = 0; i < num_items; i++)
     {
-        nodecl_t current_expr = list[i];
-
-        type_t *current_expr_type = nodecl_get_type(current_expr);
-
-        standard_conversion_t scs;
-        if (!standard_conversion_between_types(&scs,
-                    no_ref(current_expr_type),
-                    get_ptrdiff_t_type(),
-                    locus))
-        {
-            error_printf_at(nodecl_get_locus(current_expr), "shaping expression '%s' cannot be converted to '%s'\n",
-                    codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)),
-                    print_type_str(get_ptrdiff_t_type(), decl_context));
-            DELETE(list);
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
+        nodecl_t updated_current_expr = promote_node_to_ptrdiff_t(list[i], decl_context);
+        nodecl_updated_shape_list =
+            nodecl_append_to_list(nodecl_updated_shape_list, updated_current_expr);
     }
+    DELETE(list);
 
     // Now check the shape makes sense
     type_t* shaped_expr_type = nodecl_get_type(nodecl_shaped_expr);
@@ -24606,7 +24594,6 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
     {
         error_printf_at(nodecl_get_locus(nodecl_shaped_expr), "shaped expression '%s' does not have pointer type\n",
                 codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
-        DELETE(list);
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
@@ -24621,18 +24608,17 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
     // Synthesize a new type based on what we got
     type_t* result_type = pointer_type_get_pointee_type(no_ref(shaped_expr_type));
 
-    // Traverse the list backwards
+    // Traverse the updated list backwards, in order to build the array type
+    list = nodecl_unpack_list(nodecl_updated_shape_list, &num_items);
     for (i = num_items - 1; i >= 0; i--)
     {
         nodecl_t current_expr = list[i];
-        result_type = get_array_type(result_type,
-                nodecl_shallow_copy(current_expr),
-                decl_context);
+        result_type = get_array_type(result_type, nodecl_shallow_copy(current_expr), decl_context);
     }
     DELETE(list);
 
-    *nodecl_output = nodecl_make_shaping(nodecl_shaped_expr, 
-            nodecl_shape_list, 
+    *nodecl_output = nodecl_make_shaping(nodecl_shaped_expr,
+            nodecl_updated_shape_list,
             result_type,
             locus);
 }
