@@ -22618,11 +22618,7 @@ type_t* clear_special_expr_type_variants(type_t* t)
 type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context_t* decl_context)
 {
     if (nodecl_is_err_expr(nodecl_expr))
-    {
-        error_printf_at(nodecl_get_locus(nodecl_expr), "failure when computing type of decltype(%s)\n",
-                codegen_to_str(nodecl_expr, decl_context));
         return get_error_type();
-    }
 
     type_t* computed_type = nodecl_get_type(nodecl_expr);
     ERROR_CONDITION(computed_type == NULL, "Invalid type", 0);
