@@ -17152,7 +17152,7 @@ static char is_pseudo_destructor_id(const decl_context_t* decl_context,
     }
 
     if (!equivalent_types(
-                get_user_defined_type(second_entry),
+                get_unqualified_type(get_user_defined_type(second_entry)),
                 get_unqualified_type(no_ref(accessed_type))))
     {
         return 0;
