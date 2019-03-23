@@ -260,6 +260,11 @@ namespace TL
         return ::is_dependent_function(_symbol);
     }
 
+    bool Symbol::is_decltype() const
+    {
+        return (this->_symbol->kind == SK_DECLTYPE);
+    }
+
     bool Symbol::is_module_procedure() const
     {
         return (symbol_entity_specs_get_is_module_procedure(this->_symbol));
