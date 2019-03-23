@@ -9,6 +9,21 @@ class BetsTest(lit.formats.FileBasedTest):
     def __init__(self, execute_external=False):
         self.execute_external = execute_external
 
+    def getTestsInDirectory(self, testSuite, path_in_suite,
+                            litConfig, localConfig):
+        source_path = testSuite.getSourcePath(path_in_suite)
+        for filename in os.listdir(source_path):
+            # Ignore dot files and excluded tests.
+            if (filename.startswith('.') or
+                filename in localConfig.excludes):
+                continue
+
+            filepath = os.path.join(source_path, filename)
+            if not os.path.isdir(filepath):
+                if any(filename.endswith(suffix) for suffix in localConfig.suffixes):
+                    yield lit.Test.Test(testSuite, path_in_suite + (filename,),
+                                        localConfig)
+
     def execute(self, test, litConfig):
         sourcePath = test.getSourcePath()
         tempFile = tempfile.NamedTemporaryFile(mode="w+t")
