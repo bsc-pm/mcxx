@@ -320,6 +320,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> base_clause_opt
 %type<ast> base_specifier
 %type<ast> base_specifier_list
+%type<ast> class_or_decltype
 %type<ast> block_declaration
 %type<ast> non_empty_block_declaration
 %type<ast> common_block_declaration
@@ -3944,29 +3945,39 @@ base_specifier_list : base_specifier
 }
 ;
 
-base_specifier : id_type_expr
+class_or_decltype : id_type_expr
+{
+    $$ = $1;
+}
+| decltype_specifier
+{
+    $$ = $1;
+}
+;
+
+base_specifier : class_or_decltype
 // without access_specifier
 {
 	$$ = ASTMake3(AST_BASE_SPEC, NULL, NULL, $1, ast_get_locus($1), NULL);
 }
 // without virtual but with access_specifier
-| access_specifier id_type_expr
+| access_specifier class_or_decltype
 {
 	$$ = ASTMake3(AST_BASE_SPEC, NULL, $1, $2, ast_get_locus($1), NULL);
 }
 // with virtual and optionally access_specifier
-| VIRTUAL id_type_expr
+| VIRTUAL class_or_decltype
 {
     AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
-| VIRTUAL access_specifier id_type_expr
+| VIRTUAL access_specifier class_or_decltype
 {
     AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // with access_specifier and then virtual
-| access_specifier VIRTUAL id_type_expr
+| access_specifier VIRTUAL class_or_decltype
 {
     AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, $1, $3, ast_get_locus($1), NULL);
