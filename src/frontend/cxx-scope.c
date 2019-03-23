@@ -8006,6 +8006,23 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
     return entry_list;
 }
 
+scope_entry_t *decltype_typeof_wrap_in_symbol(type_t *t, const decl_context_t *decl_context)
+{
+    ERROR_CONDITION(!is_typeof_expr(t) || !typeof_expr_type_is_decltype(t),
+                    "Invalid type", 0);
+
+    nodecl_t nodecl_expr = typeof_expr_type_get_expression(t);
+
+    scope_entry_t *new_sym = NEW0(scope_entry_t);
+    new_sym->kind = SK_DECLTYPE;
+    new_sym->locus = nodecl_get_locus(nodecl_expr);
+    new_sym->symbol_name = ".decltype_auxiliar_symbol";
+    new_sym->decl_context = decl_context;
+    new_sym->type_information = t;
+
+    return new_sym;
+}
+
 static scope_entry_list_t* query_nodecl_decltype(const decl_context_t* decl_context, nodecl_t nodecl_name)
 {
     scope_entry_list_t* result = NULL;
@@ -8018,13 +8035,9 @@ static scope_entry_list_t* query_nodecl_decltype(const decl_context_t* decl_cont
     else
     {
         // Creating a new artificial symbol that represents the whole decltype-specifier
-        scope_entry_t* new_sym = NEW0(scope_entry_t);
-        new_sym->kind = SK_DECLTYPE;
-        new_sym->locus = nodecl_get_locus(nodecl_name);
-        new_sym->symbol_name = ".decltype_auxiliar_symbol";
-        new_sym->decl_context = decl_context;
-        new_sym->type_information = computed_type;
-        result = entry_list_new(new_sym);
+        scope_entry_t* decltype_symbol = 
+            decltype_typeof_wrap_in_symbol(computed_type, decl_context);
+        result = entry_list_new(decltype_symbol);
     }
     return result;
 }

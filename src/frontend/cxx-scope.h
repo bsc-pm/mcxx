@@ -328,6 +328,8 @@ LIBMCXX_EXTERN void symbol_update_gcc_attribute(scope_entry_t* entry, const char
 
 LIBMCXX_EXTERN scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol);
 
+LIBMCXX_EXTERN scope_entry_t *decltype_typeof_wrap_in_symbol(type_t *t, const decl_context_t *decl_context);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H
