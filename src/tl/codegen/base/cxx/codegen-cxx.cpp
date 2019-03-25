@@ -5398,7 +5398,17 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                     }
                 }
 
-                *(file) << this->get_qualified_name(base, symbol.get_scope());
+                if (base.is_decltype())
+                {
+                    *(file)
+                        << print_type_str(base.get_type().get_internal_type(),
+                                symbol.get_scope().get_decl_context(),
+                                (void*)this);
+                }
+                else
+                {
+                    *(file) << this->get_qualified_name(base, symbol.get_scope());
+                }
 
                 if (it->is_expansion)
                     (*file) << " ...";

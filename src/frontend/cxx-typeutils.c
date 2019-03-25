@@ -11784,6 +11784,9 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
         case SK_DEPENDENT_ENTITY :
             snprintf(user_defined_str, MAX_LENGTH, "<dependent entity>");
             break;
+        case SK_DECLTYPE :
+            snprintf(user_defined_str, MAX_LENGTH, "<decltype:%s>", print_declarator(user_defined_type->type_information));
+            break;
         default :
             snprintf(user_defined_str, MAX_LENGTH, "<<<unknown user defined type %s>>>", symbol_kind_name(user_defined_type));
     }

@@ -5915,7 +5915,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 
         AST virtual_spec = ASTSon0(base_specifier);
         AST access_spec_tree = ASTSon1(base_specifier);
-        AST class_name = ASTSon2(base_specifier);
+        AST class_name_or_decltype = ASTSon2(base_specifier);
 
         access_specifier_t access_specifier = AS_UNKNOWN;
 
@@ -5978,20 +5978,59 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
             SK_DEPENDENT_ENTITY,
             SK_USING,
             SK_USING_TYPENAME,
+            SK_DECLTYPE,
         };
 
-        // We do not want to examine uninstantiated typenames
-        scope_entry_list_t* result_list = query_id_expression_flags(decl_context, 
-                class_name, NULL, DF_DEPENDENT_TYPENAME);
+        scope_entry_list_t* result_list = NULL;
+        if (ASTKind(class_name_or_decltype) == AST_DECLTYPE_AUTO)
+        {
+            error_printf_at(ast_get_locus(class_name_or_decltype),
+                    "'decltype(auto)' cannot be used as a base class specifier\n");
+            continue;
+        }
+        else if (ASTKind(class_name_or_decltype) == AST_DECLTYPE)
+        {
+            type_t* t = compute_type_of_decltype(class_name_or_decltype, decl_context);
+
+            if (is_error_type(t))
+                continue;
+
+            scope_entry_t *decltype_symbol = NULL;
+            if (is_dependent_type(t))
+            {
+                decltype_symbol = decltype_typeof_wrap_in_symbol(t, decl_context);
+            }
+            else if (is_named_class_type(t))
+            {
+                decltype_symbol = named_type_get_symbol(t);
+            }
+            else
+            {
+                error_printf_at(ast_get_locus(class_name_or_decltype),
+                        "'%s' is not a class type\n",
+                        print_type_str(t, decl_context));
+                continue;
+            }
+
+            if (decltype_symbol != NULL)
+            {
+                result_list = entry_list_new(decltype_symbol);
+            }
+        }
+        else
+        {
+            // We do not want to examine uninstantiated typenames
+            result_list = query_id_expression_flags(
+                decl_context, class_name_or_decltype, NULL, DF_DEPENDENT_TYPENAME);
+        }
 
         scope_entry_list_t* filtered_result_list = filter_symbol_kind_set(result_list, STATIC_ARRAY_LENGTH(filter), filter);
-
         entry_list_free(result_list);
 
         if (filtered_result_list == NULL)
         {
-            error_printf_at(ast_get_locus(class_name), "base class '%s' not found\n",
-                    prettyprint_in_buffer(class_name));
+            error_printf_at(ast_get_locus(class_name_or_decltype), "base class '%s' not found\n",
+                    prettyprint_in_buffer(class_name_or_decltype));
             continue;
         }
 
@@ -6018,7 +6057,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 
             if (!is_class_type(result->type_information))
             {
-                error_printf_at(ast_get_locus(class_name), "name '%s' is not a class-name\n",
+                error_printf_at(ast_get_locus(class_name_or_decltype), "name '%s' is not a class-name\n",
                         get_qualified_symbol_name(result, result->decl_context));
                 continue;
             }
@@ -6042,6 +6081,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
                 || result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK // ???
                 || result->kind == SK_TEMPLATE_TYPE_PARAMETER
                 || result->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                || result->kind == SK_DECLTYPE
                 || is_dependent_type(result->type_information))
         {
             DEBUG_CODE()
@@ -6096,8 +6136,8 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         }
         else
         {
-            error_printf_at(ast_get_locus(class_name), "name '%s' is not a class-name\n",
-                    prettyprint_in_buffer(class_name));
+            error_printf_at(ast_get_locus(class_name_or_decltype), "name '%s' is not a class-name\n",
+                    prettyprint_in_buffer(class_name_or_decltype));
             continue;
         }
 

@@ -1933,7 +1933,8 @@ static void instantiate_bases(
                 &access_specifier);
 
         type_t* base_class_named_type = NULL;
-        if (base_class_sym->kind == SK_DEPENDENT_ENTITY)
+        if (base_class_sym->kind == SK_DEPENDENT_ENTITY
+                || base_class_sym->kind == SK_DECLTYPE)
         {
             base_class_named_type = base_class_sym->type_information;
         }

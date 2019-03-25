@@ -191,6 +191,9 @@ namespace TL
             //! States whether this symbol is a dependent function
             bool is_dependent_function() const;
 
+            //! States whether this symbol is a decltype
+            bool is_decltype() const;
+
             //! States whether this symbol is a MODULE PROCEDURE
             /*!
              * A module procedure is a procedure (function or subroutine)
