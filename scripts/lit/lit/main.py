@@ -615,7 +615,6 @@ def main_with_tmp(builtinParameters):
             xunit_output_file.write("<testsuite name=" + safe_suite_name)
             xunit_output_file.write(" tests=\"" + str(suite['passes'] +
               suite['failures'] + suite['skipped']) + "\"")
-            xunit_output_file.write(" errors=\"0\"")
             xunit_output_file.write(" failures=\"" + str(suite['failures']) + "\"")
             xunit_output_file.write(" skipped=\"" + str(suite['skipped']) +
               "\">\n")
