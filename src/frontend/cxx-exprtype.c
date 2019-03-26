@@ -24252,8 +24252,10 @@ static nodecl_t promote_node_to_ptrdiff_t(nodecl_t n, const decl_context_t* decl
     if (nodecl_expr_is_type_dependent(n))
         return n;
 
-    if (!is_integral_type(get_unqualified_type(
-                    no_ref(nodecl_get_type(n)))))
+
+    if (!is_integral_type(get_unqualified_type(no_ref(nodecl_get_type(n))))
+            // An enum type is considered an integral type in C but not in C++
+            && !(IS_CXX_LANGUAGE && is_enum_type(get_unqualified_type(no_ref(nodecl_get_type(n))))))
     {
         error_printf_at(nodecl_get_locus(n), "expression '%s' must be of integral type\n",
                 codegen_to_str(n, decl_context));
