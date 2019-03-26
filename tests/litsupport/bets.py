@@ -26,15 +26,24 @@ class BetsTest(lit.formats.FileBasedTest):
 
     def execute(self, test, litConfig):
         sourcePath = test.getSourcePath()
+
+        # Create a temporary directory and change to it
+        saveCwd = os.getcwd()
+        tempDir = tempfile.mkdtemp()
+        os.chdir(tempDir)
+
         tempFile = tempfile.NamedTemporaryFile(mode="w+t")
         cmd = [os.path.join(test.config.test_exec_root, "config", "bets"), \
-                "-nocolor", "-o", tempFile.name, sourcePath]
+                "-nocolor", "-o", tempFile.name, \
+                "-generator-root-dir", test.config.test_exec_root, \
+                sourcePath]
 
         # This is for Fortran so we can run tests in parallel without
         # clobbering module files.
-        tempdir = tempfile.mkdtemp()
         test.config.environment["TEMPORARY_MODULE_PATH"] = \
-                "-J {}".format(tempdir)
+                "-J {}".format(tempDir)
+
+        tempFile.write("BETS COMMAND: {}\n".format(" ".join(cmd)))
 
         result_log = ""
         try:
@@ -50,7 +59,9 @@ class BetsTest(lit.formats.FileBasedTest):
                         litConfig.maxIndividualTestTime)
                    )
         finally:
-            shutil.rmtree(tempdir)
+            # Change back to the original directory
+            os.chdir(saveCwd)
+            shutil.rmtree(tempDir)
             tempFile.close()
 
         if exitCode:

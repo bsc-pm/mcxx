@@ -676,10 +676,18 @@ run_test ()
    for gen in "${test_generator[@]}"
    do
        debug "Using version generator $gen"
+       if [ "${gen:0:1}" != / -a -n "${generator_root_dir}" ];
+       then
+         # Convert this relative path to an absolute path
+         gen="${generator_root_dir}/${gen}"
+       else
+         # Retain the original behaviour
+         gen="${basedir}/${gen}"
+       fi
 
        export TEST_LANGUAGE=$type
        export TEST_SOURCE=$source
-       ( eval "$test_generator_env" ; $basedir/$gen $generator_args > $tmpfile )
+       ( eval "$test_generator_env" ; $gen $generator_args > $tmpfile )
        unset TEST_LANGUAGE
        unset TEST_SOURCE
 
@@ -1072,6 +1080,7 @@ export basedir
 logfile="test.log"
 mode=run
 use_color=yes
+generator_root_dir=""
 
 #read options
 
@@ -1089,7 +1098,7 @@ case $1 in
        ;;
     -o)
        shift
-       logfile=$1; 
+       logfile="$1"
        shift
        ;;
     -only-fails)
@@ -1101,6 +1110,11 @@ case $1 in
        ;;
     -version)
        mode=version; shift
+       ;;
+    -generator-root-dir)
+       shift
+       generator_root_dir="$1"
+       shift
        ;;
     *) done=true;;
 esac
