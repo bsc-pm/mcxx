@@ -1089,7 +1089,7 @@ case $1 in
        ;;
     -o)
        shift
-       logfile=$1; 
+       logfile="$1"
        shift
        ;;
     -only-fails)
