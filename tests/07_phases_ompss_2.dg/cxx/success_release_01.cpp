@@ -1,6 +1,8 @@
 /*
 <testinfo>
 test_generator="config/mercurium-ompss-2"
+test_exec_fail=yes
+test_exec_faulty=yes
 </testinfo>
 */
 #include<assert.h>
