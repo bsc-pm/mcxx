@@ -43,9 +43,7 @@ class BetsTest(lit.formats.FileBasedTest):
         test.config.environment["TEMPORARY_MODULE_PATH"] = \
                 "-J {}".format(tempDir)
 
-        tempFile.write("BETS COMMAND: {}\n".format(" ".join(cmd)))
-
-        result_log = ""
+        result_log = "[BETS COMMAND] {}\n".format(" ".join(cmd))
         try:
             out, err, exitCode = lit.util.executeCommand(
                 cmd, env=test.config.environment,
