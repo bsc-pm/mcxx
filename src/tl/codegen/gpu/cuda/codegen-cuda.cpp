@@ -84,15 +84,13 @@ namespace Codegen
             void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
             TL::Scope* scope)
     {
-        if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED)
-            return;
-
         if (!check_whether_symbol_comes_from_cuda(symbol))
         {
             CxxBase::do_define_symbol(symbol, decl_sym_fun, def_sym_fun, scope);
         }
         else
         {
+            // This symbol will be treated as if it was defined
             set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
         }
     }
@@ -102,16 +100,13 @@ namespace Codegen
             void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
             TL::Scope* scope)
     {
-        if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED
-                || get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED)
-            return;
-
         if (!check_whether_symbol_comes_from_cuda(symbol))
         {
             CxxBase::do_declare_symbol(symbol, decl_sym_fun, def_sym_fun, scope);
         }
         else
         {
+            // This symbol will be treated as if it was declared
             set_codegen_status(symbol, CODEGEN_STATUS_DECLARED);
         }
     }
