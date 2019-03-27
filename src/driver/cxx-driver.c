@@ -3129,6 +3129,9 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
     compilation_file_process_t* saved_file_process = CURRENT_FILE_PROCESS;
     compilation_configuration_t* saved_configuration = CURRENT_CONFIGURATION;
 
+    // Initialize diagnostics
+    diagnostics_reset();
+
     int i;
     for (i = 0; i < num_translation_units; i++)
     {
