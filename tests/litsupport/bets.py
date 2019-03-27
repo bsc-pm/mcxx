@@ -64,10 +64,11 @@ class BetsTest(lit.formats.FileBasedTest):
             shutil.rmtree(tempDir)
             tempFile.close()
 
+        litTestResult = lit.Test.PASS
         if exitCode:
-            return lit.Test.FAIL, out + err + result_log
+            litTestResult = lit.Test.FAIL
 
-        return lit.Test.PASS,''
+        return litTestResult, out + err + result_log
 
         # Remove this
         return lit.Test.UNRESOLVED, "Code unreachable"
