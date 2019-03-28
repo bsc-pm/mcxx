@@ -2760,7 +2760,7 @@ enum_base_type_specifier_seq : type_specifier_seq_0
 {
     $$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
 }
-| type_specifier_ended_with_identifier
+| type_specifier_seq_ended_with_identifier
 {
     $$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
 }
