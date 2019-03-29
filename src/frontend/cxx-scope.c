@@ -2266,7 +2266,8 @@ static scope_entry_list_t* name_lookup(const decl_context_t* decl_context,
                                 && named_type_get_symbol(t)->kind == SK_TEMPLATE_TYPE_PARAMETER)
                             && !(IS_CXX11_LANGUAGE
                                 && is_named_type(t)
-                                && named_type_get_symbol(t)->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK))
+                                && named_type_get_symbol(t)->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK)
+                            && !(IS_CXX11_LANGUAGE && is_scoped_enum_type(t)))
                     {
                         // This cannot be a class-name at all
                         entry_list_free(result);
