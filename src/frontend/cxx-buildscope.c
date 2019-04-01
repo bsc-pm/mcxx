@@ -1844,7 +1844,8 @@ void build_scope_nodecl_static_assert(nodecl_t nodecl_predicate,
         *nodecl_single_assert = nodecl_make_err_statement(nodecl_get_locus(nodecl_predicate));
     }
 
-    if (!nodecl_expr_is_value_dependent(nodecl_predicate))
+    if (!nodecl_expr_is_value_dependent(nodecl_predicate)
+            && !nodecl_expr_is_type_dependent(nodecl_predicate))
     {
         if (!nodecl_is_constant(nodecl_predicate))
         {
@@ -20788,6 +20789,7 @@ static void build_scope_case_statement(AST a,
     nodecl_expr = nodecl_expression_make_rvalue(nodecl_expr, decl_context);
 
     if (!nodecl_expr_is_value_dependent(nodecl_expr)
+            && !nodecl_expr_is_type_dependent(nodecl_expr)
             && !nodecl_is_constant(nodecl_expr))
     {
         error_printf_at(ast_get_locus(a), "case expression '%s' is not constant\n",
