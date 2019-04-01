@@ -243,6 +243,7 @@ void build_scope_nodecl_static_assert(nodecl_t nodecl_predicate,
         nodecl_t *nodecl_single_assert);
 
 scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, const decl_context_t* block_context);
+void emit_mercurium_pretty_function(nodecl_t body_nodecl, scope_entry_t* mercurium_pretty_function);
 
 nodecl_t flush_extra_declared_symbols(const locus_t* loc);
 
