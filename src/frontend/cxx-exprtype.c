@@ -14791,7 +14791,8 @@ static void compute_implicit_captures(nodecl_t node,
                 || (entry->decl_context->current_scope->kind == BLOCK_SCOPE
                     && entry->decl_context->current_scope->related_entry == lambda_symbol)
                 || symbol_entity_specs_get_is_static(entry)
-                || symbol_entity_specs_get_is_extern(entry)))
+                || symbol_entity_specs_get_is_extern(entry)
+                || strcmp(entry->symbol_name, "__PRETTY_FUNCTION__") == 0))
         entry = NULL;
 
     if (entry != NULL)
