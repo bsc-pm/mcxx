@@ -14791,7 +14791,8 @@ static void compute_implicit_captures(nodecl_t node,
                 || (entry->decl_context->current_scope->kind == BLOCK_SCOPE
                     && entry->decl_context->current_scope->related_entry == lambda_symbol)
                 || symbol_entity_specs_get_is_static(entry)
-                || symbol_entity_specs_get_is_extern(entry)))
+                || symbol_entity_specs_get_is_extern(entry)
+                || strcmp(entry->symbol_name, "__PRETTY_FUNCTION__") == 0))
         entry = NULL;
 
     if (entry != NULL)
@@ -15232,7 +15233,21 @@ static void implement_nongeneric_lambda_expression(
             lambda_class,
             locus);
     update_symbol_this(operator_call, block_context);
-    register_mercurium_pretty_print(operator_call, block_context);
+
+    // We need to introduce a new symbol that represents the value of __PRETTY_FUNCTION__.
+    // This new symbol has to be mapped with the previous __MERCURIUM_PRETTY_FUNCTION__ symbol.
+    scope_entry_t* mercurium_pretty_function = NULL;
+    {
+        scope_entry_list_t* entry_list = query_name_str(
+                block_context, UNIQUESTR_LITERAL("__MERCURIUM_PRETTY_FUNCTION__"), NULL);
+        ERROR_CONDITION(entry_list == NULL,
+                "Invalid '__MERCURIUM_PRETTY_FUNCTION__' symbol", 0);
+        scope_entry_t* old_mercurium_pretty_function = entry_list_head(entry_list);
+
+        mercurium_pretty_function = register_mercurium_pretty_print(operator_call, block_context);
+
+        instantiation_symbol_map_add(instantiation_symbol_map, old_mercurium_pretty_function, mercurium_pretty_function);
+    }
 
     if (!is_void_type(function_type_get_return_type(operator_call->type_information)))
     {
@@ -15255,6 +15270,8 @@ static void implement_nongeneric_lambda_expression(
     instantiation_symbol_map_pop(instantiation_symbol_map);
     instantiation_symbol_map = NULL;
     ERROR_CONDITION(nodecl_is_list(nodecl_lambda_body), "Should not be a list", 0);
+
+    emit_mercurium_pretty_function(nodecl_lambda_body, mercurium_pretty_function);
 
     symbol_entity_specs_set_function_code(
             operator_call,

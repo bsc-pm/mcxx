@@ -17107,7 +17107,7 @@ scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, const decl_
     return mercurium_pretty_function;
 }
 
-static void emit_mercurium_pretty_function(nodecl_t body_nodecl, scope_entry_t* mercurium_pretty_function)
+void emit_mercurium_pretty_function(nodecl_t body_nodecl, scope_entry_t* mercurium_pretty_function)
 {
     ERROR_CONDITION(nodecl_get_kind(body_nodecl) != NODECL_COMPOUND_STATEMENT, "Invalid node", 0);
 
