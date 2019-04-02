@@ -15240,13 +15240,17 @@ static void implement_nongeneric_lambda_expression(
     {
         scope_entry_list_t* entry_list = query_name_str(
                 block_context, UNIQUESTR_LITERAL("__MERCURIUM_PRETTY_FUNCTION__"), NULL);
-        ERROR_CONDITION(entry_list == NULL,
-                "Invalid '__MERCURIUM_PRETTY_FUNCTION__' symbol", 0);
-        scope_entry_t* old_mercurium_pretty_function = entry_list_head(entry_list);
+
+        // We may be in a context where it does not exist a previous __MERCURIUM_PRETTY_FUNCTION__ symbol
+        scope_entry_t* old_mercurium_pretty_function = NULL;
+        if (entry_list != NULL)
+            old_mercurium_pretty_function = entry_list_head(entry_list);
 
         mercurium_pretty_function = register_mercurium_pretty_print(operator_call, block_context);
 
-        instantiation_symbol_map_add(instantiation_symbol_map, old_mercurium_pretty_function, mercurium_pretty_function);
+        if (old_mercurium_pretty_function != NULL)
+            instantiation_symbol_map_add(
+                    instantiation_symbol_map, old_mercurium_pretty_function, mercurium_pretty_function);
     }
 
     if (!is_void_type(function_type_get_return_type(operator_call->type_information)))
