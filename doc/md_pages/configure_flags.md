@@ -19,6 +19,7 @@ configured with the ``--enable-ompss-2`` and ``--with-nanos6=$TARGET`` flags.
 |``--enable-tl-openmp-intel``                     | Enables support of Intel/LLVM OpenMP RTL.
 |``--with-intel-omp=dir``                         | Directory of Intel/LLVM OpenMP installation.
 |``--with-mpi=dir``                               | Directory of MPI installation. **Only used to implement the OmpSs Offload feature**
+|``--with-tcl=dir``                               | Directory of Transparent Checkpoint Library installation.
 |``--disable-nanox-cuda-device``                  | Disables CUDA support in the compiler. If CUDA is detected this support is enabled automatically. Use this to disable it
 |``--disable-nanox-opencl-device``                | Disables GPU support in the compiler. If OpenCL is detected this support is enabled automatically. Use this to disable it
 |``--enable-nanox-fpga-device``                   | Enable FPGA support in the compiler
