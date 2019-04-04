@@ -237,26 +237,26 @@ static void instantiate_nontemplate_member_class_of_template_class(
         const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus);
 
-struct delayed_instantiation_tag
+typedef struct delayed_instantiation_of_member_values_tag
 {
     scope_entry_t* orig_member;
     scope_entry_t* dest_member;
-};
+} delayed_instantiation_of_member_values_t;
 
-static int _next_delayed_instantiation_of_member_values = 0;
-static struct delayed_instantiation_tag _delayed_instantiation_of_member_values[MCXX_MAX_DELAYED_MEMBERS_PER_CLASS];
 
 static void delayed_instantiation_of_members_values(type_t* selected_template UNUSED_PARAMETER,
         type_t* being_instantiated UNUSED_PARAMETER,
         const decl_context_t* context_of_being_instantiated,
         const locus_t* locus UNUSED_PARAMETER,
-        instantiation_symbol_map_t* instantiation_symbol_map)
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int num_delayed_instantiation_of_member_values,
+        delayed_instantiation_of_member_values_t* delayed_instantiation_of_member_values)
 {
     int i;
-    for (i = 0; i < _next_delayed_instantiation_of_member_values; ++i)
+    for (i = 0; i < num_delayed_instantiation_of_member_values; ++i)
     {
-        scope_entry_t* member_of_template = _delayed_instantiation_of_member_values[i].orig_member;
-        scope_entry_t* new_member = _delayed_instantiation_of_member_values[i].dest_member;
+        scope_entry_t* member_of_template = delayed_instantiation_of_member_values[i].orig_member;
+        scope_entry_t* new_member = delayed_instantiation_of_member_values[i].dest_member;
 
         ERROR_CONDITION(member_of_template->kind != SK_VARIABLE,
                 "Unexpected member kind=%s\n", symbol_kind_name(member_of_template));
@@ -294,9 +294,6 @@ static void delayed_instantiation_of_members_values(type_t* selected_template UN
             // No need to check anything
         }
     }
-
-    // Reset the number of delayed instantatiations of member values
-    _next_delayed_instantiation_of_member_values = 0;
 }
 
 static void instantiate_member(type_t* selected_template UNUSED_PARAMETER, 
@@ -304,8 +301,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         scope_entry_t* member_of_template, 
         const decl_context_t* context_of_being_instantiated,
         const locus_t* locus,
-        instantiation_symbol_map_t* instantiation_symbol_map
-        )
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int* num_delayed_instantiation_of_member_values,
+        delayed_instantiation_of_member_values_t* delayed_instantiation_of_member_values)
 {
     DEBUG_CODE()
     {
@@ -440,8 +438,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     }
                     else
                     {
-                        _delayed_instantiation_of_member_values[_next_delayed_instantiation_of_member_values++] =
-                            (struct delayed_instantiation_tag)
+                        ERROR_CONDITION(*num_delayed_instantiation_of_member_values >= MCXX_MAX_DELAYED_INSTANTIATIONS_OF_MEMBER_VALUES,
+                                "Too many delayed instantiations of member values: %d\n", *num_delayed_instantiation_of_member_values);
+
+                        delayed_instantiation_of_member_values[(*num_delayed_instantiation_of_member_values)++] =
+                            (delayed_instantiation_of_member_values_t)
                             {
                                 member_of_template,
                                 new_member
@@ -1675,6 +1676,9 @@ static void instantiate_class_common(
         fprintf(stderr, "INSTANTIATION: Have to instantiate %d members\n", entry_list_size(members));
     }
 
+    int num_delayed_instantiation_of_member_values = 0;
+    delayed_instantiation_of_member_values_t delayed_instantiation_of_member_values[MCXX_MAX_DELAYED_INSTANTIATIONS_OF_MEMBER_VALUES];
+
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(members);
             !entry_list_iterator_end(it);
@@ -1687,7 +1691,9 @@ static void instantiate_class_common(
                 member,
                 inner_decl_context,
                 locus,
-                instantiation_symbol_map);
+                instantiation_symbol_map,
+                &num_delayed_instantiation_of_member_values,
+                delayed_instantiation_of_member_values);
     }
     entry_list_iterator_free(it);
     entry_list_free(members);
@@ -1696,7 +1702,9 @@ static void instantiate_class_common(
             being_instantiated,
             inner_decl_context,
             locus,
-            instantiation_symbol_map);
+            instantiation_symbol_map,
+            num_delayed_instantiation_of_member_values,
+            delayed_instantiation_of_member_values);
 
     // Friends
     for (it = entry_list_iterator_begin(friends);
