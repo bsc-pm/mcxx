@@ -2855,20 +2855,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         if (CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_IBM)
         {
             // IBM XL is very picky regarding attribute location
-            *(file) << gcc_extension << decl_spec_seq << declarator << virt_specifiers
-                << exception_spec << " " << gcc_attributes << " " << asm_specification << trailing_type_specifier << ";\n";
+            *(file) << gcc_extension << decl_spec_seq << declarator << exception_spec << virt_specifiers
+                    << " " << gcc_attributes << " " << asm_specification << trailing_type_specifier << ";\n";
         }
         else
         {
-            *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << virt_specifiers
-                << exception_spec << asm_specification << trailing_type_specifier << ";\n";
+            *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec
+                    << virt_specifiers << asm_specification << trailing_type_specifier << ";\n";
         }
     }
 
     emit_line_marker(node);
     indent();
-    *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << virt_specifiers
-        << exception_spec << trailing_type_specifier << "\n";
+    *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec
+            << virt_specifiers << trailing_type_specifier << "\n";
 
 
     if (!initializers.is_null())
