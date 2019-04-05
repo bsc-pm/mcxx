@@ -8488,6 +8488,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CXX_DEP_NAME_NESTED:
         case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
         case NODECL_CXX_DEP_TEMPLATE_ID:
+        case NODECL_CXX_BRACED_INITIALIZER:
             {
                 return -1;
             }
