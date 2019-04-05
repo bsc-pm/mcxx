@@ -6424,7 +6424,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     {
                         *(file) << " { ";
                         Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
-                        walk(constructor_args[0]);
+                        walk_list(constructor_args, ",");
                         *(file) << " }";
                     }
                     else
