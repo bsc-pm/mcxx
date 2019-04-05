@@ -12362,6 +12362,7 @@ static void adjust_constexpr_function_type_if_needed(
         char is_static,
         char is_member,
         char is_constructor,
+        char is_friend,
         // Out
         type_t** declarator_type)
 {
@@ -12372,7 +12373,8 @@ static void adjust_constexpr_function_type_if_needed(
             && is_constexpr
             && !is_constructor
             && is_member
-            && !is_static)
+            && !is_static
+            && !is_friend)
     {
         *declarator_type = get_const_qualified_type(*declarator_type);
     }
@@ -12431,6 +12433,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                                 /* is_static */ gather_info->is_static,
                                 /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
                                 /* is_constructor */ name_of_a_constructor,
+                                /* is_constructor */ gather_info->is_friend,
                                 &declarator_type);
                     }
 
@@ -12469,6 +12472,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         /* is_static */ gather_info->is_static,
                         /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
                         /* is_constructor */ 0,
+                        /* is_friend */ gather_info->is_friend,
                         &declarator_type);
 
                 if (type_specifier != NULL)
@@ -12539,6 +12543,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                                 /* is_static */ gather_info->is_static,
                                 /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
                                 /* is_constructor */ name_of_a_constructor,
+                                /* is_friend */ gather_info->is_friend,
                                 &declarator_type);
                     }
 
@@ -12598,6 +12603,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         /* is_static */ gather_info->is_static,
                         /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
                         /* is_constructor */ 0,
+                        /* is_friend */ gather_info->is_friend,
                         &declarator_type);
 
                 if (type_specifier == NULL)
@@ -12652,6 +12658,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         /* is_static */ gather_info->is_static,
                         /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
                         /* is_constructor */ 0,
+                        /* is_friend */ gather_info->is_friend,
                         &declarator_type);
 
                 if (type_specifier == NULL)
@@ -12672,6 +12679,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         /* is_static */ gather_info->is_static,
                         /* is_member */ decl_context->current_scope->kind == CLASS_SCOPE,
                         /* is_constructor */ 0,
+                        /* is_friend */ gather_info->is_friend,
                         &declarator_type);
 
                 if (type_specifier != NULL)
@@ -12851,6 +12859,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                             is_static,
                             is_member,
                             name_of_a_constructor,
+                            /* is_friend */ gather_info->is_friend,
                             &declarator_type);
 
                     char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
