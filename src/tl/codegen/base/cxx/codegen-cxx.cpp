@@ -6448,7 +6448,8 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                 }
                 else
                 {
-                    if (nodecl_calls_to_constructor(init))
+                    if (nodecl_calls_to_constructor(init)
+                            && !symbol.get_type().is_any_reference())
                     {
                         Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
                         bool is_default_init = nodecl_calls_to_constructor_default_init(init);
@@ -6484,8 +6485,9 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                             *file << end_inline_comment();
                         }
                     }
-                    else if (nodecl_is_parenthesized_explicit_type_conversion(init)
-                            || nodecl_calls_to_constructor_indirectly(init))
+                    else if (nodecl_is_parenthesized_explicit_type_conversion(init) ||
+                             nodecl_calls_to_constructor_indirectly(init) ||
+                             (nodecl_calls_to_constructor(init) && symbol.get_type().is_any_reference()))
                     {
                         // Same reason above
                         *file << "((";
