@@ -3669,7 +3669,19 @@ static type_t* template_type_get_specialized_type_(
                     updated_exception_type);
         }
 
-        // FIXME - noexcept?
+        // Update noexcept expression
+        nodecl_t noexcept_expr = symbol_entity_specs_get_noexception(specialized_symbol);
+        if (is_dependent_type(nodecl_get_type(noexcept_expr)))
+        {
+            nodecl_t noexcept_expr_updated = instantiate_expression(
+                    noexcept_expr,
+                    specialized_symbol->decl_context,
+                    symbol_entity_specs_get_instantiation_symbol_map(specialized_symbol),
+                    /* pack_index */ -1);
+
+            symbol_entity_specs_set_noexception(specialized_symbol, noexcept_expr_updated);
+        }
+
         // Do not copy the function code because it must be first instantiated
         symbol_entity_specs_set_function_code(specialized_symbol, nodecl_null());
     }
