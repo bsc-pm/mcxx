@@ -3047,7 +3047,6 @@ namespace TL { namespace Nanos6 {
         TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.get_iterators_of_multireference();
 
         Nodecl::Utils::SimpleSymbolMap extended_symbol_map(&symbol_map);
-        TL::ObjectList<TL::Symbol> current_locals;
 
         TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-multideps");
         for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it2 = multireferences.begin();
@@ -3067,7 +3066,6 @@ namespace TL { namespace Nanos6 {
             // Extend the symbol map so that references to an iterator use the
             // local induction variable instead
             extended_symbol_map.add_map(it2->first, local_sym);
-            current_locals.append(local_sym);
 
             CXX_LANGUAGE()
             {
