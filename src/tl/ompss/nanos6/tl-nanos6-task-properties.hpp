@@ -116,12 +116,10 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol &reduction_combiners);
 
             //! Generate the complete function chain for the dependences and
-            //! return the outline function symbol. It also computes the total
-            //! number of task dependences (static + dynamic deps)
-            TL::Symbol create_dependences_function(Nodecl::NodeclBase &num_deps);
+            //! return the outline function symbol.
+            TL::Symbol create_dependences_function();
             TL::Symbol create_dependences_unpacked_function(
-                    const std::string &common_name,
-                    Nodecl::NodeclBase &num_deps);
+                    const std::string &common_name);
 
             //! Generate the complete function chain for the priority and
             //! return the outline function symbol
@@ -195,8 +193,7 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol register_fun,
                     TL::Scope scope,
                     // Out
-                    Nodecl::List &register_statements,
-                    Nodecl::NodeclBase &curr_num_deps);
+                    Nodecl::List &register_statements);
 
             void compute_captured_saved_expressions();
 
@@ -231,13 +228,11 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol &implementations);
 
             //! This function creates a new global static variable that contains all
-            //! the information associated with a task. It also returns an expression
-            //! that represents the total number of depedences
+            //! the information associated with a task.
             void create_task_info(
                     TL::Symbol implementations,
                     /* out */
-                    TL::Symbol &task_info,
-                    Nodecl::NodeclBase &num_deps);
+                    TL::Symbol &task_info);
 
             //! This function creates a new class type that represents the arguments structure.
             /*!
@@ -261,6 +256,12 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol task_flags,
                     /* out */
                     Nodecl::NodeclBase& task_flags_stmts);
+
+            void compute_number_of_dependences(
+                    TL::Symbol num_deps,
+                    TL::Scope  enclosing_scope,
+                    /* out */
+                    Nodecl::NodeclBase &num_deps_stmts);
 
             void handle_task_reductions(
                     TL::Scope& unpacked_fun_inside_scope,

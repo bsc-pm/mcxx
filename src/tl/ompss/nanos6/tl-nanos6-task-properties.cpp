@@ -374,31 +374,338 @@ namespace TL { namespace Nanos6 {
     }
 
 
-    void TaskProperties::create_task_implementations_info(
-            /* out */
-            TL::Symbol &implementations)
-    {
-        TL::Symbol task_implementation_info_struct = get_nanos6_class_symbol("nanos6_task_implementation_info_t");
 
-        TL::ObjectList<TL::Symbol> fields = task_implementation_info_struct.get_type().get_nonstatic_data_members();
-        GetField get_field(fields);
-
-        // This stuff at some point should be implementation dependant
-        TL::Symbol constraints_function = create_constraints_function();
-
-        TL::ObjectList<Nodecl::NodeclBase> implementations_init;
-        for (TL::ObjectList< std::shared_ptr<Device> >::const_iterator it = _implementations.begin();
-                it != _implementations.end();
-                it++)
+    namespace {
+        //! It returns whether our iterators are not independent. That is, it returns whether the
+        //! values of at least one iterator depends on another iterator
+        bool iterators_are_not_independent(
+                const TL::ObjectList<TL::DataReference::MultiRefIterator> &multireferences)
         {
-            TL::ObjectList<Nodecl::NodeclBase> field_init;
-            // .device_type_id
+            class ExprReferencesAnIterator : public Nodecl::ExhaustiveVisitor<void>
             {
-                Nodecl::NodeclBase field = get_field("device_type_id");
-                Nodecl::NodeclBase value = (*it)->get_device_type_id().make_nodecl(/*ref_type*/ true);
-                field_init.append(
-                        Nodecl::FieldDesignator::make(field, value, value.get_type()));
+                const TL::ObjectList<TL::Symbol> &_list;
+                bool _found = false;
+
+                public:
+
+                ExprReferencesAnIterator(const TL::ObjectList<TL::Symbol> &list) : _list(list) {}
+
+                void visit(const Nodecl::Symbol &node)
+                {
+                    TL::Symbol symbol = node.get_symbol();
+                    if (!symbol.is_valid() || _found)
+                        return;
+
+                    _found = _list.contains(symbol);
+                }
+
+                bool expr_references_an_iterator() const
+                {
+                    return _found;
+                }
+            };
+
+            bool found = false;
+            TL::ObjectList<TL::Symbol> iterators;
+            ExprReferencesAnIterator visitor(iterators);
+
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::const_iterator it = multireferences.begin();
+                    it != multireferences.end() && !found;
+                    it++)
+            {
+                ERROR_CONDITION(!it->second.is<Nodecl::Range>(), "Invalid Node", 0);
+                Nodecl::Range range = it->second.as<Nodecl::Range>();
+
+                visitor.walk(range);
+                found = visitor.expr_references_an_iterator();
+
+                iterators.append(it->first);
             }
+            return found;
+        }
+
+        //! This function creates a new induction variable for each iterator
+        //! It also computes a map between the original iterator and the new induction variable
+        void create_induction_variables_for_iterators(
+                const TL::ObjectList<TL::DataReference::MultiRefIterator> &multireferences,
+                TL::Scope enclosing_scope,
+                // Out
+                Nodecl::Utils::SimpleSymbolMap &map,
+                Nodecl::List &new_stmts)
+        {
+            TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-ind-vars");
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::const_iterator it = multireferences.begin();
+                    it != multireferences.end();
+                    it++)
+            {
+                std::stringstream ss;
+                ss << it->first.get_name() << "_tmp_" << (int)ctr;
+                ctr++;
+                std::string ind_var_name = ss.str();
+
+                TL::Symbol local_sym = enclosing_scope.new_symbol(ind_var_name);
+                local_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                local_sym.get_internal_symbol()->type_information = ::get_signed_int_type();
+                symbol_entity_specs_set_is_user_declared(local_sym.get_internal_symbol(), 1);
+
+                map.add_map(it->first, local_sym);
+
+                CXX_LANGUAGE()
+                {
+                    new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), local_sym));
+                }
+            }
+        }
+
+        //! It returns as many loop stmts as iterators we have. Note that the
+        //! innermost loop has the inner_stmts as its body.
+        Nodecl::List create_loop_stmts_for_iterators(
+                const TL::ObjectList<TL::DataReference::MultiRefIterator> &multireferences,
+                Nodecl::Utils::SimpleSymbolMap &map,
+                Nodecl::List inner_stmts,
+                TL::Scope scope,
+                TL::Symbol related_function)
+        {
+            Nodecl::List result = inner_stmts;
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::const_reverse_iterator it = multireferences.rbegin();
+                    it != multireferences.rend();
+                    it++)
+            {
+                ERROR_CONDITION(!it->second.is<Nodecl::Range>(), "Invalid Node", 0);
+
+                Nodecl::Range range = it->second.as<Nodecl::Range>();
+
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    // Insert extra symbol declarations and add them to the symbol map
+                    // (e.g. functions and subroutines declared in other scopes)
+                    Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
+                            map,
+                            scope,
+                            related_function);
+                    fun_visitor.insert_extra_symbols(range.get_lower());
+                    fun_visitor.insert_extra_symbols(range.get_upper());
+                    fun_visitor.insert_extra_symbols(range.get_stride());
+                }
+
+                Nodecl::NodeclBase lower = Nodecl::Utils::deep_copy(range.get_lower(), scope, map);
+                Nodecl::NodeclBase upper = Nodecl::Utils::deep_copy(range.get_upper(), scope, map);
+                Nodecl::NodeclBase stride = Nodecl::Utils::deep_copy(range.get_stride(), scope, map);
+
+                TL::Symbol ind_var = map.map(it->first);
+
+                Nodecl::NodeclBase loop_control;
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    loop_control = Nodecl::LoopControl::make(
+                            // init-expr-list
+                            Nodecl::List::make(
+                                Nodecl::Assignment::make(
+                                    ind_var.make_nodecl(/* set_ref_type */ true),
+                                    lower,
+                                    ind_var.get_type().no_ref().get_lvalue_reference_to())),
+                            // test-expr
+                            Nodecl::LowerOrEqualThan::make(
+                                ind_var.make_nodecl(/* set_ref_type */ true),
+                                upper,
+                                TL::Type::get_bool_type()),
+                            // incr-exp
+                            Nodecl::AddAssignment::make(
+                                ind_var.make_nodecl(/* set_ref_type */ true),
+                                stride,
+                                ind_var.get_type().no_ref().get_lvalue_reference_to()));
+                }
+                else /* IS_FORTRAN_LANGUAGE */
+                {
+                    loop_control = Nodecl::RangeLoopControl::make(
+                            ind_var.make_nodecl(/* set_ref_type */ true),
+                            lower,
+                            upper,
+                            stride);
+                }
+
+                // Note that we are not creating any context / compound stmt.
+                // Thus, the body has to be always an statement
+                Nodecl::NodeclBase for_stmt =
+                    Nodecl::ForStatement::make(
+                            loop_control, result, /* loop-name */ Nodecl::NodeclBase::null());
+
+                result = Nodecl::List::make(for_stmt);
+            }
+            return result;
+        }
+
+        //! It returns an expression that evaluates to the total number of dependences
+        //! of a multidependence whose iterators are independent
+        Nodecl::NodeclBase compute_num_of_dependences_for_independent_iterators(
+                const TL::ObjectList<TL::DataReference::MultiRefIterator> &multireferences)
+        {
+            TL::Type size_t_type = TL::Type::get_size_t_type();
+            Nodecl::NodeclBase curr_dyn_num_deps =
+                const_value_to_nodecl(const_value_get_one(size_t_type.get_size(), 0));
+
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::const_reverse_iterator it = multireferences.rbegin();
+                    it != multireferences.rend();
+                    it++)
+            {
+                ERROR_CONDITION(!it->second.is<Nodecl::Range>(), "Invalid Node", 0);
+                Nodecl::Range range = it->second.as<Nodecl::Range>();
+
+                // curr_num_deps = (curr_num_deps * ((upper-lower+1)/stride));
+                curr_dyn_num_deps = Nodecl::ParenthesizedExpression::make(
+                        Nodecl::Mul::make(
+                            curr_dyn_num_deps,
+                            Nodecl::ParenthesizedExpression::make(
+                                Nodecl::Div::make(
+                                    Nodecl::ParenthesizedExpression::make(
+                                        Nodecl::Add::make(
+                                            Nodecl::Minus::make(
+                                                range.get_upper().shallow_copy(),
+                                                range.get_lower().shallow_copy(),
+                                                size_t_type),
+                                            const_value_to_nodecl(const_value_get_one(size_t_type.get_size(), 1)),
+                                            size_t_type),
+                                        size_t_type),
+                                    range.get_stride().shallow_copy(),
+                                    size_t_type),
+                                size_t_type),
+                            size_t_type),
+                        size_t_type);
+            }
+            return curr_dyn_num_deps;
+        }
+    }
+
+    void TaskProperties::compute_number_of_dependences(
+            TL::Symbol num_deps,
+            TL::Scope enclosing_scope,
+            /* out */
+            Nodecl::NodeclBase &num_deps_stmts)
+    {
+        struct DependencesSet
+        {
+            TL::ObjectList<Nodecl::NodeclBase> &dep_list;
+        } deps[] = {
+            { _env.dep_in    },
+            { _env.dep_out   },
+            { _env.dep_inout },
+
+            { _env.dep_weakin    },
+            { _env.dep_weakout   },
+            { _env.dep_weakinout },
+
+            { _env.dep_commutative },
+            { _env.dep_concurrent  },
+
+            { _env.dep_weakcommutative },
+
+            { _env.dep_reduction     },
+            { _env.dep_weakreduction },
+        };
+
+        // Common dependences
+        int static_num_deps = 0;
+
+        // Multideps where iterators don't depend on other iterators
+        Nodecl::NodeclBase dyn_num_deps = const_value_to_nodecl(const_value_get_zero(TL::Type::get_size_t_type().get_size(), 0));
+
+        // Statements that compute the number of dependences of multideps where at
+        // least one iterator depends on the value of another iterator
+        Nodecl::List new_stmts;
+        for (DependencesSet *dep_set = deps;
+                dep_set != (DependencesSet *)(&deps + 1);
+                dep_set++)
+        {
+            TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
+
+            if (dep_list.empty())
+                continue;
+
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = dep_list.begin();
+                    it != dep_list.end();
+                    it++)
+            {
+                TL::DataReference data_ref = *it;
+                TL::Type data_type = data_ref.get_data_type();
+
+                Nodecl::NodeclBase curr_num_deps;
+                Nodecl::List register_statements;
+                if (!data_ref.is_multireference())
+                {
+                    ++static_num_deps;
+                }
+                else
+                {
+                    TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences =
+                        data_ref.get_iterators_of_multireference();
+
+                    if (iterators_are_not_independent(multireferences))
+                    {
+                        Nodecl::Utils::SimpleSymbolMap extended_symbol_map;
+                        create_induction_variables_for_iterators(
+                                multireferences, enclosing_scope, extended_symbol_map, new_stmts);
+
+                        Nodecl::List inner_stmts =
+                            Nodecl::List::make(
+                                Nodecl::ExpressionStatement::make(
+                                    Nodecl::Postincrement::make(num_deps.make_nodecl(), TL::Type::get_size_t_type())));
+
+                        Nodecl::List loop_stmts =
+                            create_loop_stmts_for_iterators(
+                                    multireferences, extended_symbol_map, inner_stmts, enclosing_scope, _related_function);
+
+                        new_stmts.append(loop_stmts);
+                    }
+                    else
+                    {
+                        Nodecl::NodeclBase curr_dyn_num_deps =
+                            compute_num_of_dependences_for_independent_iterators(multireferences);
+                        dyn_num_deps = Nodecl::Add::make(dyn_num_deps, curr_dyn_num_deps, dyn_num_deps.get_type());
+                    }
+                }
+            }
+        }
+
+        Nodecl::NodeclBase value =
+            Nodecl::Add::make(
+                    const_value_to_nodecl(
+                        const_value_get_integer(
+                            static_num_deps,
+                            TL::Type::get_size_t_type().get_size(),
+                            0)),
+                    dyn_num_deps,
+                    TL::Type::get_size_t_type());
+
+        num_deps.set_value(value);
+
+        num_deps_stmts = new_stmts;
+    }
+
+void TaskProperties::create_task_implementations_info(
+        /* out */
+        TL::Symbol &implementations)
+{
+    TL::Symbol task_implementation_info_struct = get_nanos6_class_symbol("nanos6_task_implementation_info_t");
+
+    TL::ObjectList<TL::Symbol> fields = task_implementation_info_struct.get_type().get_nonstatic_data_members();
+    GetField get_field(fields);
+
+    // This stuff at some point should be implementation dependant
+    TL::Symbol constraints_function = create_constraints_function();
+
+    TL::ObjectList<Nodecl::NodeclBase> implementations_init;
+    for (TL::ObjectList< std::shared_ptr<Device> >::const_iterator it = _implementations.begin();
+            it != _implementations.end();
+            it++)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> field_init;
+        // .device_type_id
+        {
+            Nodecl::NodeclBase field = get_field("device_type_id");
+            Nodecl::NodeclBase value = (*it)->get_device_type_id().make_nodecl(/*ref_type*/ true);
+            field_init.append(
+                    Nodecl::FieldDesignator::make(field, value, value.get_type()));
+        }
 
             // .run
             {
@@ -504,14 +811,13 @@ namespace TL { namespace Nanos6 {
     void TaskProperties::create_task_info(
             TL::Symbol implementations,
             /* out */
-            TL::Symbol &task_info,
-            Nodecl::NodeclBase &num_deps)
+            TL::Symbol &task_info)
     {
         // Note: Reduction functions need to be created before dependences functions, for UDRs
         TL::Symbol reduction_initializers, reduction_combiners;
         create_reduction_functions(reduction_initializers, reduction_combiners);
 
-        TL::Symbol deps_function = create_dependences_function(num_deps);
+        TL::Symbol deps_function = create_dependences_function();
         TL::Symbol priority_function = create_priority_function();
         TL::Symbol destroy_function = create_destroy_function();
         TL::Symbol duplicate_function = create_duplicate_function();
@@ -3034,6 +3340,8 @@ namespace TL { namespace Nanos6 {
                 Nodecl::Utils::deep_copy(function_call, TL::Scope::get_global_scope(), symbol_map));
     }
 
+
+
     void TaskProperties::register_multidependence(
         TL::DataReference &data_ref,
         TL::Symbol handler,
@@ -3041,135 +3349,20 @@ namespace TL { namespace Nanos6 {
         TL::Symbol register_fun,
         TL::Scope scope,
         // Out
-        Nodecl::List &register_statements,
-        Nodecl::NodeclBase &curr_num_deps)
+        Nodecl::List &register_statements)
     {
         TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences = data_ref.get_iterators_of_multireference();
 
         Nodecl::Utils::SimpleSymbolMap extended_symbol_map(&symbol_map);
-
-        TL::Counter &ctr = TL::CounterManager::get_counter("nanos6-multideps");
-        for (TL::ObjectList<TL::DataReference::MultiRefIterator>::iterator it2 = multireferences.begin();
-                it2 != multireferences.end();
-                it2++)
-        {
-            std::stringstream ss;
-            ss << it2->first.get_name() << "_tmp_" << (int)ctr;
-            ctr++;
-            std::string ind_var_name = ss.str();
-
-            TL::Symbol local_sym = scope.new_symbol(ind_var_name);
-            local_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            local_sym.get_internal_symbol()->type_information = ::get_signed_int_type();
-            symbol_entity_specs_set_is_user_declared(local_sym.get_internal_symbol(), 1);
-
-            // Extend the symbol map so that references to an iterator use the
-            // local induction variable instead
-            extended_symbol_map.add_map(it2->first, local_sym);
-
-            CXX_LANGUAGE()
-            {
-                register_statements.append(
-                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
-                            local_sym));
-            }
-        }
+        create_induction_variables_for_iterators(
+                multireferences, scope, extended_symbol_map, register_statements);
 
         // This empty stmt will be replaced by the function call to the runtime
-        Nodecl::NodeclBase empty_stmt = Nodecl::EmptyStatement::make();
-        Nodecl::NodeclBase body = Nodecl::List::make(empty_stmt);
+        Nodecl::NodeclBase empty_stmt  = Nodecl::EmptyStatement::make();
+        Nodecl::List inner_stmts = Nodecl::List::make(empty_stmt);
 
-        // Neutral element product -> 1
-        TL::Type size_t_type = TL::Type::get_size_t_type();
-        curr_num_deps = const_value_to_nodecl(const_value_get_one(size_t_type.get_size(), 1));
-
-        for (TL::ObjectList<TL::DataReference::MultiRefIterator>::reverse_iterator it2 = multireferences.rbegin();
-                it2 != multireferences.rend();
-                it2++)
-        {
-            ERROR_CONDITION(!it2->second.is<Nodecl::Range>(), "Invalid Node", 0);
-
-            Nodecl::Range range = it2->second.as<Nodecl::Range>();
-
-            if (IS_FORTRAN_LANGUAGE)
-            {
-                // Insert extra symbol declarations and add them to the symbol map
-                // (e.g. functions and subroutines declared in other scopes)
-                Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
-                        extended_symbol_map,
-                        scope,
-                        _related_function);
-                fun_visitor.insert_extra_symbols(range.get_lower());
-                fun_visitor.insert_extra_symbols(range.get_upper());
-                fun_visitor.insert_extra_symbols(range.get_stride());
-            }
-
-            Nodecl::NodeclBase lower = Nodecl::Utils::deep_copy(range.get_lower(), scope, extended_symbol_map);
-            Nodecl::NodeclBase upper = Nodecl::Utils::deep_copy(range.get_upper(), scope, extended_symbol_map);
-            Nodecl::NodeclBase stride = Nodecl::Utils::deep_copy(range.get_stride(), scope, extended_symbol_map);
-
-            TL::Symbol ind_var = extended_symbol_map.map(it2->first);
-
-            Nodecl::NodeclBase loop_control;
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                loop_control = Nodecl::LoopControl::make(
-                        // init-expr-list
-                        Nodecl::List::make(
-                            Nodecl::Assignment::make(
-                                ind_var.make_nodecl(/* set_ref_type */ true),
-                                lower,
-                                ind_var.get_type().no_ref().get_lvalue_reference_to())),
-                        // test-expr
-                        Nodecl::LowerOrEqualThan::make(
-                            ind_var.make_nodecl(/* set_ref_type */ true),
-                            upper,
-                            TL::Type::get_bool_type()),
-                        // incr-exp
-                        Nodecl::AddAssignment::make(
-                            ind_var.make_nodecl(/* set_ref_type */ true),
-                            stride,
-                            ind_var.get_type().no_ref().get_lvalue_reference_to()));
-            }
-            else /* IS_FORTRAN_LANGUAGE */
-            {
-                loop_control = Nodecl::RangeLoopControl::make(
-                        ind_var.make_nodecl(/* set_ref_type */ true),
-                        lower,
-                        upper,
-                        stride);
-            }
-
-            // Note that we are not creating any context / compound stmt. Thus,
-            // the body has to be always an statement
-            Nodecl::NodeclBase for_stmt =
-                Nodecl::ForStatement::make(
-                        loop_control, body, /* loop-name */ Nodecl::NodeclBase::null());
-
-            body = Nodecl::List::make(for_stmt);
-
-            // curr_num_deps = (curr_num_deps * ((upper-lower+1)/stride));
-            curr_num_deps = Nodecl::ParenthesizedExpression::make(
-                    Nodecl::Mul::make(
-                        curr_num_deps,
-                        Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Div::make(
-                                Nodecl::ParenthesizedExpression::make(
-                                    Nodecl::Add::make(
-                                        Nodecl::Minus::make(
-                                            range.get_upper().shallow_copy(),
-                                            range.get_lower().shallow_copy(),
-                                            size_t_type),
-                                        const_value_to_nodecl(const_value_get_one(size_t_type.get_size(), 1)),
-                                        size_t_type),
-                                    size_t_type),
-                                range.get_stride().shallow_copy(),
-                                size_t_type),
-                            size_t_type),
-                        size_t_type),
-                    size_t_type);
-        }
-
+        Nodecl::List loop_stmts = create_loop_stmts_for_iterators(
+                multireferences, extended_symbol_map, inner_stmts, scope, _related_function);
 
         Nodecl::NodeclBase base_exp = data_ref.get_expression_of_multireference();
         TL::DataReference base_data_ref = base_exp;
@@ -3185,13 +3378,11 @@ namespace TL { namespace Nanos6 {
 
         empty_stmt.replace(base_reg);
 
-        register_statements.append(body);
+    register_statements.append(loop_stmts);
     }
 
     TL::Symbol TaskProperties::create_dependences_unpacked_function(
-            const std::string &common_name,
-            // Out
-            Nodecl::NodeclBase &num_deps)
+            const std::string &common_name)
     {
         TL::ObjectList<std::string> unpacked_fun_param_names;
         TL::ObjectList<TL::Type> unpacked_fun_param_types;
@@ -3330,14 +3521,8 @@ namespace TL { namespace Nanos6 {
                             register_fun,
                             unpacked_fun_inside_scope,
                             // Out
-                            register_statements,
-                            curr_num_deps);
+                            register_statements);
                 }
-
-                num_deps = Nodecl::Add::make(
-                        curr_num_deps,
-                        num_deps,
-                        TL::Type::get_size_t_type());
 
                 unpacked_fun_empty_stmt.prepend_sibling(register_statements);
             }
@@ -3359,18 +3544,14 @@ namespace TL { namespace Nanos6 {
         return unpacked_function;
     }
 
-    TL::Symbol TaskProperties::create_dependences_function(Nodecl::NodeclBase &num_deps)
+    TL::Symbol TaskProperties::create_dependences_function()
     {
-        num_deps = const_value_to_nodecl(
-                const_value_get_zero(TL::Type::get_size_t_type().get_size(), 1));
-
         // Skip this function if the current task doesn't have any task dependence
         if (!_env.any_task_dependence)
             return TL::Symbol::invalid();
 
         const std::string common_name = "deps";
-        TL::Symbol unpacked_function =
-            create_dependences_unpacked_function(common_name, num_deps);
+        TL::Symbol unpacked_function = create_dependences_unpacked_function(common_name);
 
         TL::ObjectList<std::string> unpacked_fun_param_names(2);
         TL::ObjectList<TL::Type> unpacked_fun_param_types(2);

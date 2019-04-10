@@ -109,7 +109,7 @@ namespace TL { namespace Nanos6 {
         // Creates the task instantiation and submission
         void handle_task_transformation(const Nodecl::OpenMP::Task& node, TaskProperties& task_properties)
         {
-            Nodecl::NodeclBase args_size, num_deps;
+            Nodecl::NodeclBase args_size;
             TL::Type data_env_struct;
             bool requires_initialization;
             task_properties.create_environment_structure(
@@ -132,8 +132,7 @@ namespace TL { namespace Nanos6 {
             task_properties.create_task_info(
                     implementations,
                     /* out */
-                    task_info,
-                    num_deps);
+                    task_info);
 
             TL::Scope sc = node.retrieve_context();
 
@@ -147,8 +146,7 @@ namespace TL { namespace Nanos6 {
                 args = sc.new_symbol(ss.str());
                 args.get_internal_symbol()->kind = SK_VARIABLE;
                 args.set_type(data_env_struct.get_pointer_to());
-                symbol_entity_specs_set_is_user_declared(
-                        args.get_internal_symbol(), 1);
+                symbol_entity_specs_set_is_user_declared(args.get_internal_symbol(), 1);
             }
 
             TL::Symbol task_ptr;
@@ -161,12 +159,11 @@ namespace TL { namespace Nanos6 {
                 task_ptr = sc.new_symbol(ss.str());
                 task_ptr.get_internal_symbol()->kind = SK_VARIABLE;
                 task_ptr.set_type(TL::Type::get_void_type().get_pointer_to());
-                symbol_entity_specs_set_is_user_declared(
-                        task_ptr.get_internal_symbol(), 1);
+                symbol_entity_specs_set_is_user_declared(task_ptr.get_internal_symbol(), 1);
             }
 
-            Nodecl::List new_stmts;
 
+            Nodecl::List new_stmts;
 
             // Create task
             {
@@ -245,19 +242,20 @@ namespace TL { namespace Nanos6 {
 
                 create_task_args.append(task_ptr_out);
 
-
                 // task_flags
-                Nodecl::NodeclBase flags_nodecl;
                 {
-                    TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task-flags");
-                    std::stringstream ss;
-                    ss << "task_flags_" << (int)counter;
-                    counter++;
+                    TL::Symbol task_flags;
+                    {
+                        TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task-flags");
+                        std::stringstream ss;
+                        ss << "task_flags_" << (int)counter;
+                        counter++;
 
-                    TL::Symbol task_flags = sc.new_symbol(ss.str());
-                    task_flags.get_internal_symbol()->kind = SK_VARIABLE;
-                    task_flags.get_internal_symbol()->type_information = TL::Type::get_size_t_type().get_internal_type();
-                    symbol_entity_specs_set_is_user_declared(task_flags.get_internal_symbol(), 1);
+                        task_flags = sc.new_symbol(ss.str());
+                        task_flags.get_internal_symbol()->kind = SK_VARIABLE;
+                        task_flags.get_internal_symbol()->type_information = TL::Type::get_size_t_type().get_internal_type();
+                        symbol_entity_specs_set_is_user_declared(task_flags.get_internal_symbol(), 1);
+                    }
 
                     if (IS_CXX_LANGUAGE)
                         new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_flags));
@@ -266,13 +264,36 @@ namespace TL { namespace Nanos6 {
                     task_properties.compute_task_flags(task_flags, task_flags_stmts);
                     new_stmts.append(task_flags_stmts);
 
-                    flags_nodecl = task_flags.make_nodecl(/*set_ref_type */ true);
-                    create_task_args.append(flags_nodecl);
+                    create_task_args.append(task_flags.make_nodecl(/*set_ref_type */ true));
                 }
 
                 // num_deps
                 if (Interface::family_is("nanos6_instantiation_api", 2))
-                    create_task_args.append(num_deps);
+                {
+                    TL::Symbol num_deps;
+                    {
+                        TL::Counter &counter = TL::CounterManager::get_counter("nanos6-num-dependences");
+                        std::stringstream ss;
+                        ss << "nanos_num_deps_" << (int)counter;
+                        counter++;
+
+                        num_deps = sc.new_symbol(ss.str());
+                        num_deps.get_internal_symbol()->kind = SK_VARIABLE;
+                        num_deps.set_type(TL::Type::get_size_t_type());
+                        symbol_entity_specs_set_is_user_declared(num_deps.get_internal_symbol(), 1);
+                    }
+
+                    Nodecl::NodeclBase compute_num_deps_stmts;
+                    task_properties.compute_number_of_dependences(num_deps, sc, /* out */ compute_num_deps_stmts);
+
+                    new_stmts.append(Nodecl::ObjectInit::make(num_deps));
+                    if (IS_CXX_LANGUAGE)
+                        new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), num_deps));
+
+                    new_stmts.append(compute_num_deps_stmts);
+
+                    create_task_args.append(num_deps.make_nodecl(/* set_ref_type */ true));
+                }
 
 
                 Nodecl::NodeclBase call_to_nanos_create_task =
