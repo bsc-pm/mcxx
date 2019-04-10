@@ -29,8 +29,6 @@
 <testinfo>
 test_generator=config/mercurium-ompss-2
 test_nolink=yes
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 void bar()
