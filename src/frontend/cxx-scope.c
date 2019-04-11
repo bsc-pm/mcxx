@@ -2356,6 +2356,12 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
     nodecl = instantiate_expression(nodecl, decl_context,
             instantiation_symbol_map, pack_index);
 
+    nodecl = cxx_nodecl_make_conversion(
+            nodecl,
+            no_ref(nodecl_get_type(nodecl)),
+            decl_context,
+            nodecl_get_locus(nodecl));
+
     if (!nodecl_is_constant(nodecl)
             && !nodecl_expr_is_value_dependent(nodecl))
     {
