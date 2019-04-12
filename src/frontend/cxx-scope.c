@@ -3534,7 +3534,8 @@ static type_t* update_type_aux_(type_t* orig_type,
                 ERROR_CONDITION(orig_symbol == NULL, "This should not be NULL", 0);
 
                 // Now update the template_type with the new one
-                template_type = argument->type_information;
+                if (argument != NULL)
+                    template_type = argument->type_information;
 
                 if (template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
                         && pack_index >= 0)
