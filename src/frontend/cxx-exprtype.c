@@ -25686,11 +25686,14 @@ static const_value_t* compute_value_of_regular_glvalue(nodecl_t expr,
         // There are a few nodes for which we do not compute their
         // const_value_t ahead of time to avoid creating unnecessary
         // const_value_t's of kind object
-        switch (nodecl_get_kind(expr))
+        nodecl_t aux_expr = expr;
+        switch (nodecl_get_kind(aux_expr))
         {
+            case NODECL_CLASS_MEMBER_ACCESS:
+                    aux_expr = nodecl_get_child(aux_expr, 1);
             case NODECL_SYMBOL:
                 {
-                    scope_entry_t* entry = nodecl_get_symbol(expr);
+                    scope_entry_t* entry = nodecl_get_symbol(aux_expr);
                     const_value_t* value = compute_value_of_symbol(entry, locus);
                     DEBUG_CODE()
                     {
