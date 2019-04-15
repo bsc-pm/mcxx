@@ -5698,8 +5698,6 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
             }
             else
             {
-                bool member_declaration_does_define = true;
-
                 if (symbol.is_anonymous_union()
                         && member.get_type().basic_type().is_named_class()
                         && !member.get_type().basic_type().get_symbol().is_anonymous_union()
@@ -5720,27 +5718,22 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                         (*file) << ";\n";
                     }
 
-                    // If we are declaring a static member it is not a definition
-                    // unless it has been declared inside the class
+                    // An static data member declaration should be treated as a declaration
+                    // but we have to emit its initializer
                     if (member.is_variable()
                             && member.is_static())
-                    {
-                        member_declaration_does_define = member.is_defined_inside_class();
-                    }
-
-                    if (member_declaration_does_define)
-                    {
-                        do_define_symbol(member,
-                                &CxxBase::declare_symbol_always,
-                                &CxxBase::define_symbol_always);
-                        set_codegen_status(member, CODEGEN_STATUS_DEFINED);
-                    }
-                    else
                     {
                         do_declare_symbol(member,
                                 &CxxBase::declare_symbol_always,
                                 &CxxBase::define_symbol_always);
                         set_codegen_status(member, CODEGEN_STATUS_DECLARED);
+                    }
+                    else
+                    {
+                        do_define_symbol(member,
+                                &CxxBase::declare_symbol_always,
+                                &CxxBase::define_symbol_always);
+                        set_codegen_status(member, CODEGEN_STATUS_DEFINED);
                     }
                 }
             }
@@ -6301,19 +6294,29 @@ void CxxBase::define_or_declare_if_complete(TL::Symbol sym,
 
 void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bool is_definition)
 {
-    // Emit the initializer for nonmembers and nonstatic members in
-    // non member declarations or member declarations if they have
-    // integral or enum type
-    char emit_initializer = 0;
+    // Emit the initializer if:
+    //  - We have a nonmember declaration
+    //  - We are declaring a static data member declaration inside a class
+    //    (note that in this case the definition of that member should be done
+    //    outside the class)
+    bool emit_initializer = false;
+
     if (!symbol.get_value().is_null()
             && (!symbol.is_member()
                 || (state.in_member_declaration == symbol.is_defined_inside_class())))
     {
-        emit_initializer = 1;
+        emit_initializer = true;
+
+        if (!is_definition
+                && symbol.is_member()
+                && symbol.is_static()
+                && symbol.is_defined_inside_class())
+        {
+            is_definition = true;
+        }
     }
 
-    // Initializer
-    if (emit_initializer)
+    if (emit_initializer && is_definition)
     {
         push_scope(symbol.get_scope());
 
@@ -6321,185 +6324,182 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
         // except when infelicities in the syntax prevent us to do that
         Nodecl::NodeclBase init = no_conv(symbol.get_value());
 
-        if (is_definition)
+        C_LANGUAGE()
         {
-            C_LANGUAGE()
+            *(file) << " = ";
+
+            bool old = state.inside_structured_value;
+            if (init.is<Nodecl::StructuredValue>())
             {
+                state.inside_structured_value = true;
+            }
+
+            bool extra_addr = false;
+            if (is_non_language_reference_variable(symbol))
+            {
+                if (!symbol.get_type().no_ref().is_array())
+                {
+                    extra_addr = true;
+                }
+            }
+
+            if (extra_addr)
+            {
+                *file << "&(";
+            }
+
+            walk(init);
+
+            if (extra_addr)
+            {
+                *file << ")";
+            }
+
+            state.inside_structured_value = old;
+        }
+        CXX_LANGUAGE()
+        {
+            if (init.is<Nodecl::CxxEqualInitializer>()
+                    || init.is<Nodecl::CxxBracedInitializer>()
+                    || init.is<Nodecl::CxxParenthesizedInitializer>())
+            {
+                // Dependent cases are always printed verbatim
+                walk(init);
+            }
+            else if (IS_CXX03_LANGUAGE
+                    && symbol.get_type().is_aggregate()
+                    && init.is<Nodecl::StructuredValue>())
+            {
+                // int a[] = { 1, 2, 3 };
+                // struct foo { int x; int y; } a = {1, 2};
+                //
+                // Note that C++11 allows struct foo { int x; int y; } a{1,2};
                 *(file) << " = ";
 
                 bool old = state.inside_structured_value;
-                if (init.is<Nodecl::StructuredValue>())
-                {
-                    state.inside_structured_value = true;
-                }
-
-                bool extra_addr = false;
-                if (is_non_language_reference_variable(symbol))
-                {
-                    if (!symbol.get_type().no_ref().is_array())
-                    {
-                        extra_addr = true;
-                    }
-                }
-
-                if (extra_addr)
-                {
-                    *file << "&(";
-                }
-
+                state.inside_structured_value = true;
                 walk(init);
-
-                if (extra_addr)
-                {
-                    *file << ")";
-                }
-
                 state.inside_structured_value = old;
             }
-            CXX_LANGUAGE()
+            else if (symbol.get_type().is_array()
+                    && !init.is<Nodecl::StructuredValue>())
             {
-                if (init.is<Nodecl::CxxEqualInitializer>()
-                        || init.is<Nodecl::CxxBracedInitializer>()
-                        || init.is<Nodecl::CxxParenthesizedInitializer>())
+                if (nodecl_calls_to_constructor(init)
+                        && nodecl_calls_to_constructor_default_init(init))
                 {
-                    // Dependent cases are always printed verbatim
-                    walk(init);
-                }
-                else if (IS_CXX03_LANGUAGE
-                        && symbol.get_type().is_aggregate()
-                        && init.is<Nodecl::StructuredValue>())
-                {
-                    // int a[] = { 1, 2, 3 };
-                    // struct foo { int x; int y; } a = {1, 2};
-                    //
-                    // Note that C++11 allows struct foo { int x; int y; } a{1,2};
-                    *(file) << " = ";
-
-                    bool old = state.inside_structured_value;
-                    state.inside_structured_value = true;
-                    walk(init);
-                    state.inside_structured_value = old;
-                }
-                else if (symbol.get_type().is_array()
-                        && !init.is<Nodecl::StructuredValue>())
-                {
-                    if (nodecl_calls_to_constructor(init)
-                            && nodecl_calls_to_constructor_default_init(init))
-                    {
-                        // Do not emit anything here
-                    }
-                    else
-                    {
-                        // Only for char and wchar_t
-                        // const char c[] = "1234";
-                        *(file) << " = ";
-                        walk(init);
-                    }
-                }
-                else if (!symbol.get_type().is_array()
-                        && init.is<Nodecl::StructuredValue>())
-                {
-                    // char c = { 'a' };
-                    // int x = { 1 };
-                    *(file) << " = ";
-                    bool old = state.inside_structured_value;
-                    state.inside_structured_value = true;
-                    walk(init);
-                    state.inside_structured_value = old;
-                }
-                else if (symbol.get_type().is_array()
-                        && init.is<Nodecl::StructuredValue>())
-                {
-                    // int c[] = {1, 2, 3};
-                    *(file) << " = ";
-                    walk(init);
-                }
-                else if (symbol.is_member()
-                        && (symbol.is_static() || symbol.is_defined_inside_class())
-                        && state.in_member_declaration)
-                {
-                    // This is an in member declaration initialization
-                    if (IS_CXX11_LANGUAGE
-                            && nodecl_calls_to_constructor_indirectly(init))
-                    {
-                        *(file) << " { ";
-                        Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
-                        walk_list(constructor_args, ",");
-                        *(file) << " }";
-                    }
-                    else
-                    {
-                        *(file) << " = ";
-                        walk(init);
-                    }
-                }
-                else if (state.in_condition)
-                {
-                    // This is something like if (bool foo = expression)
-                    *(file) << " = ";
-                    walk(init);
-                }
-                // Workaround for g++ <=4.5, >=4.7 (4.6 seems to work fine, but we'll do it anyways)
-                else if (nodecl_expr_is_value_dependent(init.get_internal_nodecl())
-                        && symbol.get_type().is_integral_type())
-                {
-                    *(file) << " = ";
-                    walk(init);
+                    // Do not emit anything here
                 }
                 else
                 {
-                    if (nodecl_calls_to_constructor(init)
-                            && !symbol.get_type().is_any_reference())
+                    // Only for char and wchar_t
+                    // const char c[] = "1234";
+                    *(file) << " = ";
+                    walk(init);
+                }
+            }
+            else if (!symbol.get_type().is_array()
+                    && init.is<Nodecl::StructuredValue>())
+            {
+                // char c = { 'a' };
+                // int x = { 1 };
+                *(file) << " = ";
+                bool old = state.inside_structured_value;
+                state.inside_structured_value = true;
+                walk(init);
+                state.inside_structured_value = old;
+            }
+            else if (symbol.get_type().is_array()
+                    && init.is<Nodecl::StructuredValue>())
+            {
+                // int c[] = {1, 2, 3};
+                *(file) << " = ";
+                walk(init);
+            }
+            else if (symbol.is_member()
+                    && (symbol.is_static() || symbol.is_defined_inside_class())
+                    && state.in_member_declaration)
+            {
+                // This is an in member declaration initialization
+                if (IS_CXX11_LANGUAGE
+                        && nodecl_calls_to_constructor_indirectly(init))
+                {
+                    *(file) << " { ";
+                    Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
+                    walk_list(constructor_args, ",");
+                    *(file) << " }";
+                }
+                else
+                {
+                    *(file) << " = ";
+                    walk(init);
+                }
+            }
+            else if (state.in_condition)
+            {
+                // This is something like if (bool foo = expression)
+                *(file) << " = ";
+                walk(init);
+            }
+            // Workaround for g++ <=4.5, >=4.7 (4.6 seems to work fine, but we'll do it anyways)
+            else if (nodecl_expr_is_value_dependent(init.get_internal_nodecl())
+                    && symbol.get_type().is_integral_type())
+            {
+                *(file) << " = ";
+                walk(init);
+            }
+            else
+            {
+                if (nodecl_calls_to_constructor(init)
+                        && !symbol.get_type().is_any_reference())
+                {
+                    Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
+                    bool is_default_init = nodecl_calls_to_constructor_default_init(init);
+                    if (is_default_init)
                     {
-                        Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
-                        bool is_default_init = nodecl_calls_to_constructor_default_init(init);
-                        if (is_default_init)
-                        {
-                            *file << start_inline_comment();
-                        }
-
-                        std::string lparen, rparen;
-                        if (nodecl_calls_to_constructor_default_init_braced(init))
-                        {
-                            lparen = "{";
-                            rparen = "}";
-                        }
-                        else
-                        {
-                            // Here we add extra parentheses lest the direct-initialization looked like
-                            // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
-                            //
-                            // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
-                            // "function (pointer to function() returning A) returning A"
-                            // [extra blanks added for clarity in the example above]
-                            lparen = "(";
-                            rparen = ")";
-                        }
-
-                        *(file) << lparen;
-                        walk_initializer_list(constructor_args, ", ");
-                        *(file) << rparen;
-
-                        if (is_default_init)
-                        {
-                            *file << end_inline_comment();
-                        }
+                        *file << start_inline_comment();
                     }
-                    else if (nodecl_is_parenthesized_explicit_type_conversion(init) ||
-                             nodecl_calls_to_constructor_indirectly(init) ||
-                             (nodecl_calls_to_constructor(init) && symbol.get_type().is_any_reference()))
+
+                    std::string lparen, rparen;
+                    if (nodecl_calls_to_constructor_default_init_braced(init))
                     {
-                        // Same reason above
-                        *file << "((";
-                        walk(init);
-                        *file << "))";
+                        lparen = "{";
+                        rparen = "}";
                     }
                     else
                     {
-                        *file << "(";
-                        walk(init);
-                        *file << ")";
+                        // Here we add extra parentheses lest the direct-initialization looked like
+                        // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
+                        //
+                        // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
+                        // "function (pointer to function() returning A) returning A"
+                        // [extra blanks added for clarity in the example above]
+                        lparen = "(";
+                        rparen = ")";
                     }
+
+                    *(file) << lparen;
+                    walk_initializer_list(constructor_args, ", ");
+                    *(file) << rparen;
+
+                    if (is_default_init)
+                    {
+                        *file << end_inline_comment();
+                    }
+                }
+                else if (nodecl_is_parenthesized_explicit_type_conversion(init) ||
+                        nodecl_calls_to_constructor_indirectly(init) ||
+                        (nodecl_calls_to_constructor(init) && symbol.get_type().is_any_reference()))
+                {
+                    // Same reason above
+                    *file << "((";
+                    walk(init);
+                    *file << "))";
+                }
+                else
+                {
+                    *file << "(";
+                    walk(init);
+                    *file << ")";
                 }
             }
         }
@@ -6700,7 +6700,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     CXX_LANGUAGE()
     {
         if (symbol.is_member()
-                && !symbol.is_defined_inside_class()
+                && (!symbol.is_defined_inside_class() || symbol.is_static())
                 && state.classes_being_defined.empty())
         {
             TL::Type class_type = symbol.get_class_type();
