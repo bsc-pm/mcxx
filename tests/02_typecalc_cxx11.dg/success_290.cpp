@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=config/mercurium-cxx11
+</testinfo>
+*/
 constexpr static int N = 100;
 
 template <typename T> struct array { constexpr static const T &v = N; };
