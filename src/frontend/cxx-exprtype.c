@@ -18008,7 +18008,12 @@ static void check_nodecl_member_access(
                         get_unknown_dependent_type(),
                         locus);
 
-                nodecl_set_text(*nodecl_output, "template ");
+                if (nodecl_get_kind(nodecl_member) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED
+                        && nodecl_get_kind(nodecl_member) != NODECL_CXX_DEP_NAME_NESTED)
+                {
+                    // We need to state this is a template, only if this name is unqualified.
+                    nodecl_set_text(*nodecl_output, "template ");
+                }
 
                 nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             }
