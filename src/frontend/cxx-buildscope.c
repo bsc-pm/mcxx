@@ -18703,6 +18703,12 @@ static void build_scope_member_simple_declaration(const decl_context_t* decl_con
                         {
                             if (!current_gather_info.is_static)
                             {
+                                if (symbol_entity_specs_get_is_constexpr(entry))
+                                {
+                                    error_printf_at(ast_get_locus(declarator_name),
+                                            "nonstatic data member '%s' cannot be declared 'constexpr'\n",
+                                            entry->symbol_name);
+                                }
                                 DEBUG_CODE()
                                 {
                                     fprintf(stderr, "BUILDSCOPE: Registering a nonstatic data member '%s' of class '%s'\n",
