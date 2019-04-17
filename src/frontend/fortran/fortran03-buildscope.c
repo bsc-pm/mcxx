@@ -6274,7 +6274,7 @@ static void synthesize_procedure_type(
     symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
 }
 
-static void build_scope_derived_type_proc_component_def(
+static void delayed_build_scope_derived_type_proc_component_def_(
 	AST component_def_stmt,
 	scope_entry_t *class_name,
 	char fields_are_private UNUSED_PARAMETER,
@@ -6295,9 +6295,6 @@ static void build_scope_derived_type_proc_component_def(
     {
 	if (ASTKind(proc_interface) == AST_SYMBOL)
         {
-            error_printf_at(ast_get_locus(proc_interface),
-                    "procedure components with interface are not supported yet\n");
-
             interface = fortran_query_name_str(decl_context,
                     strtolower(ASTText(proc_interface)),
                     ast_get_locus(proc_interface));
@@ -6385,7 +6382,7 @@ static void build_scope_derived_type_proc_component_def(
 
 	if (init != NULL)
 	{
-	    fortran_delay_check_initialization(
+	    fortran_immediate_check_initialization(
 		    entry,
 		    init,
 		    decl_context,
@@ -6400,6 +6397,49 @@ static void build_scope_derived_type_proc_component_def(
 		entry->decl_context,
 		/* is_definition */ 1);
     }
+}
+
+
+typedef struct delayed_proc_component_data_tag
+{
+    AST component_def_stmt;
+    scope_entry_t *class_name;
+    char fields_are_private;
+    const decl_context_t *decl_context;
+    const decl_context_t *inner_decl_context;
+
+} delayed_proc_component_data_t;
+
+static void delayed_build_scope_derived_type_proc_component_def(void *info, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    AST component_def_stmt = ((delayed_proc_component_data_t*)info)->component_def_stmt;
+    scope_entry_t *class_name =((delayed_proc_component_data_t*)info)->class_name;
+    char fields_are_private =((delayed_proc_component_data_t*)info)->fields_are_private;
+    const decl_context_t *decl_context =((delayed_proc_component_data_t*)info)->decl_context;
+    const decl_context_t *inner_decl_context = ((delayed_proc_component_data_t*)info)->inner_decl_context;
+
+    delayed_build_scope_derived_type_proc_component_def_(component_def_stmt, class_name,
+            fields_are_private, decl_context, inner_decl_context);
+}
+
+static void build_scope_derived_type_proc_component_def(
+	AST component_def_stmt,
+	scope_entry_t *class_name,
+	char fields_are_private UNUSED_PARAMETER,
+	const decl_context_t *decl_context,
+	const decl_context_t *inner_decl_context)
+{
+    ERROR_CONDITION(ASTKind(component_def_stmt) != AST_PROC_COMPONENT_DEF_STATEMENT, "Invalid tree", 0);
+
+    delayed_proc_component_data_t *data = NEW0(delayed_proc_component_data_t);
+    data->component_def_stmt = component_def_stmt;
+    data->class_name = class_name;
+    data->fields_are_private = fields_are_private;
+    data->decl_context = decl_context;
+    data->inner_decl_context = inner_decl_context;
+
+    build_scope_delay_list_add(
+            DELAY_AFTER_DECLARATIONS, delayed_build_scope_derived_type_proc_component_def, data);
 }
 
 
@@ -9172,7 +9212,7 @@ static void delayed_build_scope_procedure_decl_stmt_(AST a, const decl_context_t
             {
                 entry->kind = SK_VARIABLE;
                 synthesize_procedure_type(entry, interface, return_type,
-					decl_context, /* do_pointer */ 1, /*is_pass_proc_component */ 0);
+                        decl_context, /* do_pointer */ 1, /*is_pass_proc_component */ 0);
             }
         }
 
@@ -9189,7 +9229,7 @@ static void delayed_build_scope_procedure_decl_stmt_(AST a, const decl_context_t
                     init,
                     decl_context,
                     /* is_pointer_init */ 1,
-                    /* adjust_assumed_character_length */ 9,
+                    /* adjust_assumed_character_length */ 0,
                     /* is_parameter */ 0,
                     /* is_variable */ 1);
         }

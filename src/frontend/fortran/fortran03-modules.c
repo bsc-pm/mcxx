@@ -177,6 +177,7 @@ enum type_kind_table_tag
     TKT_REAL,
     TKT_COMPLEX,
     TKT_POINTER,
+    TKT_POINTER_TO_MEMBER,
     TKT_REFERENCE,
     TKT_FUNCTION,
     TKT_NONPROTOTYPE_FUNCTION,
@@ -1283,6 +1284,12 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
     {
         result = insert_type(handle, pointer_type_get_pointee_type(t));
         result = insert_type_ref_to(handle, t, TKT_POINTER, result);
+    }
+    else if (is_pointer_to_member_type(t))
+    {
+        sqlite3_uint64 pointee = insert_type(handle, pointer_type_get_pointee_type(t));
+        sqlite3_uint64 class_type = insert_type(handle, pointer_to_member_type_get_class_type(t));
+        result = insert_type_ref_to_list_types(handle, t, TKT_POINTER_TO_MEMBER, pointee, /*num_params*/ 1, &class_type);
     }
     else if (is_lvalue_reference_type(t))
     {
@@ -2661,6 +2668,17 @@ static int get_type(void *datum,
         case TKT_POINTER:
         {
             *pt = get_pointer_type(load_type(handle, ref));
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
+            break;
+        }
+        case TKT_POINTER_TO_MEMBER:
+        {
+            type_t* pointee = load_type(handle, ref);
+            ERROR_CONDITION(types == NULL, "invalid pointer to member type\n", 0);
+
+            type_t* class_type = load_type(handle, safe_atoull(types));
+            *pt = get_pointer_to_member_type(pointee, class_type);
             *pt = get_cv_qualified_type(*pt, cv_qualifier);
             insert_map_ptr(handle, current_oid, *pt);
             break;
