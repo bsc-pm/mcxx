@@ -1741,7 +1741,8 @@ OPERATOR_TABLE
         if (function_type.is_any_reference())
             function_type = function_type.references_to();
 
-        if (function_type.is_pointer())
+        if (function_type.is_pointer() ||
+                function_type.is_pointer_to_member())
             function_type = function_type.points_to();
 
         ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
@@ -1773,9 +1774,9 @@ OPERATOR_TABLE
             }
 
             int ignore_n_first_arguments = 0;
-            if (entry.is_function()
-                    && entry.is_member()
-                    && !entry.is_static())
+            if ((entry.is_function()
+                    && entry.is_member() && !entry.is_static()) ||
+                    (entry.is_variable() && entry.get_type().is_pointer_to_member()))
             {
                 // The first argument of non-static member functions represents the object
                 walk(arg_list[ignore_n_first_arguments++]);
@@ -5829,7 +5830,7 @@ OPERATOR_TABLE
 
     bool FortranBase::is_fortran_representable_pointer(TL::Type t)
     {
-        if (!t.is_pointer())
+        if (!t.is_pointer() && !t.is_pointer_to_member())
             return false;
 
         TL::Type pointee = t.points_to();
@@ -5842,7 +5843,8 @@ OPERATOR_TABLE
                 || pointee.is_array()
                 // Fortran 2003
                 || (pointee.is_function()
-                        && pointer_to_function_type_is_fortran_function_pointer(t.get_internal_type()))
+                        && (t.is_pointer() && pointer_to_function_type_is_fortran_function_pointer(t.get_internal_type())))
+                || (pointee.is_function() && (t.is_pointer_to_member()))
                 || (fortran_is_character_type(pointee.get_internal_type())));
     }
 

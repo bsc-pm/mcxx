@@ -3004,7 +3004,8 @@ static void check_called_symbol_list(
 	}
 
         type_t* function_type = no_ref(symbol->type_information);
-        if (is_pointer_to_function_type(function_type))
+        if (is_pointer_to_function_type(function_type)
+                || is_pointer_to_member_type(function_type))
         {
             function_type = pointer_type_get_pointee_type(function_type);
         }
@@ -3277,7 +3278,8 @@ static void check_called_symbol_list(
     memset(nodecl_actual_positional_arguments, 0, sizeof(nodecl_actual_positional_arguments));
 
     type_t* function_type = no_ref(symbol->type_information);
-    if (is_pointer_to_function_type(function_type))
+    if (is_pointer_to_function_type(function_type)
+            || is_pointer_to_member_type(function_type))
     {
         function_type = pointer_type_get_pointee_type(function_type);
     }
@@ -3387,20 +3389,34 @@ static void check_function_call(AST expr, const decl_context_t* decl_context, no
 
 	scope_entry_t* symbol = fortran_data_ref_get_symbol(procedure_designator_nodecl);
 
-        if (symbol == NULL ||
-                (!is_function_type(symbol->type_information) &&
-                 !is_pointer_to_function_type(symbol->type_information) &&
-                 !(symbol->kind == SK_FUNCTION
-                     && symbol_entity_specs_get_is_member(symbol))))
+        if (symbol == NULL)
         {
-            error_printf_at(ast_get_locus(procedure_designator), "invalid function call\n");
+            error_printf_at(ast_get_locus(procedure_designator), "invalid called symbol in a function call\n");
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
         }
 
-        if (symbol->kind == SK_FUNCTION &&
-                symbol_entity_specs_get_is_member(symbol) &&
-                !symbol_entity_specs_get_is_static(symbol))
+        if (!is_function_type(symbol->type_information) &&
+                !is_pointer_to_function_type(symbol->type_information) &&
+                !is_pointer_to_member_type(symbol->type_information)   &&
+                // And it is not a type-bound procedure
+                !(symbol->kind == SK_FUNCTION
+                    && symbol_entity_specs_get_is_member(symbol)))
+        {
+            error_printf_at(ast_get_locus(procedure_designator),
+                    "invalid function call to symbol '%s'\n", symbol->symbol_name);
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+
+        if (
+            // Type-bound procedure
+            (symbol->kind == SK_FUNCTION &&
+                    symbol_entity_specs_get_is_member(symbol) &&
+                    !symbol_entity_specs_get_is_static(symbol)) ||
+            //Procedure components are represented as pointer to members
+            (symbol->kind == SK_VARIABLE &&
+                    is_pointer_to_member_type(symbol->type_information)))
         {
             // Calling a non-static member function
             nodecl_arguments[num_actual_arguments++] =
@@ -5352,9 +5368,10 @@ static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, n
     scope_entry_t* lvalue_sym = fortran_data_ref_get_symbol(nodecl_lvalue);
     if (lvalue_sym == NULL
             || lvalue_sym->kind != SK_VARIABLE
-            || !is_pointer_type(no_ref(lvalue_sym->type_information)))
+            || !(is_pointer_type(no_ref(lvalue_sym->type_information))
+                    || is_pointer_to_member_type(no_ref(lvalue_sym->type_information))))
     {
-        error_printf_at(ast_get_locus(expr), "left hand of pointer assignment is not a POINTER variable\n");
+        error_printf_at(ast_get_locus(expr), "left hand side of pointer assignment is not a POINTER variable\n");
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
