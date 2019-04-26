@@ -308,10 +308,11 @@ namespace TL { namespace Nanos6 {
         // Note that depending on the base language we compute the flags of a task a bit different:
         //      * C/C++: we compute a new expression that contains all the flags
         //
-        //              taskflags = ((final_expr != 0) << 0)  |
-        //                          ((!if_expr != 0) << 1)    |
-        //                          ((is_loop != 0) << 2) |
-        //                          ((wait_clause != 0) << 3)
+        //              taskflags = ((final_expr != 0)  << 0) |
+        //                          ((!if_expr != 0)    << 1) |
+        //                          ((is_loop != 0)     << 2) |
+        //                          ((wait_clause != 0) << 3) |
+        //                          ((preallocated_args_struct != 0) << 4)
         //
         //      * Fortran: since Fortran doesn't have a simple way to work with
         //        bit fields, we generate several statements:
@@ -319,9 +320,13 @@ namespace TL { namespace Nanos6 {
         //              taskflags = 0;
         //              if (final_expr)  call ibset(taskflags, 0);
         //              if (!if_expr)    call ibset(taskflags, 1);
-        //              if (is_loop) call ibset(taskflags, 2);
+        //              if (is_loop)     call ibset(taskflags, 2);
         //              if (wait_clause) call ibset(taskflags, 3);
+        //              if (preallocated_args_struct) call ibset(taskflags, 4);
         //
+
+        bool preallocated_args_struct = IS_FORTRAN_LANGUAGE;
+
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             Nodecl::NodeclBase task_flags_expr;
@@ -337,6 +342,9 @@ namespace TL { namespace Nanos6 {
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
                     _env.wait_clause, /* bit */ 3, /* out */ task_flags_expr);
+
+            compute_generic_flag_c(Nodecl::NodeclBase::null(),
+                    preallocated_args_struct, /* bit */ 4, /* out */ task_flags_expr);
 
             new_stmts.append(
                     Nodecl::ExpressionStatement::make(
@@ -369,6 +377,9 @@ namespace TL { namespace Nanos6 {
 
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 3));
+
+            new_stmts.append(
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), preallocated_args_struct, /* bit */ 4));
         }
         out_stmts = new_stmts;
     }
