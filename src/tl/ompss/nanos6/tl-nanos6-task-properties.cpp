@@ -3721,12 +3721,11 @@ void TaskProperties::create_task_implementations_info(
         if (!_environment_capture.requires_destruction_function())
             return TL::Symbol::invalid();
 
+        TL::ObjectList<std::string> destroy_param_names(1);
+        TL::ObjectList<TL::Type> destroy_param_types(1);
 
-        TL::ObjectList<std::string> destroy_param_names;
-        TL::ObjectList<TL::Type> destroy_param_types;
-
-        destroy_param_names.append("arg");
-        destroy_param_types.append(_info_structure.get_lvalue_reference_to());
+        destroy_param_names[0] = "arg";
+        destroy_param_types[0] = _info_structure.get_lvalue_reference_to();
 
         TL::Symbol destroy_function;
         Nodecl::NodeclBase destroy_empty_stmt;
