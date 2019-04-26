@@ -146,9 +146,9 @@ namespace TL { namespace Nanos6 {
 
         // By default the arguments structure doesn't require to be initialized
         _requires_initialization = false;
-        _requires_duplication_function = false;
+        _requires_duplication_function = IS_FORTRAN_LANGUAGE;
         _has_vlas = false;
-        _requires_destruction_function = false;
+        _requires_destruction_function = IS_FORTRAN_LANGUAGE;
 
         _captured_symbols_map = Nodecl::Utils::SimpleSymbolMap();
 
@@ -380,9 +380,7 @@ namespace TL { namespace Nanos6 {
                          (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod())))
                     ||
                     ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                     && symbol.get_type().depends_on_nonconstant_values())
-                    ||
-                    (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+                     && symbol.get_type().depends_on_nonconstant_values()))
             {
                 _requires_duplication_function = true;
             }
@@ -391,9 +389,7 @@ namespace TL { namespace Nanos6 {
         // Check if it needs a destruction function
         if ((IS_CXX_LANGUAGE &&
                     (type_of_field.is_dependent() ||
-                    (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod())))
-                ||
-                (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+                    (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod()))))
         {
             _requires_destruction_function = true;
         }
@@ -520,9 +516,7 @@ namespace TL { namespace Nanos6 {
                          (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod())))
                     ||
                     ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                     && type.depends_on_nonconstant_values())
-                    ||
-                    (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+                     && type.depends_on_nonconstant_values()))
             {
                 _requires_duplication_function = true;
             }
@@ -531,9 +525,7 @@ namespace TL { namespace Nanos6 {
         // Check if it needs a destruction function
         if ((IS_CXX_LANGUAGE &&
                     (type_of_field.is_dependent() ||
-                    (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod())))
-                ||
-                (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+                    (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod()))))
         {
             _requires_destruction_function = true;
         }
