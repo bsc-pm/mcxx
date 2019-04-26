@@ -61,6 +61,8 @@ TL::Symbol get_fortran_intrinsic_symbol(const std::string &name, const Nodecl::L
                 num_arguments,
                 is_call));
 
+    ERROR_CONDITION(intrinsic.is_invalid(), "invalid symbol '%s'\n", name.c_str());
+
     return intrinsic;
 }
 
