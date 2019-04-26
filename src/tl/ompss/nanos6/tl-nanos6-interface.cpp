@@ -104,6 +104,6 @@ namespace TL { namespace Nanos6 {
     void Interface::check_nanos6_deprecated_headers()
     {
         //IMPORTANT: every change in the major version resets all other versions to 1
-        family_must_be_at_least("nanos6_major_api", 2, "any feature of OmpSs-2");
+        family_must_be_at_least("nanos6_major_api", 3, "any feature of OmpSs-2");
     }
 }}

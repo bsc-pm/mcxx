@@ -286,7 +286,6 @@ namespace TL { namespace Nanos6 {
                 }
 
                 // num_deps
-                if (Interface::family_is("nanos6_instantiation_api", 2))
                 {
                     TL::Symbol num_deps;
                     {
