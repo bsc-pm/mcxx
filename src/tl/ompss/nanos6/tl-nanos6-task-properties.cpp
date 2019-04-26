@@ -3779,13 +3779,7 @@ void TaskProperties::create_task_implementations_info(
 
         if (IS_FORTRAN_LANGUAGE)
         {
-            Nodecl::NodeclBase address_of_args =
-                Nodecl::Reference::make(
-                        dst_data_env.make_nodecl(/*set_ref_type*/true),
-                        dst_data_env.get_type().no_ref().get_pointer_to(),
-                        _locus_of_task_creation);
 
-            captured_stmts.append(compute_call_to_nanos6_bzero(address_of_args));
         }
 
         // 1. Traversing captured variables (firstprivate + other captures)

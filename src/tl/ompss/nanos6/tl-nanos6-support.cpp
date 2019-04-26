@@ -340,49 +340,6 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    Nodecl::NodeclBase compute_call_to_nanos6_bzero(Nodecl::NodeclBase pointer_expr_to_be_initialized)
-    {
-        TL::Type type = pointer_expr_to_be_initialized.get_type().no_ref();
-        ERROR_CONDITION(!type.is_pointer(), "This type should be a pointer type", 0);
-
-        type = type.points_to();
-
-        Nodecl::NodeclBase num_bytes;
-        if (type.is_dependent())
-        {
-            num_bytes = Nodecl::Sizeof::make(
-                    Nodecl::Type::make(type, pointer_expr_to_be_initialized.get_locus()),
-                    Nodecl::NodeclBase::null(),
-                    TL::Type::get_size_t_type(),
-                    pointer_expr_to_be_initialized.get_locus());
-        }
-        else
-        {
-            num_bytes = const_value_to_nodecl_with_basic_type(
-                    const_value_get_integer(
-                        type.get_size(),
-                        /* bytes */TL::Type::get_size_t_type().get_size(),
-                        /* sign */ 0),
-                    TL::Type::get_size_t_type().get_internal_type());
-        }
-
-        TL::Symbol nanos6_bzero_sym = get_nanos6_function_symbol("nanos6_bzero");
-        Nodecl::NodeclBase call_to_nanos6_bzero =
-            Nodecl::ExpressionStatement::make(
-                    Nodecl::FunctionCall::make(
-                        nanos6_bzero_sym.make_nodecl( /* set_ref_type */ true),
-                        Nodecl::List::make(
-                            pointer_expr_to_be_initialized,
-                            num_bytes),
-                        /* alternate symbol */ Nodecl::NodeclBase::null(),
-                        /* alternate symbol */ Nodecl::NodeclBase::null(),
-                        TL::Type::get_void_type(),
-                        pointer_expr_to_be_initialized.get_locus()),
-                    pointer_expr_to_be_initialized.get_locus());
-
-        return call_to_nanos6_bzero;
-    }
-
     void create_static_variable_depending_on_function_context(
         const std::string &var_name,
         TL::Type var_type,

@@ -79,7 +79,6 @@ namespace Nanos6
             Nodecl::Utils::SimpleSymbolMap &symbol_map,
             TL::ObjectList<TL::Symbol> &vla_vars);
 
-    Nodecl::NodeclBase compute_call_to_nanos6_bzero(Nodecl::NodeclBase pointer_expr_to_be_initialized);
 
     void create_static_variable_depending_on_function_context(
         const std::string &var_name,

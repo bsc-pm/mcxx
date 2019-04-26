@@ -310,25 +310,6 @@ namespace TL { namespace Nanos6 {
                 new_stmts.append(call_to_nanos_create_task);
             }
 
-            if (requires_initialization)
-            {
-                ERROR_CONDITION(IS_CXX_LANGUAGE || IS_C_LANGUAGE, "Unreachable code\n", 0);
-                // FORTRAN ONLY
-
-                //  TYPE(ARGS_T), POINTER :: ARGS
-                //
-                //  What we want to set to zero is the storage of this pointer, not
-                //  the descriptor itself: LOC(ARGS)
-                Nodecl::NodeclBase address_of_args =
-                    Nodecl::Reference::make(
-                            Nodecl::Dereference::make(
-                                args.make_nodecl(/*set_ref_type*/true),
-                                args.get_type().points_to()),
-                            args.get_type().no_ref(),
-                            node.get_locus());
-
-                new_stmts.append(compute_call_to_nanos6_bzero(address_of_args));
-            }
 
             // Capture environment
             {
