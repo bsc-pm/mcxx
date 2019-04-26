@@ -3818,7 +3818,7 @@ void TaskProperties::create_task_implementations_info(
         duplicate_param_types.append(_info_structure.get_lvalue_reference_to());
 
         duplicate_param_names.append("dst");
-        duplicate_param_types.append(_info_structure.get_lvalue_reference_to());
+        duplicate_param_types.append(_info_structure.get_pointer_to().get_lvalue_reference_to());
 
         TL::Symbol duplicate_function;
         Nodecl::NodeclBase duplicate_empty_stmt;
@@ -3834,13 +3834,17 @@ void TaskProperties::create_task_implementations_info(
         TL::Symbol dst_data_env = dup_fun_inner_scope.get_symbol_from_name("dst");
 
         Nodecl::List captured_stmts;
-        Nodecl::NodeclBase vla_offset;
-
         if (IS_FORTRAN_LANGUAGE)
         {
+            Nodecl::NodeclBase allocate_stmt = Nodecl::FortranAllocateStatement::make(
+                    Nodecl::List::make(dst_data_env.make_nodecl(/*set_ref_type*/ true)),
+                    /* options */ Nodecl::NodeclBase::null(),
+                    /* alloc-type */ Nodecl::NodeclBase::null());
 
+            captured_stmts.append(allocate_stmt);
         }
 
+        Nodecl::NodeclBase vla_offset;
         // 1. Traversing captured variables (firstprivate + other captures)
         for (TL::ObjectList<TL::Symbol>::iterator it = _env.captured_value.begin();
                 it != _env.captured_value.end();

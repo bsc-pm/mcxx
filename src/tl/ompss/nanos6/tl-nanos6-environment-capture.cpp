@@ -981,11 +981,11 @@ namespace TL { namespace Nanos6 {
             "Invalid symbol data-sharing in lookup", 0);
 
         Nodecl::NodeclBase object_expression = object.make_nodecl(/* set_ref_type */ true);
-        if (object.get_type().is_pointer())
+        if (object.get_type().no_ref().is_pointer())
         {
             object_expression = Nodecl::Dereference::make(
                     object_expression,
-                    object.get_type().points_to().get_lvalue_reference_to());
+                    object.get_type().no_ref().points_to().get_lvalue_reference_to());
         }
         Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
                 object_expression,
@@ -1044,11 +1044,11 @@ namespace TL { namespace Nanos6 {
             "Invalid symbol data-sharing in lookup", 0);
 
         Nodecl::NodeclBase object_expression = object.make_nodecl(/* set_ref_type */ true);
-        if (object.get_type().is_pointer())
+        if (object.get_type().no_ref().is_pointer())
         {
             object_expression = Nodecl::Dereference::make(
                     object_expression,
-                    object.get_type().points_to().get_lvalue_reference_to());
+                    object.get_type().no_ref().points_to().get_lvalue_reference_to());
         }
         Nodecl::NodeclBase argument =
             Nodecl::ClassMemberAccess::make(
