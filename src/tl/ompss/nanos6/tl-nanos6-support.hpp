@@ -35,40 +35,10 @@
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
 
-#include <fortran03-scope.h>
-#include <fortran03-intrinsics.h>
-
-
 namespace TL
 {
 namespace Nanos6
 {
-    namespace
-    {
-        template < unsigned int num_arguments>
-        TL::Symbol get_fortran_intrinsic_symbol(const std::string &name, const Nodecl::List& actual_arguments, bool is_call)
-        {
-            // Note that this function is template to avoid to use VLAs in C++ or dynamic memory allocation
-            nodecl_t arguments[num_arguments];
-
-            int index = 0;
-            for (Nodecl::List::const_iterator it = actual_arguments.begin();
-                    it != actual_arguments.end();
-                    it++)
-            {
-                arguments[index++]=it->get_internal_nodecl();
-            }
-            TL::Symbol intrinsic(
-                    fortran_solve_generic_intrinsic_call(
-                        fortran_query_intrinsic_name_str(TL::Scope::get_global_scope().get_decl_context(), name.c_str()),
-                        arguments,
-                        num_arguments,
-                        is_call));
-
-            return intrinsic;
-        }
-    }
-
     TL::Symbol get_nanos6_class_symbol(const std::string &name);
     TL::Symbol get_nanos6_function_symbol(const std::string &name);
 
