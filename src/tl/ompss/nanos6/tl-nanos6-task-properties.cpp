@@ -3739,9 +3739,38 @@ void TaskProperties::create_task_implementations_info(
         // Compute destroy statements
         TL::Scope destroy_inside_scope = destroy_empty_stmt.retrieve_context();
         TL::Symbol arg = destroy_inside_scope.get_symbol_from_name("arg");
+        if (IS_FORTRAN_LANGUAGE)
+            symbol_entity_specs_set_is_target(arg.get_internal_symbol(), 1);
+
         ERROR_CONDITION(!arg.is_valid() || !arg.is_parameter(), "Invalid symbol", 0);
 
         Nodecl::List destroy_stmts;
+
+        // In Fortran we have to deallocate the arguments structure. We do the following hack:
+        //
+        //      subroutine destroy_fun(arg)
+        //          type(T), target :: arg
+        //          type(T), pointer :: ptr_to_arg
+        //
+        //          ptr_to_arg => arg
+        //
+        //          deallocate(ptr_to_arg)
+        //      end subroutine destroy_fun
+        TL::Symbol ptr_to_arg;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            ptr_to_arg = destroy_inside_scope.new_symbol("ptr_to_arg");
+            ptr_to_arg.get_internal_symbol()->kind = SK_VARIABLE;
+            ptr_to_arg.get_internal_symbol()->type_information = _info_structure.get_pointer_to().get_lvalue_reference_to().get_internal_type();
+            symbol_entity_specs_set_is_user_declared(ptr_to_arg.get_internal_symbol(), 1);
+
+            destroy_stmts.append(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            ptr_to_arg.make_nodecl(/* set_ref_type */ true),
+                            arg.make_nodecl(/* set_ref_type */ true),
+                            ptr_to_arg.get_type())));
+        }
 
         TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
         for (TL::ObjectList<TL::Symbol>::const_iterator it = captured_and_private_symbols.begin();
@@ -3755,6 +3784,17 @@ void TaskProperties::create_task_implementations_info(
                     *it);
             destroy_stmts.append(current_destroy_stmts);
         }
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::NodeclBase deallocate_stmt =
+                Nodecl::FortranDeallocateStatement::make(
+                        Nodecl::List::make(ptr_to_arg.make_nodecl(/*set_ref_type*/ true)),
+                        /* options */ Nodecl::NodeclBase::null());
+
+            destroy_stmts.append(deallocate_stmt);
+        }
+
 
         ERROR_CONDITION(destroy_stmts.empty(), "Unexpected list", 0);
         destroy_empty_stmt.replace(destroy_stmts);
