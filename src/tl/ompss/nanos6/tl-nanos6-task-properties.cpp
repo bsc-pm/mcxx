@@ -1078,9 +1078,17 @@ void TaskProperties::create_task_implementations_info(
             _environment_capture.add_storage_for_shared_symbol(*it);
         }
 
-       _info_structure = data_env_struct = _environment_capture.end_type_setup();
-       args_size = _environment_capture.get_size();
-       requires_initialization = _environment_capture.requires_initialization();
+        _info_structure = data_env_struct = _environment_capture.end_type_setup();
+
+        if (IS_FORTRAN_LANGUAGE)
+            args_size = const_value_to_nodecl(
+                    const_value_get_zero(
+                        /* bytes */ type_get_size(get_size_t_type()),
+                        /* sign */ 0));
+        else
+            args_size = _environment_capture.get_size();
+
+        requires_initialization = _environment_capture.requires_initialization();
     }
 
     namespace {

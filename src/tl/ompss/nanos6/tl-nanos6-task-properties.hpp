@@ -237,7 +237,8 @@ namespace TL { namespace Nanos6 {
             //! This function creates a new class type that represents the arguments structure.
             /*!
              * @param data_env_struct The new class type
-             * @param arg_size An expression that evaluates to the number of bytes to be allocated
+             * @param arg_size An expression that represents the total amount of bytes that Nanos6 has to allocate for th
+             *        argumentrs structure. In Fortran it will always be zero.
              * @param requires_initialization This boolean states whether the current argument structure should be initialized
              */
             void create_environment_structure(
