@@ -308,10 +308,11 @@ namespace TL { namespace Nanos6 {
         // Note that depending on the base language we compute the flags of a task a bit different:
         //      * C/C++: we compute a new expression that contains all the flags
         //
-        //              taskflags = ((final_expr != 0) << 0)  |
-        //                          ((!if_expr != 0) << 1)    |
-        //                          ((is_loop != 0) << 2) |
-        //                          ((wait_clause != 0) << 3)
+        //              taskflags = ((final_expr != 0)  << 0) |
+        //                          ((!if_expr != 0)    << 1) |
+        //                          ((is_loop != 0)     << 2) |
+        //                          ((wait_clause != 0) << 3) |
+        //                          ((preallocated_args_struct != 0) << 4)
         //
         //      * Fortran: since Fortran doesn't have a simple way to work with
         //        bit fields, we generate several statements:
@@ -319,9 +320,13 @@ namespace TL { namespace Nanos6 {
         //              taskflags = 0;
         //              if (final_expr)  call ibset(taskflags, 0);
         //              if (!if_expr)    call ibset(taskflags, 1);
-        //              if (is_loop) call ibset(taskflags, 2);
+        //              if (is_loop)     call ibset(taskflags, 2);
         //              if (wait_clause) call ibset(taskflags, 3);
+        //              if (preallocated_args_struct) call ibset(taskflags, 4);
         //
+
+        bool preallocated_args_struct = IS_FORTRAN_LANGUAGE;
+
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             Nodecl::NodeclBase task_flags_expr;
@@ -337,6 +342,9 @@ namespace TL { namespace Nanos6 {
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
                     _env.wait_clause, /* bit */ 3, /* out */ task_flags_expr);
+
+            compute_generic_flag_c(Nodecl::NodeclBase::null(),
+                    preallocated_args_struct, /* bit */ 4, /* out */ task_flags_expr);
 
             new_stmts.append(
                     Nodecl::ExpressionStatement::make(
@@ -369,6 +377,9 @@ namespace TL { namespace Nanos6 {
 
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 3));
+
+            new_stmts.append(
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), preallocated_args_struct, /* bit */ 4));
         }
         out_stmts = new_stmts;
     }
@@ -1067,9 +1078,17 @@ void TaskProperties::create_task_implementations_info(
             _environment_capture.add_storage_for_shared_symbol(*it);
         }
 
-       _info_structure = data_env_struct = _environment_capture.end_type_setup();
-       args_size = _environment_capture.get_size();
-       requires_initialization = _environment_capture.requires_initialization();
+        _info_structure = data_env_struct = _environment_capture.end_type_setup();
+
+        if (IS_FORTRAN_LANGUAGE)
+            args_size = const_value_to_nodecl(
+                    const_value_get_zero(
+                        /* bytes */ type_get_size(get_size_t_type()),
+                        /* sign */ 0));
+        else
+            args_size = _environment_capture.get_size();
+
+        requires_initialization = _environment_capture.requires_initialization();
     }
 
     namespace {
@@ -3702,12 +3721,11 @@ void TaskProperties::create_task_implementations_info(
         if (!_environment_capture.requires_destruction_function())
             return TL::Symbol::invalid();
 
+        TL::ObjectList<std::string> destroy_param_names(1);
+        TL::ObjectList<TL::Type> destroy_param_types(1);
 
-        TL::ObjectList<std::string> destroy_param_names;
-        TL::ObjectList<TL::Type> destroy_param_types;
-
-        destroy_param_names.append("arg");
-        destroy_param_types.append(_info_structure.get_lvalue_reference_to());
+        destroy_param_names[0] = "arg";
+        destroy_param_types[0] = _info_structure.get_lvalue_reference_to();
 
         TL::Symbol destroy_function;
         Nodecl::NodeclBase destroy_empty_stmt;
@@ -3720,9 +3738,38 @@ void TaskProperties::create_task_implementations_info(
         // Compute destroy statements
         TL::Scope destroy_inside_scope = destroy_empty_stmt.retrieve_context();
         TL::Symbol arg = destroy_inside_scope.get_symbol_from_name("arg");
+        if (IS_FORTRAN_LANGUAGE)
+            symbol_entity_specs_set_is_target(arg.get_internal_symbol(), 1);
+
         ERROR_CONDITION(!arg.is_valid() || !arg.is_parameter(), "Invalid symbol", 0);
 
         Nodecl::List destroy_stmts;
+
+        // In Fortran we have to deallocate the arguments structure. We do the following hack:
+        //
+        //      subroutine destroy_fun(arg)
+        //          type(T), target :: arg
+        //          type(T), pointer :: ptr_to_arg
+        //
+        //          ptr_to_arg => arg
+        //
+        //          deallocate(ptr_to_arg)
+        //      end subroutine destroy_fun
+        TL::Symbol ptr_to_arg;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            ptr_to_arg = destroy_inside_scope.new_symbol("ptr_to_arg");
+            ptr_to_arg.get_internal_symbol()->kind = SK_VARIABLE;
+            ptr_to_arg.get_internal_symbol()->type_information = _info_structure.get_pointer_to().get_lvalue_reference_to().get_internal_type();
+            symbol_entity_specs_set_is_user_declared(ptr_to_arg.get_internal_symbol(), 1);
+
+            destroy_stmts.append(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            ptr_to_arg.make_nodecl(/* set_ref_type */ true),
+                            arg.make_nodecl(/* set_ref_type */ true),
+                            ptr_to_arg.get_type())));
+        }
 
         TL::ObjectList<TL::Symbol> captured_and_private_symbols = append_two_lists(_env.captured_value, _env.private_);
         for (TL::ObjectList<TL::Symbol>::const_iterator it = captured_and_private_symbols.begin();
@@ -3736,6 +3783,17 @@ void TaskProperties::create_task_implementations_info(
                     *it);
             destroy_stmts.append(current_destroy_stmts);
         }
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::NodeclBase deallocate_stmt =
+                Nodecl::FortranDeallocateStatement::make(
+                        Nodecl::List::make(ptr_to_arg.make_nodecl(/*set_ref_type*/ true)),
+                        /* options */ Nodecl::NodeclBase::null());
+
+            destroy_stmts.append(deallocate_stmt);
+        }
+
 
         ERROR_CONDITION(destroy_stmts.empty(), "Unexpected list", 0);
         destroy_empty_stmt.replace(destroy_stmts);
@@ -3759,7 +3817,7 @@ void TaskProperties::create_task_implementations_info(
         duplicate_param_types.append(_info_structure.get_lvalue_reference_to());
 
         duplicate_param_names.append("dst");
-        duplicate_param_types.append(_info_structure.get_lvalue_reference_to());
+        duplicate_param_types.append(_info_structure.get_pointer_to().get_lvalue_reference_to());
 
         TL::Symbol duplicate_function;
         Nodecl::NodeclBase duplicate_empty_stmt;
@@ -3775,19 +3833,17 @@ void TaskProperties::create_task_implementations_info(
         TL::Symbol dst_data_env = dup_fun_inner_scope.get_symbol_from_name("dst");
 
         Nodecl::List captured_stmts;
-        Nodecl::NodeclBase vla_offset;
-
         if (IS_FORTRAN_LANGUAGE)
         {
-            Nodecl::NodeclBase address_of_args =
-                Nodecl::Reference::make(
-                        dst_data_env.make_nodecl(/*set_ref_type*/true),
-                        dst_data_env.get_type().no_ref().get_pointer_to(),
-                        _locus_of_task_creation);
+            Nodecl::NodeclBase allocate_stmt = Nodecl::FortranAllocateStatement::make(
+                    Nodecl::List::make(dst_data_env.make_nodecl(/*set_ref_type*/ true)),
+                    /* options */ Nodecl::NodeclBase::null(),
+                    /* alloc-type */ Nodecl::NodeclBase::null());
 
-            captured_stmts.append(compute_call_to_nanos6_bzero(address_of_args));
+            captured_stmts.append(allocate_stmt);
         }
 
+        Nodecl::NodeclBase vla_offset;
         // 1. Traversing captured variables (firstprivate + other captures)
         for (TL::ObjectList<TL::Symbol>::iterator it = _env.captured_value.begin();
                 it != _env.captured_value.end();

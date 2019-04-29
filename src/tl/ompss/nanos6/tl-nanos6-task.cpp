@@ -162,10 +162,28 @@ namespace TL { namespace Nanos6 {
                 symbol_entity_specs_set_is_user_declared(task_ptr.get_internal_symbol(), 1);
             }
 
-
             Nodecl::List new_stmts;
 
-            // Create task
+            // In Fortran we have to initialize the pointer to the data environment
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                TL::Symbol intrinsic_null = get_fortran_intrinsic_symbol<0>("null", Nodecl::List(), /* is_call */ 0);
+
+                new_stmts.append(
+                        Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                args.make_nodecl(/*set_ref_type*/true),
+                                Nodecl::FunctionCall::make(
+                                    intrinsic_null.make_nodecl(/*set_ref_type*/ true),
+                                    /* arguments      */ Nodecl::NodeclBase::null(),
+                                    /* alternate-name */ Nodecl::NodeclBase::null(),
+                                    /* function-form  */ Nodecl::NodeclBase::null(),
+                                    intrinsic_null.get_type().returns(),
+                                    node.get_locus()),
+                                args.get_type())));
+            }
+
+                    // Create task
             {
                 if (IS_CXX_LANGUAGE)
                 {
@@ -268,7 +286,6 @@ namespace TL { namespace Nanos6 {
                 }
 
                 // num_deps
-                if (Interface::family_is("nanos6_instantiation_api", 2))
                 {
                     TL::Symbol num_deps;
                     {
@@ -295,6 +312,15 @@ namespace TL { namespace Nanos6 {
                     create_task_args.append(num_deps.make_nodecl(/* set_ref_type */ true));
                 }
 
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Nodecl::NodeclBase allocate_stmt = Nodecl::FortranAllocateStatement::make(
+                            Nodecl::List::make(args.make_nodecl(/*set_ref_type*/ true)),
+                                /* options */ Nodecl::NodeclBase::null(),
+                                /* alloc-type */ Nodecl::NodeclBase::null());
+
+                new_stmts.append(allocate_stmt);
+            }
 
                 Nodecl::NodeclBase call_to_nanos_create_task =
                     Nodecl::ExpressionStatement::make(
@@ -310,25 +336,6 @@ namespace TL { namespace Nanos6 {
                 new_stmts.append(call_to_nanos_create_task);
             }
 
-            if (requires_initialization)
-            {
-                ERROR_CONDITION(IS_CXX_LANGUAGE || IS_C_LANGUAGE, "Unreachable code\n", 0);
-                // FORTRAN ONLY
-
-                //  TYPE(ARGS_T), POINTER :: ARGS
-                //
-                //  What we want to set to zero is the storage of this pointer, not
-                //  the descriptor itself: LOC(ARGS)
-                Nodecl::NodeclBase address_of_args =
-                    Nodecl::Reference::make(
-                            Nodecl::Dereference::make(
-                                args.make_nodecl(/*set_ref_type*/true),
-                                args.get_type().points_to()),
-                            args.get_type().no_ref(),
-                            node.get_locus());
-
-                new_stmts.append(compute_call_to_nanos6_bzero(address_of_args));
-            }
 
             // Capture environment
             {

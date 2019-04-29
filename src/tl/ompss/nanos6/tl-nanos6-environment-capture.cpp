@@ -146,9 +146,9 @@ namespace TL { namespace Nanos6 {
 
         // By default the arguments structure doesn't require to be initialized
         _requires_initialization = false;
-        _requires_duplication_function = false;
+        _requires_duplication_function = IS_FORTRAN_LANGUAGE;
         _has_vlas = false;
-        _requires_destruction_function = false;
+        _requires_destruction_function = IS_FORTRAN_LANGUAGE;
 
         _captured_symbols_map = Nodecl::Utils::SimpleSymbolMap();
 
@@ -380,9 +380,7 @@ namespace TL { namespace Nanos6 {
                          (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod())))
                     ||
                     ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                     && symbol.get_type().depends_on_nonconstant_values())
-                    ||
-                    (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+                     && symbol.get_type().depends_on_nonconstant_values()))
             {
                 _requires_duplication_function = true;
             }
@@ -391,9 +389,7 @@ namespace TL { namespace Nanos6 {
         // Check if it needs a destruction function
         if ((IS_CXX_LANGUAGE &&
                     (type_of_field.is_dependent() ||
-                    (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod())))
-                ||
-                (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+                    (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod()))))
         {
             _requires_destruction_function = true;
         }
@@ -520,9 +516,7 @@ namespace TL { namespace Nanos6 {
                          (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod())))
                     ||
                     ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                     && type.depends_on_nonconstant_values())
-                    ||
-                    (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+                     && type.depends_on_nonconstant_values()))
             {
                 _requires_duplication_function = true;
             }
@@ -531,9 +525,7 @@ namespace TL { namespace Nanos6 {
         // Check if it needs a destruction function
         if ((IS_CXX_LANGUAGE &&
                     (type_of_field.is_dependent() ||
-                    (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod())))
-                ||
-                (IS_FORTRAN_LANGUAGE && field.is_allocatable()))
+                    (type_of_field.no_ref().is_class() && !type_of_field.no_ref().is_pod()))))
         {
             _requires_destruction_function = true;
         }
@@ -989,11 +981,11 @@ namespace TL { namespace Nanos6 {
             "Invalid symbol data-sharing in lookup", 0);
 
         Nodecl::NodeclBase object_expression = object.make_nodecl(/* set_ref_type */ true);
-        if (object.get_type().is_pointer())
+        if (object.get_type().no_ref().is_pointer())
         {
             object_expression = Nodecl::Dereference::make(
                     object_expression,
-                    object.get_type().points_to().get_lvalue_reference_to());
+                    object.get_type().no_ref().points_to().get_lvalue_reference_to());
         }
         Nodecl::NodeclBase argument = Nodecl::ClassMemberAccess::make(
                 object_expression,
@@ -1052,11 +1044,11 @@ namespace TL { namespace Nanos6 {
             "Invalid symbol data-sharing in lookup", 0);
 
         Nodecl::NodeclBase object_expression = object.make_nodecl(/* set_ref_type */ true);
-        if (object.get_type().is_pointer())
+        if (object.get_type().no_ref().is_pointer())
         {
             object_expression = Nodecl::Dereference::make(
                     object_expression,
-                    object.get_type().points_to().get_lvalue_reference_to());
+                    object.get_type().no_ref().points_to().get_lvalue_reference_to());
         }
         Nodecl::NodeclBase argument =
             Nodecl::ClassMemberAccess::make(

@@ -42,7 +42,6 @@ const char *entry_points[] = {
     "nanos6_user_unlock",
     "nanos6_get_reduction_storage1",
     "nanos6_register_taskloop_bounds",
-    "nanos6_bzero",
     NULL
 };
 
