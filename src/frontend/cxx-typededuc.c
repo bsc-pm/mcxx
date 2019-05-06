@@ -850,7 +850,7 @@ static char template_parameter_participates_in_deduction(
                     || sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
                     || sym->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
             {
-                if (pack_index == -1
+                if (pack_index < 0
                         || explicit_template_arguments->arguments[i] == NULL)
                 {
                     // The pack does participate
