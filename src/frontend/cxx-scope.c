@@ -3286,7 +3286,9 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         const decl_context_t* template_name_context,
         type_t* template_type,
         template_parameter_list_t* template_parameters,
-        const locus_t* locus);
+        const locus_t* locus,
+        // -1 if not expanding any pack
+        int pack_index);
 
 static type_t* update_type_aux_(type_t* orig_type, 
         const decl_context_t* decl_context,
@@ -3673,7 +3675,8 @@ static type_t* update_type_aux_(type_t* orig_type,
                     decl_context,
                     template_type,
                     expanded_template_parameters,
-                    locus);
+                    locus,
+                    pack_index);
 
             if (updated_template_arguments == NULL)
             {
@@ -5004,7 +5007,9 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         const decl_context_t* template_name_context,
         type_t* template_type,
         template_parameter_list_t* template_parameters,
-        const locus_t* locus)
+        const locus_t* locus,
+        // -1 if not expanding any pack
+        int pack_index)
 {
     DEBUG_CODE()
     {
@@ -5214,7 +5219,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
             //
             if (is_template_alias
                 && !template_parameter_kind_is_pack(result->parameters[i]->kind)
-                && template_argument_is_pack(result->arguments[i]))
+                && template_argument_is_pack(result->arguments[i])
+                && /* we are not expanding anything */ pack_index < 0)
             {
                 error_printf_at(locus,
                                 "pack expansion in template argument %d cannot "
@@ -6773,7 +6779,8 @@ scope_entry_list_t* query_nodecl_template_id(
                 complete_template_parameters_of_template_class(decl_context,
                         generic_type,
                         template_parameters,
-                        nodecl_get_locus(nodecl_name));
+                        nodecl_get_locus(nodecl_name),
+                        /*pack_index*/ -1);
 
             if (completed_template_parameters == NULL)
             {
@@ -6813,7 +6820,8 @@ scope_entry_list_t* query_nodecl_template_id(
                 complete_template_parameters_of_template_class(decl_context,
                         generic_type,
                         template_parameters,
-                        nodecl_get_locus(nodecl_name));
+                        nodecl_get_locus(nodecl_name),
+                        /* pack_index */ -1);
 
             if (completed_template_parameters == NULL)
                 return NULL;
@@ -6923,7 +6931,8 @@ scope_entry_list_t* query_nodecl_template_id(
             complete_template_parameters_of_template_class(decl_context,
                     generic_type,
                     template_parameters,
-                    nodecl_get_locus(nodecl_name));
+                    nodecl_get_locus(nodecl_name),
+                    /* pack_index */ -1);
 
         if (completed_template_parameters == NULL)
         {
