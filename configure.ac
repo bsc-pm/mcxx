@@ -1714,7 +1714,7 @@ then
           bison_good=no
           AC_MSG_ERROR(${bison_ver}[, this version is known to fail])
        ;;
-       x2.@<:@34567@:>@*|x3.@<:@012@:>@*)
+       x2.@<:@34567@:>@*|x3.@<:@01234@:>@*)
           AC_MSG_RESULT([${bison_ver}])
           bison_good=yes
           ;;
