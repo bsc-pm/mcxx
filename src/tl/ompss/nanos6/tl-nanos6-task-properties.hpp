@@ -45,8 +45,6 @@
 
 namespace TL { namespace Nanos6 {
 
-    using TL::OpenMP::Lowering::DirectiveEnvironment;
-
     // Forward declaration of TL::Nanos6::Lower
     struct Lower;
 
@@ -61,7 +59,7 @@ namespace TL { namespace Nanos6 {
             };
 
             //! This member represents the directive environment
-            DirectiveEnvironment _env;
+            TL::OpenMP::Lowering::DirectiveEnvironment _env;
             TL::ObjectList<std::shared_ptr<Device> > _implementations;
 
             //! This member represents the serial statements of the task, can
@@ -211,9 +209,6 @@ namespace TL { namespace Nanos6 {
                     LoweringPhase* lowering_phase,
                     Lower* lower);
 
-            // FIXME: This constructor shouldn't exist
-            TaskProperties(const Nodecl::OmpSs::Release& node, Nodecl::NodeclBase &serial_stmts, LoweringPhase* lowering_phase, Lower* lower);
-
             // FIXME
             std::string get_new_name(const std::string& prefix) const;
 
@@ -268,8 +263,6 @@ namespace TL { namespace Nanos6 {
                     TL::Scope& unpacked_fun_inside_scope,
                     Nodecl::NodeclBase unpacked_fun_empty_stmt,
                     Nodecl::Utils::SimpleSymbolMap &symbol_map);
-
-            void compute_release_statements(/* out */ Nodecl::List& release_stmts);
 
             void fortran_add_types(TL::Scope sc);
 
