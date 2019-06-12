@@ -30,7 +30,9 @@
 #include "tl-omp-reduction.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl-utils.hpp"
+
 #include "cxx-diagnostic.h"
+#include "cxx-cexpr.h"
 
 namespace TL { namespace OpenMP {
 
@@ -223,46 +225,50 @@ namespace TL { namespace OpenMP {
     //
     //  void foo(int* c) { }
     //
+    static Nodecl::NodeclBase update_clause(Nodecl::NodeclBase clause, Symbol function_symbol)
+    {
+        ObjectList<Symbol> function_parameters = function_symbol.get_function_parameters();
+
+        GetAllSymbolsVisitor visitor;
+        visitor.walk(clause);
+
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
+        const std::set<TL::Symbol>& used_symbols = visitor.get_all_symbols();
+        for (std::set<TL::Symbol>::const_iterator it2 = used_symbols.begin();
+                it2 != used_symbols.end();
+                ++it2)
+        {
+            TL::Symbol current_symbol = *it2;
+            if (current_symbol.is_parameter()
+                    && current_symbol.is_parameter_of(function_symbol))
+            {
+                int param_position = current_symbol.get_parameter_position();
+                symbol_map.add_map(current_symbol, function_parameters[param_position]);
+            }
+        }
+
+        Nodecl::NodeclBase update_current_clause = Nodecl::Utils::deep_copy(
+                clause,
+                function_symbol.get_scope(),
+                symbol_map);
+
+        return update_current_clause;
+    }
+
+    // Convenience function that updates a list of expressions
     static ObjectList<Nodecl::NodeclBase> update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
             Symbol function_symbol)
     {
         ObjectList<Nodecl::NodeclBase> updated_clauses;
-        ObjectList<Symbol> function_parameters = function_symbol.get_function_parameters();
-
         for (ObjectList<Nodecl::NodeclBase>::const_iterator it = clauses.begin();
                 it != clauses.end();
                 ++it)
         {
-            Nodecl::NodeclBase current_clause = *it;
-
-            GetAllSymbolsVisitor visitor;
-            visitor.walk(current_clause);
-
-            Nodecl::Utils::SimpleSymbolMap symbol_map;
-            const std::set<TL::Symbol>& used_symbols = visitor.get_all_symbols();
-            for (std::set<TL::Symbol>::const_iterator it2 = used_symbols.begin();
-                    it2 != used_symbols.end();
-                    ++it2)
-            {
-                TL::Symbol current_symbol = *it2;
-                if (current_symbol.is_parameter()
-                        && current_symbol.is_parameter_of(function_symbol))
-                {
-                    int param_position = current_symbol.get_parameter_position();
-                    symbol_map.add_map(current_symbol, function_parameters[param_position]);
-                }
-            }
-
-            Nodecl::NodeclBase update_current_clause = Nodecl::Utils::deep_copy(
-                    current_clause,
-                    function_symbol.get_scope(),
-                    symbol_map);
-
-            updated_clauses.insert(update_current_clause);
-
+            updated_clauses.insert(update_clause(*it, function_symbol));
         }
         return updated_clauses;
     }
+
 
 
     //! This functor builds, for a certain expression, a new object of type T using that
@@ -623,7 +629,38 @@ namespace TL { namespace OpenMP {
         task_info.set_untied(is_untied_task);
 
         task_info.set_wait(pragma_line.get_clause("wait").is_defined());
-        task_info.set_lint_verified(pragma_line.get_clause("verified").is_defined());
+
+        PragmaCustomClause lint_verified_clause = pragma_line.get_clause("verified");
+        if (lint_verified_clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> expr_list = lint_verified_clause.get_arguments_as_expressions(parsing_scope);
+            if (expr_list.size() > 1)
+            {
+                error_printf_at(construct.get_locus(), "clause 'verified' has an invalid number of arguments\n");
+            }
+            else
+            {
+                Nodecl::NodeclBase expr;
+                if (expr_list.size() == 1)
+                    expr = expr_list[0];
+                else
+                {
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        expr = Nodecl::BooleanLiteral::make(
+                                TL::Type::get_bool_type(),
+                                const_value_get_one(/* signed*/ 0, /*bytes*/1),
+                                construct.get_locus());
+                    }
+                    else
+                    {
+                        expr = const_value_to_nodecl(const_value_get_one(/* signed*/ 0, /*bytes*/ 4));
+                    }
+                }
+
+                task_info.set_lint_verified(update_clause(expr, function_sym));
+            }
+        }
 
         PragmaCustomClause label_clause = pragma_line.get_clause("label");
         if (label_clause.is_defined())
@@ -812,5 +849,37 @@ namespace TL { namespace OpenMP {
     void Core::oss_release_handler_post(TL::PragmaCustomDirective construct)
     {
         _openmp_info->pop_current_data_environment();
+    }
+
+    void Core::oss_lint_handler_pre(TL::PragmaCustomStatement construct)
+    {
+        TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
+
+        DataEnvironment& data_environment = _openmp_info->get_new_data_environment(construct);
+
+        // A lint construct is not associated with a data environment in OmpSs-2.
+        // Despite that, it's useful to keep the information related to this construct
+        // in a DataEnvironment. However, we will never update the current data environment.
+        //_openmp_info->push_current_data_environment(data_environment);
+
+        ObjectList<Symbol> extra_symbols;
+
+        bool there_is_default_clause = false;
+        DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line,
+                /* fallback */ DS_UNDEFINED,
+                there_is_default_clause,
+                /*allow_default_auto*/ true);
+
+        get_basic_dependences_info(
+                pragma_line,
+                /*parsing_context*/ pragma_line,
+                data_environment,
+                default_data_attr, extra_symbols);
+    }
+
+    void Core::oss_lint_handler_post(TL::PragmaCustomStatement construct)
+    {
+        // A lint construct is not associated with a data environment in OmpSs-2.
+        //_openmp_info->pop_current_data_environment();
     }
 } }

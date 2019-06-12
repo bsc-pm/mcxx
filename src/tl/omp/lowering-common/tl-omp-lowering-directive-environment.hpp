@@ -96,7 +96,14 @@ namespace TL { namespace OpenMP { namespace Lowering {
         Nodecl::NodeclBase if_clause;
         Nodecl::NodeclBase cost_clause;
         Nodecl::NodeclBase priority_clause;
+        Nodecl::NodeclBase lint_verified;
         Nodecl::NodeclBase chunksize; // Taskloop
+
+
+        /* ------- OmpSs-2 Lint ------- */
+        TL::ObjectList<Nodecl::NodeclBase> lint_free;
+        TL::ObjectList<Nodecl::NodeclBase> lint_alloc;
+
 
         /* --------  Task flags & other stuff  ------ */
         bool is_tied;
@@ -105,7 +112,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
         bool task_is_taskcall;
         bool wait_clause;
         bool any_task_dependence;
-        bool lint_verified;
 
         /* --------  Debug & profiling information  ------ */
         std::string task_label;

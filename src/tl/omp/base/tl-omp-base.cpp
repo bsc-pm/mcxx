@@ -342,8 +342,9 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_DIRECTIVE_HANDLER(taskwait)
     OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
 
-#include "tl-omp-def-undef-macros.hpp"
+    OSS_INVALID_DECLARATION_HANDLER(lint)
 
+#include "tl-omp-def-undef-macros.hpp"
 
     void Base::set_simd(const std::string &simd_enabled_str)
     {
@@ -758,8 +759,34 @@ namespace TL { namespace OpenMP {
 
         if (pragma_line.get_clause("verified").is_defined())
         {
-            execution_environment.append(
-                    Nodecl::OmpSs::LintVerified::make(directive.get_locus()));
+            ObjectList<Nodecl::NodeclBase> expr_list = pragma_line.get_clause("verified").get_arguments_as_expressions(directive);
+            if (expr_list.size() > 1)
+            {
+                error_printf_at(directive.get_locus(),
+                        "invalid number of arguments in 'verified' clause\n");
+            }
+            else
+            {
+                Nodecl::NodeclBase expr;
+                if (expr_list.size() == 1)
+                    expr = expr_list[0];
+                else
+                {
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        expr = Nodecl::BooleanLiteral::make(
+                                TL::Type::get_bool_type(),
+                                const_value_get_one(/* signed*/ 0, /*bytes*/1),
+                                directive.get_locus());
+                    }
+                    else
+                    {
+                        expr = const_value_to_nodecl(const_value_get_one(/* signed*/ 0, /*bytes*/ 4));
+                    }
+                }
+
+                execution_environment.append(Nodecl::OmpSs::LintVerified::make(expr, directive.get_locus()));
+            }
 
             if (emit_omp_report())
             {
@@ -2927,6 +2954,49 @@ namespace TL { namespace OpenMP {
                     directive.get_locus()));
     }
 
+    void Base::oss_lint_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::oss_lint_handler_post(TL::PragmaCustomStatement directive)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << directive.get_locus_str() << ": " << "LINT construct\n"
+                << directive.get_locus_str() << ": " << "------------------\n"
+                ;
+        }
+
+        OpenMP::DataEnvironment &data_environment =
+            _core.get_openmp_info()->get_data_environment(directive);
+        Nodecl::List environment = this->make_execution_environment(
+                data_environment,
+                pragma_line,
+                /* ignore_target_info */ true);
+
+        PragmaCustomClause free_clause = pragma_line.get_clause("free");
+        if (free_clause.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = free_clause.get_arguments_as_expressions(directive);
+            environment.append(Nodecl::OmpSs::LintFree::make(Nodecl::List::make(expr_list)));
+        }
+
+        PragmaCustomClause alloc_clause = pragma_line.get_clause("alloc");
+        if (alloc_clause.is_defined())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = alloc_clause.get_arguments_as_expressions(directive);
+            environment.append(Nodecl::OmpSs::LintAlloc::make(Nodecl::List::make(expr_list)));
+        }
+
+        pragma_line.diagnostic_unused_clauses();
+
+        directive.replace(
+                Nodecl::OmpSs::Lint::make(
+                    environment,
+                    directive.get_statements(),
+                    directive.get_locus()));
+    }
 
     struct SymbolBuilder
     {

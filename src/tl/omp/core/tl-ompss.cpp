@@ -436,8 +436,7 @@ namespace TL { namespace OmpSs {
             TL::Symbol function_sym) :
         _sym(function_sym),
         _untied(task_info._untied),
-        _wait(task_info._wait),
-        _lint_verified(task_info._lint_verified)
+        _wait(task_info._wait)
     {
         // Copy the target information
         set_target_info(TargetInfo(task_info._target_info, translation_map, function_sym));
@@ -460,6 +459,9 @@ namespace TL { namespace OmpSs {
             TL::OpenMP::DependencyItem updated_dep_item(updated_data_ref, dir);
             _parameters.append(updated_dep_item);
         }
+
+        _lint_verified = Nodecl::Utils::deep_copy(
+                task_info._lint_verified, task_info._sym.get_scope(), translation_map);
 
         _if_clause_cond_expr = Nodecl::Utils::deep_copy(
                 task_info._if_clause_cond_expr, task_info._sym.get_scope(), translation_map);
@@ -494,7 +496,6 @@ namespace TL { namespace OmpSs {
         new_function_task_info._locus = _locus;
         new_function_task_info._untied = _untied;
         new_function_task_info._wait = _wait;
-        new_function_task_info._lint_verified = _lint_verified;
 
         // Second, instantiate all the dependences
         for (TL::ObjectList<TL::OpenMP::DependencyItem>::iterator it = _parameters.begin();
@@ -513,6 +514,17 @@ namespace TL { namespace OmpSs {
 
 
         // Third, instantiate the if clause, the final clause and the priority clause
+        if (!_lint_verified.is_null())
+        {
+            Nodecl::NodeclBase updated_lint_verified = instantiate_expression(
+                    _lint_verified.get_internal_nodecl(),
+                    instantiation_context,
+                    instantiation_symbol_map,
+                    /* pack index */ -1);
+
+            new_function_task_info._lint_verified = updated_lint_verified;
+        }
+
         if (!_if_clause_cond_expr.is_null())
         {
             Nodecl::NodeclBase updated_if_clause = instantiate_expression(
@@ -717,12 +729,12 @@ namespace TL { namespace OmpSs {
         return _wait;
     }
 
-    void FunctionTaskInfo::set_lint_verified(bool b)
+    void FunctionTaskInfo::set_lint_verified(Nodecl::NodeclBase expr)
     {
-        _lint_verified = b;
+        _lint_verified = expr;
     }
 
-    bool FunctionTaskInfo::get_lint_verified() const
+    Nodecl::NodeclBase FunctionTaskInfo::get_lint_verified() const
     {
         return _lint_verified;
     }

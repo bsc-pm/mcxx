@@ -59,6 +59,8 @@ namespace TL { namespace Nanos6 {
             void visit(const Nodecl::OpenMP::Task &n);
             void visit(const Nodecl::OpenMP::Taskwait &n);
 
+            void visit(const Nodecl::OmpSs::Lint &n);
+
             // Unsupported
 #define UNIMPLEMENTED_VISITOR(TYPE) \
             void visit(const TYPE &n) { \

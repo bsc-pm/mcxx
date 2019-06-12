@@ -384,8 +384,8 @@ namespace TL { namespace Nanos6 {
 
             if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
-                compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                        _env.lint_verified, /* bit */ 5, /* out */ task_flags_expr);
+                compute_generic_flag_c(_env.lint_verified,
+                        /* default value*/ 0, /* bit */ 5, /* out */ task_flags_expr);
             }
 
             new_stmts.append(
@@ -426,7 +426,7 @@ namespace TL { namespace Nanos6 {
             if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.lint_verified, /* bit */ 5));
+                    compute_generic_flag_fortran(task_flags, _env.lint_verified, /*defaul value */0, /* bit */ 5));
             }
         }
         out_stmts = new_stmts;
