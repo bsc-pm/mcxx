@@ -3033,9 +3033,6 @@ namespace TL { namespace OpenMP {
 
         pragma_line.diagnostic_unused_clauses();
 
-        TL::ObjectList<OpenMP::DependencyItem> dependences;
-        data_environment.get_all_dependences(dependences);
-
         directive.replace(
                 Nodecl::OmpSs::Release::make(
                     environment,
