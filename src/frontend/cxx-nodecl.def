@@ -734,6 +734,7 @@ omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
                 | NODECL_OMP_SS*WEAK_REDUCTION([reductions]omp-reduction-item-seq)
                 | NODECL_OMP_SS*COST([cost]expression)
+                | NODECL_OMP_SS*LINT_VERIFIED()
                 | NODECL_OMP_SS*TASK_LABEL() text
 
 omp-exec-environment : ompss-device-info

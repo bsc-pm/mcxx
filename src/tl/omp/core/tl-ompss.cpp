@@ -436,7 +436,8 @@ namespace TL { namespace OmpSs {
             TL::Symbol function_sym) :
         _sym(function_sym),
         _untied(task_info._untied),
-        _wait(task_info._wait)
+        _wait(task_info._wait),
+        _lint_verified(task_info._lint_verified)
     {
         // Copy the target information
         set_target_info(TargetInfo(task_info._target_info, translation_map, function_sym));
@@ -493,6 +494,7 @@ namespace TL { namespace OmpSs {
         new_function_task_info._locus = _locus;
         new_function_task_info._untied = _untied;
         new_function_task_info._wait = _wait;
+        new_function_task_info._lint_verified = _lint_verified;
 
         // Second, instantiate all the dependences
         for (TL::ObjectList<TL::OpenMP::DependencyItem>::iterator it = _parameters.begin();
@@ -715,6 +717,16 @@ namespace TL { namespace OmpSs {
         return _wait;
     }
 
+    void FunctionTaskInfo::set_lint_verified(bool b)
+    {
+        _lint_verified = b;
+    }
+
+    bool FunctionTaskInfo::get_lint_verified() const
+    {
+        return _lint_verified;
+    }
+
     void FunctionTaskInfo::module_write(ModuleWriter& mw)
     {
         mw.write(_sym);
@@ -724,6 +736,7 @@ namespace TL { namespace OmpSs {
         mw.write(_final_clause_cond_expr);
         mw.write(_untied);
         mw.write(_wait);
+        mw.write(_lint_verified);
         mw.write(_priority_clause_expr);
         mw.write(_cost_clause_expr);
         mw.write(_task_label);
@@ -740,6 +753,7 @@ namespace TL { namespace OmpSs {
         mr.read(_final_clause_cond_expr);
         mr.read(_untied);
         mr.read(_wait);
+        mr.read(_lint_verified);
         mr.read(_priority_clause_expr);
         mr.read(_cost_clause_expr);
         mr.read(_task_label);

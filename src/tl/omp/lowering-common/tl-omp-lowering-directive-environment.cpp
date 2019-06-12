@@ -372,12 +372,17 @@ namespace TL { namespace OpenMP { namespace Lowering {
             {
                 _env.chunksize = n.get_chunksize();
             }
+
+            virtual void visit(const Nodecl::OmpSs::LintVerified &n)
+            {
+                _env.lint_verified = true;
+            }
     };
 
     DirectiveEnvironment::DirectiveEnvironment(Nodecl::NodeclBase environment) :
         is_tied(true), task_is_loop(false), task_is_taskwait_with_deps(false),
         task_is_taskcall(false), wait_clause(false),
-        any_task_dependence(false), locus_of_task_declaration(NULL)
+        any_task_dependence(false), lint_verified(false), locus_of_task_declaration(NULL)
     {
         // Traversing & filling the directive environment
         DirectiveEnvironmentVisitor visitor(*this);

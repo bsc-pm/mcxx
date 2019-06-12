@@ -756,6 +756,20 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        if (pragma_line.get_clause("verified").is_defined())
+        {
+            execution_environment.append(
+                    Nodecl::OmpSs::LintVerified::make(directive.get_locus()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "This task VERIFIES its dependences.\n"
+                    ;
+            }
+        }
+
         if (pragma_line.get_clause("wait").is_defined())
         {
             execution_environment.append(
