@@ -324,7 +324,7 @@ namespace TL { namespace Checkpoint {
 
         Nodecl::List args;
         if (!env.communicator.is_null())
-            args.append(Nodecl::Conversion::make(env.communicator, TL::Type::get_ptrdiff_t_type()));
+            args.append(env.communicator);
 
         Nodecl::NodeclBase function_call = Nodecl::FunctionCall::make(
                 init_fun.make_nodecl(/*set_ref_type*/true),
