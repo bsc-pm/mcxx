@@ -524,6 +524,8 @@ static void check_shaping_expression(AST expression, const decl_context_t* decl_
 static void check_gcc_builtin_offsetof(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 static void check_gcc_builtin_choose_expr(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 static void check_gcc_builtin_types_compatible_p(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gxx_builtin_addressof(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+
 static void check_gcc_label_addr(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 static void check_gcc_real_or_imag_part(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 static void check_gcc_alignof_expr(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
@@ -1192,6 +1194,11 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
         case AST_GCC_BUILTIN_TYPES_COMPATIBLE_P :
             {
                 check_gcc_builtin_types_compatible_p(expression, decl_context, nodecl_output);
+                break;
+            }
+        case AST_GXX_BUILTIN_ADDRESSOF:
+            {
+                check_gxx_builtin_addressof(expression, decl_context, nodecl_output);
                 break;
             }
         case AST_GCC_PARENTHESIZED_EXPRESSION :
@@ -23811,6 +23818,50 @@ static void check_gcc_builtin_types_compatible_p(AST expression, const decl_cont
     }
 }
 
+static void check_nodecl_gxx_builtin_addressof(
+        nodecl_t nodecl_expr,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    type_t *expr_type = nodecl_get_type(nodecl_expr);
+    if (!is_dependent_type(expr_type)
+            && !is_lvalue_reference_type(expr_type))
+    {
+        error_printf_at(locus, "'__builtin_addressof' expects a lvalue expression as argument\n");
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    type_t* result_type = expr_type;
+    if (!is_dependent_type(result_type))
+        result_type = get_pointer_type(no_ref(expr_type));
+
+    *nodecl_output = nodecl_make_gxx_builtin_addressof(
+            nodecl_expr,
+            result_type,
+            locus);
+
+    nodecl_expr_set_is_type_dependent(*nodecl_output, is_dependent_type(result_type));
+}
+
+static void check_gxx_builtin_addressof(AST expression,
+        const decl_context_t* decl_context,
+        nodecl_t* nodecl_output)
+{
+    const locus_t* locus = ast_get_locus(expression);
+
+    nodecl_t nodecl_expr = nodecl_null();
+    check_expression_impl_(ASTSon0(expression), decl_context, &nodecl_expr);
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    check_nodecl_gxx_builtin_addressof(nodecl_expr, decl_context, locus, nodecl_output);
+}
+
 static void check_gcc_label_addr(AST expression, 
         const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
@@ -31375,6 +31426,22 @@ static void instantiate_imag_part(nodecl_instantiate_expr_visitor_t* v, nodecl_t
             &v->nodecl_result);
 }
 
+static void instantiate_gxx_builtin_addressof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    const locus_t* locus = nodecl_get_locus(node);
+    nodecl_t nodecl_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        v->nodecl_result = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    check_nodecl_gxx_builtin_addressof(nodecl_expr,
+            v->decl_context,
+            locus,
+            &v->nodecl_result);
+}
+
 // Initialization
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, const decl_context_t* decl_context)
 {
@@ -31535,6 +31602,9 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_real_part = instantiate_expr_visitor_fun(instantiate_real_part);
     // __imag__
     NODECL_VISITOR(v)->visit_imag_part = instantiate_expr_visitor_fun(instantiate_imag_part);
+
+    // __builtin_addressof
+    NODECL_VISITOR(v)->visit_gxx_builtin_addressof = instantiate_expr_visitor_fun(instantiate_gxx_builtin_addressof);
 }
 
 

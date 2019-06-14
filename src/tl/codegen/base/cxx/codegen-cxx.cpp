@@ -4931,6 +4931,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GccBuiltinVaArg& node)
     *(file) << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::GxxBuiltinAddressof& node)
+{
+    *(file) << "__builtin_addressof(";
+    walk(node.get_expr());
+    *(file) << ")";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::UpcSyncStatement& node)
 {
     *(file) << node.get_text() << "(";
