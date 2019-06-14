@@ -478,7 +478,6 @@ struct command_line_long_options command_line_long_options[] =
     {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
     {"help-target-options", CLP_NO_ARGUMENT, OPTION_HELP_TARGET_OPTIONS},
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
-    {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
     {"pp-stdout", CLP_NO_ARGUMENT, OPTION_PREPROCESSOR_USES_STDOUT},
     {"disable-gxx-traits", CLP_NO_ARGUMENT, OPTION_DISABLE_GXX_TRAITS},
     {"pass-through", CLP_NO_ARGUMENT, OPTION_PASS_THROUGH}, 
@@ -1371,12 +1370,6 @@ int parse_arguments(int argc, const char* argv[],
                         P_LIST_ADD(CURRENT_CONFIGURATION->external_vars, CURRENT_CONFIGURATION->num_external_vars,
                                 new_external_var);
 
-                        break;
-                    }
-                case OPTION_TYPECHECK :
-                    {
-                        fprintf(stderr, "%s: option --typecheck has been deprecated and it has no effect\n",
-                                    compilation_process.exec_basename);
                         break;
                     }
                 case OPTION_PREPROCESSOR_USES_STDOUT :
