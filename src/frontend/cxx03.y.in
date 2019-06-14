@@ -279,6 +279,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // GNU Extensions
 %token<token_atrib> BUILTIN_VA_ARG "__builtin_va_arg"
 %token<token_atrib> BUILTIN_OFFSETOF "__builtin_offsetof"
+%token<token_atrib> BUILTIN_ADDRESSOF "__builtin_addressof"
 %token<token_atrib> TOKEN_GCC_ALIGNOF "__alignof__"
 %token<token_atrib> EXTENSION "__extension__"
 %token<token_atrib> REAL "__real__"
@@ -4444,6 +4445,10 @@ primary_expression : literal
 | BUILTIN_OFFSETOF '(' type_id ',' offsetof_member_designator ')'
 {
     $$ = ASTMake2(AST_GCC_BUILTIN_OFFSETOF, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+}
+| BUILTIN_ADDRESSOF '(' assignment_expression ')'
+{
+    $$ = ASTMake1(AST_GXX_BUILTIN_ADDRESSOF, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | gnu_type_traits
 {

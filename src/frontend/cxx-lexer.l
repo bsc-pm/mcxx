@@ -1313,6 +1313,9 @@ type {
 "__builtin_choose_expr" { parse_token_text(); update_location(); return BUILTIN_CHOOSE_EXPR; }
 "__builtin_types_compatible_p" { parse_token_text(); update_location(); return BUILTIN_TYPES_COMPATIBLE_P; }
  /*!endif*/
+ /*!if CPLUSPLUS*/
+"__builtin_addressof"         { parse_token_text(); update_location(); if (IS_CXX_LANGUAGE) return BUILTIN_ADDRESSOF; else return IDENTIFIER; }
+ /*!endif*/
 "__extension__" { parse_token_text(); update_location(); return EXTENSION; }
 "__alignof" { parse_token_text(); update_location(); return TOKEN_GCC_ALIGNOF; }
 "__alignof__" { parse_token_text(); update_location(); return TOKEN_GCC_ALIGNOF; }
