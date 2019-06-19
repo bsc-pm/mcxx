@@ -1987,8 +1987,9 @@ static const char* map_std_flags[][3] = {
     [NATIVE_VENDOR_INTEL]  = { "-std=gnu99", "-std=gnu++98", "-nostand" },
     [NATIVE_VENDOR_IBM]    = { "-std=gnu99", "-std=gnu++03", "-qlanglvl=extended" },
     // NVCC should be used to compile CUDA files, which are considered to be written in a different lang
-    [NATIVE_VENDOR_NVIDIA] = { "", "", "" },
-    [NATIVE_VENDOR_CRAY]   = { "-h std=c99", "-h std=c++03", ""}
+    [NATIVE_VENDOR_NVIDIA] = { "",           "",             "" },
+    [NATIVE_VENDOR_CRAY]   = { "-h std=c99", "-h std=c++03", "" },
+    [NATIVE_VENDOR_PGI]    = {"-c99",        "-std=c++03",   "" }
 };
 
 
@@ -3707,7 +3708,8 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
         const char* output_filename_basename = NULL; 
 
-        if (IS_FORTRAN_LANGUAGE)
+        if (IS_FORTRAN_LANGUAGE
+                || CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_PGI)
         {
             // Change the extension to be .f90 always
             const char * ext = strrchr(input_filename_basename, '.');
@@ -3718,12 +3720,28 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
             strncpy(c, input_filename_basename, (size_t)(ext - input_filename_basename));
             c[ext - input_filename_basename + 1] = '\0';
-
-            input_filename_basename = strappend(c, ".f90");
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                // Change the extension to be .f90 always
+                input_filename_basename = strappend(c, ".f90");
+            }
+            else if(CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_PGI)
+            {
+                // We only get here when the language is C/C++ and the native vendor is PGI.
+                // We need to change the extension of the original file to .i for C and C++
+                // (note that .ii is not supported) because every time we call the pgi compiler
+                // it preprocesses our file adding some internal headers. Thus, we end up having
+                // two definitions of the same symbols: one introduced by the call to the preprocessor
+                // and another one when PGI tries to compile the generated output.
+                input_filename_basename = strappend(c, ".i");
+            }
+            else
+            {
+                internal_error("unreachable code\n", 0);
+            }
         }
 
-        output_filename_basename = strappend(preffix,
-                input_filename_basename);
+        output_filename_basename = strappend(preffix, input_filename_basename);
 
         if (compilation_process.parallel_process)
         {
