@@ -2419,6 +2419,8 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
     src/tl/ompss/nanos6/devices/smp/tl-nanos6-smp-device.cpp \
     src/tl/ompss/nanos6/devices/cuda/tl-nanos6-cuda-device.hpp \
     src/tl/ompss/nanos6/devices/cuda/tl-nanos6-cuda-device.cpp \
+    src/tl/ompss/nanos6/devices/openacc/tl-nanos6-openacc-device.hpp \
+    src/tl/ompss/nanos6/devices/openacc/tl-nanos6-openacc-device.cpp \
     $(END)
 
 endif
