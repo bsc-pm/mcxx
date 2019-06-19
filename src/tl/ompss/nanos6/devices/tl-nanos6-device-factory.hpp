@@ -32,6 +32,7 @@
 #include "tl-nanos6-device.hpp"
 #include "smp/tl-nanos6-smp-device.hpp"
 #include "cuda/tl-nanos6-cuda-device.hpp"
+#include "openacc/tl-nanos6-openacc-device.hpp"
 
 #include "cxx-diagnostic.h"
 
@@ -40,15 +41,19 @@ namespace TL { namespace Nanos6 {
     class DeviceFactory
     {
         public:
-            static std::shared_ptr<Device> get_device(const std::string &device_name) {
+            static std::shared_ptr<Device> get_device(const std::string &device_name)
+            {
                 if (device_name == "smp")
                 {
                     return std::shared_ptr<SMPDevice>(new SMPDevice());
                 }
                 else if (device_name == "cuda")
                 {
-                    //FIXME: CHECK AT THIS POINT WHETHER CUDA WAS ENABLED!
                     return std::shared_ptr<CUDADevice>(new CUDADevice());
+                }
+                else if (device_name == "openacc")
+                {
+                    return std::shared_ptr<OpenACCDevice>(new OpenACCDevice());
                 }
                 else
                 {
