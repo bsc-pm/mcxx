@@ -1,0 +1,42 @@
+#Intel Compilers
+[pgimcc : omp-base]
+language = C
+options = --native-vendor=pgi
+preprocessor_name = @PGICXX@
+preprocessor_options = --c
+compiler_name = @PGICC@
+linker_name = @PGICC@
+
+
+
+[pgimcxx : omp-base]
+language = C++
+options = --native-vendor=pgi
+{openmp|ompss-2} preprocessor_options = -include new
+preprocessor_name = @PGICXX@
+compiler_name = @PGICXX@
+linker_name = @PGICXX@
+
+
+
+### [imfc : omp-base]
+### language = Fortran
+### options = --native-vendor=intel
+### options = --ifort-compat --do-not-wrap-modules --fortran-array-descriptor=ifort --enable-intel-builtins-syntax --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types --fortran-name-mangling=ifort
+### {!disable-intel-intrinsics} options = --enable-intel-intrinsics
+### options = -I @PKGDATADIR@/fortran/openmp
+### fortran_preprocessor_name = @IFORT@
+### fortran_preprocessor_options = -P
+### compiler_name = @IFORT@
+### compiler_options = -recursive -assume realloc_lhs -reentrancy threaded
+### linker_name = @IFORT@
+### linker_options = -reentrancy threaded
+### {mmic} preprocessor_name = @ICC@
+### {mmic} preprocessor_options = -mmic
+### {mmic} fortran_preprocessor_options = -mmic
+### {mmic} compiler_options = -mmic
+### {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
+### {mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
+### {mmic}target_objcopy=@MIC_TOOLS@objcopy
+### {mmic}target_objdump=@MIC_TOOLS@objdump
+### {mmic}target_ar=@MIC_TOOLS@ar

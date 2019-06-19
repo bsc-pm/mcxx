@@ -3304,6 +3304,7 @@ CONFIG_FILES =  \
        config/55.config.omp.cray   \
        config/55.config.omp.ibm    \
        config/55.config.omp.intel  \
+       config/55.config.omp.pgi   \
        config/56.config.omp.mpi \
        config/56.config.omp.intel.mpi \
        config/57.config.omp.smp \
@@ -3370,6 +3371,9 @@ config_edit = \
      -e 's|@CRAYCC[@]|$(CRAYCC)|g' \
      -e 's|@CRAYCXX[@]|$(CRAYCXX)|g' \
      -e 's|@CRAYFC[@]|$(CRAYFC)|g' \
+     -e 's|@PGICC[@]|$(PGICC)|g' \
+     -e 's|@PGICXX[@]|$(PGICXX)|g' \
+     -e 's|@PGIFC[@]|$(PGIFC)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \
      -e 's|@SIMD_FLAGS[@]|$(SIMD_FLAGS)|g' \
