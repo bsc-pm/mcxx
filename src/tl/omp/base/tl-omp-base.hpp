@@ -184,17 +184,10 @@ namespace TL
                 //         TL::Symbol new_induction_var,
                 //         TL::Symbol block_extent_var);
 
-                void handle_task_if_clause(
-                        const TL::PragmaCustomStatement& directive,
-                        Nodecl::NodeclBase parsing_context,
-                        Nodecl::List& execution_environment);
-
-                void handle_task_final_clause(
-                        const TL::PragmaCustomStatement& directive,
-                        Nodecl::NodeclBase parsing_context,
-                        Nodecl::List& execution_environment);
-
-                void handle_task_priority_clause(
+                template < typename T>
+                void handle_generic_clause_with_one_argument(
+                        const std::string &clause_name,
+                        const std::string &omp_report_message,
                         const TL::PragmaCustomStatement& directive,
                         Nodecl::NodeclBase parsing_context,
                         Nodecl::List& execution_environment);
