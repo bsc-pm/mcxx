@@ -4344,38 +4344,37 @@ namespace TL { namespace OpenMP {
     {
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         PragmaCustomClause label_clause = pragma_line.get_clause("label");
-        TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
-        if (label_clause.is_defined()
-                && str_list.size() == 1)
+        if (label_clause.is_defined())
         {
-            execution_environment.append(
-                    Nodecl::OmpSs::TaskLabel::make(
-                        str_list[0],
-                        directive.get_locus()));
-
-            if (emit_omp_report())
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+            if (str_list.size() == 1)
             {
-                *_omp_report_file
-                    << OpenMP::Report::indent
-                    << "Parallel construct labeled '" << str_list[0] << "'\n";
+                execution_environment.append(
+                        Nodecl::OmpSs::TaskLabel::make(str_list[0], directive.get_locus()));
+
+                if (emit_omp_report())
+                {
+                    *_omp_report_file
+                        << OpenMP::Report::indent
+                        << "Its label is '" << str_list[0] << "'\n";
+                }
+            }
+            else
+            {
+                error_printf_at(directive.get_locus(),
+                        "invalid number of arguments in 'label' clause\n");
             }
         }
         else
         {
-            if (label_clause.is_defined())
-            {
-                warn_printf_at(directive.get_locus(), "ignoring invalid 'label' clause in 'parallel' construct\n");
-            }
             if (emit_omp_report())
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This parallel construct does not have any label\n";
+                    << "It does not have any label\n";
             }
         }
     }
-
-
 } }
 
 EXPORT_PHASE(TL::OpenMP::Base)
