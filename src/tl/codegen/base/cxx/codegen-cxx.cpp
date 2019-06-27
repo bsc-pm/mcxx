@@ -5872,12 +5872,18 @@ void CxxBase::declare_dependent_friend_class(TL::Symbol friend_symbol, TL::Symbo
             class_symbol.get_scope().get_template_parameters(),
             /* show default values */ false);
 
-    if (friend_symbol.get_type().is_unnamed_class()
+    if ((!friend_symbol.get_type().is_named()
+         || !friend_symbol.get_type().get_symbol().is_typedef())
+        && (friend_symbol.get_type().is_unnamed_class()
             || friend_symbol.get_type().is_template_type()
             || friend_symbol.get_type().is_named_class()
             || (friend_symbol.get_type().is_named()
                 && friend_symbol.get_type().get_symbol().is_template()
-                && friend_symbol.get_type().get_symbol().get_type().get_primary_template().is_named_class()))
+                && friend_symbol.get_type()
+                       .get_symbol()
+                       .get_type()
+                       .get_primary_template()
+                       .is_named_class())))
     {
         // template <typename T>
         // struct B
