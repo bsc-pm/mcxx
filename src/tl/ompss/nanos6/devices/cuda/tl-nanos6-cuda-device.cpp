@@ -58,6 +58,11 @@ TL::Symbol CUDADevice::get_device_type_id() const
     return device_type_id;
 }
 
+bool CUDADevice::requires_arguments_translation() const
+{
+    return true;
+}
+
 namespace {
 Nodecl::NodeclBase get_block_member_initialization(
         TL::Symbol dim_block, TL::Symbol member, Nodecl::NodeclBase global, Nodecl::NodeclBase local)

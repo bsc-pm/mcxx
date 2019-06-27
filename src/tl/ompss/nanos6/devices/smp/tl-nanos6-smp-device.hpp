@@ -35,7 +35,10 @@ namespace TL { namespace Nanos6 {
     {
         public:
             //! This function returns a symbol that represents the device type id
-            virtual TL::Symbol get_device_type_id() const;
+            TL::Symbol get_device_type_id() const;
+
+            //! This function returns whether the current device requires arguments translation
+            bool requires_arguments_translation() const;
     };
 
 } }

@@ -39,4 +39,9 @@ TL::Symbol SMPDevice::get_device_type_id() const
     return device_type_id;
 }
 
+bool SMPDevice::requires_arguments_translation() const
+{
+    return false;
+}
+
 } }

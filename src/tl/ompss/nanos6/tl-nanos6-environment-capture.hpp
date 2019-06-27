@@ -53,7 +53,6 @@ namespace Nanos6
         typedef std::map<TL::Symbol, TL::Symbol> field_map_t;
         typedef std::map<TL::Symbol, symbol_type_t> field_type_map_t;
         typedef std::map<TL::Symbol, TL::Symbol> array_descriptor_map_t;
-        typedef std::map<std::string, std::pair<TL::Symbol, TL::Type> > standalone_field_map_t;
 
         const locus_t* _originating_locus;
         Nodecl::NodeclBase _originating_context;
@@ -77,7 +76,6 @@ namespace Nanos6
         field_type_map_t _field_type_map;
 
         array_descriptor_map_t _array_descriptor_map;
-        standalone_field_map_t _standalone_field_map;
 
         // This nodecl represents the extra storage that the runtime has to
         // allocate contiguously to the arguments structure to support VLAs
@@ -118,12 +116,8 @@ namespace Nanos6
             const locus_t* originating_locus,
             Nodecl::NodeclBase originating_context);
 
-        static std::string get_private_symbol_name(const TL::Symbol& symbol);
-        static std::string get_shared_symbol_name(const TL::Symbol& symbol);
-
         void add_storage_for_private_symbol(TL::Symbol symbol);
         void add_storage_for_shared_symbol(TL::Symbol symbol);
-        void add_storage_for_standalone_field(const std::string &name, TL::Type type);
 
         TL::Type end_type_setup();
 
@@ -175,7 +169,6 @@ namespace Nanos6
         Accessor get_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool actual_storage_if_private_vla, bool reference_to_pointer_if_shared) const;
         Accessor get_private_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool actual_storage_if_vla) const;
         Accessor get_shared_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool reference_to_pointer) const;
-        Accessor get_standalone_field_accessor(const TL::Symbol& object, const std::string &field_name, bool actual_storage_if_vla) const;
 
         bool requires_initialization() const
         {
@@ -251,13 +244,6 @@ namespace Nanos6
             /* inout */
             Nodecl::List &extra_c_code);
 
-        // Emit the statements to perform the allocation of a standalone field
-        Nodecl::List emit_standalone_field_allocation(
-            TL::Scope context,
-            const TL::Symbol& destination_environment,
-            const std::string& field_name,
-            /* inout */
-            Nodecl::NodeclBase &vla_offset);
 
         /********/
 
@@ -266,6 +252,12 @@ namespace Nanos6
             TL::Scope context,
             const TL::Symbol& source_environment,
             const TL::Symbol& original_symbol);
+
+
+        static std::string get_field_name(const std::string& str)
+        {
+            return "mcc_" + str;
+        }
     };
 }
 }
