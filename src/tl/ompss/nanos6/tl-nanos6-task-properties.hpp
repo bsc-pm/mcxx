@@ -77,7 +77,6 @@ namespace TL { namespace Nanos6 {
             unsigned int _num_reductions;
 
             //! Used to keep track of unique task dependence symbols
-            unsigned int _num_dep_symbols;
             std::map<TL::Symbol, unsigned int> _dep_symbols_to_id;
 
             //! It's used (among other things) to avoid name collision when generating new functions
@@ -160,18 +159,36 @@ namespace TL { namespace Nanos6 {
                     //Out
                     TL::Symbol &outline_function,
                     Nodecl::NodeclBase &outline_empty_stmt);
+
+            //! It calls to the generic 'create_outline_function' function
             TL::Symbol create_outline_function(
                     const TL::Symbol &unpacked_function,
                     const std::string &common_name,
                     const TL::ObjectList<std::string> &outline_parameter_names,
                     const ObjectList<TL::Type> &outline_parameter_types);
 
+            //! It creates a static function that calls to a new unpack function
+            TL::Symbol create_outline_function(
+                    const TL::Symbol &unpacked_function,
+                    const std::string &common_name,
+                    const TL::ObjectList<std::string> &outline_fun_param_names,
+                    const ObjectList<TL::Type> &outline_fun_param_types,
+                    void (TaskProperties::*compute_stmts_pre_fun_call_fun)
+                            (const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const);
+
+            //! This function computes the stmts that translate the arguments
+            //! to the address space of the device where the task is going to be executed
+            void compute_arguments_translation(
+                    const TL::Scope &outline_fun_inside_scope,
+                    Nodecl::List &stmts) const;
+
+
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,
-                                          TL::Scope class_scope,
-                                          const std::string &var_name,
-                                          const locus_t *var_locus,
-                                          bool is_allocatable,
-                                          TL::Type field_type);
+                    TL::Scope class_scope,
+                    const std::string &var_name,
+                    const locus_t *var_locus,
+                    bool is_allocatable,
+                    TL::Type field_type);
 
             TL::Scope compute_scope_for_environment_structure();
 

@@ -118,9 +118,6 @@ namespace Nanos6
             const locus_t* originating_locus,
             Nodecl::NodeclBase originating_context);
 
-        static std::string get_private_symbol_name(const TL::Symbol& symbol);
-        static std::string get_shared_symbol_name(const TL::Symbol& symbol);
-
         void add_storage_for_private_symbol(TL::Symbol symbol);
         void add_storage_for_shared_symbol(TL::Symbol symbol);
         void add_storage_for_standalone_field(const std::string &name, TL::Type type);
@@ -266,6 +263,12 @@ namespace Nanos6
             TL::Scope context,
             const TL::Symbol& source_environment,
             const TL::Symbol& original_symbol);
+
+
+        static std::string get_field_name(const std::string& str)
+        {
+            return "mcc_" + str;
+        }
     };
 }
 }

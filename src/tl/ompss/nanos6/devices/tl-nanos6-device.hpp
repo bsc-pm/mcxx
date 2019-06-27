@@ -43,6 +43,9 @@ namespace TL { namespace Nanos6 {
             //! This function returns a symbol that represents the device type id
             virtual TL::Symbol get_device_type_id() const = 0;
 
+            //! This function returns whether the current device requires arguments translation
+            virtual bool requires_arguments_translation() const = 0;
+
             //! Generic implementation: it returns a deep copy of the task_body
             //! in the 'unpacked_inside_scope' context applying the replacements
             //! defined in the 'symbol_map' map.
@@ -62,6 +65,7 @@ namespace TL { namespace Nanos6 {
             //! Generic implementation: it appends the function code to the top level
             virtual void root_unpacked_function(
                     TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code);
+
     };
 
 } }

@@ -79,12 +79,7 @@ TL::Type fortran_storage_type_array_descriptor(TL::Type array_type)
 
 std::string get_name_for_descriptor(const std::string &var_name)
 {
-    TL::Counter &counter
-        = TL::CounterManager::get_counter("array-descriptor-copies");
-    std::stringstream ss;
-    ss << var_name << "_descriptor_" << (int)counter;
-    counter++;
-    return ss.str();
+    return "mcc_descriptor_" + var_name;
 }
 
 // Given an array type, this function returns an array type with descriptor
@@ -271,16 +266,6 @@ namespace TL { namespace Nanos6 {
         _class_symbol.get_internal_symbol()->type_information = _inner_class_type;
     }
 
-    std::string EnvironmentCapture::get_private_symbol_name(const TL::Symbol& symbol)
-    {
-        return std::string("mcc_private_") + symbol.get_name();
-    }
-
-    std::string EnvironmentCapture::get_shared_symbol_name(const TL::Symbol& symbol)
-    {
-        return std::string("mcc_shared_") + symbol.get_name();
-    }
-
     void EnvironmentCapture::add_storage_for_private_symbol(TL::Symbol symbol)
     {
         ERROR_CONDITION(_field_type_map.find(symbol) != _field_type_map.end(), "Duplicate symbol capture", 0);
@@ -341,7 +326,7 @@ namespace TL { namespace Nanos6 {
         TL::Symbol field = add_field_to_class(
             _class_symbol,
             _class_scope,
-            get_private_symbol_name(symbol),
+            get_field_name(symbol.get_name()),
             symbol.get_locus(),
             is_allocatable,
             type_of_field);
@@ -434,7 +419,7 @@ namespace TL { namespace Nanos6 {
         TL::Symbol field = add_field_to_class(
             _class_symbol,
             _class_scope,
-            get_shared_symbol_name(symbol),
+            get_field_name(symbol.get_name()),
             symbol.get_locus(),
             /* is_allocatable */ false,
             type_of_field);
