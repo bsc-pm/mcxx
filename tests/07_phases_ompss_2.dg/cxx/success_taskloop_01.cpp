@@ -26,7 +26,7 @@ int main()
     test[i] = -1;
   }
 
-#pragma oss loop shared(test)
+#pragma oss task for  shared(test)
   for (int i = from; i < 10; i++)
   {
     int element = test[i];
