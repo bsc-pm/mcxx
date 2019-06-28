@@ -84,6 +84,8 @@ namespace TL
                 std::string _discard_unused_data_sharings_str;
 
 
+                void oss_loop_handler_post(TL::PragmaCustomStatement directive);
+
                 // Handler functions
 #define DECL_DIRECTIVE(_directive, _name, _pred, _func_prefix) \
                 void _func_prefix##_name##_handler_pre(TL::PragmaCustomDirective); \

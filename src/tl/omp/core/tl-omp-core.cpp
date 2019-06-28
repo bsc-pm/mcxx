@@ -2209,21 +2209,45 @@ namespace TL { namespace OpenMP {
     // Inline tasks
     void Core::task_handler_pre(TL::PragmaCustomStatement construct)
     {
-        // FIXME: At some point we should remove this error message...
         if (PragmaUtils::is_pragma_construct("oss", construct)
-                && construct.get_pragma_line().get_clause("loop").is_defined())
+                && (construct.get_pragma_line().get_clause("for").is_defined()
+                || construct.get_pragma_line().get_clause("do").is_defined()))
         {
-            error_printf_at(construct.get_locus(),
-                    "The 'loop' clause was an experimental feature and it does not exist anymore."
-                    " Use a 'loop' construct instead.\n");
+            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                 && construct.get_pragma_line().get_clause("do").is_defined())
+            {
+                error_printf_at(construct.get_locus(),
+                        "In order to define a Worksharing task you must "
+                        "use the 'for' clause and not the 'do' clause in C/C++\n");
+            }
+            else if (IS_FORTRAN_LANGUAGE
+                    && construct.get_pragma_line().get_clause("for").is_defined())
+            {
+                error_printf_at(construct.get_locus(),
+                        "In order to define a Worksharing task you must "
+                        "use the 'do' clause and not the 'for' clause in Fortran\n");
+            }
+            // '#pragama oss task for' is handled as if it was a taskloop
+            taskloop_handler_pre(construct);
         }
-        task_inline_handler_pre(construct);
+        else
+        {
+            task_inline_handler_pre(construct);
+        }
     }
 
     void Core::task_handler_post(TL::PragmaCustomStatement construct)
     {
-        ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
-        _openmp_info->pop_current_data_environment();
+        if (PragmaUtils::is_pragma_construct("oss", construct)
+                && construct.get_pragma_line().get_clause("for").is_defined())
+        {
+            taskloop_handler_post(construct);
+        }
+        else
+        {
+            ERROR_CONDITION(!_target_context.empty(), "Target context must be empty here", 0);
+            _openmp_info->pop_current_data_environment();
+        }
     }
 
     // Function tasks
@@ -2707,8 +2731,6 @@ namespace TL { namespace OpenMP {
 
     OSS_TO_OMP_DIRECTIVE_HANDLER(taskwait)
     OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
-
-    OSS_INVALID_DECLARATION_HANDLER(loop)
 
 #include "tl-omp-def-undef-macros.hpp"
 

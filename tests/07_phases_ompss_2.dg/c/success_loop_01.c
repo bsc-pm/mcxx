@@ -14,7 +14,7 @@ void foo(int n)
     v1[0] = 1;
     v2[0] = 2;
 
-    #pragma oss loop shared(x) firstprivate(v1) private(v2)
+    #pragma oss task for shared(x) firstprivate(v1) private(v2)
     for(int i = 0; i < 1; ++i)
     {
         assert(x == 42);

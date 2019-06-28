@@ -812,16 +812,4 @@ namespace TL { namespace OpenMP {
     {
         _openmp_info->pop_current_data_environment();
     }
-
-    //! Default implementation of the OmpSs-2 loop construct as if it was a taskloop
-    void Core::oss_loop_handler_pre(TL::PragmaCustomStatement construct)
-    {
-        taskloop_handler_pre(construct);
-    }
-
-    //! Default implementation of the OmpSs-2 loop construct as if it was a taskloop
-    void Core::oss_loop_handler_post(TL::PragmaCustomStatement construct)
-    {
-        taskloop_handler_post(construct);
-    }
 } }

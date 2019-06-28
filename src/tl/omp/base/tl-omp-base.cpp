@@ -342,8 +342,6 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_DIRECTIVE_HANDLER(taskwait)
     OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
 
-    OSS_INVALID_DECLARATION_HANDLER(loop)
-
 #include "tl-omp-def-undef-macros.hpp"
 
 
@@ -702,6 +700,16 @@ namespace TL { namespace OpenMP {
 
     void Base::task_handler_post(TL::PragmaCustomStatement directive)
     {
+
+        if (PragmaUtils::is_pragma_construct("oss", directive)
+                && (directive.get_pragma_line().get_clause("for").is_defined()
+                    || directive.get_pragma_line().get_clause("do").is_defined()))
+        {
+            // '#pragama oss task for' is handled as if it was a taskloop
+            oss_loop_handler_post(directive);
+            return;
+        }
+
         TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
         OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
 
@@ -1483,7 +1491,6 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Base::oss_loop_handler_pre(TL::PragmaCustomStatement directive) { }
     void Base::oss_loop_handler_post(TL::PragmaCustomStatement directive)
     {
         Nodecl::NodeclBase statement = directive.get_statements();

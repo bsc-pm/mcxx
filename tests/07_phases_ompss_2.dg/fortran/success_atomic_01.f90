@@ -12,11 +12,12 @@ program p
     real(8) :: validate
     real(8) :: res = 0
 
-    !$oss loop shared(res)
+    !$oss task do shared(res)
     do i = 1, num_iterations
         !$oss atomic
         res = res + q*i
     end do
+    !$oss end task
 
     !$oss taskwait
 
