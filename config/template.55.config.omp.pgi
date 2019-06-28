@@ -1,7 +1,7 @@
 #Intel Compilers
 [pgimcc : omp-base]
 language = C
-options = --native-vendor=pgi
+options = --native-vendor=pgi --disable-float128-token
 preprocessor_name = @PGICXX@
 preprocessor_options = --c
 compiler_name = @PGICC@
@@ -11,7 +11,7 @@ linker_name = @PGICC@
 
 [pgimcxx : omp-base]
 language = C++
-options = --native-vendor=pgi
+options = --native-vendor=pgi --disable-float128-token
 {openmp|ompss-2} preprocessor_options = -include new
 preprocessor_name = @PGICXX@
 compiler_name = @PGICXX@

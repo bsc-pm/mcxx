@@ -533,6 +533,9 @@ typedef struct compilation_configuration_tag
     // Disable 'sizeof' computation
     char disable_sizeof;
 
+    // Disable float128 handling as token for PGI, that uses nasty forced includes
+    char disable_float128_token;
+
     // Mimic all the process but preprocess and parsing
     char pass_through;
 

@@ -389,6 +389,7 @@ typedef enum
     OPTION_DISABLE_GXX_TRAITS,
     OPTION_DISABLE_INTRINSICS,
     OPTION_DISABLE_SIZEOF,
+    OPTION_DISABLE_FLOAT128_TOKEN,
     OPTION_DO_NOT_PROCESS_FILE,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
@@ -482,6 +483,7 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-gxx-traits", CLP_NO_ARGUMENT, OPTION_DISABLE_GXX_TRAITS},
     {"pass-through", CLP_NO_ARGUMENT, OPTION_PASS_THROUGH}, 
     {"disable-sizeof", CLP_NO_ARGUMENT, OPTION_DISABLE_SIZEOF},
+    {"disable-float128-token", CLP_NO_ARGUMENT, OPTION_DISABLE_FLOAT128_TOKEN},
     {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     {"list-environments", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
@@ -1413,6 +1415,13 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         CURRENT_CONFIGURATION->disable_sizeof = 1;
                         fprintf(stderr, "%s: option '--disable-sizeof' should be used only to work around problems. Please, report a bug.\n",
+                                compilation_process.exec_basename);
+                        break;
+                    }
+                case OPTION_DISABLE_FLOAT128_TOKEN:
+                    {
+                        CURRENT_CONFIGURATION->disable_float128_token = 1;
+                        fprintf(stderr, "%s: option '--disable-float128-token' should be used only to work around problems with PGI back-end. Please, report a bug.\n",
                                 compilation_process.exec_basename);
                         break;
                     }
