@@ -25746,7 +25746,8 @@ static const_value_t* compute_value_of_regular_glvalue(nodecl_t expr,
         switch (nodecl_get_kind(aux_expr))
         {
             case NODECL_CLASS_MEMBER_ACCESS:
-                    aux_expr = nodecl_get_child(aux_expr, 1);
+              aux_expr = nodecl_get_child(aux_expr, 1);
+              // falls through
             case NODECL_SYMBOL:
                 {
                     scope_entry_t* entry = nodecl_get_symbol(aux_expr);
