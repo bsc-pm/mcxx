@@ -18037,6 +18037,11 @@ static void check_nodecl_member_access(
 
             ok = 1;
         }
+        else
+        {
+            internal_error("Unexpected symbol kind %s\n",
+                           symbol_kind_to_str(entry->kind));
+        }
     }
 
     entry_list_free(entry_list);
