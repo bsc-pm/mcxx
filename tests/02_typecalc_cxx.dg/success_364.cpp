@@ -31,6 +31,9 @@
 test_generator=config/mercurium
 </testinfo>
 */
+
+// This is invalid code starting from GCC 7 and any clang
+#if defined(__GNUC__) && __GNUC__ < 7 && !defined(__clang__)
 class A
 {
     public:
@@ -51,3 +54,4 @@ bool B<T>::bar()
 {
     ::A::foo();
 }
+#endif
