@@ -5617,7 +5617,17 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                 if (member.is_using_typename_symbol())
                     *(file) << "typename ";
 
-                *(file) << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
+                if (entry.get_type().is_dependent_typename())
+                {
+                    push_scope(symbol.get_scope());
+                    walk(member.get_value());
+                    *(file) << ";\n";
+                    pop_scope();
+                }
+                else
+                {
+                    *(file) << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
+                }
             }
             else if (member.is_enum())
             {

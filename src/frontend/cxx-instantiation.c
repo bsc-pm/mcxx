@@ -1049,6 +1049,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(member_of_template->type_information);
                 scope_entry_t* entry = entry_list_head(entry_list);
 
+                nodecl_t nodecl_name = member_of_template->value;
+
                 if (entry->kind == SK_DEPENDENT_ENTITY)
                 {
                     ERROR_CONDITION(entry_list_size(entry_list) != 1, "Invalid list", 0);
@@ -1069,7 +1071,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         named_type_get_symbol(being_instantiated),
                         symbol_entity_specs_get_access(member_of_template),
                         /* is_typename */ 0,
-                        member_of_template->locus);
+                        nodecl_name);
                 break;
             }
         case SK_MEMBER_STATIC_ASSERT:

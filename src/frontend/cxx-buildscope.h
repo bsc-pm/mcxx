@@ -136,7 +136,7 @@ LIBMCXX_EXTERN void introduce_using_entities_in_class(
         scope_entry_t* current_class,
         access_specifier_t current_access,
         char is_typename,
-        const locus_t* locus);
+        nodecl_t nodecl_name);
 
 LIBMCXX_EXTERN scope_entry_t* get_function_declaration_proxy(void);
 

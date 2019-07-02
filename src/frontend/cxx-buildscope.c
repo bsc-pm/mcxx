@@ -1513,14 +1513,70 @@ static void build_scope_using_directive(AST a, const decl_context_t* decl_contex
     check_nodecl_using_directive(nodecl_name, decl_context, turn_into_inline, nodecl_output);
 }
 
+// Auxiliar function used by introduce_using_entities_in_class
+static char is_in_direct_dependent_bases(type_t *class_type, scope_entry_t* class_symbol)
+{
+    int i;
+    int num_bases = class_type_get_num_bases(class_type);
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        char is_expansion = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i,
+                &is_virtual, &is_dependent, &is_expansion, &access_specifier);
+
+        if (!is_dependent)
+          continue;
+
+        if (class_symbol_get_canonical_symbol(base_class)
+            == class_symbol_get_canonical_symbol(class_symbol))
+            return 1;
+    }
+
+    return 0;
+}
+
+// Auxiliar functin for introduce_using_entities_in_class
+static char nodecl_name_can_name_constructor_for_using(nodecl_t nodecl_name)
+{
+    char result = 0;
+    int num_items = 0;
+    nodecl_t *list
+        = nodecl_unpack_list(nodecl_get_child(nodecl_name, 0), &num_items);
+
+    if (num_items >= 2)
+    {
+      nodecl_t last = list[num_items - 1];
+      nodecl_t before_last = list[num_items - 2];
+      if (nodecl_get_kind(last) == NODECL_CXX_DEP_NAME_SIMPLE
+          && (nodecl_get_kind(before_last) == NODECL_CXX_DEP_NAME_SIMPLE
+            || nodecl_get_kind(before_last) == NODECL_CXX_DEP_TEMPLATE_ID))
+      {
+        nodecl_t text = before_last;
+        if  (nodecl_get_kind(before_last) == NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+          text = nodecl_get_child(before_last, 0);
+        }
+        return nodecl_get_text(text) == nodecl_get_text(last);
+      }
+    }
+
+    free(list);
+
+    return result;
+}
+
 void introduce_using_entities_in_class(
         scope_entry_list_t* used_entities,
         const decl_context_t* decl_context,
         scope_entry_t* current_class,
         access_specifier_t current_access,
         char is_typename,
-        const locus_t* locus)
+        nodecl_t nodecl_name)
 {
+    const locus_t *locus = nodecl_get_locus(nodecl_name);
     scope_entry_list_t* existing_usings =
         query_in_scope_str(decl_context, entry_list_head(used_entities)->symbol_name, NULL);
 
@@ -1570,13 +1626,30 @@ void introduce_using_entities_in_class(
             // Inheriting constructors
             CXX03_LANGUAGE()
             {
-                warn_printf_at(locus, "inheriting constructors is valid only in C++11\n");
+                warn_printf_at(
+                    locus, "inheriting constructors is valid only in C++11\n");
             }
-            class_type_add_inherited_constructor(current_class->type_information, entry);
+            scope_entry_list_t *direct_base_classes
+                = class_type_get_direct_base_classes_canonical(
+                    current_class->type_information);
+            if (!entry_list_contains(direct_base_classes,
+                                     class_symbol_get_canonical_symbol(entry)))
+            {
+                error_printf_at(
+                    locus,
+                    "cannot inherit constructors from indirect base '%s'\n",
+                    get_qualified_symbol_name(entry, decl_context));
+            }
+            else
+            {
+                class_type_add_inherited_constructor(
+                    current_class->type_information, entry);
+            }
 
             // We are done since finish_class_type_cxx will do the rest
             entry_list_iterator_free(it);
             entry_list_free(already_using);
+            entry_list_free(direct_base_classes);
             return;
         }
         else if (entry->kind == SK_DEPENDENT_ENTITY)
@@ -1589,6 +1662,58 @@ void introduce_using_entities_in_class(
             // The name of the symbol will be _Base but we do not want that one, we want f
             nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_dependent_parts);
             symbol_name = nodecl_get_text(nodecl_last_part);
+
+            // Special case for inheriting constructors like
+            //
+            // template < typename T >
+            // struct  A : B<T>
+            // {
+            //   public:
+            //     typedef B<T> Base;
+            //     using Base::Base;
+            // };
+
+            // This looks like to lookup routines as B<T>::Base which will
+            // never work correctly. So we need to make it look like B<T>::B
+            // but we have to do this only when we are able to anticipate
+            // this will become an inheriting constructor.
+            //
+            // The standard says:
+            //
+            // "in a using-declaration (7.3.3) that is a member-declaration, if
+            // the name specified after the nested-name- specifier is the same
+            // as the identifier or the simple-template-id’s template-name in
+            // the last component of the nested-name-specifier"
+
+            scope_entry_list_t *direct_base_classes
+                = class_type_get_direct_base_classes_canonical(
+                    current_class->type_information);
+
+            if (dependent_entry->kind == SK_CLASS
+                && (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_NESTED
+                    || nodecl_get_kind(nodecl_name)
+                           == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
+                && (nodecl_list_length(
+                        nodecl_get_child(nodecl_dependent_parts, 0))
+                    == 1)
+                && is_in_direct_dependent_bases(current_class->type_information,
+                                                dependent_entry)
+                && nodecl_name_can_name_constructor_for_using(nodecl_name))
+            {
+                nodecl_t nodecl_final_name = nodecl_make_cxx_dep_name_simple(
+                    dependent_entry->symbol_name, locus);
+                entry->type_information = build_dependent_typename_for_entry(
+                    dependent_entry, nodecl_final_name, locus);
+
+                DEBUG_CODE()
+                {
+                  fprintf(stderr, "BUILDSCOPE: Representing the using '%s' as '%s' for later instantiation\n",
+                      codegen_to_str(nodecl_name, decl_context),
+                      print_type_str(entry->type_information, decl_context));
+                }
+            }
+
+            entry_list_free(direct_base_classes);
         }
         else if (!symbol_entity_specs_get_is_member(entry))
         {
@@ -1661,7 +1786,9 @@ void introduce_using_entities_in_class(
     used_hub_symbol->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
     used_hub_symbol->type_information = get_unresolved_overloaded_type(used_entities, NULL);
     symbol_entity_specs_set_access(used_hub_symbol, current_access);
+    used_hub_symbol->value = nodecl_name;
     used_hub_symbol->locus = locus;
+    used_hub_symbol->decl_context = decl_context;
 
     class_type_add_member(current_class->type_information,
             used_hub_symbol,
@@ -1766,7 +1893,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
                 current_class,
                 current_access,
                 is_typename,
-                nodecl_get_locus(nodecl_name));
+                nodecl_name);
     }
     else
     {
