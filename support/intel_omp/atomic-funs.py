@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import string
 
@@ -33,7 +33,7 @@ type_map = {
 
 f = open("atomic-list.def", "r")
 for l in f:
-    fields = string.split(l.rstrip(), "_");
+    fields = l.rstrip().split("_");
     typename = fields[0]
     op = fields[1]
     rev = ""
@@ -51,10 +51,10 @@ for l in f:
 
     c_typename = type_map.get(typename, "<<error-%s>>" % (typename))
     if not cpt:
-        print "void __kmpc_atomic_%s_%s%s( ident_t* id_ref, int gtid, %s *lhs, %s rhs);" % (typename, op, rev, c_typename, c_typename)
+        print("void __kmpc_atomic_%s_%s%s( ident_t* id_ref, int gtid, %s *lhs, %s rhs);" % (typename, op, rev, c_typename, c_typename))
     else :
         if typename[0:5] != "cmplx":
-            print "%s __kmpc_atomic_%s_%s%s_cpt( ident_t* id_ref, int gtid, %s *lhs, %s rhs, int flag);" % (c_typename, typename, op, rev, c_typename, c_typename)
+            print("%s __kmpc_atomic_%s_%s%s_cpt( ident_t* id_ref, int gtid, %s *lhs, %s rhs, int flag);" % (c_typename, typename, op, rev, c_typename, c_typename))
         else:
-            print "void __kmpc_atomic_%s_%s%s_cpt( ident_t* id_ref, int gtid, %s *lhs, %s rhs, %s out, int flag);" % (typename, op, rev, c_typename, c_typename, c_typename)
+            print("void __kmpc_atomic_%s_%s%s_cpt( ident_t* id_ref, int gtid, %s *lhs, %s rhs, %s out, int flag);" % (typename, op, rev, c_typename, c_typename, c_typename))
 
