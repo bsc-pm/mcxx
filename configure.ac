@@ -78,11 +78,16 @@ AX_CXX_COMPILE_STDCXX_11([noext],[optional])
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
 
-dnl Check python 2.7
-AM_PATH_PYTHON2([2.7],, [:])
+dnl Prioritize Python 3.x
+AM_PATH_PYTHON([3.0],, [:])
 
+dnl Fallback to 2.7
 if test "$PYTHON" = ":"; then
-   AC_MSG_ERROR([Python 2.7 not found (note that Python 3 can't be used)])
+   # The earlier result is cached which would make the next check a no-op
+   unset PYTHON
+   unset ac_cv_path_PYTHON
+   unset am_cv_pathless_PYTHON
+   AM_PATH_PYTHON([2.7])
 fi
 
 if test x$BASH = x; then
@@ -2167,6 +2172,7 @@ echo "Mercurium configuration summary"
 echo "==============================="
 echo ""
 echo " * C++ dialect used to build Mercurium : $cxxdialect"
+echo " * Python : $PYTHON (version $PYTHON_VERSION)"
 echo ""
 echo " * Tools configured:"
 echo ""
