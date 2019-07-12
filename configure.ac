@@ -79,9 +79,24 @@ dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
 
 # Prioritize Python 3.x
-AM_PYTHON_CHECK_VERSION([$PYTHON], [3.0],
-  [AM_PATH_PYTHON([3.0])],
-  [AM_PATH_PYTHON([2.7])])
+if test -n "$PYTHON"; then
+  # When PYTHON is not empty, AM_PATH_PYTHON always fails with a hard error
+  # if the Python is too old so we first check if will fail or not.
+  AM_PYTHON_CHECK_VERSION([$PYTHON], [3.0],
+    [AM_PATH_PYTHON([3.0])],
+    [AM_PATH_PYTHON([2.7])])
+else
+  AM_PATH_PYTHON([3.0],, [:])
+  dnl Fallback to 2.7
+  if test "$PYTHON" = ":"; then
+     # The earlier result is cached which would make the next check a no-op
+     unset PYTHON
+     unset ac_cv_path_PYTHON
+     unset am_cv_pathless_PYTHON
+     AM_PATH_PYTHON([2.7])
+  fi
+fi
+
 
 if test x$BASH = x; then
   # If GNU Bash isn't available, use the current shell and hope for
