@@ -40,7 +40,7 @@ wipe-modules:
 	rm -f *.mf03
 
 # One can override the value using the environment variable NPROCS
-THREADS=$(if $(NPROCS), $(NPROCS), $(shell nproc))
+THREADS=$(if $(NPROCS),$(NPROCS),$(shell nproc))
 
 BETS_DIRS=$(srcdir)
 LIT_DIR=$(top_srcdir)/scripts/lit
