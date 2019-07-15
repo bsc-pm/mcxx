@@ -38,14 +38,16 @@ fi
 
 source @abs_builddir@/mercurium-libraries
 
+gen_set_output_dir
+
 COMMON_NANOX_CFLAGS=-DNANOX
 
 if [ "$TG_ARG_SVML" != "yes" ];
 then
 
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
-MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 
 compile_versions="\${compile_versions} nanox_mercurium"
 
@@ -75,7 +77,7 @@ if [ "$TG_ARG_SVML" = "yes" ]; then
 
 cat <<EOF
 
-IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} nanox_imcc_svml"
 test_CC_nanox_imcc_svml="\${IMCC}"
 
@@ -96,7 +98,7 @@ else
 
 cat <<EOF
 
-IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 compile_versions="\${compile_versions} nanox_imcc"
 test_CC_nanox_imcc="\${IMCC}"
 

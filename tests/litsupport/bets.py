@@ -38,6 +38,9 @@ class BetsTest(lit.formats.FileBasedTest):
                 "-generator-root-dir", test.config.test_exec_root, \
                 sourcePath]
 
+        # Used to emit the temporary files
+        test.config.environment["OUTPUT_DIR"] = tempDir
+
         # This is for Fortran so we can run tests in parallel without
         # clobbering module files.
         test.config.environment["TEMPORARY_MODULE_PATH"] = \

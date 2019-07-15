@@ -9,8 +9,10 @@ parse_arguments $@
 # Basic mercurium generator
 source @abs_top_builddir@/tests/config/mercurium-libraries
 
+gen_set_output_dir
+
 cat <<EOF
-MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 test_CC="\${MCXX} --profile=hltcc"
 test_CXX="\${MCXX} --profile=hltcxx -std=c++03"
 test_FC="\${MCXX} --profile=hltfc ${TEMPORARY_MODULE_PATH}"

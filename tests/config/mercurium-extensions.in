@@ -24,8 +24,10 @@ fi
 
 source @abs_builddir@/mercurium-libraries
 
+gen_set_output_dir
+
 cat <<EOF
-MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 test_CC="\${MCXX} --profile=plaincc"
 test_CXX="\${MCXX} --profile=plaincxx ${CXX11_FLAG}"
 test_FC="\${MCXX} ${TEMPORARY_MODULE_PATH} --profile=plainfc"

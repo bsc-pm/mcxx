@@ -9,12 +9,14 @@ then
     exit
 fi
 
+gen_set_output_dir
+
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
-MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
-MFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --output-dir=\${OUTPUT_DIR} --profile=mfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 
 GENERIC_OPENCL_FLAGS="--ompss --opencl --variable=disable_opencl_file_check:1"
 test_CC="\${MCC}"

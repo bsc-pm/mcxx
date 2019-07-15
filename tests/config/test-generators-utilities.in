@@ -97,3 +97,10 @@ function gcc_supports_cxx14()
     fi
     exit $ret
 }
+
+function gen_set_output_dir()
+{
+cat <<EOF
+\${OUTPUT_DIR:=@abs_top_builddir@/tests}
+EOF
+}

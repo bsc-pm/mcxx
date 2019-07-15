@@ -10,11 +10,13 @@ then
     exit
 fi
 
+gen_set_output_dir
+
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
-MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
 
 GENERIC_CUDA_FLAGS="--ompss --cuda"
 
