@@ -1538,7 +1538,7 @@ static char is_in_direct_dependent_bases(type_t *class_type, scope_entry_t* clas
     return 0;
 }
 
-// Auxiliar functin for introduce_using_entities_in_class
+// Auxiliar function for introduce_using_entities_in_class
 static char nodecl_name_can_name_constructor_for_using(nodecl_t nodecl_name)
 {
     char result = 0;
@@ -1563,7 +1563,7 @@ static char nodecl_name_can_name_constructor_for_using(nodecl_t nodecl_name)
       }
     }
 
-    free(list);
+    xfree(list);
 
     return result;
 }
