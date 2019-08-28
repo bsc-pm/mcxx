@@ -51,7 +51,7 @@ namespace TL { namespace Nanos6 {
                 std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map)
             : _phase(phase), _final_stmts_map(final_stmts_map) { }
 
-            void visit(const Nodecl::OmpSs::Loop &n);
+            void visit(const Nodecl::OmpSs::TaskWorksharing &n);
             void visit(const Nodecl::OmpSs::Release &n);
             void visit(const Nodecl::OmpSs::TaskCall &n);
             void visit(const Nodecl::OpenMP::Atomic &n);

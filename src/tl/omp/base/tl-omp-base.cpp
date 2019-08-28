@@ -1616,7 +1616,7 @@ namespace TL { namespace OpenMP {
         original_for_stmt.replace(normalized_loop);
 
 
-        Nodecl::NodeclBase stmt = Nodecl::OmpSs::Loop::make(
+        Nodecl::NodeclBase stmt = Nodecl::OmpSs::TaskWorksharing::make(
                 execution_environment,
                 context);
 
