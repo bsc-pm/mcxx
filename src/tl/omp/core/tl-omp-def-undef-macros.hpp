@@ -49,7 +49,7 @@
     #define OMP_DEF_UNDEF_MACROS_HPP
 
     #ifndef CLASSNAME
-        #error "Macco 'CLASSNAME' must be defined before including the 'tl-omp-def-undef-macros.hpp' header"
+        #error "Macro 'CLASSNAME' must be defined before including the 'tl-omp-def-undef-macros.hpp' header"
     #endif
 
     /* INVALID STATEMENT HANDLER */
