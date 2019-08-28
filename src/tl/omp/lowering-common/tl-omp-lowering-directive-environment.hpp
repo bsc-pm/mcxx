@@ -107,7 +107,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
         /* --------  Task flags & other stuff  ------ */
         bool is_tied;
-        bool task_is_loop;
+        bool task_is_worksharing;
         bool task_is_taskwait_with_deps;
         bool task_is_taskcall;
         bool wait_clause;

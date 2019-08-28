@@ -94,7 +94,7 @@ namespace TL { namespace Nanos6 {
             _implementations.insert(lower->get_device_manager().get_device(*it));
         }
 
-        if (_env.task_is_loop)
+        if (_env.task_is_worksharing)
         {
             ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
             Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
@@ -374,7 +374,7 @@ namespace TL { namespace Nanos6 {
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    _env.task_is_loop, /* bit */ 2, /* out */ task_flags_expr);
+                    _env.task_is_worksharing, /* bit */ 2, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
                     _env.wait_clause, /* bit */ 3, /* out */ task_flags_expr);
@@ -415,7 +415,7 @@ namespace TL { namespace Nanos6 {
                     compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_loop, /* bit */ 2));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_worksharing, /* bit */ 2));
 
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 3));
@@ -2109,7 +2109,7 @@ void TaskProperties::create_task_implementations_info(
         // Extra arguments: device_env and address_translation_table
         const char *device_env_name;
         TL::Type type_arg;
-        if (_env.task_is_loop)
+        if (_env.task_is_worksharing)
         {
             device_env_name = "taskloop_bounds";
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
@@ -2212,7 +2212,7 @@ void TaskProperties::create_task_implementations_info(
 
         handle_task_reductions(unpacked_fun_inside_scope, unpacked_fun_empty_stmt, symbol_map);
 
-        if (_env.task_is_loop)
+        if (_env.task_is_worksharing)
         {
             ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
             Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
@@ -2271,7 +2271,7 @@ void TaskProperties::create_task_implementations_info(
         // Second argument is different for a loop task
         const char *device_env_name;
         TL::Type type_arg;
-        if (_env.task_is_loop)
+        if (_env.task_is_worksharing)
         {
             device_env_name = "taskloop_bounds";
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
@@ -3706,7 +3706,7 @@ void TaskProperties::create_task_implementations_info(
     TL::Symbol TaskProperties::create_duplicate_function()
     {
         //Only meaningful for loop constructs!
-        if (!_env.task_is_loop)
+        if (!_env.task_is_worksharing)
             return TL::Symbol::invalid();
 
         if (!_environment_capture.requires_duplication_function())
@@ -3873,9 +3873,9 @@ void TaskProperties::create_task_implementations_info(
         TL::Nanos6::fortran_add_types(all_syms, dest_scope);
     }
 
-    bool TaskProperties::task_is_loop() const
+    bool TaskProperties::task_is_worksharing() const
     {
-        return _env.task_is_loop;
+        return _env.task_is_worksharing;
     }
 
     Nodecl::NodeclBase TaskProperties::get_lower_bound() const

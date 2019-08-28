@@ -289,7 +289,7 @@ namespace TL { namespace Nanos6 {
 
             bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
 
-            bool task_is_loop() const;
+            bool task_is_worksharing() const;
 
             Nodecl::NodeclBase get_lower_bound() const;
             Nodecl::NodeclBase get_upper_bound() const;

@@ -348,7 +348,7 @@ namespace TL { namespace Nanos6 {
                 new_stmts.append(capture_env);
             }
 
-            if (task_properties.task_is_loop())
+            if (task_properties.task_is_worksharing())
             {
                 TL::Symbol nanos_register_loop_sym = get_nanos6_function_symbol("nanos6_register_taskloop_bounds");
 
