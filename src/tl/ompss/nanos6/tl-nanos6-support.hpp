@@ -72,12 +72,20 @@ namespace TL { namespace Nanos6 {
             bool is_allocatable,
             Type field_type);
 
+    struct DimensionInfo
+    {
+        Nodecl::NodeclBase size;
+        Nodecl::NodeclBase lower; // inclusive
+        Nodecl::NodeclBase upper; // exclusive
+    };
+
     //! This utility generates, from a DataReference, a list of expressions that
     //! represent the base address and the dimensionality information
     void compute_base_address_and_dimensionality_information(
             const TL::DataReference& data_ref,
             // Out
-            TL::ObjectList<Nodecl::NodeclBase>& arguments_list);
+            Nodecl::NodeclBase &base_address,
+            TL::ObjectList<DimensionInfo>& dim_info);
 } }
 
 #endif // TL_NANOS6_SUPPORT_HPP

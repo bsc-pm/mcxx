@@ -708,7 +708,7 @@ namespace TL { namespace OpenMP {
                     || directive.get_pragma_line().get_clause("do").is_defined()))
         {
             // '#pragama oss task for' is handled as if it was a taskloop
-            oss_loop_handler_post(directive);
+            oss_loop_handler_post(directive, /* is_worksharing */ true);
             return;
         }
 
@@ -1535,10 +1535,11 @@ namespace TL { namespace OpenMP {
 
     void Base::oss_taskloop_handler_pre(TL::PragmaCustomStatement directive) { }
     void Base::oss_taskloop_handler_post(TL::PragmaCustomStatement directive) {
-      return oss_loop_handler_post(directive);
+      return oss_loop_handler_post(directive, /* is_worksharing */ false);
     }
 
-    void Base::oss_loop_handler_post(TL::PragmaCustomStatement directive)
+    void Base::oss_loop_handler_post(TL::PragmaCustomStatement directive,
+        bool is_worksharing)
     {
         Nodecl::NodeclBase statement = directive.get_statements();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
@@ -1602,6 +1603,7 @@ namespace TL { namespace OpenMP {
 
         pragma_line.diagnostic_unused_clauses();
 
+        ERROR_CONDITION(!context.get_in_context().is<Nodecl::List>(), "Expecting list", 0);
         Nodecl::NodeclBase original_for_stmt =
             context.get_in_context().as<Nodecl::List>().front();
 
@@ -1619,10 +1621,20 @@ namespace TL { namespace OpenMP {
 
         original_for_stmt.replace(normalized_loop);
 
+        Nodecl::NodeclBase stmt;
 
-        Nodecl::NodeclBase stmt = Nodecl::OmpSs::TaskWorksharing::make(
-                execution_environment,
-                context);
+        if (is_worksharing)
+        {
+            stmt = Nodecl::OmpSs::TaskWorksharing::make(
+                    execution_environment,
+                    context);
+        }
+        else
+        {
+            stmt = Nodecl::OpenMP::Taskloop::make(
+                    execution_environment,
+                    context);
+        }
 
         directive.replace(Nodecl::List::make(stmt));
     }

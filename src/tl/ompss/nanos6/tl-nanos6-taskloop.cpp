@@ -440,7 +440,7 @@ namespace TL { namespace Nanos6 {
             final_stmts = Nodecl::Context::make(
                     Nodecl::List::make(
                         Nodecl::CompoundStatement::make(
-                            serial_stmts,
+                            Nodecl::List::make(serial_stmts),
                             /* finally */ Nodecl::NodeclBase::null(),
                             taskloop.get_locus())),
                     in_final_scope,

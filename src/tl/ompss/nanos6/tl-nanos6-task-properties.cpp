@@ -193,8 +193,9 @@ namespace TL { namespace Nanos6 {
         }
 
         {
-            ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
             Nodecl::NodeclBase stmt = _task_body;
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
             ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
 
             TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
@@ -1955,20 +1956,24 @@ void TaskProperties::create_task_implementations_info(
             storage_sym.set_type(reduction_type.get_lvalue_reference_to());
 
             // Compute arguments
-            TL::ObjectList<Nodecl::NodeclBase> multidim_arguments_list;
-            compute_base_address_and_dimensionality_information(reduction_expr, multidim_arguments_list);
+            Nodecl::NodeclBase base_address;
+            TL::ObjectList<DimensionInfo> dim_info;
+            compute_base_address_and_dimensionality_information(reduction_expr,
+                    base_address, dim_info);
 
-            TL::ObjectList<Nodecl::NodeclBase>::reverse_iterator it = multidim_arguments_list.rbegin();
+            // Flatten dimension info
+            TL::ObjectList<DimensionInfo>::reverse_iterator it = dim_info.rbegin();
 
-            Nodecl::NodeclBase upper_bound = *(it++);
-            Nodecl::NodeclBase lower_bound = *(it++);
-            Nodecl::NodeclBase size = *(it++);
+            Nodecl::NodeclBase upper_bound = it->upper;
+            Nodecl::NodeclBase lower_bound = it->lower;
+            Nodecl::NodeclBase size = it->size;
+            it++;
 
-            for (; it != multidim_arguments_list.rend() - 1; it++)
+            for (; it != dim_info.rend(); it++)
             {
-                Nodecl::NodeclBase dim_upper_bound = *(it++);
-                Nodecl::NodeclBase dim_lower_bound = *(it++);
-                Nodecl::NodeclBase dim_size = *it;
+                Nodecl::NodeclBase dim_upper_bound = it->upper;
+                Nodecl::NodeclBase dim_lower_bound = it->lower;
+                Nodecl::NodeclBase dim_size = it->size;
 
                 upper_bound = Nodecl::Add::make(
                         Nodecl::Minus::make(
@@ -1993,8 +1998,6 @@ void TaskProperties::create_task_implementations_info(
 
                 size = Nodecl::Mul::make(dim_size, size, reduction_type);
             }
-
-            Nodecl::NodeclBase base_address = *it;
 
             Nodecl::List arguments_list =
                 Nodecl::List::make(base_address, size, lower_bound, upper_bound);
@@ -3295,7 +3298,8 @@ void TaskProperties::create_task_implementations_info(
                 TL::Symbol handler,
                 std::map<TL::Symbol, unsigned int> &dep_symbols_to_id,
                 // Out
-                TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
+                TL::ObjectList<Nodecl::NodeclBase>& arguments_list,
+                TL::ObjectList<DimensionInfo>& dim_info)
         {
             // task handler
             arguments_list.append(handler.make_nodecl(/* set_ref_type */ true));
@@ -3316,7 +3320,10 @@ void TaskProperties::create_task_implementations_info(
                             dependence_text.c_str(),
                             strlen(dependence_text.c_str()))));
 
-            compute_base_address_and_dimensionality_information(data_ref, arguments_list);
+            Nodecl::NodeclBase base_address;
+            compute_base_address_and_dimensionality_information(data_ref, base_address, dim_info);
+
+            arguments_list.append(base_address);
         }
     }
 
@@ -3341,19 +3348,45 @@ void TaskProperties::create_task_implementations_info(
             }
             compute_reduction_arguments_register_dependence(data_ref, arguments_list);
         }
-        compute_arguments_register_dependence(data_ref, handler, _dep_symbols_to_id, arguments_list);
+
+        TL::ObjectList<DimensionInfo> dim_info;
+        compute_arguments_register_dependence(data_ref, handler,
+                _dep_symbols_to_id, arguments_list, dim_info);
+
+        TL::ObjectList<Nodecl::NodeclBase> replaced_arguments_list;
+        for (Nodecl::NodeclBase arg : arguments_list)
+        {
+            replaced_arguments_list.append(
+                    Nodecl::Utils::deep_copy(arg, TL::Scope::get_global_scope(), symbol_map));
+        }
+
+        if (!task_is_taskloop())
+        {
+            // No need to do anything special here.
+            for (DimensionInfo di : dim_info)
+            {
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.lower, TL::Scope::get_global_scope(), symbol_map));
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), symbol_map));
+            }
+        }
+        else
+        {
+            internal_error("Not implemented yet", 0);
+        }
 
         Nodecl::NodeclBase function_call =
             Nodecl::ExpressionStatement::make(
                     Nodecl::FunctionCall::make(
                         register_fun.make_nodecl(/* set_ref_type */ true),
-                        Nodecl::List::make(arguments_list),
+                        Nodecl::List::make(replaced_arguments_list),
                         /* alternate-symbol */ Nodecl::NodeclBase::null(),
                         /* function-form */ Nodecl::NodeclBase::null(),
                         TL::Type::get_void_type()));
-
-        register_statements.append(
-                Nodecl::Utils::deep_copy(function_call, TL::Scope::get_global_scope(), symbol_map));
+        register_statements.append(function_call);
     }
 
 
