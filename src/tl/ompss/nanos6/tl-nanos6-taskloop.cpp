@@ -40,6 +40,9 @@ namespace TL { namespace Nanos6 {
 
     void Lower::visit(const Nodecl::OpenMP::Taskloop& node)
     {
+        Interface::family_must_be_at_least("nanos6_instantiation_api", 2, "to support taskloop");
+        Interface::family_must_be_at_least("nanos6_taskfor_api", 2, "to support taskloop");
+
         Nodecl::OpenMP::Taskloop taskloop = node;
 
         walk(taskloop.get_loop());
