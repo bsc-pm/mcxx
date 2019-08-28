@@ -69,7 +69,8 @@ namespace TL { namespace Nanos6 {
             LoweringPhase* lowering_phase,
             Lower* lower)
         : _env(node.get_environment()), _serial_context(serial_context),
-        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
+        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0),
+        _task_is_taskloop(false)
     {
         TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
         _nanos6_task_counter = (int) counter;
@@ -165,7 +166,8 @@ namespace TL { namespace Nanos6 {
             LoweringPhase* lowering_phase,
             Lower* lower)
         : _env(node.get_environment()), _serial_context(serial_context),
-        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
+        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0),
+        _task_is_taskloop(true)
     {
         TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
         _nanos6_task_counter = (int) counter;
@@ -3969,6 +3971,11 @@ void TaskProperties::create_task_implementations_info(
     bool TaskProperties::task_is_worksharing() const
     {
         return _env.task_is_worksharing;
+    }
+
+    bool TaskProperties::task_is_taskloop() const
+    {
+        return _task_is_taskloop;
     }
 
     Nodecl::NodeclBase TaskProperties::get_lower_bound() const
