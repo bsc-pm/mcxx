@@ -1,7 +1,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss-2
-test_compile_fail=1
 </testinfo>
 */
 
