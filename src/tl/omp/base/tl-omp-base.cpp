@@ -334,7 +334,6 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_STATEMENT_HANDLER(atomic)
     OSS_TO_OMP_STATEMENT_HANDLER(critical)
     OSS_TO_OMP_STATEMENT_HANDLER(task)
-    OSS_TO_OMP_STATEMENT_HANDLER(taskloop)
 
     OSS_TO_OMP_DECLARATION_HANDLER(atomic)
     OSS_TO_OMP_DECLARATION_HANDLER(critical)
@@ -1532,6 +1531,11 @@ namespace TL { namespace OpenMP {
             }
             directive.replace(stmt);
         }
+    }
+
+    void Base::oss_taskloop_handler_pre(TL::PragmaCustomStatement directive) { }
+    void Base::oss_taskloop_handler_post(TL::PragmaCustomStatement directive) {
+      return oss_loop_handler_post(directive);
     }
 
     void Base::oss_loop_handler_post(TL::PragmaCustomStatement directive)

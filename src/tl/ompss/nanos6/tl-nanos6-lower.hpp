@@ -58,6 +58,7 @@ namespace TL { namespace Nanos6 {
             void visit(const Nodecl::OpenMP::Critical &n);
             void visit(const Nodecl::OpenMP::Task &n);
             void visit(const Nodecl::OpenMP::Taskwait &n);
+            void visit(const Nodecl::OpenMP::Taskloop &n);
 
             void visit(const Nodecl::OmpSs::Lint &n);
 
@@ -74,7 +75,6 @@ namespace TL { namespace Nanos6 {
             UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::FlushMemory)
             UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::For)
             UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::Taskgroup)
-            UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::Taskloop)
             UNIMPLEMENTED_VISITOR(Nodecl::OpenMP::Taskyield)
 
 #undef UNIMPLEMENTED_VISITOR
@@ -121,6 +121,8 @@ namespace TL { namespace Nanos6 {
 
             void lower_task(const Nodecl::OpenMP::Task& n);
             void lower_task(const Nodecl::OpenMP::Task& n, const Nodecl::NodeclBase& serial_stmts);
+
+            void lower_taskloop(const Nodecl::OpenMP::Taskloop& n, const Nodecl::NodeclBase& serial_stmts);
 
             void visit_task_call(const Nodecl::OmpSs::TaskCall& construct);
             void visit_task_call_c(const Nodecl::OmpSs::TaskCall& construct);

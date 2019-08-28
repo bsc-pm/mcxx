@@ -230,6 +230,12 @@ namespace TL { namespace Nanos6 {
                     LoweringPhase* lowering_phase,
                     Lower* lower);
 
+            TaskProperties(
+                    const Nodecl::OpenMP::Taskloop& node,
+                    Nodecl::NodeclBase &serial_stmts,
+                    LoweringPhase* lowering_phase,
+                    Lower* lower);
+
             // FIXME
             std::string get_new_name(const std::string& prefix) const;
 

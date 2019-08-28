@@ -159,6 +159,99 @@ namespace TL { namespace Nanos6 {
         }
     }
 
+    TaskProperties::TaskProperties(
+            const Nodecl::OpenMP::Taskloop& node,
+            Nodecl::NodeclBase &serial_context,
+            LoweringPhase* lowering_phase,
+            Lower* lower)
+        : _env(node.get_environment()), _serial_context(serial_context),
+        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
+    {
+        TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
+        _nanos6_task_counter = (int) counter;
+        counter++;
+
+        _locus_of_task_creation = node.get_locus();
+
+        if (_env.locus_of_task_declaration)
+            _locus_of_task_declaration = _env.locus_of_task_declaration;
+        else
+            _locus_of_task_declaration = node.get_locus();
+
+        _related_function = Nodecl::Utils::get_enclosing_function(node);
+        _task_body = node.get_loop();
+
+        ERROR_CONDITION(_env.device_names.size() == 0, "A task without a device name was detected", 0);
+
+        for (TL::ObjectList<std::string>::const_iterator it = _env.device_names.begin();
+                it != _env.device_names.end();
+                it++)
+        {
+            _implementations.insert(lower->get_device_manager().get_device(*it));
+        }
+
+        {
+            ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
+            Nodecl::NodeclBase stmt = _task_body;
+            ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
+            _taskloop_bounds.lower_bound = for_stmt.get_lower_bound();
+            _taskloop_bounds.upper_bound =
+                Nodecl::Add::make(
+                        for_stmt.get_upper_bound(),
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_signed_int(1), get_size_t_type()),
+                        TL::Type::get_size_t_type());
+            _taskloop_bounds.step = for_stmt.get_step();
+        }
+
+        {
+            int id = 0;
+            struct DependencesSet
+            {
+                TL::ObjectList<Nodecl::NodeclBase> &dep_list;
+            } deps[] = {
+                { _env.dep_in },
+                { _env.dep_out },
+                { _env.dep_inout },
+
+                { _env.dep_weakin },
+                { _env.dep_weakout },
+                { _env.dep_weakinout },
+
+                { _env.dep_commutative },
+                { _env.dep_concurrent },
+
+                { _env.dep_weakcommutative },
+
+                { _env.dep_reduction },
+                { _env.dep_weakreduction }
+            };
+
+            for (DependencesSet *dep_set = deps;
+                    dep_set != (DependencesSet *)(&deps + 1);
+                    dep_set++)
+            {
+                TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
+                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = dep_list.begin();
+                        it != dep_list.end();
+                        it++)
+                {
+                    TL::DataReference data_ref = *it;
+                    TL::Type data_type = data_ref.get_data_type();
+
+                    TL::Symbol base_symbol = data_ref.get_base_symbol();
+                    std::map<TL::Symbol, unsigned int>::const_iterator map_it = _dep_symbols_to_id.find(base_symbol);
+                    if (map_it == _dep_symbols_to_id.end())
+                    {
+                        _dep_symbols_to_id[base_symbol] = id++;
+                    }
+                }
+            }
+        }
+    }
+
     std::string TaskProperties::get_new_name(const std::string& prefix) const
     {
         std::string fixed_fun_name = _related_function.get_name();
