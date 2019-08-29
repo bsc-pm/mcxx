@@ -56,6 +56,7 @@ namespace TL { namespace Nanos6 {
                 Nodecl::NodeclBase lower_bound;
                 Nodecl::NodeclBase upper_bound;
                 Nodecl::NodeclBase step;
+                TL::Symbol induction_variable;
             };
 
             //! This member represents the directive environment
@@ -205,6 +206,8 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol handler,
                     Nodecl::Utils::SymbolMap &symbol_map,
                     TL::Symbol register_fun,
+                    TL::Symbol tl_lower_bound_sym,
+                    TL::Symbol tl_upper_bound_sym,
                     // Out
                     Nodecl::List &register_statements);
 
@@ -214,6 +217,8 @@ namespace TL { namespace Nanos6 {
                     Nodecl::Utils::SymbolMap &symbol_map,
                     TL::Symbol register_fun,
                     TL::Scope scope,
+                    TL::Symbol tl_lower_bound_sym,
+                    TL::Symbol tl_upper_bound_sym,
                     // Out
                     Nodecl::List &register_statements);
 
@@ -305,6 +310,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase get_upper_bound() const;
             Nodecl::NodeclBase get_step() const;
             Nodecl::NodeclBase get_chunksize() const;
+            TL::Symbol get_induction_variable() const;
     };
 
 } }

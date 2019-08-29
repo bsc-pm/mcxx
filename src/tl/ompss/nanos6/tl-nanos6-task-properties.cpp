@@ -112,6 +112,8 @@ namespace TL { namespace Nanos6 {
                             const_value_get_signed_int(1), get_size_t_type()),
                         TL::Type::get_size_t_type());
             _taskloop_bounds.step = for_stmt.get_step();
+            // Unused but for the sake of completeness
+            _taskloop_bounds.induction_variable = for_stmt.get_induction_variable();
         }
 
         {
@@ -207,6 +209,7 @@ namespace TL { namespace Nanos6 {
                             const_value_get_signed_int(1), get_size_t_type()),
                         TL::Type::get_size_t_type());
             _taskloop_bounds.step = for_stmt.get_step();
+            _taskloop_bounds.induction_variable = for_stmt.get_induction_variable();
         }
 
         {
@@ -3331,7 +3334,8 @@ void TaskProperties::create_task_implementations_info(
                             strlen(dependence_text.c_str()))));
 
             Nodecl::NodeclBase base_address;
-            compute_base_address_and_dimensionality_information(data_ref, base_address, dim_info);
+            compute_base_address_and_dimensionality_information(data_ref,
+                base_address, dim_info);
 
             arguments_list.append(base_address);
         }
@@ -3342,6 +3346,8 @@ void TaskProperties::create_task_implementations_info(
         TL::Symbol handler,
         Nodecl::Utils::SymbolMap &symbol_map,
         TL::Symbol register_fun,
+        TL::Symbol tl_lower_bound_sym,
+        TL::Symbol tl_upper_bound_sym,
         // Out
         Nodecl::List &register_statements)
     {
@@ -3361,7 +3367,9 @@ void TaskProperties::create_task_implementations_info(
 
         TL::ObjectList<DimensionInfo> dim_info;
         compute_arguments_register_dependence(data_ref, handler,
-                _dep_symbols_to_id, arguments_list, dim_info);
+                _dep_symbols_to_id,
+                // out
+                arguments_list, dim_info);
 
         TL::ObjectList<Nodecl::NodeclBase> replaced_arguments_list;
         for (Nodecl::NodeclBase arg : arguments_list)
@@ -3370,7 +3378,7 @@ void TaskProperties::create_task_implementations_info(
                     Nodecl::Utils::deep_copy(arg, TL::Scope::get_global_scope(), symbol_map));
         }
 
-        // if (!task_is_taskloop())
+        if (!task_is_taskloop())
         {
             // No need to do anything special here.
             for (DimensionInfo di : dim_info)
@@ -3383,10 +3391,29 @@ void TaskProperties::create_task_implementations_info(
                         Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), symbol_map));
             }
         }
-        // else
-        // {
-        //     internal_error("Not implemented yet", 0);
-        // }
+        else
+        {
+            // Replace the induction variable with the right symbol
+            for (DimensionInfo di : dim_info)
+            {
+                // FIXME: we still need to compute this
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
+                {
+                    Nodecl::Utils::SimpleSymbolMap lower_bound_symbol_map(&symbol_map);
+                    lower_bound_symbol_map.add_map(get_induction_variable(), tl_lower_bound_sym);
+                    replaced_arguments_list.append(
+                            Nodecl::Utils::deep_copy(di.lower, TL::Scope::get_global_scope(), lower_bound_symbol_map));
+                }
+
+                {
+                    Nodecl::Utils::SimpleSymbolMap upper_bound_symbol_map(&symbol_map);
+                    upper_bound_symbol_map.add_map(get_induction_variable(), tl_upper_bound_sym);
+                    replaced_arguments_list.append(
+                            Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), upper_bound_symbol_map));
+                }
+            }
+        }
 
         Nodecl::NodeclBase function_call =
             Nodecl::ExpressionStatement::make(
@@ -3407,6 +3434,8 @@ void TaskProperties::create_task_implementations_info(
         Nodecl::Utils::SymbolMap &symbol_map,
         TL::Symbol register_fun,
         TL::Scope scope,
+        TL::Symbol tl_lower_bound_sym,
+        TL::Symbol tl_upper_bound_sym,
         // Out
         Nodecl::List &register_statements)
     {
@@ -3432,6 +3461,8 @@ void TaskProperties::create_task_implementations_info(
                 handler,
                 extended_symbol_map,
                 register_fun,
+                tl_lower_bound_sym,
+                tl_upper_bound_sym,
                 // Out
                 base_reg);
 
@@ -3532,6 +3563,62 @@ void TaskProperties::create_task_implementations_info(
             { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo", 5, "weak reduction dependences" },
         };
 
+        // FIXME: this might emit a warning for an unused variable. Ideally we should check if we do need it first
+        // but it is something we may discover too late.
+        TL::Symbol tl_lower_bound_sym;
+        TL::Symbol tl_upper_bound_sym;
+        if (task_is_taskloop())
+        {
+            TL::Symbol taskloop_symbol = unpacked_fun_inside_scope.get_symbol_from_name("taskloop_bounds");
+            ERROR_CONDITION(!taskloop_symbol.is_valid(), "Expecting a symbol", 0);
+
+            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            TL::ObjectList<TL::Symbol> taskloop_fields = class_sym.get_type().get_nonstatic_data_members();
+            GetField get_field_taskloop(taskloop_fields);
+
+            Nodecl::NodeclBase lower_bound_field = get_field_taskloop("lower_bound");
+            tl_lower_bound_sym = unpacked_fun_inside_scope.new_symbol("tl_lower");
+            tl_lower_bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            tl_lower_bound_sym.get_internal_symbol()->type_information = lower_bound_field.get_type().no_ref().get_internal_type();
+            symbol_entity_specs_set_is_user_declared(tl_lower_bound_sym.get_internal_symbol(), 1);
+
+            tl_lower_bound_sym.set_value(
+                    Nodecl::Conversion::make(
+                        Nodecl::ClassMemberAccess::make(
+                            taskloop_symbol.make_nodecl(/* set_ref_type */ true),
+                            lower_bound_field,
+                            /* member_literal */ Nodecl::NodeclBase::null(),
+                            lower_bound_field.get_type()),
+                        lower_bound_field.get_type().no_ref()));
+
+            Nodecl::NodeclBase upper_bound_field = get_field_taskloop("upper_bound");
+            tl_upper_bound_sym = unpacked_fun_inside_scope.new_symbol("tl_upper");
+            tl_upper_bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            tl_upper_bound_sym.get_internal_symbol()->type_information = upper_bound_field.get_type().no_ref().get_internal_type();
+            symbol_entity_specs_set_is_user_declared(tl_upper_bound_sym.get_internal_symbol(), 1);
+
+            tl_upper_bound_sym.set_value(
+                    Nodecl::Conversion::make(
+                        Nodecl::ClassMemberAccess::make(
+                            taskloop_symbol.make_nodecl(/* set_ref_type */ true),
+                            upper_bound_field,
+                            /* member_literal */ Nodecl::NodeclBase::null(),
+                            upper_bound_field.get_type()),
+                        upper_bound_field.get_type().no_ref()));
+
+            if (IS_CXX_LANGUAGE)
+            {
+                unpacked_fun_empty_stmt.prepend_sibling(
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), tl_lower_bound_sym));
+                unpacked_fun_empty_stmt.prepend_sibling(
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), tl_upper_bound_sym));
+            }
+            unpacked_fun_empty_stmt.prepend_sibling(
+                    Nodecl::ObjectInit::make(tl_lower_bound_sym));
+            unpacked_fun_empty_stmt.prepend_sibling(
+                    Nodecl::ObjectInit::make(tl_upper_bound_sym));
+        }
+
         for (DependencesSet *dep_set = deps;
              dep_set != (DependencesSet *)(&deps + 1);
              dep_set++)
@@ -3576,6 +3663,8 @@ void TaskProperties::create_task_implementations_info(
                             handler,
                             symbol_map,
                             register_fun,
+                            tl_lower_bound_sym,
+                            tl_upper_bound_sym,
                             // Out
                             register_statements);
                 }
@@ -3587,6 +3676,8 @@ void TaskProperties::create_task_implementations_info(
                             symbol_map,
                             register_fun,
                             unpacked_fun_inside_scope,
+                            tl_lower_bound_sym,
+                            tl_upper_bound_sym,
                             // Out
                             register_statements);
                 }
@@ -4050,6 +4141,11 @@ void TaskProperties::create_task_implementations_info(
     Nodecl::NodeclBase TaskProperties::get_step() const
     {
         return _taskloop_bounds.step;
+    }
+
+    TL::Symbol TaskProperties::get_induction_variable() const
+    {
+        return _taskloop_bounds.induction_variable;
     }
 
     Nodecl::NodeclBase TaskProperties::get_chunksize() const
