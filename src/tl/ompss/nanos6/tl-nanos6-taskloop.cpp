@@ -354,6 +354,8 @@ namespace TL { namespace Nanos6 {
                 TL::Symbol nanos_register_loop_sym = get_nanos6_function_symbol("nanos6_register_taskloop_bounds");
 
                 Nodecl::NodeclBase stmt = node.get_loop();
+                ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
+                stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
                 ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
 
                 TL::ObjectList<TL::Symbol> params = nanos_register_loop_sym.get_related_symbols();

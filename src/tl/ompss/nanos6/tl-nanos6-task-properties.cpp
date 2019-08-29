@@ -470,7 +470,8 @@ namespace TL { namespace Nanos6 {
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    _env.task_is_worksharing, /* bit */ 2, /* out */ task_flags_expr);
+                    _env.task_is_worksharing || task_is_taskloop(),
+                    /* bit */ 2, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
                     _env.wait_clause, /* bit */ 3, /* out */ task_flags_expr);
@@ -511,7 +512,8 @@ namespace TL { namespace Nanos6 {
                     compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_worksharing, /* bit */ 2));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(),
+                        _env.task_is_worksharing || task_is_taskloop(), /* bit */ 2));
 
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 3));
@@ -2205,21 +2207,21 @@ void TaskProperties::create_task_implementations_info(
         _env.shared.map(add_params_functor);
 
         // Extra arguments: device_env and address_translation_table
-        const char *device_env_name;
+        const char *device_name_or_taskloop_bounds;
         TL::Type type_arg;
-        if (_env.task_is_worksharing)
+        if (_env.task_is_worksharing || task_is_taskloop())
         {
-            device_env_name = "taskloop_bounds";
+            device_name_or_taskloop_bounds = "taskloop_bounds";
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
             type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
         }
         else
         {
-            device_env_name = "device_env";
+            device_name_or_taskloop_bounds = "device_env";
             type_arg = TL::Type::get_void_type().get_pointer_to();
         }
 
-        unpacked_fun_param_names.append(device_env_name);
+        unpacked_fun_param_names.append(device_name_or_taskloop_bounds);
         unpacked_fun_param_types.append(type_arg);
 
         unpacked_fun_param_names.append("address_translation_table");
@@ -2310,10 +2312,18 @@ void TaskProperties::create_task_implementations_info(
 
         handle_task_reductions(unpacked_fun_inside_scope, unpacked_fun_empty_stmt, symbol_map);
 
-        if (_env.task_is_worksharing)
+        if (_env.task_is_worksharing || task_is_taskloop())
         {
-            ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
-            Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
+            Nodecl::NodeclBase stmt = _task_body;;
+
+            // Because a task worksharing it is just a plain task with a mandatory for inside
+            // we need to handle these two cases.
+            // FIXME: Can we make "task * for" behave like taskloop in OpenMP base instead?
+            if (_env.task_is_worksharing)
+            {
+                ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Unexpected node\n", 0);
+                stmt = stmt.as<Nodecl::List>().front();
+            }
             ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
             stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
             ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
@@ -2321,9 +2331,9 @@ void TaskProperties::create_task_implementations_info(
             TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
 
             TL::Symbol ind_var = for_stmt.get_induction_variable();
-            // FIXME: The taskloop bounds are passed as if they were the device environment...
+            // The taskloop bounds are passed as the device environment parameter.
             TL::Symbol taskloop_bounds =
-                unpacked_fun_inside_scope.get_symbol_from_name(device_env_name);
+                unpacked_fun_inside_scope.get_symbol_from_name(device_name_or_taskloop_bounds);
 
             for_stmt.set_loop_header(
                     compute_taskloop_loop_control(
@@ -2367,17 +2377,17 @@ void TaskProperties::create_task_implementations_info(
             create_task_region_unpacked_function(common_name, device);
 
         // Second argument is different for a loop task
-        const char *device_env_name;
+        const char *device_name_or_taskloop_bounds;
         TL::Type type_arg;
-        if (_env.task_is_worksharing)
+        if (_env.task_is_worksharing || task_is_taskloop())
         {
-            device_env_name = "taskloop_bounds";
+            device_name_or_taskloop_bounds = "taskloop_bounds";
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
             type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
         }
         else
         {
-            device_env_name = "device_env";
+            device_name_or_taskloop_bounds = "device_env";
             type_arg = TL::Type::get_void_type().get_pointer_to();
         }
 
@@ -2387,7 +2397,7 @@ void TaskProperties::create_task_implementations_info(
         parameter_names[0] = "arg";
         parameter_types[0] = _info_structure.get_lvalue_reference_to();
 
-        parameter_names[1] = device_env_name;
+        parameter_names[1] = device_name_or_taskloop_bounds;
         parameter_types[1] = type_arg;
 
         parameter_names[2] = "address_translation_table";
@@ -3360,7 +3370,7 @@ void TaskProperties::create_task_implementations_info(
                     Nodecl::Utils::deep_copy(arg, TL::Scope::get_global_scope(), symbol_map));
         }
 
-        if (!task_is_taskloop())
+        // if (!task_is_taskloop())
         {
             // No need to do anything special here.
             for (DimensionInfo di : dim_info)
@@ -3373,10 +3383,10 @@ void TaskProperties::create_task_implementations_info(
                         Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), symbol_map));
             }
         }
-        else
-        {
-            internal_error("Not implemented yet", 0);
-        }
+        // else
+        // {
+        //     internal_error("Not implemented yet", 0);
+        // }
 
         Nodecl::NodeclBase function_call =
             Nodecl::ExpressionStatement::make(
@@ -3448,6 +3458,14 @@ void TaskProperties::create_task_implementations_info(
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
+
+        if (task_is_taskloop())
+        {
+            unpacked_fun_param_names.append("taskloop_bounds");
+            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            unpacked_fun_param_types.append(
+                    class_sym.get_user_defined_type().get_lvalue_reference_to());
+        }
 
         unpacked_fun_param_names.append("handler");
         unpacked_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
@@ -3602,14 +3620,22 @@ void TaskProperties::create_task_implementations_info(
         const std::string common_name = "deps";
         TL::Symbol unpacked_function = create_dependences_unpacked_function(common_name);
 
-        TL::ObjectList<std::string> unpacked_fun_param_names(2);
-        TL::ObjectList<TL::Type> unpacked_fun_param_types(2);
+        TL::ObjectList<std::string> unpacked_fun_param_names;
+        TL::ObjectList<TL::Type> unpacked_fun_param_types;
 
-        unpacked_fun_param_names[0] = "arg";
-        unpacked_fun_param_types[0] = _info_structure.get_lvalue_reference_to();
+        unpacked_fun_param_names.append("arg");
+        unpacked_fun_param_types.append(_info_structure.get_lvalue_reference_to());
 
-        unpacked_fun_param_names[1] = "handler";
-        unpacked_fun_param_types[1] = TL::Type::get_void_type().get_pointer_to();
+        if (task_is_taskloop())
+        {
+            unpacked_fun_param_names.append("taskloop_bounds");
+            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            unpacked_fun_param_types.append(
+                    class_sym.get_user_defined_type().get_lvalue_reference_to());
+        }
+
+        unpacked_fun_param_names.append("handler");
+        unpacked_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
 
         TL::Symbol dependences_function = create_outline_function(
                 unpacked_function,
