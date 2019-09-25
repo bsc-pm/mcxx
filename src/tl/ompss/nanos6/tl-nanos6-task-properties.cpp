@@ -3502,7 +3502,7 @@ void TaskProperties::create_task_implementations_info(
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
 
-        if (task_is_taskloop())
+        // FIXME: This depends on the family version of Nanos6
         {
             unpacked_fun_param_names.append("taskloop_bounds");
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
@@ -3733,7 +3733,7 @@ void TaskProperties::create_task_implementations_info(
         unpacked_fun_param_names.append("arg");
         unpacked_fun_param_types.append(_info_structure.get_lvalue_reference_to());
 
-        if (task_is_taskloop())
+        // FIXME: This depends on the family version of Nanos6
         {
             unpacked_fun_param_names.append("taskloop_bounds");
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
