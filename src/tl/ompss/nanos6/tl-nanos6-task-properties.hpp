@@ -310,6 +310,7 @@ namespace TL { namespace Nanos6 {
             Nodecl::NodeclBase get_upper_bound() const;
             Nodecl::NodeclBase get_step() const;
             Nodecl::NodeclBase get_chunksize() const;
+            Nodecl::NodeclBase get_grainsize() const;
             TL::Symbol get_induction_variable() const;
     };
 

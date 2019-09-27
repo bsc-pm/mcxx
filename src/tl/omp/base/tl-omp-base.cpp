@@ -1579,6 +1579,22 @@ namespace TL { namespace OpenMP {
                         const_value_to_nodecl(const_value_get_signed_int(0))));
         }
 
+        PragmaCustomClause grainsize_clause = pragma_line.get_clause("grainsize");
+        if (grainsize_clause.is_defined())
+        {
+            handle_generic_clause_with_one_argument<Nodecl::OpenMP::Grainsize>(
+                    "grainsize", "Its grainsize is",
+                    directive, directive, execution_environment);
+        }
+        else
+        {
+            // When the 'grainsize' clause is not present we defined its value
+            // to be 0. This is a special value that indicates to the runtime
+            // that they can distribute the iterations in any way.
+            execution_environment.append(Nodecl::OpenMP::Grainsize::make(
+                const_value_to_nodecl(const_value_get_signed_int(0))));
+        }
+
         if (pragma_line.get_clause("wait").is_defined())
         {
             error_printf_at(pragma_line.get_locus(),

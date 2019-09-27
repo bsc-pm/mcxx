@@ -368,6 +368,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 _env.cost_clause = n.get_cost();
             }
 
+            virtual void visit(const Nodecl::OpenMP::Grainsize &n)
+            {
+                _env.grainsize = n.get_grainsize();
+            }
+
             virtual void visit(const Nodecl::OmpSs::Chunksize &n)
             {
                 _env.chunksize = n.get_chunksize();

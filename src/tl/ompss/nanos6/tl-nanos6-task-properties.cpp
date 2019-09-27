@@ -4169,6 +4169,11 @@ void TaskProperties::create_task_implementations_info(
         return _env.chunksize;
     }
 
+    Nodecl::NodeclBase TaskProperties::get_grainsize() const
+    {
+        return _env.grainsize;
+    }
+
     void TaskProperties::compute_arguments_translation(
             const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const
     {

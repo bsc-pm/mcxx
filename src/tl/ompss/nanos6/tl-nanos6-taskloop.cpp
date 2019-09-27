@@ -373,10 +373,10 @@ namespace TL { namespace Nanos6 {
                     upper_bound = Nodecl::Conversion::make(upper_bound, params[2].get_type());
                 reg_loop_args.append(upper_bound);
 
-                Nodecl::NodeclBase step = task_properties.get_step().shallow_copy();
+                Nodecl::NodeclBase grainsize = task_properties.get_grainsize().shallow_copy();
                 if (IS_FORTRAN_LANGUAGE)
-                    step = Nodecl::Conversion::make(step, params[3].get_type());
-                reg_loop_args.append(step);
+                    grainsize = Nodecl::Conversion::make(grainsize, params[3].get_type());
+                reg_loop_args.append(grainsize);
 
                 Nodecl::NodeclBase chunksize = task_properties.get_chunksize().shallow_copy();
                 if (IS_FORTRAN_LANGUAGE)
