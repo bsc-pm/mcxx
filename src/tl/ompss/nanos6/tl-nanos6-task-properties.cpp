@@ -473,7 +473,7 @@ namespace TL { namespace Nanos6 {
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    _env.task_is_worksharing || task_is_taskloop(),
+                    task_is_taskloop(),
                     /* bit */ 2, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
@@ -515,8 +515,7 @@ namespace TL { namespace Nanos6 {
                     compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(),
-                        _env.task_is_worksharing || task_is_taskloop(), /* bit */ 2));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), task_is_taskloop(), /* bit */ 2));
 
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 3));
