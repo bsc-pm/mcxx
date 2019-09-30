@@ -477,10 +477,14 @@ namespace TL { namespace Nanos6 {
                     /* bit */ 2, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    _env.wait_clause, /* bit */ 3, /* out */ task_flags_expr);
+                    _env.task_is_worksharing,
+                    /* bit */ 3, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    preallocated_args_struct, /* bit */ 4, /* out */ task_flags_expr);
+                    _env.wait_clause, /* bit */ 4, /* out */ task_flags_expr);
+
+            compute_generic_flag_c(Nodecl::NodeclBase::null(),
+                    preallocated_args_struct, /* bit */ 5, /* out */ task_flags_expr);
 
             if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
@@ -518,15 +522,18 @@ namespace TL { namespace Nanos6 {
                     compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), task_is_taskloop(), /* bit */ 2));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 3));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_worksharing, /* bit */ 3));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), preallocated_args_struct, /* bit */ 4));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 4));
+
+            new_stmts.append(
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), preallocated_args_struct, /* bit */ 5));
 
             if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
-            new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, _env.lint_verified, /*defaul value */0, /* bit */ 5));
+                new_stmts.append(
+                        compute_generic_flag_fortran(task_flags, _env.lint_verified, /*defaul value */0, /* bit */ 6));
             }
         }
         out_stmts = new_stmts;
