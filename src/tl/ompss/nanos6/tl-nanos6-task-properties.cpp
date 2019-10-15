@@ -3403,14 +3403,19 @@ void TaskProperties::create_task_implementations_info(
             for (DimensionInfo di : dim_info)
             {
                 Nodecl::NodeclBase chunk_extent
-                    = Nodecl::Minus::make(
+                    = Nodecl::Add::make(
+                        Nodecl::Minus::make(
                             Nodecl::Conversion::make(
                                 tl_upper_bound_sym.make_nodecl(/* set_ref_type */ true),
                                 tl_upper_bound_sym.get_type().no_ref()),
                             Nodecl::Conversion::make(
                                 tl_lower_bound_sym.make_nodecl(/* set_ref_type */ true),
                                 tl_lower_bound_sym.get_type().no_ref()),
-                            tl_upper_bound_sym.get_type().no_ref());
+                            tl_upper_bound_sym.get_type().no_ref()),
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_signed_int(1),
+                            tl_upper_bound_sym.get_type().no_ref().get_internal_type()),
+                        tl_upper_bound_sym.get_type().no_ref());
                 Nodecl::NodeclBase size =
                     Nodecl::Mul::make(
                             Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map),
