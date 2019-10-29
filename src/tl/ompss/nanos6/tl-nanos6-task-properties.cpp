@@ -3402,26 +3402,10 @@ void TaskProperties::create_task_implementations_info(
             // Replace the induction variable with the right symbol
             for (DimensionInfo di : dim_info)
             {
-                Nodecl::NodeclBase chunk_extent
-                    = Nodecl::Add::make(
-                        Nodecl::Minus::make(
-                            Nodecl::Conversion::make(
-                                tl_upper_bound_sym.make_nodecl(/* set_ref_type */ true),
-                                tl_upper_bound_sym.get_type().no_ref()),
-                            Nodecl::Conversion::make(
-                                tl_lower_bound_sym.make_nodecl(/* set_ref_type */ true),
-                                tl_lower_bound_sym.get_type().no_ref()),
-                            tl_upper_bound_sym.get_type().no_ref()),
-                        const_value_to_nodecl_with_basic_type(
-                            const_value_get_signed_int(1),
-                            tl_upper_bound_sym.get_type().no_ref().get_internal_type()),
-                        tl_upper_bound_sym.get_type().no_ref());
-                Nodecl::NodeclBase size =
-                    Nodecl::Mul::make(
-                            Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map),
-                            chunk_extent,
-                            chunk_extent.get_type());
-                replaced_arguments_list.append(size);
+                // We don't change the size. This might be needed in some very
+                // rare cases which we don't consider yet.
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
                 {
                     Nodecl::Utils::SimpleSymbolMap lower_bound_symbol_map(&symbol_map);
                     lower_bound_symbol_map.add_map(get_induction_variable(), tl_lower_bound_sym);
