@@ -184,11 +184,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
             }
 
             template < typename T >
-                void handle_dependences(const T& n, TL::ObjectList<Nodecl::NodeclBase>& dep_list)
-                {
-                    _env.any_task_dependence = true;
-                    dep_list.append(n.get_exprs().template as<Nodecl::List>().to_object_list());
-                }
+            void handle_dependences(const T& n, TL::ObjectList<Nodecl::NodeclBase>& dep_list)
+            {
+                _env.any_task_dependence = true;
+                dep_list.append(n.get_exprs().template as<Nodecl::List>().to_object_list());
+            }
 
             virtual void visit(const Nodecl::OpenMP::DepIn &n)
             {
@@ -371,6 +371,21 @@ namespace TL { namespace OpenMP { namespace Lowering {
             virtual void visit(const Nodecl::OmpSs::Chunksize &n)
             {
                 _env.chunksize = n.get_chunksize();
+            }
+
+            virtual void visit(const Nodecl::OmpSs::LintVerified &n)
+            {
+                _env.lint_verified = n.get_expr();
+            }
+
+            virtual void visit(const Nodecl::OmpSs::LintFree& n)
+            {
+               _env.lint_free.append(n.get_exprs().as<Nodecl::List>().to_object_list());
+            }
+
+            virtual void visit(const Nodecl::OmpSs::LintAlloc& n)
+            {
+               _env.lint_alloc.append(n.get_exprs().as<Nodecl::List>().to_object_list());
             }
     };
 

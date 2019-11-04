@@ -460,6 +460,9 @@ namespace TL { namespace OmpSs {
             _parameters.append(updated_dep_item);
         }
 
+        _lint_verified = Nodecl::Utils::deep_copy(
+                task_info._lint_verified, task_info._sym.get_scope(), translation_map);
+
         _if_clause_cond_expr = Nodecl::Utils::deep_copy(
                 task_info._if_clause_cond_expr, task_info._sym.get_scope(), translation_map);
 
@@ -511,6 +514,17 @@ namespace TL { namespace OmpSs {
 
 
         // Third, instantiate the if clause, the final clause and the priority clause
+        if (!_lint_verified.is_null())
+        {
+            Nodecl::NodeclBase updated_lint_verified = instantiate_expression(
+                    _lint_verified.get_internal_nodecl(),
+                    instantiation_context,
+                    instantiation_symbol_map,
+                    /* pack index */ -1);
+
+            new_function_task_info._lint_verified = updated_lint_verified;
+        }
+
         if (!_if_clause_cond_expr.is_null())
         {
             Nodecl::NodeclBase updated_if_clause = instantiate_expression(
@@ -715,6 +729,16 @@ namespace TL { namespace OmpSs {
         return _wait;
     }
 
+    void FunctionTaskInfo::set_lint_verified(Nodecl::NodeclBase expr)
+    {
+        _lint_verified = expr;
+    }
+
+    Nodecl::NodeclBase FunctionTaskInfo::get_lint_verified() const
+    {
+        return _lint_verified;
+    }
+
     void FunctionTaskInfo::module_write(ModuleWriter& mw)
     {
         mw.write(_sym);
@@ -724,6 +748,7 @@ namespace TL { namespace OmpSs {
         mw.write(_final_clause_cond_expr);
         mw.write(_untied);
         mw.write(_wait);
+        mw.write(_lint_verified);
         mw.write(_priority_clause_expr);
         mw.write(_cost_clause_expr);
         mw.write(_task_label);
@@ -740,6 +765,7 @@ namespace TL { namespace OmpSs {
         mr.read(_final_clause_cond_expr);
         mr.read(_untied);
         mr.read(_wait);
+        mr.read(_lint_verified);
         mr.read(_priority_clause_expr);
         mr.read(_cost_clause_expr);
         mr.read(_task_label);

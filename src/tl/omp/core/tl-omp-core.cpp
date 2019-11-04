@@ -2289,7 +2289,7 @@ namespace TL { namespace OpenMP {
         DataEnvironment& data_environment = _openmp_info->get_new_data_environment(construct);
 
         // A taskgroup construct is not associated with a data environment in OpenMP.
-        // Despite that, it's useful to keep the information related to the this construct
+        // Despite that, it's useful to keep the information related to this construct
         // in a DataEnvironment. However, we will never update the current data environment.
         //
         // _openmp_info->push_current_data_environment(data_environment);
@@ -2732,8 +2732,9 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_DIRECTIVE_HANDLER(taskwait)
     OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
 
-#include "tl-omp-def-undef-macros.hpp"
+    OSS_INVALID_DECLARATION_HANDLER(lint)
 
+#include "tl-omp-def-undef-macros.hpp"
 
     Nodecl::NodeclBase get_statement_from_pragma(
             const TL::PragmaCustomStatement& construct)

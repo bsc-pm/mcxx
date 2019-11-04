@@ -734,6 +734,7 @@ omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
                 | NODECL_OMP_SS*WEAK_REDUCTION([reductions]omp-reduction-item-seq)
                 | NODECL_OMP_SS*COST([cost]expression)
+                | NODECL_OMP_SS*LINT_VERIFIED([expr]expression)
                 | NODECL_OMP_SS*TASK_LABEL() text
 
 omp-exec-environment : ompss-device-info
@@ -838,3 +839,16 @@ checkpoint-environment : NODECL_CHECKPOINT*DATA([exprs] expression-seq)
                        | NODECL_CHECKPOINT*COMM([expr] expression)
                        | NODECL_CHECKPOINT*IF([expr] expression)
                        | NODECL_CHECKPOINT*KIND([expr] expression)
+
+
+##############################
+# LINT                       #
+##############################
+
+statement-but-object-init: lint-construct
+
+lint-construct : NODECL_OMP_SS*LINT([environment]lint-exec-environment-seq-opt,[statements]statement-seq-opt)
+
+lint-exec-environment : omp-exec-environment
+                      | NODECL_OMP_SS*LINT_FREE([exprs]expression-seq)
+                      | NODECL_OMP_SS*LINT_ALLOC([exprs]expression-seq)

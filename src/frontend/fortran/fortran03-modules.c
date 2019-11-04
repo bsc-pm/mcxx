@@ -54,7 +54,7 @@
  #error Q cannot be defined here
 #endif
 
-enum { CURRENT_MODULE_VERSION = 23 };
+enum { CURRENT_MODULE_VERSION = 24 };
 
 // Uncomment the next line to let you GCC help in wrong types in formats of sqlite3_mprintf
 // #define DEBUG_SQLITE3_MPRINTF 1
