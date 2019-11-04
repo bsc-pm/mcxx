@@ -13,7 +13,7 @@ int main()
         //p = malloc(N*sizeof(*p));
     }
 
-    #pragma oss lint free(p)
+    #pragma oss lint free(*p)
     {
         // free(p);
     }
