@@ -1648,7 +1648,7 @@ then
             then
                force_flex=yes
                flex_good=yes
-            else if test x$enablevalo = xno;
+            else if test x$enableval = xno;
                  then
                      force_flex=no
                  else
@@ -1704,7 +1704,7 @@ then
             then
                force_bison=yes
                bison_good=yes
-            else if test x$enablevalo = xno;
+            else if test x$enableval = xno;
                  then
                      force_bison=no
                  else
@@ -1758,7 +1758,7 @@ then
             then
                force_gperf=yes
                gperf_good=yes
-            else if test x$enablevalo = xno;
+            else if test x$enableval = xno;
                  then
                      force_gperf=no
                  else
