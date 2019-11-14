@@ -540,12 +540,12 @@ src/frontend/cxx-asttype.c : src/frontend/cxx-asttype.def src/frontend/cxx-astty
 	echo "};" >> $${OUT_FILE}; \
 	)
 
+if GPERF_BUILDING
 BUILT_SOURCES += src/frontend/cxx-asttype.def
 CLEANFILES += src/frontend/cxx-asttype.def
 src/frontend/cxx-asttype.def : $(TPP) $(addprefix $(top_srcdir)/, $(AST_NODE_TYPE_FILES)) $(AST_NODE_TYPE_FILES_GEN)
 	$(TPP_verbose)$(TPP) -o src/frontend/cxx-asttype.def -I$(top_srcdir)/src/frontend -I./src/frontend $(top_srcdir)/src/frontend/cxx-asttype-all.def
 
-if GPERF_BUILDING
 BUILT_SOURCES += src/frontend/cxx-asttype-str.gperf
 CLEANFILES += src/frontend/cxx-asttype-str.gperf
 src/frontend/cxx-asttype-str.gperf : src/frontend/cxx-asttype.def
