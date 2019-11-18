@@ -1648,7 +1648,7 @@ then
             then
                force_flex=yes
                flex_good=yes
-            else if test x$enablevalo = xno;
+            else if test x$enableval = xno;
                  then
                      force_flex=no
                  else
@@ -1704,7 +1704,7 @@ then
             then
                force_bison=yes
                bison_good=yes
-            else if test x$enablevalo = xno;
+            else if test x$enableval = xno;
                  then
                      force_bison=no
                  else
@@ -1758,7 +1758,7 @@ then
             then
                force_gperf=yes
                gperf_good=yes
-            else if test x$enablevalo = xno;
+            else if test x$enableval = xno;
                  then
                      force_gperf=no
                  else
@@ -2313,16 +2313,24 @@ then
 	AC_MSG_WARN([Fortran+MIC compiling requires k1om objdump/ar/objcpy binaries to be avaiable, configure folder with '--with-mic-tools=dir'. See --help.])
 fi
 
+dev_is_unfeasible=no
 if test x$flex_good = xno;
 then
   AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
+  dev_is_unfeasible=yes
 fi
 if test x$bison_good = xno;
 then
   AC_MSG_WARN([bison files (*.y) will not be considered for regeneration])
+  dev_is_unfeasible=yes
 fi
 if test x$gperf_good = xno;
 then
-   AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
+  AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
+  dev_is_unfeasible=yes
 fi
 
+if test x$dev_is_unfeasible = xyes;
+then
+  AC_MSG_WARN([some tools are missing. The resulting build will not be useable for development of Mercurium])
+fi
