@@ -1,0 +1,59 @@
+#!@PYTHON@
+
+import os
+import subprocess
+import argparse
+import random
+
+
+def update_string(s, x, c):
+    return s[:x] + c + s[x + 1:]
+
+
+def select_threads(mask, nthreads):
+    initial_mask = "{:b}".format(mask)
+    available = enumerate(initial_mask)
+    available = list(filter(lambda x: x[1] == "1", available))
+
+    chosen_bits = []
+    for i in range(nthreads):
+        if not available:
+            raise Exception(
+                "REQUESTING MORE CORES THAN AVAILABLE RESOURCES. Initial Mask: {}".
+                format(initial_mask))
+        t = random.choice(available)
+        available.remove(t)
+        chosen_bits.append(t)
+
+    chosen_mask = "0" * len(initial_mask)
+    for i in chosen_bits:
+        chosen_mask = update_string(chosen_mask, i[0], "1")
+
+    assert (chosen_mask.count("1") == nthreads)
+    return int(chosen_mask, 2)
+
+
+def get_current_taskset():
+    current_pid = os.getpid()
+
+    taskset_query = subprocess.check_output(
+        ["taskset", "-p", "{}".format(current_pid)])
+    taskset_query = taskset_query.decode("utf-8")
+
+    mask_str = taskset_query.split(":")[1].strip()
+    mask = int(mask_str, 16)
+    return mask
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='Compute a random taskset for a given number of threads')
+    parser.add_argument(
+        'nthreads', type=int, help='Number of threads requested')
+
+    args = parser.parse_args()
+
+    mask = get_current_taskset()
+
+    random.seed()
+    print("0x{:x}".format(select_threads(mask, args.nthreads)))

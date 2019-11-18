@@ -427,61 +427,6 @@ runner_sde ()
    return $ret
 }
 
-
-# Given a process mask and a number of requested cores, this function computes
-# a mask that exaclty enables that number of cores.
-compute_mask ()
-{
-    # Original mask
-    local hex_mask_str=`taskset -p $$ | cut -d':' -f 2 | cut -d' ' -f 2`
-
-    # The result will be stored in this variable
-    local result_hex_mask_str=
-
-    local req_cores=$1
-    local ena_cores=0
-
-    # We have to traverse the string that represents the mask from the end to the beginning
-    local index=$((${#hex_mask_str} - 1))
-    while [ ${index} -ge 0  -a ${ena_cores} -lt ${req_cores} ];
-    do
-
-        # Decimal representation of the current char
-        local current_char_dec=$((0x${hex_mask_str:$index:1}))
-        local result_current_char_bin_str=0
-
-        local num_bit=0
-        while [ $current_char_dec -ne 0 -a ${ena_cores} -lt ${req_cores} ];
-        do
-            local current_bit=$(($current_char_dec & 1))
-            if [ $current_bit -eq 1 ];
-            then
-                ena_cores=$(($ena_cores + 1))
-            fi
-            result_current_char_bin_str=$(($result_current_char_bin_str | ($current_bit << $num_bit)))
-            current_char_dec=$(($current_char_dec >> 1))
-                num_bit=$(($num_bit + 1))
-        done
-
-        local result_current_char_hex=`echo "obase=16; ibase=10; $result_current_char_bin_str" | bc`
-
-        result_hex_mask_str="${result_current_char_hex}${result_hex_mask_str}"
-        index=$(($index - 1))
-    done
-
-    result_hex_mask_str="0x${result_hex_mask_str}"
-    if [ ${ena_cores} -ne ${req_cores} ];
-    then
-        echo "REQUESTING MORE CORES THAN AVAILABLE RESOURCES. Initial Mask: ${hex_mask_str}, Result Mask: ${result_hex_mask_str}"
-        exit -1
-    fi
-
-    echo "${result_hex_mask_str}"
-}
-
-
-
-
 runner_taskset ()
 {
    local tmpdir
@@ -502,7 +447,7 @@ runner_taskset ()
       # We need to evaluate ENV to pass ${TASKSET_NUM_CPUS}
       echo "set -x" >> $tmpfile
       eval $env;
-      local hex_mask=$(compute_mask ${TASKSET_NUM_CPUS})
+      local hex_mask=$(${generator_root_dir}/config/compute_random_taskset.py ${TASKSET_NUM_CPUS})
       echo $env taskset ${hex_mask} $tmpdir/$exec $args >> $tmpfile
       echo "ret=\$?" >> $tmpfile
       echo "set +x" >> $tmpfile

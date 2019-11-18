@@ -2152,6 +2152,7 @@ AC_CONFIG_FILES([tests/config/mercurium-serial-simd-avx2], [chmod +x tests/confi
 AC_CONFIG_FILES([tests/config/mercurium-serial-simd-mic], [chmod +x tests/config/mercurium-serial-simd-mic])
 AC_CONFIG_FILES([tests/config/mercurium-serial-simd-romol], [chmod +x tests/config/mercurium-serial-simd-romol])
 AC_CONFIG_FILES([tests/config/test-generators-utilities], [chmod +x tests/config/test-generators-utilities])
+AC_CONFIG_FILES([tests/config/compute_random_taskset.py], [chmod +x tests/config/compute_random_taskset.py])
 
 ## Specific profiles
 AC_CONFIG_FILES([tests/05_torture_cxx_1.dg/mercurium], [chmod +x tests/05_torture_cxx_1.dg/mercurium])
