@@ -570,7 +570,7 @@ CLEANFILES += src/frontend/cxx-asttype-str-internal.h
 endif
 
 if GPERF_BUILDING
-src/frontend/cxx-asttype-str-internal.h: src/frontend/cxx-asttype-str.gperf
+src/frontend/cxx-asttype-str-internal.h: src/frontend/cxx-asttype-str.gperf $(GPERF_COMPAT_TYPES_H)
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=ast_node_kind_hash --struct-type \
       --lookup-function-name=ast_node_name_to_kind_ --output=src/frontend/cxx-asttype-str-internal.h \
       --initializer-suffix=,AST_INVALID_NODE src/frontend/cxx-asttype-str.gperf
@@ -847,7 +847,7 @@ EXTRA_DIST += src/frontend/fortran/prescanner-scanner.h
 if GPERF_BUILDING
 CLEANFILES += src/frontend/fortran/fortran03-keywords.c
 endif
-src/frontend/fortran/fortran03-keywords.c : $(srcdir)/src/frontend/fortran/fortran03-keywords.gperf
+src/frontend/fortran/fortran03-keywords.c : $(srcdir)/src/frontend/fortran/fortran03-keywords.gperf $(GPERF_COMPAT_TYPES_H)
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=fortran_keywords_hash --struct-type \
       --initializer-suffix=,0 --lookup-function-name=fortran_keywords_lookup --output=src/frontend/fortran/fortran03-keywords.c \
@@ -3113,7 +3113,7 @@ endif
 
 CLEANFILES += src/driver/cxx-target-tools.h
 
-src/driver/cxx-configoptions.c : $(srcdir)/src/driver/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/src/driver/cxx-configfile.h
+src/driver/cxx-configoptions.c : $(srcdir)/src/driver/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/src/driver/cxx-configfile.h $(GPERF_COMPAT_TYPES_H)
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
       --lookup-function-name=configoptions_lookup --output=src/driver/cxx-configoptions.c \
@@ -3123,7 +3123,7 @@ else
 	@exit 1
 endif
 
-src/driver/cxx-fileextensions.c : $(srcdir)/src/driver/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
+src/driver/cxx-fileextensions.c : $(srcdir)/src/driver/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(GPERF_COMPAT_TYPES_H)
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
       --lookup-function-name=fileextensions_lookup --output=src/driver/cxx-fileextensions.c \
@@ -3133,7 +3133,7 @@ else
 	@exit 1
 endif
 
-src/driver/cxx-debugflags.c : $(srcdir)/src/driver/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h
+src/driver/cxx-debugflags.c : $(srcdir)/src/driver/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h $(GPERF_COMPAT_TYPES_H)
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
       --lookup-function-name=debugflags_lookup --output=src/driver/cxx-debugflags.c \
@@ -3743,6 +3743,8 @@ PLAINFC=$(top_builddir)/src/driver/plaincxx --config-dir=$(top_builddir)/config 
 # support/gperf
 ##########################################################################
 
+
+
 if GPERF_BUILDING
 BUILT_SOURCES += support/gperf/gperf-compat-types.h
 CLEANFILES += support/gperf/gperf-compat-types.h
@@ -3751,6 +3753,7 @@ endif
 EXTRA_DIST += support/gperf/gperf-compat-types.h
 
 if GPERF_BUILDING
+GPERF_COMPAT_TYPES_H=support/gperf/gperf-compat-types.h
 GPERF_LEN_TYPE=@GPERF_LENGTH_TYPE@
 support/gperf/gperf-compat-types.h: Makefile
 	$(AM_V_GEN)( \
@@ -3765,6 +3768,8 @@ support/gperf/gperf-compat-types.h: Makefile
 	echo >> $${OUT_FILE}; \
 	echo "#endif /* GPERF_COMPAT_TYPES_H */" >> $${OUT_FILE}; \
     )
+else
+GPERF_COMPAT_TYPES_H=
 endif
 
 ##########################################################################
