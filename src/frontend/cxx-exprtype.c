@@ -3278,6 +3278,28 @@ static void update_unresolved_overload_argument(type_t* arg_type,
             decl_context,
             locus);
 
+    if (solved_function == NULL)
+    {
+        error_printf_at(locus, "cannot resolve address of type '%s' for overloaded function\n",
+                print_type_str(param_type, decl_context));
+        scope_entry_list_iterator_t *it = NULL;
+        info_printf_at(locus, "overloaded functions are:\n");
+        for (it = entry_list_iterator_begin(unresolved_set);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* current_overload = entry_list_iterator_current(it);
+            info_printf_at(locus, "  %s\n",
+                    print_decl_type_str(current_overload->type_information, decl_context,
+                        get_qualified_symbol_name(current_overload, decl_context)));
+        }
+        entry_list_iterator_free(it);
+
+        *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_set_type(*nodecl_output, get_error_type());
+        return;
+    }
+
     ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
 
     if (!symbol_entity_specs_get_is_member(solved_function)
