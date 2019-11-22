@@ -39,6 +39,7 @@
 #include "cxx-driver-decls.h"
 #include "cxx-ast-decls.h"
 #include "cxx-nodecl-output.h"
+#include "cxx-limits.h"
 
 MCXX_BEGIN_DECLS
 
@@ -159,7 +160,6 @@ LIBMCXX_EXTERN void set_function_type_for_lambda(type_t** declarator_type,
         nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void push_extra_declaration_symbol(scope_entry_t* entry);
-LIBMCXX_EXTERN scope_entry_t* pop_extra_declaration_symbol(void);
 
 LIBMCXX_EXTERN void set_parameters_as_related_symbols(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
@@ -175,6 +175,9 @@ LIBMCXX_EXTERN nodecl_t instantiate_statement(nodecl_t orig_tree,
 
 LIBMCXX_EXTERN nodecl_t flush_instantiated_entities(void);
 LIBMCXX_EXTERN void push_instantiated_entity(scope_entry_t* entry);
+
+LIBMCXX_EXTERN void push_extra_declaration_level(void);
+LIBMCXX_EXTERN void pop_extra_declaration_level(void);
 
 // Only to be called from cxx-instantiation.c
 nodecl_t instantiate_function_code(nodecl_t orig_tree,
