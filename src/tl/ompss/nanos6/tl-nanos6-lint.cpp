@@ -134,8 +134,23 @@ namespace TL { namespace Nanos6 {
 
                         ERROR_CONDITION(data_ref.is_multireference(), "Unexpected multi-dependence in a lint construct\n", 0);
 
+                        Nodecl::NodeclBase base_address;
+                        TL::ObjectList<DimensionInfo> dim_info;
+                        compute_base_address_and_dimensionality_information(
+                            data_ref, base_address, dim_info);
+
                         TL::ObjectList<Nodecl::NodeclBase> arguments;
-                        compute_base_address_and_dimensionality_information(data_ref, arguments);
+                        arguments.append(base_address);
+
+                        for (TL::ObjectList<DimensionInfo>::iterator di = dim_info.begin();
+                                di != dim_info.end();
+                                di++)
+                        {
+                            arguments.append(di->upper);
+                            arguments.append(di->lower);
+                            arguments.append(di->size);
+                        }
+
                         Nodecl::NodeclBase call_to_register = Nodecl::ExpressionStatement::make(
                                 Nodecl::FunctionCall::make(
                                     lint_fun.make_nodecl(/* set_ref_type */ true),
