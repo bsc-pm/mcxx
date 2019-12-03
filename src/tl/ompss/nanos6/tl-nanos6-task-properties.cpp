@@ -210,6 +210,10 @@ namespace TL { namespace Nanos6 {
                         TL::Type::get_size_t_type());
             _taskloop_bounds.step = for_stmt.get_step();
             _taskloop_bounds.induction_variable = for_stmt.get_induction_variable();
+
+            // Avoid capturing the value the induction variable just because it
+            // was mentioned in the dependences.
+            _env.captured_value = _env.captured_value.not_find(_taskloop_bounds.induction_variable);
         }
 
         {

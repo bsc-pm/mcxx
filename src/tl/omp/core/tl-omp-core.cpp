@@ -2086,6 +2086,16 @@ namespace TL { namespace OpenMP {
                 default_data_attr, there_is_default_clause);
 
         get_data_extra_symbols(data_environment, extra_symbols);
+
+        // Make sure we do not accidentally add a data sharing for the
+        // induction variable because of dependences if it is locally defined.
+        TL::ForStatement for_statement(loop.as<Nodecl::ForStatement>());
+        TL::Symbol sym = for_statement.get_induction_variable();
+
+        if (sym.get_scope().scope_is_enclosed_by(construct.retrieve_context()))
+        {
+            data_environment.remove_data_sharing(sym);
+        }
     }
 
     void Core::taskloop_handler_post(TL::PragmaCustomStatement construct)

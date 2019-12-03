@@ -183,6 +183,11 @@ namespace TL
             return result;
         }
 
+        void DataEnvironment::remove_data_sharing(Symbol sym)
+        {
+            (*_data_sharing).remove(sym);
+        }
+
         void DataEnvironment::set_data_sharing(Symbol sym,
                 DataSharingAttribute data_attr,
                 DataSharingKind ds_kind,
