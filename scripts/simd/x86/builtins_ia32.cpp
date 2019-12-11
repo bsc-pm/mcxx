@@ -2521,6 +2521,11 @@ VECTOR_INTRIN(__builtin_ia32_xsaveopt64) \
 VECTOR_INTRIN(__builtin_ia32_xsaves) \
 VECTOR_INTRIN(__builtin_ia32_xsaves64) \
 VECTOR_INTRIN(__builtin_ia32_xtest) \
+VECTOR_INTRIN(__builtin_ia32_pf2iw) \
+VECTOR_INTRIN(__builtin_ia32_pfnacc) \
+VECTOR_INTRIN(__builtin_ia32_pfpnacc) \
+VECTOR_INTRIN(__builtin_ia32_pi2fw) \
+VECTOR_INTRIN(__builtin_ia32_pswapdsf) \
 \
 VECTOR_ALIAS(__builtin_ia32_pbroadcastq512_mem_mask, __builtin_ia32_pbroadcastq512_gpr_mask) \
 END
