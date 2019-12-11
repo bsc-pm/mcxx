@@ -383,6 +383,19 @@ static int _top_linkage_stack = 0;
 static scope_entry_t* _extra_declaration[MCXX_MAX_EXTRA_DECLARATIONS] = { };
 static int _extra_declaration_idx = 0;
 
+static int _extra_declaration_level = 0;
+
+void push_extra_declaration_level(void)
+{
+  _extra_declaration_level++;
+}
+
+void pop_extra_declaration_level(void)
+{
+  ERROR_CONDITION(_extra_declaration_level == 0, "Stack underflow", 0);
+  _extra_declaration_level--;
+}
+
 void push_extra_declaration_symbol(scope_entry_t* entry)
 {
     ERROR_CONDITION(_extra_declaration_idx == MCXX_MAX_EXTRA_DECLARATIONS,
@@ -391,15 +404,6 @@ void push_extra_declaration_symbol(scope_entry_t* entry)
     _extra_declaration_idx++;
 }
 
-scope_entry_t* pop_extra_declaration_symbol(void)
-{
-    if (_extra_declaration_idx > 0)
-    {
-        _extra_declaration_idx--;
-        return _extra_declaration[_extra_declaration_idx];
-    }
-    return NULL;
-}
 // --
 static scope_entry_list_t* _instantiated_entries = NULL;
 
@@ -2214,11 +2218,17 @@ static void copy_gather_info(gather_decl_spec_t* dest, gather_decl_spec_t* src)
 
 nodecl_t flush_extra_declared_symbols(const locus_t* loc)
 {
+    if (_extra_declaration_level != 0)
+        return nodecl_null();
+
     nodecl_t result = nodecl_null();
 
-    scope_entry_t* extra_decl_symbol = pop_extra_declaration_symbol();
-    while (extra_decl_symbol != NULL)
+    int n = 0;
+    while (n < _extra_declaration_idx)
     {
+        scope_entry_t* extra_decl_symbol = _extra_declaration[n];
+        n++;
+
         if (symbol_entity_specs_get_is_saved_expression(extra_decl_symbol))
         {
             result = nodecl_append_to_list(
@@ -2260,9 +2270,9 @@ nodecl_t flush_extra_declared_symbols(const locus_t* loc)
                     extra_decl_symbol->symbol_name,
                     symbol_kind_name(extra_decl_symbol));
         }
-
-        extra_decl_symbol = pop_extra_declaration_symbol();
     }
+
+    _extra_declaration_idx = 0;
 
     return result;
 }

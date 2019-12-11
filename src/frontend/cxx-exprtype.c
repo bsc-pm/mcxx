@@ -14955,6 +14955,8 @@ static void implement_nongeneric_lambda_expression(
     scope_entry_t* ancillary = NULL;
     scope_entry_t* conversion = NULL;
 
+    scope_entry_list_t *symbols_to_push_declarations = NULL;
+
     if (num_captures == 0)
     {
         // Emit a trivial constructor
@@ -14980,7 +14982,7 @@ static void implement_nongeneric_lambda_expression(
 
         symbol_entity_specs_set_function_code(constructor,
                 constructor_function_code);
-        push_extra_declaration_symbol(constructor);
+        symbols_to_push_declarations = entry_list_add(symbols_to_push_declarations, constructor);
 
         class_type_add_member(lambda_class->type_information, constructor, inner_class_context, /* is_definition */ 1);
 
@@ -15210,7 +15212,7 @@ static void implement_nongeneric_lambda_expression(
 
         symbol_entity_specs_set_function_code(constructor,
                 constructor_function_code);
-        push_extra_declaration_symbol(constructor);
+        symbols_to_push_declarations = entry_list_add(symbols_to_push_declarations, constructor);
 
         class_type_add_member(lambda_class->type_information, constructor, inner_class_context, /* is_definition */ 1);
     }
@@ -15295,11 +15297,18 @@ static void implement_nongeneric_lambda_expression(
         symbol_entity_specs_set_result_var(operator_call, result_sym);
     }
 
+    // Because we are processing something that is like a nested function we
+    // need to make a copy of the stack of extra declarations here
+    push_extra_declaration_level();
+
     nodecl_t nodecl_lambda_body = instantiate_statement(
             nodecl_orig_lambda_body,
             nodecl_retrieve_context(nodecl_orig_lambda_body),
             block_context,
             instantiation_symbol_map);
+
+    pop_extra_declaration_level();
+
     instantiation_symbol_map_pop(instantiation_symbol_map);
     instantiation_symbol_map = NULL;
     ERROR_CONDITION(nodecl_is_list(nodecl_lambda_body), "Should not be a list", 0);
@@ -15316,7 +15325,7 @@ static void implement_nongeneric_lambda_expression(
                 nodecl_null(),
                 operator_call,
                 locus));
-    push_extra_declaration_symbol(operator_call);
+    symbols_to_push_declarations = entry_list_add(symbols_to_push_declarations, operator_call);
 
     class_type_add_member(lambda_class->type_information, operator_call,
             inner_class_context, /* is_definition */ 1);
@@ -15324,7 +15333,7 @@ static void implement_nongeneric_lambda_expression(
     // complete the class
     set_is_complete_type(lambda_class->type_information, 1);
 
-    push_extra_declaration_symbol(lambda_class);
+    symbols_to_push_declarations = entry_list_add(symbols_to_push_declarations, lambda_class);
 
     // rvalue of the class type
     type_t* lambda_type = get_user_defined_type(lambda_class);
@@ -15435,7 +15444,7 @@ static void implement_nongeneric_lambda_expression(
                     nodecl_null(),
                     ancillary,
                     locus));
-        push_extra_declaration_symbol(ancillary);
+        symbols_to_push_declarations = entry_list_add(symbols_to_push_declarations, ancillary);
 
         symbol_entity_specs_set_is_inline(ancillary, 1);
         symbol_entity_specs_set_is_defined_inside_class_specifier(ancillary, 1);
@@ -15475,7 +15484,7 @@ static void implement_nongeneric_lambda_expression(
                     nodecl_null(),
                     conversion,
                     locus));
-        push_extra_declaration_symbol(conversion);
+        symbols_to_push_declarations = entry_list_add(symbols_to_push_declarations, conversion);
 
         symbol_entity_specs_set_is_inline(conversion, 1);
         symbol_entity_specs_set_is_defined_inside_class_specifier(conversion, 1);
@@ -15509,6 +15518,16 @@ static void implement_nongeneric_lambda_expression(
             decl_context,
             nodecl_output,
             locus);
+
+    scope_entry_list_iterator_t *it;
+    for (it = entry_list_iterator_begin(symbols_to_push_declarations);
+        !entry_list_iterator_end(it);
+        entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_entry = entry_list_iterator_current(it);
+        push_extra_declaration_symbol(current_entry);
+    }
+    entry_list_iterator_free(it);
 }
 
 static void implement_generic_lambda_expression(
@@ -16582,7 +16601,13 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
     symbol_entity_specs_set_result_var(lambda_symbol, result_symbol);
     result_symbol->type_information = function_type_get_return_type(function_type);
 
+    // Because we are processing something that is like a nested function we
+    // need to make a copy of the stack of extra declarations here
+    push_extra_declaration_level();
+
     build_scope_statement(compound_statement, lambda_block_context, &nodecl_lambda_body);
+
+    pop_extra_declaration_level();
 
     if (nodecl_contains_error_nodes(nodecl_lambda_body))
     {
