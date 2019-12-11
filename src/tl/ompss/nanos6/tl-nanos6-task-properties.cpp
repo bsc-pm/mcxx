@@ -476,24 +476,32 @@ namespace TL { namespace Nanos6 {
             compute_generic_flag_c(negate_condition_if_valid(_env.if_clause),
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
-            compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    task_is_taskloop(),
-                    /* bit */ 2, /* out */ task_flags_expr);
+            int bit_offset = 0;
+            if (Interface::family_is_at_least("nanos6_taskfor_api", 2))
+            {
+                compute_generic_flag_c(Nodecl::NodeclBase::null(),
+                        task_is_taskloop() && Interface::family_is_at_least("nanos6_taskfor_api", 2),
+                        /* bit */ 2, /* out */ task_flags_expr);
+            }
+            else
+            {
+                bit_offset = -1;
+            }
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
                     _env.task_is_worksharing,
-                    /* bit */ 3, /* out */ task_flags_expr);
+                    /* bit */ 3 + bit_offset, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    _env.wait_clause, /* bit */ 4, /* out */ task_flags_expr);
+                    _env.wait_clause, /* bit */ 4 + bit_offset, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    preallocated_args_struct, /* bit */ 5, /* out */ task_flags_expr);
+                    preallocated_args_struct, /* bit */ 5 + bit_offset, /* out */ task_flags_expr);
 
             if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
                 compute_generic_flag_c(_env.lint_verified,
-                        /* default value*/ 0, /* bit */ 5, /* out */ task_flags_expr);
+                        /* default value*/ 0, /* bit */ 6 + bit_offset, /* out */ task_flags_expr);
             }
 
             new_stmts.append(
@@ -522,22 +530,30 @@ namespace TL { namespace Nanos6 {
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
 
-            new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), task_is_taskloop(), /* bit */ 2));
+            int bit_offset = 0;
+            if (Interface::family_is_at_least("nanos6_taskfor_api", 2))
+            {
+                new_stmts.append(
+                        compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), task_is_taskloop(), 2));
+            }
+            else
+            {
+                bit_offset = -1;
+            }
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_worksharing, /* bit */ 3));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_worksharing, /* bit */ 3 + bit_offset));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 4));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 4 + bit_offset));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), preallocated_args_struct, /* bit */ 5));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), preallocated_args_struct, /* bit */ 5 + bit_offset));
 
             if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
                 new_stmts.append(
-                        compute_generic_flag_fortran(task_flags, _env.lint_verified, /*defaul value */0, /* bit */ 6));
+                        compute_generic_flag_fortran(task_flags, _env.lint_verified, /*defaul value */0, /* bit */ 6 + bit_offset));
             }
         }
         out_stmts = new_stmts;
@@ -3388,20 +3404,7 @@ void TaskProperties::create_task_implementations_info(
                     Nodecl::Utils::deep_copy(arg, TL::Scope::get_global_scope(), symbol_map));
         }
 
-        if (!task_is_taskloop())
-        {
-            // No need to do anything special here.
-            for (DimensionInfo di : dim_info)
-            {
-                replaced_arguments_list.append(
-                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
-                replaced_arguments_list.append(
-                        Nodecl::Utils::deep_copy(di.lower, TL::Scope::get_global_scope(), symbol_map));
-                replaced_arguments_list.append(
-                        Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), symbol_map));
-            }
-        }
-        else
+        if (task_is_taskloop())
         {
             // Replace the induction variable with the right symbol
             for (DimensionInfo di : dim_info)
@@ -3423,6 +3426,19 @@ void TaskProperties::create_task_implementations_info(
                     replaced_arguments_list.append(
                             Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), upper_bound_symbol_map));
                 }
+            }
+        }
+        else
+        {
+            // No need to do anything special here.
+            for (DimensionInfo di : dim_info)
+            {
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.lower, TL::Scope::get_global_scope(), symbol_map));
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), symbol_map));
             }
         }
 
@@ -3501,7 +3517,7 @@ void TaskProperties::create_task_implementations_info(
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
 
-        // FIXME: This depends on the family version of Nanos6
+        if (Interface::family_is_at_least("nanos6_taskfor_api", 2))
         {
             unpacked_fun_param_names.append("taskloop_bounds");
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
@@ -3578,7 +3594,7 @@ void TaskProperties::create_task_implementations_info(
         // but it is something we may discover too late.
         TL::Symbol tl_lower_bound_sym;
         TL::Symbol tl_upper_bound_sym;
-        if (task_is_taskloop())
+        if (task_is_taskloop() && Interface::family_is_at_least("nanos6_taskfor_api", 2))
         {
             TL::Symbol taskloop_symbol = unpacked_fun_inside_scope.get_symbol_from_name("taskloop_bounds");
             ERROR_CONDITION(!taskloop_symbol.is_valid(), "Expecting a symbol", 0);
@@ -3732,7 +3748,7 @@ void TaskProperties::create_task_implementations_info(
         unpacked_fun_param_names.append("arg");
         unpacked_fun_param_types.append(_info_structure.get_lvalue_reference_to());
 
-        // FIXME: This depends on the family version of Nanos6
+        if (Interface::family_is_at_least("nanos6_taskfor_api", 2))
         {
             unpacked_fun_param_names.append("taskloop_bounds");
             TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
