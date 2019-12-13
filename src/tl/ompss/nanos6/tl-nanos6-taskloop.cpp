@@ -41,7 +41,7 @@ namespace TL { namespace Nanos6 {
     void Lower::visit(const Nodecl::OpenMP::Taskloop& node)
     {
         Interface::family_must_be_at_least("nanos6_instantiation_api", 2, "to support taskloop");
-        Interface::family_must_be_at_least("nanos6_taskfor_api", 2, "to support taskloop");
+        Interface::family_must_be_at_least("nanos6_loop_api", 2, "to support taskloop");
 
         Nodecl::OpenMP::Taskloop taskloop = node;
 
@@ -351,7 +351,7 @@ namespace TL { namespace Nanos6 {
             }
 
             {
-                TL::Symbol nanos_register_loop_sym = get_nanos6_function_symbol("nanos6_register_taskloop_bounds");
+                TL::Symbol nanos_register_loop_sym = get_nanos6_register_loop_bounds_function();
 
                 Nodecl::NodeclBase stmt = node.get_loop();
                 ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);

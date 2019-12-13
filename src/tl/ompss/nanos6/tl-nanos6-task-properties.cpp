@@ -477,10 +477,10 @@ namespace TL { namespace Nanos6 {
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
             int bit_offset = 0;
-            if (Interface::family_is_at_least("nanos6_taskfor_api", 2))
+            if (Interface::family_is_at_least("nanos6_loop_api", 2))
             {
                 compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                        task_is_taskloop() && Interface::family_is_at_least("nanos6_taskfor_api", 2),
+                        task_is_taskloop() && Interface::family_is_at_least("nanos6_loop_api", 2),
                         /* bit */ 2, /* out */ task_flags_expr);
             }
             else
@@ -531,7 +531,7 @@ namespace TL { namespace Nanos6 {
                     compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
 
             int bit_offset = 0;
-            if (Interface::family_is_at_least("nanos6_taskfor_api", 2))
+            if (Interface::family_is_at_least("nanos6_loop_api", 2))
             {
                 new_stmts.append(
                         compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), task_is_taskloop(), 2));
@@ -2240,8 +2240,8 @@ void TaskProperties::create_task_implementations_info(
         TL::Type type_arg;
         if (_env.task_is_worksharing || task_is_taskloop())
         {
-            device_name_or_taskloop_bounds = "taskloop_bounds";
-            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            device_name_or_taskloop_bounds = "loop_bounds";
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
             type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
         }
         else
@@ -2410,8 +2410,8 @@ void TaskProperties::create_task_implementations_info(
         TL::Type type_arg;
         if (_env.task_is_worksharing || task_is_taskloop())
         {
-            device_name_or_taskloop_bounds = "taskloop_bounds";
-            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            device_name_or_taskloop_bounds = "loop_bounds";
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
             type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
         }
         else
@@ -3517,10 +3517,10 @@ void TaskProperties::create_task_implementations_info(
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
 
-        if (Interface::family_is_at_least("nanos6_taskfor_api", 2))
+        if (Interface::family_is_at_least("nanos6_loop_api", 2))
         {
-            unpacked_fun_param_names.append("taskloop_bounds");
-            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            unpacked_fun_param_names.append("loop_bounds");
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
             unpacked_fun_param_types.append(
                     class_sym.get_user_defined_type().get_lvalue_reference_to());
         }
@@ -3594,12 +3594,12 @@ void TaskProperties::create_task_implementations_info(
         // but it is something we may discover too late.
         TL::Symbol tl_lower_bound_sym;
         TL::Symbol tl_upper_bound_sym;
-        if (task_is_taskloop() && Interface::family_is_at_least("nanos6_taskfor_api", 2))
+        if (task_is_taskloop() && Interface::family_is_at_least("nanos6_loop_api", 2))
         {
-            TL::Symbol taskloop_symbol = unpacked_fun_inside_scope.get_symbol_from_name("taskloop_bounds");
+            TL::Symbol taskloop_symbol = unpacked_fun_inside_scope.get_symbol_from_name("loop_bounds");
             ERROR_CONDITION(!taskloop_symbol.is_valid(), "Expecting a symbol", 0);
 
-            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
             TL::ObjectList<TL::Symbol> taskloop_fields = class_sym.get_type().get_nonstatic_data_members();
             GetField get_field_taskloop(taskloop_fields);
 
@@ -3748,10 +3748,10 @@ void TaskProperties::create_task_implementations_info(
         unpacked_fun_param_names.append("arg");
         unpacked_fun_param_types.append(_info_structure.get_lvalue_reference_to());
 
-        if (Interface::family_is_at_least("nanos6_taskfor_api", 2))
+        if (Interface::family_is_at_least("nanos6_loop_api", 2))
         {
-            unpacked_fun_param_names.append("taskloop_bounds");
-            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            unpacked_fun_param_names.append("loop_bounds");
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
             unpacked_fun_param_types.append(
                     class_sym.get_user_defined_type().get_lvalue_reference_to());
         }

@@ -350,7 +350,7 @@ namespace TL { namespace Nanos6 {
 
             if (task_properties.task_is_worksharing())
             {
-                TL::Symbol nanos_register_loop_sym = get_nanos6_function_symbol("nanos6_register_taskloop_bounds");
+                TL::Symbol nanos_register_loop_sym = get_nanos6_register_loop_bounds_function();
 
                 ERROR_CONDITION(!node.get_statements().is<Nodecl::List>(), "Unexpected node\n", 0);
                 Nodecl::NodeclBase stmt = node.get_statements().as<Nodecl::List>().front();

@@ -446,6 +446,13 @@ namespace TL { namespace Nanos6 {
         return struct_sym;
     }
 
+    TL::Symbol get_nanos6_loop_bounds_class()
+    {
+        return Interface::family_is_at_least("nanos6_loop_api", 2)
+            ? get_nanos6_class_symbol("nanos6_loop_bounds_t")
+            : get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+    }
+
     TL::Symbol get_nanos6_function_symbol(const std::string &name)
     {
         TL::Symbol fun_sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
@@ -455,6 +462,13 @@ namespace TL { namespace Nanos6 {
                 "Symbol '%s' not found", name.c_str());
 
         return fun_sym;
+    }
+
+    TL::Symbol get_nanos6_register_loop_bounds_function()
+    {
+        return Interface::family_is_at_least("nanos6_loop_api", 2)
+            ? get_nanos6_function_symbol("nanos6_register_loop_bounds")
+            : get_nanos6_function_symbol("nanos6_register_taskloop_bounds");
     }
 
     void add_extra_mappings_for_vla_types(

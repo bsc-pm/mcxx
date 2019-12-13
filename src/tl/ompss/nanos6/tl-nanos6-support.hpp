@@ -30,6 +30,8 @@
 
 #include "tl-nanos6.hpp"
 
+#include "tl-nanos6-interface.hpp"
+
 #include "tl-datareference.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-scope.hpp"
@@ -39,7 +41,10 @@
 namespace TL { namespace Nanos6 {
 
     TL::Symbol get_nanos6_class_symbol(const std::string &name);
+    TL::Symbol get_nanos6_loop_bounds_class();
+
     TL::Symbol get_nanos6_function_symbol(const std::string &name);
+    TL::Symbol get_nanos6_register_loop_bounds_function();
 
     void add_extra_mappings_for_vla_types(
             TL::Type t,
