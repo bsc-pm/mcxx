@@ -31,12 +31,23 @@
 
 namespace TL { namespace Nanos6 {
 
+OpenACCDevice::OpenACCDevice()
+{}
+
+OpenACCDevice::~OpenACCDevice()
+{}
+
 TL::Symbol OpenACCDevice::get_device_type_id() const
 {
     TL::Symbol device_type_id = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_openacc_device");
 
     ERROR_CONDITION(!device_type_id.is_valid(), "Invalid device type id", 0);
     return device_type_id;
+}
+
+bool OpenACCDevice::requires_arguments_translation() const
+{
+	return false;
 }
 
 } }
