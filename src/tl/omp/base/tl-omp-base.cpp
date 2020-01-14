@@ -338,6 +338,7 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_DECLARATION_HANDLER(atomic)
     OSS_TO_OMP_DECLARATION_HANDLER(critical)
     OSS_TO_OMP_DECLARATION_HANDLER(task)
+    OSS_TO_OMP_DECLARATION_HANDLER(taskloop)
 
     OSS_TO_OMP_DIRECTIVE_HANDLER(taskwait)
     OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
@@ -707,7 +708,7 @@ namespace TL { namespace OpenMP {
                     || directive.get_pragma_line().get_clause("do").is_defined()))
         {
             // '#pragama oss task for' is handled as if it was a taskloop
-            oss_loop_handler_post(directive);
+            oss_loop_handler_post(directive, /* is_worksharing */ true);
             return;
         }
 
@@ -1532,7 +1533,13 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Base::oss_loop_handler_post(TL::PragmaCustomStatement directive)
+    void Base::oss_taskloop_handler_pre(TL::PragmaCustomStatement directive) { }
+    void Base::oss_taskloop_handler_post(TL::PragmaCustomStatement directive) {
+      return oss_loop_handler_post(directive, /* is_worksharing */ false);
+    }
+
+    void Base::oss_loop_handler_post(TL::PragmaCustomStatement directive,
+        bool is_worksharing)
     {
         Nodecl::NodeclBase statement = directive.get_statements();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
@@ -1572,6 +1579,22 @@ namespace TL { namespace OpenMP {
                         const_value_to_nodecl(const_value_get_signed_int(0))));
         }
 
+        PragmaCustomClause grainsize_clause = pragma_line.get_clause("grainsize");
+        if (grainsize_clause.is_defined())
+        {
+            handle_generic_clause_with_one_argument<Nodecl::OpenMP::Grainsize>(
+                    "grainsize", "Its grainsize is",
+                    directive, directive, execution_environment);
+        }
+        else
+        {
+            // When the 'grainsize' clause is not present we defined its value
+            // to be 0. This is a special value that indicates to the runtime
+            // that they can distribute the iterations in any way.
+            execution_environment.append(Nodecl::OpenMP::Grainsize::make(
+                const_value_to_nodecl(const_value_get_signed_int(0))));
+        }
+
         if (pragma_line.get_clause("wait").is_defined())
         {
             error_printf_at(pragma_line.get_locus(),
@@ -1596,6 +1619,7 @@ namespace TL { namespace OpenMP {
 
         pragma_line.diagnostic_unused_clauses();
 
+        ERROR_CONDITION(!context.get_in_context().is<Nodecl::List>(), "Expecting list", 0);
         Nodecl::NodeclBase original_for_stmt =
             context.get_in_context().as<Nodecl::List>().front();
 
@@ -1613,10 +1637,20 @@ namespace TL { namespace OpenMP {
 
         original_for_stmt.replace(normalized_loop);
 
+        Nodecl::NodeclBase stmt;
 
-        Nodecl::NodeclBase stmt = Nodecl::OmpSs::Loop::make(
-                execution_environment,
-                context);
+        if (is_worksharing)
+        {
+            stmt = Nodecl::OmpSs::TaskWorksharing::make(
+                    execution_environment,
+                    context);
+        }
+        else
+        {
+            stmt = Nodecl::OpenMP::Taskloop::make(
+                    execution_environment,
+                    context);
+        }
 
         directive.replace(Nodecl::List::make(stmt));
     }

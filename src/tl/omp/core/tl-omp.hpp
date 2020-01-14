@@ -218,6 +218,14 @@ namespace OpenMP
             i.insert(sym);
             return m[sym];
         }
+
+        void remove(const Key &sym)
+        {
+          auto it = std::find(i.begin(), i.end(), sym);
+          if (it != i.end())
+            i.erase(it);
+          m.erase(sym);
+        }
     };
 
     //! This class represents data sharing environment in a OpenMP construct
@@ -311,6 +319,8 @@ namespace OpenMP
                     DataReference data_ref,
                     const std::string& reason);
 
+            //! Removes any data-sharing we might have set to this symbol.
+            void remove_data_sharing(Symbol sym);
 
             //! Adds a reduction symbol
             /*!

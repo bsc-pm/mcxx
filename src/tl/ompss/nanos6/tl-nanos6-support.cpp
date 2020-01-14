@@ -277,14 +277,14 @@ namespace {
     void compute_dimensionality_information_c(
             TL::Type type,
             // Out
-            TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
+            TL::ObjectList<TL::Nanos6::DimensionInfo>& dim_info)
     {
         Nodecl::NodeclBase size, lower_bound, upper_bound;
         if (type.is_array())
         {
             TL::Type element_type = type.array_element();
             if (element_type.is_array())
-                compute_dimensionality_information_c(element_type, arguments_list);
+                compute_dimensionality_information_c(element_type, dim_info);
 
             size = type.array_get_size().shallow_copy();
 
@@ -332,23 +332,21 @@ namespace {
             upper_bound = size.shallow_copy();
         }
 
-        arguments_list.append(size);
-        arguments_list.append(lower_bound);
-        arguments_list.append(upper_bound);
+        dim_info.append({size, lower_bound, upper_bound});
     }
 
     void compute_dimensionality_information_fortran(
             const TL::DataReference& data_ref,
             TL::Type type,
             // Out
-            TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
+            TL::ObjectList<TL::Nanos6::DimensionInfo>& dim_info)
     {
         Nodecl::NodeclBase size, lower_bound, upper_bound;
         if (type.is_array())
         {
             TL::Type element_type = type.array_element();
             if (element_type.is_array())
-                compute_dimensionality_information_fortran(data_ref, element_type, arguments_list);
+                compute_dimensionality_information_fortran(data_ref, element_type, dim_info);
 
             Nodecl::NodeclBase array_lb, array_ub;
             {
@@ -427,9 +425,11 @@ namespace {
         // Fortran is a bit picky checking the actual arguments types, for
         // this reason we may need to add some conversions
         TL::Type param_type = fortran_choose_int_type_from_kind(8);
-        arguments_list.append(Nodecl::Conversion::make(size, param_type));
-        arguments_list.append(Nodecl::Conversion::make(lower_bound, param_type));
-        arguments_list.append(Nodecl::Conversion::make(upper_bound, param_type));
+        dim_info.append({
+                Nodecl::Conversion::make(size, param_type),
+                Nodecl::Conversion::make(lower_bound, param_type),
+                Nodecl::Conversion::make(upper_bound, param_type)
+                });
     }
 }
 
@@ -446,6 +446,13 @@ namespace TL { namespace Nanos6 {
         return struct_sym;
     }
 
+    TL::Symbol get_nanos6_loop_bounds_class()
+    {
+        return Interface::family_is_at_least("nanos6_loop_api", 2)
+            ? get_nanos6_class_symbol("nanos6_loop_bounds_t")
+            : get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+    }
+
     TL::Symbol get_nanos6_function_symbol(const std::string &name)
     {
         TL::Symbol fun_sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
@@ -455,6 +462,13 @@ namespace TL { namespace Nanos6 {
                 "Symbol '%s' not found", name.c_str());
 
         return fun_sym;
+    }
+
+    TL::Symbol get_nanos6_register_loop_bounds_function()
+    {
+        return Interface::family_is_at_least("nanos6_loop_api", 2)
+            ? get_nanos6_function_symbol("nanos6_register_loop_bounds")
+            : get_nanos6_function_symbol("nanos6_register_taskloop_bounds");
     }
 
     void add_extra_mappings_for_vla_types(
@@ -643,9 +657,10 @@ namespace TL { namespace Nanos6 {
     void compute_base_address_and_dimensionality_information(
             const TL::DataReference& data_ref,
             // Out
-            TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
+            Nodecl::NodeclBase &base_address,
+            TL::ObjectList<DimensionInfo>& dim_info)
     {
-        Nodecl::NodeclBase base_address =
+        base_address =
             Nodecl::Conversion::make(
                     data_ref.get_base_address().shallow_copy(),
                     TL::Type::get_void_type().get_pointer_to());
@@ -653,11 +668,9 @@ namespace TL { namespace Nanos6 {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             base_address.set_text("C");
 
-        arguments_list.append(base_address);
-
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            compute_dimensionality_information_c(data_ref.get_data_type(), arguments_list);
+            compute_dimensionality_information_c(data_ref.get_data_type(), dim_info);
         else
-            compute_dimensionality_information_fortran(data_ref, data_ref.get_data_type(), arguments_list);
+            compute_dimensionality_information_fortran(data_ref, data_ref.get_data_type(), dim_info);
     }
 } }

@@ -97,6 +97,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         Nodecl::NodeclBase cost_clause;
         Nodecl::NodeclBase priority_clause;
         Nodecl::NodeclBase lint_verified;
+        Nodecl::NodeclBase grainsize; // Taskloop
         Nodecl::NodeclBase chunksize; // Taskloop
 
 
@@ -107,7 +108,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
         /* --------  Task flags & other stuff  ------ */
         bool is_tied;
-        bool task_is_loop;
+        bool task_is_worksharing;
         bool task_is_taskwait_with_deps;
         bool task_is_taskcall;
         bool wait_clause;

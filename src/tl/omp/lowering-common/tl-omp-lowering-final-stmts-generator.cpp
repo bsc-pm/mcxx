@@ -88,7 +88,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 walk(task_expr.get_sequential_code());
              }
 
-             void visit(const Nodecl::OmpSs::Loop &loop)
+             void visit(const Nodecl::OmpSs::TaskWorksharing &loop)
              {
                 ++_num_task_related_pragmas;
                 walk(loop.get_loop());
@@ -197,7 +197,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 walk(taskloop);
              }
 
-             void visit(const Nodecl::OmpSs::Loop &loop)
+             void visit(const Nodecl::OmpSs::TaskWorksharing &loop)
              {
                 loop.replace(loop.get_loop());
                 walk(loop);
@@ -371,7 +371,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         _final_stmts_map.insert(std::make_pair(node, final_stmts));
     }
 
-    void FinalStmtsGenerator::visit(const Nodecl::OmpSs::Loop &node)
+    void FinalStmtsGenerator::visit(const Nodecl::OmpSs::TaskWorksharing &node)
     {
         walk(node.get_loop());
 

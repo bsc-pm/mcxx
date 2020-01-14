@@ -56,6 +56,7 @@ namespace TL { namespace Nanos6 {
                 Nodecl::NodeclBase lower_bound;
                 Nodecl::NodeclBase upper_bound;
                 Nodecl::NodeclBase step;
+                TL::Symbol induction_variable;
             };
 
             //! This member represents the directive environment
@@ -75,6 +76,9 @@ namespace TL { namespace Nanos6 {
 
             //! Used to store the number of reductions within the task (and to identify them)
             unsigned int _num_reductions;
+
+            //! States whether this a nanos6 task loop
+            bool _task_is_taskloop;
 
             //! Used to keep track of unique task dependence symbols
             std::map<TL::Symbol, unsigned int> _dep_symbols_to_id;
@@ -202,6 +206,8 @@ namespace TL { namespace Nanos6 {
                     TL::Symbol handler,
                     Nodecl::Utils::SymbolMap &symbol_map,
                     TL::Symbol register_fun,
+                    TL::Symbol tl_lower_bound_sym,
+                    TL::Symbol tl_upper_bound_sym,
                     // Out
                     Nodecl::List &register_statements);
 
@@ -211,6 +217,8 @@ namespace TL { namespace Nanos6 {
                     Nodecl::Utils::SymbolMap &symbol_map,
                     TL::Symbol register_fun,
                     TL::Scope scope,
+                    TL::Symbol tl_lower_bound_sym,
+                    TL::Symbol tl_upper_bound_sym,
                     // Out
                     Nodecl::List &register_statements);
 
@@ -226,6 +234,12 @@ namespace TL { namespace Nanos6 {
         public:
             TaskProperties(
                     const Nodecl::OpenMP::Task& node,
+                    Nodecl::NodeclBase &serial_stmts,
+                    LoweringPhase* lowering_phase,
+                    Lower* lower);
+
+            TaskProperties(
+                    const Nodecl::OpenMP::Taskloop& node,
                     Nodecl::NodeclBase &serial_stmts,
                     LoweringPhase* lowering_phase,
                     Lower* lower);
@@ -289,12 +303,15 @@ namespace TL { namespace Nanos6 {
 
             bool symbol_has_data_sharing_attribute(TL::Symbol sym) const;
 
-            bool task_is_loop() const;
+            bool task_is_worksharing() const;
+            bool task_is_taskloop() const;
 
             Nodecl::NodeclBase get_lower_bound() const;
             Nodecl::NodeclBase get_upper_bound() const;
             Nodecl::NodeclBase get_step() const;
             Nodecl::NodeclBase get_chunksize() const;
+            Nodecl::NodeclBase get_grainsize() const;
+            TL::Symbol get_induction_variable() const;
     };
 
 } }

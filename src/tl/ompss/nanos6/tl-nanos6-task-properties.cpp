@@ -69,7 +69,8 @@ namespace TL { namespace Nanos6 {
             LoweringPhase* lowering_phase,
             Lower* lower)
         : _env(node.get_environment()), _serial_context(serial_context),
-        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0)
+        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0),
+        _task_is_taskloop(false)
     {
         TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
         _nanos6_task_counter = (int) counter;
@@ -94,7 +95,7 @@ namespace TL { namespace Nanos6 {
             _implementations.insert(lower->get_device_manager().get_device(*it));
         }
 
-        if (_env.task_is_loop)
+        if (_env.task_is_worksharing)
         {
             ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
             Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
@@ -111,6 +112,108 @@ namespace TL { namespace Nanos6 {
                             const_value_get_signed_int(1), get_size_t_type()),
                         TL::Type::get_size_t_type());
             _taskloop_bounds.step = for_stmt.get_step();
+            // Unused but for the sake of completeness
+            _taskloop_bounds.induction_variable = for_stmt.get_induction_variable();
+        }
+
+        {
+            int id = 0;
+            struct DependencesSet
+            {
+                TL::ObjectList<Nodecl::NodeclBase> &dep_list;
+            } deps[] = {
+                { _env.dep_in },
+                { _env.dep_out },
+                { _env.dep_inout },
+
+                { _env.dep_weakin },
+                { _env.dep_weakout },
+                { _env.dep_weakinout },
+
+                { _env.dep_commutative },
+                { _env.dep_concurrent },
+
+                { _env.dep_weakcommutative },
+
+                { _env.dep_reduction },
+                { _env.dep_weakreduction }
+            };
+
+            for (DependencesSet *dep_set = deps;
+                    dep_set != (DependencesSet *)(&deps + 1);
+                    dep_set++)
+            {
+                TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
+                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = dep_list.begin();
+                        it != dep_list.end();
+                        it++)
+                {
+                    TL::DataReference data_ref = *it;
+                    TL::Type data_type = data_ref.get_data_type();
+
+                    TL::Symbol base_symbol = data_ref.get_base_symbol();
+                    std::map<TL::Symbol, unsigned int>::const_iterator map_it = _dep_symbols_to_id.find(base_symbol);
+                    if (map_it == _dep_symbols_to_id.end())
+                    {
+                        _dep_symbols_to_id[base_symbol] = id++;
+                    }
+                }
+            }
+        }
+    }
+
+    TaskProperties::TaskProperties(
+            const Nodecl::OpenMP::Taskloop& node,
+            Nodecl::NodeclBase &serial_context,
+            LoweringPhase* lowering_phase,
+            Lower* lower)
+        : _env(node.get_environment()), _serial_context(serial_context),
+        _phase(lowering_phase), _lower_visitor(lower), _num_reductions(0),
+        _task_is_taskloop(true)
+    {
+        TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task");
+        _nanos6_task_counter = (int) counter;
+        counter++;
+
+        _locus_of_task_creation = node.get_locus();
+
+        if (_env.locus_of_task_declaration)
+            _locus_of_task_declaration = _env.locus_of_task_declaration;
+        else
+            _locus_of_task_declaration = node.get_locus();
+
+        _related_function = Nodecl::Utils::get_enclosing_function(node);
+        _task_body = node.get_loop();
+
+        ERROR_CONDITION(_env.device_names.size() == 0, "A task without a device name was detected", 0);
+
+        for (TL::ObjectList<std::string>::const_iterator it = _env.device_names.begin();
+                it != _env.device_names.end();
+                it++)
+        {
+            _implementations.insert(lower->get_device_manager().get_device(*it));
+        }
+
+        {
+            Nodecl::NodeclBase stmt = _task_body;
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
+            ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
+
+            TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
+            _taskloop_bounds.lower_bound = for_stmt.get_lower_bound();
+            _taskloop_bounds.upper_bound =
+                Nodecl::Add::make(
+                        for_stmt.get_upper_bound(),
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_signed_int(1), get_size_t_type()),
+                        TL::Type::get_size_t_type());
+            _taskloop_bounds.step = for_stmt.get_step();
+            _taskloop_bounds.induction_variable = for_stmt.get_induction_variable();
+
+            // Avoid capturing the value the induction variable just because it
+            // was mentioned in the dependences.
+            _env.captured_value = _env.captured_value.not_find(_taskloop_bounds.induction_variable);
         }
 
         {
@@ -373,19 +476,32 @@ namespace TL { namespace Nanos6 {
             compute_generic_flag_c(negate_condition_if_valid(_env.if_clause),
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
-            compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    _env.task_is_loop, /* bit */ 2, /* out */ task_flags_expr);
+            int bit_offset = 0;
+            if (Interface::family_is_at_least("nanos6_loop_api", 2))
+            {
+                compute_generic_flag_c(Nodecl::NodeclBase::null(),
+                        task_is_taskloop() && Interface::family_is_at_least("nanos6_loop_api", 2),
+                        /* bit */ 2, /* out */ task_flags_expr);
+            }
+            else
+            {
+                bit_offset = -1;
+            }
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    _env.wait_clause, /* bit */ 3, /* out */ task_flags_expr);
+                    _env.task_is_worksharing,
+                    /* bit */ 3 + bit_offset, /* out */ task_flags_expr);
 
             compute_generic_flag_c(Nodecl::NodeclBase::null(),
-                    preallocated_args_struct, /* bit */ 4, /* out */ task_flags_expr);
+                    _env.wait_clause, /* bit */ 4 + bit_offset, /* out */ task_flags_expr);
+
+            compute_generic_flag_c(Nodecl::NodeclBase::null(),
+                    preallocated_args_struct, /* bit */ 5 + bit_offset, /* out */ task_flags_expr);
 
             if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
                 compute_generic_flag_c(_env.lint_verified,
-                        /* default value*/ 0, /* bit */ 5, /* out */ task_flags_expr);
+                        /* default value*/ 0, /* bit */ 6 + bit_offset, /* out */ task_flags_expr);
             }
 
             new_stmts.append(
@@ -414,19 +530,30 @@ namespace TL { namespace Nanos6 {
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
 
-            new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_loop, /* bit */ 2));
+            int bit_offset = 0;
+            if (Interface::family_is_at_least("nanos6_loop_api", 2))
+            {
+                new_stmts.append(
+                        compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), task_is_taskloop(), 2));
+            }
+            else
+            {
+                bit_offset = -1;
+            }
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 3));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.task_is_worksharing, /* bit */ 3 + bit_offset));
 
             new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), preallocated_args_struct, /* bit */ 4));
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), _env.wait_clause, /* bit */ 4 + bit_offset));
+
+            new_stmts.append(
+                    compute_generic_flag_fortran(task_flags, Nodecl::NodeclBase::null(), preallocated_args_struct, /* bit */ 5 + bit_offset));
 
             if (Interface::family_is_at_least("nanos6_instantiation_api", 2))
             {
-            new_stmts.append(
-                    compute_generic_flag_fortran(task_flags, _env.lint_verified, /*defaul value */0, /* bit */ 5));
+                new_stmts.append(
+                        compute_generic_flag_fortran(task_flags, _env.lint_verified, /*defaul value */0, /* bit */ 6 + bit_offset));
             }
         }
         out_stmts = new_stmts;
@@ -1860,20 +1987,24 @@ void TaskProperties::create_task_implementations_info(
             storage_sym.set_type(reduction_type.get_lvalue_reference_to());
 
             // Compute arguments
-            TL::ObjectList<Nodecl::NodeclBase> multidim_arguments_list;
-            compute_base_address_and_dimensionality_information(reduction_expr, multidim_arguments_list);
+            Nodecl::NodeclBase base_address;
+            TL::ObjectList<DimensionInfo> dim_info;
+            compute_base_address_and_dimensionality_information(reduction_expr,
+                    base_address, dim_info);
 
-            TL::ObjectList<Nodecl::NodeclBase>::reverse_iterator it = multidim_arguments_list.rbegin();
+            // Flatten dimension info
+            TL::ObjectList<DimensionInfo>::reverse_iterator it = dim_info.rbegin();
 
-            Nodecl::NodeclBase upper_bound = *(it++);
-            Nodecl::NodeclBase lower_bound = *(it++);
-            Nodecl::NodeclBase size = *(it++);
+            Nodecl::NodeclBase upper_bound = it->upper;
+            Nodecl::NodeclBase lower_bound = it->lower;
+            Nodecl::NodeclBase size = it->size;
+            it++;
 
-            for (; it != multidim_arguments_list.rend() - 1; it++)
+            for (; it != dim_info.rend(); it++)
             {
-                Nodecl::NodeclBase dim_upper_bound = *(it++);
-                Nodecl::NodeclBase dim_lower_bound = *(it++);
-                Nodecl::NodeclBase dim_size = *it;
+                Nodecl::NodeclBase dim_upper_bound = it->upper;
+                Nodecl::NodeclBase dim_lower_bound = it->lower;
+                Nodecl::NodeclBase dim_size = it->size;
 
                 upper_bound = Nodecl::Add::make(
                         Nodecl::Minus::make(
@@ -1898,8 +2029,6 @@ void TaskProperties::create_task_implementations_info(
 
                 size = Nodecl::Mul::make(dim_size, size, reduction_type);
             }
-
-            Nodecl::NodeclBase base_address = *it;
 
             Nodecl::List arguments_list =
                 Nodecl::List::make(base_address, size, lower_bound, upper_bound);
@@ -2107,21 +2236,21 @@ void TaskProperties::create_task_implementations_info(
         _env.shared.map(add_params_functor);
 
         // Extra arguments: device_env and address_translation_table
-        const char *device_env_name;
+        const char *device_name_or_taskloop_bounds;
         TL::Type type_arg;
-        if (_env.task_is_loop)
+        if (_env.task_is_worksharing || task_is_taskloop())
         {
-            device_env_name = "taskloop_bounds";
-            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            device_name_or_taskloop_bounds = "loop_bounds";
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
             type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
         }
         else
         {
-            device_env_name = "device_env";
+            device_name_or_taskloop_bounds = "device_env";
             type_arg = TL::Type::get_void_type().get_pointer_to();
         }
 
-        unpacked_fun_param_names.append(device_env_name);
+        unpacked_fun_param_names.append(device_name_or_taskloop_bounds);
         unpacked_fun_param_types.append(type_arg);
 
         unpacked_fun_param_names.append("address_translation_table");
@@ -2212,10 +2341,18 @@ void TaskProperties::create_task_implementations_info(
 
         handle_task_reductions(unpacked_fun_inside_scope, unpacked_fun_empty_stmt, symbol_map);
 
-        if (_env.task_is_loop)
+        if (_env.task_is_worksharing || task_is_taskloop())
         {
-            ERROR_CONDITION(!_task_body.is<Nodecl::List>(), "Unexpected node\n", 0);
-            Nodecl::NodeclBase stmt = _task_body.as<Nodecl::List>().front();
+            Nodecl::NodeclBase stmt = _task_body;;
+
+            // Because a task worksharing it is just a plain task with a mandatory for inside
+            // we need to handle these two cases.
+            // FIXME: Can we make "task * for" behave like taskloop in OpenMP base instead?
+            if (_env.task_is_worksharing)
+            {
+                ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Unexpected node\n", 0);
+                stmt = stmt.as<Nodecl::List>().front();
+            }
             ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
             stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
             ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
@@ -2223,9 +2360,9 @@ void TaskProperties::create_task_implementations_info(
             TL::ForStatement for_stmt(stmt.as<Nodecl::ForStatement>());
 
             TL::Symbol ind_var = for_stmt.get_induction_variable();
-            // FIXME: The taskloop bounds are passed as if they were the device environment...
+            // The taskloop bounds are passed as the device environment parameter.
             TL::Symbol taskloop_bounds =
-                unpacked_fun_inside_scope.get_symbol_from_name(device_env_name);
+                unpacked_fun_inside_scope.get_symbol_from_name(device_name_or_taskloop_bounds);
 
             for_stmt.set_loop_header(
                     compute_taskloop_loop_control(
@@ -2269,17 +2406,17 @@ void TaskProperties::create_task_implementations_info(
             create_task_region_unpacked_function(common_name, device);
 
         // Second argument is different for a loop task
-        const char *device_env_name;
+        const char *device_name_or_taskloop_bounds;
         TL::Type type_arg;
-        if (_env.task_is_loop)
+        if (_env.task_is_worksharing || task_is_taskloop())
         {
-            device_env_name = "taskloop_bounds";
-            TL::Symbol class_sym = get_nanos6_class_symbol("nanos6_taskloop_bounds_t");
+            device_name_or_taskloop_bounds = "loop_bounds";
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
             type_arg = class_sym.get_user_defined_type().get_lvalue_reference_to();
         }
         else
         {
-            device_env_name = "device_env";
+            device_name_or_taskloop_bounds = "device_env";
             type_arg = TL::Type::get_void_type().get_pointer_to();
         }
 
@@ -2289,7 +2426,7 @@ void TaskProperties::create_task_implementations_info(
         parameter_names[0] = "arg";
         parameter_types[0] = _info_structure.get_lvalue_reference_to();
 
-        parameter_names[1] = device_env_name;
+        parameter_names[1] = device_name_or_taskloop_bounds;
         parameter_types[1] = type_arg;
 
         parameter_names[2] = "address_translation_table";
@@ -3200,7 +3337,8 @@ void TaskProperties::create_task_implementations_info(
                 TL::Symbol handler,
                 std::map<TL::Symbol, unsigned int> &dep_symbols_to_id,
                 // Out
-                TL::ObjectList<Nodecl::NodeclBase>& arguments_list)
+                TL::ObjectList<Nodecl::NodeclBase>& arguments_list,
+                TL::ObjectList<DimensionInfo>& dim_info)
         {
             // task handler
             arguments_list.append(handler.make_nodecl(/* set_ref_type */ true));
@@ -3221,7 +3359,11 @@ void TaskProperties::create_task_implementations_info(
                             dependence_text.c_str(),
                             strlen(dependence_text.c_str()))));
 
-            compute_base_address_and_dimensionality_information(data_ref, arguments_list);
+            Nodecl::NodeclBase base_address;
+            compute_base_address_and_dimensionality_information(data_ref,
+                base_address, dim_info);
+
+            arguments_list.append(base_address);
         }
     }
 
@@ -3230,6 +3372,8 @@ void TaskProperties::create_task_implementations_info(
         TL::Symbol handler,
         Nodecl::Utils::SymbolMap &symbol_map,
         TL::Symbol register_fun,
+        TL::Symbol tl_lower_bound_sym,
+        TL::Symbol tl_upper_bound_sym,
         // Out
         Nodecl::List &register_statements)
     {
@@ -3246,19 +3390,67 @@ void TaskProperties::create_task_implementations_info(
             }
             compute_reduction_arguments_register_dependence(data_ref, arguments_list);
         }
-        compute_arguments_register_dependence(data_ref, handler, _dep_symbols_to_id, arguments_list);
+
+        TL::ObjectList<DimensionInfo> dim_info;
+        compute_arguments_register_dependence(data_ref, handler,
+                _dep_symbols_to_id,
+                // out
+                arguments_list, dim_info);
+
+        TL::ObjectList<Nodecl::NodeclBase> replaced_arguments_list;
+        for (Nodecl::NodeclBase arg : arguments_list)
+        {
+            replaced_arguments_list.append(
+                    Nodecl::Utils::deep_copy(arg, TL::Scope::get_global_scope(), symbol_map));
+        }
+
+        if (task_is_taskloop())
+        {
+            // Replace the induction variable with the right symbol
+            for (DimensionInfo di : dim_info)
+            {
+                // We don't change the size. This might be needed in some very
+                // rare cases which we don't consider yet.
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
+                {
+                    Nodecl::Utils::SimpleSymbolMap lower_bound_symbol_map(&symbol_map);
+                    lower_bound_symbol_map.add_map(get_induction_variable(), tl_lower_bound_sym);
+                    replaced_arguments_list.append(
+                            Nodecl::Utils::deep_copy(di.lower, TL::Scope::get_global_scope(), lower_bound_symbol_map));
+                }
+
+                {
+                    Nodecl::Utils::SimpleSymbolMap upper_bound_symbol_map(&symbol_map);
+                    upper_bound_symbol_map.add_map(get_induction_variable(), tl_upper_bound_sym);
+                    replaced_arguments_list.append(
+                            Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), upper_bound_symbol_map));
+                }
+            }
+        }
+        else
+        {
+            // No need to do anything special here.
+            for (DimensionInfo di : dim_info)
+            {
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.lower, TL::Scope::get_global_scope(), symbol_map));
+                replaced_arguments_list.append(
+                        Nodecl::Utils::deep_copy(di.upper, TL::Scope::get_global_scope(), symbol_map));
+            }
+        }
 
         Nodecl::NodeclBase function_call =
             Nodecl::ExpressionStatement::make(
                     Nodecl::FunctionCall::make(
                         register_fun.make_nodecl(/* set_ref_type */ true),
-                        Nodecl::List::make(arguments_list),
+                        Nodecl::List::make(replaced_arguments_list),
                         /* alternate-symbol */ Nodecl::NodeclBase::null(),
                         /* function-form */ Nodecl::NodeclBase::null(),
                         TL::Type::get_void_type()));
-
-        register_statements.append(
-                Nodecl::Utils::deep_copy(function_call, TL::Scope::get_global_scope(), symbol_map));
+        register_statements.append(function_call);
     }
 
 
@@ -3269,6 +3461,8 @@ void TaskProperties::create_task_implementations_info(
         Nodecl::Utils::SymbolMap &symbol_map,
         TL::Symbol register_fun,
         TL::Scope scope,
+        TL::Symbol tl_lower_bound_sym,
+        TL::Symbol tl_upper_bound_sym,
         // Out
         Nodecl::List &register_statements)
     {
@@ -3294,6 +3488,8 @@ void TaskProperties::create_task_implementations_info(
                 handler,
                 extended_symbol_map,
                 register_fun,
+                tl_lower_bound_sym,
+                tl_upper_bound_sym,
                 // Out
                 base_reg);
 
@@ -3320,6 +3516,14 @@ void TaskProperties::create_task_implementations_info(
         _env.captured_value.map(add_params_functor);
         _env.private_.map(add_params_functor);
         _env.shared.map(add_params_functor);
+
+        if (Interface::family_is_at_least("nanos6_loop_api", 2))
+        {
+            unpacked_fun_param_names.append("loop_bounds");
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
+            unpacked_fun_param_types.append(
+                    class_sym.get_user_defined_type().get_lvalue_reference_to());
+        }
 
         unpacked_fun_param_names.append("handler");
         unpacked_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
@@ -3386,6 +3590,66 @@ void TaskProperties::create_task_implementations_info(
             { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo", 5, "weak reduction dependences" },
         };
 
+        // FIXME: this might emit a warning for an unused variable. Ideally we should check if we do need it first
+        // but it is something we may discover too late.
+        TL::Symbol tl_lower_bound_sym;
+        TL::Symbol tl_upper_bound_sym;
+        if (task_is_taskloop() && Interface::family_is_at_least("nanos6_loop_api", 2))
+        {
+            TL::Symbol taskloop_symbol = unpacked_fun_inside_scope.get_symbol_from_name("loop_bounds");
+            ERROR_CONDITION(!taskloop_symbol.is_valid(), "Expecting a symbol", 0);
+
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
+            TL::ObjectList<TL::Symbol> taskloop_fields = class_sym.get_type().get_nonstatic_data_members();
+            GetField get_field_taskloop(taskloop_fields);
+
+            Nodecl::NodeclBase lower_bound_field = get_field_taskloop("lower_bound");
+            tl_lower_bound_sym = unpacked_fun_inside_scope.new_symbol("tl_lower");
+            tl_lower_bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            tl_lower_bound_sym.get_internal_symbol()->type_information = lower_bound_field.get_type().no_ref().get_internal_type();
+            symbol_entity_specs_set_is_user_declared(tl_lower_bound_sym.get_internal_symbol(), 1);
+
+            tl_lower_bound_sym.set_value(
+                    Nodecl::Conversion::make(
+                        Nodecl::ClassMemberAccess::make(
+                            taskloop_symbol.make_nodecl(/* set_ref_type */ true),
+                            lower_bound_field,
+                            /* member_literal */ Nodecl::NodeclBase::null(),
+                            lower_bound_field.get_type()),
+                        lower_bound_field.get_type().no_ref()));
+
+            Nodecl::NodeclBase upper_bound_field = get_field_taskloop("upper_bound");
+            tl_upper_bound_sym = unpacked_fun_inside_scope.new_symbol("tl_upper");
+            tl_upper_bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            tl_upper_bound_sym.get_internal_symbol()->type_information = upper_bound_field.get_type().no_ref().get_internal_type();
+            symbol_entity_specs_set_is_user_declared(tl_upper_bound_sym.get_internal_symbol(), 1);
+
+            tl_upper_bound_sym.set_value(Nodecl::Minus::make(
+                Nodecl::Conversion::make(
+                    Nodecl::ClassMemberAccess::make(
+                        taskloop_symbol.make_nodecl(/* set_ref_type */ true),
+                        upper_bound_field,
+                        /* member_literal */ Nodecl::NodeclBase::null(),
+                        upper_bound_field.get_type()),
+                    upper_bound_field.get_type().no_ref()),
+                const_value_to_nodecl_with_basic_type(
+                    const_value_get_signed_int(1),
+                    upper_bound_field.get_type().no_ref().get_internal_type()),
+                upper_bound_field.get_type().no_ref()));
+
+            if (IS_CXX_LANGUAGE)
+            {
+                unpacked_fun_empty_stmt.prepend_sibling(
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), tl_lower_bound_sym));
+                unpacked_fun_empty_stmt.prepend_sibling(
+                        Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), tl_upper_bound_sym));
+            }
+            unpacked_fun_empty_stmt.prepend_sibling(
+                    Nodecl::ObjectInit::make(tl_lower_bound_sym));
+            unpacked_fun_empty_stmt.prepend_sibling(
+                    Nodecl::ObjectInit::make(tl_upper_bound_sym));
+        }
+
         for (DependencesSet *dep_set = deps;
              dep_set != (DependencesSet *)(&deps + 1);
              dep_set++)
@@ -3430,6 +3694,8 @@ void TaskProperties::create_task_implementations_info(
                             handler,
                             symbol_map,
                             register_fun,
+                            tl_lower_bound_sym,
+                            tl_upper_bound_sym,
                             // Out
                             register_statements);
                 }
@@ -3441,6 +3707,8 @@ void TaskProperties::create_task_implementations_info(
                             symbol_map,
                             register_fun,
                             unpacked_fun_inside_scope,
+                            tl_lower_bound_sym,
+                            tl_upper_bound_sym,
                             // Out
                             register_statements);
                 }
@@ -3474,14 +3742,22 @@ void TaskProperties::create_task_implementations_info(
         const std::string common_name = "deps";
         TL::Symbol unpacked_function = create_dependences_unpacked_function(common_name);
 
-        TL::ObjectList<std::string> unpacked_fun_param_names(2);
-        TL::ObjectList<TL::Type> unpacked_fun_param_types(2);
+        TL::ObjectList<std::string> unpacked_fun_param_names;
+        TL::ObjectList<TL::Type> unpacked_fun_param_types;
 
-        unpacked_fun_param_names[0] = "arg";
-        unpacked_fun_param_types[0] = _info_structure.get_lvalue_reference_to();
+        unpacked_fun_param_names.append("arg");
+        unpacked_fun_param_types.append(_info_structure.get_lvalue_reference_to());
 
-        unpacked_fun_param_names[1] = "handler";
-        unpacked_fun_param_types[1] = TL::Type::get_void_type().get_pointer_to();
+        if (Interface::family_is_at_least("nanos6_loop_api", 2))
+        {
+            unpacked_fun_param_names.append("loop_bounds");
+            TL::Symbol class_sym = get_nanos6_loop_bounds_class();
+            unpacked_fun_param_types.append(
+                    class_sym.get_user_defined_type().get_lvalue_reference_to());
+        }
+
+        unpacked_fun_param_names.append("handler");
+        unpacked_fun_param_types.append(TL::Type::get_void_type().get_pointer_to());
 
         TL::Symbol dependences_function = create_outline_function(
                 unpacked_function,
@@ -3706,7 +3982,7 @@ void TaskProperties::create_task_implementations_info(
     TL::Symbol TaskProperties::create_duplicate_function()
     {
         //Only meaningful for loop constructs!
-        if (!_env.task_is_loop)
+        if (!_env.task_is_worksharing)
             return TL::Symbol::invalid();
 
         if (!_environment_capture.requires_duplication_function())
@@ -3873,9 +4149,14 @@ void TaskProperties::create_task_implementations_info(
         TL::Nanos6::fortran_add_types(all_syms, dest_scope);
     }
 
-    bool TaskProperties::task_is_loop() const
+    bool TaskProperties::task_is_worksharing() const
     {
-        return _env.task_is_loop;
+        return _env.task_is_worksharing;
+    }
+
+    bool TaskProperties::task_is_taskloop() const
+    {
+        return _task_is_taskloop;
     }
 
     Nodecl::NodeclBase TaskProperties::get_lower_bound() const
@@ -3893,9 +4174,19 @@ void TaskProperties::create_task_implementations_info(
         return _taskloop_bounds.step;
     }
 
+    TL::Symbol TaskProperties::get_induction_variable() const
+    {
+        return _taskloop_bounds.induction_variable;
+    }
+
     Nodecl::NodeclBase TaskProperties::get_chunksize() const
     {
         return _env.chunksize;
+    }
+
+    Nodecl::NodeclBase TaskProperties::get_grainsize() const
+    {
+        return _env.grainsize;
     }
 
     void TaskProperties::compute_arguments_translation(

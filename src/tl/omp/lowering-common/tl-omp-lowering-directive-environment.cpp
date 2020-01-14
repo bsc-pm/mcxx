@@ -312,7 +312,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
             virtual void visit(const Nodecl::OmpSs::TaskIsLoop &n)
             {
-                _env.task_is_loop = true;
+                _env.task_is_worksharing = true;
             }
 
             virtual void visit(const Nodecl::OmpSs::TaskIsTaskCall &n)
@@ -368,6 +368,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 _env.cost_clause = n.get_cost();
             }
 
+            virtual void visit(const Nodecl::OpenMP::Grainsize &n)
+            {
+                _env.grainsize = n.get_grainsize();
+            }
+
             virtual void visit(const Nodecl::OmpSs::Chunksize &n)
             {
                 _env.chunksize = n.get_chunksize();
@@ -390,7 +395,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
     };
 
     DirectiveEnvironment::DirectiveEnvironment(Nodecl::NodeclBase environment) :
-        is_tied(true), task_is_loop(false), task_is_taskwait_with_deps(false),
+        is_tied(true), task_is_worksharing(false), task_is_taskwait_with_deps(false),
         task_is_taskcall(false), wait_clause(false),
         any_task_dependence(false), locus_of_task_declaration(NULL)
     {
@@ -478,6 +483,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
                     || _env.symbol_has_data_sharing_attribute(sym))
                 return;
 
+            std::cerr << sym.get_name() << "\n";
             _env._firstprivate.insert(sym);
         }
 

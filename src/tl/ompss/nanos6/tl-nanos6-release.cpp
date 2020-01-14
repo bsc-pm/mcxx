@@ -113,8 +113,19 @@ namespace TL { namespace Nanos6 {
 
                         ERROR_CONDITION(data_ref.is_multireference(), "Unexpected multi-dependence in a release construct\n", 0);
 
+                        Nodecl::NodeclBase base_address;
+                        TL::ObjectList<DimensionInfo> dim_info;
+                        compute_base_address_and_dimensionality_information(data_ref, base_address, dim_info);
+
                         TL::ObjectList<Nodecl::NodeclBase> arguments;
-                        compute_base_address_and_dimensionality_information(data_ref, arguments);
+                        arguments.append(base_address);
+                        for (DimensionInfo di : dim_info)
+                        {
+                            arguments.append(di.size);
+                            arguments.append(di.lower);
+                            arguments.append(di.upper);
+                        }
+
                         Nodecl::NodeclBase call_to_release = Nodecl::ExpressionStatement::make(
                                 Nodecl::FunctionCall::make(
                                     release_fun.make_nodecl(/* set_ref_type */ true),

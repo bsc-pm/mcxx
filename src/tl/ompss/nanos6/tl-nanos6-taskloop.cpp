@@ -38,31 +38,33 @@
 
 namespace TL { namespace Nanos6 {
 
-    void Lower::visit(const Nodecl::OpenMP::Task& node)
+    void Lower::visit(const Nodecl::OpenMP::Taskloop& node)
     {
-        Nodecl::OpenMP::Task task = node;
+        Interface::family_must_be_at_least("nanos6_instantiation_api", 2, "to support taskloop");
+        Interface::family_must_be_at_least("nanos6_loop_api", 2, "to support taskloop");
 
-        walk(task.get_statements());
+        Nodecl::OpenMP::Taskloop taskloop = node;
+
+        walk(taskloop.get_loop());
         Nodecl::NodeclBase serial_stmts;
 
         // If disabled, act normally
         if (!_phase->_final_clause_transformation_disabled)
         {
-            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(task);
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(taskloop);
             ERROR_CONDITION(it == _final_stmts_map.end(), "Invalid serial statements", 0);
             serial_stmts = it->second;
         }
 
-        lower_task(task, serial_stmts);
+        lower_taskloop(taskloop, serial_stmts);
     }
 
     namespace {
 
-        // Substitute the task node for an ifelse for when using final
-        void create_final_if_else_statement(Nodecl::OpenMP::Task& node, Nodecl::NodeclBase& serial_stmts_placeholder)
+        // Substitute the taskloop node for an ifelse for when using final
+        void create_final_if_else_statement(Nodecl::OpenMP::Taskloop& node, Nodecl::NodeclBase& serial_stmts_placeholder)
         {
-
-            Nodecl::NodeclBase stmts = node.get_statements();
+            Nodecl::NodeclBase stmts = node.get_loop();
 
             // Wrap the function call into if (nanos_in_final())
             TL::Symbol nanos_in_final_sym = get_nanos6_function_symbol("nanos6_in_final");
@@ -74,7 +76,7 @@ namespace TL { namespace Nanos6 {
                 /* function_form */ Nodecl::NodeclBase::null(),
                 TL::Type::get_int_type());
 
-            Nodecl::OpenMP::Task new_task = Nodecl::OpenMP::Task::make(node.get_environment(), stmts, node.get_locus());
+            Nodecl::OpenMP::Taskloop new_task = Nodecl::OpenMP::Taskloop::make(node.get_environment(), stmts, node.get_locus());
 
             Scope sc = node.retrieve_context();
             Scope not_final_context = new_block_context(sc.get_decl_context());
@@ -106,8 +108,8 @@ namespace TL { namespace Nanos6 {
             node = new_task;
         }
 
-        // Creates the task instantiation and submission
-        void handle_task_transformation(const Nodecl::OpenMP::Task& node, TaskProperties& task_properties)
+        // Creates the taskloop instantiation and submission
+        void handle_task_transformation(const Nodecl::OpenMP::Taskloop& node, TaskProperties& task_properties)
         {
             Nodecl::NodeclBase args_size;
             TL::Type data_env_struct;
@@ -138,7 +140,7 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol args;
             {
-                TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task-args");
+                TL::Counter &counter = TL::CounterManager::get_counter("nanos6-taskloop-args");
                 std::stringstream ss;
                 ss << "nanos_data_env_" << (int)counter;
                 counter++;
@@ -151,7 +153,7 @@ namespace TL { namespace Nanos6 {
 
             TL::Symbol task_ptr;
             {
-                TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task-ptr");
+                TL::Counter &counter = TL::CounterManager::get_counter("nanos6-taskloop-ptr");
                 std::stringstream ss;
                 ss << "nanos_task_ptr_" << (int)counter;
                 counter++;
@@ -183,7 +185,7 @@ namespace TL { namespace Nanos6 {
                                 args.get_type())));
             }
 
-                    // Create task
+                    // Create taskloop
             {
                 if (IS_CXX_LANGUAGE)
                 {
@@ -264,7 +266,7 @@ namespace TL { namespace Nanos6 {
                 {
                     TL::Symbol task_flags;
                     {
-                        TL::Counter &counter = TL::CounterManager::get_counter("nanos6-task-flags");
+                        TL::Counter &counter = TL::CounterManager::get_counter("nanos6-taskloop-flags");
                         std::stringstream ss;
                         ss << "task_flags_" << (int)counter;
                         counter++;
@@ -348,12 +350,10 @@ namespace TL { namespace Nanos6 {
                 new_stmts.append(capture_env);
             }
 
-            if (task_properties.task_is_worksharing())
             {
                 TL::Symbol nanos_register_loop_sym = get_nanos6_register_loop_bounds_function();
 
-                ERROR_CONDITION(!node.get_statements().is<Nodecl::List>(), "Unexpected node\n", 0);
-                Nodecl::NodeclBase stmt = node.get_statements().as<Nodecl::List>().front();
+                Nodecl::NodeclBase stmt = node.get_loop();
                 ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Unexpected node\n", 0);
                 stmt = stmt.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
                 ERROR_CONDITION(!stmt.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
@@ -373,10 +373,10 @@ namespace TL { namespace Nanos6 {
                     upper_bound = Nodecl::Conversion::make(upper_bound, params[2].get_type());
                 reg_loop_args.append(upper_bound);
 
-                Nodecl::NodeclBase step = task_properties.get_step().shallow_copy();
+                Nodecl::NodeclBase grainsize = task_properties.get_grainsize().shallow_copy();
                 if (IS_FORTRAN_LANGUAGE)
-                    step = Nodecl::Conversion::make(step, params[3].get_type());
-                reg_loop_args.append(step);
+                    grainsize = Nodecl::Conversion::make(grainsize, params[3].get_type());
+                reg_loop_args.append(grainsize);
 
                 Nodecl::NodeclBase chunksize = task_properties.get_chunksize().shallow_copy();
                 if (IS_FORTRAN_LANGUAGE)
@@ -395,7 +395,7 @@ namespace TL { namespace Nanos6 {
                         node.get_locus()));
             }
 
-            // Submit the created task
+            // Submit the created taskloop
             {
                 TL::Symbol nanos_submit_task_sym = get_nanos6_function_symbol("nanos6_submit_task");
 
@@ -424,43 +424,35 @@ namespace TL { namespace Nanos6 {
 
     }
 
-    // This function is only called when lowering a TaskWait with dependences
-    void Lower::lower_task(const Nodecl::OpenMP::Task& node)
-    {
-        Nodecl::NodeclBase dummy_serial_stmts;
-        TaskProperties task_properties(node, dummy_serial_stmts, _phase, this);
-        handle_task_transformation(node, task_properties);
-    }
-
-    void Lower::lower_task(const Nodecl::OpenMP::Task& node, const Nodecl::NodeclBase& serial_stmts)
+    void Lower::lower_taskloop(const Nodecl::OpenMP::Taskloop& node, const Nodecl::NodeclBase& serial_stmts)
     {
         ERROR_CONDITION(!_phase->_final_clause_transformation_disabled
                 && serial_stmts.is_null(),
-                "Invalid serial statements for a task", 0);
+                "Invalid serial statements for a taskloop", 0);
 
-        Nodecl::OpenMP::Task task = node;
+        Nodecl::OpenMP::Taskloop taskloop = node;
         Nodecl::NodeclBase final_stmts;
         Nodecl::NodeclBase serial_stmts_placeholder;
 
         if (!_phase->_final_clause_transformation_disabled)
         {
             Scope in_final_scope =
-                new_block_context(task.retrieve_context().get_decl_context());
+                new_block_context(taskloop.retrieve_context().get_decl_context());
 
             final_stmts = Nodecl::Context::make(
                     Nodecl::List::make(
                         Nodecl::CompoundStatement::make(
-                            serial_stmts,
+                            Nodecl::List::make(serial_stmts),
                             /* finally */ Nodecl::NodeclBase::null(),
-                            task.get_locus())),
+                            taskloop.get_locus())),
                     in_final_scope,
-                    task.get_locus());
+                    taskloop.get_locus());
 
-            create_final_if_else_statement(task, serial_stmts_placeholder);
+            create_final_if_else_statement(taskloop, serial_stmts_placeholder);
         }
 
-        TaskProperties task_properties(task, final_stmts, _phase, this);
-        handle_task_transformation(task, task_properties);
+        TaskProperties task_properties(taskloop, final_stmts, _phase, this);
+        handle_task_transformation(taskloop, task_properties);
 
         if (!_phase->_final_clause_transformation_disabled)
         {

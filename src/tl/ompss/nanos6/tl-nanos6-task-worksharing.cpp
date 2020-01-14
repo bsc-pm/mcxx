@@ -32,7 +32,7 @@
 
 namespace TL { namespace Nanos6 {
 
-    void Lower::visit(const Nodecl::OmpSs::Loop& construct)
+    void Lower::visit(const Nodecl::OmpSs::TaskWorksharing& construct)
     {
         Nodecl::NodeclBase loop = construct.get_loop();
 
