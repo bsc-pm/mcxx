@@ -483,7 +483,6 @@ namespace TL { namespace OpenMP { namespace Lowering {
                     || _env.symbol_has_data_sharing_attribute(sym))
                 return;
 
-            std::cerr << sym.get_name() << "\n";
             _env._firstprivate.insert(sym);
         }
 
