@@ -24,43 +24,30 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NANOS6_DEVICE_FACTORY_HPP
-#define TL_NANOS6_DEVICE_FACTORY_HPP
+#include "tl-nanos6-openacc-device.hpp"
 
-#include "tl-object.hpp"
-
-#include "tl-nanos6-device.hpp"
-#include "smp/tl-nanos6-smp-device.hpp"
-#include "cuda/tl-nanos6-cuda-device.hpp"
-#include "openacc/tl-nanos6-openacc-device.hpp"
-
-#include "cxx-diagnostic.h"
+#include "tl-scope.hpp"
+#include "tl-symbol.hpp"
 
 namespace TL { namespace Nanos6 {
 
-    class DeviceFactory
-    {
-        public:
-            static std::shared_ptr<Device> get_device(const std::string &device_name)
-            {
-                if (device_name == "smp")
-                {
-                    return std::shared_ptr<SMPDevice>(new SMPDevice());
-                }
-                else if (device_name == "cuda")
-                {
-                    return std::shared_ptr<CUDADevice>(new CUDADevice());
-                }
-                else if (device_name == "openacc")
-                {
-                    return std::shared_ptr<OpenACCDevice>(new OpenACCDevice());
-                }
-                else
-                {
-                    fatal_error("unrecognized '%s' device name\n", device_name.c_str());
-                }
-            }
-    };
-}}
+OpenACCDevice::OpenACCDevice()
+{}
 
-#endif // TL_NANOS6_DEVICE_FACTORY_HPP
+OpenACCDevice::~OpenACCDevice()
+{}
+
+TL::Symbol OpenACCDevice::get_device_type_id() const
+{
+    TL::Symbol device_type_id = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_openacc_device");
+
+    ERROR_CONDITION(!device_type_id.is_valid(), "Invalid device type id", 0);
+    return device_type_id;
+}
+
+bool OpenACCDevice::requires_arguments_translation() const
+{
+	return false;
+}
+
+} }

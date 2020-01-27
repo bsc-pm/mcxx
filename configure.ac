@@ -448,6 +448,25 @@ then
 fi
 dnl --------------- END Cray Compilers ---------------------
 
+dnl --------------- PGI Compilers ---------------------
+AC_MSG_CHECKING([whether support for PGI Fortran/C/C++ compilers is enabled])
+AC_ARG_ENABLE([pgi-compilers],
+  AS_HELP_STRING([--disable-pgi-compilers], [Disables support for PGI Fortran/C/C++ compilers (enabled by default)]),
+  [ ], # enable_pgi_compilers=$enableval
+  [ enable_pgi_compilers="yes"])
+AC_MSG_RESULT([$enable_pgi_compilers])
+
+
+PGIFC=
+PGICC=
+PGICXX=
+if test x"$enable_pgi_compilers" = x"yes";
+then
+   AC_CHECK_PROG([PGIFC], [pgf90], [pgf90])
+   AC_CHECK_PROG([PGICC], [pgcc], [pgcc])
+   AC_CHECK_PROG([PGICXX],[pgc++],[pgc++])
+fi
+dnl --------------- END Intel Compilers ---------------------
 
 dnl --------------------- Support for plain profiles for Intel Compilers -------------
 if test x"$ICC" != x -o x"$ICPC" != x -o x"$IFORT" != x;
@@ -1277,7 +1296,6 @@ then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-
    if test x"$ICC" != x -o x"$ICPC" != x -o x"$IFORT" != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel 57.config.omp.smp.intel"
@@ -1298,8 +1316,6 @@ then
           COMPILER_NAMES="${COMPILER_NAMES} imfc imf95 ifort-mfc ismpfc"
       fi
    fi
-
-
 
    if test x"$XLC" != x -o x"$XLCXX" != x -o x"$XLF" != x;
    then
@@ -1341,6 +1357,28 @@ then
       then
           COMPILER_NAMES="${COMPILER_NAMES} craymfc"
       fi
+   fi
+
+
+   if test x"$PGICC" != x -o x"$PGICXX" != x -o x"$PGIFC" != x;
+   then
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.pgi"
+
+      # Intel Mercurium C/C++/Fortran profiles
+      if test x"$PGICC" != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} pgimcc"
+      fi
+
+      if test x"$PGICXX" != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} pgimcxx"
+      fi
+
+      ## if test -x"$PGIFC" != x;
+      ## then
+      ##     COMPILER_NAMES="${COMPILER_NAMES} pgimfc"
+      ## fi
    fi
 fi
 
@@ -2225,6 +2263,10 @@ print_tool "IBM XL Fortran compiler " "$XLF"
 print_tool "Cray C compiler " "$CRAYCC"
 print_tool "Cray C++ compiler " "$CRAYCXX"
 print_tool "Cray Fortran compiler " "$CRAYFC"
+
+print_tool "PGI C compiler " "$PGICC"
+print_tool "PGI C++ compiler " "$PGICXX"
+print_tool "PGI Fortran compiler " "$PGIFC"
 
 echo ""
 

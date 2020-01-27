@@ -24,43 +24,27 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NANOS6_DEVICE_FACTORY_HPP
-#define TL_NANOS6_DEVICE_FACTORY_HPP
-
-#include "tl-object.hpp"
+#ifndef TL_NANOS6_OPENACC_DEVICE_HPP
+#define TL_NANOS6_OPENACC_DEVICE_HPP
 
 #include "tl-nanos6-device.hpp"
-#include "smp/tl-nanos6-smp-device.hpp"
-#include "cuda/tl-nanos6-cuda-device.hpp"
-#include "openacc/tl-nanos6-openacc-device.hpp"
-
-#include "cxx-diagnostic.h"
 
 namespace TL { namespace Nanos6 {
 
-    class DeviceFactory
+    class OpenACCDevice : public Device
     {
         public:
-            static std::shared_ptr<Device> get_device(const std::string &device_name)
-            {
-                if (device_name == "smp")
-                {
-                    return std::shared_ptr<SMPDevice>(new SMPDevice());
-                }
-                else if (device_name == "cuda")
-                {
-                    return std::shared_ptr<CUDADevice>(new CUDADevice());
-                }
-                else if (device_name == "openacc")
-                {
-                    return std::shared_ptr<OpenACCDevice>(new OpenACCDevice());
-                }
-                else
-                {
-                    fatal_error("unrecognized '%s' device name\n", device_name.c_str());
-                }
-            }
-    };
-}}
+			OpenACCDevice();
 
-#endif // TL_NANOS6_DEVICE_FACTORY_HPP
+			~OpenACCDevice();
+
+            //! This function returns a symbol that represents the device type id
+            TL::Symbol get_device_type_id() const;
+
+			//! This function returns whether the current device requires arguments translation
+            bool requires_arguments_translation() const;
+    };
+
+} }
+
+#endif // TL_NANOS6_OPENACC_DEVICE_HPP

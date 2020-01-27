@@ -87,6 +87,7 @@ typedef enum source_language_tag
     NATIVE_VENDOR(IBM, ibm) \
     NATIVE_VENDOR(NVIDIA, nvidia) \
     NATIVE_VENDOR(CRAY, cray) \
+    NATIVE_VENDOR(PGI, pgi) \
 
 typedef enum native_vendor_tag
 {
@@ -531,6 +532,9 @@ typedef struct compilation_configuration_tag
 
     // Disable 'sizeof' computation
     char disable_sizeof;
+
+    // Disable float128 handling as token for PGI, that uses nasty forced includes
+    char disable_float128_token;
 
     // Mimic all the process but preprocess and parsing
     char pass_through;

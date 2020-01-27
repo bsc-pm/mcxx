@@ -389,6 +389,7 @@ typedef enum
     OPTION_DISABLE_GXX_TRAITS,
     OPTION_DISABLE_INTRINSICS,
     OPTION_DISABLE_SIZEOF,
+    OPTION_DISABLE_FLOAT128_TOKEN,
     OPTION_DO_NOT_PROCESS_FILE,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
@@ -482,6 +483,7 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-gxx-traits", CLP_NO_ARGUMENT, OPTION_DISABLE_GXX_TRAITS},
     {"pass-through", CLP_NO_ARGUMENT, OPTION_PASS_THROUGH}, 
     {"disable-sizeof", CLP_NO_ARGUMENT, OPTION_DISABLE_SIZEOF},
+    {"disable-float128-token", CLP_NO_ARGUMENT, OPTION_DISABLE_FLOAT128_TOKEN},
     {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     {"list-environments", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
@@ -1416,6 +1418,13 @@ int parse_arguments(int argc, const char* argv[],
                                 compilation_process.exec_basename);
                         break;
                     }
+                case OPTION_DISABLE_FLOAT128_TOKEN:
+                    {
+                        CURRENT_CONFIGURATION->disable_float128_token = 1;
+                        fprintf(stderr, "%s: option '--disable-float128-token' should be used only to work around problems with PGI back-end. Please, report a bug.\n",
+                                compilation_process.exec_basename);
+                        break;
+                    }
                 case OPTION_SET_ENVIRONMENT:
                     {
                         type_environment_t * chosen_env = get_environment(parameter_info.argument);
@@ -1987,8 +1996,9 @@ static const char* map_std_flags[][3] = {
     [NATIVE_VENDOR_INTEL]  = { "-std=gnu99", "-std=gnu++98", "-nostand" },
     [NATIVE_VENDOR_IBM]    = { "-std=gnu99", "-std=gnu++03", "-qlanglvl=extended" },
     // NVCC should be used to compile CUDA files, which are considered to be written in a different lang
-    [NATIVE_VENDOR_NVIDIA] = { "", "", "" },
-    [NATIVE_VENDOR_CRAY]   = { "-h std=c99", "-h std=c++03", ""}
+    [NATIVE_VENDOR_NVIDIA] = { "",           "",             "" },
+    [NATIVE_VENDOR_CRAY]   = { "-h std=c99", "-h std=c++03", "" },
+    [NATIVE_VENDOR_PGI]    = {"-c99",        "-std=c++03",   "" }
 };
 
 
@@ -3707,7 +3717,8 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
         const char* output_filename_basename = NULL; 
 
-        if (IS_FORTRAN_LANGUAGE)
+        if (IS_FORTRAN_LANGUAGE
+                || CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_PGI)
         {
             // Change the extension to be .f90 always
             const char * ext = strrchr(input_filename_basename, '.');
@@ -3718,12 +3729,28 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
             strncpy(c, input_filename_basename, (size_t)(ext - input_filename_basename));
             c[ext - input_filename_basename + 1] = '\0';
-
-            input_filename_basename = strappend(c, ".f90");
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                // Change the extension to be .f90 always
+                input_filename_basename = strappend(c, ".f90");
+            }
+            else if(CURRENT_CONFIGURATION->native_vendor == NATIVE_VENDOR_PGI)
+            {
+                // We only get here when the language is C/C++ and the native vendor is PGI.
+                // We need to change the extension of the original file to .i for C and C++
+                // (note that .ii is not supported) because every time we call the pgi compiler
+                // it preprocesses our file adding some internal headers. Thus, we end up having
+                // two definitions of the same symbols: one introduced by the call to the preprocessor
+                // and another one when PGI tries to compile the generated output.
+                input_filename_basename = strappend(c, ".i");
+            }
+            else
+            {
+                internal_error("unreachable code\n", 0);
+            }
         }
 
-        output_filename_basename = strappend(preffix,
-                input_filename_basename);
+        output_filename_basename = strappend(preffix, input_filename_basename);
 
         if (compilation_process.parallel_process)
         {

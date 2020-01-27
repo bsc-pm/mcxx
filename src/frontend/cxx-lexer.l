@@ -1455,7 +1455,11 @@ type {
     parse_token_text();
     update_location();
 #ifdef HAVE_QUADMATH_H
-    return TOKEN_FLOAT128;
+    // Disable float128 handling as token for PGI, that uses nasty forced includes
+    if (CURRENT_CONFIGURATION->disable_float128_token)
+        return IDENTIFIER;
+    else
+        return TOKEN_FLOAT128;
 #else
     return IDENTIFIER;
 #endif
