@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2015-2015 Barcelona Supercomputing Center
+  (C) Copyright 2018-2020 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
