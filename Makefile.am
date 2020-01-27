@@ -2456,6 +2456,23 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
     src/tl/ompss/nanos6/devices/openacc/tl-nanos6-openacc-device.cpp \
     $(END)
 
+##########################################################################
+# src/tl/ompss/nanos6/devices/openacc
+##########################################################################
+
+phases_LTLIBRARIES += src/tl/ompss/nanos6/devices/openacc/libtl-nanos6-openacc-functions.la
+
+src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_SOURCES = \
+	src/tl/ompss/nanos6/devices/openacc/tl-nanos6-openacc-functions.cpp \
+	src/tl/ompss/nanos6/devices/openacc/tl-nanos6-openacc-functions.hpp \
+	$(END)
+
+src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_CFLAGS = $(phases_cflags)
+src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_CXXFLAGS = $(phases_cxxflags)
+
+src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_LDFLAGS = $(phases_ldflags)
+src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_LIBADD = $(phases_libadd)
+
 endif
 
 ##########################################################################

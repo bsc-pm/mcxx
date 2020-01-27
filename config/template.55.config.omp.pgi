@@ -6,8 +6,7 @@ preprocessor_name = @PGICXX@
 preprocessor_options = --c
 compiler_name = @PGICC@
 linker_name = @PGICC@
-
-
+compiler_phase = libtl-nanos6-openacc-functions.so
 
 [pgimcxx : omp-base]
 language = C++
@@ -16,7 +15,7 @@ options = --native-vendor=pgi --disable-float128-token
 preprocessor_name = @PGICXX@
 compiler_name = @PGICXX@
 linker_name = @PGICXX@
-
+compiler_phase = libtl-nanos6-openacc-functions.so
 
 
 ### [imfc : omp-base]
