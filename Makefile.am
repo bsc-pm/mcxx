@@ -2467,11 +2467,23 @@ src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_SOURCES = 
 	src/tl/ompss/nanos6/devices/openacc/tl-nanos6-openacc-functions.hpp \
 	$(END)
 
-src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_CFLAGS = $(phases_cflags)
-src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_CXXFLAGS = $(phases_cxxflags)
+src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_CFLAGS = $(phases_cflags) \
+    -I$(srcdir)/src/tl/omp/core \
+    -I$(srcdir)/src/tl/omp/common \
+    -I$(srcdir)/src/tl/omp/lowering-common \
+		$(END)
+
+src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_CXXFLAGS = $(phases_cxxflags) \
+    -I$(srcdir)/src/tl/omp/core \
+    -I$(srcdir)/src/tl/omp/common \
+    -I$(srcdir)/src/tl/omp/lowering-common \
+		$(END)
 
 src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_LDFLAGS = $(phases_ldflags)
-src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_LIBADD = $(phases_libadd)
+src_tl_ompss_nanos6_devices_openacc_libtl_nanos6_openacc_functions_la_LIBADD = $(phases_libadd) \
+    src/tl/omp/core/libtlomp-core.la \
+    src/tl/omp/common/libtlomp-common.la \
+    src/tl/omp/lowering-common/libtlomplowering-common.la
 
 endif
 
