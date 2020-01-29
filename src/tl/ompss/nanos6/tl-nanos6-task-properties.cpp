@@ -2949,49 +2949,59 @@ void TaskProperties::create_task_implementations_info(
             constraints.get_type().no_ref().get_nonstatic_data_members();
         GetField get_field(fields);
 
-        // Cost
-        {
-            Nodecl::NodeclBase cost_member = get_field("cost");
+        // Constrains define the new ones in
+        // DirectiveEnvironment::firstprivatize_symbols_without_data_sharing()
+        Nodecl::List assignement_list;
 
-            Nodecl::NodeclBase lhs_expr =
-                Nodecl::ClassMemberAccess::make(
-                        constraints.make_nodecl(/* set_ref_type */ true),
-                        cost_member,
-                        /* member_literal */ Nodecl::NodeclBase::null(),
-                        cost_member.get_type());
+        // _env.constrains is a map, so auto is a pair iterator.
+        for (auto &it : _env.constrains)
+        {
+            Nodecl::NodeclBase member = get_field(it.first);
+
+            Nodecl::NodeclBase lhs_expr = Nodecl::ClassMemberAccess::make(
+                constraints.make_nodecl(/* set_ref_type */ true),
+                member,
+                /* member_literal */ Nodecl::NodeclBase::null(),
+                member.get_type());
+
+            Nodecl::NodeclBase expr;
+
+            if (!it.second.node.is_null()) // value was specified
+            {
+                expr = Nodecl::Utils::deep_copy(
+                    it.second.node, unpacked_fun_inside_scope, symbol_map);
+            }
+            else
+            {
+                expr = const_value_to_nodecl_with_basic_type(
+                    it.second.default_value,
+                    member.get_type().no_ref().get_internal_type());
+            }
 
             if (IS_FORTRAN_LANGUAGE)
             {
-                // Insert extra symbol declarations and add them to the symbol map
-                // (e.g. functions and subroutines declared in other scopes)
+                // Insert extra symbol declarations and add them to the symbol
+                // map (e.g. functions and subroutines declared in other scopes)
                 Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
-                        symbol_map,
-                        unpacked_fun_inside_scope,
-                        _related_function);
-                fun_visitor.insert_extra_symbols(_env.cost_clause);
+                    symbol_map, unpacked_fun_inside_scope, _related_function);
+                fun_visitor.insert_extra_symbols(expr);
             }
 
-            Nodecl::NodeclBase cost_expr =
-                Nodecl::Utils::deep_copy(_env.cost_clause, unpacked_fun_inside_scope, symbol_map);
-
-            if (!cost_expr.get_type().is_same_type(cost_member.get_type()))
+            if (!expr.get_type().is_same_type(member.get_type()))
             {
-                cost_expr = Nodecl::Conversion::make(
-                        cost_expr,
-                        cost_member.get_type().no_ref(),
-                        cost_expr.get_locus());
-                cost_expr.set_text("C");
+                expr = Nodecl::Conversion::make(
+                    expr, member.get_type().no_ref(), expr.get_locus());
+                expr.set_text("C");
             }
 
-            Nodecl::NodeclBase assignment_stmt =
-                Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(
-                            lhs_expr,
-                            cost_expr,
-                            lhs_expr.get_type()));
-
-            unpacked_fun_empty_stmt.replace(assignment_stmt);
+            assignement_list.append(Nodecl::ExpressionStatement::make(
+                Nodecl::Assignment::make(lhs_expr, expr, lhs_expr.get_type())));
         }
+
+        unpacked_fun_empty_stmt.replace(
+            Nodecl::CompoundStatement::make(
+                 assignement_list,
+                 Nodecl::NodeclBase::null()));
 
         Nodecl::Utils::prepend_to_enclosing_top_level_location(
                 _task_body, unpacked_fun_code);
@@ -3001,13 +3011,19 @@ void TaskProperties::create_task_implementations_info(
 
     TL::Symbol TaskProperties::create_constraints_function()
     {
-        // Do not generate this function if the current task doesn't have any restriction
-        if (_env.cost_clause.is_null())
+        // Do not generate this function if the current task doesn't have any
+        // constrain
+        if (std::all_of(
+                _env.constrains.begin(),
+                _env.constrains.end(),
+                [](const TL::OpenMP::Lowering::named_constrain_defaulted_t &i) {
+                    return i.second.node.is_null();
+                }))
             return TL::Symbol::invalid();
 
         const std::string common_name = "constraints";
-        TL::Symbol unpacked_function =
-            create_constraints_unpacked_function(common_name);
+        TL::Symbol unpacked_function
+            = create_constraints_unpacked_function(common_name);
 
         TL::ObjectList<std::string> unpacked_fun_param_names(2);
         TL::ObjectList<TL::Type> unpacked_fun_param_types(2);
@@ -3016,14 +3032,16 @@ void TaskProperties::create_task_implementations_info(
         unpacked_fun_param_types[0] = _info_structure.get_lvalue_reference_to();
 
         unpacked_fun_param_names[1] = "constraints";
-        unpacked_fun_param_types[1] = get_nanos6_class_symbol("nanos6_task_constraints_t")
-            .get_user_defined_type().get_lvalue_reference_to();
+        unpacked_fun_param_types[1]
+            = get_nanos6_class_symbol("nanos6_task_constraints_t")
+                  .get_user_defined_type()
+                  .get_lvalue_reference_to();
 
-        TL::Symbol outline_function = create_outline_function(
-                unpacked_function,
-                common_name,
-                unpacked_fun_param_names,
-                unpacked_fun_param_types);
+        TL::Symbol outline_function =
+            create_outline_function(unpacked_function,
+                                    common_name,
+                                    unpacked_fun_param_names,
+                                    unpacked_fun_param_types);
 
         return outline_function;
     }

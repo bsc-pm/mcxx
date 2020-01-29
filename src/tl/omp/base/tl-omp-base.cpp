@@ -842,6 +842,10 @@ namespace TL { namespace OpenMP {
         handle_already_analyzed_generic_clause<Nodecl::OmpSs::Onready>(
             "Its onready will be", directive, ds.get_onready_expr(), execution_environment);
 
+        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Stream>(
+                "stream", "Its stream will be",
+                directive, directive, execution_environment);
+
         pragma_line.diagnostic_unused_clauses();
 
         Nodecl::NodeclBase body_of_task =

@@ -30,6 +30,7 @@
 
 #include "tl-nodecl-visitor.hpp"
 
+#include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 
 
@@ -365,7 +366,12 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
             virtual void visit(const Nodecl::OmpSs::Cost &n)
             {
-                _env.cost_clause = n.get_cost();
+                _env.constrains["cost"].node = n.get_cost();
+            }
+
+            virtual void visit(const Nodecl::OmpSs::Stream &n)
+            {
+                _env.constrains["stream"].node = n.get_stream();
             }
 
             virtual void visit(const Nodecl::OmpSs::Onready &n)
@@ -523,9 +529,15 @@ namespace TL { namespace OpenMP { namespace Lowering {
         dep_weakreduction.map(fp_syms_without_data_sharing);
 
         // Other task clauses
-        fp_syms_without_data_sharing(cost_clause);
         fp_syms_without_data_sharing(onready_clause);
         fp_syms_without_data_sharing(priority_clause);
+
+        // Constrains
+        constrains["cost"].default_value = const_value_get_unsigned_int(0); // default value
+        fp_syms_without_data_sharing(constrains["cost"].node);
+
+        constrains["stream"].default_value = const_value_get_unsigned_int(0);
+        fp_syms_without_data_sharing(constrains["stream"].node);
     }
 
     void DirectiveEnvironment::handle_array_bound(Nodecl::NodeclBase n)

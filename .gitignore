@@ -178,3 +178,6 @@ src/frontend/cxx-asttype-str.gperf
 .ycm_extra_conf.py*
 *.pyc
 tags
+GPATH
+GRTAGS
+GTAGS
