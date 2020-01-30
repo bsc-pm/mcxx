@@ -3130,35 +3130,94 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
     if (internal_subprograms == NULL)
         return;
 
+    // Declarations in an internal subprogram may impact the declarations of
+    // other sibling internal subprograms, so traverse them in a breadth-first
+    // fashion.
+    ERROR_CONDITION(num_internal_program_units < 0,
+                    "Invalid number of internal program units",
+                    0);
+    internal_subprograms_info_t
+        *n_internal_subprograms_info[num_internal_program_units + 1];
+    int n_num_internal_program_units[num_internal_program_units + 1];
+
+    // Allocate information that we will need for further internal subprograms
+    // of this internal subprogram.
     int i = 0;
     AST it;
     for_each_element(internal_subprograms, it)
     {
         ERROR_CONDITION(i >= num_internal_program_units, "Too many internal program units", 0);
 
+        if (internal_subprograms_info[i].symbol != NULL)
+        {
+            AST n_internal_subprograms
+                = internal_subprograms_info[i].internal_subprograms;
+
+            n_num_internal_program_units[i]
+                = count_internal_subprograms(n_internal_subprograms);
+            n_internal_subprograms_info[i] = NEW_VEC0(
+                internal_subprograms_info_t, n_num_internal_program_units[i]);
+        }
+        i++;
+    }
+
+    // Declarations of all internal subprograms
+    i = 0;
+    for_each_element(internal_subprograms, it)
+    {
+        ERROR_CONDITION(i >= num_internal_program_units, "Too many internal program units", 0);
+
         build_scope_delay_list_push(&internal_subprograms_info[i].delayed_list);
 
-        // Some error happened during
-        // build_scope_program_unit_body_internal_subprograms_declarations and
-        // we could not get any symbol for this one. Skip it
+        // Skip if something was wrong
         if (internal_subprograms_info[i].symbol != NULL)
         {
             AST n_internal_subprograms = internal_subprograms_info[i].internal_subprograms;
 
-            int n_num_internal_program_units = count_internal_subprograms(n_internal_subprograms);
-            // Count how many internal subprograms are there
-            internal_subprograms_info_t n_internal_subprograms_info[n_num_internal_program_units + 1];
-            memset(n_internal_subprograms_info, 0, sizeof(n_internal_subprograms_info));
-
             build_scope_program_unit_body_internal_subprograms_declarations(
                     n_internal_subprograms, 
-                    n_num_internal_program_units,
-                    n_internal_subprograms_info,
+                    n_num_internal_program_units[i],
+                    n_internal_subprograms_info[i],
                     internal_subprograms_info[i].decl_context);
+        }
 
+        build_scope_delay_list_pop();
+        i++;
+    }
+
+    // Act on the side effects of declarations
+    i = 0;
+    for_each_element(internal_subprograms, it)
+    {
+        ERROR_CONDITION(i >= num_internal_program_units, "Too many internal program units", 0);
+
+        build_scope_delay_list_push(&internal_subprograms_info[i].delayed_list);
+
+        // Skip if something was wrong
+        if (internal_subprograms_info[i].symbol != NULL)
+        {
             build_scope_delay_list_run(
                     DELAY_AFTER_DECLARATIONS,
                     &(internal_subprograms_info[i].nodecl_output));
+        }
+
+        build_scope_delay_list_pop();
+        i++;
+    }
+
+    // The rest of each internal subprogram.
+    i = 0;
+    for_each_element(internal_subprograms, it)
+    {
+        ERROR_CONDITION(i >= num_internal_program_units, "Too many internal program units", 0);
+
+        build_scope_delay_list_push(&internal_subprograms_info[i].delayed_list);
+
+        // Skip if something was wrong
+        if (internal_subprograms_info[i].symbol != NULL)
+        {
+            AST n_internal_subprograms
+                = internal_subprograms_info[i].internal_subprograms;
 
             build_scope_program_unit_body_executable(
                     &internal_subprograms_info[i].constraint_checker,
@@ -3174,8 +3233,8 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
 
             build_scope_program_unit_body_internal_subprograms_executable(
                     n_internal_subprograms, 
-                    n_num_internal_program_units,
-                    n_internal_subprograms_info,
+                    n_num_internal_program_units[i],
+                    n_internal_subprograms_info[i],
                     internal_subprograms_info[i].decl_context);
 
             build_scope_delay_list_run(
@@ -3185,17 +3244,17 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
             // 6) Remember the internal subprogram nodecls
             nodecl_t nodecl_internal_subprograms = nodecl_null();
             int j;
-            for (j = 0; j < n_num_internal_program_units; j++)
+            for (j = 0; j < n_num_internal_program_units[i]; j++)
             {
                 nodecl_internal_subprograms =
                     nodecl_append_to_list(nodecl_internal_subprograms, 
-                            n_internal_subprograms_info[j].nodecl_output);
+                            n_internal_subprograms_info[i][j].nodecl_output);
 
-                if (!nodecl_is_null(n_internal_subprograms_info[j].nodecl_pragma))
+                if (!nodecl_is_null(n_internal_subprograms_info[i][j].nodecl_pragma))
                 {
                     nodecl_internal_subprograms =
                         nodecl_append_to_list(nodecl_internal_subprograms, 
-                                n_internal_subprograms_info[j].nodecl_pragma);
+                                n_internal_subprograms_info[i][j].nodecl_pragma);
                 }
             }
 
@@ -3239,7 +3298,20 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
         }
 
         build_scope_delay_list_pop();
+        i++;
+    }
 
+    // Cleanup
+    i = 0;
+    for_each_element(internal_subprograms, it)
+    {
+        ERROR_CONDITION(i >= num_internal_program_units,
+                        "Too many internal program units",
+                        0);
+        if (internal_subprograms_info[i].symbol != NULL)
+        {
+            DELETE(n_internal_subprograms_info[i]);
+        }
         i++;
     }
 }
