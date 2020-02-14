@@ -62,6 +62,9 @@ namespace TL
         if ((IS_C_LANGUAGE && this->is_any_reference())
                 || (IS_CXX_LANGUAGE && this->is_rebindable_reference()))
         {
+            // Keep restrict in a reference
+            bool is_restrict = this->is_restrict();
+
             TL::Type ref = this->references_to();
             if (ref.is_array())
             {
@@ -76,6 +79,10 @@ namespace TL
             {
                 ptr = ptr.get_const_type();
             }
+
+            if (is_restrict)
+                ptr = ptr.get_restrict_type();
+
             return ptr;
         }
         else if (IS_FORTRAN_LANGUAGE && this->is_any_reference())

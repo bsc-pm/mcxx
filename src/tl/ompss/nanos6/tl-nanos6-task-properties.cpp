@@ -1321,7 +1321,15 @@ void TaskProperties::create_task_implementations_info(
                     _symbols_to_param_names[sym] = fixed_name;
 
                     _parameter_names.append(fixed_name);
-                    _parameter_types.append(sym.get_type().no_ref().get_lvalue_reference_to());
+
+                    TL::Type T = sym.get_type().no_ref();
+                    // Keep the restrict in a reference
+                    if (T.is_restrict())
+                        T = T.get_lvalue_reference_to().get_restrict_type();
+                    else
+                        T = T.get_lvalue_reference_to();
+
+                    _parameter_types.append(T);
                 }
         };
 
