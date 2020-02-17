@@ -1632,6 +1632,45 @@ namespace TL { namespace OpenMP {
 
         loop_normalize.normalize();
 
+        struct ReplaceDepExpressions : public Nodecl::ExhaustiveVisitor<void>
+        {
+            TL::HLT::LoopNormalize _loop_normalize;
+            ReplaceDepExpressions(TL::HLT::LoopNormalize &loop_normalize)
+                : _loop_normalize(loop_normalize)
+                {}
+
+            virtual void visit(const Nodecl::OpenMP::DepIn& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+            virtual void visit(const Nodecl::OmpSs::DepWeakIn& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+            virtual void visit(const Nodecl::OpenMP::DepOut& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+            virtual void visit(const Nodecl::OmpSs::DepWeakOut& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+            virtual void visit(const Nodecl::OpenMP::DepInout& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+            virtual void visit(const Nodecl::OmpSs::DepWeakInout& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+            virtual void visit(const Nodecl::OmpSs::DepConcurrent& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+            virtual void visit(const Nodecl::OmpSs::DepCommutative& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+            virtual void visit(const Nodecl::OmpSs::DepWeakCommutative& node) {
+                _loop_normalize.normalize_expr(node.children()[0]);
+            }
+        };
+
+        ReplaceDepExpressions replace_dep_expressions(loop_normalize);
+        replace_dep_expressions.walk(execution_environment);
+
         Nodecl::NodeclBase normalized_loop = loop_normalize.get_whole_transformation();
         ERROR_CONDITION(!normalized_loop.is<Nodecl::ForStatement>(), "Unexpected node\n", 0);
 

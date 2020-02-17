@@ -57,6 +57,9 @@ namespace TL { namespace HLT {
             // Action
             void normalize();
 
+            // Replace induction variable for its normalized equivalent
+            void normalize_expr(Nodecl::NodeclBase &expr);
+
             // Results
             Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
             Nodecl::NodeclBase get_post_transformation_stmts() const;

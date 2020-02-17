@@ -102,7 +102,6 @@ namespace TL { namespace HLT {
                             _lower.shallow_copy(),
                             new_value.get_type().no_ref());
                 }
-
                 node.replace(new_value);
             }
         }
@@ -283,6 +282,22 @@ namespace TL { namespace HLT {
                             expr,
                             induction_variable.get_type())));
         }
+    }
+
+    void LoopNormalize::normalize_expr(Nodecl::NodeclBase &expr)
+    {
+        Nodecl::ForStatement loop = this->_loop.as<Nodecl::ForStatement>();
+        TL::Scope orig_loop_scope = loop.retrieve_context();
+
+        TL::ForStatement for_stmt(loop);
+
+        TL::Symbol induction_var = for_stmt.get_induction_variable();
+        Nodecl::NodeclBase orig_loop_lower = for_stmt.get_lower_bound();
+        Nodecl::NodeclBase orig_loop_step = for_stmt.get_step();
+
+        ReplaceInductionVar replace_induction_var(induction_var, orig_loop_lower, orig_loop_step);
+
+        replace_induction_var.walk(expr);
     }
 
 } }
