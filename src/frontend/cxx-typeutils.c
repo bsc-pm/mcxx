@@ -9906,7 +9906,8 @@ static const char* get_gcc_attributes_string(type_t* type_info)
     {
         if (nodecl_is_null(type_info->info->gcc_attributes[i].expression_list))
         {
-            uniquestr_sprintf(&result, "__attribute__((%s)) ",
+            uniquestr_sprintf(&result, "%s__attribute__((%s)) ",
+                    result,
                     type_info->info->gcc_attributes[i].attribute_name);
         }
         else
@@ -9926,7 +9927,8 @@ static const char* get_gcc_attributes_string(type_t* type_info)
             }
             DELETE(n);
 
-            uniquestr_sprintf(&result, "__attribute__((%s(%s))) ",
+            uniquestr_sprintf(&result, "%s__attribute__((%s(%s))) ",
+                    result,
                     type_info->info->gcc_attributes[i].attribute_name,
                     expr_list_str);
         }
