@@ -41,6 +41,41 @@ OpenACCTasks::OpenACCTasks()
         "has is properly passed to OpenACC directives.");
 }
 
+void OpenACCTasks::append_async_parameter(TL::Symbol &sym)
+{
+	TL::Symbol new_param;	// Our new argument
+
+	// We need to get the current parameters and their types;
+	// The type of a function is: ret(urn)_type + List<argument_types>
+	//
+	// Therefore we will need to append the type to the second part (the List)
+	// and update the function's (sym) Type
+
+	TL::ObjectList<TL::Symbol> current_params = sym.get_related_symbols();
+	TL::Type func_type = sym.get_type();
+	TL::Type ret_type = func_type.returns();
+	TL::ObjectList<TL::Type> param_types = func_type.parameters();
+
+	// Unfortunately sym.get_related_scope() breaks, so we work around it by
+	// getting the first parameter's scope, which is the one we need.
+	TL::Scope sc = current_params.begin()->get_scope();
+
+	new_param = sc.new_symbol("asyncQueue");
+	new_param.get_internal_symbol()->kind = SK_VARIABLE;
+	new_param.set_type(TL::Type::get_int_type());	// We know our type will be an int
+	symbol_entity_specs_set_is_user_declared(new_param.get_internal_symbol(), 1);
+
+	// Append new_param type to parameters' types list
+	param_types.append(new_param.get_type());
+	// Update the function Type to include the new one too
+	func_type = ret_type.get_function_returning(param_types, param_types);
+	sym.set_type(func_type);
+
+	// Append the new_param Symbol to the parameters
+	current_params.append(new_param);
+	sym.set_related_symbols(current_params);
+}
+
 class FunctionDefinitionsVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
   private:
@@ -159,7 +194,11 @@ void OpenACCTasks::run(DTO &dto)
     FunctionDefinitionsVisitor functions_definition_visitor(
         *ompss_task_functions);
     functions_definition_visitor.walk(translation_unit);
-    // functions_definition_visitor.get_openacc_functions_definitions()
+	TL::ObjectList<TL::Symbol> acc_functions =
+		functions_definition_visitor.get_openacc_functions_definitions();
+	for (auto f : acc_functions) {
+		append_async_parameter(f);
+	}
 
     FunctionCallsVisitor function_calls_visitor(
         *ompss_task_functions);
