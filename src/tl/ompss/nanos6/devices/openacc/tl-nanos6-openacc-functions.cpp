@@ -169,9 +169,25 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
             {
                 error_printf_at(
                     node.get_locus(),
-                    "OpenACC function task is using more than one device");
+                    "OpenACC function task is using more than one device\n");
             }
         }
+		// Now we will append the new 'async' argument:
+		// Create a new symbol in the scope;
+		// set its type (to int always);
+		// use Nodecl::Conversion as is the case in all arguments
+		Nodecl::List arguments = node.get_arguments().as<Nodecl::List>();
+		TL::Symbol new_arg;
+		TL::Scope sc = node.retrieve_context();
+		const std::string new_arg_name = "async";
+		new_arg = sc.new_symbol(new_arg_name);
+		new_arg.get_internal_symbol()->kind = SK_VARIABLE;
+		new_arg.set_type(TL::Type::get_int_type());
+		symbol_entity_specs_set_is_user_declared(new_arg.get_internal_symbol(), 0);
+		arguments.append(Nodecl::Conversion::make(
+					new_arg.make_nodecl(/*set_ref_type*/ true, node.get_locus()),
+					TL::Type::get_void_type().get_pointer_to().get_pointer_to(),
+					node.get_locus()));
     }
 
     TL::ObjectList<TL::Symbol> get_openacc_functions_called() const
