@@ -76,6 +76,45 @@ void OpenACCTasks::append_async_parameter(TL::Symbol &sym)
 	sym.set_related_symbols(current_params);
 }
 
+// Use UnknownPragmaVisitor to detect OpenACC pragmas and append the async clause
+class UnknownPragmaVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+	private:
+		TL::OmpSs::FunctionTaskSet &ompss_task_functions;
+		TL::ObjectList<TL::Symbol> statements;
+
+		std::string append_async(std::string pragma_str)
+		{
+			const std::string append_str = " async(asyncQueue)";
+			// get the substring from the point acc starts, or it will result
+			// in appending multiple #pragma #pragma
+			std::string ret = pragma_str.substr(pragma_str.find("acc"));
+			size_t length = ret.find("\n");
+			ret = ret.erase(length, 1);	// remove eol to append the async
+			ret += append_str;
+			return ret;
+		}
+
+	public:
+		UnknownPragmaVisitor(TL::OmpSs::FunctionTaskSet &ompss_task_functions_)
+			: ompss_task_functions(ompss_task_functions_)
+		{
+		}
+
+		virtual void visit(const Nodecl::UnknownPragma &node)
+		{
+			if (node.prettyprint().find(" acc parallel") != std::string::npos ||
+					node.prettyprint().find(" acc kernels") != std::string::npos) {
+				ERROR_CONDITION(
+						node.prettyprint().find("async") != std::string::npos,
+						"OpenACC async clause already present, please remove from user code", 0);
+				std::string acc_pragma_str = node.prettyprint();
+				acc_pragma_str = append_async(acc_pragma_str);
+				const_cast<Nodecl::UnknownPragma&>(node).set_text(acc_pragma_str);
+			}
+		}
+};
+
 class FunctionDefinitionsVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
   private:
@@ -212,14 +251,21 @@ void OpenACCTasks::run(DTO &dto)
     functions_definition_visitor.walk(translation_unit);
 	TL::ObjectList<TL::Symbol> acc_functions =
 		functions_definition_visitor.get_openacc_functions_definitions();
-	for (auto f : acc_functions) {
+	for (auto f : acc_functions)
 		append_async_parameter(f);
-	}
 
     FunctionCallsVisitor function_calls_visitor(
         *ompss_task_functions);
     function_calls_visitor.walk(translation_unit);
-    // functions_calls_visitor.get_openacc_functions_called()
+	TL::ObjectList<TL::Symbol> acc_function_calls =
+		function_calls_visitor.get_openacc_functions_called();
+
+	// Search for unknown (potentially OpenACC) pragmas in the detected tasks only
+	UnknownPragmaVisitor unknown_pragma_visitor(
+			*ompss_task_functions);
+	for (auto f : acc_functions)
+		unknown_pragma_visitor.walk(f.get_function_code());
+
 }
 
 } // namespace Nanos6
