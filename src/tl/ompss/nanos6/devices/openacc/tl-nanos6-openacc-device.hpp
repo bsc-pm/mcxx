@@ -43,6 +43,14 @@ namespace TL { namespace Nanos6 {
 
 			//! This function returns whether the current device requires arguments translation
             bool requires_arguments_translation() const;
+
+           Nodecl::NodeclBase compute_specific_task_body(
+                    Nodecl::NodeclBase task_body,
+                    const DirectiveEnvironment &env,
+                    Nodecl::NodeclBase unpacked_function_code,
+                    const TL::Scope &unpacked_inside_scope,
+                    Nodecl::Utils::SimpleSymbolMap &symbol_map);
+
     };
 
 } }
