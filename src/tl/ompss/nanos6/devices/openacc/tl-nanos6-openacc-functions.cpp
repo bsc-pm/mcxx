@@ -141,9 +141,6 @@ class FunctionDefinitionsVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         if (devices.contains("openacc"))
         {
-            info_printf_at(node.get_locus(),
-                           "function definition of OpenACC function task '%s'",
-                           sym.get_qualified_name().c_str());
             if (devices.size() == 1)
             {
                 openacc_functions.append(sym);
@@ -152,7 +149,7 @@ class FunctionDefinitionsVisitor : public Nodecl::ExhaustiveVisitor<void>
             {
                 error_printf_at(
                     node.get_locus(),
-                    "OpenACC function task is using more than one device");
+                    "OpenACC function task is using more than one device\n");
             }
         }
     }
@@ -197,9 +194,6 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         if (devices.contains("openacc"))
         {
-            info_printf_at(node.get_locus(),
-                           "function call to OpenACC function task '%s'",
-                           sym.get_qualified_name().c_str());
             if (devices.size() == 1)
             {
                 openacc_functions.append(sym);
