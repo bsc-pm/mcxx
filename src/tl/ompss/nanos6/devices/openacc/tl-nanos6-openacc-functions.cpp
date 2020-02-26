@@ -60,7 +60,7 @@ void OpenACCTasks::append_async_parameter(TL::Symbol &sym)
 	// getting the first parameter's scope, which is the one we need.
 	TL::Scope sc = current_params.begin()->get_scope();
 
-	new_param = sc.new_symbol("asyncQueue");
+	new_param = sc.new_symbol("nanos6_mcxx_async_queue");
 	new_param.get_internal_symbol()->kind = SK_VARIABLE;
 	new_param.set_type(TL::Type::get_int_type());	// We know our type will be an int
 	symbol_entity_specs_set_is_user_declared(new_param.get_internal_symbol(), 1);
@@ -85,7 +85,7 @@ class UnknownPragmaVisitor : public Nodecl::ExhaustiveVisitor<void>
 
 		std::string append_async(std::string pragma_str)
 		{
-			const std::string append_str = " async(asyncQueue)";
+			const std::string append_str = " async(nanos6_mcxx_async_queue)";
 			// get the substring from the point acc starts, or it will result
 			// in appending multiple #pragma #pragma
 			std::string ret = pragma_str.substr(pragma_str.find("acc"));
@@ -205,14 +205,14 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
                     "OpenACC function task is using more than one device\n");
             }
         }
-		// Now we will append the new 'async' argument:
+		// Now we will append the new 'nanos6_mcxx_async' argument:
 		// Create a new symbol in the scope;
 		// set its type (to int always);
 		// use Nodecl::Conversion as is the case in all arguments
 		Nodecl::List arguments = node.get_arguments().as<Nodecl::List>();
 		TL::Symbol new_arg;
 		TL::Scope sc = node.retrieve_context();
-		const std::string new_arg_name = "async";
+		const std::string new_arg_name = "nanos6_mcxx_async";
 		new_arg = sc.new_symbol(new_arg_name);
 		new_arg.get_internal_symbol()->kind = SK_VARIABLE;
 		new_arg.set_type(TL::Type::get_int_type());

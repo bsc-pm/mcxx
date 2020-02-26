@@ -112,7 +112,7 @@ Nodecl::NodeclBase OpenACCDevice::compute_specific_task_body(
 	TL::Scope inner_scope = context.retrieve_context();
 
 	// Create the new symbol for the left-hand side
-	TL::Symbol async = inner_scope.new_symbol("async");
+	TL::Symbol async = inner_scope.new_symbol("nanos6_mcxx_async");
 	async.get_internal_symbol()->kind = SK_VARIABLE;
 	async.set_type(TL::Type::get_int_type());
 	symbol_entity_specs_set_is_user_declared(async.get_internal_symbol(), 1);
