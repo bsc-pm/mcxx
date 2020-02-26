@@ -27,6 +27,7 @@
 #include "tl-nanos6-openacc-functions.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-omp-core.hpp"
+#include "cxx-cexpr.h"
 
 namespace TL
 {
@@ -206,21 +207,33 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
             }
         }
 		// Now we will append the new 'nanos6_mcxx_async' argument:
-		// Create a new symbol in the scope;
+		// Check if symbol is present in the scope;
+		// 	if yes, append it to function call arguments;
+		// 	if not, we are probably in the nanos6_in_final block, so append 0
+		// 	(queue 0 is not assigned by the runtime; it starts from 1, so we
+		// 	can add a manual wait for it in the function code).
+		//	Note: In case we are in the nanos6_in_final check of another task block that
+		//		has a nanos6_mcxx_async symbol, then using this keeps the semantics intact
+		//		as OpenACC queues are FIFO, so we can use the same queue with the parent task.
+		//
 		// set its type (to int always);
 		// use Nodecl::Conversion as is the case in all arguments
 		Nodecl::List arguments = node.get_arguments().as<Nodecl::List>();
-		TL::Symbol new_arg;
 		TL::Scope sc = node.retrieve_context();
 		const std::string new_arg_name = "nanos6_mcxx_async";
-		new_arg = sc.new_symbol(new_arg_name);
-		new_arg.get_internal_symbol()->kind = SK_VARIABLE;
-		new_arg.set_type(TL::Type::get_int_type());
-		symbol_entity_specs_set_is_user_declared(new_arg.get_internal_symbol(), 0);
-		arguments.append(Nodecl::Conversion::make(
-					new_arg.make_nodecl(/*set_ref_type*/ true, node.get_locus()),
-					TL::Type::get_void_type().get_pointer_to().get_pointer_to(),
-					node.get_locus()));
+		TL::Symbol async_symbol = sc.get_symbol_from_name(new_arg_name);
+		if (async_symbol.is_valid()) {
+			arguments.append(Nodecl::Conversion::make(
+						async_symbol.make_nodecl(/*set_ref_type*/ true, node.get_locus()),
+						TL::Type::get_int_type(),
+						node.get_locus()));
+    }
+		else {
+			arguments.append(Nodecl::Conversion::make(
+						const_value_to_nodecl(const_value_get_zero(4, 1)),
+						TL::Type::get_int_type(),
+						node.get_locus()));
+		}
     }
 
     TL::ObjectList<TL::Symbol> get_openacc_functions_called() const
