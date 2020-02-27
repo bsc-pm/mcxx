@@ -161,6 +161,62 @@ class FunctionDefinitionsVisitor : public Nodecl::ExhaustiveVisitor<void>
     }
 };
 
+// We will use this visitor to introduce a check at the end of each
+// OpenACC function. If provided async queue number is 0, it means we are
+// in some final context, the queue is not managed by the runtime, so
+// we'll just acc wait(0) for it.
+class FunctionCodeVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+  private:
+	TL::OmpSs::FunctionTaskSet &ompss_task_functions;
+
+  public:
+	FunctionCodeVisitor(TL::OmpSs::FunctionTaskSet &ompss_task_functions_)
+		: ompss_task_functions(ompss_task_functions_)
+	{
+	}
+
+	virtual void visit(const Nodecl::FunctionCode &node)
+	{
+		TL::Symbol sym = node.get_symbol();
+		if (!ompss_task_functions.is_function_task(sym))
+			return;
+
+		TL::Symbol async = sym.get_related_symbols().begin()->get_scope().get_symbol_from_name(
+				"nanos6_mcxx_async_queue"); // hack-ish way to get context, as sym.get_related_scope segfaults
+		if (async.is_valid()) {
+			Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
+			Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
+			Nodecl::CompoundStatement cm_statement = statements.front().as<Nodecl::CompoundStatement>();
+
+			// create our pragma statement for OpenACC wait
+			Nodecl::NodeclBase pragma_acc_wait = Nodecl::UnknownPragma::make("acc wait(0)");
+
+			// create the if (nanos6_mcxx_async_queue == 0) check
+			Nodecl::NodeclBase if_async_zero = Nodecl::IfElseStatement::make(
+					Nodecl::Equal::make(
+						async.make_nodecl(true),	// get symbol for comparison
+						const_value_to_nodecl_with_basic_type(	// construct a const 0
+							const_value_get_signed_int(0),		// for right side
+							get_size_t_type()),
+						get_bool_type()),
+					Nodecl::List::make(	// List is required as a legacy of Fortran compatibility
+						Nodecl::CompoundStatement::make( // Create a compound statement inside 'if' block, that will contain our pragma
+							Nodecl::List::make(pragma_acc_wait,
+								Nodecl::EmptyStatement::make()), // and an empty statement
+							Nodecl::NodeclBase::null())),	// 'else' will be ommited
+					Nodecl::NodeclBase::null());
+
+			Nodecl::List stmt_list = cm_statement.get_statements().as<Nodecl::List>();
+			//Add error condition if list is empty, which is unlikely
+			ERROR_CONDITION(stmt_list.empty(), "Statement list appears empty\n", 0);
+			stmt_list.append(if_async_zero);
+		}
+		else // symbol invalid
+			info_printf_at(node.get_locus(),"Symbol not found\n");
+	}
+};
+
 class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
   private:
@@ -270,8 +326,12 @@ void OpenACCTasks::run(DTO &dto)
 	// Search for unknown (potentially OpenACC) pragmas in the detected tasks only
 	UnknownPragmaVisitor unknown_pragma_visitor(
 			*ompss_task_functions);
-	for (auto f : acc_functions)
+	FunctionCodeVisitor code_visitor(
+			*ompss_task_functions);
+	for (auto f : acc_functions) {
 		unknown_pragma_visitor.walk(f.get_function_code());
+		code_visitor.walk(f.get_function_code());
+	}
 
 }
 
