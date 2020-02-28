@@ -68,23 +68,36 @@ Nodecl::NodeclBase OpenACCDevice::compute_specific_task_body(
 {
 	Nodecl::NodeclBase new_task_body = task_body.shallow_copy();
 	Nodecl::NodeclBase context = new_task_body.as<Nodecl::List>().front();
-	ERROR_CONDITION(!context.is<Nodecl::Context>(), "Unexpected node\n", 0);
-	Nodecl::NodeclBase compound_statement = context.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
-	ERROR_CONDITION(!compound_statement.is<Nodecl::CompoundStatement>(), "Unexpected node\n", 0);
-	Nodecl::NodeclBase expr_stmt = compound_statement.as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>().front();
-	ERROR_CONDITION(!expr_stmt.is<Nodecl::ExpressionStatement>(), "Unexpected node\n", 0);
+	ERROR_CONDITION(!context.is<Nodecl::Context>(),
+			"Unexpected node\n", 0);
+
+	Nodecl::NodeclBase compound_statement = context.as<Nodecl::Context>()
+		.get_in_context().as<Nodecl::List>().front();
+	ERROR_CONDITION(!compound_statement.is<Nodecl::CompoundStatement>(),
+			"Unexpected node\n", 0);
+
+	Nodecl::NodeclBase expr_stmt = compound_statement.as<Nodecl::CompoundStatement>()
+		.get_statements().as<Nodecl::List>().front();
+	ERROR_CONDITION(!expr_stmt.is<Nodecl::ExpressionStatement>(),
+			"Unexpected node\n", 0);
+
 	Nodecl::NodeclBase function_call = expr_stmt.as<Nodecl::ExpressionStatement>().get_nest();
-	ERROR_CONDITION(!function_call.is<Nodecl::FunctionCall>(), "Unexpected node\n", 0);
+	ERROR_CONDITION(!function_call.is<Nodecl::FunctionCall>(),
+			"Unexpected node\n", 0);
 
     Nodecl::NodeclBase called = function_call.as<Nodecl::FunctionCall>().get_called();
-    ERROR_CONDITION(function_call.is<Nodecl::Symbol>(), "Unexpected node\n", 0);
+    ERROR_CONDITION(function_call.is<Nodecl::Symbol>(),
+			"Unexpected node\n", 0);
 
 	// Get the *device_env* argument from the unpacked region
 	TL::Symbol device_env = unpacked_inside_scope.get_symbol_from_name("device_env");
 
 	// Detect the *nanos6_openacc_device_environment_t* and append definition to the code
 	TL::Symbol dev_env_type_symbol = get_nanos6_class_symbol("nanos6_openacc_device_environment_t");
-	context.prepend_sibling(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), dev_env_type_symbol));
+	context.prepend_sibling(
+			Nodecl::CxxDef::make(
+				Nodecl::NodeclBase::null(),
+				dev_env_type_symbol));
 
 	// Create the following statement: (declare and initialize new symbol)
 	//
@@ -117,7 +130,10 @@ Nodecl::NodeclBase OpenACCDevice::compute_specific_task_body(
 	async.set_type(TL::Type::get_int_type());
 	symbol_entity_specs_set_is_user_declared(async.get_internal_symbol(), 1);
 	if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
-		expr_stmt.prepend_sibling(Nodecl::CxxDef::make(/*context*/ Nodecl::NodeclBase::null(), async));
+		expr_stmt.prepend_sibling(
+				Nodecl::CxxDef::make(
+					/*context*/ Nodecl::NodeclBase::null(),
+					async));
 
 	// Use set_value (initializer) to produce the expression statement;
 	// this removes the need to call make() factories for a complex construct

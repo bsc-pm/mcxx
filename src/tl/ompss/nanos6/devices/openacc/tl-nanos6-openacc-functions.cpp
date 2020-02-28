@@ -164,7 +164,9 @@ class FunctionDefinitionsVisitor : public Nodecl::ExhaustiveVisitor<void>
 // We will use this visitor to introduce a check at the end of each
 // OpenACC function. If provided async queue number is 0, it means we are
 // in some final context, the queue is not managed by the runtime, so
-// we'll just acc wait(0) for it.
+// we'll just acc wait(0) for it. We don't integrate it to the
+// FunctionDefinitionsVisitoras we need it to be the last thing we run,
+// after the pragma editing.
 class FunctionCodeVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
   private:
@@ -182,8 +184,10 @@ class FunctionCodeVisitor : public Nodecl::ExhaustiveVisitor<void>
 		if (!ompss_task_functions.is_function_task(sym))
 			return;
 
-		TL::Symbol async = sym.get_related_symbols().begin()->get_scope().get_symbol_from_name(
-				"nanos6_mcxx_async_queue"); // hack-ish way to get context, as sym.get_related_scope segfaults
+		TL::Symbol async = sym.get_related_symbols().begin()->
+			get_scope().get_symbol_from_name("nanos6_mcxx_async_queue");
+		// hack-ish way to get context, as sym.get_related_scope segfaults
+
 		if (async.is_valid()) {
 			Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
 			Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
@@ -201,8 +205,9 @@ class FunctionCodeVisitor : public Nodecl::ExhaustiveVisitor<void>
 							get_size_t_type()),
 						get_bool_type()),
 					Nodecl::List::make(	// List is required as a legacy of Fortran compatibility
-						Nodecl::CompoundStatement::make( // Create a compound statement inside 'if' block, that will contain our pragma
-							Nodecl::List::make(pragma_acc_wait,
+						Nodecl::CompoundStatement::make( // Create a compound statement inside 'if' block,
+							Nodecl::List::make(
+								pragma_acc_wait, 	// that will contain our pragma
 								Nodecl::EmptyStatement::make()), // and an empty statement
 							Nodecl::NodeclBase::null())),	// 'else' will be ommited
 					Nodecl::NodeclBase::null());
@@ -217,6 +222,7 @@ class FunctionCodeVisitor : public Nodecl::ExhaustiveVisitor<void>
 	}
 };
 
+// Detect calls to openacc task functions and append the asymc queue to args
 class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
   private:
@@ -262,6 +268,7 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
                     "OpenACC function task is using more than one device\n");
             }
         }
+
 		// Now we will append the new 'nanos6_mcxx_async' argument:
 		// Check if symbol is present in the scope;
 		// 	if yes, append it to function call arguments;
@@ -274,6 +281,7 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
 		//
 		// set its type (to int always);
 		// use Nodecl::Conversion as is the case in all arguments
+
 		Nodecl::List arguments = node.get_arguments().as<Nodecl::List>();
 		TL::Scope sc = node.retrieve_context();
 		const std::string new_arg_name = "nanos6_mcxx_async";
@@ -309,23 +317,26 @@ void OpenACCTasks::run(DTO &dto)
     ERROR_CONDITION(
         !ompss_task_functions, "OmpSs Task Functions not in the DTO", 0);
 
+	// Detect function definitions
     FunctionDefinitionsVisitor functions_definition_visitor(
         *ompss_task_functions);
     functions_definition_visitor.walk(translation_unit);
+
 	TL::ObjectList<TL::Symbol> acc_functions =
 		functions_definition_visitor.get_openacc_functions_definitions();
+	// Walk definitions to append the new parameter
 	for (auto f : acc_functions)
 		append_async_parameter(f);
 
+	// Detect function calls and append the queue argument to each one
     FunctionCallsVisitor function_calls_visitor(
         *ompss_task_functions);
     function_calls_visitor.walk(translation_unit);
-	TL::ObjectList<TL::Symbol> acc_function_calls =
-		function_calls_visitor.get_openacc_functions_called();
 
 	// Search for unknown (potentially OpenACC) pragmas in the detected tasks only
 	UnknownPragmaVisitor unknown_pragma_visitor(
 			*ompss_task_functions);
+	// Append the queue == 0 check for nanos6_in_final
 	FunctionCodeVisitor code_visitor(
 			*ompss_task_functions);
 	for (auto f : acc_functions) {
