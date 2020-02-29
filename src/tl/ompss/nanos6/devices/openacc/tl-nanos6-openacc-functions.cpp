@@ -188,37 +188,36 @@ class FunctionCodeVisitor : public Nodecl::ExhaustiveVisitor<void>
 			get_scope().get_symbol_from_name("nanos6_mcxx_async_queue");
 		// hack-ish way to get context, as sym.get_related_scope segfaults
 
-		if (async.is_valid()) {
-			Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
-			Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
-			Nodecl::CompoundStatement cm_statement = statements.front().as<Nodecl::CompoundStatement>();
+		ERROR_CONDITION(!async.is_valid(),
+				"async queue symbol not found\n", 0);
 
-			// create our pragma statement for OpenACC wait
-			Nodecl::NodeclBase pragma_acc_wait = Nodecl::UnknownPragma::make("acc wait(0)");
+		Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
+		Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
+		Nodecl::CompoundStatement cm_statement = statements.front().as<Nodecl::CompoundStatement>();
 
-			// create the if (nanos6_mcxx_async_queue == 0) check
-			Nodecl::NodeclBase if_async_zero = Nodecl::IfElseStatement::make(
-					Nodecl::Equal::make(
-						async.make_nodecl(true),	// get symbol for comparison
-						const_value_to_nodecl_with_basic_type(	// construct a const 0
-							const_value_get_signed_int(0),		// for right side
-							get_size_t_type()),
-						get_bool_type()),
-					Nodecl::List::make(	// List is required as a legacy of Fortran compatibility
-						Nodecl::CompoundStatement::make( // Create a compound statement inside 'if' block,
-							Nodecl::List::make(
-								pragma_acc_wait, 	// that will contain our pragma
-								Nodecl::EmptyStatement::make()), // and an empty statement
-							Nodecl::NodeclBase::null())),	// 'else' will be ommited
-					Nodecl::NodeclBase::null());
+		// create our pragma statement for OpenACC wait
+		Nodecl::NodeclBase pragma_acc_wait = Nodecl::UnknownPragma::make("acc wait(0)");
 
-			Nodecl::List stmt_list = cm_statement.get_statements().as<Nodecl::List>();
-			//Add error condition if list is empty, which is unlikely
-			ERROR_CONDITION(stmt_list.empty(), "Statement list appears empty\n", 0);
-			stmt_list.append(if_async_zero);
-		}
-		else // symbol invalid
-			info_printf_at(node.get_locus(),"Symbol not found\n");
+		// create the if (nanos6_mcxx_async_queue == 0) check
+		Nodecl::NodeclBase if_async_zero = Nodecl::IfElseStatement::make(
+				Nodecl::Equal::make(
+					async.make_nodecl(true),	// get symbol for comparison
+					const_value_to_nodecl_with_basic_type(	// construct a const 0
+						const_value_get_signed_int(0),		// for right side
+						get_size_t_type()),
+					get_bool_type()),
+				Nodecl::List::make(		// List is required as a legacy of Fortran compatibility
+					Nodecl::CompoundStatement::make( // Create a compound statement inside 'if' block,
+						Nodecl::List::make(
+							pragma_acc_wait,				// that will contain our pragma
+							Nodecl::EmptyStatement::make()),// and an empty statement
+						Nodecl::NodeclBase::null())),		// 'else' will be ommited
+				Nodecl::NodeclBase::null());
+
+		Nodecl::List stmt_list = cm_statement.get_statements().as<Nodecl::List>();
+		//Add error condition if list is empty, which is unlikely
+		ERROR_CONDITION(stmt_list.empty(), "Statement list appears empty\n", 0);
+		stmt_list.append(if_async_zero);
 	}
 };
 
