@@ -42,7 +42,7 @@ namespace TL { namespace Nanos6 {
         exec_env.append(Nodecl::OmpSs::TaskIsLoop::make());
 
         construct.replace(
-                Nodecl::OpenMP::Task::make(exec_env, Nodecl::List::make(loop)));
+                Nodecl::OpenMP::Task::make(exec_env, Nodecl::List::make(loop), construct.get_locus()));
 
         Nodecl::NodeclBase serial_stmts;
         // If disabled, act normally
