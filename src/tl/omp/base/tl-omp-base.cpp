@@ -1682,13 +1682,15 @@ namespace TL { namespace OpenMP {
         {
             stmt = Nodecl::OmpSs::TaskWorksharing::make(
                     execution_environment,
-                    context);
+                    context,
+                    directive.get_locus());
         }
         else
         {
             stmt = Nodecl::OpenMP::Taskloop::make(
                     execution_environment,
-                    context);
+                    context,
+                    directive.get_locus());
         }
 
         directive.replace(Nodecl::List::make(stmt));
