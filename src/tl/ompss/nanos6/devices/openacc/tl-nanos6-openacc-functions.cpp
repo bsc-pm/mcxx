@@ -254,48 +254,48 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
         TL::OmpSs::TargetInfo &target_info = task_info.get_target_info();
         TL::ObjectList<std::string> devices = target_info.get_device_list();
 
-        if (devices.contains("openacc"))
-        {
-            if (devices.size() == 1)
-            {
-                openacc_functions.append(sym);
-            }
-            else
-            {
-                error_printf_at(
-                    node.get_locus(),
-                    "OpenACC function task is using more than one device\n");
-            }
-        }
+		if (devices.contains("openacc"))
+		{
+			if (devices.size() == 1)
+			{
+				openacc_functions.append(sym);
+			}
+			else
+			{
+				error_printf_at(
+						node.get_locus(),
+						"OpenACC function task is using more than one device\n");
+			}
 
-		// Now we will append the new 'nanos6_mcxx_async' argument:
-		// Check if symbol is present in the scope;
-		// 	if yes, append it to function call arguments;
-		// 	if not, we are probably in the nanos6_in_final block, so append 0
-		// 	(queue 0 is not assigned by the runtime; it starts from 1, so we
-		// 	can add a manual wait for it in the function code).
-		//	Note: In case we are in the nanos6_in_final check of another task block that
-		//		has a nanos6_mcxx_async symbol, then using this keeps the semantics intact
-		//		as OpenACC queues are FIFO, so we can use the same queue with the parent task.
-		//
-		// set its type (to int always);
-		// use Nodecl::Conversion as is the case in all arguments
+			// Now we will append the new 'nanos6_mcxx_async' argument:
+			// Check if symbol is present in the scope;
+			// 	if yes, append it to function call arguments;
+			// 	if not, we are probably in the nanos6_in_final block, so append 0
+			// 	(queue 0 is not assigned by the runtime; it starts from 1, so we
+			// 	can add a manual wait for it in the function code).
+			//	Note: In case we are in the nanos6_in_final check of another task block that
+			//		has a nanos6_mcxx_async symbol, then using this keeps the semantics intact
+			//		as OpenACC queues are FIFO, so we can use the same queue with the parent task.
+			//
+			// set its type (to int always);
+			// use Nodecl::Conversion as is the case in all arguments
 
-		Nodecl::List arguments = node.get_arguments().as<Nodecl::List>();
-		TL::Scope sc = node.retrieve_context();
-		const std::string new_arg_name = "nanos6_mcxx_async";
-		TL::Symbol async_symbol = sc.get_symbol_from_name(new_arg_name);
-		if (async_symbol.is_valid()) {
-			arguments.append(Nodecl::Conversion::make(
-						async_symbol.make_nodecl(/*set_ref_type*/ true, node.get_locus()),
-						TL::Type::get_int_type(),
-						node.get_locus()));
-    }
-		else {
-			arguments.append(Nodecl::Conversion::make(
-						const_value_to_nodecl(const_value_get_zero(4, 1)),
-						TL::Type::get_int_type(),
-						node.get_locus()));
+			Nodecl::List arguments = node.get_arguments().as<Nodecl::List>();
+			TL::Scope sc = node.retrieve_context();
+			const std::string new_arg_name = "nanos6_mcxx_async";
+			TL::Symbol async_symbol = sc.get_symbol_from_name(new_arg_name);
+			if (async_symbol.is_valid()) {
+				arguments.append(Nodecl::Conversion::make(
+							async_symbol.make_nodecl(/*set_ref_type*/ true, node.get_locus()),
+							TL::Type::get_int_type(),
+							node.get_locus()));
+			}
+			else {
+				arguments.append(Nodecl::Conversion::make(
+							const_value_to_nodecl(const_value_get_zero(4, 1)),
+							TL::Type::get_int_type(),
+							node.get_locus()));
+			}
 		}
     }
 
