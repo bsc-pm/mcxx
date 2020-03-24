@@ -6668,9 +6668,12 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     {
         decl_specifiers += "static ";
     }
-
-    else if (symbol.is_extern() ||
-            (!symbol.is_member() && !is_definition))
+    else if (IS_CXX_LANGUAGE && !symbol.is_member() && !is_definition)
+    {
+        decl_specifiers += "extern ";
+    }
+    // C automatic declarations mechanism complicates this.
+    else if (IS_C_LANGUAGE && symbol.is_extern())
     {
         decl_specifiers += "extern ";
     }
