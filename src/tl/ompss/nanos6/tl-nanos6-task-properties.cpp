@@ -1476,20 +1476,39 @@ void TaskProperties::create_task_implementations_info(
         }
 
         // This function computes the loop control that we should emit for a loop construct. It should be
+        //      lower_bound = taskloop_bounds.lower_bound;
+        //      upper_bound = taskloop_bounds.upper_bound;
         //
-        //      for (induction_variable = taskloop_bounds.lower_bound;
-        //              induction_variable < taskloop_bounds.upper_bound;
+        //      for (induction_variable = lower_bound;
+        //              induction_variable < upper_bound;
         //              induction_variable++)
         //      {}
         Nodecl::NodeclBase compute_taskloop_loop_control(
                 const TL::Symbol& taskloop_bounds,
                 TL::Symbol induction_variable,
-                bool define_induction_variable)
+                TL::Scope scope,
+                bool define_induction_variable,
+                Nodecl::NodeclBase &extra_stmts)
         {
             Nodecl::NodeclBase loop_control;
 
             TL::ObjectList<TL::Symbol> nonstatic_data_members = taskloop_bounds.get_type().no_ref().get_nonstatic_data_members();
             GetField get_field(nonstatic_data_members);
+
+            TL::Type induction_type = induction_variable.get_type().no_ref();
+
+            TL::Symbol lower_bound_sym = scope.new_symbol("lower_bound");
+            symbol_entity_specs_set_is_user_declared(
+                    lower_bound_sym.get_internal_symbol(), 1);
+            lower_bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            lower_bound_sym.set_type(induction_type);
+
+            TL::Symbol upper_bound_sym = scope.new_symbol("upper_bound");
+            symbol_entity_specs_set_is_user_declared(
+                    upper_bound_sym.get_internal_symbol(), 1);
+            upper_bound_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            upper_bound_sym.set_type(induction_type);
+
 
             Nodecl::NodeclBase field = get_field("lower_bound");
             Nodecl::NodeclBase taskloop_lower_bound =
@@ -1510,10 +1529,31 @@ void TaskProperties::create_task_implementations_info(
             if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
             {
+                lower_bound_sym.set_value(taskloop_lower_bound);
+                upper_bound_sym.set_value(taskloop_upper_bound);
+
+                extra_stmts.prepend_sibling(
+                    Nodecl::ObjectInit::make(lower_bound_sym));
+                extra_stmts.prepend_sibling(
+                    Nodecl::ObjectInit::make(upper_bound_sym));
+
+                if (IS_CXX_LANGUAGE)
+                {
+                    extra_stmts.prepend_sibling(
+                            Nodecl::CxxDef::make(
+                                /* context */ Nodecl::NodeclBase::null(),
+                                lower_bound_sym));
+
+                    extra_stmts.prepend_sibling(
+                            Nodecl::CxxDef::make(
+                                /* context */ Nodecl::NodeclBase::null(),
+                                upper_bound_sym));
+                }
+
                 Nodecl::NodeclBase init;
                 if (define_induction_variable)
                 {
-                    induction_variable.set_value(taskloop_lower_bound);
+                    induction_variable.set_value(lower_bound_sym.make_nodecl(/* set_ref_type */ true));
                     init = Nodecl::ObjectInit::make(induction_variable);
                 }
                 else
@@ -1521,15 +1561,15 @@ void TaskProperties::create_task_implementations_info(
                     init =
                         Nodecl::Assignment::make(
                                 induction_variable.make_nodecl(/* set_ref_type */ true),
-                                taskloop_lower_bound,
-                                taskloop_lower_bound.get_type());
+                                lower_bound_sym.make_nodecl(/* set_ref_type */ true),
+                                induction_variable.get_type());
                 }
 
                 Nodecl::NodeclBase cond =
                     Nodecl::LowerThan::make(
                             induction_variable.make_nodecl(/* set_ref_type */ true),
-                            taskloop_upper_bound,
-                            taskloop_upper_bound.get_type());
+                            upper_bound_sym.make_nodecl(/* set_ref_type */ true),
+                            induction_variable.get_type());
 
                 Nodecl::NodeclBase step =
                     Nodecl::Preincrement::make(
@@ -1540,13 +1580,27 @@ void TaskProperties::create_task_implementations_info(
             }
             else // IS_FORTRAN_LANGUAGE
             {
+                extra_stmts.prepend_sibling(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            lower_bound_sym.make_nodecl(/*set_ref_type*/true),
+                            taskloop_lower_bound,
+                            lower_bound_sym.get_type())));
+
+                extra_stmts.prepend_sibling(
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            upper_bound_sym.make_nodecl(/*set_ref_type*/true),
+                            taskloop_upper_bound,
+                            upper_bound_sym.get_type())));
+
                 loop_control = Nodecl::RangeLoopControl::make(
                         induction_variable.make_nodecl(/*set_ref_type*/ true),
-                        taskloop_lower_bound,
+                        lower_bound_sym.make_nodecl(/* set_ref_type */ true),
                         Nodecl::Minus::make(
-                            taskloop_upper_bound,
+                            upper_bound_sym.make_nodecl(/* set_ref_type */ true),
                             const_value_to_nodecl(const_value_get_signed_int(1)),
-                            taskloop_upper_bound.get_type().no_ref()),
+                            upper_bound_sym.get_type()),
                         /* step */ Nodecl::NodeclBase::null());
             }
             return loop_control;
@@ -2372,11 +2426,14 @@ void TaskProperties::create_task_implementations_info(
             TL::Symbol taskloop_bounds =
                 unpacked_fun_inside_scope.get_symbol_from_name(device_name_or_taskloop_bounds);
 
+
             for_stmt.set_loop_header(
                     compute_taskloop_loop_control(
                         taskloop_bounds,
                         ind_var,
-                        for_stmt.induction_variable_in_separate_scope()));
+                        unpacked_fun_inside_scope,
+                        for_stmt.induction_variable_in_separate_scope(),
+                        unpacked_fun_empty_stmt));
         }
 
         // Deep copy device-specific task body
