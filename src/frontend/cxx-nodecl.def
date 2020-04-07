@@ -736,6 +736,7 @@ omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
                 | NODECL_OMP_SS*WEAK_REDUCTION([reductions]omp-reduction-item-seq)
                 | NODECL_OMP_SS*COST([cost]expression)
                 | NODECL_OMP_SS*STREAM([stream]expression)
+                | NODECL_OMP_SS*NODE([node]expression)
                 | NODECL_OMP_SS*LINT_VERIFIED([expr]expression)
                 | NODECL_OMP_SS*ONREADY([onready]expression)
                 | NODECL_OMP_SS*TASK_LABEL() text

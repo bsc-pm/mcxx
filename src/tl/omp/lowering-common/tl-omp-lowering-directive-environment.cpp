@@ -374,10 +374,15 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 _env.constrains["stream"].node = n.get_stream();
             }
 
+            virtual void visit(const Nodecl::OmpSs::Node &n)
+            {
+                _env.constrains["node"].node = n.get_node();
+            }
+
             virtual void visit(const Nodecl::OmpSs::Onready &n)
             {
                 _env.onready_clause = n.get_onready();
-            }
+			}
 
             virtual void visit(const Nodecl::OpenMP::Grainsize &n)
             {
@@ -538,6 +543,9 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
         constrains["stream"].default_value = const_value_get_unsigned_int(0);
         fp_syms_without_data_sharing(constrains["stream"].node);
+
+        constrains["node"].default_value = const_value_get_unsigned_int(0xFFFF);
+        fp_syms_without_data_sharing(constrains["node"].node);
     }
 
     void DirectiveEnvironment::handle_array_bound(Nodecl::NodeclBase n)
