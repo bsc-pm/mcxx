@@ -144,7 +144,7 @@ class FunctionDefinitionsVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
             if (devices.size() == 1)
             {
-                openacc_functions.append(sym);
+                openacc_functions.insert(sym);
             }
             else
             {
@@ -165,7 +165,7 @@ class FunctionDefinitionsVisitor : public Nodecl::ExhaustiveVisitor<void>
 // OpenACC function. If provided async queue number is 0, it means we are
 // in some final context, the queue is not managed by the runtime, so
 // we'll just acc wait(0) for it. We don't integrate it to the
-// FunctionDefinitionsVisitoras we need it to be the last thing we run,
+// FunctionDefinitionsVisitor as we need it to be the last thing we run,
 // after the pragma editing.
 class FunctionCodeVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
@@ -226,7 +226,6 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
   private:
     TL::OmpSs::FunctionTaskSet &ompss_task_functions;
-    TL::ObjectList<TL::Symbol> openacc_functions;
 
   public:
     FunctionCallsVisitor(TL::OmpSs::FunctionTaskSet &ompss_task_functions_)
@@ -256,17 +255,6 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
 
 		if (devices.contains("openacc"))
 		{
-			if (devices.size() == 1)
-			{
-				openacc_functions.append(sym);
-			}
-			else
-			{
-				error_printf_at(
-						node.get_locus(),
-						"OpenACC function task is using more than one device\n");
-			}
-
 			// Now we will append the new 'nanos6_mcxx_async' argument:
 			// Check if symbol is present in the scope;
 			// 	if yes, append it to function call arguments;
@@ -298,11 +286,6 @@ class FunctionCallsVisitor : public Nodecl::ExhaustiveVisitor<void>
 			}
 		}
     }
-
-    TL::ObjectList<TL::Symbol> get_openacc_functions_called() const
-    {
-        return openacc_functions;
-    }
 };
 
 void OpenACCTasks::run(DTO &dto)
@@ -323,9 +306,33 @@ void OpenACCTasks::run(DTO &dto)
 
 	TL::ObjectList<TL::Symbol> acc_functions =
 		functions_definition_visitor.get_openacc_functions_definitions();
-	// Walk definitions to append the new parameter
-	for (auto f : acc_functions)
-		append_async_parameter(f);
+	// Walk definitions to append the new parameter.
+	// Use this approach instead of just iterating through the acc_functions list
+	// because it would leave out function task declarations, that we don't have
+	// their definitions. E.g. outlined task in a header file, but the code file
+	// containing the actual definition compiling separately.
+	std::map<TL::Symbol, TL::OmpSs::FunctionTaskInfo> task_map
+			= ompss_task_functions->get_map();
+	for (auto p : task_map) {
+		TL::Symbol sym = p.first;
+		TL::OmpSs::FunctionTaskInfo &task_info = p.second;
+        TL::OmpSs::TargetInfo &target_info = task_info.get_target_info();
+        TL::ObjectList<std::string> devices = target_info.get_device_list();
+
+        if (devices.contains("openacc"))
+        {
+            if (devices.size() == 1)
+            {
+				append_async_parameter(sym);
+            }
+            else
+            {
+                error_printf_at(
+                    NULL,
+                    "OpenACC function task is using more than one device\n");
+            }
+        }
+	}
 
 	// Detect function calls and append the queue argument to each one
     FunctionCallsVisitor function_calls_visitor(
