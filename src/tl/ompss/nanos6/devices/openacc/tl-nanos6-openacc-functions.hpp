@@ -40,11 +40,11 @@ namespace Nanos6
 class OpenACCTasks : public TL::CompilerPhase
 {
   private:
-	// Modify function definition (sym) to append a new parameter:
-	// int asyncQueue
-	// Will be applied to Symbol List provided by FunctionDefinitionsVisitor
-	// The FunctionCallsVisitor will then provide the apropriate variable in the call sites
-	void append_async_parameter(TL::Symbol &sym);
+  // Modify function definition (sym) to append a new parameter:
+  // int asyncQueue
+  // Will be applied to Symbol List provided by FunctionDefinitionsVisitor
+  // The FunctionCallsVisitor will then provide the apropriate variable in the call sites
+  void append_async_parameter(TL::Symbol &sym);
 
   public:
     OpenACCTasks();
