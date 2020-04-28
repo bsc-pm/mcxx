@@ -1080,15 +1080,18 @@ void TaskProperties::create_task_implementations_info(
                         field_get_priority.get_type()));
         }
 
-        // .type_identifier
+        if (!Interface::family_is_at_least("nanos6_task_info_contents", 2))
         {
-            Nodecl::NodeclBase field_type_identifier = get_field("type_identifier");
-            Nodecl::NodeclBase init_type_identifier = const_value_to_nodecl(const_value_get_signed_int(0));
+            // .type_identifier
+            {
+                Nodecl::NodeclBase field_type_identifier = get_field("type_identifier");
+                Nodecl::NodeclBase init_type_identifier = const_value_to_nodecl(const_value_get_signed_int(0));
 
-            field_init.append(
-                    Nodecl::FieldDesignator::make(field_type_identifier,
-                        init_type_identifier,
-                        field_type_identifier.get_type()));
+                field_init.append(
+                        Nodecl::FieldDesignator::make(field_type_identifier,
+                            init_type_identifier,
+                            field_type_identifier.get_type()));
+            }
         }
 
         // .implementation_count
@@ -1204,6 +1207,20 @@ void TaskProperties::create_task_implementations_info(
                         field_reduction_combiners.get_type()));
         }
 
+        if (Interface::family_is_at_least("nanos6_task_info_contents", 2))
+        {
+            // .task_type_data
+            {
+                Nodecl::NodeclBase field_task_type_data = get_field("task_type_data");
+                Nodecl::NodeclBase init_task_type_data = const_value_to_nodecl(const_value_get_signed_int(0));
+
+                field_init.append(
+                        Nodecl::FieldDesignator::make(field_task_type_data,
+                            init_task_type_data,
+                            field_task_type_data.get_type()));
+            }
+        }
+
         Nodecl::NodeclBase struct_init = Nodecl::StructuredValue::make(
             Nodecl::List::make(field_init),
             Nodecl::StructuredValueBracedImplicit::make(),
@@ -1215,6 +1232,8 @@ void TaskProperties::create_task_implementations_info(
         {
             task_info = fortran_create_detached_symbol_from_static_symbol(task_info);
         }
+
+        create_constructor_register_task_info(task_info);
     }
 
     namespace
@@ -2275,6 +2294,82 @@ void TaskProperties::create_task_implementations_info(
                         original_final_stmts.retrieve_context(),
                         final_symbol_map));
         }
+    }
+
+    TL::Symbol TaskProperties::create_constructor_register_task_info(const TL::Symbol &task_info) {
+        TL::ObjectList<std::string> unpacked_fun_param_names;
+        TL::ObjectList<TL::Type> unpacked_fun_param_types;
+        std::map<TL::Symbol, std::string> symbols_to_param_names;
+
+        std::string unpacked_fun_name = "nanos6_constructor_register_task_info";
+
+        TL::Symbol unpacked_function = TL::Scope::get_global_scope()
+            .get_symbol_from_name(unpacked_fun_name);
+
+        // Build call parameter list
+        Nodecl::List argument_list = Nodecl::List::make(
+            Nodecl::Reference::make(
+                task_info.make_nodecl(/* set_ref_type */ true),
+                task_info.get_type().no_ref().get_pointer_to()));
+
+        // Reuse the existing function
+        if (unpacked_function.is_valid()) {
+            Nodecl::NodeclBase ctx = unpacked_function
+                .get_function_code()
+                .as<Nodecl::FunctionCode>()
+                .get_statements();
+
+            Nodecl::Utils::add_statements_at_beginning_of_function(ctx,
+                Nodecl::ExpressionStatement::make(
+                    Nodecl::FunctionCall::make(
+                        get_nanos6_function_symbol("nanos6_register_task_info").make_nodecl(/*set_ref_type*/ true),
+                        /* arguments  */ argument_list,
+                        /* alternate_name */ Nodecl::NodeclBase::null(),
+                        /* function_form */ Nodecl::NodeclBase::null(),
+                        get_void_type())));
+
+            return unpacked_function;
+        }
+
+        unpacked_function = SymbolUtils::new_function_symbol(
+                _related_function,
+                unpacked_fun_name,
+                TL::Type::get_void_type(),
+                unpacked_fun_param_names,
+                unpacked_fun_param_types);
+
+        // Add __attribute__((constructor))
+        gcc_attribute_t constructor_gcc_attr = { "constructor", nodecl_null() };
+        symbol_entity_specs_add_gcc_attributes(unpacked_function.get_internal_symbol(),
+                constructor_gcc_attr);
+
+        // Build function and append to top level
+        Nodecl::NodeclBase unpacked_fun_code, unpacked_fun_empty_stmt;
+        SymbolUtils::build_empty_body_for_function(
+                unpacked_function,
+                unpacked_fun_code,
+                unpacked_fun_empty_stmt);
+
+        unpacked_fun_empty_stmt.replace(
+                Nodecl::ExpressionStatement::make(
+                    Nodecl::FunctionCall::make(
+                        get_nanos6_function_symbol("nanos6_register_task_info").make_nodecl(/*set_ref_type*/ true),
+                        /* arguments  */ argument_list,
+                        /* alternate_name */ Nodecl::NodeclBase::null(),
+                        /* function_form */ Nodecl::NodeclBase::null(),
+                        get_void_type())));
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            unpacked_function =
+                compute_mangled_function_symbol_from_symbol(unpacked_function);
+        }
+        else
+        {
+            Nodecl::Utils::append_to_top_level_nodecl(unpacked_fun_code);
+        }
+
+        return unpacked_function;
     }
 
     TL::Symbol TaskProperties::create_task_region_unpacked_function(

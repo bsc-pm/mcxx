@@ -101,6 +101,10 @@ namespace TL { namespace Nanos6 {
 
         private:
 
+            //! Generate the unique __attribute__((constructor)) task info
+            //! register function if does not exists and registers task_info
+            TL::Symbol create_constructor_register_task_info(const TL::Symbol &task_info);
+
             //! Generate the complete function chain for the task region and
             //! return the outline function symbol
             TL::Symbol create_task_region_function(std::shared_ptr<Device> device);
