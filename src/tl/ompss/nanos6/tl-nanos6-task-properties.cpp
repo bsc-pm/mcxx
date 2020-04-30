@@ -1228,12 +1228,12 @@ void TaskProperties::create_task_implementations_info(
 
         task_info.set_value(struct_init);
 
+        create_constructor_register_task_info(task_info);
+
         if (IS_FORTRAN_LANGUAGE)
         {
             task_info = fortran_create_detached_symbol_from_static_symbol(task_info);
         }
-
-        create_constructor_register_task_info(task_info);
     }
 
     namespace
@@ -2296,15 +2296,39 @@ void TaskProperties::create_task_implementations_info(
         }
     }
 
+    // Builds an unique constructor task register function for:
+    // C/C++: Global scope, class scope, every template function that has tasks
+    // Fortran: program scope, module scope
     TL::Symbol TaskProperties::create_constructor_register_task_info(const TL::Symbol &task_info) {
-        TL::ObjectList<std::string> unpacked_fun_param_names;
-        TL::ObjectList<TL::Type> unpacked_fun_param_types;
-        std::map<TL::Symbol, std::string> symbols_to_param_names;
+        std::string ctor_fun_name = "nanos6_constructor_register_task_info";
 
-        std::string unpacked_fun_name = "nanos6_constructor_register_task_info";
+        // Every dependent function that has tasks
+        // needs it's own constructor function
+        if (_related_function.get_type().is_dependent()) {
+            std::string fixed_fun_name = _related_function.get_name();
+            std::replace(fixed_fun_name.begin(), fixed_fun_name.end(), ' ', '_');
 
-        TL::Symbol unpacked_function = TL::Scope::get_global_scope()
-            .get_symbol_from_name(unpacked_fun_name);
+            std::stringstream ss;
+            ss << ctor_fun_name << "_" << fixed_fun_name;
+            ctor_fun_name = ss.str();
+        }
+
+        // Try to find already built constructor function.
+        TL::Symbol ctor_function;
+        TL::Scope scope = TL::Scope::get_global_scope();
+        if (IS_CXX_LANGUAGE && _related_function.is_member())
+        {
+            TL::Type class_type = _related_function.get_class_type();
+            scope =
+                ::class_type_get_inner_context(class_type.get_internal_type());
+        }
+        else if (IS_FORTRAN_LANGUAGE && _related_function.is_in_module()) {
+            TL::Symbol in_module = _related_function.in_module();
+            scope = in_module.get_related_scope();
+        }
+        ctor_function = scope.get_symbol_from_name(ctor_fun_name);
+        if (ctor_function.is_valid() && ctor_function.get_type().is_template_type())
+            ctor_function = ctor_function.get_type().get_primary_template().get_symbol();
 
         // Build call parameter list
         Nodecl::List argument_list = Nodecl::List::make(
@@ -2312,64 +2336,124 @@ void TaskProperties::create_task_implementations_info(
                 task_info.make_nodecl(/* set_ref_type */ true),
                 task_info.get_type().no_ref().get_pointer_to()));
 
+        // Build call stmt
+        Nodecl::NodeclBase register_call_stmt =
+            Nodecl::ExpressionStatement::make(
+                Nodecl::FunctionCall::make(
+                    get_nanos6_function_symbol("nanos6_register_task_info").make_nodecl(/*set_ref_type*/ true),
+                    /* arguments  */ argument_list,
+                    /* alternate_name */ Nodecl::NodeclBase::null(),
+                    /* function_form */ Nodecl::NodeclBase::null(),
+                    get_void_type()));
+
         // Reuse the existing function
-        if (unpacked_function.is_valid()) {
-            Nodecl::NodeclBase ctx = unpacked_function
+        if (ctor_function.is_valid()) {
+            Nodecl::NodeclBase ctx = ctor_function
                 .get_function_code()
                 .as<Nodecl::FunctionCode>()
                 .get_statements();
 
-            Nodecl::Utils::add_statements_at_beginning_of_function(ctx,
-                Nodecl::ExpressionStatement::make(
-                    Nodecl::FunctionCall::make(
-                        get_nanos6_function_symbol("nanos6_register_task_info").make_nodecl(/*set_ref_type*/ true),
-                        /* arguments  */ argument_list,
-                        /* alternate_name */ Nodecl::NodeclBase::null(),
-                        /* function_form */ Nodecl::NodeclBase::null(),
-                        get_void_type())));
+            Nodecl::NodeclBase stmts = ctx.as<Nodecl::Context>().get_in_context();
+            ERROR_CONDITION(stmts.is_null(), "Not possible", 0);
 
-            return unpacked_function;
+            Nodecl::List l = stmts.as<Nodecl::List>();
+            ERROR_CONDITION(l.size() != 1, "Invalid list", 0);
+            Nodecl::NodeclBase compound = l[0];
+            ERROR_CONDITION(!compound.is<Nodecl::CompoundStatement>(), "Invalid node", 0);
+            l = compound
+                .as<Nodecl::CompoundStatement>()
+                .get_statements()
+                .as<Nodecl::List>();
+            ERROR_CONDITION(l.is_null(), "Not possible", 0);
+
+            Nodecl::NodeclBase first_stmt = l[0];
+            first_stmt.append_sibling(register_call_stmt);
+
+            return ctor_function;
         }
 
-        unpacked_function = SymbolUtils::new_function_symbol(
+        // Build function and append to top level
+        TL::ObjectList<std::string> ctor_fun_param_names;
+        TL::ObjectList<TL::Type> ctor_fun_param_types;
+        ctor_function = SymbolUtils::new_function_symbol(
                 _related_function,
-                unpacked_fun_name,
+                ctor_fun_name,
                 TL::Type::get_void_type(),
-                unpacked_fun_param_names,
-                unpacked_fun_param_types);
+                ctor_fun_param_names,
+                ctor_fun_param_types);
 
         // Add __attribute__((constructor))
         gcc_attribute_t constructor_gcc_attr = { "constructor", nodecl_null() };
-        symbol_entity_specs_add_gcc_attributes(unpacked_function.get_internal_symbol(),
+        symbol_entity_specs_add_gcc_attributes(ctor_function.get_internal_symbol(),
                 constructor_gcc_attr);
 
-        // Build function and append to top level
-        Nodecl::NodeclBase unpacked_fun_code, unpacked_fun_empty_stmt;
+        Nodecl::NodeclBase ctor_fun_code, ctor_fun_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
-                unpacked_function,
-                unpacked_fun_code,
-                unpacked_fun_empty_stmt);
+                ctor_function,
+                ctor_fun_code,
+                ctor_fun_empty_stmt);
 
-        unpacked_fun_empty_stmt.replace(
-                Nodecl::ExpressionStatement::make(
-                    Nodecl::FunctionCall::make(
-                        get_nanos6_function_symbol("nanos6_register_task_info").make_nodecl(/*set_ref_type*/ true),
-                        /* arguments  */ argument_list,
-                        /* alternate_name */ Nodecl::NodeclBase::null(),
-                        /* function_form */ Nodecl::NodeclBase::null(),
-                        get_void_type())));
+        // Build a new C/C++ stmt from scratch. This is because in Fortran mode
+        // we do not want the tree generated by build_empty_body_for_function
+        ctor_fun_empty_stmt.replace(
+            Nodecl::CompoundStatement::make(
+                Nodecl::List::make(register_call_stmt),
+                Nodecl::NodeclBase::null()));
 
         if (IS_FORTRAN_LANGUAGE)
         {
-            unpacked_function =
-                compute_mangled_function_symbol_from_symbol(unpacked_function);
+            Nodecl::List& extra_c_code = _phase->get_extra_c_code();
+            extra_c_code.append(ctor_fun_code);
         }
-        else
-        {
-            Nodecl::Utils::append_to_top_level_nodecl(unpacked_fun_code);
+        else {
+            Nodecl::Utils::append_to_top_level_nodecl(ctor_fun_code);
+
+            if (IS_CXX_LANGUAGE && !_related_function.is_member()) {
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                    _task_body,
+                    Nodecl::CxxDecl::make(
+                        Nodecl::Context::make(
+                            Nodecl::NodeclBase::null(),
+                            _related_function.get_scope()),
+                        ctor_function));
+            }
         }
 
-        return unpacked_function;
+        // Add an useless stmt to force specialization
+        if (_related_function.get_type().is_dependent()) {
+            // (void)nanos6_constructor_register_task_info;
+            Nodecl::NodeclBase cast;
+            Nodecl::NodeclBase mention_stmt =
+                Nodecl::ExpressionStatement::make(
+                    cast = Nodecl::Conversion::make(
+                        ctor_function.make_nodecl(/*set_ref_type*/ true),
+                        TL::Type::get_void_type(),
+                        ctor_function.get_locus()));
+            cast.set_text("C");
+
+            Nodecl::NodeclBase ctx = _related_function
+                .get_function_code()
+                .as<Nodecl::FunctionCode>()
+                .get_statements();
+
+            Nodecl::NodeclBase stmts = ctx.as<Nodecl::Context>().get_in_context();
+            ERROR_CONDITION(stmts.is_null(), "Not possible", 0);
+
+            Nodecl::List l = stmts.as<Nodecl::List>();
+            ERROR_CONDITION(l.size() != 1, "Invalid list", 0);
+            Nodecl::NodeclBase compound = l[0];
+            ERROR_CONDITION(!compound.is<Nodecl::CompoundStatement>(), "Invalid node", 0);
+            l = compound
+                .as<Nodecl::CompoundStatement>()
+                .get_statements()
+                .as<Nodecl::List>();
+            ERROR_CONDITION(l.is_null(), "Not possible", 0);
+
+            Nodecl::NodeclBase first_stmt = l[0];
+            first_stmt.append_sibling(mention_stmt);
+        }
+
+        return ctor_function;
     }
 
     TL::Symbol TaskProperties::create_task_region_unpacked_function(
