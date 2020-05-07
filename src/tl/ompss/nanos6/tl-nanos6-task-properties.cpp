@@ -453,6 +453,9 @@ namespace TL { namespace Nanos6 {
         //                          ((wait_clause != 0) << 3) |
         //                          ((preallocated_args_struct != 0) << 4)
         //
+        //          ** CUDA tasks are if(0) when created in final context, so
+        //             (nanos6_in_final() << 1)
+        //
         //      * Fortran: since Fortran doesn't have a simple way to work with
         //        bit fields, we generate several statements:
         //
@@ -463,8 +466,27 @@ namespace TL { namespace Nanos6 {
         //              if (wait_clause) call ibset(taskflags, 3);
         //              if (preallocated_args_struct) call ibset(taskflags, 4);
         //
+        //          ** CUDA tasks are if(0) when created in final context, so
+        //              if (nanos6_in_final())    call ibset(taskflags, 1);
+        //
 
         bool preallocated_args_struct = IS_FORTRAN_LANGUAGE;
+
+        ERROR_CONDITION(_env.device_names.size() > 1, "Unexpected device clause list\n", 0);
+        bool is_cuda_task = (*_env.device_names.begin() == "cuda");
+
+        Nodecl::NodeclBase in_final;
+        if (is_cuda_task) {
+            TL::Symbol nanos_in_final_sym = get_nanos6_function_symbol("nanos6_in_final");
+
+            Nodecl::NodeclBase call_to_nanos_in_final = Nodecl::FunctionCall::make(
+                /* called */ nanos_in_final_sym.make_nodecl(/* set_ref_type */ true, _locus_of_task_creation),
+                /* arguments */ Nodecl::NodeclBase::null(),
+                /* alternate_name */Nodecl::NodeclBase::null(),
+                /* function_form */ Nodecl::NodeclBase::null(),
+                TL::Type::get_int_type());
+            in_final = call_to_nanos_in_final;
+        }
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
@@ -475,6 +497,10 @@ namespace TL { namespace Nanos6 {
 
             compute_generic_flag_c(negate_condition_if_valid(_env.if_clause),
                     /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
+
+            if (!in_final.is_null())
+                compute_generic_flag_c(in_final,
+                        /* default value */ 0, /* bit */ 1, /* out */ task_flags_expr);
 
             int bit_offset = 0;
             if (Interface::family_is_at_least("nanos6_loop_api", 2))
@@ -529,6 +555,10 @@ namespace TL { namespace Nanos6 {
 
             new_stmts.append(
                     compute_generic_flag_fortran(task_flags, negate_condition_if_valid(_env.if_clause), /* default value */ 0, /* bit */ 1));
+
+            if (!in_final.is_null())
+                new_stmts.append(
+                        compute_generic_flag_fortran(task_flags, in_final, /* default value */ 0, /* bit */ 1));
 
             int bit_offset = 0;
             if (Interface::family_is_at_least("nanos6_loop_api", 2))
