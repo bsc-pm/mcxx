@@ -3,23 +3,26 @@
 language = C
 options = --native-vendor=pgi --disable-float128-token
 preprocessor_name = @PGICXX@
-preprocessor_options = --c -DNANOS6_OPENACC
+preprocessor_options = --c
 compiler_name = @PGICC@
-compiler_options = -fast -acc -ta=tesla:managed -fPIC
+compiler_options = -fast -fPIC
+{openacc} compiler_options = -acc -ta=tesla:managed
 linker_name = @PGICC@
-compiler_phase = libtl-nanos6-openacc-functions.so
-linker_options = -fPIC -acc -ta=tesla:managed
+linker_options = -fPIC
+{openacc} linker_options = -acc -ta=tesla:managed
 
 [pgimcxx : omp-base]
 language = C++
 options = --native-vendor=pgi --disable-float128-token
-{openmp|ompss-2} preprocessor_options = -include new -DNANOS6_OPENACC
+{openmp|ompss-2} preprocessor_options = -include new
 preprocessor_name = @PGICXX@
 compiler_name = @PGICXX@
-compiler_options = -fast -acc -ta=tesla:managed -fPIC
+compiler_options = -fast -fPIC
+{openacc} compiler_options = -acc -ta=tesla:managed
 linker_name = @PGICXX@
-compiler_phase = libtl-nanos6-openacc-functions.so
-linker_options = -fPIC -acc -ta=tesla:managed
+linker_options = -fPIC
+{cuda} linker_options = -cudalibs
+{openacc} linker_options = -acc -ta=tesla:managed
 
 ### [imfc : omp-base]
 ### language = Fortran

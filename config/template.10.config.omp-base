@@ -190,6 +190,10 @@ linker_options = -Xlinker --enable-new-dtags
 # Nanos6 + OpenCL
 {@NANOS6_GATE@,ompss-2,opencl} preprocessor_options = -DNANOS6_OPENCL
 
+# Nanos6 + OpenACC
+{@NANOS6_GATE@,ompss-2,openacc} preprocessor_options = -DNANOS6_OPENACC
+{@NANOS6_GATE@,ompss-2,openacc} compiler_phase = libtl-nanos6-openacc-functions.so
+
 # TCL
 {@TCL_GATE@, checkpoint} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @TCL_LIB@/performance
 
