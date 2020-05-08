@@ -1773,6 +1773,8 @@ void TaskProperties::create_task_implementations_info(
             const std::string &common_name,
             const TL::ObjectList<std::string> &outline_fun_param_names,
             const TL::Scope &outline_fun_inside_scope,
+            void (TaskProperties::*compute_stmts_pre_fun_call_fun)
+            (const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const,
             // Out
             Nodecl::NodeclBase &forwarded_function_call)
     {
@@ -1885,6 +1887,11 @@ void TaskProperties::create_task_implementations_info(
             forwarded_parameter_types.size(),
             TL::Type::get_void_type().get_pointer_to());
 
+        // FIXME: improve this. get address_translation_table type
+        if (c_forwarded_parameter_names[c_forwarded_parameter_names.size() - 1] == "address_translation_table")
+            c_forwarded_parameter_types[c_forwarded_parameter_types.size() - 1] =
+                get_nanos6_class_symbol("nanos6_address_translation_entry_t").get_user_defined_type().get_pointer_to();
+
         // Fix 'unpacked' function parameter type (always first parameter)
         c_forwarded_parameter_types[0] =
             TL::Type::get_void_type().get_function_returning(
@@ -1909,6 +1916,7 @@ void TaskProperties::create_task_implementations_info(
                 c_forwarded_function_code,
                 c_forwarded_empty_stmt);
 
+
         // Prepare function call arguments and add function call
 
         SolveParamNames solve_param_names(
@@ -1924,16 +1932,26 @@ void TaskProperties::create_task_implementations_info(
             Nodecl::List::make(TL::ObjectList<Nodecl::NodeclBase>(
                         c_forwarded_parameters.begin() + 1, c_forwarded_parameters.end()));
 
+        Nodecl::List list_stmts;
+        if (compute_stmts_pre_fun_call_fun != NULL)
+        {
+            TL::Scope outline_fun_inside_scope = c_forwarded_empty_stmt.retrieve_context();
+            (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope, list_stmts);
+        }
+
+        list_stmts.append(
+            Nodecl::ExpressionStatement::make(
+                Nodecl::FunctionCall::make(
+                    c_unpacked_fun_parameter,
+                    c_unpacked_fun_call_args,
+                    /* alternate-symbol */ Nodecl::NodeclBase::null(),
+                    /* function-form */ Nodecl::NodeclBase::null(),
+                    TL::Type::get_void_type())));
+
+
         c_forwarded_empty_stmt.replace(
                 Nodecl::CompoundStatement::make(
-                    Nodecl::List::make(
-                        Nodecl::ExpressionStatement::make(
-                            Nodecl::FunctionCall::make(
-                                c_unpacked_fun_parameter,
-                                c_unpacked_fun_call_args,
-                                /* alternate-symbol */ Nodecl::NodeclBase::null(),
-                                /* function-form */ Nodecl::NodeclBase::null(),
-                                TL::Type::get_void_type()))),
+                    list_stmts,
                     /* finalize */ Nodecl::NodeclBase::null()));
 
         _phase->get_extra_c_code().append(c_forwarded_function_code);
@@ -2023,15 +2041,15 @@ void TaskProperties::create_task_implementations_info(
 
         TL::Scope outline_fun_inside_scope = outline_fun_empty_stmt.retrieve_context();
 
-        if (compute_stmts_pre_fun_call_fun != NULL)
-        {
-            Nodecl::List pre_stmts;
-            (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope, pre_stmts);
-            outline_fun_empty_stmt.prepend_sibling(pre_stmts);
-        }
-
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
+            if (compute_stmts_pre_fun_call_fun != NULL)
+            {
+                Nodecl::List pre_stmts;
+                (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope, pre_stmts);
+                outline_fun_empty_stmt.prepend_sibling(pre_stmts);
+            }
+
             // 'Unpacked' function call
 
             // Compute function call arguments
@@ -2078,6 +2096,7 @@ void TaskProperties::create_task_implementations_info(
                     common_name,
                     outline_fun_param_names,
                     outline_fun_inside_scope,
+                    compute_stmts_pre_fun_call_fun,
                     forwarded_function_call);
 
             outline_fun_empty_stmt.replace(forwarded_function_call);
@@ -2622,7 +2641,11 @@ void TaskProperties::create_task_implementations_info(
         }
         unpacked_fun_empty_stmt.append_sibling(nested_functions);
 
-        handle_task_reductions(unpacked_fun_inside_scope, unpacked_fun_empty_stmt, symbol_map);
+        // Compatibility with previous reductions mechanism
+        if (!Interface::family_is_at_least("nanos6_reductions_api", 2))
+        {
+            handle_task_reductions(unpacked_fun_inside_scope, unpacked_fun_empty_stmt, symbol_map);
+        }
 
         if (_env.task_is_worksharing || task_is_taskloop())
         {
@@ -4477,13 +4500,11 @@ void TaskProperties::create_task_implementations_info(
     void TaskProperties::compute_arguments_translation(
             const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const
     {
-        ERROR_CONDITION(IS_FORTRAN_LANGUAGE, "The arguments translation is not implemented for Fortran yet", 0);
+        ERROR_CONDITION(IS_FORTRAN_LANGUAGE && !Interface::family_is_at_least("nanos6_reductions_api", 2),
+            "The arguments translation is not implemented for Fortran yet", 0);
 
-        TL::Symbol arg = outline_fun_inside_scope.get_symbol_from_name("arg");
         TL::Symbol atp = outline_fun_inside_scope.get_symbol_from_name("address_translation_table");
-        TL::ObjectList<TL::Symbol> arg_struct_members = arg.get_type().no_ref().get_nonstatic_data_members();
         TL::ObjectList<TL::Symbol> atp_struct_members = atp.get_type().no_ref().points_to().get_nonstatic_data_members();
-        GetField arg_struct_get_field(arg_struct_members);
         GetField atp_struct_get_field(atp_struct_members);
 
         Nodecl::List inner_stmts;
@@ -4493,18 +4514,35 @@ void TaskProperties::create_task_implementations_info(
         {
             TL::Symbol current_symbol(it->first);
 
+            // C/C++
             // args->p = (int*)(addr_trans_map[i].device_addr + ((size_t)args->p - addr_trans_map[i].local_addr))
+            // Fortran
+            // p = (int*)(addr_trans_map[i].device_addr + ((size_t)p - addr_trans_map[i].local_addr))
             Nodecl::NodeclBase rhs, lhs;
             {
                 // Compute LHS!
-                Nodecl::NodeclBase arg_field = arg_struct_get_field(EnvironmentCapture::get_field_name(current_symbol.get_name()));
-                Nodecl::NodeclBase member_access = Nodecl::ClassMemberAccess::make(
-                        arg.make_nodecl(/*set_ref_type*/ true),
-                        arg_field,
-                        /*member literal*/ Nodecl::NodeclBase::null(),
-                        arg_field.get_type().no_ref());
+                TL::Type unpacked_type;
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE) {
 
-                lhs = member_access;
+                    TL::Symbol arg = outline_fun_inside_scope.get_symbol_from_name("arg");
+                    TL::ObjectList<TL::Symbol> arg_struct_members = arg.get_type().no_ref().get_nonstatic_data_members();
+                    GetField arg_struct_get_field(arg_struct_members);
+                    Nodecl::NodeclBase arg_field = arg_struct_get_field(EnvironmentCapture::get_field_name(current_symbol.get_name()));
+
+                    unpacked_type = arg_field.get_type();
+                    Nodecl::NodeclBase member_access = Nodecl::ClassMemberAccess::make(
+                            arg.make_nodecl(/*set_ref_type*/ true),
+                            arg_field,
+                            /*member literal*/ Nodecl::NodeclBase::null(),
+                            unpacked_type.no_ref());
+
+                    lhs = member_access;
+                } else if (IS_FORTRAN_LANGUAGE) {
+                    TL::Symbol current_fw_symbol = outline_fun_inside_scope.get_symbol_from_name(
+                        EnvironmentCapture::get_field_name(current_symbol.get_name()));
+                    unpacked_type = current_fw_symbol.get_type();
+                    lhs = current_fw_symbol.make_nodecl(/* set_ref_type */true);
+                }
 
                 // Compute RHS!
                 Nodecl::NodeclBase array_access = Nodecl::ArraySubscript::make(
@@ -4527,7 +4565,7 @@ void TaskProperties::create_task_implementations_info(
                         atp_local_addr_field.get_type().no_ref());
 
                 Nodecl::NodeclBase casted_expr = Nodecl::Conversion::make(
-                        member_access.shallow_copy(),
+                        lhs.shallow_copy(),
                         atp_local_addr_field.get_type().no_ref());
 
                 casted_expr.set_text("C");
@@ -4540,7 +4578,7 @@ void TaskProperties::create_task_implementations_info(
                                 local_addr_expr,
                                 local_addr_expr.get_type()),
                             device_addr_expr.get_type()),
-                        arg_field.get_type().no_ref());
+                        unpacked_type.no_ref());
 
                 rhs.set_text("C");
             }

@@ -157,6 +157,8 @@ namespace TL { namespace Nanos6 {
                     const std::string &common_name,
                     const TL::ObjectList<std::string> &outline_parameter_names,
                     const TL::Scope &outline_inside_scope,
+                    void (TaskProperties::*compute_stmts_pre_fun_call_fun)
+                    (const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const,
                     // Out
                     Nodecl::NodeclBase &forwarded_function_call);
 
