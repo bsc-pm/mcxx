@@ -2387,6 +2387,10 @@ void TaskProperties::create_task_implementations_info(
         symbol_entity_specs_add_gcc_attributes(ctor_function.get_internal_symbol(),
                 constructor_gcc_attr);
 
+        // new_function_symbol() inherits current function inline attribute
+        // Remove it.
+        symbol_entity_specs_set_is_inline(ctor_function.get_internal_symbol(), 0);
+
         Nodecl::NodeclBase ctor_fun_code, ctor_fun_empty_stmt;
         SymbolUtils::build_empty_body_for_function(
                 ctor_function,
